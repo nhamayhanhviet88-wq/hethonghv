@@ -162,8 +162,15 @@ async function _dhtGoStep2() {
         // === Vận chuyển: 2 hàng x 2 cột ===
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
         +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
-        +'<div class="form-group"><label>Tiêu Chuẩn Gửi <span style="color:red">*</span></label><select id="_co_pri" class="form-control"><option>CHUẨN</option><option>GỬI</option><option>GẤP</option></select></div>'
+        +'<div class="form-group"><label>Tiêu Chuẩn Gửi <span style="color:red">*</span></label><select id="_co_pri" class="form-control" onchange="_dhtOnPriorityChange()"><option>CHUẨN</option><option>GỬI</option><option>GẤP</option></select></div>'
         +'</div>'
+        // === Paste zone for CHUẨN proof (shown by default since CHUẨN is first option) ===
+        +'<div id="_co_proofWrap" style="margin-top:8px">'
+        +'<label style="font-weight:700;font-size:12px;color:#1e293b">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN <span style="color:red">*</span></label>'
+        +'<div id="_co_proofZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-top:4px;background:#f8fafc;transition:all .2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column" onpaste="_dhtPasteProof(event)" onclick="this.focus()" onfocus="this.style.borderColor=\'#b8860b\';this.style.background=\'#fffbeb\'" onblur="this.style.borderColor=\'#cbd5e1\';this.style.background=\'#f8fafc\'">'
+        +'<div id="_co_proofPlaceholder" style="color:#94a3b8;font-size:12px"><span style="font-size:24px">📋</span><br>Click vào đây rồi <b>Ctrl+V</b> dán hình ảnh</div>'
+        +'<img id="_co_proofImg" style="display:none;max-width:100%;max-height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">'
+        +'</div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
         +'<div class="form-group"><label>Nhà Vận Chuyển <span style="color:red">*</span></label><select id="_co_carrier" class="form-control"><option value="">-- Chọn --</option>'+carOpts+'</select></div>'
         +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div>'
@@ -270,6 +277,46 @@ function _dhtValidateShipDate() {
     }
 }
 
+// === Priority Change: show/hide proof image ===
+var _dhtProofBase64 = null;
+function _dhtOnPriorityChange() {
+    var val = document.getElementById('_co_pri')?.value;
+    var wrap = document.getElementById('_co_proofWrap');
+    if (!wrap) return;
+    if (val === 'CHUẨN') {
+        wrap.style.display = 'block';
+    } else {
+        wrap.style.display = 'none';
+        _dhtProofBase64 = null; // clear proof if switching away
+    }
+}
+
+// === Paste image proof ===
+function _dhtPasteProof(e) {
+    var items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            var blob = items[i].getAsFile();
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                _dhtProofBase64 = ev.target.result;
+                var img = document.getElementById('_co_proofImg');
+                var ph = document.getElementById('_co_proofPlaceholder');
+                if (img) { img.src = _dhtProofBase64; img.style.display = 'block'; }
+                if (ph) ph.style.display = 'none';
+                var zone = document.getElementById('_co_proofZone');
+                if (zone) { zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4'; }
+                showToast('✅ Đã dán ảnh chứng minh!');
+            };
+            reader.readAsDataURL(blob);
+            e.preventDefault();
+            return;
+        }
+    }
+    showToast('Không tìm thấy hình ảnh trong clipboard', 'error');
+}
+
 // === Order Items ===
 var _dhtItemCount = 0;
 function _dhtAddItem() {
@@ -325,6 +372,13 @@ async function _dhtSubmitCreateV2() {
     if (!src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
+    // Validate proof image for CHUẨN priority
+    var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
+    if (pri === 'CHUẨN' && !_dhtProofBase64) {
+        showToast('📸 Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN (Ctrl+V)', 'error');
+        document.getElementById('_co_proofZone')?.focus();
+        return;
+    }
 
     // Calc totals
     var totalAmt = 0;
@@ -365,7 +419,8 @@ async function _dhtSubmitCreateV2() {
         designer_type: desType,
         carrier_id: carrier,
         expected_ship_date: shipDate,
-        shipping_priority: document.getElementById('_co_pri')?.value || 'CHUẨN',
+        shipping_priority: pri,
+        standard_proof_image: pri === 'CHUẨN' ? _dhtProofBase64 : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         department_id: _dhtCreate.myInfo?.department_id,
         items: items

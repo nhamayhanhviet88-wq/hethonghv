@@ -1,6 +1,8 @@
 // ========== ĐƠN HÀNG TỔNG (DHT) — Routes ==========
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = async function(fastify) {
 
@@ -220,6 +222,29 @@ module.exports = async function(fastify) {
             }
         }
 
+        // Validate proof image for CHUẨN priority
+        let proofPath = null;
+        if ((b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
+            if (!b.standard_proof_image) {
+                return reply.code(400).send({ error: 'Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN' });
+            }
+            // Save base64 image to file
+            try {
+                const match = b.standard_proof_image.match(/^data:image\/(\w+);base64,(.+)$/);
+                if (match) {
+                    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+                    const buffer = Buffer.from(match[2], 'base64');
+                    const dir = path.join(__dirname, '..', 'public', 'uploads', 'dht-proofs');
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    const filename = `proof_${b.order_code.trim()}_${Date.now()}.${ext}`;
+                    fs.writeFileSync(path.join(dir, filename), buffer);
+                    proofPath = '/uploads/dht-proofs/' + filename;
+                }
+            } catch(imgErr) {
+                console.error('Proof image save error:', imgErr.message);
+            }
+        }
+
         // Check duplicate
         const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [b.order_code.trim()]);
         if (existing) return reply.code(409).send({ error: `Mã đơn "${b.order_code.trim()}" đã tồn tại!` });
@@ -231,9 +256,9 @@ module.exports = async function(fastify) {
                 cskh_user_id, total_quantity, total_amount, discount_amount,
                 has_vat, vat_amount, deposit_payment_id,
                 designer_user_id, designer_type, carrier_id,
-                expected_ship_date, shipping_priority, zalo_oa_sent,
+                expected_ship_date, shipping_priority, standard_proof_image, zalo_oa_sent,
                 department_id, notes, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$24)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$25)
             RETURNING *
         `, [
             b.order_code.trim(),
@@ -256,6 +281,7 @@ module.exports = async function(fastify) {
             b.carrier_id ? Number(b.carrier_id) : null,
             b.expected_ship_date || null,
             b.shipping_priority || 'CHUẨN',
+            proofPath,
             b.zalo_oa_sent === true || b.zalo_oa_sent === 'true',
             b.department_id ? Number(b.department_id) : null,
             b.notes || null,
