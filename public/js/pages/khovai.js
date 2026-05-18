@@ -1,5 +1,5 @@
 // ========== KHO VẢI — Fabric Warehouse Frontend ==========
-var _kv = { tree: [], summary: [], filter: {}, selectedWid: null, selectedMid: null };
+var _kv = { tree: [], summary: [], filter: {}, selectedWid: null, selectedMid: null, searchText: '', sortCol: '', sortDir: 'desc' };
 
 function _kvFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 
@@ -29,7 +29,10 @@ async function renderKhovaiPage(content) {
             '.kv-stat-card{background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:100px;box-shadow:0 2px 8px rgba(0,0,0,0.15)}',
             '.kv-stat-label{font-size:9px;font-weight:700;color:#0d9488;letter-spacing:1px;margin-bottom:2px}',
             '.kv-stat-val{font-size:13px;font-weight:900}',
-            '@media(max-width:768px){.kv-sidebar{width:220px;min-width:220px}.kv-table{font-size:11px}}'
+            '@media(max-width:768px){.kv-sidebar{width:220px;min-width:220px}.kv-table{font-size:11px}}',
+            '#kvSearchInput::placeholder{color:rgba(255,255,255,0.7)}',
+            '#kvSbSearch{width:100%;padding:7px 10px;border:1px solid #99f6e4;border-radius:6px;font-size:11px;outline:none;background:#f0fdfa;box-sizing:border-box}',
+            '#kvSbSearch:focus{border-color:#0d9488;box-shadow:0 0 0 2px rgba(13,148,136,0.15)}'
         ].join('');
         document.head.appendChild(st);
     }
@@ -50,7 +53,8 @@ async function renderKhovaiPage(content) {
 function _kvRenderSidebar() {
     var sb = document.getElementById('kvSidebar'); if (!sb) return;
     var isGD = typeof currentUser !== 'undefined' && currentUser && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
-    var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="_kvShowSettings()" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
+    var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="navigate(\'caidatkhovai\')" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
+    h += '<div style="padding:8px 12px"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." oninput="_kvSbFilter(this.value)" /></div>';
 
     var totalBal = 0;
     _kv.tree.forEach(function(w) { totalBal += Number(w.total_balance || 0); });
@@ -73,6 +77,29 @@ function _kvRenderSidebar() {
         h += '</div>';
     });
     sb.innerHTML = h;
+}
+
+var _kvSbFilterText = '';
+function _kvSbFilter(val) {
+    _kvSbFilterText = (val || '').toLowerCase().trim();
+    var items = document.querySelectorAll('.kv-sb-wh, .kv-wh-mats');
+    _kv.tree.forEach(function(w) {
+        var whEl = document.querySelector('[data-wid="' + w.id + '"].kv-sb-wh');
+        var matsEl = document.querySelector('.kv-wh-mats[data-wid="' + w.id + '"]');
+        if (!whEl || !matsEl) return;
+        if (!_kvSbFilterText) { whEl.style.display = ''; matsEl.style.display = ''; var matItems = matsEl.querySelectorAll('.kv-sb-mat'); for(var i=0;i<matItems.length;i++) matItems[i].style.display=''; return; }
+        var whMatch = w.name.toLowerCase().indexOf(_kvSbFilterText) >= 0;
+        var anyMatMatch = false;
+        var mats = w.materials || [];
+        var matItems = matsEl.querySelectorAll('.kv-sb-mat');
+        mats.forEach(function(m, idx) {
+            var matMatch = m.name.toLowerCase().indexOf(_kvSbFilterText) >= 0;
+            if (matMatch) anyMatMatch = true;
+            if (matItems[idx]) matItems[idx].style.display = (whMatch || matMatch) ? '' : 'none';
+        });
+        whEl.style.display = (whMatch || anyMatMatch) ? '' : 'none';
+        matsEl.style.display = (whMatch || anyMatMatch) ? '' : 'none';
+    });
 }
 
 function _kvFilterAll() { _kv.selectedWid = null; _kv.selectedMid = null; _kv.filter = {}; _kvLoadSummary(); _kvRenderSidebar(); }
@@ -108,7 +135,9 @@ function _kvRenderToolbar() {
     var tNhap = 0, tXuat = 0, tCuoi = 0;
     _kv.summary.forEach(function(r) { tNhap += Number(r.dau_ky||0); tXuat += Number(r.xuat||0); tCuoi += Number(r.cuoi_ky||0); });
 
-    tb.innerHTML = '<span style="font-weight:800;font-size:13px">🏬 ' + ft + '</span><span style="flex:1"></span>'
+    tb.innerHTML = '<span style="font-weight:800;font-size:13px">🏬 ' + ft + '</span>'
+        + '<input type="text" id="kvSearchInput" placeholder="🔍 Tìm màu, chất liệu..." value="' + (_kv.searchText||'').replace(/"/g,'&quot;') + '" oninput="_kvOnSearch(this.value)" style="margin-left:12px;padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:#fff;font-size:12px;width:200px;outline:none" />'
+        + '<span style="flex:1"></span>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
         + '<div class="kv-stat-card"><div class="kv-stat-label">NHẬP</div><div class="kv-stat-val" style="color:#059669">' + _kvFmt(tNhap) + '</div></div>'
         + '<div class="kv-stat-card"><div class="kv-stat-label">XUẤT</div><div class="kv-stat-val" style="color:#dc2626">' + _kvFmt(tXuat) + '</div></div>'
@@ -116,22 +145,69 @@ function _kvRenderToolbar() {
         + '</div>';
 }
 
+function _kvOnSearch(val) {
+    _kv.searchText = val;
+    _kvRenderTable();
+}
+
 // ========== TABLE ==========
+function _kvSort(col) {
+    if (_kv.sortCol === col) { _kv.sortDir = _kv.sortDir === 'asc' ? 'desc' : 'asc'; }
+    else { _kv.sortCol = col; _kv.sortDir = 'desc'; }
+    _kvRenderTable();
+}
 function _kvRenderTable() {
     var wrap = document.getElementById('kvTableWrap'); if (!wrap) return;
-    if (!_kv.summary.length) {
-        wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)"><div style="font-size:32px">🏬</div><div style="margin-top:8px">Chưa có dữ liệu kho vải</div></div>';
+    var sorted = _kv.summary.slice();
+
+    // Custom column sort or default by last_update
+    if (_kv.sortCol) {
+        var col = _kv.sortCol;
+        var dir = _kv.sortDir === 'asc' ? 1 : -1;
+        sorted.sort(function(a, b) {
+            var av = Number(a[col]||0), bv = Number(b[col]||0);
+            return (av - bv) * dir;
+        });
+    } else {
+        sorted.sort(function(a, b) {
+            var aTime = a.last_update && a.last_update.at ? new Date(a.last_update.at).getTime() : 0;
+            var bTime = b.last_update && b.last_update.at ? new Date(b.last_update.at).getTime() : 0;
+            return bTime - aTime;
+        });
+    }
+
+    // Client-side search filter
+    var searchKey = (_kv.searchText || '').toLowerCase().trim();
+    if (searchKey) {
+        sorted = sorted.filter(function(r) {
+            return (r.color_name || '').toLowerCase().indexOf(searchKey) >= 0
+                || (r.material_name || '').toLowerCase().indexOf(searchKey) >= 0;
+        });
+    }
+
+    if (!sorted.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)"><div style="font-size:32px">\ud83d\udd0d</div><div style="margin-top:8px">' + (searchKey ? 'Kh\u00f4ng t\u00ecm th\u1ea5y "' + searchKey + '"' : 'Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u kho v\u1ea3i') + '</div></div>';
         return;
     }
+    // Sort icon helper
+    function sIco(col) {
+        if (_kv.sortCol !== col) return ' <span style="opacity:0.3;font-size:9px">\u25B2\u25BC</span>';
+        return _kv.sortDir === 'asc' ? ' <span style="font-size:9px">\u25B2</span>' : ' <span style="font-size:9px">\u25BC</span>';
+    }
+    var thC = 'cursor:pointer;user-select:none';
     var h = '<table class="kv-table"><thead><tr>';
-    h += '<th>#</th><th>Tên Vải</th><th>Chất Liệu</th><th>Kho</th><th>ĐVT</th>';
-    h += '<th style="text-align:right">Số Cục</th><th style="text-align:right">Cây Nguyên</th>';
-    h += '<th style="text-align:right">Đầu Kỳ</th><th style="text-align:right">Xuất</th>';
-    h += '<th style="text-align:right">Cuối Kỳ</th><th style="text-align:right">Giá</th>';
-    h += '<th>Lịch Sử CN</th><th>Thao Tác</th></tr></thead><tbody>';
+    h += '<th>#</th><th>T\u00ean V\u1ea3i</th><th>Ch\u1ea5t Li\u1ec7u</th><th>Kho</th><th>\u0110VT</th>';
+    h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'so_cuc\')">' + 'S\u1ed1 C\u1ee5c' + sIco('so_cuc') + '</th>';
+    h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'cay_nguyen\')">' + 'C\u00e2y Nguy\u00ean' + sIco('cay_nguyen') + '</th>';
+    h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'dau_ky\')">' + '\u0110\u1ea7u K\u1ef3' + sIco('dau_ky') + '</th>';
+    h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'xuat\')">' + 'Xu\u1ea5t' + sIco('xuat') + '</th>';
+    h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'cuoi_ky\')">' + 'Cu\u1ed1i K\u1ef3' + sIco('cuoi_ky') + '</th>';
+    h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'price\')">' + 'Gi\u00e1' + sIco('price') + '</th>';
+    h += '<th>L\u1ecbch S\u1eed CN</th><th>Thao T\u00e1c</th></tr></thead><tbody>';
 
-    _kv.summary.forEach(function(r, i) {
+    sorted.forEach(function(r, i) {
         var cuoiColor = Number(r.cuoi_ky) >= 0 ? '#059669' : '#dc2626';
+        var cayNguyenColor = Number(r.cay_nguyen) > 0 ? '#ea580c' : '#7c3aed';
         var lastUp = '';
         if (r.last_update && r.last_update.name) {
             var at = r.last_update.at ? new Date(r.last_update.at) : null;
@@ -139,29 +215,215 @@ function _kvRenderTable() {
             lastUp = '<div style="color:#0d9488;font-weight:600;font-size:10px">' + ds + '</div><div style="color:#64748b;font-size:10px">' + r.last_update.name + '</div>';
         }
 
-        h += '<tr>';
+        // Build roll weights display: "Be - 5, 12, 20" with orange for nguyên
+        var rwList = (r.roll_weights || []);
+        var rwHtml = '';
+        if (rwList.length) {
+            var parts = rwList.map(function(rw) {
+                var w = Number(rw.w), ow = Number(rw.ow);
+                var isNguyen = (w === ow && w > 0);
+                return isNguyen ? '<span style="color:#ea580c;font-weight:800">' + _kvFmt(w) + '</span>' : '<span>' + _kvFmt(w) + '</span>';
+            });
+            rwHtml = ' - ' + parts.join(', ');
+        }
+
+        h += '<tr style="cursor:pointer" onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
-        h += '<td style="font-weight:700;color:#0f172a">' + (r.color_name||'') + '</td>';
+        h += '<td style="font-weight:700;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + '<span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></td>';
         h += '<td>' + (r.material_name||'') + '</td>';
         h += '<td style="font-size:10px;color:#64748b">' + (r.warehouse_name||'') + '</td>';
         h += '<td style="font-size:10px">' + (r.unit||'kg') + '</td>';
         h += '<td style="text-align:right;font-weight:700">' + (r.so_cuc||0) + '</td>';
-        h += '<td style="text-align:right;font-weight:700;color:#7c3aed">' + (r.cay_nguyen||0) + '</td>';
+        h += '<td style="text-align:right;font-weight:700;color:' + cayNguyenColor + '">' + (r.cay_nguyen||0) + '</td>';
         h += '<td style="text-align:right;font-weight:700;color:#059669">' + _kvFmt(r.dau_ky) + '</td>';
         h += '<td style="text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(r.xuat) + '</td>';
         h += '<td style="text-align:right;font-weight:900;color:' + cuoiColor + '">' + _kvFmt(r.cuoi_ky) + '</td>';
-        h += '<td style="text-align:right;font-size:11px">' + (r.price ? _kvFmt(r.price) + 'đ' : '—') + '</td>';
-        h += '<td style="white-space:nowrap">' + (lastUp || '<span style="color:var(--gray-300)">—</span>') + '</td>';
-        h += '<td style="white-space:nowrap"><button onclick="_kvShowRolls(' + r.id + ')" style="background:#0d9488;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Xem cục vải">📦</button> ';
-        h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Lịch sử">📋</button> ';
-        h += '<button onclick="_kvShowTx(' + r.id + ')" style="background:#f59e0b;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Nhập/Xuất">±</button></td>';
+        h += '<td style="text-align:right;font-size:11px">' + (r.price ? _kvFmt(r.price) + '\u0111' : '\u2014') + '</td>';
+        h += '<td style="white-space:nowrap">' + (lastUp || '<span style="color:var(--gray-300)">\u2014</span>') + '</td>';
+        h += '<td style="white-space:nowrap" onclick="event.stopPropagation()"><button onclick="_kvShowRolls(' + r.id + ')" style="background:#0d9488;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Xem c\u1ee5c v\u1ea3i">\ud83d\udce6</button> ';
+        h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="L\u1ecbch s\u1eed">\ud83d\udccb</button> ';
+        h += '<button onclick="_kvShowTx(' + r.id + ')" style="background:#f59e0b;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Nh\u1eadp/Xu\u1ea5t">\u00b1</button></td>';
         h += '</tr>';
     });
     h += '</tbody></table>';
     wrap.innerHTML = h;
 }
 
-// ========== ROLLS MODAL ==========
+// ========== DETAIL MODAL ==========
+async function _kvShowDetail(fcid) {
+    var r = _kv.summary.find(function(x) { return x.id === fcid; });
+    if (!r) return;
+    var label = (r.material_name||'') + ' - ' + (r.color_name||'');
+    var cuoiColor = Number(r.cuoi_ky) >= 0 ? '#059669' : '#dc2626';
+    var lastUpStr = '—';
+    if (r.last_update && r.last_update.at) {
+        var at = new Date(r.last_update.at);
+        lastUpStr = String(at.getDate()).padStart(2,'0') + '/' + String(at.getMonth()+1).padStart(2,'0') + '/' + at.getFullYear() + ' ' + String(at.getHours()).padStart(2,'0') + ':' + String(at.getMinutes()).padStart(2,'0') + ':' + String(at.getSeconds()).padStart(2,'0');
+        if (r.last_update.name) lastUpStr += ' — ' + r.last_update.name;
+    }
+
+    // Part 1: Info card
+    var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:16px">';
+    body += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+    var infoRows = [
+        ['LABEL', '<b style="color:#0d9488;font-size:14px">' + label + '</b>'],
+        ['CHẤT LIỆU', r.material_name || ''],
+        ['MÀU', r.color_name || ''],
+        ['ĐƠN VỊ TÍNH', r.unit || 'kg'],
+        ['SỐ CỤC', '<b>' + (r.so_cuc||0) + '</b>'],
+        ['ĐẦU KỲ', '<b style="color:#059669">' + _kvFmt(r.dau_ky) + '</b>'],
+        ['XUẤT', '<b style="color:#dc2626">' + _kvFmt(r.xuat) + '</b>'],
+        ['CUỐI KỲ', '<b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(r.cuoi_ky) + '</b>'],
+        ['GIÁ', r.price ? _kvFmt(r.price) + 'đ' : '—'],
+        ['CẬP NHẬT', lastUpStr]
+    ];
+    infoRows.forEach(function(row) {
+        body += '<tr><td style="padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:130px;border-bottom:1px solid var(--gray-100)">' + row[0] + '</td>';
+        body += '<td style="padding:6px 12px;border-bottom:1px solid var(--gray-100)">' + row[1] + '</td></tr>';
+    });
+    body += '</table></div>';
+
+    // Part 2: Rolls list (loading)
+    body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px">';
+    body += '<div style="font-weight:800;font-size:14px;margin-bottom:12px">📦 Các cục vải <span id="kvDetailRollCount" style="background:#0d9488;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">...</span></div>';
+    body += '<div id="kvDetailRollsArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải...</div>';
+    body += '</div>';
+
+    openModal('🧵 Chi tiết — ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>');
+
+    // Fetch rolls async
+    try {
+        var data = await apiCall('/api/khovai/rolls?fcid=' + fcid);
+        var rolls = data.rolls || [];
+        var countEl = document.getElementById('kvDetailRollCount');
+        var areaEl = document.getElementById('kvDetailRollsArea');
+        if (countEl) countEl.textContent = rolls.length;
+        if (!areaEl) return;
+
+        if (!rolls.length) {
+            areaEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--gray-400)">Chưa có cục vải nào</div>';
+            return;
+        }
+
+        var totalWeight = 0;
+        rolls.forEach(function(rl) { totalWeight += Number(rl.weight); });
+
+        var rh = '<div style="margin-bottom:10px;font-size:12px;color:#64748b">Không cắt: <b style="color:#0d9488;font-size:14px">' + _kvFmt(totalWeight) + '</b> ' + (r.unit||'kg') + '</div>';
+        rh += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        var thStyle = 'padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#fff;background:#1e293b';
+        rh += '<thead><tr>';
+        rh += '<th style="' + thStyle + ';border-radius:6px 0 0 0">#</th>';
+        rh += '<th style="' + thStyle + '">Tên Vải</th>';
+        rh += '<th style="' + thStyle + ';text-align:right">Nhập</th>';
+        rh += '<th style="' + thStyle + ';text-align:right">Xuất</th>';
+        rh += '<th style="' + thStyle + ';text-align:right">Tồn</th>';
+        rh += '<th style="' + thStyle + '">Lịch Sử CN</th>';
+        rh += '<th style="' + thStyle + ';border-radius:0 6px 0 0;text-align:center">Đang Cắt</th>';
+        rh += '</tr></thead><tbody>';
+
+        rolls.forEach(function(rl, idx) {
+            var rlDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
+            var rlDs = rlDate ? (String(rlDate.getDate()).padStart(2,'0') + '/' + String(rlDate.getMonth()+1).padStart(2,'0') + '/' + rlDate.getFullYear() + ' ' + String(rlDate.getHours()).padStart(2,'0') + ':' + String(rlDate.getMinutes()).padStart(2,'0')) : '\u2014';
+            var origW = Number(rl.original_weight || rl.weight);
+            var curW = Number(rl.weight);
+            var xuatW = origW - curW;
+            var cutting = rl.is_cutting;
+            rh += '<tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="_kvShowRollDetail(' + rl.id + ')">';
+            rh += '<td style="padding:6px 8px;color:var(--gray-400)">' + (idx+1) + '</td>';
+            rh += '<td style="padding:6px 8px;font-weight:600;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669">' + _kvFmt(origW) + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(xuatW) + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:right;font-weight:800;color:#0d9488">' + _kvFmt(curW) + '</td>';
+            rh += '<td style="padding:6px 8px;font-size:10px;color:#64748b">' + rlDs + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:center">' + (cutting ? '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">\u2702 \u0110ang c\u1eaft</span>' : '<span style="color:#059669;font-size:10px;font-weight:600">Kh\u00f4ng c\u1eaft</span>') + '</td>';
+            rh += '</tr>';
+        });
+        rh += '</tbody></table>';
+        areaEl.innerHTML = rh;
+    } catch(e) {
+        var areaEl = document.getElementById('kvDetailRollsArea');
+        if (areaEl) areaEl.innerHTML = '<div style="color:#dc2626">Lỗi tải dữ liệu</div>';
+    }
+}
+
+// ========== ROLL DETAIL MODAL ==========
+async function _kvShowRollDetail(rollId) {
+    try {
+        var data = await apiCall('/api/khovai/rolls/' + rollId + '/detail');
+        if (data.error) { showToast(data.error, 'error'); return; }
+        var rl = data.roll;
+        var cuts = data.cutHistory || [];
+
+        var label = (rl.material_name||'') + ' - ' + (rl.color_name||'') + ' - ' + _kvFmt(rl.weight) + (rl.unit||'kg');
+        var origW = Number(rl.original_weight || rl.weight);
+        var curW = Number(rl.weight);
+        var xuatW = origW - curW;
+        var cuoiColor = curW > 0 ? '#059669' : '#dc2626';
+
+        var upDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
+        var upStr = upDate ? (String(upDate.getDate()).padStart(2,'0') + '/' + String(upDate.getMonth()+1).padStart(2,'0') + '/' + upDate.getFullYear() + ' ' + String(upDate.getHours()).padStart(2,'0') + ':' + String(upDate.getMinutes()).padStart(2,'0') + ':' + String(upDate.getSeconds()).padStart(2,'0')) : '\u2014';
+
+        // Part 1: Info card
+        var thS = 'padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:160px;border-bottom:1px solid var(--gray-100)';
+        var tdS = 'padding:6px 12px;border-bottom:1px solid var(--gray-100)';
+        var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:16px">';
+        body += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+        body += '<tr><td style="' + thS + '">T\u00caN C\u00c2Y V\u1ea2I</td><td style="' + tdS + '"><b style="color:#0d9488;font-size:14px">' + label + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">ID CU\u1ed8N V\u1ea2I</td><td style="' + tdS + '"><code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:1px">' + (rl.roll_code||'N/A') + '</code></td></tr>';
+        body += '<tr><td style="' + thS + '">NH\u1eacP</td><td style="' + tdS + '"><b style="color:#059669">' + _kvFmt(origW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">XU\u1ea4T</td><td style="' + tdS + '"><b style="color:#dc2626">' + _kvFmt(xuatW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">T\u1ed2N</td><td style="' + tdS + '"><b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(curW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">HO\u00c0N</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">\u0110\u00e3 ho\u00e0n</span>' : '<span style="color:#64748b">Ch\u01b0a ho\u00e0n</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' \u2014 <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">\u0110ANG C\u1eaET</td><td style="' + tdS + '">' + (rl.is_cutting ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">\u2702 \u0110ang c\u1eaft</span>' : '<span style="color:#059669;font-weight:700">Kh\u00f4ng c\u1eaft \u2705</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">NG\u01af\u1edcI NH\u1eacP V\u1ea2I</td><td style="' + tdS + '">' + (rl.created_by_name || '\u2014') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">H\u00ccNH \u1ea2NH PHI\u1ec0U</td><td style="' + tdS + '">' + (rl.receipt_image ? '<a href="' + rl.receipt_image + '" target="_blank" style="color:#0d9488;font-weight:700">\ud83d\udcf7 Xem \u1ea3nh</a>' : '<span style="color:var(--gray-400)">Ch\u01b0a c\u00f3</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">ID BILL</td><td style="' + tdS + '">' + (rl.bill_id ? '<code style="background:#e2e8f0;padding:2px 8px;border-radius:4px">' + rl.bill_id + '</code>' : '<span style="color:var(--gray-400)">\u2014</span>') + '</td></tr>';
+        body += '</table></div>';
+
+        // Part 2: Cut history
+        body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px">';
+        body += '<div style="font-weight:800;font-size:14px;margin-bottom:12px">\ud83d\udd2a \u0110\u01a0N H\u00c0NG \u0110\u00c3 S\u1ea2N XU\u1ea4T <span style="background:#6366f1;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">' + cuts.length + '</span></div>';
+
+        if (!cuts.length) {
+            body += '<div style="text-align:center;padding:20px;color:var(--gray-400)"><div style="font-size:24px">\ud83d\udce6</div><div style="margin-top:4px">Ch\u01b0a c\u00f3 \u0111\u01a1n c\u1eaft n\u00e0o</div></div>';
+        } else {
+            var cThS = 'padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#fff;background:#1e293b';
+            body += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
+            body += '<th style="' + cThS + ';border-radius:6px 0 0 0">#</th>';
+            body += '<th style="' + cThS + '">\u0110\u01a1n C\u1eaft</th>';
+            body += '<th style="' + cThS + '">Ng\u00e0y C\u1eaft</th>';
+            body += '<th style="' + cThS + '">C\u00e1c C\u00e2y C\u1eaft</th>';
+            body += '<th style="' + cThS + ';text-align:right">Kg \u0110\u1ea7u</th>';
+            body += '<th style="' + cThS + ';text-align:right">Kg C\u1eaft</th>';
+            body += '<th style="' + cThS + ';text-align:right">Kg C\u00f2n</th>';
+            body += '<th style="' + cThS + '">S\u1ea3n Ph\u1ea9m</th>';
+            body += '<th style="' + cThS + ';text-align:right">SL \u0110\u01a1n</th>';
+            body += '<th style="' + cThS + ';border-radius:0 6px 0 0;text-align:right">SL C\u1eaft</th>';
+            body += '</tr></thead><tbody>';
+            cuts.forEach(function(c, ci) {
+                var allRolls = (c.all_rolls||[]).map(function(ar) { return ar.roll_code; }).join(', ');
+                body += '<tr style="border-bottom:1px solid var(--gray-100)">';
+                body += '<td style="padding:6px 8px">' + (ci+1) + '</td>';
+                body += '<td style="padding:6px 8px;font-weight:700">' + (c.cut_code||'') + '</td>';
+                body += '<td style="padding:6px 8px;font-size:10px">' + (c.cut_date||'') + '</td>';
+                body += '<td style="padding:6px 8px;font-size:9px;max-width:120px;word-break:break-all">' + allRolls + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700">' + _kvFmt(c.kg_before) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(c.kg_used) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669">' + _kvFmt(c.kg_remaining) + '</td>';
+                body += '<td style="padding:6px 8px;font-size:10px">' + (c.product_name||'\u2014') + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right">' + (c.order_quantity||0) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700">' + (c.cut_quantity||0) + '</td>';
+                body += '</tr>';
+            });
+            body += '</tbody></table>';
+        }
+        body += '</div>';
+
+        openModal('\ud83e\uddf5 ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()">\u0110\u00f3ng</button>');
+    } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
+}
+
 async function _kvShowRolls(fcid) {
     var r = _kv.summary.find(function(x) { return x.id === fcid; });
     var label = r ? (r.material_name + ' - ' + r.color_name) : '';

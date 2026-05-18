@@ -174,6 +174,13 @@ module.exports = async function(fastify) {
     // ========== ORDERS: Create ==========
     fastify.post('/api/dht/orders', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body || {};
+
+        // Block users without order_code_prefix (Mã Đơn KD)
+        const userPrefixCheck = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
+        if (!userPrefixCheck?.order_code_prefix) {
+            return reply.code(403).send({ error: 'Tài khoản chưa được cấp Mã Đơn KD. Không thể tạo đơn hàng.' });
+        }
+
         if (!b.order_code || !b.order_code.trim()) return reply.code(400).send({ error: 'Vui lòng nhập Mã Đơn' });
         if (!b.order_date) return reply.code(400).send({ error: 'Vui lòng chọn Ngày Lên Đơn' });
 
@@ -434,7 +441,10 @@ module.exports = async function(fastify) {
     // ========== NEXT ORDER CODE ==========
     fastify.get('/api/dht/next-order-code', { preHandler: [authenticate] }, async (request, reply) => {
         const user = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
-        const prefix = user?.order_code_prefix || 'DHT';
+        const prefix = user?.order_code_prefix;
+        if (!prefix) {
+            return { hasPrefix: false, error: 'Tài khoản chưa được cấp Mã Đơn KD. Liên hệ quản lý để được cấp mã.' };
+        }
         const lastOrder = await db.get(
             "SELECT order_code FROM dht_orders WHERE order_code LIKE $1 ORDER BY id DESC LIMIT 1",
             [prefix + '%']
@@ -444,7 +454,7 @@ module.exports = async function(fastify) {
             const match = lastOrder.order_code.match(/(\d+)$/);
             if (match) nextSeq = parseInt(match[1]) + 1;
         }
-        return { code: prefix + nextSeq, prefix, seq: nextSeq };
+        return { hasPrefix: true, code: prefix + nextSeq, prefix, seq: nextSeq };
     });
 
     // ========== DESIGNERS ==========

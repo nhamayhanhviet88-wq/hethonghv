@@ -399,15 +399,57 @@ async function start() {
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_rolls (
             id                SERIAL PRIMARY KEY,
             fabric_color_id   INTEGER NOT NULL REFERENCES kv_fabric_colors(id),
+            roll_code         VARCHAR(12) UNIQUE,
             weight            NUMERIC NOT NULL DEFAULT 0,
+            original_weight   NUMERIC NOT NULL DEFAULT 0,
             source            TEXT DEFAULT 'nhap_moi',
             note              TEXT,
+            bill_id           TEXT,
+            receipt_image     TEXT,
             is_returned       BOOLEAN DEFAULT false,
+            is_cutting        BOOLEAN DEFAULT false,
             created_by        INTEGER REFERENCES users(id),
             created_at        TIMESTAMP DEFAULT NOW(),
             updated_at        TIMESTAMP DEFAULT NOW()
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_rolls_fcid ON kv_rolls(fabric_color_id)`);
+        // Migrations for kv_rolls
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_weight NUMERIC NOT NULL DEFAULT 0`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS is_cutting BOOLEAN DEFAULT false`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS roll_code VARCHAR(12) UNIQUE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS bill_id TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS receipt_image TEXT`); } catch(e) {}
+        await db.exec(`UPDATE kv_rolls SET original_weight = weight WHERE original_weight = 0 OR original_weight IS NULL`);
+        // Backfill roll_code for existing rows
+        const rollsNoCode = await db.all(`SELECT id FROM kv_rolls WHERE roll_code IS NULL`);
+        for (const rl of rollsNoCode) {
+            const code = 'KV' + require('crypto').randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
+            await db.run(`UPDATE kv_rolls SET roll_code = $1 WHERE id = $2`, [code, rl.id]);
+        }
+        // Cut orders
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_cut_orders (
+            id              SERIAL PRIMARY KEY,
+            cut_code        VARCHAR(16) UNIQUE,
+            cut_date        DATE NOT NULL DEFAULT CURRENT_DATE,
+            product_name    TEXT,
+            order_quantity  INTEGER DEFAULT 0,
+            cut_quantity    INTEGER DEFAULT 0,
+            notes           TEXT,
+            created_by      INTEGER REFERENCES users(id),
+            created_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_cut_order_rolls (
+            id              SERIAL PRIMARY KEY,
+            cut_order_id    INTEGER NOT NULL REFERENCES kv_cut_orders(id) ON DELETE CASCADE,
+            roll_id         INTEGER NOT NULL REFERENCES kv_rolls(id),
+            roll_code       VARCHAR(12),
+            kg_before       NUMERIC DEFAULT 0,
+            kg_used         NUMERIC DEFAULT 0,
+            kg_remaining    NUMERIC DEFAULT 0,
+            created_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_cor_roll ON kv_cut_order_rolls(roll_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_cor_co ON kv_cut_order_rolls(cut_order_id)`);
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_transactions (
             id                SERIAL PRIMARY KEY,
             fabric_color_id   INTEGER NOT NULL REFERENCES kv_fabric_colors(id),

@@ -1,6 +1,11 @@
 // ========== KHO VẢI — Fabric Warehouse Management ==========
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
+const crypto = require('crypto');
+
+function genRollCode() {
+    return 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
+}
 
 module.exports = async function (fastify) {
     // ========== WAREHOUSES (Kho Vải) ==========
@@ -52,9 +57,15 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // DELETE /api/khovai/warehouses/:id — Soft delete warehouse
+    // DELETE /api/khovai/warehouses/:id — Hard delete warehouse + cascade
     fastify.delete('/api/khovai/warehouses/:id', { preHandler: [authenticate] }, async (request) => {
-        await db.run('UPDATE kv_warehouses SET is_active = false WHERE id = $1', [request.params.id]);
+        const id = request.params.id;
+        // Cascade: delete transactions → rolls → colors → materials → warehouse
+        await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1)', [id]);
+        await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1)', [id]);
+        await db.run('DELETE FROM kv_fabric_colors WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $1)', [id]);
+        await db.run('DELETE FROM kv_materials WHERE warehouse_id = $1', [id]);
+        await db.run('DELETE FROM kv_warehouses WHERE id = $1', [id]);
         return { success: true };
     });
 
@@ -106,9 +117,13 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // DELETE /api/khovai/materials/:id — Soft delete material
+    // DELETE /api/khovai/materials/:id — Hard delete material + cascade
     fastify.delete('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request) => {
-        await db.run('UPDATE kv_materials SET is_active = false WHERE id = $1', [request.params.id]);
+        const id = request.params.id;
+        await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [id]);
+        await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [id]);
+        await db.run('DELETE FROM kv_fabric_colors WHERE material_id = $1', [id]);
+        await db.run('DELETE FROM kv_materials WHERE id = $1', [id]);
         return { success: true };
     });
 
@@ -172,9 +187,12 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // DELETE /api/khovai/colors/:id — Soft delete color
+    // DELETE /api/khovai/colors/:id — Hard delete color + cascade
     fastify.delete('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request) => {
-        await db.run('UPDATE kv_fabric_colors SET is_active = false WHERE id = $1', [request.params.id]);
+        const id = request.params.id;
+        await db.run('DELETE FROM kv_transactions WHERE fabric_color_id = $1', [id]);
+        await db.run('DELETE FROM kv_rolls WHERE fabric_color_id = $1', [id]);
+        await db.run('DELETE FROM kv_fabric_colors WHERE id = $1', [id]);
         return { success: true };
     });
 
@@ -206,10 +224,11 @@ module.exports = async function (fastify) {
         const src = source || 'nhap_moi';
 
         // Insert roll
+        const rollCode = genRollCode();
         const roll = await db.get(
-            `INSERT INTO kv_rolls (fabric_color_id, weight, source, note, created_by)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [fabric_color_id, Number(weight), src, note || null, user.id]
+            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by)
+             VALUES ($1, $2, $3, $3, $4, $5, $6) RETURNING *`,
+            [fabric_color_id, rollCode, Number(weight), src, note || null, user.id]
         );
 
         // Create NHAP transaction
@@ -282,9 +301,46 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // ========== ROLL DETAIL ==========
+
+    // GET /api/khovai/rolls/:id/detail — Full roll detail with cut history
+    fastify.get('/api/khovai/rolls/:id/detail', { preHandler: [authenticate] }, async (request) => {
+        const roll = await db.get(
+            `SELECT r.*, fc.color_name, m.name AS material_name, w.name AS warehouse_name, w.unit,
+                    u.full_name AS created_by_name
+             FROM kv_rolls r
+             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+             JOIN kv_materials m ON m.id = fc.material_id
+             JOIN kv_warehouses w ON w.id = m.warehouse_id
+             LEFT JOIN users u ON u.id = r.created_by
+             WHERE r.id = $1`, [request.params.id]
+        );
+        if (!roll) return { error: 'Không tìm thấy cuộn vải' };
+
+        // Cut history
+        const cutHistory = await db.all(
+            `SELECT cor.*, co.cut_code, co.cut_date, co.product_name,
+                    co.order_quantity, co.cut_quantity, co.notes AS cut_notes
+             FROM kv_cut_order_rolls cor
+             JOIN kv_cut_orders co ON co.id = cor.cut_order_id
+             WHERE cor.roll_id = $1
+             ORDER BY co.cut_date DESC`, [request.params.id]
+        );
+
+        // For each cut order, get all participating rolls
+        for (const ch of cutHistory) {
+            ch.all_rolls = await db.all(
+                `SELECT cor.roll_code, cor.kg_used FROM kv_cut_order_rolls cor
+                 WHERE cor.cut_order_id = $1 ORDER BY cor.roll_code`, [ch.cut_order_id]
+            );
+        }
+
+        return { roll, cutHistory };
+    });
+
     // ========== TRANSACTIONS ==========
 
-    // POST /api/khovai/transactions — Manual import/export
+    // POST /api/khovai/transactions — Roll-centric import/export
     fastify.post('/api/khovai/transactions', { preHandler: [authenticate] }, async (request) => {
         const { fabric_color_id, tx_type, quantity, description } = request.body || {};
         if (!fabric_color_id) return { error: 'Chưa chọn loại vải' };
@@ -292,11 +348,62 @@ module.exports = async function (fastify) {
         if (!quantity || Number(quantity) <= 0) return { error: 'Số lượng phải > 0' };
 
         const user = request.user;
-        await db.run(
-            `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [fabric_color_id, tx_type, Number(quantity), description || '', user.id]
-        );
+        const qty = Number(quantity);
+
+        if (tx_type === 'NHAP') {
+            // NHAP: Create a new roll
+            const rollCode = genRollCode();
+            await db.run(
+                `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by)
+                 VALUES ($1, $2, $3, $3, 'nhap_moi', $4, $5)`,
+                [fabric_color_id, rollCode, qty, description || 'Nhập mới', user.id]
+            );
+            await db.run(
+                `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
+                 VALUES ($1, 'NHAP', $2, $3, $4)`,
+                [fabric_color_id, qty, description || `Nhập 1 cục ${qty}`, user.id]
+            );
+        } else {
+            // XUAT: Auto-deduct from largest rolls first
+            const totalStock = await db.get(
+                'SELECT COALESCE(SUM(weight), 0) AS total FROM kv_rolls WHERE fabric_color_id = $1 AND is_returned = false',
+                [fabric_color_id]
+            );
+            if (Number(totalStock.total) < qty) {
+                return { error: `Không đủ tồn kho! Hiện có: ${totalStock.total}, cần xuất: ${qty}` };
+            }
+
+            const rolls = await db.all(
+                'SELECT * FROM kv_rolls WHERE fabric_color_id = $1 AND is_returned = false ORDER BY weight DESC',
+                [fabric_color_id]
+            );
+
+            let remaining = qty;
+            const details = [];
+            for (const roll of rolls) {
+                if (remaining <= 0) break;
+                const rw = Number(roll.weight);
+                if (rw <= remaining) {
+                    // Consume entire roll
+                    await db.run('DELETE FROM kv_rolls WHERE id = $1', [roll.id]);
+                    remaining -= rw;
+                    details.push(`Hết cục ${rw}`);
+                } else {
+                    // Partial cut
+                    const newWeight = rw - remaining;
+                    await db.run('UPDATE kv_rolls SET weight = $1, updated_at = NOW() WHERE id = $2', [newWeight, roll.id]);
+                    details.push(`Cắt cục ${rw}→${newWeight}`);
+                    remaining = 0;
+                }
+            }
+
+            await db.run(
+                `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
+                 VALUES ($1, 'XUAT', $2, $3, $4)`,
+                [fabric_color_id, qty, (description ? description + ' | ' : '') + details.join(', '), user.id]
+            );
+        }
+
         return { success: true };
     });
 
@@ -335,11 +442,15 @@ module.exports = async function (fastify) {
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
                              AND r.weight >= fc.original_tree_threshold), 0) AS cay_nguyen,
+                   COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
+                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS cuoi_ky,
                    (SELECT json_build_object('name', u.full_name, 'role', u.role, 'at', t2.created_at)
                     FROM kv_transactions t2
                     LEFT JOIN users u ON u.id = t2.created_by
                     WHERE t2.fabric_color_id = fc.id
-                    ORDER BY t2.created_at DESC LIMIT 1) AS last_update
+                    ORDER BY t2.created_at DESC LIMIT 1) AS last_update,
+                   COALESCE((SELECT json_agg(json_build_object('w', r.weight, 'ow', r.original_weight) ORDER BY r.weight DESC)
+                    FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false), '[]') AS roll_weights
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id
@@ -355,11 +466,15 @@ module.exports = async function (fastify) {
 
         // Parse last_update JSON
         rows.forEach(r => {
-            r.cuoi_ky = Number(r.dau_ky) - Number(r.xuat);
+            r.cuoi_ky = Number(r.cuoi_ky); // Roll-based: SUM(roll weights)
             r.label = r.material_name + ' - ' + r.color_name;
             if (r.last_update && typeof r.last_update === 'string') {
                 try { r.last_update = JSON.parse(r.last_update); } catch(e) { r.last_update = null; }
             }
+            if (r.roll_weights && typeof r.roll_weights === 'string') {
+                try { r.roll_weights = JSON.parse(r.roll_weights); } catch(e) { r.roll_weights = []; }
+            }
+            if (!Array.isArray(r.roll_weights)) r.roll_weights = [];
         });
 
         return { summary: rows };
@@ -401,5 +516,49 @@ module.exports = async function (fastify) {
         }
 
         return { tree: warehouses };
+    });
+
+    // ========== TOGGLE (Bật/Tắt) ==========
+
+    // PUT /api/khovai/materials/:id/toggle — Toggle material + cascade to all colors
+    fastify.put('/api/khovai/materials/:id/toggle', { preHandler: [authenticate] }, async (request) => {
+        const { is_active } = request.body || {};
+        await db.run('UPDATE kv_materials SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
+        // Cascade: toggle all colors in this material
+        await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE material_id = $2', [!!is_active, request.params.id]);
+        return { success: true };
+    });
+
+    // PUT /api/khovai/colors/:id/toggle — Toggle color is_active
+    fastify.put('/api/khovai/colors/:id/toggle', { preHandler: [authenticate] }, async (request) => {
+        const { is_active } = request.body || {};
+        await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
+        return { success: true };
+    });
+
+    // GET /api/khovai/warehouses/all — List ALL warehouses including inactive (for settings)
+    fastify.get('/api/khovai/warehouses/all', { preHandler: [authenticate] }, async () => {
+        return { warehouses: await db.all('SELECT * FROM kv_warehouses ORDER BY display_order, id') };
+    });
+
+    // GET /api/khovai/materials/all?wid= — List ALL materials including inactive
+    fastify.get('/api/khovai/materials/all', { preHandler: [authenticate] }, async (request) => {
+        const { wid } = request.query;
+        if (!wid) return { materials: [] };
+        return { materials: await db.all('SELECT * FROM kv_materials WHERE warehouse_id = $1 ORDER BY display_order, name', [wid]) };
+    });
+
+    // GET /api/khovai/colors/all?mid= — List ALL colors including inactive
+    fastify.get('/api/khovai/colors/all', { preHandler: [authenticate] }, async (request) => {
+        const { mid } = request.query;
+        if (!mid) return { colors: [] };
+        return { colors: await db.all('SELECT * FROM kv_fabric_colors WHERE material_id = $1 ORDER BY color_name', [mid]) };
+    });
+
+    // PUT /api/khovai/warehouses/:id/toggle — Toggle warehouse is_active
+    fastify.put('/api/khovai/warehouses/:id/toggle', { preHandler: [authenticate] }, async (request) => {
+        const { is_active } = request.body || {};
+        await db.run('UPDATE kv_warehouses SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
+        return { success: true };
     });
 };
