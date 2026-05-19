@@ -365,7 +365,8 @@ async function _dhtAddItem(editIdx) {
     } catch(e) {}
     window._ppNNAllList = _nnAllList;
     window._ppNNTags = (existing.reminders||[]).slice();
-    var sewOpts=(po.sewing_techniques||[]).map(function(o){var s=(existing.sewing_techniques||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var sewOpts=''; // Legacy removed — BGM picker used instead
+    window._ppSewItems = (existing.sewing_techniques || []).slice();
     var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
     var qps=existing.quantities||[{qty:0,price:0}], qpHTML='';
@@ -390,7 +391,7 @@ async function _dhtAddItem(editIdx) {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu *</label><input id="_pp_color" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="← Chọn Chất Liệu" value="'+(existing.color_name||'')+'" onfocus="_ppShowList(\'_pp_color\')" oninput="_ppFilterList(\'_pp_color\')"><input type="hidden" id="_pp_color_val" value="'+(existing.color_id||'')+'"><div id="_pp_color_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Kỹ Thuật May</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div><button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +nnHTML
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
@@ -399,6 +400,7 @@ async function _dhtAddItem(editIdx) {
     if(existing.material_id){document.getElementById('_pp_material_val').value=existing.material_id;setTimeout(function(){_dhtLoadColorsPopup(existing.color_id);},200);}
     setTimeout(_ppCalc,100);
     _ppRenderNNTags();
+    _ppRenderSewTags();
 }
 
 // Live calc inside popup
@@ -545,7 +547,7 @@ function _dhtSavePhieu(idx) {
     for(var i=0;i<qs.length;i++){var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});raw+=qv*pv;}
     if(!qtyPairs.length||qtyPairs[0].qty===0){showToast('SL1 phải > 0','error');return;}
     var va=Math.round(raw*vp/100);
-    var sewArr=Array.from(document.getElementById('_pp_sewing')?.selectedOptions||[]).map(function(o){return o.value;});
+    var sewArr = (window._ppSewItems || []).slice();
     var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
     var acctNotes=nnArr.join(' | ');
     _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:Number(matId),material_name:matName,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
@@ -794,4 +796,80 @@ function _ppRenderNNTags() {
         return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
             + t + ' <button onclick="_ppRemoveNNTag(' + i + ')" style="background:none;border:none;color:#92400e;cursor:pointer;font-size:12px;padding:0;line-height:1">✕</button></span>';
     }).join('');
+}
+
+// ========== BGM PICKER FOR DHT PHIEU ==========
+function _ppRenderSewTags() {
+    var el = document.getElementById('_ppSewTags'); if (!el) return;
+    var items = window._ppSewItems || [];
+    if (items.length === 0) { el.innerHTML = '<span style="font-size:10px;color:#9ca3af;font-style:italic">Chưa chọn</span>'; return; }
+    el.innerHTML = items.map(function(s, i) {
+        var label = typeof s === 'string' ? s : (s.name + (s.qty > 1 ? ' x'+s.qty : ''));
+        return '<span style="display:inline-flex;align-items:center;gap:3px;background:#6366f1;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700">'
+            + label + ' <button type="button" onclick="_ppRemoveSew(' + i + ')" style="background:none;border:none;color:#fde68a;cursor:pointer;font-size:11px;padding:0">&times;</button></span>';
+    }).join('');
+}
+
+function _ppRemoveSew(idx) {
+    (window._ppSewItems || []).splice(idx, 1);
+    _ppRenderSewTags();
+}
+
+async function _ppOpenBgmPicker() {
+    var res = await apiCall('/api/bgm/dropdown');
+    var allItems = res.items || [];
+    var groups = {};
+    allItems.forEach(function(item) {
+        if (!groups[item.group_name]) groups[item.group_name] = [];
+        groups[item.group_name].push(item);
+    });
+    var existing = window._ppSewItems || [];
+    var existIds = existing.map(function(s) { return typeof s === 'object' ? s.id : null; });
+    var h = '<div style="max-height:50vh;overflow-y:auto">';
+    Object.keys(groups).sort().forEach(function(gName) {
+        h += '<div style="margin-bottom:8px"><div style="font-weight:800;font-size:10px;color:#1d4ed8;padding:3px 6px;background:#dbeafe;border-radius:3px;margin-bottom:3px">' + gName + '</div>';
+        groups[gName].forEach(function(item) {
+            var checked = existIds.indexOf(item.id) >= 0;
+            var existItem = checked ? existing.find(function(s){return s.id===item.id;}) : null;
+            var qtyVal = existItem ? (existItem.qty || 1) : 1;
+            var qtyInput = item.add_type === 'multi'
+                ? '<input type="number" class="_ppBgmQty" data-id="' + item.id + '" value="' + qtyVal + '" min="1" style="width:40px;padding:1px 3px;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;text-align:center">'
+                : '';
+            h += '<label style="display:flex;align-items:center;gap:4px;padding:3px 6px;font-size:10px;cursor:pointer" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'
+                + '<input type="checkbox" class="_ppBgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="' + item.add_type + '"' + (checked ? ' checked' : '') + '>'
+                + '<span style="flex:1;font-weight:600">' + item.name + '</span>' + qtyInput
+                + '<span style="color:#059669;font-size:9px;font-weight:700">' + Number(item.factory_price).toLocaleString('vi-VN') + '</span>'
+                + '</label>';
+        });
+        h += '</div>';
+    });
+    h += '</div>';
+
+    // Use a sub-overlay inside the phieuPopup
+    var ov2 = document.createElement('div');
+    ov2.id = '_ppBgmOv';
+    ov2.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:10001;display:flex;align-items:center;justify-content:center';
+    ov2.innerHTML = '<div style="background:#fff;border-radius:10px;padding:16px;width:420px;max-height:70vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:800;font-size:13px;color:#6366f1">✂️ Chọn Kỹ Thuật May</span><button type="button" onclick="document.getElementById(\'_ppBgmOv\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>'
+        + h
+        + '<div style="text-align:right;margin-top:8px"><button type="button" onclick="document.getElementById(\'_ppBgmOv\').remove()" style="background:#e2e8f0;border:none;padding:5px 14px;border-radius:4px;font-size:11px;cursor:pointer;margin-right:6px">Hủy</button>'
+        + '<button type="button" onclick="_ppApplyBgm()" style="background:#6366f1;color:#fff;border:none;padding:5px 14px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">✅ Xác Nhận</button></div></div>';
+    document.body.appendChild(ov2);
+}
+
+function _ppApplyBgm() {
+    var cbs = document.querySelectorAll('._ppBgmCb:checked');
+    var items = [];
+    cbs.forEach(function(cb) {
+        var id = Number(cb.dataset.id);
+        var qty = 1;
+        if (cb.dataset.type === 'multi') {
+            var qtyEl = document.querySelector('._ppBgmQty[data-id="' + id + '"]');
+            qty = qtyEl ? Math.max(1, Number(qtyEl.value) || 1) : 1;
+        }
+        items.push({ id: id, name: cb.dataset.name, qty: qty, fp: Number(cb.dataset.fp), pp: Number(cb.dataset.pp) });
+    });
+    window._ppSewItems = items;
+    document.getElementById('_ppBgmOv')?.remove();
+    _ppRenderSewTags();
 }

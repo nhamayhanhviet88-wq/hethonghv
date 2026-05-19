@@ -108,9 +108,10 @@ function _tsamShowCreate(editId) {
     var isLocked = (curType === 'DON' || curType === '3D');
     var mixVal = isLocked ? 1 : (s.mix_color_count || 2);
     var rq = '<span style="color:red">*</span>';
-    // Parse existing sewing_tech
+    // Parse existing sewing_tech (now stores BGM item IDs with qty)
     var sewExist = []; try { sewExist = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
     window._tsamImgUrl = s.spec_image || '';
+    window._tsamSewItems = sewExist.slice(); // [{id,name,qty,fp,pp}]
     var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         + '<div class="form-group"><label>Lĩnh Vực ' + rq + '</label><select id="_tsamCat" class="form-control"><option value="">-- Chọn --</option>' + catOpts + '</select></div>'
         + '<div class="form-group"><label>Mã Mẫu ' + rq + '</label><input id="_tsamCode" class="form-control" value="' + (s.sample_code || '') + '"' + (isEdit ? ' disabled' : '') + ' placeholder="VD: DP-001"></div>'
@@ -129,25 +130,27 @@ function _tsamShowCreate(editId) {
         + '<div class="form-group"><label>🔗 Tổng Hợp Áo Mẫu ' + rq + '</label><input id="_tsamTotal" class="form-control" value="' + (s.total_sample || '') + '" placeholder="https://drive.google.com/..."></div>'
         + '<div class="form-group"><label>🔗 Dưỡng Áo Mẫu ' + rq + '</label><input id="_tsamCare" class="form-control" value="' + (s.sample_care || '') + '" placeholder="https://drive.google.com/..."></div>'
         + '</div>'
-        // === SEWING TECH (full width) ===
+        // === SEWING TECH PICKER (full width) ===
         + '<div class="form-group" style="margin-top:8px"><label>✂️ Kỹ Thuật May ' + rq + '</label>'
-        + '<input id="_tsamSewingTech" class="form-control" value="' + sewExist.join(', ') + '" placeholder="VD: May sọn, May chỉ nổi, Ép nhiệt... (phân cách bằng dấu phẩy)">'
+        + '<div id="_tsamSewTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;min-height:28px;padding:4px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc"></div>'
+        + '<button type="button" onclick="_tsamOpenBgmPicker()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Chọn từ Bảng Giá May</button>'
         + '</div>'
-        // === PRICES (disabled, auto from Bảng Giá May later) ===
+        // === PRICES (auto-calculated from BGM) ===
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">'
-        + '<div class="form-group"><label>Giá Nhà May <span style="font-size:10px;color:#94a3b8">🔒 Tự tính từ KT May</span></label><input type="number" id="_tsamFactoryPrice" class="form-control" value="' + (s.factory_price || 0) + '" disabled style="background:#f1f5f9;cursor:not-allowed"></div>'
-        + '<div class="form-group"><label>Giá Gia Công <span style="font-size:10px;color:#94a3b8">🔒 Tự tính từ KT May</span></label><input type="number" id="_tsamProcessPrice" class="form-control" value="' + (s.processing_price || 0) + '" disabled style="background:#f1f5f9;cursor:not-allowed"></div>'
+        + '<div class="form-group"><label>Giá Nhà May <span style="font-size:10px;color:#94a3b8">🔒 Auto SUM</span></label><input type="number" id="_tsamFactoryPrice" class="form-control" value="' + (s.factory_price || 0) + '" disabled style="background:#f1f5f9;cursor:not-allowed"></div>'
+        + '<div class="form-group"><label>Giá Gia Công <span style="font-size:10px;color:#94a3b8">🔒 Auto SUM</span></label><input type="number" id="_tsamProcessPrice" class="form-control" value="' + (s.processing_price || 0) + '" disabled style="background:#f1f5f9;cursor:not-allowed"></div>'
         + '</div>';
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
         + '<button class="btn" onclick="_tsamSubmit(' + (editId || 0) + ')" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 ' + (isEdit ? 'Cập Nhật' : 'Tạo Mẫu') + '</button>';
     openModal((isEdit ? '✏️ Sửa Mẫu ' + s.sample_code : '➕ Thêm Mẫu Áo Mới'), body, footer);
-    // Attach paste handler
+    // Attach paste handler + render sewing tags
     setTimeout(function() {
         var zone = document.getElementById('_tsamPasteZone');
         if (zone) {
             zone.addEventListener('paste', _tsamHandlePaste);
             zone.addEventListener('click', function() { this.focus(); });
         }
+        _tsamRenderSewTags();
     }, 100);
 }
 
@@ -201,9 +204,10 @@ async function _tsamHandlePaste(e) {
 
 async function _tsamSubmit(editId) {
     var urlRe = /^https?:\/\/.+/i;
-    // Parse sewing tech from comma-separated input
-    var sewRaw = document.getElementById('_tsamSewingTech')?.value?.trim() || '';
-    var sewArr = sewRaw ? sewRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+    var sewArr = (window._tsamSewItems || []).slice();
+    // Auto-calc prices from selected BGM items
+    var autoFP = 0, autoPP = 0;
+    sewArr.forEach(function(s) { autoFP += (Number(s.fp)||0)*(Number(s.qty)||1); autoPP += (Number(s.pp)||0)*(Number(s.qty)||1); });
     var data = {
         category_id: document.getElementById('_tsamCat')?.value || null,
         sample_code: document.getElementById('_tsamCode')?.value?.trim(),
@@ -215,8 +219,8 @@ async function _tsamSubmit(editId) {
         sample_care: document.getElementById('_tsamCare')?.value?.trim() || '',
         sewing_tech: sewArr,
         spec_image: window._tsamImgUrl || '',
-        factory_price: 0,
-        processing_price: 0
+        factory_price: autoFP,
+        processing_price: autoPP
     };
     // === Client-side validation ===
     if (!data.category_id) { showToast('Chọn Lĩnh Vực', 'error'); return; }
@@ -229,7 +233,7 @@ async function _tsamSubmit(editId) {
     if (!urlRe.test(data.total_sample)) { showToast('Tổng Hợp Áo Mẫu phải là link (https://...)', 'error'); return; }
     if (!data.sample_care) { showToast('Nhập Dưỡng Áo Mẫu', 'error'); return; }
     if (!urlRe.test(data.sample_care)) { showToast('Dưỡng Áo Mẫu phải là link (https://...)', 'error'); return; }
-    if (sewArr.length === 0) { showToast('Nhập Kỹ Thuật May', 'error'); return; }
+    if (sewArr.length === 0) { showToast('Chọn Kỹ Thuật May từ Bảng Giá May', 'error'); return; }
     if (data.sample_type === 'PHA_PHOI' && Number(data.mix_color_count) < 2) { showToast('Pha Phối phải có ≥ 2 màu', 'error'); return; }
     var res;
     if (editId) { res = await apiCall('/api/tsam/samples/' + editId, 'PUT', data); }
@@ -342,4 +346,90 @@ async function _tsamRefresh() {
     _tsam.totalInfo = treeRes.total || {};
     _tsamRenderSB();
     await _tsamLoad();
+}
+
+// ========== BGM PICKER FOR TSAM ==========
+function _tsamRenderSewTags() {
+    var el = document.getElementById('_tsamSewTags'); if (!el) return;
+    var items = window._tsamSewItems || [];
+    if (items.length === 0) { el.innerHTML = '<span style="color:#94a3b8;font-size:11px">Chưa chọn kỹ thuật may nào</span>'; _tsamCalcPrices(); return; }
+    el.innerHTML = items.map(function(s, i) {
+        var qLabel = (Number(s.qty) || 1) > 1 ? ' x' + s.qty : '';
+        return '<span style="background:#6366f1;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:3px">'
+            + s.name + qLabel
+            + '<button type="button" onclick="_tsamRemoveSew(' + i + ')" style="background:none;border:none;color:#fde68a;cursor:pointer;font-size:12px;padding:0 2px">&times;</button></span>';
+    }).join('');
+    _tsamCalcPrices();
+}
+
+function _tsamRemoveSew(idx) {
+    (window._tsamSewItems || []).splice(idx, 1);
+    _tsamRenderSewTags();
+}
+
+function _tsamCalcPrices() {
+    var items = window._tsamSewItems || [];
+    var fp = 0, pp = 0;
+    items.forEach(function(s) { fp += (Number(s.fp)||0)*(Number(s.qty)||1); pp += (Number(s.pp)||0)*(Number(s.qty)||1); });
+    var fpEl = document.getElementById('_tsamFactoryPrice');
+    var ppEl = document.getElementById('_tsamProcessPrice');
+    if (fpEl) fpEl.value = fp;
+    if (ppEl) ppEl.value = pp;
+}
+
+async function _tsamOpenBgmPicker() {
+    var res = await apiCall('/api/bgm/dropdown');
+    var allItems = res.items || [];
+    // Group by group_name
+    var groups = {};
+    allItems.forEach(function(item) {
+        if (!groups[item.group_name]) groups[item.group_name] = [];
+        groups[item.group_name].push(item);
+    });
+    var existing = window._tsamSewItems || [];
+    var existIds = existing.map(function(s) { return s.id; });
+    var h = '<div style="max-height:60vh;overflow-y:auto">';
+    Object.keys(groups).sort().forEach(function(gName) {
+        h += '<div style="margin-bottom:10px"><div style="font-weight:800;font-size:11px;color:#1d4ed8;padding:4px 8px;background:#dbeafe;border-radius:4px;margin-bottom:4px">' + gName + '</div>';
+        groups[gName].forEach(function(item) {
+            var checked = existIds.indexOf(item.id) >= 0;
+            var existItem = checked ? existing.find(function(s){return s.id===item.id;}) : null;
+            var qtyVal = existItem ? (existItem.qty || 1) : 1;
+            var addLabel = item.add_type === 'once' ? '1l' : 'n';
+            var qtyInput = item.add_type === 'multi'
+                ? '<input type="number" class="_bgmQty" data-id="' + item.id + '" value="' + qtyVal + '" min="1" style="width:50px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:3px;font-size:11px;text-align:center;margin-left:4px">'
+                : '';
+            h += '<label style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;cursor:pointer;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'
+                + '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="' + item.add_type + '"' + (checked ? ' checked' : '') + '>'
+                + '<span style="flex:1;font-weight:600">' + item.name + ' <span style="color:#94a3b8">- ' + addLabel + '</span></span>'
+                + qtyInput
+                + '<span style="color:#059669;font-weight:700;font-size:10px;min-width:50px;text-align:right">' + Number(item.factory_price).toLocaleString('vi-VN') + '</span>'
+                + '<span style="color:#2563eb;font-weight:700;font-size:10px;min-width:50px;text-align:right">' + Number(item.processing_price).toLocaleString('vi-VN') + '</span>'
+                + '</label>';
+        });
+        h += '</div>';
+    });
+    h += '</div>';
+    if (allItems.length === 0) h = '<div style="text-align:center;padding:20px;color:#94a3b8">Chưa có chi tiết may nào trong Bảng Giá May</div>';
+
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" onclick="_tsamApplyBgm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">✅ Xác Nhận</button>';
+    openModal('✂️ Chọn Kỹ Thuật May', '<div style="display:flex;gap:8px;margin-bottom:6px;font-size:10px;font-weight:700;color:#64748b;padding:0 8px"><span style="flex:1">Chi tiết</span><span style="min-width:50px;text-align:right;color:#059669">Giá NM</span><span style="min-width:50px;text-align:right;color:#2563eb">Giá GC</span></div>' + h, footer);
+}
+
+function _tsamApplyBgm() {
+    var cbs = document.querySelectorAll('._bgmCb:checked');
+    var items = [];
+    cbs.forEach(function(cb) {
+        var id = Number(cb.dataset.id);
+        var qty = 1;
+        if (cb.dataset.type === 'multi') {
+            var qtyEl = document.querySelector('._bgmQty[data-id="' + id + '"]');
+            qty = qtyEl ? Math.max(1, Number(qtyEl.value) || 1) : 1;
+        }
+        items.push({ id: id, name: cb.dataset.name, qty: qty, fp: Number(cb.dataset.fp), pp: Number(cb.dataset.pp) });
+    });
+    window._tsamSewItems = items;
+    closeModal();
+    _tsamRenderSewTags();
 }
