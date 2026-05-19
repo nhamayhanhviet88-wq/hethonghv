@@ -105,13 +105,17 @@ async function _cdkDelChkWh() {
     var ids = Object.keys(_cdk.chkWh).map(Number);
     if (!ids.length) { showToast('Chưa chọn kho nào!', 'error'); return; }
     if (!confirm('⚠️ Xóa ' + ids.length + ' kho đã chọn?\nDữ liệu liên quan cũng sẽ bị xóa!')) return;
-    try {
-        await apiCall('/api/khovai/warehouses/bulk-delete', 'POST', { ids: ids });
-        showToast('🗑️ Đã xóa ' + ids.length + ' kho');
-        _cdk.chkWh = {};
-        if (ids.indexOf(_cdk.selWid) >= 0) { _cdk.selWid = null; _cdk.selMid = null; }
-        await _cdkLoadWarehouses();
-    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+    var ok = 0, fail = 0;
+    for (var i = 0; i < ids.length; i++) {
+        try {
+            var res = await apiCall('/api/khovai/warehouses/' + ids[i], 'DELETE');
+            if (res.success) ok++; else fail++;
+        } catch(e) { fail++; }
+    }
+    showToast(ok ? '🗑️ Đã xóa ' + ok + ' kho' + (fail ? ', ' + fail + ' lỗi' : '') : '❌ Lỗi xóa', ok ? 'success' : 'error');
+    _cdk.chkWh = {};
+    if (ids.indexOf(_cdk.selWid) >= 0) { _cdk.selWid = null; _cdk.selMid = null; }
+    await _cdkLoadWarehouses();
 }
 
 function _cdkSelectWh(wid) {
@@ -218,13 +222,17 @@ async function _cdkDelChkMat() {
     var ids = Object.keys(_cdk.chkMat).map(Number);
     if (!ids.length) { showToast('Chưa chọn chất liệu nào!', 'error'); return; }
     if (!confirm('⚠️ Xóa ' + ids.length + ' chất liệu đã chọn?\nMàu vải liên quan cũng sẽ bị xóa!')) return;
-    try {
-        await apiCall('/api/khovai/materials/bulk-delete', 'POST', { ids: ids });
-        showToast('🗑️ Đã xóa ' + ids.length + ' chất liệu');
-        _cdk.chkMat = {};
-        if (ids.indexOf(_cdk.selMid) >= 0) _cdk.selMid = null;
-        await _cdkLoadMaterials();
-    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+    var ok = 0, fail = 0;
+    for (var i = 0; i < ids.length; i++) {
+        try {
+            var res = await apiCall('/api/khovai/materials/' + ids[i], 'DELETE');
+            if (res.success) ok++; else fail++;
+        } catch(e) { fail++; }
+    }
+    showToast(ok ? '🗑️ Đã xóa ' + ok + ' chất liệu' + (fail ? ', ' + fail + ' lỗi' : '') : '❌ Lỗi xóa', ok ? 'success' : 'error');
+    _cdk.chkMat = {};
+    if (ids.indexOf(_cdk.selMid) >= 0) _cdk.selMid = null;
+    await _cdkLoadMaterials();
 }
 
 function _cdkSelectMat(mid) {
@@ -348,12 +356,16 @@ async function _cdkDelChkColor() {
     var ids = Object.keys(_cdk.chkColor).map(Number);
     if (!ids.length) { showToast('Chưa chọn màu nào!', 'error'); return; }
     if (!confirm('⚠️ Xóa ' + ids.length + ' màu đã chọn?')) return;
-    try {
-        await apiCall('/api/khovai/colors/bulk-delete', 'POST', { ids: ids });
-        showToast('🗑️ Đã xóa ' + ids.length + ' màu');
-        _cdk.chkColor = {};
-        await _cdkLoadColors();
-    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+    var ok = 0, fail = 0;
+    for (var i = 0; i < ids.length; i++) {
+        try {
+            var res = await apiCall('/api/khovai/colors/' + ids[i], 'DELETE');
+            if (res.success) ok++; else fail++;
+        } catch(e) { fail++; }
+    }
+    showToast(ok ? '🗑️ Đã xóa ' + ok + ' màu' + (fail ? ', ' + fail + ' lỗi' : '') : '❌ Lỗi xóa', ok ? 'success' : 'error');
+    _cdk.chkColor = {};
+    await _cdkLoadColors();
 }
 
 function _cdkEditColor(id) {
