@@ -379,13 +379,48 @@ function _tsamCalcPrices() {
 async function _tsamOpenBgmPicker() {
     var res = await apiCall('/api/bgm/dropdown');
     var allItems = res.items || [];
-    // Store for search filter
+    // Save parent modal state for restoration
     window._bgmPickerItems = allItems;
     window._bgmPickerExisting = (window._tsamSewItems || []).slice();
+    window._bgmParentModal = {
+        title: document.getElementById('modalTitle').innerHTML,
+        body: document.getElementById('modalBody').innerHTML,
+        footer: document.getElementById('modalFooter').innerHTML
+    };
+
+    var search = '<input type="text" id="_bgmPickerSearch" placeholder="🔍 Tìm tên chi tiết..." style="width:100%;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;margin-bottom:8px">';
+    var legend = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:10px;padding:0 8px;align-items:center">'
+        + '<span style="font-weight:700;color:#64748b;flex:1">Chi tiết</span>'
+        + '<span style="color:#dc2626;font-weight:700">🔒 Chỉ 1</span>'
+        + '<span style="color:#059669;font-weight:700">🔓 Nhiều</span>'
+        + '<span style="min-width:50px;text-align:right;color:#059669;font-weight:700">Giá NM</span>'
+        + '<span style="min-width:50px;text-align:right;color:#2563eb;font-weight:700">Giá GC</span>'
+        + '</div>';
+    var listContainer = '<div id="_bgmPickerListWrap"></div>';
+
+    var footer = '<button class="btn btn-secondary" onclick="_tsamCloseBgmPicker()">Hủy</button>'
+        + '<button class="btn" onclick="_tsamApplyBgm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">✅ Xác Nhận</button>';
+    openModal('✂️ Chọn Kỹ Thuật May', search + legend + listContainer, footer);
+
+    // Render initial list
     _tsamRenderBgmList('');
+
+    // Attach search handler
+    setTimeout(function() {
+        var searchEl = document.getElementById('_bgmPickerSearch');
+        if (searchEl) {
+            searchEl.focus();
+            searchEl.addEventListener('input', function() {
+                _tsamSaveBgmChecked();
+                _tsamRenderBgmList(searchEl.value);
+            });
+        }
+    }, 100);
 }
 
 function _tsamRenderBgmList(query) {
+    var wrap = document.getElementById('_bgmPickerListWrap');
+    if (!wrap) return;
     var allItems = window._bgmPickerItems || [];
     var existing = window._bgmPickerExisting || [];
     var existIds = existing.map(function(s) { return s.id; });
@@ -407,7 +442,7 @@ function _tsamRenderBgmList(query) {
         if (item.add_type === 'once') groups[item.group_name].type = 'once';
     });
 
-    var h = '<div id="_bgmPickerList" style="max-height:55vh;overflow-y:auto">';
+    var h = '';
     var groupKeys = Object.keys(groups).sort();
     if (groupKeys.length === 0 && q) {
         h += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">Không tìm thấy "' + q + '"</div>';
@@ -440,40 +475,9 @@ function _tsamRenderBgmList(query) {
         });
         h += '</div>';
     });
-    h += '</div>';
     if (allItems.length === 0) h = '<div style="text-align:center;padding:20px;color:#94a3b8">Chưa có chi tiết may nào trong Bảng Giá May</div>';
 
-    var search = '<input type="text" id="_bgmPickerSearch" placeholder="🔍 Tìm tên chi tiết..." value="' + (q || '') + '" style="width:100%;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;margin-bottom:8px">';
-
-    var legend = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:10px;padding:0 8px;align-items:center">'
-        + '<span style="font-weight:700;color:#64748b;flex:1">Chi tiết</span>'
-        + '<span style="color:#dc2626;font-weight:700">🔒 Chỉ 1</span>'
-        + '<span style="color:#059669;font-weight:700">🔓 Nhiều</span>'
-        + '<span style="min-width:50px;text-align:right;color:#059669;font-weight:700">Giá NM</span>'
-        + '<span style="min-width:50px;text-align:right;color:#2563eb;font-weight:700">Giá GC</span>'
-        + '</div>';
-
-    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
-        + '<button class="btn" onclick="_tsamApplyBgm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">✅ Xác Nhận</button>';
-    openModal('✂️ Chọn Kỹ Thuật May', search + legend + h, footer);
-
-    // Attach search handler
-    setTimeout(function() {
-        var searchEl = document.getElementById('_bgmPickerSearch');
-        if (searchEl) {
-            searchEl.focus();
-            var _t;
-            searchEl.addEventListener('input', function() {
-                clearTimeout(_t);
-                var val = searchEl.value;
-                _t = setTimeout(function() {
-                    // Save current checked state before re-render
-                    _tsamSaveBgmChecked();
-                    _tsamRenderBgmList(val);
-                }, 200);
-            });
-        }
-    }, 100);
+    wrap.innerHTML = '<div style="max-height:55vh;overflow-y:auto">' + h + '</div>';
 }
 
 function _tsamSaveBgmChecked() {
@@ -485,7 +489,6 @@ function _tsamSaveBgmChecked() {
     // Merge with existing selections (keep items that were checked but now filtered out)
     var prev = window._bgmPickerExisting || [];
     var newIds = items.map(function(i) { return i.id; });
-    // Keep previously selected items that are NOT in current visible list
     var visibleIds = (document.querySelectorAll('._bgmCb') || []);
     var visibleIdSet = {};
     visibleIds.forEach(function(cb) { visibleIdSet[Number(cb.dataset.id)] = true; });
@@ -497,12 +500,33 @@ function _tsamSaveBgmChecked() {
     window._bgmPickerExisting = items;
 }
 
+function _tsamCloseBgmPicker() {
+    // Restore parent modal
+    var p = window._bgmParentModal;
+    if (p) {
+        document.getElementById('modalTitle').innerHTML = p.title;
+        document.getElementById('modalBody').innerHTML = p.body;
+        document.getElementById('modalFooter').innerHTML = p.footer;
+        // Re-attach paste handler
+        setTimeout(function() {
+            var zone = document.getElementById('_tsamPasteZone');
+            if (zone) {
+                zone.addEventListener('paste', _tsamHandlePaste);
+                zone.addEventListener('click', function() { this.focus(); });
+            }
+            _tsamRenderSewTags();
+        }, 100);
+    } else {
+        closeModal();
+    }
+}
+
 function _tsamApplyBgm() {
     _tsamSaveBgmChecked();
     var items = (window._bgmPickerExisting || []).map(function(s) {
         return { id: s.id, name: s.name, qty: 1, fp: Number(s.fp), pp: Number(s.pp) };
     });
     window._tsamSewItems = items;
-    closeModal();
-    _tsamRenderSewTags();
+    // Restore parent modal (Thêm Mẫu Áo Mới)
+    _tsamCloseBgmPicker();
 }
