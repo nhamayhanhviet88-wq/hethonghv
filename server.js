@@ -544,6 +544,37 @@ async function start() {
         try { await db.exec(`ALTER TABLE tsam_samples ADD COLUMN spec_image TEXT`); } catch(e) { /* column already exists */ }
     } catch(e) { console.error('[TSAM Migration]', e.message); }
 
+    // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS bgm_items (
+            id                SERIAL PRIMARY KEY,
+            name              TEXT NOT NULL,
+            group_name        TEXT NOT NULL,
+            allowed_roles     JSONB DEFAULT '["giam_doc"]',
+            add_type          TEXT NOT NULL DEFAULT 'once'
+                              CHECK (add_type IN ('once', 'multi')),
+            factory_price     NUMERIC DEFAULT 0,
+            processing_price  NUMERIC DEFAULT 0,
+            is_active         BOOLEAN DEFAULT true,
+            display_order     INTEGER DEFAULT 0,
+            created_by        INTEGER REFERENCES users(id),
+            created_at        TIMESTAMP DEFAULT NOW(),
+            updated_at        TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_bgm_group ON bgm_items(group_name)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_bgm_active ON bgm_items(is_active)`);
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS bgm_history (
+            id              SERIAL PRIMARY KEY,
+            item_id         INTEGER NOT NULL REFERENCES bgm_items(id) ON DELETE CASCADE,
+            action          TEXT NOT NULL,
+            changed_fields  JSONB DEFAULT '{}',
+            changed_by      INTEGER REFERENCES users(id),
+            changed_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_bgm_hist_iid ON bgm_history(item_id)`);
+    } catch(e) { console.error('[BGM Migration]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -644,6 +675,7 @@ async function start() {
     fastify.register(require('./routes/khovai'));
     fastify.register(require('./routes/nhacnho'));
     fastify.register(require('./routes/thongsoaomau'));
+    fastify.register(require('./routes/banggiamay'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login

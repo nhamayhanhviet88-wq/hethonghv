@@ -55,7 +55,7 @@ async function switchCdsxTab(tab, el) {
             _cdsxLoadShell(content, '💰', 'Lương Sản Xuất', 'Cấu hình bảng lương cho công nhân sản xuất');
             break;
         case 'bang-gia':
-            _cdsxLoadShell(content, '💲', 'Bảng Giá May', 'Cấu hình bảng giá may cho từng loại sản phẩm');
+            await _cdsxLoadBangGia(content);
             break;
         case 'nhac-nho':
             await _cdsxLoadNhacNho(content);
@@ -303,4 +303,175 @@ async function _nnSaveForm(editId) {
     closeModal();
     await _nnLoadAll();
     showToast(editId ? '✅ Đã cập nhật' : '✅ Đã tạo nhắc nhở mới');
+}
+
+// ===================================================================
+// ========== BẢNG GIÁ MAY TAB ==========
+// ===================================================================
+var _bgm = { items: [], groups: [], total: 0, filter: 'all', search: '' };
+var _bgmFmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+var _bgmRoleMap = { giam_doc: 'AD', quan_ly_xuong: 'QLX', quan_ly_cap_cao: 'QLX', nhan_vien: 'SALE', truong_nhom: 'TN' };
+var _bgmRoleLabel = function(roles) {
+    if (!roles) return '—';
+    var arr = roles;
+    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch(e) { return '—'; } }
+    if (!Array.isArray(arr)) return '—';
+    return arr.map(function(r) { return _bgmRoleMap[r] || r; }).join(', ');
+};
+
+async function _cdsxLoadBangGia(content) {
+    content.innerHTML = '<div style="display:flex;gap:0;height:calc(100vh - 200px);min-height:400px">'
+        + '<div id="_bgmSidebar" style="width:200px;min-width:200px;background:#fff;border-right:1px solid #e2e8f0;display:flex;flex-direction:column">'
+        + '<div style="padding:12px 14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;font-size:13px">💲 Nhóm</div>'
+        + '<div id="_bgmSbList" style="flex:1;overflow-y:auto;padding:4px 0"></div></div>'
+        + '<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
+        + '<div style="padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e2e8f0;background:#eff6ff">'
+        + '<span style="font-weight:800;font-size:13px;color:#1e40af">💲 GIÁ MAY HV</span>'
+        + '<input type="text" id="_bgmSearch" placeholder="🔍 Tìm..." style="margin-left:8px;padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;width:180px">'
+        + '<span style="flex:1"></span>'
+        + '<button onclick="_bgmShowCreate()" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm Chi Tiết</button></div>'
+        + '<div id="_bgmTable" style="flex:1;overflow-y:auto;padding:0"></div></div></div>';
+    var _st; document.getElementById('_bgmSearch').addEventListener('input', function() { clearTimeout(_st); _st = setTimeout(function() { _bgm.search = document.getElementById('_bgmSearch')?.value || ''; _bgmRender(); }, 300); });
+    await _bgmLoadAll();
+}
+
+async function _bgmLoadAll() {
+    var res = await apiCall('/api/bgm/items');
+    _bgm.items = res.items || [];
+    var gRes = await apiCall('/api/bgm/groups');
+    _bgm.groups = gRes.groups || [];
+    _bgm.total = gRes.total || 0;
+    _bgmRenderSB();
+    _bgmRender();
+}
+
+function _bgmRenderSB() {
+    var sb = document.getElementById('_bgmSbList'); if (!sb) return;
+    var h = '<div onclick="_bgm.filter=\'all\';_bgmRenderSB();_bgmRender()" style="padding:10px 14px;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f8fafc;' + (_bgm.filter === 'all' ? 'background:#dbeafe;font-weight:800;border-left:3px solid #2563eb' : '') + '">'
+        + '<span>📋 Tất cả</span><span style="background:#2563eb;color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">' + _bgm.total + '</span></div>';
+    _bgm.groups.forEach(function(g) {
+        var act = _bgm.filter === g.group_name ? 'background:#dbeafe;font-weight:800;border-left:3px solid #2563eb' : '';
+        h += '<div onclick="_bgm.filter=\'' + g.group_name.replace(/'/g,"\\'") + '\';_bgmRenderSB();_bgmRender()" style="padding:10px 14px;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f8fafc;' + act + '">'
+            + '<span>🏷️ ' + g.group_name + '</span><span style="background:#f1f5f9;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">' + g.item_count + '</span></div>';
+    });
+    sb.innerHTML = h;
+}
+
+function _bgmRender() {
+    var el = document.getElementById('_bgmTable'); if (!el) return;
+    var filtered = _bgm.items;
+    if (_bgm.filter !== 'all') filtered = filtered.filter(function(i) { return i.group_name === _bgm.filter; });
+    if (_bgm.search) {
+        var q = _bgm.search.toLowerCase();
+        filtered = filtered.filter(function(i) { return i.name.toLowerCase().indexOf(q) >= 0 || i.group_name.toLowerCase().indexOf(q) >= 0; });
+    }
+    if (filtered.length === 0) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">Chưa có chi tiết may nào</div>'; return; }
+
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1e3a5f;color:#fff;position:sticky;top:0">'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px">TÊN</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:50px">ID</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px">TÊN CHI TIẾT</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:90px">NHÓM</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:110px">PHÂN QUYỀN</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:80px">LOẠI THÊM</th>'
+        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:90px">GIÁ</th>'
+        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:90px">GIÁ GC</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:150px">LỊCH SỬ CN</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:60px"></th>'
+        + '</tr></thead><tbody>';
+
+    filtered.forEach(function(item) {
+        var addLabel = item.add_type === 'once' ? '1 lần' : 'nhiều';
+        var displayName = item.name + ' - ' + (item.add_type === 'once' ? '1l' : 'n');
+        var addColor = item.add_type === 'once' ? '#059669' : '#f59e0b';
+        var lastUp = item.updated_at ? vnFormat(item.updated_at) : '—';
+        var creator = item.created_by_name ? '<br><span style="color:#2563eb;font-size:10px">' + item.created_by_name + '</span>' : '';
+        h += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
+            + '<td style="padding:8px;font-weight:700;color:#1e40af">' + displayName + '</td>'
+            + '<td style="padding:8px;text-align:center;color:#94a3b8">' + item.id + '</td>'
+            + '<td style="padding:8px;font-weight:600">' + item.name + '</td>'
+            + '<td style="padding:8px"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + item.group_name + '</span></td>'
+            + '<td style="padding:8px;font-size:11px;font-weight:600;color:#64748b">' + _bgmRoleLabel(item.allowed_roles) + '</td>'
+            + '<td style="padding:8px;text-align:center"><span style="background:' + addColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + addLabel + '</span></td>'
+            + '<td style="padding:8px;text-align:right;font-weight:700">' + _bgmFmt(item.factory_price) + '</td>'
+            + '<td style="padding:8px;text-align:right;font-weight:700">' + _bgmFmt(item.processing_price) + '</td>'
+            + '<td style="padding:8px;font-size:10px;color:#6b7280">' + lastUp + creator + '</td>'
+            + '<td style="padding:8px;text-align:center">'
+            + '<button onclick="_bgmShowEdit(' + item.id + ')" title="Sửa" style="background:none;border:none;cursor:pointer;font-size:14px">✏️</button>'
+            + '<button onclick="_bgmDelete(' + item.id + ')" title="Xóa" style="background:none;border:none;cursor:pointer;font-size:14px">🗑️</button>'
+            + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    el.innerHTML = h;
+}
+
+// ========== BGM CREATE / EDIT MODAL ==========
+function _bgmShowCreate() { _bgmShowForm(null); }
+function _bgmShowEdit(id) { var item = _bgm.items.find(function(x){return x.id===id;}); if (item) _bgmShowForm(item); }
+
+function _bgmShowForm(existing) {
+    var isEdit = !!existing;
+    var e = existing || {};
+    var roles = []; try { roles = typeof e.allowed_roles === 'string' ? JSON.parse(e.allowed_roles) : (e.allowed_roles || []); } catch(ex) {}
+    // Build group datalist from existing groups
+    var groupOpts = _bgm.groups.map(function(g) { return '<option value="' + g.group_name + '">'; }).join('');
+    var rq = '<span style="color:red">*</span>';
+    var roleChecks = [
+        { val: 'giam_doc', label: 'AD (Giám Đốc)' },
+        { val: 'quan_ly_xuong', label: 'QLX (Quản Lý Xưởng)' },
+        { val: 'nhan_vien', label: 'SALE (Nhân Viên)' }
+    ].map(function(r) {
+        var checked = roles.indexOf(r.val) >= 0 ? ' checked' : '';
+        return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="_bgmRoleCb" value="' + r.val + '"' + checked + '> ' + r.label + '</label>';
+    }).join('');
+
+    var body = '<div style="display:grid;gap:12px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        + '<div><label style="font-weight:700;font-size:12px">Tên Chi Tiết ' + rq + '</label><input id="_bgmFName" class="form-control" value="' + (e.name || '') + '" placeholder="VD: Cổ bẻ dệt"></div>'
+        + '<div><label style="font-weight:700;font-size:12px">Nhóm ' + rq + '</label><input id="_bgmFGroup" class="form-control" list="_bgmGroupList" value="' + (e.group_name || '') + '" placeholder="VD: Cổ, Tạp Dề, Mác..."><datalist id="_bgmGroupList">' + groupOpts + '</datalist></div>'
+        + '</div>'
+        + '<div><label style="font-weight:700;font-size:12px">Phân Quyền ' + rq + '</label><div style="display:flex;gap:16px;margin-top:4px">' + roleChecks + '</div></div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+        + '<div><label style="font-weight:700;font-size:12px">Loại Thêm ' + rq + '</label><select id="_bgmFAddType" class="form-control"><option value="once"' + (e.add_type === 'once' || !e.add_type ? ' selected' : '') + '>1 lần</option><option value="multi"' + (e.add_type === 'multi' ? ' selected' : '') + '>Nhiều lần</option></select></div>'
+        + '<div><label style="font-weight:700;font-size:12px">Giá Nhà May ' + rq + '</label><input type="number" id="_bgmFPrice" class="form-control" value="' + (e.factory_price || 0) + '" min="0"></div>'
+        + '<div><label style="font-weight:700;font-size:12px">Giá Gia Công ' + rq + '</label><input type="number" id="_bgmFPriceGC" class="form-control" value="' + (e.processing_price || 0) + '" min="0"></div>'
+        + '</div></div>';
+
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" onclick="_bgmSaveForm(' + (isEdit ? e.id : 'null') + ')" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">' + (isEdit ? '💾 Cập Nhật' : '➕ Tạo Mới') + '</button>';
+
+    openModal((isEdit ? '✏️ Sửa: ' + e.name : '➕ Thêm Chi Tiết May'), body, footer);
+}
+
+async function _bgmSaveForm(editId) {
+    var name = document.getElementById('_bgmFName')?.value?.trim();
+    var group_name = document.getElementById('_bgmFGroup')?.value?.trim();
+    var add_type = document.getElementById('_bgmFAddType')?.value;
+    var factory_price = document.getElementById('_bgmFPrice')?.value;
+    var processing_price = document.getElementById('_bgmFPriceGC')?.value;
+    var roleCbs = document.querySelectorAll('._bgmRoleCb:checked');
+    var allowed_roles = [];
+    roleCbs.forEach(function(cb) { allowed_roles.push(cb.value); });
+
+    if (!name) { showToast('Nhập Tên chi tiết', 'error'); return; }
+    if (!group_name) { showToast('Nhập Nhóm', 'error'); return; }
+    if (allowed_roles.length === 0) { showToast('Chọn ít nhất 1 Phân Quyền', 'error'); return; }
+    if (!factory_price && factory_price !== 0) { showToast('Nhập Giá Nhà May', 'error'); return; }
+    if (!processing_price && processing_price !== 0) { showToast('Nhập Giá Gia Công', 'error'); return; }
+
+    var data = { name: name, group_name: group_name, add_type: add_type, factory_price: Number(factory_price), processing_price: Number(processing_price), allowed_roles: allowed_roles };
+
+    var res;
+    if (editId) { res = await apiCall('/api/bgm/items/' + editId, 'PUT', data); }
+    else { res = await apiCall('/api/bgm/items', 'POST', data); }
+
+    if (res.success) { showToast('✅ ' + (editId ? 'Đã cập nhật' : 'Đã tạo')); closeModal(); await _bgmLoadAll(); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+async function _bgmDelete(id) {
+    if (!confirm('Xóa chi tiết may này?')) return;
+    var res = await apiCall('/api/bgm/items/' + id, 'DELETE');
+    if (res.success) { showToast('🗑️ Đã xóa'); await _bgmLoadAll(); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
 }
