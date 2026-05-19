@@ -24,6 +24,13 @@ async function _cdkLoadWarehouses() {
 function _cdkRenderCol1() {
     var col = document.getElementById('cdkCol1'); if (!col) return;
     var h = '<div class="cdk-col-head"><span>🏭 KHO (' + _cdk.warehouses.length + ')</span></div>';
+    if (_cdk.warehouses.length) {
+        h += '<div class="cdk-bulk-bar" style="display:flex;gap:4px;padding:4px 8px;background:#f8fafc;border-bottom:1px solid #e2e8f0">';
+        h += '<button onclick="_cdkBulkToggleWh(true)" class="cdk-btn-sm" style="background:#059669;color:#fff;padding:4px 8px;font-size:10px" title="Bật tất cả">✅ Chọn tất cả</button>';
+        h += '<button onclick="_cdkBulkToggleWh(false)" class="cdk-btn-sm" style="background:#6b7280;color:#fff;padding:4px 8px;font-size:10px" title="Tắt tất cả">⬜ Bỏ chọn tất cả</button>';
+        h += '<button onclick="_cdkBulkDeleteWh()" class="cdk-btn-sm" style="background:#dc2626;color:#fff;padding:4px 8px;font-size:10px;margin-left:auto" title="Xóa tất cả">🗑️ Xóa tất cả</button>';
+        h += '</div>';
+    }
     h += '<div class="cdk-add-form"><div style="display:flex;gap:6px">'
         + '<input type="text" id="cdkNewWhName" class="form-control" placeholder="Tên kho mới" style="flex:1;padding:8px;font-size:12px">'
         + '<input type="text" id="cdkNewWhUnit" class="form-control" placeholder="ĐVT" style="width:60px;padding:8px;font-size:12px">'
@@ -82,6 +89,25 @@ async function _cdkDeleteWh(id) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
+async function _cdkBulkToggleWh(newState) {
+    try {
+        await apiCall('/api/khovai/warehouses/bulk/toggle', 'PUT', { is_active: newState });
+        showToast(newState ? '✅ Đã bật tất cả kho' : '⬜ Đã tắt tất cả kho');
+        await _cdkLoadWarehouses();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _cdkBulkDeleteWh() {
+    if (!confirm('⚠️ XÓA TẤT CẢ KHO?\nHành động này sẽ xóa toàn bộ kho, chất liệu, màu và dữ liệu liên quan!\nKhông thể hoàn tác!')) return;
+    if (!confirm('❗ XÁC NHẬN LẦN 2: Bạn chắc chắn muốn xóa TẤT CẢ?')) return;
+    try {
+        await apiCall('/api/khovai/warehouses/bulk/delete', 'DELETE');
+        showToast('🗑️ Đã xóa tất cả kho');
+        _cdk.selWid = null; _cdk.selMid = null;
+        await _cdkLoadWarehouses();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
 function _cdkSelectWh(wid) {
     _cdk.selWid = wid; _cdk.selMid = null;
     _cdkRenderCol1();
@@ -108,6 +134,13 @@ function _cdkRenderCol2() {
     var wh = _cdk.warehouses.find(function(w) { return w.id === _cdk.selWid; });
     var whName = wh ? wh.name : '';
     var h = '<div class="cdk-col-head col2"><span>🧵 CHẤT LIỆU — ' + whName + ' (' + _cdk.materials.length + ')</span></div>';
+    if (_cdk.materials.length) {
+        h += '<div class="cdk-bulk-bar" style="display:flex;gap:4px;padding:4px 8px;background:#faf5ff;border-bottom:1px solid #e9d5ff">';
+        h += '<button onclick="_cdkBulkToggleMat(true)" class="cdk-btn-sm" style="background:#059669;color:#fff;padding:4px 8px;font-size:10px" title="Bật tất cả">✅ Chọn tất cả</button>';
+        h += '<button onclick="_cdkBulkToggleMat(false)" class="cdk-btn-sm" style="background:#6b7280;color:#fff;padding:4px 8px;font-size:10px" title="Tắt tất cả">⬜ Bỏ chọn tất cả</button>';
+        h += '<button onclick="_cdkBulkDeleteMat()" class="cdk-btn-sm" style="background:#dc2626;color:#fff;padding:4px 8px;font-size:10px;margin-left:auto" title="Xóa tất cả">🗑️ Xóa tất cả</button>';
+        h += '</div>';
+    }
     h += '<div class="cdk-add-form" style="background:#f5f3ff"><div style="display:flex;gap:6px">'
         + '<input type="text" id="cdkNewMatName" class="form-control" placeholder="Tên chất liệu mới" style="flex:1;padding:8px;font-size:12px">'
         + '<button onclick="_cdkCreateMat()" class="cdk-btn-sm" style="background:#7c3aed;color:#fff;padding:8px 12px">Tạo</button>'
@@ -162,6 +195,24 @@ async function _cdkDeleteMat(id) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
+async function _cdkBulkToggleMat(newState) {
+    try {
+        await apiCall('/api/khovai/materials/bulk/toggle', 'PUT', { warehouse_id: _cdk.selWid, is_active: newState });
+        showToast(newState ? '✅ Đã bật tất cả chất liệu' : '⬜ Đã tắt tất cả chất liệu');
+        await _cdkLoadMaterials();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _cdkBulkDeleteMat() {
+    if (!confirm('⚠️ XÓA TẤT CẢ CHẤT LIỆU trong kho này?\nTất cả màu vải và dữ liệu liên quan cũng sẽ bị xóa!\nKhông thể hoàn tác!')) return;
+    try {
+        await apiCall('/api/khovai/materials/bulk/delete', 'DELETE', { warehouse_id: _cdk.selWid });
+        showToast('🗑️ Đã xóa tất cả chất liệu');
+        _cdk.selMid = null;
+        await _cdkLoadMaterials();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
 function _cdkSelectMat(mid) {
     _cdk.selMid = mid;
     _cdkRenderCol2();
@@ -187,6 +238,13 @@ function _cdkRenderCol3() {
     var mat = _cdk.materials.find(function(m) { return m.id === _cdk.selMid; });
     var matName = mat ? mat.name : '';
     var h = '<div class="cdk-col-head col3"><span>🎨 MÀU — ' + matName + ' (' + _cdk.colors.length + ')</span></div>';
+    if (_cdk.colors.length) {
+        h += '<div class="cdk-bulk-bar" style="display:flex;gap:4px;padding:4px 8px;background:#eff6ff;border-bottom:1px solid #bfdbfe">';
+        h += '<button onclick="_cdkBulkToggleColor(true)" class="cdk-btn-sm" style="background:#059669;color:#fff;padding:4px 8px;font-size:10px" title="Bật tất cả">✅ Chọn tất cả</button>';
+        h += '<button onclick="_cdkBulkToggleColor(false)" class="cdk-btn-sm" style="background:#6b7280;color:#fff;padding:4px 8px;font-size:10px" title="Tắt tất cả">⬜ Bỏ chọn tất cả</button>';
+        h += '<button onclick="_cdkBulkDeleteColor()" class="cdk-btn-sm" style="background:#dc2626;color:#fff;padding:4px 8px;font-size:10px;margin-left:auto" title="Xóa tất cả">🗑️ Xóa tất cả</button>';
+        h += '</div>';
+    }
 
     // Single add form
     h += '<div class="cdk-add-form" style="background:#eff6ff"><div style="display:flex;gap:6px">'
@@ -255,6 +313,23 @@ async function _cdkDeleteColor(id) {
     try {
         await apiCall('/api/khovai/colors/' + id, 'DELETE');
         showToast('🗑️ Đã xóa');
+        await _cdkLoadColors();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _cdkBulkToggleColor(newState) {
+    try {
+        await apiCall('/api/khovai/colors/bulk/toggle', 'PUT', { material_id: _cdk.selMid, is_active: newState });
+        showToast(newState ? '✅ Đã bật tất cả màu' : '⬜ Đã tắt tất cả màu');
+        await _cdkLoadColors();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _cdkBulkDeleteColor() {
+    if (!confirm('⚠️ XÓA TẤT CẢ MÀU trong chất liệu này?\nTất cả dữ liệu giao dịch liên quan cũng sẽ bị xóa!\nKhông thể hoàn tác!')) return;
+    try {
+        await apiCall('/api/khovai/colors/bulk/delete', 'DELETE', { material_id: _cdk.selMid });
+        showToast('🗑️ Đã xóa tất cả màu');
         await _cdkLoadColors();
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
