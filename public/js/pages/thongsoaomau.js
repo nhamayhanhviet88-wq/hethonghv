@@ -389,6 +389,11 @@ async function _tsamOpenBgmPicker() {
     };
 
     var search = '<input type="text" id="_bgmPickerSearch" placeholder="🔍 Tìm tên chi tiết..." style="width:100%;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;margin-bottom:8px">';
+    var totalBar = '<div id="_bgmPickerTotals" style="display:flex;gap:12px;padding:6px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin-bottom:8px;font-size:11px;font-weight:700;align-items:center">'
+        + '<span style="flex:1;color:#64748b">💰 Tổng:</span>'
+        + '<span style="color:#059669">NM: <span id="_bgmTotalFP">0</span></span>'
+        + '<span style="color:#2563eb">GC: <span id="_bgmTotalPP">0</span></span>'
+        + '</div>';
     var legend = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:10px;padding:0 8px;align-items:center">'
         + '<span style="font-weight:700;color:#64748b;flex:1">Chi tiết</span>'
         + '<span style="color:#dc2626;font-weight:700">🔒 Chỉ 1</span>'
@@ -400,7 +405,7 @@ async function _tsamOpenBgmPicker() {
 
     var footer = '<button class="btn btn-secondary" onclick="_tsamCloseBgmPicker()">Hủy</button>'
         + '<button class="btn" onclick="_tsamApplyBgm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">✅ Xác Nhận</button>';
-    openModal('✂️ Chọn Kỹ Thuật May', search + legend + listContainer, footer);
+    openModal('✂️ Chọn Kỹ Thuật May', search + totalBar + legend + listContainer, footer);
 
     // Render initial list
     _tsamRenderBgmList('');
@@ -462,9 +467,9 @@ function _tsamRenderBgmList(query) {
             var checked = existIds.indexOf(item.id) >= 0;
             var inputHtml;
             if (isOnce) {
-                inputHtml = '<input type="radio" name="_bgmGrp_' + safeName + '" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="once" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">';
+                inputHtml = '<input type="radio" name="_bgmGrp_' + safeName + '" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="once" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' onchange="_bgmUpdateTotals()" style="cursor:pointer">';
             } else {
-                inputHtml = '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="multi" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">';
+                inputHtml = '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="multi" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' onchange="_bgmUpdateTotals()" style="cursor:pointer">';
             }
             h += '<label style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;cursor:pointer;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'
                 + inputHtml
@@ -478,8 +483,25 @@ function _tsamRenderBgmList(query) {
     if (allItems.length === 0) h = '<div style="text-align:center;padding:20px;color:#94a3b8">Chưa có chi tiết may nào trong Bảng Giá May</div>';
 
     wrap.innerHTML = '<div style="max-height:55vh;overflow-y:auto">' + h + '</div>';
+    _bgmUpdateTotals();
 }
 
+function _bgmUpdateTotals() {
+    var cbs = document.querySelectorAll('._bgmCb:checked');
+    var fp = 0, pp = 0;
+    cbs.forEach(function(cb) { fp += Number(cb.dataset.fp) || 0; pp += Number(cb.dataset.pp) || 0; });
+    // Also add hidden items (filtered out by search but still selected)
+    var prev = window._bgmPickerExisting || [];
+    var visibleIds = {};
+    document.querySelectorAll('._bgmCb').forEach(function(cb) { visibleIds[Number(cb.dataset.id)] = true; });
+    prev.forEach(function(p) {
+        if (!visibleIds[p.id]) { fp += Number(p.fp) || 0; pp += Number(p.pp) || 0; }
+    });
+    var fpEl = document.getElementById('_bgmTotalFP');
+    var ppEl = document.getElementById('_bgmTotalPP');
+    if (fpEl) fpEl.textContent = Number(fp).toLocaleString('vi-VN');
+    if (ppEl) ppEl.textContent = Number(pp).toLocaleString('vi-VN');
+}
 function _tsamSaveBgmChecked() {
     var cbs = document.querySelectorAll('._bgmCb:checked');
     var items = [];
