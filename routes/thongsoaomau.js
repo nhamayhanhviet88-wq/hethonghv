@@ -346,4 +346,53 @@ module.exports = async function(fastify) {
 
         return { categories: cats, total: total || { total: 0, approved: 0, pending: 0 } };
     });
+
+    // ========== MIX POSITIONS — Master Data CRUD ==========
+
+    // LIST active mix positions (for dropdown/picker)
+    fastify.get('/api/tsam/mix-positions', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all('SELECT * FROM tsam_mix_positions WHERE is_active = true ORDER BY display_order ASC, id ASC');
+        return { positions: rows };
+    });
+
+    // LIST all mix positions (for admin settings)
+    fastify.get('/api/tsam/mix-positions/all', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all('SELECT * FROM tsam_mix_positions ORDER BY display_order ASC, id ASC');
+        return { positions: rows };
+    });
+
+    // CREATE mix position
+    fastify.post('/api/tsam/mix-positions', { preHandler: [authenticate] }, async (request, reply) => {
+        const { name } = request.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Nhập tên vị trí phối' });
+        const dup = await db.get('SELECT id FROM tsam_mix_positions WHERE LOWER(name) = LOWER($1)', [name.trim()]);
+        if (dup) return reply.code(409).send({ error: `"${name.trim()}" đã tồn tại` });
+        const mx = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM tsam_mix_positions');
+        const row = await db.get('INSERT INTO tsam_mix_positions (name, display_order) VALUES ($1, $2) RETURNING *', [name.trim(), (mx?.mx || 0) + 1]);
+        return { success: true, position: row };
+    });
+
+    // UPDATE mix position
+    fastify.put('/api/tsam/mix-positions/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const { name, is_active } = request.body || {};
+        const old = await db.get('SELECT * FROM tsam_mix_positions WHERE id = $1', [id]);
+        if (!old) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const updates = [];
+        const params = [];
+        let idx = 1;
+        if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name.trim()); }
+        if (is_active !== undefined) { updates.push(`is_active = $${idx++}`); params.push(is_active); }
+        if (!updates.length) return reply.code(400).send({ error: 'Không có gì để cập nhật' });
+        params.push(id);
+        await db.run(`UPDATE tsam_mix_positions SET ${updates.join(', ')} WHERE id = $${idx}`, params);
+        return { success: true };
+    });
+
+    // DELETE mix position
+    fastify.delete('/api/tsam/mix-positions/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        await db.run('DELETE FROM tsam_mix_positions WHERE id = $1', [id]);
+        return { success: true };
+    });
 };

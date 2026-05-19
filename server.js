@@ -542,6 +542,15 @@ async function start() {
 
         // v2: Add spec_image column for Ctrl+V pasteable specification image
         try { await db.exec(`ALTER TABLE tsam_samples ADD COLUMN spec_image TEXT`); } catch(e) { /* column already exists */ }
+
+        // v3: Mix Positions master data for Pha Phối
+        await db.exec(`CREATE TABLE IF NOT EXISTS tsam_mix_positions (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT NOT NULL,
+            is_active       BOOLEAN DEFAULT true,
+            display_order   INTEGER DEFAULT 0,
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
     } catch(e) { console.error('[TSAM Migration]', e.message); }
 
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog

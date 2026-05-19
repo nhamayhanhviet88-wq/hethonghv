@@ -14,6 +14,7 @@ async function renderCaidatsanxuatPage(container) {
                     <div class="tab" data-tab="kho-vai" onclick="switchCdsxTab('kho-vai', this)">🏬 Kho Vải</div>
                     <div class="tab" data-tab="luong-sx" onclick="switchCdsxTab('luong-sx', this)">💰 Lương Sản Xuất</div>
                     <div class="tab" data-tab="bang-gia" onclick="switchCdsxTab('bang-gia', this)">💲 Bảng Giá May</div>
+                    <div class="tab" data-tab="vi-tri-phoi" onclick="switchCdsxTab('vi-tri-phoi', this)">📌 Vị Trí Phối</div>
                     <div class="tab" data-tab="nhac-nho" onclick="switchCdsxTab('nhac-nho', this)">🔔 Nhắc Nhở Công Việc</div>
                 </div>
                 <div id="cdsxContent">
@@ -56,6 +57,9 @@ async function switchCdsxTab(tab, el) {
             break;
         case 'bang-gia':
             await _cdsxLoadBangGia(content);
+            break;
+        case 'vi-tri-phoi':
+            await _cdsxLoadViTriPhoi(content);
             break;
         case 'nhac-nho':
             await _cdsxLoadNhacNho(content);
@@ -672,4 +676,93 @@ async function _bgmSubmitBulk() {
         closeModal();
         await _bgmLoadAll();
     } else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+// ========== VỊ TRÍ PHỐI TAB ==========
+var _vtpData = [];
+
+async function _cdsxLoadViTriPhoi(content) {
+    content.innerHTML = '<div style="max-width:700px;margin:0 auto;padding:16px 0">'
+        + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+        + '<h4 style="margin:0;color:#7c3aed">📌 Vị Trí Phối</h4>'
+        + '<span style="font-size:11px;color:#94a3b8">Quản lý các vị trí phối cho mẫu áo Pha Phối</span>'
+        + '<div style="margin-left:auto"><button class="btn" onclick="_vtpShowAdd()" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">➕ Thêm</button></div>'
+        + '</div>'
+        + '<div class="card"><div class="card-body" style="padding:8px"><table class="tsam-tbl" style="width:100%"><thead><tr>'
+        + '<th style="text-align:center;width:50px">STT</th>'
+        + '<th style="text-align:center">Tên Vị Trí</th>'
+        + '<th style="text-align:center;width:100px">Trạng Thái</th>'
+        + '<th style="text-align:center;width:120px">Thao Tác</th>'
+        + '</tr></thead><tbody id="_vtpTbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:#94a3b8">⏳</td></tr></tbody></table></div></div></div>';
+    await _vtpLoad();
+}
+
+async function _vtpLoad() {
+    var res = await apiCall('/api/tsam/mix-positions/all');
+    _vtpData = res.positions || [];
+    var tbody = document.getElementById('_vtpTbody');
+    if (!tbody) return;
+    if (!_vtpData.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:#94a3b8"><div style="font-size:24px;margin-bottom:4px">📌</div>Chưa có vị trí phối nào</td></tr>';
+        return;
+    }
+    tbody.innerHTML = _vtpData.map(function(p, i) {
+        var stColor = p.is_active ? '#059669' : '#dc2626';
+        var stLabel = p.is_active ? '✅ Hoạt động' : '❌ Tắt';
+        return '<tr>'
+            + '<td style="text-align:center;color:#94a3b8">' + (i + 1) + '</td>'
+            + '<td style="text-align:center;font-weight:700">' + p.name + '</td>'
+            + '<td style="text-align:center"><span style="color:' + stColor + ';font-weight:700;font-size:11px;cursor:pointer" onclick="_vtpToggle(' + p.id + ',' + !p.is_active + ')">' + stLabel + '</span></td>'
+            + '<td style="text-align:center">'
+            + '<button onclick="_vtpEdit(' + p.id + ')" style="background:#3b82f6;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-right:4px">✏️</button>'
+            + '<button onclick="_vtpDelete(' + p.id + ')" style="background:#dc2626;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer">🗑️</button>'
+            + '</td></tr>';
+    }).join('');
+}
+
+function _vtpShowAdd() {
+    var body = '<div class="form-group"><label>Tên Vị Trí Phối <span style="color:red">*</span></label>'
+        + '<input id="_vtpName" class="form-control" placeholder="VD: Thân Trước, Tay, Vai..."></div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" onclick="_vtpSave()" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">💾 Lưu</button>';
+    openModal('➕ Thêm Vị Trí Phối', body, footer);
+}
+
+async function _vtpSave() {
+    var name = document.getElementById('_vtpName')?.value?.trim();
+    if (!name) { showToast('Nhập tên vị trí', 'error'); return; }
+    var res = await apiCall('/api/tsam/mix-positions', 'POST', { name: name });
+    if (res.success) { showToast('✅ Đã thêm'); closeModal(); await _vtpLoad(); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+function _vtpEdit(id) {
+    var p = _vtpData.find(function(x) { return x.id === id; });
+    if (!p) return;
+    var body = '<div class="form-group"><label>Tên Vị Trí Phối <span style="color:red">*</span></label>'
+        + '<input id="_vtpName" class="form-control" value="' + p.name + '"></div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" onclick="_vtpUpdate(' + id + ')" style="background:#f59e0b;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">💾 Cập Nhật</button>';
+    openModal('✏️ Sửa Vị Trí Phối', body, footer);
+}
+
+async function _vtpUpdate(id) {
+    var name = document.getElementById('_vtpName')?.value?.trim();
+    if (!name) { showToast('Nhập tên vị trí', 'error'); return; }
+    var res = await apiCall('/api/tsam/mix-positions/' + id, 'PUT', { name: name });
+    if (res.success) { showToast('✅ Đã cập nhật'); closeModal(); await _vtpLoad(); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+async function _vtpToggle(id, active) {
+    var res = await apiCall('/api/tsam/mix-positions/' + id, 'PUT', { is_active: active });
+    if (res.success) { showToast(active ? '✅ Đã bật' : '❌ Đã tắt'); await _vtpLoad(); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+async function _vtpDelete(id) {
+    if (!confirm('Xóa vị trí phối này?')) return;
+    var res = await apiCall('/api/tsam/mix-positions/' + id, 'DELETE');
+    if (res.success) { showToast('🗑️ Đã xóa'); await _vtpLoad(); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
 }

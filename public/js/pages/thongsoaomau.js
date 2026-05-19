@@ -113,6 +113,9 @@ function _tsamShowCreate(editId) {
         + '<div class="form-group"><label>Loại ' + rq + '</label><select id="_tsamType" class="form-control" onchange="_tsamTypeChanged()"><option value="DON"' + (curType === 'DON' ? ' selected' : '') + '>Đơn</option><option value="PHA_PHOI"' + (curType === 'PHA_PHOI' ? ' selected' : '') + '>Pha Phối</option><option value="3D"' + (curType === '3D' ? ' selected' : '') + '>3D</option></select></div>'
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
         + '</div>'
+        // === MIX POSITION PICKER (only for PHA_PHOI) ===
+        + '<div id="_tsamMixPosWrap" style="margin-top:8px;display:' + (curType === 'PHA_PHOI' ? 'block' : 'none') + '"><div class="form-group"><label>📌 Vị Trí Phối ' + rq + '</label>'
+        + '<div id="_tsamMixPosList" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;min-height:36px"><span style="color:#94a3b8;font-size:11px">Đang tải...</span></div></div></div>'
         // === IMAGE PASTE AREA (full width) ===
         + '<div class="form-group" style="margin-top:8px"><label>📷 Hình Ảnh Thông Số ' + rq + ' <span style="font-size:10px;color:#3b82f6">Ctrl+V để dán ảnh</span></label>'
         + '<div id="_tsamPasteZone" tabindex="0" style="border:2px dashed ' + (s.spec_image ? '#059669' : '#cbd5e1') + ';border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:' + (s.spec_image ? '#f0fdf4' : '#f8fafc') + ';transition:all .2s;outline:none;position:relative">'
@@ -146,6 +149,7 @@ function _tsamShowCreate(editId) {
             zone.addEventListener('click', function() { this.focus(); });
         }
         _tsamRenderSewTags();
+        _tsamLoadMixPositions(s);
     }, 100);
 }
 
@@ -164,6 +168,40 @@ function _tsamTypeChanged() {
         if (Number(inp.value) < 2) inp.value = 2;
         if (hint) { hint.textContent = '✏️ Nhập ≥ 2'; hint.style.color = '#f59e0b'; }
     }
+    // Toggle mix position picker visibility
+    var wrap = document.getElementById('_tsamMixPosWrap');
+    if (wrap) wrap.style.display = (type === 'PHA_PHOI') ? 'block' : 'none';
+}
+
+// ========== MIX POSITION LOADER ==========
+async function _tsamLoadMixPositions(existingSample) {
+    var list = document.getElementById('_tsamMixPosList');
+    if (!list) return;
+    var res = await apiCall('/api/tsam/mix-positions');
+    var positions = res.positions || [];
+    if (!positions.length) {
+        list.innerHTML = '<span style="color:#f59e0b;font-size:11px">⚠️ Chưa setup vị trí phối trong Cài Đặt Sản Xuất</span>';
+        return;
+    }
+    // Parse existing mix_positions
+    var existing = [];
+    try { existing = typeof existingSample.mix_positions === 'string' ? JSON.parse(existingSample.mix_positions) : (existingSample.mix_positions || []); } catch(e) {}
+    var h = '';
+    positions.forEach(function(p) {
+        var checked = existing.indexOf(p.name) >= 0;
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:' + (checked ? '#ede9fe' : '#fff') + ';border:1px solid ' + (checked ? '#7c3aed' : '#e2e8f0') + ';border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all .2s">'
+            + '<input type="checkbox" class="_tsamMixCb" value="' + p.name + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">'
+            + ' ' + p.name + '</label>';
+    });
+    list.innerHTML = h;
+    // Add visual feedback on change
+    list.querySelectorAll('._tsamMixCb').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var lbl = this.parentElement;
+            if (this.checked) { lbl.style.background = '#ede9fe'; lbl.style.borderColor = '#7c3aed'; }
+            else { lbl.style.background = '#fff'; lbl.style.borderColor = '#e2e8f0'; }
+        });
+    });
 }
 
 // ========== IMAGE PASTE HANDLER ==========
@@ -208,6 +246,7 @@ async function _tsamSubmit(editId) {
         sample_code: document.getElementById('_tsamCode')?.value?.trim(),
         sample_type: document.getElementById('_tsamType')?.value || 'DON',
         mix_color_count: document.getElementById('_tsamMixCount')?.value || 0,
+        mix_positions: [],
         collection: document.getElementById('_tsamCollection')?.value?.trim() || '',
         design_market: document.getElementById('_tsamMarket')?.value?.trim() || '',
         total_sample: document.getElementById('_tsamTotal')?.value?.trim() || '',
@@ -217,6 +256,8 @@ async function _tsamSubmit(editId) {
         factory_price: autoFP,
         processing_price: autoPP
     };
+    // Collect mix positions from checkboxes
+    document.querySelectorAll('._tsamMixCb:checked').forEach(function(cb) { data.mix_positions.push(cb.value); });
     // === Client-side validation ===
     if (!data.category_id) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     if (!data.sample_code) { showToast('Nhập Mã Mẫu', 'error'); return; }
@@ -230,6 +271,7 @@ async function _tsamSubmit(editId) {
     if (!urlRe.test(data.sample_care)) { showToast('Dưỡng Áo Mẫu phải là link (https://...)', 'error'); return; }
     if (sewArr.length === 0) { showToast('Chọn Kỹ Thuật May từ Bảng Giá May', 'error'); return; }
     if (data.sample_type === 'PHA_PHOI' && Number(data.mix_color_count) < 2) { showToast('Pha Phối phải có ≥ 2 màu', 'error'); return; }
+    if (data.sample_type === 'PHA_PHOI' && data.mix_positions.length === 0) { showToast('Chọn ít nhất 1 Vị Trí Phối', 'error'); return; }
     var res;
     if (editId) { res = await apiCall('/api/tsam/samples/' + editId, 'PUT', data); }
     else { res = await apiCall('/api/tsam/samples', 'POST', data); }
