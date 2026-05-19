@@ -328,6 +328,22 @@ module.exports = async function(fastify) {
                     Number(item.item_total) || 0
                 ]);
             }
+
+            // Auto-link TSAM: create tsam_order_links for each pattern_name
+            const linkedPatterns = new Set();
+            for (const item of b.items) {
+                if (item.pattern_name && !linkedPatterns.has(item.pattern_name)) {
+                    linkedPatterns.add(item.pattern_name);
+                    try {
+                        const sample = await db.get('SELECT id FROM tsam_samples WHERE sample_code = $1 AND is_active = true', [item.pattern_name]);
+                        if (sample) {
+                            await db.run(`INSERT INTO tsam_order_links (sample_id, dht_order_id, dht_order_code, linked_by)
+                                VALUES ($1, $2, $3, $4) ON CONFLICT (sample_id, dht_order_id) DO NOTHING`,
+                                [sample.id, result.id, b.order_code.trim(), request.user.id]);
+                        }
+                    } catch(linkErr) { /* ignore link errors */ }
+                }
+            }
         }
 
         return { success: true, order: result };

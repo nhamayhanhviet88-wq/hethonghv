@@ -352,7 +352,11 @@ async function _dhtAddItem(editIdx) {
     var saleItems=(po.sale_types||[]).map(function(o){return{text:o.name,value:o.id};});
     var prodItems=[];// products loaded dynamically after sale_type selection
     var matItems=[];// materials loaded dynamically after product selection
-    var patItems=(po.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
+    // Load patterns from TSAM (approved samples) instead of legacy dht_settings_options
+    var _tsamPatRes; try { _tsamPatRes = await apiCall('/api/tsam/dropdown'); } catch(e) { _tsamPatRes = {}; }
+    var patItems=(_tsamPatRes.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
+    // Fallback: also include legacy patterns if any
+    (po.patterns||[]).forEach(function(o){ if(!patItems.some(function(p){return p.value===o.name;})) patItems.push({text:o.name,value:o.name}); });
     // Nhắc nhở: load ALL active reminders
     var _nnAllList=[];
     try {

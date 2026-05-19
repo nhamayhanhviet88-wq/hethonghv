@@ -487,6 +487,60 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_rh_rid ON reminder_history(reminder_id)`);
     } catch(e) { console.error('[Reminder Migration]', e.message); }
 
+    // Migration: Thông Số Áo Mẫu (TSAM) — Sample Shirt Specifications
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS tsam_samples (
+            id                SERIAL PRIMARY KEY,
+            category_id       INTEGER REFERENCES dht_categories(id),
+            sample_code       TEXT NOT NULL UNIQUE,
+            sample_type       TEXT NOT NULL DEFAULT 'DON'
+                              CHECK (sample_type IN ('PHA_PHOI', '3D', 'DON')),
+            mix_positions     JSONB DEFAULT '[]',
+            mix_color_count   INTEGER DEFAULT 0,
+            collection        TEXT,
+            design_market     TEXT,
+            total_sample      TEXT,
+            sample_care       TEXT,
+            sewing_tech       JSONB DEFAULT '[]',
+            factory_price     NUMERIC DEFAULT 0,
+            processing_price  NUMERIC DEFAULT 0,
+            approval_status   TEXT DEFAULT 'PENDING'
+                              CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED')),
+            approved_by       INTEGER REFERENCES users(id),
+            approved_at       TIMESTAMP,
+            is_active         BOOLEAN DEFAULT true,
+            display_order     INTEGER DEFAULT 0,
+            created_by        INTEGER REFERENCES users(id),
+            created_at        TIMESTAMP DEFAULT NOW(),
+            updated_at        TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_category ON tsam_samples(category_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_code ON tsam_samples(sample_code)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_status ON tsam_samples(approval_status)`);
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS tsam_history (
+            id              SERIAL PRIMARY KEY,
+            sample_id       INTEGER NOT NULL REFERENCES tsam_samples(id) ON DELETE CASCADE,
+            action          TEXT NOT NULL,
+            changed_fields  JSONB DEFAULT '{}',
+            changed_by      INTEGER REFERENCES users(id),
+            changed_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_hist_sid ON tsam_history(sample_id)`);
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS tsam_order_links (
+            id              SERIAL PRIMARY KEY,
+            sample_id       INTEGER NOT NULL REFERENCES tsam_samples(id) ON DELETE CASCADE,
+            dht_order_id    INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            dht_order_code  TEXT,
+            linked_at       TIMESTAMP DEFAULT NOW(),
+            linked_by       INTEGER REFERENCES users(id),
+            UNIQUE(sample_id, dht_order_id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_ol_sid ON tsam_order_links(sample_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_ol_oid ON tsam_order_links(dht_order_id)`);
+    } catch(e) { console.error('[TSAM Migration]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -586,6 +640,7 @@ async function start() {
     fastify.register(require('./routes/donhangtong'));
     fastify.register(require('./routes/khovai'));
     fastify.register(require('./routes/nhacnho'));
+    fastify.register(require('./routes/thongsoaomau'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
