@@ -142,7 +142,7 @@ async function checkEmails() {
                     const yy = d.getFullYear().toString().slice(-2);
                     const code = `CK${seq}-${dd}-${mm}-Y${yy}`;
 
-                    await db.get(`
+                    const insertResult = await db.get(`
                         INSERT INTO payment_records (
                             payment_code, payment_method, daily_seq,
                             amount, payment_type, transfer_note,
@@ -150,13 +150,21 @@ async function checkEmails() {
                             handover_status, source, source_ref_id,
                             payment_date, created_at
                         ) VALUES ($1,'CK',$2,$3,'pending',$4,'khach_hang',$5,'thu_quy_nhan','email_auto',$6,$7,NOW())
+                        ON CONFLICT (source_ref_id) DO NOTHING
                         RETURNING id
                     `, [code, seq, parsed.amount, parsed.description, bank.bank_name, refHash, parsed.date]);
+
+                    // If INSERT returned null → duplicate source_ref_id → skip everything
+                    if (!insertResult) {
+                        skippedDup++;
+                        console.log(`[EmailChecker] ⏭️ DB conflict skip ${code} (ref: ${refHash.substring(0,8)})`);
+                        continue;
+                    }
 
                     importCount++;
                     console.log(`[EmailChecker] 💰 ${code} | ${parsed.amount.toLocaleString()}đ | ${bank.bank_name} | ${parsed.description.substring(0, 50)}`);
 
-                    // ★ Send Telegram notification
+                    // ★ Send Telegram notification (ONLY if INSERT succeeded)
                     if (_tgPaymentGroup) {
                         const fmtAmt = parsed.amount.toLocaleString('vi-VN');
                         const cleanDesc = _cleanPaymentDesc(parsed.description);
@@ -164,29 +172,19 @@ async function checkEmails() {
                         sendTelegramMessage(_tgPaymentGroup, tgMsg).catch(() => {});
                     }
 
-                    // ★ Sync to AppSheet NKy (atomic claim → send → rollback on fail)
+                    // ★ Sync to AppSheet NKy (ONLY if INSERT succeeded)
                     if (_appSheetEnabled) {
                         try {
-                            // Atomically claim record — only ONE process can win this
-                            const claimed = await db.get(
-                                `UPDATE payment_records SET appsheet_synced = true
-                                 WHERE source_ref_id = $1 AND (appsheet_synced IS NULL OR appsheet_synced = false)
-                                 RETURNING id`, [refHash]
-                            );
-                            if (!claimed) {
-                                console.log(`[AppSheet] ⏭️ Already claimed ${code}, skip`);
-                            } else {
-                                await syncToAppSheet({
-                                    payment_code: code,
-                                    date: parsed.date,
-                                    amount: parsed.amount,
-                                    bank_name: bank.bank_name,
-                                    description: parsed.description
-                                });
-                                console.log(`[AppSheet] ✅ Synced ${code}`);
-                            }
+                            await db.run('UPDATE payment_records SET appsheet_synced = true WHERE source_ref_id = $1', [refHash]);
+                            await syncToAppSheet({
+                                payment_code: code,
+                                date: parsed.date,
+                                amount: parsed.amount,
+                                bank_name: bank.bank_name,
+                                description: parsed.description
+                            });
+                            console.log(`[AppSheet] ✅ Synced ${code}`);
                         } catch (err) {
-                            // Rollback claim so retry can pick it up later
                             await db.run('UPDATE payment_records SET appsheet_synced = false WHERE source_ref_id = $1', [refHash]).catch(() => {});
                             console.error(`[AppSheet] ❌ Failed ${code}:`, err.message);
                         }
