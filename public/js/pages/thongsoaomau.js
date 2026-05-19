@@ -108,21 +108,47 @@ function _tsamShowCreate(editId) {
     var isLocked = (curType === 'DON' || curType === '3D');
     var mixVal = isLocked ? 1 : (s.mix_color_count || 2);
     var rq = '<span style="color:red">*</span>';
+    // Parse existing sewing_tech
+    var sewExist = []; try { sewExist = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
+    window._tsamImgUrl = s.spec_image || '';
     var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         + '<div class="form-group"><label>Lĩnh Vực ' + rq + '</label><select id="_tsamCat" class="form-control"><option value="">-- Chọn --</option>' + catOpts + '</select></div>'
         + '<div class="form-group"><label>Mã Mẫu ' + rq + '</label><input id="_tsamCode" class="form-control" value="' + (s.sample_code || '') + '"' + (isEdit ? ' disabled' : '') + ' placeholder="VD: DP-001"></div>'
         + '<div class="form-group"><label>Loại ' + rq + '</label><select id="_tsamType" class="form-control" onchange="_tsamTypeChanged()"><option value="DON"' + (curType === 'DON' ? ' selected' : '') + '>Đơn</option><option value="PHA_PHOI"' + (curType === 'PHA_PHOI' ? ' selected' : '') + '>Pha Phối</option><option value="3D"' + (curType === '3D' ? ' selected' : '') + '>3D</option></select></div>'
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
+        + '</div>'
+        // === IMAGE PASTE AREA (full width) ===
+        + '<div class="form-group" style="margin-top:8px"><label>📷 Hình Ảnh Thông Số ' + rq + ' <span style="font-size:10px;color:#3b82f6">Ctrl+V để dán ảnh</span></label>'
+        + '<div id="_tsamPasteZone" tabindex="0" style="border:2px dashed ' + (s.spec_image ? '#059669' : '#cbd5e1') + ';border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:' + (s.spec_image ? '#f0fdf4' : '#f8fafc') + ';transition:all .2s;outline:none;position:relative">'
+        + (s.spec_image ? '<img src="' + s.spec_image + '" style="max-height:200px;max-width:100%;border-radius:8px">' : '<div style="text-align:center;color:#94a3b8"><div style="font-size:32px;margin-bottom:4px">📋</div><div style="font-size:11px;font-weight:600">Nhấn Ctrl+V để dán ảnh từ clipboard</div></div>')
+        + '</div></div>'
+        // === REMAINING FIELDS ===
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">'
         + '<div class="form-group"><label>Bộ Sưu Tập ' + rq + '</label><input id="_tsamCollection" class="form-control" value="' + (s.collection || '') + '" placeholder="VD: BST Hè 2026"></div>'
         + '<div class="form-group"><label>🔗 Market Thiết Kế ' + rq + '</label><input id="_tsamMarket" class="form-control" value="' + (s.design_market || '') + '" placeholder="https://drive.google.com/..."></div>'
         + '<div class="form-group"><label>🔗 Tổng Hợp Áo Mẫu ' + rq + '</label><input id="_tsamTotal" class="form-control" value="' + (s.total_sample || '') + '" placeholder="https://drive.google.com/..."></div>'
         + '<div class="form-group"><label>🔗 Dưỡng Áo Mẫu ' + rq + '</label><input id="_tsamCare" class="form-control" value="' + (s.sample_care || '') + '" placeholder="https://drive.google.com/..."></div>'
-        + '<div class="form-group"><label>Giá Nhà May ' + rq + '</label><input type="number" id="_tsamFactoryPrice" class="form-control" value="' + (s.factory_price || 0) + '" min="0"></div>'
-        + '<div class="form-group"><label>Giá Gia Công ' + rq + '</label><input type="number" id="_tsamProcessPrice" class="form-control" value="' + (s.processing_price || 0) + '" min="0"></div>'
+        + '</div>'
+        // === SEWING TECH (full width) ===
+        + '<div class="form-group" style="margin-top:8px"><label>✂️ Kỹ Thuật May ' + rq + '</label>'
+        + '<input id="_tsamSewingTech" class="form-control" value="' + sewExist.join(', ') + '" placeholder="VD: May sọn, May chỉ nổi, Ép nhiệt... (phân cách bằng dấu phẩy)">'
+        + '</div>'
+        // === PRICES (disabled, auto from Bảng Giá May later) ===
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">'
+        + '<div class="form-group"><label>Giá Nhà May <span style="font-size:10px;color:#94a3b8">🔒 Tự tính từ KT May</span></label><input type="number" id="_tsamFactoryPrice" class="form-control" value="' + (s.factory_price || 0) + '" disabled style="background:#f1f5f9;cursor:not-allowed"></div>'
+        + '<div class="form-group"><label>Giá Gia Công <span style="font-size:10px;color:#94a3b8">🔒 Tự tính từ KT May</span></label><input type="number" id="_tsamProcessPrice" class="form-control" value="' + (s.processing_price || 0) + '" disabled style="background:#f1f5f9;cursor:not-allowed"></div>'
         + '</div>';
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
         + '<button class="btn" onclick="_tsamSubmit(' + (editId || 0) + ')" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 ' + (isEdit ? 'Cập Nhật' : 'Tạo Mẫu') + '</button>';
     openModal((isEdit ? '✏️ Sửa Mẫu ' + s.sample_code : '➕ Thêm Mẫu Áo Mới'), body, footer);
+    // Attach paste handler
+    setTimeout(function() {
+        var zone = document.getElementById('_tsamPasteZone');
+        if (zone) {
+            zone.addEventListener('paste', _tsamHandlePaste);
+            zone.addEventListener('click', function() { this.focus(); });
+        }
+    }, 100);
 }
 
 function _tsamTypeChanged() {
@@ -142,8 +168,42 @@ function _tsamTypeChanged() {
     }
 }
 
+// ========== IMAGE PASTE HANDLER ==========
+async function _tsamHandlePaste(e) {
+    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            var blob = items[i].getAsFile();
+            var zone = document.getElementById('_tsamPasteZone');
+            if (zone) {
+                zone.style.borderColor = '#f59e0b';
+                zone.innerHTML = '<div style="text-align:center;color:#f59e0b"><div style="font-size:24px;animation:_tsamSpin 1s linear infinite">⚙️</div><div style="font-size:11px;font-weight:600;margin-top:4px">Đang upload...</div></div>';
+            }
+            var fd = new FormData();
+            fd.append('file', blob, 'paste_' + Date.now() + '.png');
+            try {
+                var resp = await fetch('/api/tsam/upload', { method: 'POST', body: fd, credentials: 'include' });
+                var data = await resp.json();
+                if (data.success && data.url) {
+                    window._tsamImgUrl = data.url;
+                    if (zone) {
+                        zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4';
+                        zone.innerHTML = '<img src="' + data.url + '" style="max-height:200px;max-width:100%;border-radius:8px">';
+                    }
+                    showToast('✅ Đã upload hình ảnh');
+                } else { showToast(data.error || 'Lỗi upload', 'error'); }
+            } catch(err) { showToast('Lỗi upload ảnh', 'error'); }
+            return;
+        }
+    }
+}
+
 async function _tsamSubmit(editId) {
     var urlRe = /^https?:\/\/.+/i;
+    // Parse sewing tech from comma-separated input
+    var sewRaw = document.getElementById('_tsamSewingTech')?.value?.trim() || '';
+    var sewArr = sewRaw ? sewRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
     var data = {
         category_id: document.getElementById('_tsamCat')?.value || null,
         sample_code: document.getElementById('_tsamCode')?.value?.trim(),
@@ -153,12 +213,15 @@ async function _tsamSubmit(editId) {
         design_market: document.getElementById('_tsamMarket')?.value?.trim() || '',
         total_sample: document.getElementById('_tsamTotal')?.value?.trim() || '',
         sample_care: document.getElementById('_tsamCare')?.value?.trim() || '',
-        factory_price: document.getElementById('_tsamFactoryPrice')?.value || 0,
-        processing_price: document.getElementById('_tsamProcessPrice')?.value || 0
+        sewing_tech: sewArr,
+        spec_image: window._tsamImgUrl || '',
+        factory_price: 0,
+        processing_price: 0
     };
     // === Client-side validation ===
     if (!data.category_id) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     if (!data.sample_code) { showToast('Nhập Mã Mẫu', 'error'); return; }
+    if (!data.spec_image) { showToast('Chưa dán Hình Ảnh Thông Số (Ctrl+V)', 'error'); return; }
     if (!data.collection) { showToast('Nhập Bộ Sưu Tập', 'error'); return; }
     if (!data.design_market) { showToast('Nhập Market Thiết Kế', 'error'); return; }
     if (!urlRe.test(data.design_market)) { showToast('Market Thiết Kế phải là link (https://...)', 'error'); return; }
@@ -166,6 +229,7 @@ async function _tsamSubmit(editId) {
     if (!urlRe.test(data.total_sample)) { showToast('Tổng Hợp Áo Mẫu phải là link (https://...)', 'error'); return; }
     if (!data.sample_care) { showToast('Nhập Dưỡng Áo Mẫu', 'error'); return; }
     if (!urlRe.test(data.sample_care)) { showToast('Dưỡng Áo Mẫu phải là link (https://...)', 'error'); return; }
+    if (sewArr.length === 0) { showToast('Nhập Kỹ Thuật May', 'error'); return; }
     if (data.sample_type === 'PHA_PHOI' && Number(data.mix_color_count) < 2) { showToast('Pha Phối phải có ≥ 2 màu', 'error'); return; }
     var res;
     if (editId) { res = await apiCall('/api/tsam/samples/' + editId, 'PUT', data); }
@@ -193,9 +257,9 @@ async function _tsamDetail(id) {
         ['MARKET TK', _tsamIsUrl(s.design_market) ? '<a href="'+s.design_market+'" target="_blank" style="color:#3b82f6;font-weight:700">🔗 '+s.design_market.substring(0,50)+'...</a>' : (s.design_market||'—')],
         ['TỔNG HỢP ÁO MẪU', _tsamIsUrl(s.total_sample) ? '<a href="'+s.total_sample+'" target="_blank" style="color:#3b82f6;font-weight:700">🔗 '+s.total_sample.substring(0,50)+'...</a>' : (s.total_sample||'—')],
         ['DƯỠNG ÁO MẪU', _tsamIsUrl(s.sample_care) ? '<a href="'+s.sample_care+'" target="_blank" style="color:#3b82f6;font-weight:700">🔗 '+s.sample_care.substring(0,50)+'...</a>' : (s.sample_care||'—')],
-        ['KỸ THUẬT MAY', sewing.length ? sewing.join(', ') : '—'],
-        ['GIÁ NHÀ MAY', s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '—'],
-        ['GIÁ GIA CÔNG', s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '—'],
+        ['KỸ THUẬT MAY', sewing.length ? sewing.map(function(t){return '<span style="background:#6366f1;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:3px">'+t+'</span>';}).join('') : '—'],
+        ['GIÁ NHÀ MAY', (s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '0đ') + ' <span style="font-size:10px;color:#94a3b8">🔒 từ Bảng Giá May</span>'],
+        ['GIÁ GIA CÔNG', (s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '0đ') + ' <span style="font-size:10px;color:#94a3b8">🔒 từ Bảng Giá May</span>'],
         ['TRẠNG THÁI', '<span style="color:' + stColor + ';font-weight:800">' + (_tsamStatusLabels[s.approval_status]||'—') + '</span>' + (s.approved_by_name ? ' — ' + s.approved_by_name : '')],
         ['NGƯỜI TẠO', s.created_by_name || '—'],
         ['CẬP NHẬT', s.updated_at ? vnFormat(s.updated_at) : '—']
@@ -205,6 +269,13 @@ async function _tsamDetail(id) {
             + '<td style="padding:6px 12px;border-bottom:1px solid var(--gray-100)">' + r[1] + '</td></tr>';
     });
     body += '</table></div>';
+    // === Spec Image ===
+    if (s.spec_image) {
+        body += '<div style="margin-bottom:12px"><div style="font-weight:700;font-size:12px;color:#7c3aed;margin-bottom:6px">📷 Hình Ảnh Thông Số</div>'
+            + '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:12px;text-align:center">'
+            + '<img src="' + s.spec_image + '" style="max-width:100%;max-height:400px;border-radius:8px;cursor:pointer" onclick="window.open(\'' + s.spec_image + '\',\'_blank\')">'
+            + '</div></div>';
+    }
     // History section
     body += '<div id="_tsamHistArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải lịch sử...</div>';
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';

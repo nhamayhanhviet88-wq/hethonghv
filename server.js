@@ -539,6 +539,9 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_ol_sid ON tsam_order_links(sample_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_tsam_ol_oid ON tsam_order_links(dht_order_id)`);
+
+        // v2: Add spec_image column for Ctrl+V pasteable specification image
+        try { await db.exec(`ALTER TABLE tsam_samples ADD COLUMN spec_image TEXT`); } catch(e) { /* column already exists */ }
     } catch(e) { console.error('[TSAM Migration]', e.message); }
 
     // Plugins

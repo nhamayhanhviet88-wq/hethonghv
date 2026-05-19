@@ -5,6 +5,18 @@ const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
+    // ========== UPLOAD image (Ctrl+V paste) ==========
+    fastify.post('/api/tsam/upload', { preHandler: [authenticate] }, async (request, reply) => {
+        const data = await request.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        const path = require('path');
+        const { compressAndSave } = require('../utils/imageCompressor');
+        const dir = path.join(__dirname, '..', 'uploads', 'tsam');
+        const buf = await data.toBuffer();
+        const result = await compressAndSave(buf, dir, 'tsam_');
+        return { success: true, url: `/uploads/tsam/${result.fileName}` };
+    });
+
     // ========== LIST all samples (with filters) ==========
     fastify.get('/api/tsam/samples', { preHandler: [authenticate] }, async (request, reply) => {
         const { category_id, status, search } = request.query;
@@ -76,9 +88,13 @@ module.exports = async function(fastify) {
         if (!b.sample_care || !b.sample_care.trim()) return reply.code(400).send({ error: 'Nhập Dưỡng Áo Mẫu' });
         if (!urlRegex.test(b.sample_care.trim())) return reply.code(400).send({ error: 'Dưỡng Áo Mẫu phải là link (bắt đầu bằng https://)' });
 
-        // === Price required ===
-        if (b.factory_price === undefined || b.factory_price === '') return reply.code(400).send({ error: 'Nhập Giá Nhà May' });
-        if (b.processing_price === undefined || b.processing_price === '') return reply.code(400).send({ error: 'Nhập Giá Gia Công' });
+        // === Sewing tech required ===
+        let sewingArr = b.sewing_tech || [];
+        if (typeof sewingArr === 'string') { try { sewingArr = JSON.parse(sewingArr); } catch(e) { sewingArr = []; } }
+        if (!Array.isArray(sewingArr) || sewingArr.length === 0) return reply.code(400).send({ error: 'Chọn Kỹ Thuật May' });
+
+        // === Spec image required ===
+        if (!b.spec_image || !b.spec_image.trim()) return reply.code(400).send({ error: 'Chưa có Hình Ảnh Thông Số (paste Ctrl+V)' });
 
         // === SL Màu Phối logic based on type ===
         let mixColorCount;
@@ -101,8 +117,8 @@ module.exports = async function(fastify) {
                 mix_positions, mix_color_count, collection,
                 design_market, total_sample, sample_care,
                 sewing_tech, factory_price, processing_price,
-                display_order, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                spec_image, display_order, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
             RETURNING *
         `, [
             Number(b.category_id),
@@ -114,9 +130,10 @@ module.exports = async function(fastify) {
             b.design_market.trim(),
             b.total_sample.trim(),
             b.sample_care.trim(),
-            JSON.stringify(b.sewing_tech || []),
+            JSON.stringify(sewingArr),
             Number(b.factory_price) || 0,
             Number(b.processing_price) || 0,
+            b.spec_image.trim(),
             (mx?.mx || 0) + 1,
             request.user.id
         ]);
@@ -162,11 +179,18 @@ module.exports = async function(fastify) {
             if (effectiveMix < 2) return reply.code(400).send({ error: 'Pha Phối phải có ≥ 2 màu' });
         }
 
+        // === Sewing tech required if provided ===
+        if (b.sewing_tech !== undefined) {
+            let sewArr = b.sewing_tech;
+            if (typeof sewArr === 'string') { try { sewArr = JSON.parse(sewArr); } catch(e) { sewArr = []; } }
+            if (!Array.isArray(sewArr) || sewArr.length === 0) return reply.code(400).send({ error: 'Chọn Kỹ Thuật May' });
+        }
+
         const allowed = [
             'category_id', 'sample_code', 'sample_type',
             'mix_positions', 'mix_color_count', 'collection',
             'design_market', 'total_sample', 'sample_care',
-            'sewing_tech', 'factory_price', 'processing_price'
+            'sewing_tech', 'factory_price', 'processing_price', 'spec_image'
         ];
 
         const sets = [];
