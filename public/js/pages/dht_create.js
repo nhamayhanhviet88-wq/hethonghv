@@ -832,13 +832,14 @@ async function _ppOpenBgmPicker() {
             var checked = existIds.indexOf(item.id) >= 0;
             var existItem = checked ? existing.find(function(s){return s.id===item.id;}) : null;
             var qtyVal = existItem ? (existItem.qty || 1) : 1;
-            var qtyInput = item.add_type === 'multi'
+            var _canSeePrice = typeof currentUser !== 'undefined' && currentUser && ['giam_doc','quan_ly_cap_cao','quan_ly_xuong'].indexOf(currentUser.role) >= 0;
+            var qtyInput = (item.add_type === 'multi' && _canSeePrice)
                 ? '<input type="number" class="_ppBgmQty" data-id="' + item.id + '" value="' + qtyVal + '" min="1" style="width:40px;padding:1px 3px;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;text-align:center">'
                 : '';
             h += '<label style="display:flex;align-items:center;gap:4px;padding:3px 6px;font-size:10px;cursor:pointer" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'
                 + '<input type="checkbox" class="_ppBgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="' + item.add_type + '"' + (checked ? ' checked' : '') + '>'
                 + '<span style="flex:1;font-weight:600">' + item.name + '</span>' + qtyInput
-                + '<span style="color:#059669;font-size:9px;font-weight:700">' + Number(item.factory_price).toLocaleString('vi-VN') + '</span>'
+                + (_canSeePrice ? '<span style="color:#059669;font-size:9px;font-weight:700">' + Number(item.factory_price).toLocaleString('vi-VN') + '</span>' : '')
                 + '</label>';
         });
         h += '</div>';
