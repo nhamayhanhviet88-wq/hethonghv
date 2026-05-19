@@ -153,6 +153,7 @@ module.exports = async function(fastify) {
 
         const old = await db.get('SELECT * FROM tsam_samples WHERE id = $1', [id]);
         if (!old) return reply.code(404).send({ error: 'Không tìm thấy mẫu' });
+        if (old.approval_status === 'APPROVED') return reply.code(403).send({ error: 'Mẫu đã duyệt, không thể sửa' });
 
         // === Validate required fields if provided ===
         if (b.category_id !== undefined && !b.category_id) return reply.code(400).send({ error: 'Chọn Lĩnh Vực' });

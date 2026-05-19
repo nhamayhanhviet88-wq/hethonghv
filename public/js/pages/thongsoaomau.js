@@ -323,9 +323,10 @@ async function _tsamDetail(id) {
     // History section
     body += '<div id="_tsamHistArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải lịch sử...</div>';
     var isGD = typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'giam_doc' || currentUser.can_approve_tsam);
-    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>'
-        + '<button class="btn" onclick="_tsamShowCreate(' + s.id + ')" style="background:#f59e0b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">✏️ Sửa</button>';
-    if (isGD) footer += '<button class="btn" onclick="_tsamDelete(' + s.id + ')" style="background:#dc2626;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">🗑️ Xóa</button>';
+    var isApproved = s.approval_status === 'APPROVED';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
+    if (!isApproved) footer += '<button class="btn" onclick="_tsamShowCreate(' + s.id + ')" style="background:#f59e0b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">✏️ Sửa</button>';
+    if (isGD && !isApproved) footer += '<button class="btn" onclick="_tsamDelete(' + s.id + ')" style="background:#dc2626;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">🗑️ Xóa</button>';
     openModal('📐 ' + s.sample_code, body, footer);
     // Load history async
     var histRes = await apiCall('/api/tsam/samples/' + id + '/history');
