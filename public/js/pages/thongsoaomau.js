@@ -354,9 +354,8 @@ function _tsamRenderSewTags() {
     var items = window._tsamSewItems || [];
     if (items.length === 0) { el.innerHTML = '<span style="color:#94a3b8;font-size:11px">Chưa chọn kỹ thuật may nào</span>'; _tsamCalcPrices(); return; }
     el.innerHTML = items.map(function(s, i) {
-        var qLabel = (Number(s.qty) || 1) > 1 ? ' x' + s.qty : '';
         return '<span style="background:#6366f1;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:3px">'
-            + s.name + qLabel
+            + s.name
             + '<button type="button" onclick="_tsamRemoveSew(' + i + ')" style="background:none;border:none;color:#fde68a;cursor:pointer;font-size:12px;padding:0 2px">&times;</button></span>';
     }).join('');
     _tsamCalcPrices();
@@ -380,18 +379,40 @@ function _tsamCalcPrices() {
 async function _tsamOpenBgmPicker() {
     var res = await apiCall('/api/bgm/dropdown');
     var allItems = res.items || [];
+    // Store for search filter
+    window._bgmPickerItems = allItems;
+    window._bgmPickerExisting = (window._tsamSewItems || []).slice();
+    _tsamRenderBgmList('');
+}
+
+function _tsamRenderBgmList(query) {
+    var allItems = window._bgmPickerItems || [];
+    var existing = window._bgmPickerExisting || [];
+    var existIds = existing.map(function(s) { return s.id; });
+    var q = (query || '').toLowerCase().trim();
+
+    // Filter items by search
+    var filtered = allItems;
+    if (q) {
+        filtered = allItems.filter(function(item) {
+            return item.name.toLowerCase().indexOf(q) >= 0 || item.group_name.toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
     // Group by group_name and detect group type
     var groups = {};
-    allItems.forEach(function(item) {
+    filtered.forEach(function(item) {
         if (!groups[item.group_name]) groups[item.group_name] = { items: [], type: item.add_type };
         groups[item.group_name].items.push(item);
-        // If any item in group is 'once', entire group is 'once'
         if (item.add_type === 'once') groups[item.group_name].type = 'once';
     });
-    var existing = window._tsamSewItems || [];
-    var existIds = existing.map(function(s) { return s.id; });
-    var h = '<div style="max-height:60vh;overflow-y:auto">';
-    Object.keys(groups).sort().forEach(function(gName) {
+
+    var h = '<div id="_bgmPickerList" style="max-height:55vh;overflow-y:auto">';
+    var groupKeys = Object.keys(groups).sort();
+    if (groupKeys.length === 0 && q) {
+        h += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">Không tìm thấy "' + q + '"</div>';
+    }
+    groupKeys.forEach(function(gName) {
         var g = groups[gName];
         var isOnce = g.type === 'once';
         var safeName = gName.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -404,23 +425,15 @@ async function _tsamOpenBgmPicker() {
             + '</div>';
         g.items.forEach(function(item) {
             var checked = existIds.indexOf(item.id) >= 0;
-            var existItem = checked ? existing.find(function(s){return s.id===item.id;}) : null;
-            var qtyVal = existItem ? (existItem.qty || 1) : 1;
             var inputHtml;
             if (isOnce) {
-                // Radio — only 1 selection per group
                 inputHtml = '<input type="radio" name="_bgmGrp_' + safeName + '" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="once" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">';
             } else {
-                // Checkbox — multiple selections allowed
                 inputHtml = '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="multi" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">';
             }
-            var qtyInput = !isOnce
-                ? '<input type="number" class="_bgmQty" data-id="' + item.id + '" value="' + qtyVal + '" min="1" style="width:50px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:3px;font-size:11px;text-align:center;margin-left:4px">'
-                : '';
             h += '<label style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;cursor:pointer;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'
                 + inputHtml
                 + '<span style="flex:1;font-weight:600">' + item.name + '</span>'
-                + qtyInput
                 + '<span style="color:#059669;font-weight:700;font-size:10px;min-width:50px;text-align:right">' + Number(item.factory_price).toLocaleString('vi-VN') + '</span>'
                 + '<span style="color:#2563eb;font-weight:700;font-size:10px;min-width:50px;text-align:right">' + Number(item.processing_price).toLocaleString('vi-VN') + '</span>'
                 + '</label>';
@@ -430,38 +443,64 @@ async function _tsamOpenBgmPicker() {
     h += '</div>';
     if (allItems.length === 0) h = '<div style="text-align:center;padding:20px;color:#94a3b8">Chưa có chi tiết may nào trong Bảng Giá May</div>';
 
+    var search = '<input type="text" id="_bgmPickerSearch" placeholder="🔍 Tìm tên chi tiết..." value="' + (q || '') + '" style="width:100%;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;margin-bottom:8px">';
+
     var legend = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:10px;padding:0 8px;align-items:center">'
         + '<span style="font-weight:700;color:#64748b;flex:1">Chi tiết</span>'
-        + '<span style="color:#dc2626;font-weight:700">🔒 1 lần = chỉ chọn 1 trong nhóm</span>'
-        + '<span style="color:#059669;font-weight:700">🔓 nhiều = chọn nhiều trong nhóm</span>'
+        + '<span style="color:#dc2626;font-weight:700">🔒 Chỉ 1</span>'
+        + '<span style="color:#059669;font-weight:700">🔓 Nhiều</span>'
         + '<span style="min-width:50px;text-align:right;color:#059669;font-weight:700">Giá NM</span>'
         + '<span style="min-width:50px;text-align:right;color:#2563eb;font-weight:700">Giá GC</span>'
         + '</div>';
 
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
         + '<button class="btn" onclick="_tsamApplyBgm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">✅ Xác Nhận</button>';
-    openModal('✂️ Chọn Kỹ Thuật May', legend + h, footer);
+    openModal('✂️ Chọn Kỹ Thuật May', search + legend + h, footer);
+
+    // Attach search handler
+    setTimeout(function() {
+        var searchEl = document.getElementById('_bgmPickerSearch');
+        if (searchEl) {
+            searchEl.focus();
+            var _t;
+            searchEl.addEventListener('input', function() {
+                clearTimeout(_t);
+                var val = searchEl.value;
+                _t = setTimeout(function() {
+                    // Save current checked state before re-render
+                    _tsamSaveBgmChecked();
+                    _tsamRenderBgmList(val);
+                }, 200);
+            });
+        }
+    }, 100);
+}
+
+function _tsamSaveBgmChecked() {
+    var cbs = document.querySelectorAll('._bgmCb:checked');
+    var items = [];
+    cbs.forEach(function(cb) {
+        items.push({ id: Number(cb.dataset.id), name: cb.dataset.name, fp: Number(cb.dataset.fp), pp: Number(cb.dataset.pp) });
+    });
+    // Merge with existing selections (keep items that were checked but now filtered out)
+    var prev = window._bgmPickerExisting || [];
+    var newIds = items.map(function(i) { return i.id; });
+    // Keep previously selected items that are NOT in current visible list
+    var visibleIds = (document.querySelectorAll('._bgmCb') || []);
+    var visibleIdSet = {};
+    visibleIds.forEach(function(cb) { visibleIdSet[Number(cb.dataset.id)] = true; });
+    prev.forEach(function(p) {
+        if (!visibleIdSet[p.id] && newIds.indexOf(p.id) < 0) {
+            items.push(p);
+        }
+    });
+    window._bgmPickerExisting = items;
 }
 
 function _tsamApplyBgm() {
-    var cbs = document.querySelectorAll('._bgmCb:checked');
-    var items = [];
-    // Validate once-group: at most 1 per group (radio enforces this, but double-check)
-    var onceGroups = {};
-    cbs.forEach(function(cb) {
-        var id = Number(cb.dataset.id);
-        var group = cb.dataset.group || '';
-        var type = cb.dataset.type || 'multi';
-        if (type === 'once') {
-            if (onceGroups[group]) { showToast('Nhóm "' + group + '" chỉ được chọn 1 chi tiết!', 'error'); return; }
-            onceGroups[group] = true;
-        }
-        var qty = 1;
-        if (type === 'multi') {
-            var qtyEl = document.querySelector('._bgmQty[data-id="' + id + '"]');
-            qty = qtyEl ? Math.max(1, Number(qtyEl.value) || 1) : 1;
-        }
-        items.push({ id: id, name: cb.dataset.name, qty: qty, fp: Number(cb.dataset.fp), pp: Number(cb.dataset.pp) });
+    _tsamSaveBgmChecked();
+    var items = (window._bgmPickerExisting || []).map(function(s) {
+        return { id: s.id, name: s.name, qty: 1, fp: Number(s.fp), pp: Number(s.pp) };
     });
     window._tsamSewItems = items;
     closeModal();
