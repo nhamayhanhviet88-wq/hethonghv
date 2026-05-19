@@ -32,7 +32,7 @@ async function renderThongsoaomauPage(content) {
     _tsam.tree = treeRes.categories || [];
     _tsam.categories = catRes.categories || [];
     _tsam.totalInfo = treeRes.total || {};
-    content.innerHTML = '<div class="tsam-wrap"><div class="tsam-sb" id="tsamSB"></div><div class="tsam-main"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><input type="text" id="tsamSearch" class="form-control" placeholder="🔍 Tìm mã mẫu, BST..." style="width:auto;min-width:220px"><select id="tsamStatusFilter" class="form-control" style="width:auto" onchange="_tsamLoad()"><option value="">Tất cả trạng thái</option><option value="PENDING">🟡 Chờ Duyệt</option><option value="APPROVED">✅ Đã Duyệt</option><option value="REJECTED">❌ Từ Chối</option></select><div style="margin-left:auto"><button class="btn" onclick="_tsamShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Thêm Mẫu</button></div></div><div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="tsam-tbl"><thead><tr><th>STT</th><th>Lĩnh Vực</th><th>Mã Mẫu</th><th>Loại</th><th>Phối</th><th>SL Màu Phối</th><th>Bộ Sưu Tập</th><th>Market TK</th><th>Tổng Hợp</th><th>Dưỡng</th><th>Đơn SX</th><th>KT May</th><th>Giá Nhà May</th><th>Giá Gia Công</th><th>Duyệt</th><th>Lịch Sử CN</th></tr></thead><tbody id="tsamTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    content.innerHTML = '<div class="tsam-wrap"><div class="tsam-sb" id="tsamSB"></div><div class="tsam-main"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><input type="text" id="tsamSearch" class="form-control" placeholder="🔍 Tìm mã mẫu, BST..." style="width:auto;min-width:220px"><select id="tsamStatusFilter" class="form-control" style="width:auto" onchange="_tsamLoad()"><option value="">Tất cả trạng thái</option><option value="PENDING">🟡 Chờ Duyệt</option><option value="APPROVED">✅ Đã Duyệt</option><option value="REJECTED">❌ Từ Chối</option></select><div style="margin-left:auto"><button class="btn" onclick="_tsamShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Thêm Mẫu</button></div></div><div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="tsam-tbl"><thead><tr><th style="text-align:center">STT</th><th style="text-align:center">Lĩnh Vực</th><th style="text-align:center">Mã Mẫu</th><th style="text-align:center">Loại</th><th style="text-align:center">SL Màu Phối</th><th style="text-align:center">Bộ Sưu Tập</th><th style="text-align:center">KT May</th><th style="text-align:center">Giá May Nhà</th><th style="text-align:center">Giá Gia Công</th><th style="text-align:center">Duyệt</th><th style="text-align:center">Lịch Sử CN</th></tr></thead><tbody id="tsamTbody"><tr><td colspan="11" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _st; document.getElementById('tsamSearch').addEventListener('input', function() { clearTimeout(_st); _st = setTimeout(function() { _tsamLoad(); }, 400); });
     _tsamRenderSB();
     await _tsamLoad();
@@ -64,14 +64,14 @@ async function _tsamLoad() {
     var data = await apiCall(url);
     _tsam.samples = data.samples || [];
     var tbody = document.getElementById('tsamTbody'); if (!tbody) return;
-    if (!_tsam.samples.length) { tbody.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📐</div><h3>Chưa có mẫu áo</h3></div></td></tr>'; return; }
+    if (!_tsam.samples.length) { tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="icon">📐</div><h3>Chưa có mẫu áo</h3></div></td></tr>'; return; }
     tbody.innerHTML = _tsam.samples.map(function(s, i) {
         var typeColor = _tsamTypeColors[s.sample_type] || '#64748b';
         var stColor = _tsamStatusColors[s.approval_status] || '#94a3b8';
         var stLabel = _tsamStatusLabels[s.approval_status] || s.approval_status;
         var sewing = []; try { sewing = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
-        var mix = []; try { mix = typeof s.mix_positions === 'string' ? JSON.parse(s.mix_positions) : (s.mix_positions || []); } catch(e) {}
-        var lastUp = '—'; try { if (s.updated_at) { var _d = new Date(s.updated_at); lastUp = _d.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
+        var sewNames = sewing.map(function(t){ return typeof t === 'string' ? t : (t.name || ''); }).filter(Boolean);
+        var lastUp = '—'; try { if (s.updated_at) { var _d = new Date(s.updated_at); lastUp = _d.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
         var lastUser = s.created_by_name ? '<br><span style="color:#7c3aed;font-size:10px">' + s.created_by_name + '</span>' : '';
         var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
         var approveBtn = '';
@@ -80,22 +80,17 @@ async function _tsamLoad() {
                 + '<button onclick="event.stopPropagation();_tsamReject(' + s.id + ')" style="background:#dc2626;color:#fff;border:none;padding:2px 6px;border-radius:3px;font-size:9px;cursor:pointer" title="Từ chối">❌</button>';
         }
         return '<tr style="cursor:pointer" onclick="_tsamDetail(' + s.id + ')">'
-            + '<td style="color:var(--gray-400)">' + (i + 1) + '</td>'
-            + '<td><span class="tsam-badge" style="background:#7c3aed">' + (s.category_name || '—') + '</span></td>'
-            + '<td style="font-weight:800;color:#7c3aed">' + s.sample_code + '</td>'
-            + '<td><span class="tsam-badge" style="background:' + typeColor + '">' + (_tsamTypes[s.sample_type] || s.sample_type) + '</span></td>'
-            + '<td style="font-size:10px">' + (mix.length ? mix.join(', ') : '—') + '</td>'
+            + '<td style="text-align:center;color:var(--gray-400)">' + (i + 1) + '</td>'
+            + '<td style="text-align:center"><span class="tsam-badge" style="background:#7c3aed">' + (s.category_name || '—') + '</span></td>'
+            + '<td style="text-align:center;font-weight:800;color:#7c3aed">' + s.sample_code + '</td>'
+            + '<td style="text-align:center"><span class="tsam-badge" style="background:' + typeColor + '">' + (_tsamTypes[s.sample_type] || s.sample_type) + '</span></td>'
             + '<td style="text-align:center;font-weight:700">' + (s.mix_color_count || 0) + '</td>'
-            + '<td>' + (s.collection || '—') + '</td>'
-            + '<td>' + _tsamLinkCell(s.design_market) + '</td>'
-            + '<td>' + _tsamLinkCell(s.total_sample) + '</td>'
-            + '<td>' + _tsamLinkCell(s.sample_care) + '</td>'
-            + '<td><span onclick="event.stopPropagation();_tsamShowOrders(' + s.id + ')" style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">' + (s.order_count || 0) + ' đơn</span></td>'
-            + '<td style="font-size:10px">' + (sewing.length ? sewing.map(function(t){ return typeof t === 'string' ? t : (t.name || ''); }).join(', ') : '—') + '</td>'
-            + '<td style="text-align:right;font-weight:700">' + (s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '—') + '</td>'
-            + '<td style="text-align:right;font-weight:700">' + (s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '—') + '</td>'
-            + '<td style="white-space:nowrap">' + '<span style="color:' + stColor + ';font-weight:700;font-size:10px">' + stLabel + '</span> ' + approveBtn + '</td>'
-            + '<td style="font-size:10px">' + lastUp + lastUser + '</td></tr>';
+            + '<td style="text-align:center">' + (s.collection || '—') + '</td>'
+            + '<td style="text-align:center;font-size:10px">' + (sewNames.length ? sewNames.join(', ') : '—') + '</td>'
+            + '<td style="text-align:center;font-weight:700;color:#059669">' + (s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '—') + '</td>'
+            + '<td style="text-align:center;font-weight:700;color:#2563eb">' + (s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '—') + '</td>'
+            + '<td style="text-align:center;white-space:nowrap">' + '<span style="color:' + stColor + ';font-weight:700;font-size:10px">' + stLabel + '</span> ' + approveBtn + '</td>'
+            + '<td style="text-align:center;font-size:10px">' + lastUp + lastUser + '</td></tr>';
     }).join('');
 }
 
@@ -249,6 +244,8 @@ async function _tsamDetail(id) {
     var sewing = []; try { sewing = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
     var mix = []; try { mix = typeof s.mix_positions === 'string' ? JSON.parse(s.mix_positions) : (s.mix_positions || []); } catch(e) {}
     var stColor = _tsamStatusColors[s.approval_status] || '#94a3b8';
+    var sewTags = sewing.length ? sewing.map(function(t){ var nm = typeof t === 'string' ? t : (t.name || ''); return '<span style="background:#6366f1;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:3px">'+nm+'</span>'; }).join('') : '—';
+    var updatedStr = '—'; try { if (s.updated_at) { var _d2 = new Date(s.updated_at); updatedStr = _d2.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
     var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:12px">'
         + '<table style="width:100%;font-size:13px;border-collapse:collapse">';
     var rows = [
@@ -261,12 +258,13 @@ async function _tsamDetail(id) {
         ['MARKET TK', _tsamIsUrl(s.design_market) ? '<a href="'+s.design_market+'" target="_blank" style="color:#3b82f6;font-weight:700">🔗 '+s.design_market.substring(0,50)+'...</a>' : (s.design_market||'—')],
         ['TỔNG HỢP ÁO MẪU', _tsamIsUrl(s.total_sample) ? '<a href="'+s.total_sample+'" target="_blank" style="color:#3b82f6;font-weight:700">🔗 '+s.total_sample.substring(0,50)+'...</a>' : (s.total_sample||'—')],
         ['DƯỠNG ÁO MẪU', _tsamIsUrl(s.sample_care) ? '<a href="'+s.sample_care+'" target="_blank" style="color:#3b82f6;font-weight:700">🔗 '+s.sample_care.substring(0,50)+'...</a>' : (s.sample_care||'—')],
-        ['KỸ THUẬT MAY', sewing.length ? sewing.map(function(t){return '<span style="background:#6366f1;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:3px">'+t+'</span>';}).join('') : '—'],
-        ['GIÁ NHÀ MAY', (s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '0đ') + ' <span style="font-size:10px;color:#94a3b8">🔒 từ Bảng Giá May</span>'],
-        ['GIÁ GIA CÔNG', (s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '0đ') + ' <span style="font-size:10px;color:#94a3b8">🔒 từ Bảng Giá May</span>'],
+        ['KỸ THUẬT MAY', sewTags],
+        ['GIÁ NHÀ MAY', '<span style="color:#059669;font-weight:800;font-size:14px">' + (s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '0đ') + '</span> <span style="font-size:10px;color:#94a3b8">🔒 từ Bảng Giá May</span>'],
+        ['GIÁ GIA CÔNG', '<span style="color:#2563eb;font-weight:800;font-size:14px">' + (s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '0đ') + '</span> <span style="font-size:10px;color:#94a3b8">🔒 từ Bảng Giá May</span>'],
+        ['ĐƠN SẢN XUẤT', '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer" onclick="_tsamShowOrders(' + s.id + ')">' + (s.order_count || 0) + ' đơn</span>'],
         ['TRẠNG THÁI', '<span style="color:' + stColor + ';font-weight:800">' + (_tsamStatusLabels[s.approval_status]||'—') + '</span>' + (s.approved_by_name ? ' — ' + s.approved_by_name : '')],
         ['NGƯỜI TẠO', s.created_by_name || '—'],
-        ['CẬP NHẬT', s.updated_at ? vnFormat(s.updated_at) : '—']
+        ['CẬP NHẬT', updatedStr]
     ];
     rows.forEach(function(r) {
         body += '<tr><td style="padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:140px;border-bottom:1px solid var(--gray-100)">' + r[0] + '</td>'
@@ -297,7 +295,8 @@ async function _tsamDetail(id) {
     hh += '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr><th style="padding:6px;border-bottom:2px solid var(--gray-200);text-align:left">Thời gian</th><th style="padding:6px;border-bottom:2px solid var(--gray-200);text-align:left">Hành động</th><th style="padding:6px;border-bottom:2px solid var(--gray-200);text-align:left">Người thực hiện</th></tr></thead><tbody>';
     hist.forEach(function(h) {
         var actionColors = { CREATE: '#059669', UPDATE: '#3b82f6', APPROVE: '#059669', REJECT: '#dc2626', DELETE: '#dc2626' };
-        hh += '<tr><td style="padding:5px 6px">' + (h.changed_at ? vnFormat(h.changed_at) : '—') + '</td>'
+        var histTime = '—'; try { if (h.changed_at) { var _d3 = new Date(h.changed_at); histTime = _d3.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
+        hh += '<tr><td style="padding:5px 6px">' + histTime + '</td>'
             + '<td style="padding:5px 6px"><span style="background:' + (actionColors[h.action]||'#64748b') + ';color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700">' + h.action + '</span></td>'
             + '<td style="padding:5px 6px">' + (h.changed_by_name || '—') + '</td></tr>';
     });
