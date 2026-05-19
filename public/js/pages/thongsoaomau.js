@@ -423,6 +423,22 @@ async function _tsamOpenBgmPicker() {
     // Save parent modal state for restoration
     window._bgmPickerItems = allItems;
     window._bgmPickerExisting = (window._tsamSewItems || []).slice();
+    // Save form values (innerHTML doesn't preserve typed input values)
+    window._bgmParentFormValues = {
+        category_id: document.getElementById('_tsamCat')?.value || '',
+        sample_code: document.getElementById('_tsamCode')?.value || '',
+        sample_type: document.getElementById('_tsamType')?.value || 'DON',
+        mix_color_count: document.getElementById('_tsamMixCount')?.value || '',
+        collection: document.getElementById('_tsamCollection')?.value || '',
+        design_market: document.getElementById('_tsamMarket')?.value || '',
+        total_sample: document.getElementById('_tsamTotal')?.value || '',
+        sample_care: document.getElementById('_tsamCare')?.value || '',
+        spec_image: window._tsamImgUrl || ''
+    };
+    // Also save checked mix positions
+    var mixPosChecked = [];
+    document.querySelectorAll('._tsamMixCb:checked').forEach(function(cb) { mixPosChecked.push(cb.value); });
+    window._bgmParentFormValues.mix_positions = mixPosChecked;
     window._bgmParentModal = {
         title: document.getElementById('modalTitle').innerHTML,
         body: document.getElementById('modalBody').innerHTML,
@@ -581,14 +597,47 @@ function _tsamCloseBgmPicker() {
         document.getElementById('modalTitle').innerHTML = p.title;
         document.getElementById('modalBody').innerHTML = p.body;
         document.getElementById('modalFooter').innerHTML = p.footer;
-        // Re-attach paste handler
+        // Restore form values that innerHTML lost
+        var fv = window._bgmParentFormValues || {};
         setTimeout(function() {
+            if (fv.category_id) { var el = document.getElementById('_tsamCat'); if (el) el.value = fv.category_id; }
+            if (fv.sample_code) { var el = document.getElementById('_tsamCode'); if (el) el.value = fv.sample_code; }
+            if (fv.sample_type) { var el = document.getElementById('_tsamType'); if (el) el.value = fv.sample_type; }
+            if (fv.mix_color_count) { var el = document.getElementById('_tsamMixCount'); if (el) el.value = fv.mix_color_count; }
+            if (fv.collection) { var el = document.getElementById('_tsamCollection'); if (el) el.value = fv.collection; }
+            if (fv.design_market) { var el = document.getElementById('_tsamMarket'); if (el) el.value = fv.design_market; }
+            if (fv.total_sample) { var el = document.getElementById('_tsamTotal'); if (el) el.value = fv.total_sample; }
+            if (fv.sample_care) { var el = document.getElementById('_tsamCare'); if (el) el.value = fv.sample_care; }
+            // Restore spec image
+            if (fv.spec_image) {
+                window._tsamImgUrl = fv.spec_image;
+                var zone = document.getElementById('_tsamPasteZone');
+                if (zone) {
+                    zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4';
+                    zone.innerHTML = '<img src="' + fv.spec_image + '" style="max-height:200px;max-width:100%;border-radius:8px">';
+                }
+            }
+            // Restore mix position checkboxes
+            if (fv.mix_positions && fv.mix_positions.length) {
+                document.querySelectorAll('._tsamMixCb').forEach(function(cb) {
+                    if (fv.mix_positions.indexOf(cb.value) >= 0) {
+                        cb.checked = true;
+                        cb.parentElement.style.background = '#ede9fe';
+                        cb.parentElement.style.borderColor = '#7c3aed';
+                    }
+                });
+            }
+            // Show/hide mix position section based on type
+            _tsamTypeChanged();
+            // Re-attach paste handler
             var zone = document.getElementById('_tsamPasteZone');
             if (zone) {
                 zone.addEventListener('paste', _tsamHandlePaste);
                 zone.addEventListener('click', function() { this.focus(); });
             }
             _tsamRenderSewTags();
+            // Reload mix positions for PHA_PHOI
+            _tsamLoadMixPositions({ mix_positions: fv.mix_positions || [] });
         }, 100);
     } else {
         closeModal();

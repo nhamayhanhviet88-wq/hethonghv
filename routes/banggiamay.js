@@ -182,7 +182,9 @@ module.exports = async function(fastify) {
         const filtered = rows.filter(r => {
             let roles = r.allowed_roles;
             if (typeof roles === 'string') { try { roles = JSON.parse(roles); } catch(e) { roles = []; } }
-            return Array.isArray(roles) && (roles.includes(userRole) || roles.includes('all'));
+            // quan_ly_cap_cao is senior manager — grant access to all BGM items accessible by quan_ly_xuong
+            const effectiveRole = (userRole === 'quan_ly_cap_cao') ? 'quan_ly_xuong' : userRole;
+            return Array.isArray(roles) && (roles.includes(effectiveRole) || roles.includes(userRole) || roles.includes('all'));
         });
 
         return { items: filtered };
