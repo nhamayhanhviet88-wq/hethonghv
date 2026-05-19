@@ -308,7 +308,7 @@ async function _nnSaveForm(editId) {
 // ===================================================================
 // ========== BẢNG GIÁ MAY TAB ==========
 // ===================================================================
-var _bgm = { items: [], groups: [], total: 0, filter: 'all', search: '' };
+var _bgm = { items: [], groups: [], total: 0, filter: 'all', search: '', selected: {} };
 var _bgmFmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
 var _bgmRoleMap = { giam_doc: 'AD', quan_ly_xuong: 'QLX', quan_ly_cap_cao: 'QLX', nhan_vien: 'SALE', truong_nhom: 'TN' };
 var _bgmRoleLabel = function(roles) {
@@ -328,6 +328,7 @@ async function _cdsxLoadBangGia(content) {
         + '<div style="padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e2e8f0;background:#eff6ff">'
         + '<span style="font-weight:800;font-size:13px;color:#1e40af">💲 GIÁ MAY HV</span>'
         + '<input type="text" id="_bgmSearch" placeholder="🔍 Tìm..." style="margin-left:8px;padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;width:180px">'
+        + '<div id="_bgmSelBar" style="display:none;align-items:center;gap:8px;background:#fef3c7;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e"><span id="_bgmSelCount">0</span> đã chọn <button onclick="_bgmSelectAll()" style="background:#2563eb;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">☑ Chọn tất cả</button><button onclick="_bgmDeselectAll()" style="background:#64748b;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">☐ Bỏ chọn</button><button onclick="_bgmDeleteSelected()" style="background:#dc2626;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">🗑️ Xóa đã chọn</button></div>'
         + '<span style="flex:1"></span>'
         + '<button onclick="_bgmShowBulk()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin-right:6px">📋 Thêm Hàng Loạt</button>'
         + '<button onclick="_bgmShowCreate()" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm Chi Tiết</button></div>'
@@ -375,11 +376,12 @@ function _bgmRender() {
     if (filtered.length === 0) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">Chưa có chi tiết may nào</div>'; return; }
 
     var h = '<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><thead><tr style="background:#1e3a5f;color:#fff;position:sticky;top:0">'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:16%">TÊN</th>'
+        + '<th style="padding:10px 4px;text-align:center;width:3%"><input type="checkbox" id="_bgmChkAll" onchange="_bgmToggleAll(this.checked)" style="cursor:pointer"></th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:14%">TÊN</th>'
         + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:4%">ID</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:14%">TÊN CHI TIẾT</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:10%">NHÓM</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:14%">PHÂN QUYỀN</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:13%">TÊN CHI TIẾT</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:9%">NHÓM</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:13%">PHÂN QUYỀN</th>'
         + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:8%">LOẠI THÊM</th>'
         + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:9%">GIÁ NM</th>'
         + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:9%">GIÁ GC</th>'
@@ -393,7 +395,9 @@ function _bgmRender() {
         var addColor = item.add_type === 'once' ? '#059669' : '#f59e0b';
         var lastUp = '—'; try { if (item.updated_at) { var _d = new Date(item.updated_at); lastUp = String(_d.getDate()).padStart(2,'0')+'/'+String(_d.getMonth()+1).padStart(2,'0')+'/'+_d.getFullYear()+' '+String(_d.getHours()).padStart(2,'0')+':'+String(_d.getMinutes()).padStart(2,'0'); } } catch(e) {}
         var creator = item.created_by_name ? '<br><span style="color:#2563eb;font-size:10px">' + item.created_by_name + '</span>' : '';
-        h += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
+        var isChk = !!_bgm.selected[item.id];
+        h += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;' + (isChk?'background:#eff6ff':'') + '" onmouseover="if(!this.classList.contains(\'_bgmSel\'))this.style.background=\'#f8fafc\'" onmouseout="if(!this.classList.contains(\'_bgmSel\'))this.style.background=\'\'" class="' + (isChk?'_bgmSel':'') + '">'
+            + '<td style="padding:8px 4px;text-align:center"><input type="checkbox" class="_bgmRowCb" data-id="' + item.id + '" onchange="_bgmToggleRow(' + item.id + ',this.checked)"' + (isChk?' checked':'') + ' style="cursor:pointer"></td>'
             + '<td style="padding:8px;font-weight:700;color:#1e40af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + displayName + '</td>'
             + '<td style="padding:8px;text-align:center;color:#94a3b8">' + item.id + '</td>'
             + '<td style="padding:8px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.name + '</td>'
@@ -482,6 +486,63 @@ async function _bgmDelete(id) {
     var res = await apiCall('/api/bgm/items/' + id, 'DELETE');
     if (res.success) { showToast('🗑️ Đã xóa'); await _bgmLoadAll(); }
     else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+// ========== SELECTION + BULK DELETE ==========
+function _bgmUpdateSelBar() {
+    var ids = Object.keys(_bgm.selected).filter(function(k){return _bgm.selected[k];});
+    var bar = document.getElementById('_bgmSelBar');
+    var cnt = document.getElementById('_bgmSelCount');
+    if (!bar) return;
+    if (ids.length > 0) {
+        bar.style.display = 'flex';
+        if (cnt) cnt.textContent = ids.length;
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+function _bgmToggleRow(id, checked) {
+    if (checked) _bgm.selected[id] = true;
+    else delete _bgm.selected[id];
+    _bgmUpdateSelBar();
+}
+
+function _bgmToggleAll(checked) {
+    var cbs = document.querySelectorAll('._bgmRowCb');
+    cbs.forEach(function(cb) {
+        cb.checked = checked;
+        var id = Number(cb.dataset.id);
+        if (checked) _bgm.selected[id] = true;
+        else delete _bgm.selected[id];
+    });
+    _bgmUpdateSelBar();
+}
+
+function _bgmSelectAll() {
+    _bgm.items.forEach(function(item) { _bgm.selected[item.id] = true; });
+    _bgmRender();
+    _bgmUpdateSelBar();
+}
+
+function _bgmDeselectAll() {
+    _bgm.selected = {};
+    _bgmRender();
+    _bgmUpdateSelBar();
+}
+
+async function _bgmDeleteSelected() {
+    var ids = Object.keys(_bgm.selected).filter(function(k){return _bgm.selected[k];}).map(Number);
+    if (ids.length === 0) { showToast('Chưa chọn item nào', 'error'); return; }
+    if (!confirm('Xóa ' + ids.length + ' chi tiết may đã chọn?')) return;
+    var ok = 0, fail = 0;
+    for (var i = 0; i < ids.length; i++) {
+        var res = await apiCall('/api/bgm/items/' + ids[i], 'DELETE');
+        if (res.success) ok++; else fail++;
+    }
+    _bgm.selected = {};
+    showToast('🗑️ Đã xóa ' + ok + ' items' + (fail ? ', ' + fail + ' lỗi' : ''));
+    await _bgmLoadAll();
 }
 
 // ========== BULK IMPORT ==========
