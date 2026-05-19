@@ -329,6 +329,7 @@ async function _cdsxLoadBangGia(content) {
         + '<span style="font-weight:800;font-size:13px;color:#1e40af">💲 GIÁ MAY HV</span>'
         + '<input type="text" id="_bgmSearch" placeholder="🔍 Tìm..." style="margin-left:8px;padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;width:180px">'
         + '<span style="flex:1"></span>'
+        + '<button onclick="_bgmShowBulk()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin-right:6px">📋 Thêm Hàng Loạt</button>'
         + '<button onclick="_bgmShowCreate()" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm Chi Tiết</button></div>'
         + '<div id="_bgmTable" style="flex:1;overflow-y:auto;padding:0"></div></div></div>';
     var _st; document.getElementById('_bgmSearch').addEventListener('input', function() { clearTimeout(_st); _st = setTimeout(function() { _bgm.search = document.getElementById('_bgmSearch')?.value || ''; _bgmRender(); }, 300); });
@@ -481,4 +482,103 @@ async function _bgmDelete(id) {
     var res = await apiCall('/api/bgm/items/' + id, 'DELETE');
     if (res.success) { showToast('🗑️ Đã xóa'); await _bgmLoadAll(); }
     else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+// ========== BULK IMPORT ==========
+function _bgmShowBulk() {
+    var taStyle = 'width:100%;min-height:200px;max-height:300px;font-size:11px;font-family:monospace;padding:6px;border:1px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6';
+    var labelStyle = 'font-size:10px;font-weight:800;color:#1e40af;margin-bottom:2px;display:block';
+    var hintStyle = 'font-size:9px;color:#94a3b8;display:block;margin-bottom:4px';
+    var body = '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:11px;color:#92400e">'
+        + '<b>📋 Hướng dẫn:</b> Copy cột từ Excel → Ctrl+V dán vào ô tương ứng. Mỗi dòng = 1 item. Số dòng các cột phải bằng nhau.'
+        + '</div>'
+        + '<div style="margin-bottom:8px"><label style="' + labelStyle + '">Phân Quyền mặc định cho tất cả</label>'
+        + '<div style="display:flex;gap:12px;font-size:11px">'
+        + '<label><input type="checkbox" id="_bkAD" checked> AD</label>'
+        + '<label><input type="checkbox" id="_bkQLX" checked> QLX</label>'
+        + '<label><input type="checkbox" id="_bkSALE"> SALE</label>'
+        + '</div></div>'
+        + '<div style="display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr;gap:6px">'
+        + '<div><label style="' + labelStyle + '">Tên Chi Tiết *</label><span style="' + hintStyle + '">Paste cột tên</span><textarea id="_bkName" style="' + taStyle + '" placeholder="Cổ bẻ dệt\nCổ tròn\nCổ tim\n..."></textarea></div>'
+        + '<div><label style="' + labelStyle + '">Nhóm *</label><span style="' + hintStyle + '">Paste cột nhóm</span><textarea id="_bkGroup" style="' + taStyle + '" placeholder="Cổ\nCổ\nCổ\n..."></textarea></div>'
+        + '<div><label style="' + labelStyle + '">Loại Thêm</label><span style="' + hintStyle + '">1 lần / nhiều</span><textarea id="_bkType" style="' + taStyle + '" placeholder="1 lần\n1 lần\nnhiều\n..."></textarea></div>'
+        + '<div><label style="' + labelStyle + '">Giá NM *</label><span style="' + hintStyle + '">Paste cột giá</span><textarea id="_bkFP" style="' + taStyle + '" placeholder="6000\n7000\n5000\n..."></textarea></div>'
+        + '<div><label style="' + labelStyle + '">Giá GC *</label><span style="' + hintStyle + '">Paste cột GC</span><textarea id="_bkPP" style="' + taStyle + '" placeholder="14000\n15000\n10000\n..."></textarea></div>'
+        + '<div><label style="' + labelStyle + '">Phân Quyền</label><span style="' + hintStyle + '">Tuỳ chọn riêng</span><textarea id="_bkRoles" style="' + taStyle + '" placeholder="AD,QLX\nAD,QLX,SALE\n(để trống = mặc định)"></textarea></div>'
+        + '</div>'
+        + '<div id="_bkPreview" style="margin-top:8px;font-size:11px;color:#6b7280"></div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" onclick="_bgmPreviewBulk()" style="background:#f59e0b;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700;margin-right:6px">👁️ Xem trước</button>'
+        + '<button class="btn" onclick="_bgmSubmitBulk()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700">🚀 Nhập tất cả</button>';
+    openModal('📋 Thêm Hàng Loạt — Bảng Giá May', body, footer);
+}
+
+function _bgmParseBulkLines() {
+    var names = (document.getElementById('_bkName')?.value || '').split('\n').map(function(s){return s.trim();});
+    var groups = (document.getElementById('_bkGroup')?.value || '').split('\n').map(function(s){return s.trim();});
+    var types = (document.getElementById('_bkType')?.value || '').split('\n').map(function(s){return s.trim();});
+    var fps = (document.getElementById('_bkFP')?.value || '').split('\n').map(function(s){return s.trim().replace(/[,\.]/g,'');});
+    var pps = (document.getElementById('_bkPP')?.value || '').split('\n').map(function(s){return s.trim().replace(/[,\.]/g,'');});
+    var rolesRaw = (document.getElementById('_bkRoles')?.value || '').split('\n').map(function(s){return s.trim();});
+    // Remove trailing empty lines
+    while (names.length > 0 && !names[names.length-1]) names.pop();
+    while (groups.length > 0 && !groups[groups.length-1]) groups.pop();
+    // Default roles from checkboxes
+    var defRoles = [];
+    if (document.getElementById('_bkAD')?.checked) defRoles.push('giam_doc');
+    if (document.getElementById('_bkQLX')?.checked) defRoles.push('quan_ly_xuong');
+    if (document.getElementById('_bkSALE')?.checked) defRoles.push('nhan_vien');
+    if (defRoles.length === 0) defRoles = ['giam_doc','quan_ly_xuong'];
+
+    var roleMap = {AD:'giam_doc',QLX:'quan_ly_xuong',SALE:'nhan_vien'};
+    var count = names.length;
+    var rows = [];
+    for (var i = 0; i < count; i++) {
+        if (!names[i]) continue;
+        var lineRoles = defRoles;
+        if (rolesRaw[i]) {
+            lineRoles = rolesRaw[i].split(',').map(function(r){r=r.trim().toUpperCase();return roleMap[r]||r;}).filter(Boolean);
+        }
+        var addType = 'once';
+        var t = (types[i]||'').toLowerCase();
+        if (t === 'nhiều' || t === 'nhieu' || t === 'multi' || t === 'n') addType = 'multi';
+        rows.push({
+            name: names[i],
+            group_name: groups[i] || '',
+            allowed_roles: lineRoles,
+            add_type: addType,
+            factory_price: Number(fps[i]) || 0,
+            processing_price: Number(pps[i]) || 0
+        });
+    }
+    return { rows: rows, nameCount: names.filter(Boolean).length, groupCount: groups.filter(Boolean).length };
+}
+
+function _bgmPreviewBulk() {
+    var p = _bgmParseBulkLines();
+    var el = document.getElementById('_bkPreview'); if (!el) return;
+    if (p.rows.length === 0) { el.innerHTML = '<span style="color:#dc2626">⚠️ Chưa có dữ liệu</span>'; return; }
+    var missing = p.rows.filter(function(r){return !r.group_name;}).length;
+    var h = '<b style="color:#059669">✅ ' + p.rows.length + ' dòng sẵn sàng</b>';
+    if (missing > 0) h += ' — <span style="color:#dc2626">⚠️ ' + missing + ' dòng thiếu nhóm</span>';
+    h += '<div style="max-height:150px;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:6px"><table style="width:100%;font-size:10px;border-collapse:collapse"><thead><tr style="background:#f1f5f9"><th style="padding:3px 6px;text-align:left">#</th><th style="padding:3px 6px;text-align:left">Tên</th><th style="padding:3px 6px">Nhóm</th><th style="padding:3px 6px">Loại</th><th style="padding:3px 6px;text-align:right">Giá NM</th><th style="padding:3px 6px;text-align:right">Giá GC</th></tr></thead><tbody>';
+    p.rows.forEach(function(r,i){
+        var bg = r.group_name ? '' : 'background:#fef2f2';
+        h += '<tr style="border-bottom:1px solid #f8fafc;' + bg + '"><td style="padding:2px 6px">' + (i+1) + '</td><td style="padding:2px 6px;font-weight:600">' + r.name + '</td><td style="padding:2px 6px;text-align:center">' + (r.group_name||'❌') + '</td><td style="padding:2px 6px;text-align:center">' + r.add_type + '</td><td style="padding:2px 6px;text-align:right">' + _bgmFmt(r.factory_price) + '</td><td style="padding:2px 6px;text-align:right">' + _bgmFmt(r.processing_price) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    el.innerHTML = h;
+}
+
+async function _bgmSubmitBulk() {
+    var p = _bgmParseBulkLines();
+    if (p.rows.length === 0) { showToast('Chưa có dữ liệu để nhập', 'error'); return; }
+    var invalid = p.rows.filter(function(r){return !r.group_name;});
+    if (invalid.length > 0) { showToast(invalid.length + ' dòng thiếu Nhóm — hãy paste cột Nhóm', 'error'); return; }
+    var res = await apiCall('/api/bgm/bulk', 'POST', { rows: p.rows });
+    if (res.success) {
+        showToast('🚀 Đã nhập ' + res.inserted + ' items' + (res.skipped ? ', bỏ qua ' + res.skipped + ' trùng' : ''));
+        closeModal();
+        await _bgmLoadAll();
+    } else { showToast(res.error || 'Lỗi', 'error'); }
 }

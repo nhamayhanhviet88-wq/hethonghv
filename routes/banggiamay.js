@@ -187,4 +187,38 @@ module.exports = async function(fastify) {
 
         return { items: filtered };
     });
+
+    // ========== BULK IMPORT ==========
+    fastify.post('/api/bgm/bulk', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const rows = request.body?.rows;
+        if (!Array.isArray(rows) || rows.length === 0) return reply.code(400).send({ error: 'Không có dữ liệu' });
+        if (rows.length > 200) return reply.code(400).send({ error: 'Tối đa 200 dòng mỗi lần' });
+
+        const mx = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM bgm_items');
+        let order = (mx?.mx || 0);
+        let inserted = 0, skipped = 0, errors = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r.name || !r.name.trim()) { errors.push(`Dòng ${i+1}: Thiếu tên`); continue; }
+            if (!r.group_name || !r.group_name.trim()) { errors.push(`Dòng ${i+1}: Thiếu nhóm`); continue; }
+
+            let roles = r.allowed_roles || ['giam_doc','quan_ly_xuong'];
+            if (typeof roles === 'string') { try { roles = JSON.parse(roles); } catch(e) { roles = ['giam_doc','quan_ly_xuong']; } }
+            const addType = (r.add_type === 'multi' || r.add_type === 'nhiều') ? 'multi' : 'once';
+
+            // Skip duplicates
+            const existing = await db.get('SELECT id FROM bgm_items WHERE name = $1 AND is_active = true', [r.name.trim()]);
+            if (existing) { skipped++; continue; }
+
+            order++;
+            await db.run(`
+                INSERT INTO bgm_items (name, group_name, allowed_roles, add_type, factory_price, processing_price, display_order, created_by)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [r.name.trim(), r.group_name.trim(), JSON.stringify(roles), addType, Number(r.factory_price)||0, Number(r.processing_price)||0, order, request.user.id]);
+            inserted++;
+        }
+
+        return { success: true, inserted, skipped, errors };
+    });
 };
