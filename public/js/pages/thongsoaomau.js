@@ -71,7 +71,7 @@ async function _tsamLoad() {
         var stLabel = _tsamStatusLabels[s.approval_status] || s.approval_status;
         var sewing = []; try { sewing = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
         var mix = []; try { mix = typeof s.mix_positions === 'string' ? JSON.parse(s.mix_positions) : (s.mix_positions || []); } catch(e) {}
-        var lastUp = s.updated_at ? vnFormat(s.updated_at) : '—';
+        var lastUp = s.updated_at ? vnFormat(new Date(s.updated_at)) : '—';
         var lastUser = s.created_by_name ? '<br><span style="color:#7c3aed;font-size:10px">' + s.created_by_name + '</span>' : '';
         var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
         var approveBtn = '';
@@ -91,7 +91,7 @@ async function _tsamLoad() {
             + '<td>' + _tsamLinkCell(s.total_sample) + '</td>'
             + '<td>' + _tsamLinkCell(s.sample_care) + '</td>'
             + '<td><span onclick="event.stopPropagation();_tsamShowOrders(' + s.id + ')" style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">' + (s.order_count || 0) + ' đơn</span></td>'
-            + '<td style="font-size:10px">' + (sewing.length ? sewing.join(', ') : '—') + '</td>'
+            + '<td style="font-size:10px">' + (sewing.length ? sewing.map(function(t){ return typeof t === 'string' ? t : (t.name || ''); }).join(', ') : '—') + '</td>'
             + '<td style="text-align:right;font-weight:700">' + (s.factory_price ? _tsamFmt(s.factory_price) + 'đ' : '—') + '</td>'
             + '<td style="text-align:right;font-weight:700">' + (s.processing_price ? _tsamFmt(s.processing_price) + 'đ' : '—') + '</td>'
             + '<td style="white-space:nowrap">' + '<span style="color:' + stColor + ';font-weight:700;font-size:10px">' + stLabel + '</span> ' + approveBtn + '</td>'
