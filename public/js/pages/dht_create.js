@@ -493,23 +493,17 @@ function _dhtPatternChange(existing) {
     var mixInfo = document.getElementById('_pp_mixInfo');
     if (!pairsEl) return;
     if (!patName) { pairsEl.innerHTML=''; if(mixInfo)mixInfo.style.display='none'; return; }
-    // Find mix_color_count from stored patterns
     var pats = window._ppTsamPatterns || [];
     var pat = pats.find(function(p){ return p.name === patName; });
     var mixCount = (pat && pat.mix_color_count) ? Number(pat.mix_color_count) : 1;
-    // Show info bar
     if (mixInfo) {
-        if (mixCount > 1) {
-            mixInfo.innerHTML = '🎨 Mẫu <b>' + mixCount + ' Phối</b> → Cần chọn <b>' + mixCount + ' chất liệu</b> và <b>' + mixCount + ' màu</b>';
-        } else {
-            mixInfo.innerHTML = '🎨 Mẫu <b>Đơn</b> → 1 chất liệu, 1 màu';
-        }
+        mixInfo.innerHTML = mixCount > 1
+            ? '🎨 Mẫu <b>' + mixCount + ' Phối</b> → Cần chọn <b>' + mixCount + ' chất liệu</b> và <b>' + mixCount + ' màu</b>'
+            : '🎨 Mẫu <b>Đơn</b> → 1 chất liệu, 1 màu';
         mixInfo.style.display = 'block';
     }
-    // Assigned materials from product cascade
     var assignedMats = window._ppAssignedMats || [];
     var existPairs = (existing && existing.material_pairs) ? existing.material_pairs : [];
-    // Backward compat: if old single material/color exists, use as pair 0
     if (existPairs.length === 0 && existing && existing.material_id) {
         existPairs = [{ material_id: existing.material_id, material_name: existing.material_name, color_id: existing.color_id, color_name: existing.color_name }];
     }
@@ -521,48 +515,84 @@ function _dhtPatternChange(existing) {
         h += '<div style="' + (mixCount > 1 ? 'border-left:3px solid '+borderColor+';padding-left:10px;margin-bottom:8px' : '') + '">';
         if (pairLabel) h += '<div style="font-size:10px;font-weight:800;color:'+borderColor+';margin-bottom:4px">'+pairLabel+'</div>';
         h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-        // Material dropdown
-        var matOpts = assignedMats.map(function(m){
-            var sel = (ep.material_id && String(ep.material_id) === String(m.material_id)) ? ' selected' : '';
-            return '<option value="'+m.material_id+'" data-name="'+m.material_name+'"'+sel+'>'+m.material_name+'</option>';
+        // Material searchable input
+        var matListHtml = assignedMats.map(function(m){
+            return '<div class="_ppPairOpt" data-val="'+m.material_id+'" data-txt="'+m.material_name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairMat('+i+',this)">'+m.material_name+'</div>';
         }).join('');
-        var noMat = assignedMats.length === 0 ? '<option value="">Chưa cài đặt CL</option>' : '<option value="">-- Chọn --</option>';
-        h += '<div><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
-            + '<select class="_ppPairMat" data-pair="'+i+'" onchange="_ppPairMatChange('+i+')" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px">'
-            + noMat + matOpts + '</select></div>';
-        // Color dropdown (populated after material selection)
-        h += '<div><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
-            + '<select class="_ppPairColor" data-pair="'+i+'" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px" disabled>'
-            + '<option value="">← Chọn Chất Liệu</option></select></div>';
+        h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
+            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Gõ để tìm..." value="'+(ep.material_name||'')+'" onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
+            + '<input type="hidden" id="_ppMatVal'+i+'" value="'+(ep.material_id||'')+'">'
+            + '<div id="_ppMatList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">'
+            + matListHtml + '</div></div>';
+        // Color searchable input (populated after material selection)
+        h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
+            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
+            + '<input type="hidden" id="_ppColorVal'+i+'" value="'+(ep.color_id||'')+'">'
+            + '<div id="_ppColorList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div>';
         h += '</div></div>';
     }
     pairsEl.innerHTML = h;
     // Restore existing color selections
     for (var j = 0; j < mixCount; j++) {
         if (existPairs[j] && existPairs[j].material_id) {
-            _ppPairMatChange(j, existPairs[j].color_id);
+            _ppPairMatLoad(j, existPairs[j].color_id);
         }
     }
 }
 
-async function _ppPairMatChange(pairIdx, preselectColorId) {
-    var matSel = document.querySelector('select._ppPairMat[data-pair="'+pairIdx+'"]');
-    var colorSel = document.querySelector('select._ppPairColor[data-pair="'+pairIdx+'"]');
-    if (!matSel || !colorSel) return;
-    var matId = matSel.value;
-    if (!matId) { colorSel.innerHTML = '<option value="">← Chọn Chất Liệu</option>'; colorSel.disabled = true; return; }
-    colorSel.innerHTML = '<option value="">Đang tải...</option>';
-    colorSel.disabled = true;
+// Helper: show pair dropdown list
+function _ppShowPairList(listId) { var l=document.getElementById(listId); if(l) l.style.display='block'; }
+// Helper: filter pair dropdown list
+function _ppFilterPairList(inputId, listId) {
+    var inp=document.getElementById(inputId); if(!inp) return;
+    var q=inp.value.toLowerCase();
+    document.querySelectorAll('#'+listId+' ._ppPairOpt').forEach(function(el){ el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none'; });
+}
+// Pick material for pair
+function _ppPickPairMat(pairIdx, el) {
+    document.getElementById('_ppMat'+pairIdx).value = el.dataset.txt;
+    document.getElementById('_ppMatVal'+pairIdx).value = el.dataset.val;
+    document.getElementById('_ppMatList'+pairIdx).style.display = 'none';
+    // Reset color
+    var cInp = document.getElementById('_ppColor'+pairIdx);
+    var cVal = document.getElementById('_ppColorVal'+pairIdx);
+    if(cInp){cInp.value='';cInp.disabled=false;cInp.style.background='';cInp.placeholder='Gõ để tìm màu...';}
+    if(cVal)cVal.value='';
+    _ppPairMatLoad(pairIdx);
+}
+// Pick color for pair
+function _ppPickPairColor(pairIdx, el) {
+    document.getElementById('_ppColor'+pairIdx).value = el.dataset.txt;
+    document.getElementById('_ppColorVal'+pairIdx).value = el.dataset.val;
+    document.getElementById('_ppColorList'+pairIdx).style.display = 'none';
+}
+// Load colors for a material pair
+async function _ppPairMatLoad(pairIdx, preselectColorId) {
+    var matId = document.getElementById('_ppMatVal'+pairIdx)?.value;
+    var cInp = document.getElementById('_ppColor'+pairIdx);
+    var cList = document.getElementById('_ppColorList'+pairIdx);
+    if (!matId || !cList) return;
+    cList.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Đang tải...</div>';
     var res = await apiCall('/api/dht/material-colors/' + matId);
     var colors = res.colors || [];
-    var opts = '<option value="">-- Chọn --</option>';
-    colors.forEach(function(c) {
-        var sel = (preselectColorId && String(preselectColorId) === String(c.id)) ? ' selected' : '';
-        opts += '<option value="'+c.id+'"'+sel+'>'+c.name+'</option>';
-    });
-    colorSel.innerHTML = opts;
-    colorSel.disabled = false;
+    cList.innerHTML = colors.map(function(c){
+        return '<div class="_ppPairOpt" data-val="'+c.id+'" data-txt="'+c.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairColor('+pairIdx+',this)">'+c.name+'</div>';
+    }).join('');
+    if(cInp){cInp.disabled=false;cInp.style.background='';cInp.placeholder='Gõ để tìm màu...';}
+    if(preselectColorId){
+        var found=colors.find(function(c){return String(c.id)===String(preselectColorId);});
+        if(found){
+            document.getElementById('_ppColor'+pairIdx).value=found.name;
+            document.getElementById('_ppColorVal'+pairIdx).value=found.id;
+        }
+    }
 }
+// Close pair dropdowns when clicking outside
+document.addEventListener('click',function(e){
+    if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id^="_ppMatList"]')&&!e.target.closest('[id^="_ppColorList"]')){
+        document.querySelectorAll('[id^="_ppMatList"],[id^="_ppColorList"]').forEach(function(l){l.style.display='none';});
+    }
+});
 
 function _dhtAddQtyRowPP() {
     var c = document.getElementById('_pp_qtyRows'); if (!c) return;
@@ -588,17 +618,16 @@ function _dhtSavePhieu(idx) {
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
     if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
-    // Collect material/color pairs
-    var matSels=document.querySelectorAll('select._ppPairMat');
-    var colorSels=document.querySelectorAll('select._ppPairColor');
+    // Collect material/color pairs from searchable inputs
+    var matInputs=document.querySelectorAll('[id^="_ppMatVal"]');
     var pairs=[];
-    for(var pi=0;pi<matSels.length;pi++){
-        var mVal=matSels[pi].value;
-        var mName=matSels[pi].selectedOptions[0]?.dataset?.name||matSels[pi].selectedOptions[0]?.text||'';
-        var cVal=colorSels[pi]?.value;
-        var cName=colorSels[pi]?.selectedOptions[0]?.text||'';
-        if(!mVal){showToast('Chọn Chất Liệu '+(pi+1),'error');return;}
-        if(!cVal){showToast('Chọn Màu '+(pi+1),'error');return;}
+    for(var pi=0;pi<matInputs.length;pi++){
+        var mVal=matInputs[pi].value;
+        var mName=document.getElementById('_ppMat'+pi)?.value||'';
+        var cVal=document.getElementById('_ppColorVal'+pi)?.value||'';
+        var cName=document.getElementById('_ppColor'+pi)?.value||'';
+        if(!mVal||!mName){showToast('Chọn Chất Liệu '+(pi+1)+' từ danh sách','error');return;}
+        if(!cVal||!cName){showToast('Chọn Màu '+(pi+1)+' từ danh sách','error');return;}
         pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
     }
     if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
