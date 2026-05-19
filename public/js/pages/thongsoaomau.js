@@ -109,7 +109,7 @@ function _tsamShowCreate(editId) {
     window._tsamSewItems = sewExist.slice(); // [{id,name,qty,fp,pp}]
     var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         + '<div class="form-group"><label>Lĩnh Vực ' + rq + '</label><select id="_tsamCat" class="form-control"><option value="">-- Chọn --</option>' + catOpts + '</select></div>'
-        + '<div class="form-group"><label>Mã Mẫu ' + rq + '</label><input id="_tsamCode" class="form-control" value="' + (s.sample_code || '') + '"' + (isEdit ? ' disabled' : '') + ' placeholder="VD: DP-001"></div>'
+        + '<div class="form-group"><label>Mã Mẫu ' + rq + '</label><input id="_tsamCode" class="form-control" autocomplete="off" value="' + (s.sample_code || '') + '"' + (isEdit ? ' disabled' : '') + ' placeholder="VD: DP-001"></div>'
         + '<div class="form-group"><label>Loại ' + rq + '</label><select id="_tsamType" class="form-control" onchange="_tsamTypeChanged()"><option value="DON"' + (curType === 'DON' ? ' selected' : '') + '>Đơn</option><option value="PHA_PHOI"' + (curType === 'PHA_PHOI' ? ' selected' : '') + '>Pha Phối</option><option value="3D"' + (curType === '3D' ? ' selected' : '') + '>3D</option></select></div>'
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
         + '</div>'
@@ -123,10 +123,10 @@ function _tsamShowCreate(editId) {
         + '</div></div>'
         // === REMAINING FIELDS ===
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">'
-        + '<div class="form-group"><label>Bộ Sưu Tập ' + rq + '</label><input id="_tsamCollection" class="form-control" value="' + (s.collection || '') + '" placeholder="VD: BST Hè 2026"></div>'
-        + '<div class="form-group"><label>🔗 Market Thiết Kế ' + rq + '</label><input id="_tsamMarket" class="form-control" value="' + (s.design_market || '') + '" placeholder="https://drive.google.com/..."></div>'
-        + '<div class="form-group"><label>🔗 Tổng Hợp Áo Mẫu ' + rq + '</label><input id="_tsamTotal" class="form-control" value="' + (s.total_sample || '') + '" placeholder="https://drive.google.com/..."></div>'
-        + '<div class="form-group"><label>🔗 Dưỡng Áo Mẫu ' + rq + '</label><input id="_tsamCare" class="form-control" value="' + (s.sample_care || '') + '" placeholder="https://drive.google.com/..."></div>'
+        + '<div class="form-group"><label>Bộ Sưu Tập ' + rq + '</label><input id="_tsamCollection" class="form-control" autocomplete="off" value="' + (s.collection || '') + '" placeholder="VD: BST Hè 2026"></div>'
+        + '<div class="form-group"><label>🔗 Market Thiết Kế ' + rq + '</label><input id="_tsamMarket" class="form-control" autocomplete="off" value="' + (s.design_market || '') + '" placeholder="https://drive.google.com/..."></div>'
+        + '<div class="form-group"><label>🔗 Tổng Hợp Áo Mẫu ' + rq + '</label><input id="_tsamTotal" class="form-control" autocomplete="off" value="' + (s.total_sample || '') + '" placeholder="https://drive.google.com/..."></div>'
+        + '<div class="form-group"><label>🔗 Dưỡng Áo Mẫu ' + rq + '</label><input id="_tsamCare" class="form-control" autocomplete="off" value="' + (s.sample_care || '') + '" placeholder="https://drive.google.com/..."></div>'
         + '</div>'
         // === SEWING TECH PICKER (full width) ===
         + '<div class="form-group" style="margin-top:8px"><label>✂️ Kỹ Thuật May ' + rq + '</label>'
