@@ -556,6 +556,9 @@ async function start() {
     // v4: Add can_approve_tsam flag to users table
     try { await db.exec(`ALTER TABLE users ADD COLUMN can_approve_tsam BOOLEAN DEFAULT false`); } catch(e) { /* already exists */ }
 
+    // v5: Add material_pairs JSON column to dht_order_items for multi-phối support
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN material_pairs JSONB DEFAULT '[]'`); } catch(e) { /* already exists */ }
+
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS bgm_items (

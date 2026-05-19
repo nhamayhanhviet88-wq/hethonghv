@@ -304,8 +304,8 @@ module.exports = async function(fastify) {
                         sale_type, product_name, material_id, material_name,
                         color_id, color_name, pattern_name, sewing_techniques,
                         accounting_notes, extra_materials, quantities,
-                        extra_product, extra_price, item_total)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                        extra_product, extra_price, item_total, material_pairs)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
                 `, [
                     result.id,
                     item.product_name || '',
@@ -325,7 +325,8 @@ module.exports = async function(fastify) {
                     JSON.stringify(item.quantities || []),
                     item.extra_product || null,
                     Number(item.extra_price) || 0,
-                    Number(item.item_total) || 0
+                    Number(item.item_total) || 0,
+                    JSON.stringify(item.material_pairs || [])
                 ]);
             }
 

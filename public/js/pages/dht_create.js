@@ -339,7 +339,7 @@ function _ppSearchField(id, label, items, curVal) {
 }
 function _ppShowList(id){var l=document.getElementById(id+'_list');if(l){l.style.display='block';_ppFilterList(id);}}
 function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
-function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();}
+function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();if(id==='_pp_pattern')_dhtPatternChange();}
 document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
 
 async function _dhtAddItem(editIdx) {
@@ -375,29 +375,32 @@ async function _dhtAddItem(editIdx) {
     var orderCode=_dhtCreate.orderCode||'???';
     var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'');
     var sfProd=_ppSearchField('_pp_product','Sản Phẩm *',prodItems,existing.product_name||'');
-    var sfMat=_ppSearchField('_pp_material','Chất Liệu *',matItems,existing.material_name||'');
-    // Cascade: disable product + material + color until parent is selected
+    // Cascade: disable product until Bán/Quà is selected
     setTimeout(function(){
         var pInp=document.getElementById('_pp_product');if(pInp&&!existing.product_name){pInp.disabled=true;pInp.placeholder='← Chọn Bán/Quà trước';pInp.style.background='#f1f5f9';pInp.style.cursor='not-allowed';}
-        var mInp=document.getElementById('_pp_material');if(mInp&&!existing.material_name){mInp.disabled=true;mInp.placeholder='← Chọn Sản Phẩm trước';mInp.style.background='#f1f5f9';mInp.style.cursor='not-allowed';}
-        var cInp=document.getElementById('_pp_color');if(cInp&&!existing.color_name){cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
     },50);
     var sfPat=_ppSearchField('_pp_pattern','Thông Số Mẫu Áo *',patItems,existing.pattern_name||'');
+    // Store patterns globally for mix_color_count lookup
+    window._ppTsamPatterns = _tsamPatRes.patterns || [];
     // Build single nhac nho section
     var nnHTML='<div style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>';
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu *</label><input id="_pp_color" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="← Chọn Chất Liệu" value="'+(existing.color_name||'')+'" onfocus="_ppShowList(\'_pp_color\')" oninput="_ppFilterList(\'_pp_color\')"><input type="hidden" id="_pp_color_val" value="'+(existing.color_id||'')+'"><div id="_pp_color_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
+        +'<div id="_pp_mixInfo" style="display:none;background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:11px;font-weight:700;color:#7c3aed"></div>'
+        +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Kỹ Thuật May</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div><button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +nnHTML
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +'<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div></div>';
     document.body.appendChild(ov);
-    if(existing.material_id){document.getElementById('_pp_material_val').value=existing.material_id;setTimeout(function(){_dhtLoadColorsPopup(existing.color_id);},200);}
+    // Restore existing material pairs if editing
+    if (existing.pattern_name) {
+        setTimeout(function(){ _dhtPatternChange(existing); }, 100);
+    }
     setTimeout(_ppCalc,100);
     _ppRenderNNTags();
     _ppRenderSewTags();
@@ -433,22 +436,19 @@ function _dhtSaleChange() {
     }).join('');
 }
 
-// Cascade: product → show process steps + filter materials
+// Cascade: product → show process steps + store assigned materials globally
 async function _dhtProductChange() {
     var prodName=document.getElementById('_pp_product')?.value;
     var bar=document.getElementById('_pp_processBar');
     var stepsEl=document.getElementById('_pp_processSteps');
-    // Reset material + color
-    var mInp=document.getElementById('_pp_material');
-    var mList=document.getElementById('_pp_material_list');
-    var mVal=document.getElementById('_pp_material_val');
-    var cInp=document.getElementById('_pp_color');
-    if(mInp){mInp.value='';if(mVal)mVal.value='';}
-    if(cInp){cInp.value='';cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
+    // Clear material pairs when product changes
+    var pairsEl=document.getElementById('_pp_matColorPairs');
+    if(pairsEl)pairsEl.innerHTML='';
+    var mixInfo=document.getElementById('_pp_mixInfo');
+    if(mixInfo)mixInfo.style.display='none';
+    window._ppAssignedMats=[];
     if(!prodName){
         if(bar)bar.style.display='none';
-        if(mInp){mInp.disabled=true;mInp.placeholder='← Chọn Sản Phẩm trước';mInp.style.background='#f1f5f9';mInp.style.cursor='not-allowed';}
-        if(mList)mList.innerHTML='';
         return;
     }
     // Find product ID
@@ -475,31 +475,94 @@ async function _dhtProductChange() {
                 bar.style.display='block';
             } else { bar.style.display='none'; }
         }
-        // Populate materials dropdown with only assigned ones
-        var assignedMats=matRes.materials||[];
-        if(mInp&&mList){
-            if(assignedMats.length>0){
-                mInp.disabled=false;mInp.placeholder='Gõ để tìm...';mInp.style.background='';mInp.style.cursor='pointer';
-                mList.innerHTML=assignedMats.map(function(m){
-                    return '<div class="_ppOpt" data-val="'+m.material_id+'" data-txt="'+m.material_name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_material\',this)">'+m.material_name+'</div>';
-                }).join('');
-            } else {
-                mInp.disabled=true;mInp.placeholder='Chưa cài đặt chất liệu cho SP này';mInp.style.background='#fef2f2';mInp.style.cursor='not-allowed';
-                mList.innerHTML='';
-            }
-        }
+        // Store assigned materials globally for pair rendering
+        window._ppAssignedMats=matRes.materials||[];
+        // Re-render pairs if pattern already selected
+        var patName=document.getElementById('_pp_pattern')?.value;
+        if(patName) _dhtPatternChange();
     }catch(e){if(bar)bar.style.display='none';}
 }
 
-function _dhtMatChange() {
-    var matId=document.getElementById('_pp_material_val')?.value;
-    var cInp=document.getElementById('_pp_color');
-    if(!matId){if(cInp){cInp.value='';cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}return;}
-    // Enable color
-    if(cInp){cInp.disabled=false;cInp.placeholder='Gõ để tìm màu...';cInp.style.background='';cInp.style.cursor='pointer';}
-    _dhtLoadColorsPopup();
+// Legacy _dhtMatChange — now handled per pair
+function _dhtMatChange() {}
+
+// ========== PATTERN CHANGE → Dynamic Material/Color Pairs ==========
+function _dhtPatternChange(existing) {
+    var patName = document.getElementById('_pp_pattern')?.value;
+    var pairsEl = document.getElementById('_pp_matColorPairs');
+    var mixInfo = document.getElementById('_pp_mixInfo');
+    if (!pairsEl) return;
+    if (!patName) { pairsEl.innerHTML=''; if(mixInfo)mixInfo.style.display='none'; return; }
+    // Find mix_color_count from stored patterns
+    var pats = window._ppTsamPatterns || [];
+    var pat = pats.find(function(p){ return p.name === patName; });
+    var mixCount = (pat && pat.mix_color_count) ? Number(pat.mix_color_count) : 1;
+    // Show info bar
+    if (mixInfo) {
+        if (mixCount > 1) {
+            mixInfo.innerHTML = '🎨 Mẫu <b>' + mixCount + ' Phối</b> → Cần chọn <b>' + mixCount + ' chất liệu</b> và <b>' + mixCount + ' màu</b>';
+        } else {
+            mixInfo.innerHTML = '🎨 Mẫu <b>Đơn</b> → 1 chất liệu, 1 màu';
+        }
+        mixInfo.style.display = 'block';
+    }
+    // Assigned materials from product cascade
+    var assignedMats = window._ppAssignedMats || [];
+    var existPairs = (existing && existing.material_pairs) ? existing.material_pairs : [];
+    // Backward compat: if old single material/color exists, use as pair 0
+    if (existPairs.length === 0 && existing && existing.material_id) {
+        existPairs = [{ material_id: existing.material_id, material_name: existing.material_name, color_id: existing.color_id, color_name: existing.color_name }];
+    }
+    var h = '';
+    for (var i = 0; i < mixCount; i++) {
+        var ep = existPairs[i] || {};
+        var pairLabel = mixCount > 1 ? ('Phối ' + (i+1)) : '';
+        var borderColor = ['#7c3aed','#2563eb','#059669','#f59e0b','#ef4444'][i % 5];
+        h += '<div style="' + (mixCount > 1 ? 'border-left:3px solid '+borderColor+';padding-left:10px;margin-bottom:8px' : '') + '">';
+        if (pairLabel) h += '<div style="font-size:10px;font-weight:800;color:'+borderColor+';margin-bottom:4px">'+pairLabel+'</div>';
+        h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+        // Material dropdown
+        var matOpts = assignedMats.map(function(m){
+            var sel = (ep.material_id && String(ep.material_id) === String(m.material_id)) ? ' selected' : '';
+            return '<option value="'+m.material_id+'" data-name="'+m.material_name+'"'+sel+'>'+m.material_name+'</option>';
+        }).join('');
+        var noMat = assignedMats.length === 0 ? '<option value="">Chưa cài đặt CL</option>' : '<option value="">-- Chọn --</option>';
+        h += '<div><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
+            + '<select class="_ppPairMat" data-pair="'+i+'" onchange="_ppPairMatChange('+i+')" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px">'
+            + noMat + matOpts + '</select></div>';
+        // Color dropdown (populated after material selection)
+        h += '<div><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
+            + '<select class="_ppPairColor" data-pair="'+i+'" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px" disabled>'
+            + '<option value="">← Chọn Chất Liệu</option></select></div>';
+        h += '</div></div>';
+    }
+    pairsEl.innerHTML = h;
+    // Restore existing color selections
+    for (var j = 0; j < mixCount; j++) {
+        if (existPairs[j] && existPairs[j].material_id) {
+            _ppPairMatChange(j, existPairs[j].color_id);
+        }
+    }
 }
 
+async function _ppPairMatChange(pairIdx, preselectColorId) {
+    var matSel = document.querySelector('select._ppPairMat[data-pair="'+pairIdx+'"]');
+    var colorSel = document.querySelector('select._ppPairColor[data-pair="'+pairIdx+'"]');
+    if (!matSel || !colorSel) return;
+    var matId = matSel.value;
+    if (!matId) { colorSel.innerHTML = '<option value="">← Chọn Chất Liệu</option>'; colorSel.disabled = true; return; }
+    colorSel.innerHTML = '<option value="">Đang tải...</option>';
+    colorSel.disabled = true;
+    var res = await apiCall('/api/dht/material-colors/' + matId);
+    var colors = res.colors || [];
+    var opts = '<option value="">-- Chọn --</option>';
+    colors.forEach(function(c) {
+        var sel = (preselectColorId && String(preselectColorId) === String(c.id)) ? ' selected' : '';
+        opts += '<option value="'+c.id+'"'+sel+'>'+c.name+'</option>';
+    });
+    colorSel.innerHTML = opts;
+    colorSel.disabled = false;
+}
 
 function _dhtAddQtyRowPP() {
     var c = document.getElementById('_pp_qtyRows'); if (!c) return;
@@ -511,37 +574,34 @@ function _dhtAddQtyRowPP() {
 }
 
 async function _dhtLoadColorsPopup(preselect) {
-    var mid = document.getElementById('_pp_material_val')?.value;
-    var listEl = document.getElementById('_pp_color_list');
-    var inp = document.getElementById('_pp_color');
-    var valEl = document.getElementById('_pp_color_val');
-    if (!listEl||!inp) return;
-    if (!mid) { listEl.innerHTML=''; inp.value=''; inp.placeholder='← Chọn Chất Liệu'; if(valEl)valEl.value=''; return; }
-    var res = await apiCall('/api/dht/material-colors/' + mid);
-    var colors = res.colors || [];
-    listEl.innerHTML = colors.map(function(c){
-        return '<div class="_ppOpt" data-val="'+c.id+'" data-txt="'+c.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_color\',this)">'+c.name+'</div>';
-    }).join('');
-    inp.placeholder='Gõ để tìm màu...';
-    if(preselect){var found=colors.find(function(c){return c.id==preselect;});if(found){inp.value=found.name;if(valEl)valEl.value=found.id;}}
+    // Legacy — no longer used for main form, kept for compatibility
 }
 
 function _dhtSavePhieu(idx) {
     var po=_dhtCreate.phieuOpts||{};
     var sale=document.getElementById('_pp_sale')?.value;
     var prod=document.getElementById('_pp_product')?.value;
-    var matId=document.getElementById('_pp_material_val')?.value;
-    var matName=document.getElementById('_pp_material')?.value;
-    var color=document.getElementById('_pp_color_val')?.value, colorT=document.getElementById('_pp_color')?.value||'';
     var pat=document.getElementById('_pp_pattern')?.value;
     var nnArr=window._ppNNTags||[];
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
     if(!sale){showToast('Chọn Bán/Quà','error');return;}
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
-    if(!matId||!matName){showToast('Chọn Chất Liệu từ danh sách','error');return;}
-    if(!color){showToast('Chọn Màu','error');return;}
     if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
+    // Collect material/color pairs
+    var matSels=document.querySelectorAll('select._ppPairMat');
+    var colorSels=document.querySelectorAll('select._ppPairColor');
+    var pairs=[];
+    for(var pi=0;pi<matSels.length;pi++){
+        var mVal=matSels[pi].value;
+        var mName=matSels[pi].selectedOptions[0]?.dataset?.name||matSels[pi].selectedOptions[0]?.text||'';
+        var cVal=colorSels[pi]?.value;
+        var cName=colorSels[pi]?.selectedOptions[0]?.text||'';
+        if(!mVal){showToast('Chọn Chất Liệu '+(pi+1),'error');return;}
+        if(!cVal){showToast('Chọn Màu '+(pi+1),'error');return;}
+        pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
+    }
+    if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
     var qtyPairs=[], raw=0;
     for(var i=0;i<qs.length;i++){var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});raw+=qv*pv;}
@@ -550,7 +610,12 @@ function _dhtSavePhieu(idx) {
     var sewArr = (window._ppSewItems || []).slice();
     var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
     var acctNotes=nnArr.join(' | ');
-    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:Number(matId),material_name:matName,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
+    // Backward compat: first pair = main material/color
+    var mainPair=pairs[0];
+    // Build display name for color (all pairs)
+    var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
+    var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
+    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
