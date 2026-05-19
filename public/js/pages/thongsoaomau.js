@@ -467,7 +467,8 @@ function _tsamRenderBgmList(query) {
             var checked = existIds.indexOf(item.id) >= 0;
             var inputHtml;
             if (isOnce) {
-                inputHtml = '<input type="radio" name="_bgmGrp_' + safeName + '" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="once" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' onchange="_bgmUpdateTotals()" style="cursor:pointer">';
+                // Checkbox with JS mutual exclusion (allows uncheck, unlike radio)
+                inputHtml = '<input type="checkbox" class="_bgmCb _bgmOnce" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="once" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' onchange="_bgmOnceCheck(this);_bgmUpdateTotals()" style="cursor:pointer">';
             } else {
                 inputHtml = '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="multi" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' onchange="_bgmUpdateTotals()" style="cursor:pointer">';
             }
@@ -484,6 +485,16 @@ function _tsamRenderBgmList(query) {
 
     wrap.innerHTML = '<div style="max-height:55vh;overflow-y:auto">' + h + '</div>';
     _bgmUpdateTotals();
+}
+
+function _bgmOnceCheck(el) {
+    if (!el.checked) return; // allow uncheck freely
+    // Uncheck all other checkboxes in the same group
+    var group = el.dataset.group;
+    var id = el.dataset.id;
+    document.querySelectorAll('._bgmOnce[data-group="' + group + '"]').forEach(function(cb) {
+        if (cb.dataset.id !== id) cb.checked = false;
+    });
 }
 
 function _bgmUpdateTotals() {
