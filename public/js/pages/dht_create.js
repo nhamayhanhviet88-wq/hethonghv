@@ -385,9 +385,9 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu *</label><input id="_pp_color" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="← Chọn Chất Liệu" value="'+(existing.color_name||'')+'" onfocus="_ppShowList(\'_pp_color\')" oninput="_ppFilterList(\'_pp_color\')"><input type="hidden" id="_pp_color_val" value="'+(existing.color_id||'')+'"><div id="_pp_color_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfPat+'<div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +nnHTML
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +'<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div></div>';
@@ -705,36 +705,68 @@ document.addEventListener('click', function(e) {
 // ========== NHẮC NHỞ TAG SYSTEM ==========
 function _ppAddNN() {
     var list = window._ppNNAllList || [];
-    var tags = window._ppNNTags || [];
-    // Filter out already-added
-    var available = list.filter(function(item) {
-        var label = item.departments ? item.departments + ': ' + item.content : item.content;
-        return tags.indexOf(label) < 0;
-    });
-    if (available.length === 0) { showToast('Không còn nhắc nhở nào để thêm', 'error'); return; }
+    if (list.length === 0) { showToast('Chưa có nhắc nhở nào được cài đặt', 'error'); return; }
 
+    // Collect distinct departments
+    var deptSet = {};
+    list.forEach(function(item) {
+        (item.departments || '').split(',').forEach(function(d) {
+            d = d.trim(); if (d) deptSet[d] = true;
+        });
+    });
+    var depts = Object.keys(deptSet).sort();
+    if (depts.length === 0) { depts = ['CHUNG']; }
+
+    // Step 1: Show department picker
     var picker = document.getElementById('_ppNNPicker');
     if (picker) picker.remove();
     picker = document.createElement('div');
     picker.id = '_ppNNPicker';
     picker.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:10000;display:flex;align-items:center;justify-content:center';
 
-    var h = '<div style="background:#fff;border-radius:10px;padding:16px;width:400px;max-height:50vh;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-weight:800;font-size:13px;color:#92400e">🔔 Chọn Nhắc Nhở</span>'
+    var h = '<div style="background:#fff;border-radius:10px;padding:16px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:800;font-size:13px;color:#92400e">🔔 Bước 1: Chọn Bộ Phận</span>'
         + '<button onclick="document.getElementById(\'_ppNNPicker\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#94a3b8">✕</button></div>'
-        + '<div style="max-height:300px;overflow-y:auto">';
-    available.forEach(function(item) {
-        var label = item.departments ? item.departments + ': ' + item.content : item.content;
-        var deptBadge = item.departments ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;margin-right:6px">' + item.departments + '</span>' : '';
-        var catBadge = item.category === 'ke_toan'
-            ? '<span style="background:#eff6ff;color:#1d4ed8;padding:1px 4px;border-radius:3px;font-size:8px;font-weight:700;margin-left:6px">KT</span>'
-            : '<span style="background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:3px;font-size:8px;font-weight:700;margin-left:6px">SX</span>';
-        h += '<div onclick="_ppPickNNItem(\'' + label.replace(/'/g, "\\'") + '\')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;align-items:center" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'">'
-            + deptBadge + '<span style="font-weight:600">' + item.content + '</span>' + catBadge + '</div>';
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+    depts.forEach(function(d) {
+        h += '<button onclick="_ppNNStep2(\'' + d.replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">' + d + '</button>';
     });
     h += '</div></div>';
     picker.innerHTML = h;
     document.body.appendChild(picker);
+}
+
+function _ppNNStep2(dept) {
+    var list = window._ppNNAllList || [];
+    var tags = window._ppNNTags || [];
+    // Filter by department + not already added
+    var available = list.filter(function(item) {
+        var label = dept + ': ' + item.content;
+        if (tags.indexOf(label) >= 0) return false;
+        if (!item.departments) return true;
+        return item.departments.indexOf(dept) >= 0;
+    });
+    if (available.length === 0) {
+        showToast('Không còn nhắc nhở nào cho ' + dept, 'error');
+        document.getElementById('_ppNNPicker')?.remove();
+        return;
+    }
+
+    var picker = document.getElementById('_ppNNPicker');
+    var inner = picker.querySelector('div');
+    var h = '<div style="background:#fff;border-radius:10px;padding:16px;width:400px;max-height:50vh;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+        + '<div><button onclick="_ppAddNN()" style="background:none;border:none;font-size:12px;cursor:pointer;color:#64748b;margin-right:6px">← Quay lại</button>'
+        + '<span style="font-weight:800;font-size:13px;color:#1d4ed8">' + dept + '</span></div>'
+        + '<button onclick="document.getElementById(\'_ppNNPicker\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        + '<div style="max-height:300px;overflow-y:auto">';
+    available.forEach(function(item) {
+        var label = dept + ': ' + item.content;
+        h += '<div onclick="_ppPickNNItem(\'' + label.replace(/'/g, "\\'") + '\')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:600" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'">'
+            + item.content + '</div>';
+    });
+    h += '</div></div>';
+    picker.innerHTML = h;
 }
 
 function _ppPickNNItem(label) {
