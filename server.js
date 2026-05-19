@@ -553,6 +553,9 @@ async function start() {
         )`);
     } catch(e) { console.error('[TSAM Migration]', e.message); }
 
+    // v4: Add can_approve_tsam flag to users table
+    try { await db.exec(`ALTER TABLE users ADD COLUMN can_approve_tsam BOOLEAN DEFAULT false`); } catch(e) { /* already exists */ }
+
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS bgm_items (

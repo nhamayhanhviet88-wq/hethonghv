@@ -236,7 +236,12 @@ module.exports = async function(fastify) {
     });
 
     // ========== DELETE sample (soft) ==========
-    fastify.delete('/api/tsam/samples/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+    fastify.delete('/api/tsam/samples/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        // Permission: giam_doc OR can_approve_tsam
+        if (request.user.role !== 'giam_doc') {
+            const u = await db.get('SELECT can_approve_tsam FROM users WHERE id = $1', [request.user.id]);
+            if (!u?.can_approve_tsam) return reply.code(403).send({ error: 'Không có quyền' });
+        }
         const id = Number(request.params.id);
         // Check if any orders linked
         const linkCount = await db.get('SELECT COUNT(*) as cnt FROM tsam_order_links WHERE sample_id = $1', [id]);
@@ -250,7 +255,12 @@ module.exports = async function(fastify) {
     });
 
     // ========== APPROVE sample ==========
-    fastify.put('/api/tsam/samples/:id/approve', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+    fastify.put('/api/tsam/samples/:id/approve', { preHandler: [authenticate] }, async (request, reply) => {
+        // Permission: giam_doc OR can_approve_tsam
+        if (request.user.role !== 'giam_doc') {
+            const u = await db.get('SELECT can_approve_tsam FROM users WHERE id = $1', [request.user.id]);
+            if (!u?.can_approve_tsam) return reply.code(403).send({ error: 'Không có quyền duyệt' });
+        }
         const id = Number(request.params.id);
         const sample = await db.get('SELECT approval_status FROM tsam_samples WHERE id = $1', [id]);
         if (!sample) return reply.code(404).send({ error: 'Không tìm thấy mẫu' });
@@ -265,7 +275,12 @@ module.exports = async function(fastify) {
     });
 
     // ========== REJECT sample ==========
-    fastify.put('/api/tsam/samples/:id/reject', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+    fastify.put('/api/tsam/samples/:id/reject', { preHandler: [authenticate] }, async (request, reply) => {
+        // Permission: giam_doc OR can_approve_tsam
+        if (request.user.role !== 'giam_doc') {
+            const u = await db.get('SELECT can_approve_tsam FROM users WHERE id = $1', [request.user.id]);
+            if (!u?.can_approve_tsam) return reply.code(403).send({ error: 'Không có quyền từ chối' });
+        }
         const id = Number(request.params.id);
         const { reason } = request.body || {};
         const sample = await db.get('SELECT approval_status FROM tsam_samples WHERE id = $1', [id]);
@@ -393,6 +408,22 @@ module.exports = async function(fastify) {
     fastify.delete('/api/tsam/mix-positions/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
         await db.run('DELETE FROM tsam_mix_positions WHERE id = $1', [id]);
+        return { success: true };
+    });
+
+    // ========== TSAM APPROVAL PERMISSION MANAGEMENT ==========
+    // List users with can_approve_tsam flag
+    fastify.get('/api/tsam/approvers', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const users = await db.all("SELECT id, username, full_name, role, can_approve_tsam FROM users WHERE status = 'active' AND role NOT IN ('giam_doc') ORDER BY full_name");
+        return { users };
+    });
+
+    // Toggle can_approve_tsam for a user
+    fastify.put('/api/tsam/approvers/:userId', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const userId = Number(request.params.userId);
+        const { can_approve } = request.body || {};
+        await db.run('UPDATE users SET can_approve_tsam = $1, updated_at = NOW() WHERE id = $2', [!!can_approve, userId]);
+        console.log(`📋 [TSAM] can_approve_tsam = ${!!can_approve} for user #${userId} by ${request.user.username}`);
         return { success: true };
     });
 };

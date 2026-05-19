@@ -12,7 +12,7 @@ async function authRoutes(fastify, options) {
         }
 
         const user = await db.get(
-            'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id, department_joined_at, token_version FROM users WHERE username = ?',
+            'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id, department_joined_at, token_version, can_approve_tsam FROM users WHERE username = ?',
             [username]
         );
 
@@ -117,7 +117,7 @@ async function authRoutes(fastify, options) {
             maxAge: 7 * 24 * 60 * 60
         });
 
-        return { success: true, user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role } };
+        return { success: true, user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role, can_approve_tsam: !!user.can_approve_tsam } };
     });
 
     // Đăng xuất
@@ -129,7 +129,7 @@ async function authRoutes(fastify, options) {
     // Lấy thông tin user hiện tại + effective permissions
     fastify.get('/api/auth/me', { preHandler: authenticate }, async (request, reply) => {
         const user = await db.get(
-            'SELECT id, username, full_name, phone, role, status, telegram_group_id, order_code_prefix, department_id, managed_by_user_id, access_blocked FROM users WHERE id = ?',
+            'SELECT id, username, full_name, phone, role, status, telegram_group_id, order_code_prefix, department_id, managed_by_user_id, access_blocked, can_approve_tsam FROM users WHERE id = ?',
             [request.user.id]
         );
 

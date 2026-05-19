@@ -15,6 +15,7 @@ async function renderCaidatsanxuatPage(container) {
                     <div class="tab" data-tab="luong-sx" onclick="switchCdsxTab('luong-sx', this)">💰 Lương Sản Xuất</div>
                     <div class="tab" data-tab="bang-gia" onclick="switchCdsxTab('bang-gia', this)">💲 Bảng Giá May</div>
                     <div class="tab" data-tab="vi-tri-phoi" onclick="switchCdsxTab('vi-tri-phoi', this)">📌 Vị Trí Phối</div>
+                    <div class="tab" data-tab="quyen-duyet" onclick="switchCdsxTab('quyen-duyet', this)">🔑 Quyền Duyệt TSAM</div>
                     <div class="tab" data-tab="nhac-nho" onclick="switchCdsxTab('nhac-nho', this)">🔔 Nhắc Nhở Công Việc</div>
                 </div>
                 <div id="cdsxContent">
@@ -63,6 +64,9 @@ async function switchCdsxTab(tab, el) {
             break;
         case 'nhac-nho':
             await _cdsxLoadNhacNho(content);
+            break;
+        case 'quyen-duyet':
+            await _cdsxLoadQuyenDuyet(content);
             break;
         default:
             _cdsxLoadShell(content, '🔧', tab, 'Tab chưa được cấu hình');
@@ -765,4 +769,50 @@ async function _vtpDelete(id) {
     var res = await apiCall('/api/tsam/mix-positions/' + id, 'DELETE');
     if (res.success) { showToast('🗑️ Đã xóa'); await _vtpLoad(); }
     else { showToast(res.error || 'Lỗi', 'error'); }
+}
+
+// ===== QUYỀN DUYỆT TSAM Tab =====
+async function _cdsxLoadQuyenDuyet(container) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-400)">Đang tải...</div>';
+    var res = await apiCall('/api/tsam/approvers');
+    var users = res.users || [];
+    var roleLabels = { quan_ly_cap_cao:'QL Cấp Cao', quan_ly_xuong:'QL Xưởng', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', thu_viec:'Thử Việc' };
+
+    var h = '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:700;color:#7c3aed;margin-bottom:4px">🔑 Phân Quyền Duyệt Mẫu Áo (TSAM)</div>'
+        + '<div style="font-size:11px;color:var(--gray-400)">Bật/tắt quyền Duyệt, Từ Chối, Xóa mẫu áo cho từng nhân viên.<br>GĐ luôn có quyền duyệt mặc định.</div></div>';
+
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
+        + '<th style="padding:8px 6px;border-bottom:2px solid var(--gray-200);text-align:left">Nhân Viên</th>'
+        + '<th style="padding:8px 6px;border-bottom:2px solid var(--gray-200);text-align:left">Vai Trò</th>'
+        + '<th style="padding:8px 6px;border-bottom:2px solid var(--gray-200);text-align:center">Quyền Duyệt</th>'
+        + '</tr></thead><tbody>';
+
+    if (!users.length) {
+        h += '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--gray-400)">Không có nhân viên</td></tr>';
+    }
+    users.forEach(function(u) {
+        var checked = u.can_approve_tsam ? ' checked' : '';
+        var roleName = roleLabels[u.role] || u.role;
+        h += '<tr style="border-bottom:1px solid var(--gray-100)">'
+            + '<td style="padding:8px 6px;font-weight:600">' + (u.full_name || u.username) + ' <span style="font-size:10px;color:var(--gray-400)">@' + u.username + '</span></td>'
+            + '<td style="padding:8px 6px"><span style="background:#ede9fe;color:#7c3aed;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">' + roleName + '</span></td>'
+            + '<td style="padding:8px 6px;text-align:center">'
+            + '<label style="position:relative;display:inline-block;width:42px;height:22px;cursor:pointer">'
+            + '<input type="checkbox" onchange="_cdsxToggleApprover(' + u.id + ', this.checked)" style="opacity:0;width:0;height:0"' + checked + '>'
+            + '<span style="position:absolute;top:0;left:0;right:0;bottom:0;background:' + (u.can_approve_tsam ? '#059669' : '#cbd5e1') + ';border-radius:22px;transition:.3s"></span>'
+            + '<span style="position:absolute;top:2px;left:' + (u.can_approve_tsam ? '22px' : '2px') + ';width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>'
+            + '</label>'
+            + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    container.innerHTML = h;
+}
+
+async function _cdsxToggleApprover(userId, val) {
+    var res = await apiCall('/api/tsam/approvers/' + userId, 'PUT', { can_approve: val });
+    if (res.success) { showToast(val ? '✅ Đã cấp quyền duyệt' : '❌ Đã thu hồi quyền duyệt'); }
+    else { showToast(res.error || 'Lỗi', 'error'); }
+    // Reload to update toggle visuals
+    var content = document.getElementById('cdsxContent');
+    if (content) await _cdsxLoadQuyenDuyet(content);
 }

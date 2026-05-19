@@ -73,7 +73,7 @@ async function _tsamLoad() {
         var sewNames = sewing.map(function(t){ return typeof t === 'string' ? t : (t.name || ''); }).filter(Boolean);
         var lastUp = '—'; try { if (s.updated_at) { var _d = new Date(s.updated_at); lastUp = _d.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
         var lastUser = s.created_by_name ? '<br><span style="color:#7c3aed;font-size:10px">' + s.created_by_name + '</span>' : '';
-        var isGD = typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'giam_doc' || currentUser.role === 'quan_ly_cap_cao');
+        var isGD = typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'giam_doc' || currentUser.can_approve_tsam);
         var approveBtn = '';
         if (isGD && s.approval_status === 'PENDING') {
             approveBtn = '<button onclick="event.stopPropagation();_tsamApprove(' + s.id + ')" style="background:#059669;color:#fff;border:none;padding:2px 6px;border-radius:3px;font-size:9px;cursor:pointer;margin-right:2px" title="Duyệt">✅</button>'
@@ -322,7 +322,7 @@ async function _tsamDetail(id) {
     }
     // History section
     body += '<div id="_tsamHistArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải lịch sử...</div>';
-    var isGD = typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'giam_doc' || currentUser.role === 'quan_ly_cap_cao');
+    var isGD = typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'giam_doc' || currentUser.can_approve_tsam);
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>'
         + '<button class="btn" onclick="_tsamShowCreate(' + s.id + ')" style="background:#f59e0b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">✏️ Sửa</button>';
     if (isGD) footer += '<button class="btn" onclick="_tsamDelete(' + s.id + ')" style="background:#dc2626;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">🗑️ Xóa</button>';
