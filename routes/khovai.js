@@ -562,61 +562,44 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // ========== BULK OPERATIONS ==========
+    // ========== BULK OPERATIONS (selective by IDs) ==========
 
-    // PUT /api/khovai/warehouses/bulk/toggle — Toggle ALL warehouses
-    fastify.put('/api/khovai/warehouses/bulk/toggle', { preHandler: [authenticate] }, async (request) => {
-        const { is_active } = request.body || {};
-        await db.run('UPDATE kv_warehouses SET is_active = $1, updated_at = NOW()', [!!is_active]);
-        return { success: true };
+    // POST /api/khovai/warehouses/bulk-delete — Delete selected warehouses by IDs + cascade
+    fastify.post('/api/khovai/warehouses/bulk-delete', { preHandler: [authenticate] }, async (request) => {
+        const { ids } = request.body || {};
+        if (!ids || !Array.isArray(ids) || !ids.length) return { error: 'Chưa chọn kho nào' };
+        for (const id of ids) {
+            await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1)', [id]);
+            await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1)', [id]);
+            await db.run('DELETE FROM kv_fabric_colors WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $1)', [id]);
+            await db.run('DELETE FROM kv_materials WHERE warehouse_id = $1', [id]);
+            await db.run('DELETE FROM kv_warehouses WHERE id = $1', [id]);
+        }
+        return { success: true, deleted: ids.length };
     });
 
-    // DELETE /api/khovai/warehouses/bulk/delete — Delete ALL warehouses + cascade
-    fastify.delete('/api/khovai/warehouses/bulk/delete', { preHandler: [authenticate] }, async () => {
-        await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id)');
-        await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id)');
-        await db.run('DELETE FROM kv_fabric_colors');
-        await db.run('DELETE FROM kv_materials');
-        await db.run('DELETE FROM kv_warehouses');
-        return { success: true };
+    // POST /api/khovai/materials/bulk-delete — Delete selected materials by IDs + cascade
+    fastify.post('/api/khovai/materials/bulk-delete', { preHandler: [authenticate] }, async (request) => {
+        const { ids } = request.body || {};
+        if (!ids || !Array.isArray(ids) || !ids.length) return { error: 'Chưa chọn chất liệu nào' };
+        for (const id of ids) {
+            await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [id]);
+            await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [id]);
+            await db.run('DELETE FROM kv_fabric_colors WHERE material_id = $1', [id]);
+            await db.run('DELETE FROM kv_materials WHERE id = $1', [id]);
+        }
+        return { success: true, deleted: ids.length };
     });
 
-    // PUT /api/khovai/materials/bulk/toggle — Toggle ALL materials for a warehouse
-    fastify.put('/api/khovai/materials/bulk/toggle', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, is_active } = request.body || {};
-        if (!warehouse_id) return { error: 'Chưa chọn kho' };
-        await db.run('UPDATE kv_materials SET is_active = $1, updated_at = NOW() WHERE warehouse_id = $2', [!!is_active, warehouse_id]);
-        // Cascade: also toggle all colors belonging to these materials
-        await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $2)', [!!is_active, warehouse_id]);
-        return { success: true };
-    });
-
-    // DELETE /api/khovai/materials/bulk/delete — Delete ALL materials for a warehouse + cascade
-    fastify.delete('/api/khovai/materials/bulk/delete', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id } = request.body || {};
-        if (!warehouse_id) return { error: 'Chưa chọn kho' };
-        await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1)', [warehouse_id]);
-        await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1)', [warehouse_id]);
-        await db.run('DELETE FROM kv_fabric_colors WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $1)', [warehouse_id]);
-        await db.run('DELETE FROM kv_materials WHERE warehouse_id = $1', [warehouse_id]);
-        return { success: true };
-    });
-
-    // PUT /api/khovai/colors/bulk/toggle — Toggle ALL colors for a material
-    fastify.put('/api/khovai/colors/bulk/toggle', { preHandler: [authenticate] }, async (request) => {
-        const { material_id, is_active } = request.body || {};
-        if (!material_id) return { error: 'Chưa chọn chất liệu' };
-        await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE material_id = $2', [!!is_active, material_id]);
-        return { success: true };
-    });
-
-    // DELETE /api/khovai/colors/bulk/delete — Delete ALL colors for a material + cascade
-    fastify.delete('/api/khovai/colors/bulk/delete', { preHandler: [authenticate] }, async (request) => {
-        const { material_id } = request.body || {};
-        if (!material_id) return { error: 'Chưa chọn chất liệu' };
-        await db.run('DELETE FROM kv_transactions WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [material_id]);
-        await db.run('DELETE FROM kv_rolls WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [material_id]);
-        await db.run('DELETE FROM kv_fabric_colors WHERE material_id = $1', [material_id]);
-        return { success: true };
+    // POST /api/khovai/colors/bulk-delete — Delete selected colors by IDs + cascade
+    fastify.post('/api/khovai/colors/bulk-delete', { preHandler: [authenticate] }, async (request) => {
+        const { ids } = request.body || {};
+        if (!ids || !Array.isArray(ids) || !ids.length) return { error: 'Chưa chọn màu nào' };
+        for (const id of ids) {
+            await db.run('DELETE FROM kv_transactions WHERE fabric_color_id = $1', [id]);
+            await db.run('DELETE FROM kv_rolls WHERE fabric_color_id = $1', [id]);
+            await db.run('DELETE FROM kv_fabric_colors WHERE id = $1', [id]);
+        }
+        return { success: true, deleted: ids.length };
     });
 };

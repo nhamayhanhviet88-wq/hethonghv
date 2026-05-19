@@ -103,6 +103,7 @@ async function _cdsxLoadKhoVai(content) {
             '.cdk-item:hover{background:#f0fdfa}',
             '.cdk-item.active{background:#ccfbf1;border-left:3px solid #0d9488}',
             '.cdk-item.inactive{opacity:0.5}',
+            '.cdk-item.checked{background:#dcfce7;border-left:3px solid #16a34a}',
             '.cdk-item-name{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}',
             '.cdk-item-actions{display:flex;gap:4px;align-items:center}',
             '.cdk-toggle{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .2s}',
