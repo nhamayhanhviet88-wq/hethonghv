@@ -1066,7 +1066,7 @@ ON CONFLICT (key) DO NOTHING;
 -- 1. Nguồn gọi điện (NHÂN SỰ, KẾ TOÁN, MẦM NON...)
 CREATE TABLE IF NOT EXISTS telesale_sources (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     icon TEXT DEFAULT '📁',
     crm_type TEXT,
     daily_quota INTEGER DEFAULT 0,
@@ -1206,7 +1206,7 @@ INSERT INTO telesale_sources (name, icon, daily_quota, display_order) VALUES
     ('ĐỒNG PHỤC', '👔', 15, 14),
     ('KHU CÔNG NGHIỆP', '🏗️', 15, 15),
     ('DOANH NGHIỆP', '🏛️', 15, 16)
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Seed: 6 tình trạng bắt máy mặc định
 INSERT INTO telesale_answer_statuses (name, icon, action_type, default_followup_days, display_order) VALUES
@@ -1648,3 +1648,13 @@ END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_uid ON customers(customer_uid);
 -- Index cho phone (tìm kiếm nhanh, không unique)
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+
+-- ========== MIGRATION: telesale_sources UNIQUE(name) → UNIQUE(name, crm_type) ==========
+-- Cho phép cùng tên lĩnh vực ở CRM khác nhau (VD: "NHÂN SỰ" ở tu_tim_kiem và goi_ban_hang)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'telesale_sources_name_key') THEN
+        ALTER TABLE telesale_sources DROP CONSTRAINT telesale_sources_name_key;
+    END IF;
+END $$;
+DROP INDEX IF EXISTS idx_telesale_sources_name_crm;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_telesale_sources_name_crm ON telesale_sources(name, COALESCE(crm_type, '__none__'));

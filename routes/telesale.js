@@ -115,10 +115,20 @@ async function telesaleRoutes(fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ mới thêm được' });
         const { name, icon, crm_type, daily_quota, default_followup_days } = req.body;
         if (!name) return reply.code(400).send({ error: 'Tên nguồn là bắt buộc' });
-        const maxOrder = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM telesale_sources');
-        await db.run('INSERT INTO telesale_sources (name, icon, crm_type, daily_quota, default_followup_days, display_order) VALUES (?,?,?,?,?,?)',
-            [name, icon || '📁', crm_type || null, daily_quota || 0, default_followup_days || 3, (maxOrder.mx || 0) + 1]);
-        return { success: true, message: 'Đã thêm nguồn gọi điện' };
+        // Check duplicate name within same CRM type
+        const existing = await db.get('SELECT id FROM telesale_sources WHERE name = $1 AND crm_type = $2', [name.trim(), crm_type || null]);
+        if (existing) return reply.code(400).send({ error: `Lĩnh vực "${name}" đã tồn tại trong CRM này` });
+        try {
+            const maxOrder = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM telesale_sources');
+            await db.run('INSERT INTO telesale_sources (name, icon, crm_type, daily_quota, default_followup_days, display_order) VALUES (?,?,?,?,?,?)',
+                [name.trim(), icon || '📁', crm_type || null, daily_quota || 0, default_followup_days || 3, (maxOrder.mx || 0) + 1]);
+            return { success: true, message: 'Đã thêm nguồn gọi điện' };
+        } catch (err) {
+            if (err.message && err.message.includes('unique')) {
+                return reply.code(400).send({ error: `Lĩnh vực "${name}" đã tồn tại` });
+            }
+            throw err;
+        }
     });
 
     fastify.put('/api/telesale/sources/:id', { preHandler: authenticate }, async (req, reply) => {
