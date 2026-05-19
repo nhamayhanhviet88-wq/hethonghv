@@ -373,17 +373,17 @@ function _bgmRender() {
     }
     if (filtered.length === 0) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">Chưa có chi tiết may nào</div>'; return; }
 
-    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1e3a5f;color:#fff;position:sticky;top:0">'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px">TÊN</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:50px">ID</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px">TÊN CHI TIẾT</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:90px">NHÓM</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:110px">PHÂN QUYỀN</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:80px">LOẠI THÊM</th>'
-        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:90px">GIÁ</th>'
-        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:90px">GIÁ GC</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:150px">LỊCH SỬ CN</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:60px"></th>'
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><thead><tr style="background:#1e3a5f;color:#fff;position:sticky;top:0">'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:16%">TÊN</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:4%">ID</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:14%">TÊN CHI TIẾT</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:10%">NHÓM</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:14%">PHÂN QUYỀN</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:8%">LOẠI THÊM</th>'
+        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:9%">GIÁ NM</th>'
+        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:9%">GIÁ GC</th>'
+        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:12%">LỊCH SỬ CN</th>'
+        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:4%"></th>'
         + '</tr></thead><tbody>';
 
     filtered.forEach(function(item) {
@@ -393,15 +393,15 @@ function _bgmRender() {
         var lastUp = '—'; try { if (item.updated_at) { var _d = new Date(item.updated_at); lastUp = String(_d.getDate()).padStart(2,'0')+'/'+String(_d.getMonth()+1).padStart(2,'0')+'/'+_d.getFullYear()+' '+String(_d.getHours()).padStart(2,'0')+':'+String(_d.getMinutes()).padStart(2,'0'); } } catch(e) {}
         var creator = item.created_by_name ? '<br><span style="color:#2563eb;font-size:10px">' + item.created_by_name + '</span>' : '';
         h += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
-            + '<td style="padding:8px;font-weight:700;color:#1e40af">' + displayName + '</td>'
+            + '<td style="padding:8px;font-weight:700;color:#1e40af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + displayName + '</td>'
             + '<td style="padding:8px;text-align:center;color:#94a3b8">' + item.id + '</td>'
-            + '<td style="padding:8px;font-weight:600">' + item.name + '</td>'
-            + '<td style="padding:8px"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + item.group_name + '</span></td>'
-            + '<td style="padding:8px;font-size:11px;font-weight:600;color:#64748b">' + _bgmRoleLabel(item.allowed_roles) + '</td>'
+            + '<td style="padding:8px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.name + '</td>'
+            + '<td style="padding:8px;text-align:center"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + item.group_name + '</span></td>'
+            + '<td style="padding:8px;text-align:center;font-size:10px;font-weight:600;color:#64748b">' + _bgmRoleLabel(item.allowed_roles) + '</td>'
             + '<td style="padding:8px;text-align:center"><span style="background:' + addColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + addLabel + '</span></td>'
-            + '<td style="padding:8px;text-align:right;font-weight:700">' + _bgmFmt(item.factory_price) + '</td>'
-            + '<td style="padding:8px;text-align:right;font-weight:700">' + _bgmFmt(item.processing_price) + '</td>'
-            + '<td style="padding:8px;font-size:10px;color:#6b7280">' + lastUp + creator + '</td>'
+            + '<td style="padding:8px;text-align:right;font-weight:700;color:#059669">' + _bgmFmt(item.factory_price) + '</td>'
+            + '<td style="padding:8px;text-align:right;font-weight:700;color:#2563eb">' + _bgmFmt(item.processing_price) + '</td>'
+            + '<td style="padding:8px;font-size:10px;color:#6b7280;overflow:hidden;text-overflow:ellipsis">' + lastUp + creator + '</td>'
             + '<td style="padding:8px;text-align:center">'
             + '<button onclick="_bgmShowEdit(' + item.id + ')" title="Sửa" style="background:none;border:none;cursor:pointer;font-size:14px">✏️</button>'
             + '<button onclick="_bgmDelete(' + item.id + ')" title="Xóa" style="background:none;border:none;cursor:pointer;font-size:14px">🗑️</button>'
