@@ -336,13 +336,17 @@ async function _cdsxLoadBangGia(content) {
 }
 
 async function _bgmLoadAll() {
+    try {
     var res = await apiCall('/api/bgm/items');
+    console.log('[BGM] items response:', res);
     _bgm.items = res.items || [];
     var gRes = await apiCall('/api/bgm/groups');
+    console.log('[BGM] groups response:', gRes);
     _bgm.groups = gRes.groups || [];
     _bgm.total = gRes.total || 0;
     _bgmRenderSB();
     _bgmRender();
+    } catch(e) { console.error('[BGM] loadAll error:', e); }
 }
 
 function _bgmRenderSB() {
@@ -359,6 +363,8 @@ function _bgmRenderSB() {
 
 function _bgmRender() {
     var el = document.getElementById('_bgmTable'); if (!el) return;
+    console.log('[BGM] render called, items:', _bgm.items.length, 'filter:', _bgm.filter);
+    try {
     var filtered = _bgm.items;
     if (_bgm.filter !== 'all') filtered = filtered.filter(function(i) { return i.group_name === _bgm.filter; });
     if (_bgm.search) {
@@ -384,7 +390,7 @@ function _bgmRender() {
         var addLabel = item.add_type === 'once' ? '1 lần' : 'nhiều';
         var displayName = item.name + ' - ' + (item.add_type === 'once' ? '1l' : 'n');
         var addColor = item.add_type === 'once' ? '#059669' : '#f59e0b';
-        var lastUp = item.updated_at ? vnFormat(item.updated_at) : '—';
+        var lastUp = '—'; try { if (item.updated_at) { var _d = new Date(item.updated_at); lastUp = String(_d.getDate()).padStart(2,'0')+'/'+String(_d.getMonth()+1).padStart(2,'0')+'/'+_d.getFullYear()+' '+String(_d.getHours()).padStart(2,'0')+':'+String(_d.getMinutes()).padStart(2,'0'); } } catch(e) {}
         var creator = item.created_by_name ? '<br><span style="color:#2563eb;font-size:10px">' + item.created_by_name + '</span>' : '';
         h += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
             + '<td style="padding:8px;font-weight:700;color:#1e40af">' + displayName + '</td>'
@@ -403,6 +409,7 @@ function _bgmRender() {
     });
     h += '</tbody></table>';
     el.innerHTML = h;
+    } catch(e) { console.error('[BGM] render error:', e); el.innerHTML = '<div style="color:red;padding:20px">Lỗi hiển thị: ' + e.message + '</div>'; }
 }
 
 // ========== BGM CREATE / EDIT MODAL ==========
