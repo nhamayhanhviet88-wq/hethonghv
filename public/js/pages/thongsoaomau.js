@@ -71,7 +71,7 @@ async function _tsamLoad() {
         var stLabel = _tsamStatusLabels[s.approval_status] || s.approval_status;
         var sewing = []; try { sewing = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
         var mix = []; try { mix = typeof s.mix_positions === 'string' ? JSON.parse(s.mix_positions) : (s.mix_positions || []); } catch(e) {}
-        var lastUp = s.updated_at ? vnFormat(new Date(s.updated_at)) : '—';
+        var lastUp = '—'; try { if (s.updated_at) { var _d = new Date(s.updated_at); lastUp = _d.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
         var lastUser = s.created_by_name ? '<br><span style="color:#7c3aed;font-size:10px">' + s.created_by_name + '</span>' : '';
         var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
         var approveBtn = '';
