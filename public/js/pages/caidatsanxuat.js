@@ -308,7 +308,7 @@ async function _nnSaveForm(editId) {
 // ===================================================================
 // ========== BẢNG GIÁ MAY TAB ==========
 // ===================================================================
-var _bgm = { items: [], groups: [], total: 0, filter: 'all', search: '', selected: {} };
+var _bgm = { items: [], groups: [], total: 0, filter: 'all', search: '', selected: {}, sortCol: 'name', sortDir: 'asc' };
 var _bgmFmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
 var _bgmRoleMap = { giam_doc: 'AD', quan_ly_xuong: 'QLX', quan_ly_cap_cao: 'QLX', nhan_vien: 'SALE', truong_nhom: 'TN' };
 var _bgmRoleLabel = function(roles) {
@@ -363,33 +363,63 @@ function _bgmRenderSB() {
     sb.innerHTML = h;
 }
 
+function _bgmSortBy(col) {
+    if (_bgm.sortCol === col) _bgm.sortDir = _bgm.sortDir === 'asc' ? 'desc' : 'asc';
+    else { _bgm.sortCol = col; _bgm.sortDir = 'asc'; }
+    _bgmRender();
+}
+
+function _bgmSortIcon(col) {
+    if (_bgm.sortCol !== col) return ' <span style="opacity:0.3;font-size:8px">⇅</span>';
+    return _bgm.sortDir === 'asc' ? ' <span style="font-size:8px">▲</span>' : ' <span style="font-size:8px">▼</span>';
+}
+
 function _bgmRender() {
     var el = document.getElementById('_bgmTable'); if (!el) return;
     console.log('[BGM] render called, items:', _bgm.items.length, 'filter:', _bgm.filter);
     try {
-    var filtered = _bgm.items;
+    var filtered = _bgm.items.slice();
     if (_bgm.filter !== 'all') filtered = filtered.filter(function(i) { return i.group_name === _bgm.filter; });
     if (_bgm.search) {
         var q = _bgm.search.toLowerCase();
         filtered = filtered.filter(function(i) { return i.name.toLowerCase().indexOf(q) >= 0 || i.group_name.toLowerCase().indexOf(q) >= 0; });
     }
+
+    // Sort
+    var sc = _bgm.sortCol, sd = _bgm.sortDir;
+    var textCols = ['name','group_name'];
+    filtered.sort(function(a, b) {
+        var va = a[sc], vb = b[sc];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        var cmp;
+        if (textCols.indexOf(sc) >= 0) {
+            cmp = String(va).localeCompare(String(vb), 'vi');
+        } else {
+            cmp = (Number(va)||0) - (Number(vb)||0);
+        }
+        return sd === 'asc' ? cmp : -cmp;
+    });
+
     if (filtered.length === 0) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">Chưa có chi tiết may nào</div>'; return; }
 
+    var thStyle = 'padding:10px 6px;font-weight:700;font-size:10px;cursor:pointer;user-select:none;white-space:nowrap';
     var h = '<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><thead><tr style="background:#1e3a5f;color:#fff;position:sticky;top:0">'
         + '<th style="padding:10px 4px;text-align:center;width:3%"><input type="checkbox" id="_bgmChkAll" onchange="_bgmToggleAll(this.checked)" style="cursor:pointer"></th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:14%">TÊN</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:4%">ID</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:13%">TÊN CHI TIẾT</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:9%">NHÓM</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:13%">PHÂN QUYỀN</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:8%">LOẠI THÊM</th>'
-        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:9%">GIÁ NM</th>'
-        + '<th style="padding:10px 8px;text-align:right;font-weight:700;font-size:10px;width:9%">GIÁ GC</th>'
-        + '<th style="padding:10px 8px;text-align:left;font-weight:700;font-size:10px;width:12%">LỊCH SỬ CN</th>'
-        + '<th style="padding:10px 8px;text-align:center;font-weight:700;font-size:10px;width:4%"></th>'
+        + '<th style="' + thStyle + ';text-align:center;width:3%">STT</th>'
+        + '<th onclick="_bgmSortBy(\'name\')" style="' + thStyle + ';text-align:left;width:14%">TÊN' + _bgmSortIcon('name') + '</th>'
+        + '<th onclick="_bgmSortBy(\'name\')" style="' + thStyle + ';text-align:left;width:13%">TÊN CHI TIẾT' + _bgmSortIcon('name') + '</th>'
+        + '<th onclick="_bgmSortBy(\'group_name\')" style="' + thStyle + ';text-align:center;width:9%">NHÓM' + _bgmSortIcon('group_name') + '</th>'
+        + '<th style="' + thStyle + ';text-align:center;width:13%">PHÂN QUYỀN</th>'
+        + '<th style="' + thStyle + ';text-align:center;width:7%">LOẠI THÊM</th>'
+        + '<th onclick="_bgmSortBy(\'factory_price\')" style="' + thStyle + ';text-align:right;width:9%">GIÁ NM' + _bgmSortIcon('factory_price') + '</th>'
+        + '<th onclick="_bgmSortBy(\'processing_price\')" style="' + thStyle + ';text-align:right;width:9%">GIÁ GC' + _bgmSortIcon('processing_price') + '</th>'
+        + '<th style="' + thStyle + ';text-align:left;width:12%">LỊCH SỬ CN</th>'
+        + '<th style="' + thStyle + ';text-align:center;width:4%"></th>'
         + '</tr></thead><tbody>';
 
-    filtered.forEach(function(item) {
+    filtered.forEach(function(item, idx) {
+        var stt = idx + 1;
         var addLabel = item.add_type === 'once' ? '1 lần' : 'nhiều';
         var displayName = item.name + ' - ' + (item.add_type === 'once' ? '1l' : 'n');
         var addColor = item.add_type === 'once' ? '#059669' : '#f59e0b';
@@ -398,8 +428,8 @@ function _bgmRender() {
         var isChk = !!_bgm.selected[item.id];
         h += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;' + (isChk?'background:#eff6ff':'') + '" onmouseover="if(!this.classList.contains(\'_bgmSel\'))this.style.background=\'#f8fafc\'" onmouseout="if(!this.classList.contains(\'_bgmSel\'))this.style.background=\'\'" class="' + (isChk?'_bgmSel':'') + '">'
             + '<td style="padding:8px 4px;text-align:center"><input type="checkbox" class="_bgmRowCb" data-id="' + item.id + '" onchange="_bgmToggleRow(' + item.id + ',this.checked)"' + (isChk?' checked':'') + ' style="cursor:pointer"></td>'
+            + '<td style="padding:8px 4px;text-align:center;color:#94a3b8;font-weight:600;font-size:10px">' + stt + '</td>'
             + '<td style="padding:8px;font-weight:700;color:#1e40af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + displayName + '</td>'
-            + '<td style="padding:8px;text-align:center;color:#94a3b8">' + item.id + '</td>'
             + '<td style="padding:8px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.name + '</td>'
             + '<td style="padding:8px;text-align:center"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + item.group_name + '</span></td>'
             + '<td style="padding:8px;text-align:center;font-size:10px;font-weight:600;color:#64748b">' + _bgmRoleLabel(item.allowed_roles) + '</td>'
