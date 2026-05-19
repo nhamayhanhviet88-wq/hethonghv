@@ -380,28 +380,46 @@ function _tsamCalcPrices() {
 async function _tsamOpenBgmPicker() {
     var res = await apiCall('/api/bgm/dropdown');
     var allItems = res.items || [];
-    // Group by group_name
+    // Group by group_name and detect group type
     var groups = {};
     allItems.forEach(function(item) {
-        if (!groups[item.group_name]) groups[item.group_name] = [];
-        groups[item.group_name].push(item);
+        if (!groups[item.group_name]) groups[item.group_name] = { items: [], type: item.add_type };
+        groups[item.group_name].items.push(item);
+        // If any item in group is 'once', entire group is 'once'
+        if (item.add_type === 'once') groups[item.group_name].type = 'once';
     });
     var existing = window._tsamSewItems || [];
     var existIds = existing.map(function(s) { return s.id; });
     var h = '<div style="max-height:60vh;overflow-y:auto">';
     Object.keys(groups).sort().forEach(function(gName) {
-        h += '<div style="margin-bottom:10px"><div style="font-weight:800;font-size:11px;color:#1d4ed8;padding:4px 8px;background:#dbeafe;border-radius:4px;margin-bottom:4px">' + gName + '</div>';
-        groups[gName].forEach(function(item) {
+        var g = groups[gName];
+        var isOnce = g.type === 'once';
+        var safeName = gName.replace(/[^a-zA-Z0-9_]/g, '_');
+        var ruleIcon = isOnce ? '🔒' : '🔓';
+        var ruleText = isOnce ? 'Chỉ chọn 1' : 'Chọn nhiều';
+        var ruleColor = isOnce ? '#dc2626' : '#059669';
+        h += '<div style="margin-bottom:10px"><div style="font-weight:800;font-size:11px;color:#1d4ed8;padding:4px 8px;background:#dbeafe;border-radius:4px;margin-bottom:4px;display:flex;align-items:center;gap:6px">'
+            + '<span>' + gName + '</span>'
+            + '<span style="margin-left:auto;font-size:9px;font-weight:700;color:' + ruleColor + ';background:' + (isOnce ? '#fef2f2' : '#f0fdf4') + ';padding:1px 6px;border-radius:3px">' + ruleIcon + ' ' + ruleText + '</span>'
+            + '</div>';
+        g.items.forEach(function(item) {
             var checked = existIds.indexOf(item.id) >= 0;
             var existItem = checked ? existing.find(function(s){return s.id===item.id;}) : null;
             var qtyVal = existItem ? (existItem.qty || 1) : 1;
-            var addLabel = item.add_type === 'once' ? '1l' : 'n';
-            var qtyInput = item.add_type === 'multi'
+            var inputHtml;
+            if (isOnce) {
+                // Radio — only 1 selection per group
+                inputHtml = '<input type="radio" name="_bgmGrp_' + safeName + '" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="once" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">';
+            } else {
+                // Checkbox — multiple selections allowed
+                inputHtml = '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="multi" data-group="' + gName + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer">';
+            }
+            var qtyInput = !isOnce
                 ? '<input type="number" class="_bgmQty" data-id="' + item.id + '" value="' + qtyVal + '" min="1" style="width:50px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:3px;font-size:11px;text-align:center;margin-left:4px">'
                 : '';
             h += '<label style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;cursor:pointer;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'
-                + '<input type="checkbox" class="_bgmCb" data-id="' + item.id + '" data-name="' + item.name + '" data-fp="' + item.factory_price + '" data-pp="' + item.processing_price + '" data-type="' + item.add_type + '"' + (checked ? ' checked' : '') + '>'
-                + '<span style="flex:1;font-weight:600">' + item.name + ' <span style="color:#94a3b8">- ' + addLabel + '</span></span>'
+                + inputHtml
+                + '<span style="flex:1;font-weight:600">' + item.name + '</span>'
                 + qtyInput
                 + '<span style="color:#059669;font-weight:700;font-size:10px;min-width:50px;text-align:right">' + Number(item.factory_price).toLocaleString('vi-VN') + '</span>'
                 + '<span style="color:#2563eb;font-weight:700;font-size:10px;min-width:50px;text-align:right">' + Number(item.processing_price).toLocaleString('vi-VN') + '</span>'
@@ -412,18 +430,34 @@ async function _tsamOpenBgmPicker() {
     h += '</div>';
     if (allItems.length === 0) h = '<div style="text-align:center;padding:20px;color:#94a3b8">Chưa có chi tiết may nào trong Bảng Giá May</div>';
 
+    var legend = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:10px;padding:0 8px;align-items:center">'
+        + '<span style="font-weight:700;color:#64748b;flex:1">Chi tiết</span>'
+        + '<span style="color:#dc2626;font-weight:700">🔒 1 lần = chỉ chọn 1 trong nhóm</span>'
+        + '<span style="color:#059669;font-weight:700">🔓 nhiều = chọn nhiều trong nhóm</span>'
+        + '<span style="min-width:50px;text-align:right;color:#059669;font-weight:700">Giá NM</span>'
+        + '<span style="min-width:50px;text-align:right;color:#2563eb;font-weight:700">Giá GC</span>'
+        + '</div>';
+
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
         + '<button class="btn" onclick="_tsamApplyBgm()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">✅ Xác Nhận</button>';
-    openModal('✂️ Chọn Kỹ Thuật May', '<div style="display:flex;gap:8px;margin-bottom:6px;font-size:10px;font-weight:700;color:#64748b;padding:0 8px"><span style="flex:1">Chi tiết</span><span style="min-width:50px;text-align:right;color:#059669">Giá NM</span><span style="min-width:50px;text-align:right;color:#2563eb">Giá GC</span></div>' + h, footer);
+    openModal('✂️ Chọn Kỹ Thuật May', legend + h, footer);
 }
 
 function _tsamApplyBgm() {
     var cbs = document.querySelectorAll('._bgmCb:checked');
     var items = [];
+    // Validate once-group: at most 1 per group (radio enforces this, but double-check)
+    var onceGroups = {};
     cbs.forEach(function(cb) {
         var id = Number(cb.dataset.id);
+        var group = cb.dataset.group || '';
+        var type = cb.dataset.type || 'multi';
+        if (type === 'once') {
+            if (onceGroups[group]) { showToast('Nhóm "' + group + '" chỉ được chọn 1 chi tiết!', 'error'); return; }
+            onceGroups[group] = true;
+        }
         var qty = 1;
-        if (cb.dataset.type === 'multi') {
+        if (type === 'multi') {
             var qtyEl = document.querySelector('._bgmQty[data-id="' + id + '"]');
             qty = qtyEl ? Math.max(1, Number(qtyEl.value) || 1) : 1;
         }
