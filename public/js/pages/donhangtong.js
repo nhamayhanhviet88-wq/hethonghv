@@ -52,11 +52,11 @@ var _dhtSortDefs = [
     { key: 'ship_count',       label: 'Lần Trả Ship',   type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
     { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
-    { key: 'source',           label: 'Nguồn',          type: 'text' },
     { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
     { key: 'customer_phone',   label: 'SĐT',            type: 'text' },
-    { key: 'cskh_name',        label: 'CSKH',           type: 'text' },
     { key: 'province',         label: 'Thành Phố',      type: 'text' },
+    { key: 'cskh_name',        label: 'CSKH',           type: 'text' },
+    { key: 'source',           label: 'Nguồn',          type: 'text' },
     { key: 'total_quantity',   label: 'Tổng SL',        type: 'num' },
     { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
     { key: 'deposit_amount',   label: 'Đặt Cọc',       type: 'num' },
@@ -168,7 +168,7 @@ async function renderDonhangtongPage(content) {
     _dht.staff = staffRes.staff || [];
     content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div style="margin-left:auto;font-size:12px;color:var(--gray-400)" id="dhtFilterInfo"></div><div style="display:flex;align-items:center;gap:12px"><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
         +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Nguồn</th><th>Tên Khách</th><th>SĐT</th><th>CSKH</th><th>Thành Phố</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtLoadOrders(), 400); });
     await _dhtLoadTree();
     await _dhtLoadOrders();
@@ -318,11 +318,11 @@ function _dhtRenderOrderRows(filtered) {
             <td style="text-align:center;" title="Số lần ship: ${sc}">${shipBadge}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
             <td><strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
-            <td>${o.source || '—'}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
-            <td>${o.cskh_name || '—'}</td>
             <td>${o.province || '—'}</td>
+            <td>${o.cskh_name || '—'}</td>
+            <td>${o.source || '—'}</td>
             <td style="text-align:center;">${o.total_quantity || 0}</td>
             <td style="color:var(--warning);">${fmt(o.discount_amount)}</td>
             <td style="color:var(--success);">${fmt(o.deposit_amount)}</td>
