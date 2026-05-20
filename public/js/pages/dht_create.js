@@ -382,7 +382,7 @@ function _dhtOnCarrierChange() {
         wrap.innerHTML = '<div style="font-weight:800;font-size:12px;color:#0369a1;margin-bottom:8px">🚌 Thông tin Nhà Xe <span style="color:red">*</span></div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
             + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe</label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
-            + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe</label><input id="_co_busPhone" class="form-control" placeholder="Số liên lạc" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe <span style="font-size:9px;color:#6b7280">(10 số)</span></label><input id="_co_busPhone" class="form-control" type="tel" maxlength="10" placeholder="VD: 0901234567" style="font-size:12px" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,10);this.style.borderColor=this.value.length===10?\'#10b981\':this.value.length>0?\'#f59e0b\':\'\'"></div>'
             + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy (24h)</label><div style="display:flex;gap:4px;align-items:center"><select id="_co_busHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_busMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
             + '</div>';
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
@@ -411,9 +411,12 @@ function _dhtGetCarrierExtra() {
         var busM = document.getElementById('_co_busMin')?.value;
         if (!busName) { showToast('Nhập Tên Nhà Xe', 'error'); return false; }
         if (!busPhone) { showToast('Nhập SĐT Nhà Xe', 'error'); return false; }
-        if (!busH || busM === undefined || busM === '') { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
+        var phoneDigits = busPhone.replace(/\D/g, '');
+        if (phoneDigits.length !== 10) { showToast('SĐT Nhà Xe phải đúng 10 số (hiện tại: ' + phoneDigits.length + ' số)', 'error'); document.getElementById('_co_busPhone')?.focus(); return false; }
+        if (!busH || busH === '') { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
+        if (busM === undefined || busM === null || busM === '') { showToast('Chọn Phút Xe Chạy', 'error'); return false; }
         var busTime = busH + ':' + busM;
-        return { type: 'nha_xe', bus_name: busName, bus_phone: busPhone, bus_departure_time: busTime };
+        return { type: 'nha_xe', bus_name: busName, bus_phone: phoneDigits, bus_departure_time: busTime };
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         var proxyName = document.getElementById('_co_proxyName')?.value?.trim();
         var proxyAddr = document.getElementById('_co_proxyAddr')?.value?.trim();
@@ -897,7 +900,8 @@ async function _dhtSubmitCreateV2() {
     if (pri === 'CHUẨN') {
         var dH = document.getElementById('_co_deliveryHour')?.value;
         var dM = document.getElementById('_co_deliveryMin')?.value;
-        if (!dH || dM === undefined || dM === '') { showToast('⏰ Chọn Giờ Hàng Ra', 'error'); return; }
+        if (!dH || dH === '') { showToast('⏰ Chọn Giờ Hàng Ra', 'error'); return; }
+        if (dM === undefined || dM === null || dM === '') { showToast('⏰ Chọn Phút Hàng Ra', 'error'); return; }
         if (!_dhtProofBase64) {
             showToast('📸 Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN (Ctrl+V)', 'error');
             document.getElementById('_co_proofZone')?.focus();
