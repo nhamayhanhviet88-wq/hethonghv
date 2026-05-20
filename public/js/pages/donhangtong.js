@@ -49,58 +49,68 @@ function _dhtClearFilters() {
 // ========== DATE FILTER ==========
 function _dhtDateFilterToday() {
     var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    _dht.filter = { year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate() };
-    _dht.dateRange = null;
+    _dht.filter.year = d.getFullYear();
+    _dht.filter.month = d.getMonth()+1;
+    _dht.filter.day = d.getDate();
     _dhtSyncDateInputs();
     _dhtLoadOrders();
 }
 function _dhtDateFilterMonth(offset) {
     var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     d.setMonth(d.getMonth() + (offset || 0));
-    _dht.filter = { year: d.getFullYear(), month: d.getMonth()+1 };
+    _dht.filter.year = d.getFullYear();
+    _dht.filter.month = d.getMonth()+1;
     delete _dht.filter.day;
-    _dht.dateRange = null;
     _dhtSyncDateInputs();
     _dhtLoadOrders();
 }
 function _dhtDateFilterMonthPick() {
-    var v = document.getElementById('dhtMonthPick')?.value; // "2026-05"
+    var v = document.getElementById('dhtMonthPick')?.value;
     if (!v) return;
     var parts = v.split('-');
-    _dht.filter = { year: Number(parts[0]), month: Number(parts[1]) };
+    _dht.filter.year = Number(parts[0]);
+    _dht.filter.month = Number(parts[1]);
     delete _dht.filter.day;
-    _dht.dateRange = null;
     _dhtSyncDateInputs();
     _dhtLoadOrders();
 }
-function _dhtDateFilterRange() {
-    var from = document.getElementById('dhtDateFrom')?.value;
-    var to = document.getElementById('dhtDateTo')?.value;
-    if (!from || !to) return;
-    if (from > to) { var tmp = from; from = to; to = tmp; document.getElementById('dhtDateFrom').value = from; document.getElementById('dhtDateTo').value = to; }
-    _dht.filter = {}; // clear server-side month filter
-    _dht.dateRange = { from: from, to: to };
-    document.getElementById('dhtMonthPick').value = '';
+function _dhtDateFilterYear() {
+    var v = document.getElementById('dhtYearPick')?.value;
+    if (!v) return;
+    _dht.filter.year = Number(v);
+    delete _dht.filter.month;
+    delete _dht.filter.day;
+    _dhtSyncDateInputs();
     _dhtLoadOrders();
+}
+function _dhtDateFilterCskh() {
+    var v = document.getElementById('dhtCskhPick')?.value;
+    _dht.cskhFilter = v ? Number(v) : null;
+    _dhtRenderTable();
 }
 function _dhtDateFilterClear() {
     _dht.filter = {};
-    _dht.dateRange = null;
-    document.getElementById('dhtMonthPick').value = '';
-    document.getElementById('dhtDateFrom').value = '';
-    document.getElementById('dhtDateTo').value = '';
+    _dht.cskhFilter = null;
+    var mp = document.getElementById('dhtMonthPick'); if(mp) mp.value = '';
+    var yp = document.getElementById('dhtYearPick'); if(yp) yp.value = '';
+    var cp = document.getElementById('dhtCskhPick'); if(cp) cp.value = '';
     _dhtLoadOrders();
 }
 function _dhtSyncDateInputs() {
     var mp = document.getElementById('dhtMonthPick');
-    var df = document.getElementById('dhtDateFrom');
-    var dt = document.getElementById('dhtDateTo');
+    var yp = document.getElementById('dhtYearPick');
     if (mp && _dht.filter.year && _dht.filter.month) {
         mp.value = _dht.filter.year + '-' + String(_dht.filter.month).padStart(2,'0');
     } else if (mp) { mp.value = ''; }
-    if (df) df.value = '';
-    if (dt) dt.value = '';
+    if (yp && _dht.filter.year && !_dht.filter.month) {
+        yp.value = String(_dht.filter.year);
+    } else if (yp) { yp.value = ''; }
+}
+function _dhtPopulateCskhDropdown() {
+    var sel = document.getElementById('dhtCskhPick'); if (!sel) return;
+    var opts = '<option value="">Tất cả</option>';
+    (_dht.staff || []).forEach(function(s) { opts += '<option value="'+s.id+'">'+s.full_name+'</option>'; });
+    sel.innerHTML = opts;
 }
 
 // ========== SORT DEFINITIONS ==========
@@ -147,13 +157,9 @@ function _dhtRenderTable() {
     if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
     if (af.sua) filtered = filtered.filter(function(o){ return o.has_repair_order; });
     if (af.no) filtered = filtered.filter(function(o){ return (Number(o.remaining_amount) || 0) > 0; });
-    // Date range client-side filter
-    if (_dht.dateRange && _dht.dateRange.from && _dht.dateRange.to) {
-        filtered = filtered.filter(function(o) {
-            if (!o.order_date) return false;
-            var d = o.order_date.substring(0, 10);
-            return d >= _dht.dateRange.from && d <= _dht.dateRange.to;
-        });
+    // CSKH filter
+    if (_dht.cskhFilter) {
+        filtered = filtered.filter(function(o) { return Number(o.cskh_user_id) === _dht.cskhFilter; });
     }
 
     // Apply sorting
@@ -236,17 +242,16 @@ async function renderDonhangtongPage(content) {
         +'<div id="dhtDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px">'
         +'<button onclick="_dhtDateFilterToday()" style="background:#0369a1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
         +'<button onclick="_dhtDateFilterMonth(0)" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Này</button>'
-        +'<button onclick="_dhtDateFilterMonth(-1)" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Trước</button>'
         +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
         +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">🗓️ CHỌN THÁNG</label>'
         +'<input type="month" id="dhtMonthPick" class="form-control" style="width:160px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterMonthPick()">'
         +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
-        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">TỪ NGÀY</label>'
-        +'<input type="date" id="dhtDateFrom" class="form-control" style="width:140px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterRange()">'
-        +'<span style="font-weight:800;color:#0369a1">→</span>'
-        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">ĐẾN NGÀY</label>'
-        +'<input type="date" id="dhtDateTo" class="form-control" style="width:140px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterRange()">'
-        +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc ngày">✕ Xóa</button>'
+        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📆 CHỌN NĂM</label>'
+        +'<select id="dhtYearPick" class="form-control" style="width:90px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterYear()"><option value="">Tất cả</option></select>'
+        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">👤 CSKH</label>'
+        +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
+        +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtLoadOrders(), 400); });
@@ -254,6 +259,11 @@ async function renderDonhangtongPage(content) {
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _dht.filter = { year: nowVN.getFullYear(), month: nowVN.getMonth()+1 };
     _dhtSyncDateInputs();
+    // Populate year dropdown (current year ± 2)
+    var ypEl = document.getElementById('dhtYearPick');
+    if (ypEl) { var cy = nowVN.getFullYear(); for (var yi = cy+1; yi >= cy-3; yi--) { ypEl.innerHTML += '<option value="'+yi+'">'+yi+'</option>'; } }
+    // Populate CSKH dropdown
+    _dhtPopulateCskhDropdown();
     await _dhtLoadTree();
     await _dhtLoadOrders();
     _dhtShowNextCode();
