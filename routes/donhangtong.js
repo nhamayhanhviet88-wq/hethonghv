@@ -1086,9 +1086,12 @@ module.exports = async function(fastify) {
     fastify.get('/api/dht/my-info', { preHandler: [authenticate] }, async (request, reply) => {
         const user = await db.get(`
             SELECT u.id, u.full_name, u.order_code_prefix, u.department_id,
-                   d.name as department_name
+                   d.name as department_name,
+                   t.name as team_name
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN team_members tm ON tm.user_id = u.id
+            LEFT JOIN teams t ON t.id = tm.team_id
             WHERE u.id = $1
         `, [request.user.id]);
         return { user };

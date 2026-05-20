@@ -53,10 +53,14 @@ async function _dhtGoStep2() {
         : 'Không có cọc';
 
     var _dis = 'background:#f1f5f9;color:#64748b;cursor:not-allowed';
+    var _teamName = mi.team_name || 'Không có';
     var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        // Row 1: NV + Phòng Ban
+        // Row 1: NV + Phòng Ban + Team (3 cột)
+        +'</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0">'
         +'<div class="form-group"><label>Tên Nhân Viên</label><input class="form-control" value="'+(mi.full_name||'')+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Team</label><input class="form-control" value="'+_teamName+'" disabled style="'+_dis+'"></div>'
+        +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         // Row 2: Ngày + Lĩnh vực
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
