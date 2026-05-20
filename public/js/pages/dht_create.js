@@ -672,9 +672,12 @@ function _dhtRenderPhieuRows() {
     _dhtCreate.phieuItems.forEach(function(p,i){
         if(!p) return;
         var d=document.createElement('div');
-        d.style.cssText='display:grid;grid-template-columns:2fr 70px 100px 50px 100px 30px;gap:6px;margin-bottom:6px;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:12px';
+        d.style.cssText='display:grid;grid-template-columns:2fr 70px 100px 50px 100px 30px;gap:6px;margin-bottom:6px;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:12px;transition:all .15s';
+        d.onmouseover=function(){this.style.background='#dbeafe';this.style.borderColor='#3b82f6';};
+        d.onmouseout=function(){this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';};
+        d.onclick=function(e){if(e.target.tagName==='BUTTON')return;_dhtAddItem(i);};
         var vl=p.vat_percent?'+'+p.vat_percent+'%':'';
-        d.innerHTML='<div onclick="_dhtAddItem('+i+')" style="font-weight:700;color:var(--navy)">📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span></div>'
+        d.innerHTML='<div style="font-weight:700;color:var(--navy)">📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span></div>'
             +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
             +'<div style="text-align:center;font-size:10px;color:#b8860b;font-weight:700">'+vl+'</div>'
