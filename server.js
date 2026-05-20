@@ -569,6 +569,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS actual_ship_datetime TIMESTAMPTZ`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS delivery_progress TEXT`); } catch(e) {}
     // delivery_progress: 'early_X' | 'late_X' | 'ontime' | null
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS deposit_amount_cache NUMERIC DEFAULT 0`); } catch(e) {}
 
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {

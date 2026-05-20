@@ -210,12 +210,23 @@ async function _dhtShowDetail(id) {
         const surcharges = data.surcharges || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
         const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
-        const remaining = Number(o.remaining_amount) || 0;
+        // Recalculate totals from items (source of truth)
+        let calcBase = 0, calcVat = 0;
+        for (const it of items) {
+            try {
+                const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
+                const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+                calcBase += base;
+                calcVat += (Number(it.item_total) || 0) - base;
+            } catch(e) { calcBase += Number(it.item_total) || 0; }
+        }
+        if (calcVat < 0) calcVat = 0;
         const deposit = Number(o.deposit_amount) || 0;
-        const total = Number(o.total_amount) || 0;
-        const vat = Number(o.vat_amount) || 0;
+        const vat = calcVat;
         const discount = Number(o.discount_amount) || 0;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
+        const total = calcBase + calcVat + surchargeTotal - discount;
+        const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#059669' };
         const priColor = priColors[o.shipping_priority] || '#059669';
         const typeLabels = { thanh_toan: 'Thanh toán', dat_coc: 'Đặt cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
@@ -328,7 +339,6 @@ async function _dhtShowDetail(id) {
         var infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
         infoHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📄 Thông tin đơn hàng</div>`;
         infoHTML += `<table style="width:100%;border-collapse:collapse">`;
-        infoHTML += row('Mã đơn', `<span style="color:var(--gold);font-size:14px">${o.order_code}</span>`);
         infoHTML += row('Khách hàng', `<strong>${o.customer_name || '—'}</strong>`);
         infoHTML += row('SĐT', o.customer_phone ? `<a href="tel:${o.customer_phone}" style="color:var(--info)">${o.customer_phone}</a>` : '—');
         infoHTML += row('CSKH', o.cskh_name || '—');
@@ -342,7 +352,7 @@ async function _dhtShowDetail(id) {
         infoHTML += row('Nhắc nhở', reminderText);
         infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
         infoHTML += row('Ngày gửi dự kiến', fmtD(o.expected_ship_date));
-        infoHTML += row('NVC đề xuất', o.carrier_name || '—');
+        infoHTML += row('Vận Chuyển Đề Xuất', o.carrier_name || '—');
         infoHTML += `</table></div>`;
 
         // ── Section 7: 🚚 Thông tin vận chuyển ──
@@ -350,7 +360,7 @@ async function _dhtShowDetail(id) {
         shipHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>`;
         shipHTML += `<table style="width:100%;border-collapse:collapse">`;
         shipHTML += row('Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
-        shipHTML += row('NVC thực tế', o.actual_carrier_name || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
+        shipHTML += row('Vận Chuyển Thực Tế', o.actual_carrier_name || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
         shipHTML += row('Mã vận đơn', o.tracking_code || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
         shipHTML += row('Bill gửi hàng', o.shipping_bill_image ? `<a href="${o.shipping_bill_image}" target="_blank" style="color:var(--info)">📷 Xem bill</a>` : '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
         // Delivery progress

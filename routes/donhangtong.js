@@ -254,11 +254,11 @@ module.exports = async function(fastify) {
                 order_code, order_date, category_id,
                 customer_name, customer_phone, source, province, address,
                 cskh_user_id, total_quantity, total_amount, discount_amount,
-                has_vat, vat_amount, deposit_payment_id,
+                has_vat, vat_amount, deposit_payment_id, deposit_amount_cache,
                 designer_user_id, designer_type, carrier_id,
                 expected_ship_date, shipping_priority, standard_proof_image, zalo_oa_sent,
                 department_id, notes, surcharges, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$26)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$27)
             RETURNING *
         `, [
             b.order_code.trim(),
@@ -276,6 +276,7 @@ module.exports = async function(fastify) {
             b.has_vat === true || b.has_vat === 'true',
             Number(b.vat_amount) || 0,
             b.deposit_payment_id ? Number(b.deposit_payment_id) : null,
+            Number(b.deposit_amount) || 0,
             b.designer_user_id ? Number(b.designer_user_id) : null,
             b.designer_type || 'staff',
             b.carrier_id ? Number(b.carrier_id) : null,
@@ -382,8 +383,8 @@ module.exports = async function(fastify) {
                 u_designer.full_name AS designer_name,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
-                COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) AS remaining_amount
+                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
+                COALESCE(o.total_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id

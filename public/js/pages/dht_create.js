@@ -821,6 +821,7 @@ async function _dhtSubmitCreateV2() {
         has_vat: hasVat,
         vat_amount: vatAmt,
         deposit_payment_id: _dhtCreate.depositId,
+        deposit_amount: _dhtCreate.depositAmount || 0,
         designer_user_id: desId,
         designer_type: desType,
         carrier_id: carrier,
