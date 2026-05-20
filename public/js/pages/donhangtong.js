@@ -245,13 +245,16 @@ async function _dhtShowDetail(id) {
         actionsHTML += `</div>`;
 
         // ── Section 2: Chi tiết đơn hàng (Items) ──
+        // Store items globally for click-to-detail
+        window._dhtDetailItems = items;
         var itemsHTML = '';
         if (items.length > 0) {
             itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
-            itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span></div>`;
+            itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span> <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-left:4px">— Bấm vào dòng để xem chi tiết</span></div>`;
             itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
             itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:8px 10px;text-align:left;font-size:10px">VẢI - MÀU</th><th style="padding:8px 10px;text-align:center;font-size:10px">SỐ LƯỢNG</th><th style="padding:8px 10px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:8px 10px;text-align:center;font-size:10px">VAT</th><th style="padding:8px 10px;text-align:right;font-size:10px">THÀNH TIỀN</th></tr></thead><tbody>`;
-            for (const it of items) {
+            for (let idx = 0; idx < items.length; idx++) {
+                const it = items[idx];
                 const saleText = (it.sale_type || '').toLowerCase();
                 const isBan = saleText === 'bán' || saleText === 'ban';
                 const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
@@ -259,9 +262,9 @@ async function _dhtShowDetail(id) {
                 // Parse VAT from quantities
                 let itVat = 0;
                 try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
-                itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9">`;
+                itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s" onclick="_dhtShowItemDetail(${idx})" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">`;
                 itemsHTML += `<td style="padding:8px 10px">${saleBadge}</td>`;
-                itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:var(--navy)">${it.product_name || it.description || '—'}</td>`;
+                itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:var(--navy)">${it.product_name || it.description || '—'} <span style="font-size:9px;color:#94a3b8">🔍</span></td>`;
                 itemsHTML += `<td style="padding:8px 10px;color:#6366f1;font-weight:600">${matColor || '—'}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;text-align:center;font-weight:700">${it.quantity || 0}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;text-align:right">${fmt(it.unit_price)}đ</td>`;
@@ -605,4 +608,90 @@ function _dhtExport() {
     if (f.day) url += `day=${f.day}&`;
     if (f.category_id) url += `category_id=${f.category_id}&`;
     window.open(url, '_blank');
+}
+
+// ========== ITEM DETAIL POPUP ==========
+function _dhtShowItemDetail(idx) {
+    const it = (window._dhtDetailItems || [])[idx];
+    if (!it) return;
+    const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+    const row = (label, val) => `<tr><td style="padding:6px 10px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:140px">${label}</td><td style="padding:6px 10px;font-size:13px;font-weight:700;color:#1e293b">${val}</td></tr>`;
+
+    // Parse JSON fields
+    let quantities = [], techniques = [], extraMats = [], matPairs = [];
+    try { quantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []); } catch(e){}
+    try { techniques = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : (it.sewing_techniques || []); } catch(e){}
+    try { extraMats = typeof it.extra_materials === 'string' ? JSON.parse(it.extra_materials) : (it.extra_materials || []); } catch(e){}
+    try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
+    extraMats = extraMats.filter(m => m && m.trim());
+
+    var html = `<div style="padding:20px">`;
+
+    // Header
+    const saleText = (it.sale_type || '').toLowerCase();
+    const isBan = saleText === 'bán' || saleText === 'ban';
+    const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">Quà</span>';
+    html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">${saleBadge}<span style="font-size:18px;font-weight:900;color:var(--navy)">${it.product_name || '—'}</span></div>`;
+
+    // Basic info
+    html += `<div style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:14px"><table style="width:100%;border-collapse:collapse">`;
+    html += row('Áo mẫu (TSAM)', it.pattern_name || '—');
+    html += row('Thành tiền', `<span style="color:#dc2626;font-size:15px">${fmt(it.item_total)}đ</span>`);
+    if (it.extra_product) html += row('SP phụ', it.extra_product + (it.extra_price ? ' (+' + fmt(it.extra_price) + 'đ)' : ''));
+    if (it.accounting_notes) html += row('Nhắc nhở KT', `<span style="color:#f59e0b">${it.accounting_notes}</span>`);
+    html += `</table></div>`;
+
+    // Material pairs
+    if (matPairs.length > 0) {
+        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">🎨 Vải - Màu (${matPairs.length} phối)</div>`;
+        for (const mp of matPairs) {
+            html += `<div style="display:inline-flex;align-items:center;gap:6px;background:#eef2ff;padding:6px 12px;border-radius:8px;margin:0 6px 6px 0;font-size:12px;font-weight:700;color:#4338ca">${mp.material_name} — ${mp.color_name}</div>`;
+        }
+        html += `</div>`;
+    }
+
+    // Quantities breakdown
+    if (quantities.length > 0) {
+        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">📊 Chi tiết số lượng & giá</div>`;
+        html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px 10px;text-align:center">SL</th><th style="padding:6px 10px;text-align:right">Đơn Giá</th><th style="padding:6px 10px;text-align:right">Thành Tiền</th></tr></thead><tbody>`;
+        for (const q of quantities) {
+            html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;text-align:center;font-weight:700">${q.qty}</td><td style="padding:6px 10px;text-align:right">${fmt(q.price)}đ</td><td style="padding:6px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(q.subtotal)}đ</td></tr>`;
+        }
+        html += `</tbody></table></div>`;
+    }
+
+    // Sewing techniques
+    if (techniques.length > 0) {
+        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Kỹ thuật may (${techniques.length})</div>`;
+        html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;font-weight:700;color:var(--navy)">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700;color:var(--navy)">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí SX</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí PP</th></tr></thead><tbody>`;
+        for (const t of techniques) {
+            html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:600">${t.name}</td><td style="padding:6px 10px;text-align:center">${t.qty || 1}</td><td style="padding:6px 10px;text-align:right">${fmt(t.fp)}đ</td><td style="padding:6px 10px;text-align:right">${fmt(t.pp)}đ</td></tr>`;
+        }
+        html += `</tbody></table></div>`;
+    }
+
+    // Extra materials
+    if (extraMats.length > 0) {
+        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">📎 Vật liệu phụ</div>`;
+        for (const m of extraMats) {
+            html += `<span style="display:inline-block;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;margin:0 4px 4px 0">${m}</span>`;
+        }
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+
+    // Show as overlay inside the existing modal
+    var overlay = document.createElement('div');
+    overlay.id = '_dhtItemOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:600px;width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1">
+            <div style="font-weight:900;font-size:16px;color:var(--navy)">📋 Chi tiết phiếu #${idx+1}</div>
+            <div onclick="document.getElementById('_dhtItemOverlay').remove()" style="cursor:pointer;width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:16px">✕</div>
+        </div>
+        ${html}
+    </div>`;
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    document.body.appendChild(overlay);
 }
