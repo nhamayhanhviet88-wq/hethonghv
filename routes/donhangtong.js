@@ -8,6 +8,7 @@ module.exports = async function(fastify) {
 
     // Auto-migrate: add ship_count if not exists
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS ship_count INTEGER DEFAULT 0`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -151,7 +152,7 @@ module.exports = async function(fastify) {
         }
 
         const orders = await db.all(`
-            SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count,
+            SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
@@ -772,8 +773,10 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
         }
 
-        // ★ Replace order items if provided
+        // ★ Replace order items if provided (= full edit via Sửa Đơn)
         if (Array.isArray(b.items)) {
+            // Mark as edited
+            await db.run('UPDATE dht_orders SET is_edited = TRUE WHERE id = $1', [orderId]);
             await db.run('DELETE FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
             for (const item of b.items) {
                 await db.run(`
