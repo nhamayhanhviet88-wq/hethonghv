@@ -115,7 +115,7 @@ async function _dhtGoStep2() {
         // === Paste zone for CHUẨN proof (hidden by default since GẤP is default) ===
         +'<div id="_co_proofWrap" style="margin-top:8px;display:none">'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Giờ Hàng Ra <span style="color:red">*</span></label><select id="_co_deliveryTime" class="form-control" style="font-size:12px"><option value="">-- Chọn giờ --</option>'+_dhtTimeOpts()+'</select></div>'
+        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Giờ Hàng Ra <span style="color:red">*</span></label><input id="_co_deliveryTime" class="form-control" list="_dl_deliveryTime" placeholder="VD: 08:00" style="font-size:12px"><datalist id="_dl_deliveryTime">'+_dhtTimeOpts()+'</datalist></div>'
         +'<div></div></div>'
         +'<label style="font-weight:700;font-size:12px;color:#1e293b">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN <span style="color:red">*</span></label>'
         +'<div id="_co_proofZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-top:4px;background:#f8fafc;transition:all .2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column" onpaste="_dhtPasteProof(event)" onclick="this.focus()" onfocus="this.style.borderColor=\'#b8860b\';this.style.background=\'#fffbeb\'" onblur="this.style.borderColor=\'#cbd5e1\';this.style.background=\'#f8fafc\'">'
@@ -365,7 +365,7 @@ function _dhtOnCarrierChange() {
             + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
             + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe</label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
             + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe</label><input id="_co_busPhone" class="form-control" placeholder="Số liên lạc" style="font-size:12px"></div>'
-            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy</label><select id="_co_busTime" class="form-control" style="font-size:12px"><option value="">-- Chọn giờ --</option>'+_dhtTimeOpts()+'</select></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy</label><input id="_co_busTime" class="form-control" list="_dl_busTime" placeholder="VD: 14:00" style="font-size:12px"><datalist id="_dl_busTime">'+_dhtTimeOpts()+'</datalist></div>'
             + '</div>';
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         wrap.style.display = 'block';
