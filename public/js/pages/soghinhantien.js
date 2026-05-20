@@ -169,7 +169,7 @@ function _prRenderTable() {
         var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
         var typeBadge = '<span class="pr-badge '+(typeClass[r.payment_type]||'pr-tt')+'">'+(typeLabels[r.payment_type]||'TT')+'</span>';
         var statusBadge = r.handover_status === 'thu_quy_nhan' ? '<span class="pr-badge pr-nhan" style="cursor:pointer" onclick="_prToggleHandover('+r.id+',\'chua_bangiao\')">✅ TQ Nhận</span>' : '<span class="pr-badge pr-chua" style="cursor:pointer" onclick="_prToggleHandover('+r.id+',\'thu_quy_nhan\')">⏳ Chưa BG</span>';
-        var updatedAt = r.updated_at ? vnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
+        var updatedAt = r.updated_at ? _prVnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
         var payDate = r.payment_date ? r.payment_date.split('T')[0].split('-').reverse().join('/') : '';
 
         h += '<tr style="cursor:pointer" onclick="_prShowDetail('+r.id+')">';
@@ -333,8 +333,8 @@ async function _prSubmitAdd() {
     finally { _prSubmitting = false; }
 }
 
-// Helper: vnFormat fallback
-function vnFormat(d, fmt) {
+// Helper: _prVnFormat — local date formatter (does NOT override global vnFormat)
+function _prVnFormat(d, fmt) {
     if (!d || isNaN(d.getTime())) return '';
     var dd = String(d.getDate()).padStart(2,'0');
     var MM = String(d.getMonth()+1).padStart(2,'0');
@@ -351,7 +351,7 @@ async function _prShowSettings() {
         var banks = data.banks || [];
         var totalImported = data.total_imported || 0;
 
-        var lastCheck = c.last_check_at ? vnFormat(new Date(c.last_check_at), 'dd/MM HH:mm') : 'Chưa check';
+        var lastCheck = c.last_check_at ? _prVnFormat(new Date(c.last_check_at), 'dd/MM HH:mm') : 'Chưa check';
         var statusText = c.is_active ? '<span style="color:#059669;font-weight:700">🟢 Đang chạy</span>' : '<span style="color:#dc2626;font-weight:700">🔴 Tắt</span>';
         var errorText = c.last_error ? '<div style="color:#dc2626;font-size:10px;margin-top:4px">⚠️ '+c.last_error+'</div>' : '';
 
@@ -550,7 +550,7 @@ function _prShowDetail(id) {
     var statusLabels = {thu_quy_nhan:'Thủ quỹ đã nhận',chua_bangiao:'Chưa bàn giao'};
     var payDate = r.payment_date ? r.payment_date.split('T')[0].split('-').reverse().join('/') : '';
     var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
-    var updatedAt = r.updated_at ? vnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
+    var updatedAt = r.updated_at ? _prVnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
     var histSrc = r.source === 'email_auto' ? '📧 Mail đã thêm ghi nhận.' : (r.created_by_name ? '👤 '+r.created_by_name+' đã thêm.' : '');
     var icon = r.payment_method === 'TM' ? '💵' : '🏦';
 
