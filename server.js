@@ -562,6 +562,14 @@ async function start() {
     // v6: Add surcharges JSONB column to dht_orders for phụ phí support
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS surcharges JSONB DEFAULT '[]'`); } catch(e) { /* already exists */ }
 
+    // v7: Add shipping tracking columns to dht_orders
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS tracking_code TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_bill_image TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS actual_carrier_id INTEGER`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS actual_ship_datetime TIMESTAMPTZ`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS delivery_progress TEXT`); } catch(e) {}
+    // delivery_progress: 'early_X' | 'late_X' | 'ontime' | null
+
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS bgm_items (

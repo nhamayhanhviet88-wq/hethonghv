@@ -239,41 +239,50 @@ async function _dhtShowDetail(id) {
             itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
             itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span></div>`;
             itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
-            itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:8px 10px;text-align:left;font-size:10px">VẢI - MÀU</th><th style="padding:8px 10px;text-align:center;font-size:10px">SỐ LƯỢNG</th><th style="padding:8px 10px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:8px 10px;text-align:right;font-size:10px">THÀNH TIỀN</th></tr></thead><tbody>`;
+            itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:8px 10px;text-align:left;font-size:10px">VẢI - MÀU</th><th style="padding:8px 10px;text-align:center;font-size:10px">SỐ LƯỢNG</th><th style="padding:8px 10px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:8px 10px;text-align:center;font-size:10px">VAT</th><th style="padding:8px 10px;text-align:right;font-size:10px">THÀNH TIỀN</th></tr></thead><tbody>`;
             for (const it of items) {
-                const saleBadge = it.sale_type === 'ban' ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+                const saleText = (it.sale_type || '').toLowerCase();
+                const isBan = saleText === 'bán' || saleText === 'ban';
+                const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
                 const matColor = (it.material_name || '') + (it.color_name ? ' - ' + it.color_name : '');
+                // Parse VAT from quantities
+                let itVat = 0;
+                try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
                 itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9">`;
                 itemsHTML += `<td style="padding:8px 10px">${saleBadge}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:var(--navy)">${it.product_name || it.description || '—'}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;color:#6366f1;font-weight:600">${matColor || '—'}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;text-align:center;font-weight:700">${it.quantity || 0}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;text-align:right">${fmt(it.unit_price)}đ</td>`;
+                itemsHTML += `<td style="padding:8px 10px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
                 itemsHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(it.item_total || it.total)}đ</td>`;
                 itemsHTML += `</tr>`;
             }
             itemsHTML += `</tbody></table></div></div>`;
         }
 
-        // ── Section 3: Chi tiết cọc & thanh toán ──
-        var payHTML = '';
+        // ── Section 3: Chi tiết cọc & thanh toán (ALWAYS VISIBLE) ──
+        var payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+        payHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${payments.length}</span></div>`;
         if (payments.length > 0) {
-            payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
-            payHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💳 Chi tiết cọc và thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${payments.length}</span></div>`;
             payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
-            payHTML += `<thead><tr style="background:#f8fafc"><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">MÃ TT</th><th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--navy);font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">NGÀY</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
+            payHTML += `<thead><tr style="background:#f8fafc"><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">MÃ TT</th><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">MÃ ĐƠN</th><th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--navy);font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
             for (const p of payments) {
                 const methodIcon = p.payment_method === 'TM' ? '💵' : '🏦';
                 payHTML += `<tr style="border-bottom:1px solid #f1f5f9">`;
-                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${methodIcon} ${p.payment_code}</td>`;
+                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${methodIcon} ${p.payment_code || '—'}</td>`;
+                payHTML += `<td style="padding:8px 10px;font-weight:600;color:#64748b">${p.total_order_codes || o.order_code}</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:center">${fmtD(p.payment_date)}</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:center"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${typeLabels[p.payment_type] || p.payment_type || '—'}</span></td>`;
                 payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
                 payHTML += `</tr>`;
             }
-            payHTML += `</tbody></table></div></div>`;
+            payHTML += `</tbody></table></div>`;
+        } else {
+            payHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px">Chưa có thanh toán / cọc nào được ghi nhận</div>`;
         }
+        payHTML += `</div>`;
 
         // ── Section 4: Phụ phí ──
         var surHTML = '';
@@ -291,7 +300,6 @@ async function _dhtShowDetail(id) {
 
         // ── Section 5: Tổng kết tài chính ──
         const remColor = remaining > 0 ? '#dc2626' : '#059669';
-        const remIcon = remaining > 0 ? '🔴' : '🟢';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         const finRows = [
@@ -310,8 +318,13 @@ async function _dhtShowDetail(id) {
         }
         finHTML += `</div>`;
 
-        // ── Section 6: Thông tin đơn hàng ──
-        const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:140px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
+        // ── Section 6: 📄 Thông tin đơn hàng ──
+        const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:160px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
+        // Parse reminders from items
+        var allReminders = [];
+        for (const it of items) { if(it.accounting_notes) allReminders.push(it.accounting_notes); }
+        var reminderText = allReminders.length > 0 ? allReminders.join(' | ') : '—';
+
         var infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
         infoHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📄 Thông tin đơn hàng</div>`;
         infoHTML += `<table style="width:100%;border-collapse:collapse">`;
@@ -319,29 +332,54 @@ async function _dhtShowDetail(id) {
         infoHTML += row('Khách hàng', `<strong>${o.customer_name || '—'}</strong>`);
         infoHTML += row('SĐT', o.customer_phone ? `<a href="tel:${o.customer_phone}" style="color:var(--info)">${o.customer_phone}</a>` : '—');
         infoHTML += row('CSKH', o.cskh_name || '—');
-        infoHTML += row('Thiết kế', o.designer_name || (o.designer_type === 'old' ? 'Thiết Kế Cũ' : '—'));
+        infoHTML += row('Thiết kế', o.designer_name || (o.designer_type === 'old_design' ? '🎨 Thiết Kế Cũ' : '—'));
         infoHTML += row('Địa chỉ', o.address || '—');
         infoHTML += row('Tỉnh / TP', o.province || '—');
         infoHTML += row('Nguồn', o.source || '—');
         infoHTML += row('Lĩnh vực', o.category_name || '—');
         infoHTML += row('TC gửi', `<span style="color:${priColor};font-weight:900">${o.shipping_priority || 'CHUẨN'}</span>`);
-        if (o.standard_proof_image) {
-            infoHTML += row('Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info)">📷 Xem ảnh</a>`);
-        }
-        infoHTML += row('Nhắc nhở', o.notes || '—');
+        if (o.standard_proof_image) infoHTML += row('Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info)">📷 Xem ảnh</a>`);
+        infoHTML += row('Nhắc nhở', reminderText);
         infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
         infoHTML += row('Ngày gửi dự kiến', fmtD(o.expected_ship_date));
-        infoHTML += row('Ngày gửi thực tế', fmtD(o.shipping_date));
-        infoHTML += row('Nhà vận chuyển', o.carrier_name || '—');
-        // Lịch sử
-        var historyHTML = '';
-        if (o.created_at) historyHTML += `<div style="margin-bottom:4px">📅 ${vnFormat(o.created_at)}<br>👤 <span style="color:var(--info)">${o.created_by_name || '—'}</span> đã tạo đơn.</div>`;
-        if (o.last_updated_at && o.last_updated_by_name) historyHTML += `<div>📅 ${vnFormat(o.last_updated_at)}<br>👤 <span style="color:var(--info)">${o.last_updated_by_name}</span> đã cập nhật.</div>`;
-        infoHTML += row('Lịch sử', historyHTML || '—');
+        infoHTML += row('NVC đề xuất', o.carrier_name || '—');
         infoHTML += `</table></div>`;
 
+        // ── Section 7: 🚚 Thông tin vận chuyển ──
+        var shipHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+        shipHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>`;
+        shipHTML += `<table style="width:100%;border-collapse:collapse">`;
+        shipHTML += row('Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
+        shipHTML += row('NVC thực tế', o.actual_carrier_name || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
+        shipHTML += row('Mã vận đơn', o.tracking_code || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
+        shipHTML += row('Bill gửi hàng', o.shipping_bill_image ? `<a href="${o.shipping_bill_image}" target="_blank" style="color:var(--info)">📷 Xem bill</a>` : '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
+        // Delivery progress
+        var progressText = '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>';
+        if (o.delivery_progress) {
+            if (o.delivery_progress === 'ontime') progressText = '<span style="color:#059669;font-weight:900">✅ Đúng ngày</span>';
+            else if (o.delivery_progress.startsWith('early_')) progressText = '<span style="color:#2563eb;font-weight:900">🚀 Nhanh hơn ' + o.delivery_progress.replace('early_','') + ' ngày</span>';
+            else if (o.delivery_progress.startsWith('late_')) progressText = '<span style="color:#dc2626;font-weight:900">⚠️ Chậm hơn ' + o.delivery_progress.replace('late_','') + ' ngày</span>';
+            else progressText = o.delivery_progress;
+        }
+        shipHTML += row('Tình trạng tiến độ', progressText);
+        shipHTML += `</table></div>`;
+
+        // ── Section 8: ⚠️ Đơn Lỗi ──
+        var errorHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+        errorHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">⚠️ Đơn Lỗi</div>`;
+        errorHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:13px;font-style:italic">Chưa có thông tin đơn lỗi</div>`;
+        errorHTML += `</div>`;
+
+        // ── Section 9: 📝 Lịch sử cập nhật ──
+        var histHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+        histHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📝 Lịch sử cập nhật</div>`;
+        if (o.created_at) histHTML += `<div style="padding:8px 12px;border-left:3px solid #059669;margin-bottom:8px;background:#f0fdf4;border-radius:0 8px 8px 0"><div style="font-size:11px;color:#64748b">${vnFormat(o.created_at)}</div><div style="font-size:13px;font-weight:700;color:#1e293b">👤 <span style="color:var(--info)">${o.created_by_name || '—'}</span> đã tạo đơn.</div></div>`;
+        if (o.last_updated_at && o.last_updated_by_name) histHTML += `<div style="padding:8px 12px;border-left:3px solid #f59e0b;margin-bottom:8px;background:#fffbeb;border-radius:0 8px 8px 0"><div style="font-size:11px;color:#64748b">${vnFormat(o.last_updated_at)}</div><div style="font-size:13px;font-weight:700;color:#1e293b">👤 <span style="color:var(--info)">${o.last_updated_by_name}</span> đã cập nhật.</div></div>`;
+        if (!o.created_at && !o.last_updated_at) histHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:13px">Không có lịch sử</div>`;
+        histHTML += `</div>`;
+
         // ── Combine all sections ──
-        const bodyHTML = actionsHTML + itemsHTML + payHTML + surHTML + finHTML + infoHTML;
+        const bodyHTML = actionsHTML + itemsHTML + payHTML + surHTML + finHTML + infoHTML + shipHTML + errorHTML + histHTML;
 
         const titleText = `📦 ${o.order_code} — ${fmt(total)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;

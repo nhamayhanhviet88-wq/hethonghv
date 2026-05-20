@@ -381,6 +381,7 @@ module.exports = async function(fastify) {
                 u_updated.full_name AS last_updated_by_name,
                 u_designer.full_name AS designer_name,
                 cr.name AS carrier_name,
+                cr2.name AS actual_carrier_name,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) AS remaining_amount
             FROM dht_orders o
@@ -390,6 +391,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_updated ON o.last_updated_by = u_updated.id
             LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
+            LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
@@ -405,14 +407,29 @@ module.exports = async function(fastify) {
             SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC
         `, [orderId]);
 
-        // 3. Linked payment records
-        const payments = await db.all(`
+        // 3. Linked payment records (by order_code match OR by deposit_payment_id)
+        let payments = await db.all(`
             SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
                    customer_name, customer_phone, transfer_note, total_order_codes
             FROM payment_records
             WHERE total_order_codes ILIKE '%' || $1 || '%'
             ORDER BY payment_date DESC
         `, [order.order_code]);
+
+        // Fallback: if no payments found via order_code, try deposit_payment_id
+        if (payments.length === 0 && order.deposit_payment_id) {
+            const depRecord = await db.get(`
+                SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
+                       customer_name, customer_phone, transfer_note, total_order_codes
+                FROM payment_records WHERE id = $1
+            `, [order.deposit_payment_id]);
+            if (depRecord) {
+                payments = [depRecord];
+                // Also fix deposit_amount
+                order.deposit_amount = Number(depRecord.amount) || 0;
+                order.remaining_amount = (Number(order.total_amount) || 0) - order.deposit_amount;
+            }
+        }
 
         // 4. Parse surcharges
         let surcharges = [];
@@ -439,7 +456,8 @@ module.exports = async function(fastify) {
             'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount',
             'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date',
             'has_vat', 'vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
-            'expected_ship_date', 'zalo_oa_sent'
+            'expected_ship_date', 'zalo_oa_sent',
+            'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress'
         ];
 
         const sets = [];
@@ -448,7 +466,7 @@ module.exports = async function(fastify) {
 
         for (const key of allowed) {
             if (b[key] !== undefined) {
-                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id'];
+                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id', 'actual_carrier_id'];
                 const boolFields = ['has_vat', 'zalo_oa_sent'];
                 if (numericFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);
