@@ -673,23 +673,30 @@ function _dhtShowItemDetail(idx) {
 
     // Sewing techniques — show names for all, prices only for giam_doc/qlcc
     if (techniques.length > 0) {
-        let totalSewingCost = 0;
-        for (const t of techniques) { totalSewingCost += (Number(t.fp) || 0) * (Number(t.qty) || 1); }
+        const tsamFP = Number(it.tsam_factory_price) || 0;
+        const tsamPP = Number(it.tsam_processing_price) || 0;
+        let totalMayNha = tsamFP;
+        let totalMayGC = tsamPP;
+        for (const t of techniques) { totalMayNha += (Number(t.fp) || 0) * (Number(t.qty) || 1); totalMayGC += (Number(t.pp) || 0) * (Number(t.qty) || 1); }
 
-        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Kỹ thuật may (${techniques.length})</div>`;
+        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Kỹ thuật may (${techniques.length + 1})</div>`;
         if (canSeeCost) {
-            html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px 10px;text-align:left;font-weight:700">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700">Phí SX</th><th style="padding:6px 10px;text-align:right;font-weight:700">Phí PP</th></tr></thead><tbody>`;
+            html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px 10px;text-align:left;font-weight:700">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700">MAY NHÀ</th><th style="padding:6px 10px;text-align:right;font-weight:700">MAY GC</th></tr></thead><tbody>`;
+            // TSAM base row (always first)
+            html += `<tr style="border-bottom:1px solid #e2e8f0;background:#eef2ff"><td style="padding:6px 10px;font-weight:800;color:#4338ca">📐 ${it.pattern_name || 'TSAM'}</td><td style="padding:6px 10px;text-align:center;font-weight:700">1</td><td style="padding:6px 10px;text-align:right;font-weight:800">${fmt(tsamFP)}đ</td><td style="padding:6px 10px;text-align:right;font-weight:800">${fmt(tsamPP)}đ</td></tr>`;
+            // Additional techniques
             for (const t of techniques) {
                 html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:600">${t.name}</td><td style="padding:6px 10px;text-align:center">${t.qty || 1}</td><td style="padding:6px 10px;text-align:right">${fmt(t.fp)}đ</td><td style="padding:6px 10px;text-align:right">${fmt(t.pp)}đ</td></tr>`;
             }
             html += `</tbody></table>`;
             // Total sewing cost
             html += `<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;display:flex;justify-content:space-between;align-items:center">`;
-            html += `<span style="font-size:12px;font-weight:700;color:#92400e">💰 Tổng giá may (${it.pattern_name || 'TSAM'})</span>`;
-            html += `<span style="font-size:14px;font-weight:900;color:#dc2626">${fmt(totalSewingCost)}đ / áo</span>`;
+            html += `<span style="font-size:12px;font-weight:700;color:#92400e">💰 Tổng giá may</span>`;
+            html += `<span style="font-size:13px;font-weight:900">MAY NHÀ: <span style="color:#dc2626">${fmt(totalMayNha)}đ</span> &nbsp;|&nbsp; MAY GC: <span style="color:#7c3aed">${fmt(totalMayGC)}đ</span></span>`;
             html += `</div>`;
         } else {
             // Non-privileged: only show technique names
+            html += `<div style="display:inline-block;background:#eef2ff;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#4338ca;margin:0 4px 4px 0">📐 ${it.pattern_name || 'TSAM'}</div>`;
             for (const t of techniques) {
                 html += `<div style="display:inline-block;background:#f1f5f9;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;color:var(--navy);margin:0 4px 4px 0">${t.name} (x${t.qty || 1})</div>`;
             }

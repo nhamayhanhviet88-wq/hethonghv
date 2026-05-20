@@ -403,9 +403,12 @@ module.exports = async function(fastify) {
 
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
-        // 2. Order items
+        // 2. Order items (with TSAM base prices)
         const items = await db.all(`
-            SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC
+            SELECT i.*, ts.factory_price AS tsam_factory_price, ts.processing_price AS tsam_processing_price
+            FROM dht_order_items i
+            LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
+            WHERE i.dht_order_id = $1 ORDER BY i.id ASC
         `, [orderId]);
 
         // 3. Linked payment records (by order_code match OR by deposit_payment_id)
