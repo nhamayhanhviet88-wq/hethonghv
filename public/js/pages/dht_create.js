@@ -58,7 +58,7 @@ async function _dhtGoStep2() {
         // Row 1: NV + Phòng Ban + Team (3 cột)
         +'</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0">'
         +'<div class="form-group"><label>Tên Nhân Viên</label><input class="form-control" value="'+(mi.full_name||'')+'" disabled style="'+_dis+'"></div>'
-        +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.phong_ban||mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Team</label><input class="form-control" value="'+_teamName+'" disabled style="'+_dis+'"></div>'
         +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         // Row 2: Ngày + Lĩnh vực
