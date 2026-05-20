@@ -273,14 +273,28 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 3: Chi tiết cọc & thanh toán (ALWAYS VISIBLE) ──
+        // If no payment records but deposit exists from cache, add synthetic row
+        var displayPayments = payments.slice();
+        if (displayPayments.length === 0 && deposit > 0) {
+            displayPayments.push({
+                payment_code: '—',
+                total_order_codes: o.order_code,
+                amount: deposit,
+                payment_date: o.order_date || o.created_at,
+                payment_type: 'dat_coc',
+                payment_method: null,
+                transfer_note: 'Đặt cọc khi tạo đơn',
+                _synthetic: true
+            });
+        }
         var payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
-        payHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${payments.length}</span></div>`;
-        if (payments.length > 0) {
+        payHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${displayPayments.length}</span></div>`;
+        if (displayPayments.length > 0) {
             payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
             payHTML += `<thead><tr style="background:#f8fafc"><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">MÃ TT</th><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">MÃ ĐƠN</th><th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--navy);font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
-            for (const p of payments) {
-                const methodIcon = p.payment_method === 'TM' ? '💵' : '🏦';
-                payHTML += `<tr style="border-bottom:1px solid #f1f5f9">`;
+            for (const p of displayPayments) {
+                const methodIcon = p.payment_method === 'TM' ? '💵' : (p.payment_method ? '🏦' : '💰');
+                payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
                 payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${methodIcon} ${p.payment_code || '—'}</td>`;
                 payHTML += `<td style="padding:8px 10px;font-weight:600;color:#64748b">${p.total_order_codes || o.order_code}</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
