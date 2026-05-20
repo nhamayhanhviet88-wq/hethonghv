@@ -451,9 +451,11 @@ module.exports = async function(fastify) {
 
     // ========== ORDERS: Print Shipping Receipt ==========
     fastify.get('/api/dht/orders/:id/print', { preHandler: [authenticate] }, async (request, reply) => {
+      try {
+        console.log('[PRINT] Request for order:', request.params.id);
         const orderId = Number(request.params.id);
         const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
-        if (!order) return reply.code(404).send('Không tìm thấy đơn hàng');
+        if (!order) return reply.code(404).type('text/html').send('<h1>Không tìm thấy đơn hàng</h1>');
 
         const items = await db.all(`
             SELECT i.*, ts.factory_price AS tsam_factory_price, ts.processing_price AS tsam_processing_price
@@ -667,13 +669,16 @@ module.exports = async function(fastify) {
     <!-- Footer -->
     <div class="footer">
         Đồng Phục HV — Chất lượng tạo nên thương hiệu &nbsp;|&nbsp; dongphuchv.com
-    </div>
 </div>
-<script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+</div>
 </body>
 </html>`;
 
         reply.type('text/html').send(html);
+      } catch(err) {
+        console.error('[PRINT ERROR]', err);
+        reply.type('text/html').code(500).send(`<h1 style="color:red">Lỗi: ${err.message}</h1><pre>${err.stack}</pre>`);
+      }
     });
 
     // ========== ORDERS: Update (full edit) ==========
