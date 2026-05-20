@@ -53,7 +53,7 @@ async function _dhtGoStep2() {
         : 'Không có cọc';
 
     var _dis = 'background:#f1f5f9;color:#64748b;cursor:not-allowed';
-    var _teamName = mi.team_name || 'Không có';
+    var _teamName = mi.parent_department_name ? (mi.department_name || 'Không có') : (mi.team_name || 'Không có');
     var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         // Row 1: NV + Phòng Ban + Team (3 cột)
         +'</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0">'
