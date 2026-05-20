@@ -169,7 +169,7 @@ async function _dhtLoadOrders() {
             <td>${fmtD(o.shipping_date)}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
-                <button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrder(${o.id})" title="Sửa">✏️</button>
+                <button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>
                 <button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>
             </td>
         </tr>`;
@@ -223,7 +223,7 @@ async function _dhtShowDetail(id) {
         // ── Section 1: Action Buttons ──
         var actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
         const actionBtns = [
-            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrder(${id})` },
+            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})` },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})` },
         ];
         for (const a of actionBtns) {

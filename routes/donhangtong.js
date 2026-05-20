@@ -428,7 +428,7 @@ module.exports = async function(fastify) {
         };
     });
 
-    // ========== ORDERS: Update (inline edit) ==========
+    // ========== ORDERS: Update (full edit) ==========
     fastify.put('/api/dht/orders/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         const b = request.body || {};
@@ -437,7 +437,9 @@ module.exports = async function(fastify) {
         const allowed = [
             'customer_name', 'customer_phone', 'source', 'province', 'address',
             'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount',
-            'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date'
+            'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date',
+            'has_vat', 'vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
+            'expected_ship_date', 'zalo_oa_sent'
         ];
 
         const sets = [];
@@ -446,10 +448,14 @@ module.exports = async function(fastify) {
 
         for (const key of allowed) {
             if (b[key] !== undefined) {
-                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id'];
+                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id'];
+                const boolFields = ['has_vat', 'zalo_oa_sent'];
                 if (numericFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);
                     params.push(b[key] === null || b[key] === '' ? null : Number(b[key]));
+                } else if (boolFields.includes(key)) {
+                    sets.push(`${key} = $${idx++}`);
+                    params.push(b[key] === true || b[key] === 'true');
                 } else {
                     sets.push(`${key} = $${idx++}`);
                     params.push(b[key] === '' ? null : b[key]);
@@ -457,7 +463,37 @@ module.exports = async function(fastify) {
             }
         }
 
-        if (sets.length === 0) return reply.code(400).send({ error: 'Không có dữ liệu cập nhật' });
+        // Handle surcharges JSONB
+        if (b.surcharges !== undefined) {
+            sets.push(`surcharges = $${idx++}`);
+            params.push(JSON.stringify(b.surcharges || []));
+        }
+
+        // Handle proof image
+        if (b.standard_proof_image !== undefined) {
+            let proofPath = null;
+            if (b.standard_proof_image && b.standard_proof_image.startsWith('data:image')) {
+                try {
+                    const match = b.standard_proof_image.match(/^data:image\/(\w+);base64,(.+)$/);
+                    if (match) {
+                        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+                        const buffer = Buffer.from(match[2], 'base64');
+                        const dir = path.join(__dirname, '..', 'public', 'uploads', 'dht-proofs');
+                        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                        const orderRow = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
+                        const filename = `proof_${(orderRow?.order_code || orderId)}_${Date.now()}.${ext}`;
+                        fs.writeFileSync(path.join(dir, filename), buffer);
+                        proofPath = '/uploads/dht-proofs/' + filename;
+                    }
+                } catch(imgErr) { console.error('Proof image save error:', imgErr.message); }
+            } else if (b.standard_proof_image) {
+                proofPath = b.standard_proof_image; // keep existing path
+            }
+            sets.push(`standard_proof_image = $${idx++}`);
+            params.push(proofPath);
+        }
+
+        if (sets.length === 0 && !Array.isArray(b.items)) return reply.code(400).send({ error: 'Không có dữ liệu cập nhật' });
 
         // Auto-fill shipping_date when marking as shipped
         if (b.shipping_status === 'shipped') {
@@ -469,12 +505,49 @@ module.exports = async function(fastify) {
             }
         }
 
-        sets.push(`last_updated_at = NOW()`);
-        sets.push(`last_updated_by = $${idx++}`);
-        params.push(request.user.id);
-        params.push(orderId);
+        if (sets.length > 0) {
+            sets.push(`last_updated_at = NOW()`);
+            sets.push(`last_updated_by = $${idx++}`);
+            params.push(request.user.id);
+            params.push(orderId);
+            await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+        }
 
-        await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+        // ★ Replace order items if provided
+        if (Array.isArray(b.items)) {
+            await db.run('DELETE FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            for (const item of b.items) {
+                await db.run(`
+                    INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
+                        sale_type, product_name, material_id, material_name,
+                        color_id, color_name, pattern_name, sewing_techniques,
+                        accounting_notes, extra_materials, quantities,
+                        extra_product, extra_price, item_total, material_pairs)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                `, [
+                    orderId,
+                    item.product_name || '',
+                    Number(item.quantity) || 0,
+                    Number(item.unit_price) || 0,
+                    Number(item.item_total) || 0,
+                    item.sale_type || null,
+                    item.product_name || null,
+                    item.material_id ? Number(item.material_id) : null,
+                    item.material_name || null,
+                    item.color_id ? Number(item.color_id) : null,
+                    item.color_name || null,
+                    item.pattern_name || null,
+                    JSON.stringify(item.sewing_techniques || []),
+                    item.accounting_notes || null,
+                    JSON.stringify(item.extra_materials || []),
+                    JSON.stringify(item.quantities || []),
+                    item.extra_product || null,
+                    Number(item.extra_price) || 0,
+                    Number(item.item_total) || 0,
+                    JSON.stringify(item.material_pairs || [])
+                ]);
+            }
+        }
 
         // ★ Sync address/province back to customers table when edited in DHT
         if (b.address !== undefined || b.province !== undefined) {

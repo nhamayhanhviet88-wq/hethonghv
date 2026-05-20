@@ -1,5 +1,5 @@
 // ========== DHT CREATE ORDER — 2-STEP FLOW ==========
-var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
+var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null };
 
 var _dhtProvinces = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
@@ -124,12 +124,67 @@ async function _dhtGoStep2() {
         // Deposit info
         +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
 
+    var isEdit = _dhtCreate.editMode;
     var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
-        +'<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Lưu Đơn Hàng</button>';
+        + (isEdit
+            ? '<button class="btn" onclick="_dhtSubmitEditV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Cập Nhật Đơn</button>'
+            : '<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Lưu Đơn Hàng</button>');
 
-    openModal('➕ Tạo Đơn Hàng', body, footer);
-    _dhtCreate.phieuItems = []; // Reset phieu items
-    _dhtCreate.surcharges = []; // Reset surcharges
+    openModal(isEdit ? '✏️ Sửa Đơn ' + _dhtCreate.orderCode : '➕ Tạo Đơn Hàng', body, footer);
+
+    if (!isEdit) {
+        _dhtCreate.phieuItems = [];
+        _dhtCreate.surcharges = [];
+    }
+
+    // ★ Edit mode: pre-fill all fields from editData
+    if (isEdit && _dhtCreate.editData) {
+        var ed = _dhtCreate.editData;
+        var o = ed.order;
+        // Lock order code
+        var codeInp = document.getElementById('_co_code');
+        if (codeInp) { codeInp.value = o.order_code; codeInp.disabled = true; codeInp.style.background = '#f0fdf4'; codeInp.style.fontWeight = '900'; codeInp.style.color = '#b8860b'; }
+        document.getElementById('_co_custId').value = o.customer_id || '';
+        document.getElementById('_co_phone').value = o.customer_phone || '';
+        document.getElementById('_co_name').value = o.customer_name || '';
+        document.getElementById('_co_addr').value = o.address || '';
+        document.getElementById('_co_prov').value = o.province || '';
+        document.getElementById('_co_src').value = o.source || '';
+        // Category
+        var catSel = document.getElementById('_co_cat');
+        if (catSel && o.category_id) catSel.value = o.category_id;
+        // Designer
+        var desSel = document.getElementById('_co_designer');
+        if (desSel) {
+            if (o.designer_type === 'old_design' || o.designer_type === 'old') desSel.value = 'old_design';
+            else if (o.designer_user_id) desSel.value = o.designer_user_id;
+        }
+        // Shipping
+        var priSel = document.getElementById('_co_pri');
+        if (priSel && o.shipping_priority) priSel.value = o.shipping_priority;
+        _dhtOnPriorityChange();
+        // Proof image
+        if (o.standard_proof_image) {
+            _dhtProofBase64 = o.standard_proof_image;
+            var proofImg = document.getElementById('_co_proofImg');
+            var proofPh = document.getElementById('_co_proofPlaceholder');
+            if (proofImg) { proofImg.src = o.standard_proof_image; proofImg.style.display = 'block'; }
+            if (proofPh) proofPh.style.display = 'none';
+        }
+        // Ship date
+        var shipInp = document.getElementById('_co_shipDate');
+        if (shipInp && o.expected_ship_date) shipInp.value = o.expected_ship_date.split('T')[0];
+        // Carrier
+        var carSel = document.getElementById('_co_carrier');
+        if (carSel && o.carrier_id) carSel.value = o.carrier_id;
+        // Zalo
+        var zaloSel = document.getElementById('_co_zalo');
+        if (zaloSel) zaloSel.value = o.zalo_oa_sent ? '1' : '0';
+        // Render existing phieus and surcharges
+        _dhtRenderPhieuRows();
+        _dhtRenderSurcharges();
+        _dhtCalcTotal();
+    }
 }
 
 // === Order Code Search (dropdown from CRM available codes) ===
@@ -997,4 +1052,154 @@ function _ppApplyBgm() {
     window._ppSewItems = items;
     document.getElementById('_ppBgmOv')?.remove();
     _ppRenderSewTags();
+}
+
+// ========== FULL EDIT ORDER (reuse create form) ==========
+async function _dhtEditOrderFull(id) {
+    try {
+        showToast('⏳ Đang tải dữ liệu...');
+        var data = await apiCall('/api/dht/orders/' + id + '/detail');
+        if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
+        var o = data.order;
+        var items = data.items || [];
+        var surcharges = data.surcharges || [];
+
+        // Convert DB items → phieuItems format
+        var phieuItems = items.map(function(it) {
+            var qtyArr = [];
+            try { qtyArr = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []); } catch(e) { qtyArr = []; }
+            if (qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: it.unit_price || 0 }];
+            var matPairs = [];
+            try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) { matPairs = []; }
+            var sewTech = [];
+            try { sewTech = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : (it.sewing_techniques || []); } catch(e) { sewTech = []; }
+            var extMats = [];
+            try { extMats = typeof it.extra_materials === 'string' ? JSON.parse(it.extra_materials) : (it.extra_materials || []); } catch(e) { extMats = []; }
+            var reminders = (it.accounting_notes || '').split(' | ').filter(function(x){ return x.trim(); });
+            var rawTotal = Number(it.item_total || it.total) || 0;
+            var vatPct = 0;
+            // Detect VAT from raw vs total
+            if (it.unit_price && it.quantity) {
+                var base = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0)*(Number(x.price)||0); }, 0);
+                if (base > 0 && rawTotal > base) vatPct = Math.round((rawTotal - base) / base * 100);
+            }
+            var vatAmt = vatPct > 0 ? Math.round((rawTotal * vatPct) / (100 + vatPct)) : 0;
+            var baseTotal = rawTotal - vatAmt;
+            return {
+                sale_type: it.sale_type || '',
+                product_name: it.product_name || it.description || '',
+                material_id: it.material_id || null,
+                material_name: it.material_name || '',
+                color_id: it.color_id || null,
+                color_name: it.color_name || '',
+                pattern_name: it.pattern_name || '',
+                material_pairs: matPairs,
+                sewing_techniques: sewTech,
+                reminders: reminders,
+                accounting_notes: it.accounting_notes || '',
+                extra_materials: extMats,
+                quantities: qtyArr,
+                vat_percent: vatPct,
+                vat_amount: vatAmt,
+                raw_total: baseTotal,
+                item_total: rawTotal,
+                quantity: Number(it.quantity) || 0,
+                unit_price: Number(it.unit_price) || 0
+            };
+        });
+
+        // Convert surcharges
+        var surchargeItems = surcharges.map(function(s) {
+            return { description: s.name || s.description || '', amount: Number(s.amount) || 0 };
+        });
+
+        // Fetch deposit amount
+        var depAmt = 0;
+        try {
+            var depRes = await apiCall('/api/dht/deposit-by-order/' + encodeURIComponent(o.order_code));
+            depAmt = Number(depRes.total_deposit || 0);
+        } catch(e) { depAmt = Number(o.deposit_amount || 0); }
+
+        // Set up _dhtCreate for edit mode
+        _dhtCreate = {
+            step: 2,
+            editMode: true,
+            editOrderId: id,
+            editData: data,
+            depositId: o.deposit_payment_id || null,
+            depositAmount: depAmt,
+            depositCode: o.order_code,
+            myInfo: null,
+            surcharges: surchargeItems,
+            orderCode: o.order_code,
+            phieuItems: phieuItems
+        };
+
+        // Open the same form as create
+        await _dhtGoStep2();
+    } catch(e) {
+        console.error('Edit order full error:', e);
+        showToast('Lỗi tải dữ liệu: ' + (e.message || ''), 'error');
+    }
+}
+
+// === Submit Edit V2 (PUT with items) ===
+async function _dhtSubmitEditV2() {
+    var id = _dhtCreate.editOrderId;
+    if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
+    var cat = document.getElementById('_co_cat')?.value;
+    var addr = document.getElementById('_co_addr')?.value?.trim();
+    var prov = document.getElementById('_co_prov')?.value;
+    var shipDate = document.getElementById('_co_shipDate')?.value;
+    var carrier = document.getElementById('_co_carrier')?.value;
+    if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
+    if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
+    if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
+
+    var items = _dhtCreate.phieuItems || [];
+    var totalAmt = 0, totalVatAmt = 0;
+    items.forEach(function(p) { if(!p)return; totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
+    var surTotal = 0;
+    (_dhtCreate.surcharges||[]).forEach(function(s) { surTotal += Number(s.amount) || 0; });
+    var hasVat = totalVatAmt > 0;
+    var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
+    // Handle proof image for CHUẨN
+    var proofImg = undefined;
+    if (pri === 'CHUẨN') {
+        proofImg = _dhtProofBase64 || _dhtCreate.editData?.order?.standard_proof_image || null;
+    }
+    var desVal = document.getElementById('_co_designer')?.value;
+    var desType = desVal === 'old_design' ? 'old_design' : 'staff';
+    var desId = desVal === 'old_design' ? null : (desVal || null);
+
+    var payload = {
+        category_id: cat,
+        address: addr,
+        province: prov || null,
+        total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
+        total_amount: totalAmt + surTotal,
+        discount_amount: 0,
+        surcharges: (_dhtCreate.surcharges || []).map(function(s) { return { name: s.description, amount: Number(s.amount) || 0 }; }),
+        has_vat: hasVat,
+        vat_amount: totalVatAmt,
+        designer_user_id: desId,
+        designer_type: desType,
+        carrier_id: carrier || null,
+        expected_ship_date: shipDate || null,
+        shipping_priority: pri,
+        zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
+        items: items
+    };
+    if (proofImg !== undefined) payload.standard_proof_image = proofImg;
+
+    var data = await apiCall('/api/dht/orders/' + id, 'PUT', payload);
+    if (data.success) {
+        showToast('✅ Đã cập nhật đơn hàng!');
+        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null };
+        closeModal();
+        await _dhtLoadTree();
+        await _dhtLoadOrders();
+    } else {
+        showToast(data.error || 'Lỗi cập nhật', 'error');
+    }
 }
