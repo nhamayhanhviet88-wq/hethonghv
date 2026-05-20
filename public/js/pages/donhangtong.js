@@ -768,7 +768,8 @@ async function _dhtPrintOrder(orderId) {
         // Calculate financials
         let calcBase = 0, calcVat = 0;
         for (const it of items) {
-            const quantities = it.quantities || [];
+            let quantities = it.quantities || [];
+            if (typeof quantities === 'string') try { quantities = JSON.parse(quantities); } catch(e) { quantities = []; }
             const base = quantities.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
             calcBase += base;
             calcVat += (Number(it.item_total) || 0) - base;
@@ -782,7 +783,8 @@ async function _dhtPrintOrder(orderId) {
         // Build item rows
         let itemRows = '';
         items.forEach((it, i) => {
-            const quantities = it.quantities || [];
+            let quantities = it.quantities || [];
+            if (typeof quantities === 'string') try { quantities = JSON.parse(quantities); } catch(e) { quantities = []; }
             const base = quantities.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
             const vatAmt = (Number(it.item_total) || 0) - base;
             const vatPct = base > 0 && vatAmt > 0 ? Math.round(vatAmt / base * 100) : 0;
