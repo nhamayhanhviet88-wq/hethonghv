@@ -165,7 +165,7 @@ async function _dhtLoadOrders() {
             <td>${fmtD(o.order_date)}</td>
             <td style="text-align:center;cursor:pointer;" onclick="event.stopPropagation();_dhtToggleShip(${o.id},'${o.shipping_status}')" title="Click để đổi">${shipIcon}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td><strong style="color:var(--gold);">${o.order_code}</strong>${badgeRow}</td>
+            <td><strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
             <td>${o.source || '—'}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
