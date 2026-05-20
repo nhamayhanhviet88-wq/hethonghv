@@ -229,7 +229,7 @@ async function _dhtShowDetail(id) {
         const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#059669' };
         const priColor = priColors[o.shipping_priority] || '#059669';
-        const typeLabels = { thanh_toan: 'Thanh toán', dat_coc: 'Đặt cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
+        const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
 
         // ── Section 1: Action Buttons ──
         var actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
@@ -296,9 +296,8 @@ async function _dhtShowDetail(id) {
             payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
             payHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">MÃ THANH TOÁN</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
             for (const p of displayPayments) {
-                const methodIcon = p.payment_method === 'TM' ? '💵' : (p.payment_method ? '🏦' : '💰');
                 payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
-                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${methodIcon} ${p.payment_code || '—'}</td>`;
+                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:center">${fmtD(p.payment_date)}</td>`;
                 payHTML += `<td style="padding:8px 10px;text-align:center"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${typeLabels[p.payment_type] || p.payment_type || '—'}</span></td>`;
