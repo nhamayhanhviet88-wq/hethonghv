@@ -863,6 +863,7 @@ table tbody tr:nth-child(even) { background:#f8f9fa; }
         <div class="row"><span class="key">Mã đơn:</span><span class="val">${o.order_code}</span></div>
         <div class="row"><span class="key">Ngày lên đơn:</span><span class="val">${orderDate}</span></div>
         <div class="row"><span class="key">Ưu tiên:</span><span class="val">${o.shipping_priority || 'CHUẨN'}</span></div>
+        <div class="row"><span class="key">NV phụ trách:</span><span class="val">${o.created_by_name || o.cskh_name || '—'}</span></div>
     </div>
     <div class="info-box"><div class="label">👤 Thông tin khách hàng</div>
         <div class="row"><span class="key">Họ tên:</span><span class="val">${o.customer_name || '—'}</span></div>
@@ -887,7 +888,7 @@ table tbody tr:nth-child(even) { background:#f8f9fa; }
     <div class="sig"><div class="title-sig">BÊN GIAO HÀNG</div><div class="note">(Ký, ghi rõ họ tên)</div><div class="line"></div></div>
     <div class="sig"><div class="title-sig">BÊN NHẬN HÀNG</div><div class="note">(Ký, ghi rõ họ tên)</div><div class="line"></div></div>
 </div>
-<div class="footer">Đồng Phục HV — Chất lượng tạo nên thương hiệu &nbsp;|&nbsp; dongphuchv.com</div>
+<div class="footer">Đồng Phục HV — Tận Tâm Dựng Xây Giá Trị &nbsp;|&nbsp; dongphuchv.vn</div>
 </div></body></html>`;
 
         const w = window.open('', '_blank');
