@@ -159,6 +159,7 @@ async function _dhtLoadOrders() {
         if (Number(o.discount_amount) > 0) badges += `<span style="${bStyle}background:#d1fae5;color:#065f46;">GG</span> `;
         if (o.zalo_oa_sent) badges += `<span style="${bStyle}background:#dbeafe;color:#1e40af;">ZA</span> `;
         if (o.has_error) badges += `<span style="${bStyle}background:#fee2e2;color:#dc2626;">LỖI</span> `;
+        if (o.last_updated_by_name) badges += `<span style="${bStyle}background:#ede9fe;color:#6d28d9;">SỬA</span> `;
         const badgeRow = badges ? `<div style="margin-top:2px;">${badges}</div>` : '';
 
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
