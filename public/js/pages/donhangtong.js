@@ -122,16 +122,20 @@ function _dhtRenderSortHeaders() {
     var thead = document.querySelector('#dhtTable thead tr');
     if (!thead) return;
     var ths = '';
+    var baseBg = 'var(--gray-800)';
+    var activeBg = '#3d350e';
+    var activeColor = '#ffd700';
     for (var i = 0; i < _dhtSortDefs.length; i++) {
         var d = _dhtSortDefs[i];
-        if (d.type === 'none') { ths += '<th></th>'; continue; }
+        if (d.type === 'none') { ths += '<th style="background:' + baseBg + '"></th>'; continue; }
         var isActive = _dht.sortCol === d.key;
         var arrow = '';
         if (isActive && _dht.sortDir === 'asc') arrow = ' ▲';
         else if (isActive && _dht.sortDir === 'desc') arrow = ' ▼';
         var align = d.align ? ';text-align:' + d.align : '';
-        var cls = isActive ? ' dht-th-active' : '';
-        ths += '<th class="dht-th-sort' + cls + '" onclick="_dhtSortCol(\'' + d.key + '\')" style="cursor:pointer;user-select:none;position:relative' + align + '">' + d.label + '<span class="dht-sort-arrow">' + arrow + '</span></th>';
+        var bg = isActive ? activeBg : baseBg;
+        var clr = isActive ? activeColor : '#fff';
+        ths += '<th class="dht-th-sort" onclick="_dhtSortCol(\'' + d.key + '\')" style="background:' + bg + ';color:' + clr + ';cursor:pointer;user-select:none' + align + '">' + d.label + '<span class="dht-sort-arrow">' + arrow + '</span></th>';
     }
     thead.innerHTML = ths;
 }
@@ -155,9 +159,8 @@ async function renderDonhangtongPage(content) {
             +'.dht-sb-month:hover{background:#fffbeb}.dht-sb-month.active{background:#fef3c7;font-weight:700}'
             +'.dht-sb-day{padding:4px 16px 4px 60px;font-size:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}'
             +'.dht-sb-day:hover{background:#fffdf5}.dht-sb-day.active{background:#fef9c3;font-weight:700}'
-            +'.dht-th-sort{transition:background .15s,color .15s;white-space:nowrap}'
-            +'.dht-th-sort:hover{background:rgba(255,255,255,0.15) !important}'
-            +'.dht-th-active{background:rgba(218,165,32,0.25) !important}'
+            +'.dht-th-sort{transition:all .15s;white-space:nowrap}'
+            +'.dht-th-sort:hover{filter:brightness(1.3)}'
             +'.dht-sort-arrow{font-size:10px;margin-left:3px;opacity:0.9}';
         document.head.appendChild(st);
     }
