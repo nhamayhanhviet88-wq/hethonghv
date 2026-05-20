@@ -152,11 +152,20 @@ async function _dhtLoadOrders() {
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
 
+        // Mini status badges
+        let badges = '';
+        const bStyle = 'display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:0.3px;line-height:14px;';
+        if (o.has_vat) badges += `<span style="${bStyle}background:#fef3c7;color:#92400e;">VAT</span> `;
+        if (Number(o.discount_amount) > 0) badges += `<span style="${bStyle}background:#d1fae5;color:#065f46;">GG</span> `;
+        if (o.zalo_oa_sent) badges += `<span style="${bStyle}background:#dbeafe;color:#1e40af;">ZA</span> `;
+        if (o.has_error) badges += `<span style="${bStyle}background:#fee2e2;color:#dc2626;">LỖI</span> `;
+        const badgeRow = badges ? `<div style="margin-top:2px;">${badges}</div>` : '';
+
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td>${fmtD(o.order_date)}</td>
             <td style="text-align:center;cursor:pointer;" onclick="event.stopPropagation();_dhtToggleShip(${o.id},'${o.shipping_status}')" title="Click để đổi">${shipIcon}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td><strong style="color:var(--gold);">${o.order_code}</strong></td>
+            <td><strong style="color:var(--gold);">${o.order_code}</strong>${badgeRow}</td>
             <td>${o.source || '—'}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>

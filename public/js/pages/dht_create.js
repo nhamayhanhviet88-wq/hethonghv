@@ -75,8 +75,8 @@ async function _dhtGoStep2() {
         +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
         // Row 6: Nguồn (readonly)
         +'<div class="form-group"><label>Nguồn 🔒</label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
-        // Row 6: Thiết kế
-        +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
+        // Row 6: Thiết kế (bắt buộc)
+        +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'</div>'
         +'<div style="margin:10px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>'
         // Phiếu đơn hàng
@@ -775,6 +775,8 @@ async function _dhtSubmitCreateV2() {
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
     if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
     if (!src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
+    var desVal = document.getElementById('_co_designer')?.value;
+    if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
     // Validate proof image for CHUẨN priority
@@ -1165,6 +1167,8 @@ async function _dhtSubmitEditV2() {
     if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
     if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
+    var desVal = document.getElementById('_co_designer')?.value;
+    if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
 
     var items = _dhtCreate.phieuItems || [];
     var totalAmt = 0, totalVatAmt = 0;
