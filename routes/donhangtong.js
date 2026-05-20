@@ -11,6 +11,7 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS carrier_extra JSONB DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS standard_delivery_time TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sale_note_for_accountant TEXT DEFAULT NULL`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -262,8 +263,8 @@ module.exports = async function(fastify) {
                 has_vat, vat_amount, deposit_payment_id, deposit_amount_cache,
                 designer_user_id, designer_type, carrier_id, carrier_extra,
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
-                department_id, notes, surcharges, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$29)
+                sale_note_for_accountant, department_id, notes, surcharges, created_by, last_updated_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$30)
             RETURNING *
         `, [
             b.order_code.trim(),
@@ -291,6 +292,7 @@ module.exports = async function(fastify) {
             proofPath,
             b.standard_delivery_time || null,
             b.zalo_oa_sent === true || b.zalo_oa_sent === 'true',
+            b.sale_note_for_accountant || null,
             b.department_id ? Number(b.department_id) : null,
             b.notes || null,
             JSON.stringify(b.surcharges || []),
@@ -701,7 +703,7 @@ module.exports = async function(fastify) {
             'has_vat', 'vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
             'expected_ship_date', 'zalo_oa_sent',
             'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
-            'deposit_amount_cache', 'standard_delivery_time'
+            'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant'
         ];
 
         const sets = [];

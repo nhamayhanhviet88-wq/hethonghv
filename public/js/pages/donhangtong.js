@@ -555,6 +555,10 @@ async function _dhtShowDetail(id) {
                 infoHTML += row('📞 SĐT Nhận Hộ', ce.proxy_phone ? '<a href="tel:'+ce.proxy_phone+'" style="color:var(--info)">'+ce.proxy_phone+'</a>' : '—');
             }
         }
+        // Sale note for accountant
+        if (o.sale_note_for_accountant) {
+            infoHTML += `<tr><td style="padding:6px 10px;color:#64748b;font-size:12px;white-space:nowrap;vertical-align:top">📝 Dặn KT Gửi Hàng</td><td style="padding:6px 10px;font-weight:700;font-size:12px;color:#1e293b;white-space:pre-wrap">${o.sale_note_for_accountant}</td></tr>`;
+        }
         infoHTML += `</table></div>`;
 
         // ── Section 7: 🚚 Thông tin vận chuyển ──

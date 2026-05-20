@@ -128,6 +128,9 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div>'
         +'</div>'
         +'<div id="_co_carrierExtra" style="display:none;margin-top:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px"></div>'
+        // Sale note for accounting
+        +'<div class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:red">*</span></label>'
+        +'<textarea id="_co_saleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò cho kế toán trước khi gửi hàng..." style="font-size:12px;resize:vertical"></textarea></div>'
         // Deposit info
         +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
 
@@ -215,6 +218,9 @@ async function _dhtGoStep2() {
         // Zalo
         var zaloSel = document.getElementById('_co_zalo');
         if (zaloSel) zaloSel.value = o.zalo_oa_sent ? '1' : '0';
+        // Sale note
+        var noteEl = document.getElementById('_co_saleNote');
+        if (noteEl && o.sale_note_for_accountant) noteEl.value = o.sale_note_for_accountant;
         // Render existing phieus and surcharges
         _dhtRenderPhieuRows();
         _dhtRenderSurcharges();
@@ -881,6 +887,8 @@ async function _dhtSubmitCreateV2() {
     if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
+    var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
+    if (!saleNote) { showToast('📝 Nhập Nội Dung Dặn Kế Toán Gửi Hàng', 'error'); return; }
     // Validate carrier extra fields
     var carrierExtra = _dhtGetCarrierExtra();
     if (carrierExtra === false) return; // validation failed inside
@@ -943,6 +951,7 @@ async function _dhtSubmitCreateV2() {
         standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
         standard_proof_image: pri === 'CHUẨN' ? _dhtProofBase64 : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
+        sale_note_for_accountant: saleNote,
         department_id: _dhtCreate.myInfo?.department_id,
         items: items
     });
@@ -1317,6 +1326,7 @@ async function _dhtSubmitEditV2() {
         shipping_priority: pri,
         standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
+        sale_note_for_accountant: document.getElementById('_co_saleNote')?.value?.trim() || null,
         items: items
     };
     if (proofImg !== undefined) payload.standard_proof_image = proofImg;
