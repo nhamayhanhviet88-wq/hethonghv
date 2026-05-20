@@ -1,6 +1,65 @@
 // ========== ĐƠN HÀNG TỔNG — Bộ Phận Văn Phòng ==========
-var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {} };
+var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {} };
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
+
+// ========== FILTER CHIPS ==========
+var _dhtFilterDefs = [
+    { key: 'vat',  label: 'VAT',         bg: '#fef3c7', color: '#92400e', activeBg: '#f59e0b', activeColor: '#fff' },
+    { key: 'gg',   label: 'Giảm Giá',    bg: '#d1fae5', color: '#065f46', activeBg: '#059669', activeColor: '#fff' },
+    { key: 'za',   label: 'Đã Zalo',     bg: '#dbeafe', color: '#1e40af', activeBg: '#2563eb', activeColor: '#fff' },
+    { key: 'noza', label: 'Chưa Zalo',   bg: '#f1f5f9', color: '#64748b', activeBg: '#475569', activeColor: '#fff' },
+    { key: 'loi',  label: 'Báo Lỗi',     bg: '#fee2e2', color: '#dc2626', activeBg: '#dc2626', activeColor: '#fff' },
+    { key: 'sua',  label: 'Đã Sửa',      bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' },
+    { key: 'no',   label: 'Còn Nợ',      bg: '#ffedd5', color: '#c2410c', activeBg: '#ea580c', activeColor: '#fff' }
+];
+
+function _dhtRenderFilterChips() {
+    var el = document.getElementById('dhtFilterChips'); if (!el) return;
+    var af = _dht.activeFilters || {};
+    var anyActive = Object.values(af).some(function(v){ return v; });
+    el.innerHTML = _dhtFilterDefs.map(function(f) {
+        var active = af[f.key];
+        var bg = active ? f.activeBg : f.bg;
+        var clr = active ? f.activeColor : f.color;
+        var border = active ? 'border:1.5px solid ' + f.activeBg : 'border:1px solid ' + f.color + '33';
+        var shadow = active ? 'box-shadow:0 2px 6px ' + f.activeBg + '40;' : '';
+        return '<button onclick="_dhtToggleFilter(\'' + f.key + '\')" style="'
+            + 'background:' + bg + ';color:' + clr + ';' + border + ';'
+            + 'padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;'
+            + 'transition:all .15s;' + shadow + '">'
+            + (active ? '✓ ' : '') + f.label + '</button>';
+    }).join('')
+    + (anyActive ? ' <button onclick="_dhtClearFilters()" style="background:none;border:1px solid #e2e8f0;color:#94a3b8;padding:4px 10px;border-radius:20px;font-size:10px;cursor:pointer;font-weight:600">✕ Xóa lọc</button>' : '');
+}
+
+function _dhtToggleFilter(key) {
+    _dht.activeFilters = _dht.activeFilters || {};
+    // Mutually exclusive: za & noza
+    if (key === 'za' && _dht.activeFilters.noza) _dht.activeFilters.noza = false;
+    if (key === 'noza' && _dht.activeFilters.za) _dht.activeFilters.za = false;
+    _dht.activeFilters[key] = !_dht.activeFilters[key];
+    _dhtRenderTable();
+}
+
+function _dhtClearFilters() {
+    _dht.activeFilters = {};
+    _dhtRenderTable();
+}
+
+function _dhtRenderTable() {
+    // Re-render from cached data without API call
+    _dhtRenderFilterChips();
+    var filtered = _dht.orders.slice();
+    var af = _dht.activeFilters || {};
+    if (af.vat) filtered = filtered.filter(function(o){ return o.has_vat; });
+    if (af.gg) filtered = filtered.filter(function(o){ return Number(o.discount_amount) > 0; });
+    if (af.za) filtered = filtered.filter(function(o){ return o.zalo_oa_sent; });
+    if (af.noza) filtered = filtered.filter(function(o){ return !o.zalo_oa_sent; });
+    if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
+    if (af.sua) filtered = filtered.filter(function(o){ return !!o.last_updated_by_name; });
+    if (af.no) filtered = filtered.filter(function(o){ return (Number(o.remaining_amount) || 0) > 0; });
+    _dhtRenderOrderRows(filtered);
+}
 
 async function renderDonhangtongPage(content) {
     if (!document.getElementById('dhtStyles')) {
@@ -26,7 +85,9 @@ async function renderDonhangtongPage(content) {
     const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
     _dht.categories = catRes.categories || [];
     _dht.staff = staffRes.staff || [];
-    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div style="margin-left:auto;font-size:12px;color:var(--gray-400)" id="dhtFilterInfo"></div><div style="display:flex;align-items:center;gap:12px"><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div><div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th>🏍️</th><th>Còn Lại</th><th>Mã Đơn</th><th>Nguồn</th><th>Tên Khách</th><th>SĐT</th><th>CSKH</th><th>Thành Phố</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div style="margin-left:auto;font-size:12px;color:var(--gray-400)" id="dhtFilterInfo"></div><div style="display:flex;align-items:center;gap:12px"><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
+        +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th>🏍️</th><th>Còn Lại</th><th>Mã Đơn</th><th>Nguồn</th><th>Tên Khách</th><th>SĐT</th><th>CSKH</th><th>Thành Phố</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtLoadOrders(), 400); });
     await _dhtLoadTree();
     await _dhtLoadOrders();
@@ -132,10 +193,14 @@ async function _dhtLoadOrders() {
 
     const data = await apiCall(url);
     _dht.orders = data.orders || [];
+    _dhtRenderTable();
+}
+
+function _dhtRenderOrderRows(filtered) {
     const tbody = document.getElementById('dhtTbody');
     if (!tbody) return;
 
-    if (_dht.orders.length === 0) {
+    if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
         _dhtUpdateInfo(0); return;
     }
@@ -143,7 +208,7 @@ async function _dhtLoadOrders() {
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
     const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
 
-    tbody.innerHTML = _dht.orders.map(o => {
+    tbody.innerHTML = filtered.map(o => {
         const remaining = Number(o.remaining_amount) || 0;
         const remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
         const shipIcon = o.shipping_status === 'shipped' ? '🏍️' : '<span style="opacity:0.2;">🏍️</span>';
@@ -185,7 +250,7 @@ async function _dhtLoadOrders() {
         </tr>`;
     }).join('');
 
-    _dhtUpdateInfo(_dht.orders.length);
+    _dhtUpdateInfo(filtered.length);
 }
 
 function _dhtUpdateInfo(count) {
