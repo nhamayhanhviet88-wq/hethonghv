@@ -562,6 +562,7 @@ async function _dhtShowDetail(id) {
             }
         }
         saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
+        saleKtHTML += row('📅 Ngày gửi dự kiến', fmtD(o.expected_ship_date) || '<span style="color:#94a3b8;font-style:italic">Chưa có</span>');
         saleKtHTML += `</table></div>`;
 
         // ── Section 6B: 📄 Thông tin đơn hàng (cleaned) ──
@@ -570,15 +571,14 @@ async function _dhtShowDetail(id) {
         infoHTML += `<table style="width:100%;border-collapse:collapse">`;
         infoHTML += row('Khách hàng', `<strong>${o.customer_name || '—'}</strong>`);
         infoHTML += row('SĐT', o.customer_phone ? `<a href="tel:${o.customer_phone}" style="color:var(--info)">${o.customer_phone}</a>` : '—');
+        infoHTML += `<tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📍 Địa chỉ</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px;word-break:break-word">${o.address || '—'}</td></tr>`;
+        infoHTML += `<tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">🏢 Tỉnh / TP</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.province || '—'}</td></tr>`;
         infoHTML += row('CSKH', o.cskh_name || '—');
         infoHTML += row('Thiết kế', o.designer_name || (o.designer_type === 'old_design' ? '🎨 Thiết Kế Cũ' : '—'));
-        infoHTML += row('Địa chỉ', o.address || '—');
-        infoHTML += row('Tỉnh / TP', o.province || '—');
         infoHTML += row('Nguồn', o.source || '—');
         infoHTML += row('Lĩnh vực', o.category_name || '—');
         if (o.standard_proof_image) infoHTML += row('Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info)">📷 Xem ảnh</a>`);
         infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
-        infoHTML += row('Ngày gửi dự kiến', fmtD(o.expected_ship_date));
         infoHTML += `</table></div>`;
 
         // ── Section 7: 🚚 Thông tin vận chuyển ──
