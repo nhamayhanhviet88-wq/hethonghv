@@ -3,97 +3,26 @@ var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', 
 
 var _dhtProvinces = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
-// === STEP 1: Select Deposit ===
+// === V4: Skip Step 1 — deposits are now selected in CRM ===
 async function _dhtShowCreate() {
-    // Check if user has Mã Đơn KD before allowing creation
-    var prefixCheck = await apiCall('/api/dht/next-order-code');
-    if (prefixCheck.hasPrefix === false) {
-        showToast('⚠️ Tài khoản chưa được cấp Mã Đơn KD. Không thể tạo đơn hàng. Liên hệ quản lý.', 'error');
-        return;
-    }
     _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null };
-    var data = await apiCall('/api/dht/unclaimed-deposits');
-    var deps = data.deposits || [];
-    var rows = '';
-    if (deps.length === 0) {
-        rows = '<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8">Không có mã tiền nào chưa nhận</td></tr>';
-    }
-    for (var i = 0; i < deps.length; i++) {
-        var d = deps[i];
-        var amt = Number(d.amount || 0).toLocaleString('vi-VN');
-        rows += '<tr class="_dht-dep-row" data-id="'+d.id+'" data-amt="'+d.amount+'" data-code="'+d.payment_code+'" onclick="_dhtSelectDeposit(this)" style="cursor:pointer">'
-            +'<td style="font-weight:700;color:#b8860b">'+d.payment_code+'</td>'
-            +'<td style="font-weight:700;color:#059669">'+amt+'đ</td>'
-            +'<td>'+d.payment_method+'</td>'
-            +'<td>'+(d.payment_date||'')+'</td>'
-            +'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+(d.transfer_note||'—')+'</td>'
-            +'<td>'+(d.customer_name||'')+'</td></tr>';
-    }
-    var body = '<div style="background:#f8fafc;border-radius:10px;padding:14px;border:1px solid #e2e8f0;margin-bottom:12px">'
-        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-        +'<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff">💰</div>'
-        +'<div><div style="font-weight:800;font-size:14px;color:var(--navy)">Bước 1: Chọn Mã Nhận Cọc</div>'
-        +'<div style="font-size:11px;color:#64748b">Chọn mã tiền chưa ai nhận từ Sổ Ghi Nhận Tiền</div></div>'
-        +'<div style="margin-left:auto;font-size:11px;font-weight:700;color:#059669" id="_dhtDepCount">'+deps.length+' mã</div></div>'
-        +'<div style="margin-bottom:8px"><input id="_dhtDepSearch" class="form-control" placeholder="🔍 Tìm mã tiền, số tiền, nội dung CK..." oninput="_dhtFilterDeposits()" style="font-size:12px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px"></div>'
-        +'<div style="max-height:350px;overflow-y:auto"><table class="table" style="font-size:12px"><thead><tr style="background:#f1f5f9">'
-        +'<th>Mã Tiền</th><th>Số Tiền</th><th>PT</th><th>Ngày</th><th>Nội Dung CK</th><th>Khách</th></tr></thead>'
-        +'<tbody id="_dhtDepTbody">'+rows+'</tbody></table></div></div>'
-        +'<div id="_dhtDepSelected" style="display:none;background:#fffbeb;border:1px solid #d4a017;border-radius:8px;padding:10px 14px;margin-bottom:8px">'
-        +'<span style="font-weight:800;color:#b8860b">✅ Đã chọn: </span><span id="_dhtDepLabel"></span></div>'
-        +'<div style="text-align:center;padding:8px;color:#94a3b8;font-size:11px">Hoặc bỏ qua nếu đơn chưa có cọc</div>';
-
-    var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">Hủy</button>'
-        +'<button class="btn" onclick="_dhtGoStep2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">Tiếp Theo →</button>';
-
-    openModal('➕ Tạo Đơn Hàng — Bước 1/2', body, footer);
+    await _dhtGoStep2();
 }
 
-function _dhtSelectDeposit(el) {
-    document.querySelectorAll('._dht-dep-row').forEach(function(r){ r.style.background=''; });
-    el.style.background = '#fef3c7';
-    _dhtCreate.depositId = Number(el.dataset.id);
-    _dhtCreate.depositAmount = Number(el.dataset.amt);
-    _dhtCreate.depositCode = el.dataset.code;
-    var sel = document.getElementById('_dhtDepSelected');
-    var lbl = document.getElementById('_dhtDepLabel');
-    if (sel) sel.style.display = 'block';
-    if (lbl) lbl.textContent = _dhtCreate.depositCode + ' — ' + Number(_dhtCreate.depositAmount).toLocaleString('vi-VN') + 'đ';
-}
-
-function _dhtFilterDeposits() {
-    var q = (document.getElementById('_dhtDepSearch')?.value || '').toLowerCase().trim();
-    var rows = document.querySelectorAll('._dht-dep-row');
-    var shown = 0;
-    rows.forEach(function(row) {
-        var text = row.textContent.toLowerCase();
-        var match = !q || text.indexOf(q) >= 0;
-        row.style.display = match ? '' : 'none';
-        if (match) shown++;
-    });
-    var countEl = document.getElementById('_dhtDepCount');
-    if (countEl) countEl.textContent = shown + ' mã';
-}
+function _dhtSelectDeposit(el) { /* V4: no longer used */ }
+function _dhtFilterDeposits() { /* V4: no longer used */ }
 
 async function _dhtCancelCreate() {
-    if (_dhtCreate.depositId) {
-        await apiCall('/api/dht/unlock-deposit/' + _dhtCreate.depositId, 'PUT');
-    }
     _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null };
     closeModal();
 }
 
 // === STEP 2: Fill Order Info ===
 async function _dhtGoStep2() {
-    // Lock deposit if selected
-    if (_dhtCreate.depositId) {
-        var lockRes = await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
-        if (!lockRes.success) { showToast(lockRes.error || 'Không thể giữ mã cọc', 'error'); return; }
-    }
     // Fetch data
-    var [infoRes, codeRes, designRes, carrierRes, holidayRes, phieuRes] = await Promise.all([
+    var [infoRes, codesRes, designRes, carrierRes, holidayRes, phieuRes] = await Promise.all([
         apiCall('/api/dht/my-info'),
-        apiCall('/api/dht/next-order-code'),
+        apiCall('/api/dht/available-order-codes'),
         apiCall('/api/dht/designers'),
         apiCall('/api/dht/carriers'),
         apiCall('/api/holidays'),
@@ -108,7 +37,8 @@ async function _dhtGoStep2() {
         _dhtCreate.holidays[d] = h.holiday_name;
     });
     _dhtCreate.myInfo = infoRes.user || {};
-    _dhtCreate.orderCode = codeRes.code || '';
+    _dhtCreate.availableCodes = codesRes.codes || [];
+    _dhtCreate.orderCode = '';
     var mi = _dhtCreate.myInfo;
     var catOpts = _dht.categories.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var designers = designRes.designers || [];
@@ -128,20 +58,21 @@ async function _dhtGoStep2() {
         // Row 2: Ngày + Lĩnh vực
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
-        // Row 3: Mã đơn + SĐT (autocomplete)
-        +'<div class="form-group"><label>Mã Đơn</label><input class="form-control" value="'+(codeRes.code||'')+'" disabled id="_co_code" style="'+_dis+'"></div>'
-        +'<div class="form-group" style="position:relative"><label>Số Điện Thoại <span style="color:red">*</span></label>'
-        +'<input id="_co_phone" class="form-control" placeholder="Gõ SĐT để tìm khách hàng..." autocomplete="off" oninput="_dhtSearchPhone()">'
+        // Row 3: Mã Đơn (searchable dropdown from CRM order codes)
+        +'<div class="form-group" style="position:relative;grid-column:span 2"><label>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></label>'
+        +'<input id="_co_code" class="form-control" placeholder="🔍 Gõ mã đơn hoặc tên KH để tìm..." autocomplete="off" oninput="_dhtSearchOrderCode()" onfocus="_dhtSearchOrderCode()" style="font-size:14px;font-weight:700;border:2px solid #daa520">'
         +'<input type="hidden" id="_co_custId">'
-        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:200px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
-        // Row 4: Tên KH (read-only) + Địa chỉ (editable)
-        +'<div class="form-group"><label>Tên Khách Hàng <span style="color:red">*</span> <span id="_co_nameLock" style="font-size:10px;color:#9ca3af"></span></label><input id="_co_name" class="form-control" disabled placeholder="← Chọn SĐT để tự điền"></div>'
-        +'<div class="form-group"><label>Địa Chỉ <span style="color:red">*</span></label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
-        // Row 5: Tỉnh (autocomplete) + Nguồn (read-only from customer)
-        +'<div class="form-group" style="position:relative"><label>Tỉnh, Thành Phố <span style="color:red">*</span></label>'
+        +'<div id="_co_codeList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:250px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        // Row 4: SĐT (readonly) + Tên KH (readonly)
+        +'<div class="form-group"><label>SĐT Khách Hàng 🔒</label><input id="_co_phone" class="form-control" disabled placeholder="← Chọn mã đơn" style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Tên Khách Hàng 🔒</label><input id="_co_name" class="form-control" disabled placeholder="← Chọn mã đơn" style="'+_dis+'"></div>'
+        // Row 5: Địa chỉ (editable ✏️) + Tỉnh (editable ✏️)
+        +'<div class="form-group"><label>Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
+        +'<div class="form-group" style="position:relative"><label>Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
         +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
         +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
-        +'<div class="form-group"><label>Nguồn <span style="color:red">*</span> <span id="_co_srcLock" style="font-size:10px;color:#9ca3af"></span></label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ khách hàng"></div>'
+        // Row 6: Nguồn (readonly)
+        +'<div class="form-group"><label>Nguồn 🔒</label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
         // Row 6: Thiết kế
         +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'<div class="form-group"><label>Tổng VAT (từ phiếu)</label><input id="_co_vatTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
@@ -160,7 +91,7 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Tổng sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        +'<div class="form-group"><label>Đã Cọc</label><input class="form-control" value="'+Number(_dhtCreate.depositAmount).toLocaleString('vi-VN')+'đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
+        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
         +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div>'
         +'</div></div>'
         // === Vận chuyển: 2 hàng x 2 cột ===
@@ -185,75 +116,83 @@ async function _dhtGoStep2() {
     var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
         +'<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Lưu Đơn Hàng</button>';
 
-    openModal('➕ Tạo Đơn Hàng — Bước 2/2', body, footer);
+    openModal('➕ Tạo Đơn Hàng', body, footer);
     _dhtCreate.phieuItems = []; // Reset phieu items
 }
 
-// === Phone Search (autocomplete from CRM customers) ===
-var _dhtPhoneTimer;
-function _dhtSearchPhone() {
-    clearTimeout(_dhtPhoneTimer);
-    var q = document.getElementById('_co_phone')?.value;
-    if (!q || q.length < 2) { document.getElementById('_co_phoneList').style.display = 'none'; return; }
-    _dhtPhoneTimer = setTimeout(async function() {
-        var res = await apiCall('/api/dht/customer-search?q=' + encodeURIComponent(q));
-        var list = document.getElementById('_co_phoneList');
+// === Order Code Search (dropdown from CRM available codes) ===
+var _dhtCodeTimer;
+function _dhtSearchOrderCode() {
+    clearTimeout(_dhtCodeTimer);
+    _dhtCodeTimer = setTimeout(function() {
+        var q = (document.getElementById('_co_code')?.value || '').toLowerCase();
+        var list = document.getElementById('_co_codeList');
         if (!list) return;
-        var custs = res.customers || [];
-        if (custs.length === 0) {
-            list.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không tìm thấy khách hàng nào.<br><span style="color:#dc2626;font-weight:600">Vui lòng nhập khách vào CRM Chăm Sóc trước.</span></div>';
-            list.style.display = 'block';
-            return;
+        var codes = _dhtCreate.availableCodes || [];
+        var filtered = codes.filter(function(c) {
+            var text = (c.order_code + ' ' + c.customer_name + ' ' + c.phone).toLowerCase();
+            return !q || text.indexOf(q) >= 0;
+        });
+        if (filtered.length === 0) {
+            list.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không có mã đơn chờ.<br><span style="color:#dc2626;font-weight:600">Vui lòng Chốt Đơn ở CRM trước.</span></div>';
+        } else {
+            list.innerHTML = filtered.map(function(c) {
+                return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px"'
+                    +' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
+                    +' onclick="_dhtPickOrderCode('+c.id+')"'
+                    +'><b style="color:#b8860b">'+c.order_code+'</b>'
+                    +' — '+(c.customer_name||'N/A')+''
+                    +' — <span style="color:#059669">'+c.phone+'</span>'
+                    +(c.source_name ? ' <span style="font-size:10px;color:#6b7280">('+c.source_name+')</span>' : '')+'</div>';
+            }).join('');
         }
-        list.innerHTML = custs.map(function(c) {
-            return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;justify-content:space-between;align-items:center"'
-                +' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
-                +' onclick="_dhtPickCustomer('+c.id+',this)"'
-                +' data-id="'+c.id+'" data-phone="'+c.phone+'" data-name="'+(c.customer_name||'').replace(/"/g,'&quot;')+'"'
-                +' data-addr="'+(c.address||'').replace(/"/g,'&quot;')+'" data-prov="'+(c.province||'')+'"'
-                +' data-src="'+(c.source_name||'').replace(/"/g,'&quot;')+'">'
-                +'<div><b>'+c.phone+'</b> — '+(c.customer_name||'N/A')+'</div>'
-                +'<span style="font-size:10px;color:#6b7280;white-space:nowrap">'+(c.source_name||'')+'</span></div>';
-        }).join('');
         list.style.display = 'block';
-    }, 300);
+    }, 200);
 }
 
-function _dhtPickCustomer(custId, el) {
+async function _dhtPickOrderCode(codeId) {
+    var codes = _dhtCreate.availableCodes || [];
+    var c = codes.find(function(x) { return x.id === codeId; });
+    if (!c) return;
+    // Set order code
+    _dhtCreate.orderCode = c.order_code;
+    var codeInput = document.getElementById('_co_code');
+    codeInput.value = c.order_code;
+    codeInput.style.background = '#f0fdf4';
+    codeInput.style.fontWeight = '900';
+    codeInput.style.fontSize = '16px';
+    codeInput.style.color = '#b8860b';
     // Set customer ID (hidden)
-    document.getElementById('_co_custId').value = custId;
-    // Phone (locked after selection)
-    var phoneInput = document.getElementById('_co_phone');
-    phoneInput.value = el.dataset.phone;
-    phoneInput.style.background = '#f0fdf4';
-    phoneInput.style.fontWeight = '700';
-    // Customer name (read-only)
-    var nameInput = document.getElementById('_co_name');
-    nameInput.value = el.dataset.name;
-    nameInput.disabled = true;
-    nameInput.style.background = '#f1f5f9';
-    nameInput.style.fontWeight = '700';
-    document.getElementById('_co_nameLock').textContent = '🔒 Từ CRM';
-    // Source (read-only)
-    var srcInput = document.getElementById('_co_src');
-    srcInput.value = el.dataset.src;
-    srcInput.style.background = '#f1f5f9';
-    srcInput.style.fontWeight = '700';
-    document.getElementById('_co_srcLock').textContent = '🔒 Từ CRM';
+    document.getElementById('_co_custId').value = c.customer_id;
+    // Phone (readonly)
+    document.getElementById('_co_phone').value = c.phone || '';
+    // Customer name (readonly)
+    document.getElementById('_co_name').value = c.customer_name || '';
+    // Source (readonly)
+    document.getElementById('_co_src').value = c.source_name || '';
     // Address (editable, pre-fill)
-    document.getElementById('_co_addr').value = el.dataset.addr;
+    document.getElementById('_co_addr').value = c.address || '';
     // Province (editable, pre-fill)
-    if (el.dataset.prov) {
-        document.getElementById('_co_prov').value = el.dataset.prov;
+    if (c.province) {
+        document.getElementById('_co_prov').value = c.province;
     }
     // Close dropdown
-    document.getElementById('_co_phoneList').style.display = 'none';
+    document.getElementById('_co_codeList').style.display = 'none';
+
+    // ★ V4.1: Fetch deposit amount linked to this order code
+    try {
+        var depRes = await apiCall('/api/dht/deposit-by-order/' + encodeURIComponent(c.order_code));
+        _dhtCreate.depositAmount = Number(depRes.total_deposit || 0);
+    } catch(e) { _dhtCreate.depositAmount = 0; }
+    var depEl = document.getElementById('_co_deposit');
+    if (depEl) depEl.value = _dhtCreate.depositAmount.toLocaleString('vi-VN') + 'đ';
+    _dhtCalcTotal();
 }
 
-// Close phone dropdown when clicking outside
+// Close order code dropdown when clicking outside
 document.addEventListener('click', function(e) {
-    var list = document.getElementById('_co_phoneList');
-    var input = document.getElementById('_co_phone');
+    var list = document.getElementById('_co_codeList');
+    var input = document.getElementById('_co_code');
     if (list && input && !input.contains(e.target) && !list.contains(e.target)) {
         list.style.display = 'none';
     }
@@ -670,12 +609,29 @@ function _dhtRenderPhieuRows() {
 function _dhtCalcTotal() {
     var gRaw=0,gVat=0;
     _dhtCreate.phieuItems.forEach(function(p){if(!p)return;gRaw+=p.raw_total||0;gVat+=p.vat_amount||0;});
-    var gTotal=gRaw+gVat, remain=gTotal-_dhtCreate.depositAmount;
+    var depAmt = _dhtCreate.depositAmount || 0;
+    var gTotal=gRaw+gVat, remain=gTotal-depAmt;
+    var depEl = document.getElementById('_co_deposit');
+    if (depEl) depEl.value = depAmt.toLocaleString('vi-VN') + 'đ';
     document.getElementById('_co_total').value=gRaw.toLocaleString('vi-VN')+'đ';
     document.getElementById('_co_vatTotal').value=gVat.toLocaleString('vi-VN')+'đ';
     document.getElementById('_co_totalVatAmt').value=gVat.toLocaleString('vi-VN')+'đ';
     document.getElementById('_co_totalVat').value=gTotal.toLocaleString('vi-VN')+'đ';
-    document.getElementById('_co_remain').value=remain.toLocaleString('vi-VN')+'đ';
+    var remainEl = document.getElementById('_co_remain');
+    if (remainEl) {
+        remainEl.value = remain.toLocaleString('vi-VN') + 'đ';
+        if (remain < 0) {
+            remainEl.style.color = '#dc2626';
+            remainEl.style.fontWeight = '900';
+            remainEl.style.background = '#fef2f2';
+            remainEl.style.border = '2px solid #dc2626';
+        } else {
+            remainEl.style.color = '#dc2626';
+            remainEl.style.fontWeight = '800';
+            remainEl.style.background = '#f1f5f9';
+            remainEl.style.border = '';
+        }
+    }
 }
 
 
@@ -692,7 +648,8 @@ async function _dhtSubmitCreateV2() {
     var carrier = document.getElementById('_co_carrier')?.value;
     if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     var custId = document.getElementById('_co_custId')?.value;
-    if (!custId) { showToast('Vui lòng chọn khách hàng từ danh sách SĐT', 'error'); return; }
+    if (!_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
+    if (!custId) { showToast('Vui lòng chọn mã đơn để tự điền khách hàng', 'error'); return; }
     if (!phone) { showToast('Chọn Số Điện Thoại', 'error'); return; }
     if (!name) { showToast('Chưa có Tên Khách Hàng', 'error'); return; }
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
@@ -711,6 +668,12 @@ async function _dhtSubmitCreateV2() {
     // Use pre-saved phiếu items
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
+    // Validate: remaining amount must not be negative
+    var _totalAmt = 0, _totalVat = 0;
+    items.forEach(function(p) { _totalAmt += p.raw_total || 0; _totalVat += p.vat_amount || 0; });
+    var _depAmt = _dhtCreate.depositAmount || 0;
+    var _remain = (_totalAmt + _totalVat) - _depAmt;
+    if (_remain < 0) { showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn (' + (_totalAmt + _totalVat).toLocaleString('vi-VN') + 'đ) nhỏ hơn tiền cọc (' + _depAmt.toLocaleString('vi-VN') + 'đ)', 'error'); return; }
     var totalAmt = 0, totalVatAmt = 0;
     items.forEach(function(p) { totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var hasVat = totalVatAmt > 0;
@@ -720,7 +683,7 @@ async function _dhtSubmitCreateV2() {
     var desId = desVal === 'old_design' ? null : (desVal || null);
 
     var data = await apiCall('/api/dht/orders', 'POST', {
-        order_code: document.getElementById('_co_code')?.value,
+        order_code: _dhtCreate.orderCode,
         order_date: vnDateStr(),
         category_id: cat,
         customer_id: custId,

@@ -347,6 +347,22 @@ module.exports = async function(fastify) {
             }
         }
 
+        // ★ Sync address + province back to customers table (if NV edited in DHT)
+        if (b.customer_id && (b.address || b.province)) {
+            const syncFields = [];
+            const syncVals = [];
+            let pi = 1;
+            if (b.address) { syncFields.push(`address = $${pi++}`); syncVals.push(b.address); }
+            if (b.province) { syncFields.push(`province = $${pi++}`); syncVals.push(b.province); }
+            if (syncFields.length > 0) {
+                syncVals.push(Number(b.customer_id));
+                await db.run(
+                    `UPDATE customers SET ${syncFields.join(', ')}, updated_at = NOW() WHERE id = $${pi}`,
+                    syncVals
+                );
+            }
+        }
+
         return { success: true, order: result };
     });
 
@@ -358,7 +374,7 @@ module.exports = async function(fastify) {
 
         // Build dynamic SET clause
         const allowed = [
-            'customer_name', 'customer_phone', 'source', 'province',
+            'customer_name', 'customer_phone', 'source', 'province', 'address',
             'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount',
             'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date'
         ];
@@ -398,6 +414,26 @@ module.exports = async function(fastify) {
         params.push(orderId);
 
         await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+
+        // ★ Sync address/province back to customers table when edited in DHT
+        if (b.address !== undefined || b.province !== undefined) {
+            const order = await db.get(`
+                SELECT oc.customer_id FROM dht_orders d
+                JOIN order_codes oc ON oc.order_code = d.order_code
+                WHERE d.id = $1
+            `, [orderId]);
+            if (order?.customer_id) {
+                const syncSets = [];
+                const syncVals = [];
+                let si = 1;
+                if (b.address !== undefined) { syncSets.push(`address = $${si++}`); syncVals.push(b.address || null); }
+                if (b.province !== undefined) { syncSets.push(`province = $${si++}`); syncVals.push(b.province || null); }
+                if (syncSets.length > 0) {
+                    syncVals.push(order.customer_id);
+                    await db.run(`UPDATE customers SET ${syncSets.join(', ')}, updated_at = NOW() WHERE id = $${si}`, syncVals);
+                }
+            }
+        }
 
         return { success: true };
     });
@@ -486,6 +522,7 @@ module.exports = async function(fastify) {
                    pr.locked_by, pr.locked_at
             FROM payment_records pr
             WHERE COALESCE(pr.source, '') != 'cashflow_chi'
+              AND COALESCE(pr.payment_type, '') != 'dat_coc'
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (
                   pr.locked_by IS NULL
@@ -495,6 +532,18 @@ module.exports = async function(fastify) {
             ORDER BY pr.payment_date DESC, pr.id DESC
         `, [request.user.id]);
         return { deposits: rows };
+    });
+
+    // ★ V4.1: Get deposit amount linked to an order code
+    fastify.get('/api/dht/deposit-by-order/:orderCode', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderCode = request.params.orderCode;
+        const result = await db.get(`
+            SELECT COALESCE(SUM(amount), 0) as total_deposit
+            FROM payment_records
+            WHERE order_tt_coc = $1
+              AND payment_type = 'dat_coc'
+        `, [orderCode]);
+        return { total_deposit: Number(result?.total_deposit || 0) };
     });
 
     // Lock a deposit temporarily
@@ -519,6 +568,26 @@ module.exports = async function(fastify) {
         await db.run('UPDATE payment_records SET locked_by = NULL, locked_at = NULL WHERE id = $1 AND locked_by = $2',
             [Number(request.params.id), request.user.id]);
         return { success: true };
+    });
+
+    // ========== AVAILABLE ORDER CODES (from CRM, not yet linked to DHT) ==========
+    fastify.get('/api/dht/available-order-codes', { preHandler: [authenticate] }, async (request, reply) => {
+        const codes = await db.all(`
+            SELECT oc.id, oc.order_code, oc.customer_id, oc.deposit_amount,
+                   c.phone, c.customer_name, c.address, c.province,
+                   s.name as source_name
+            FROM order_codes oc
+            JOIN customers c ON c.id = oc.customer_id
+            LEFT JOIN settings_sources s ON c.source_id = s.id
+            WHERE oc.user_id = $1
+              AND c.assigned_to_id = $1
+              AND oc.status = 'active'
+              AND NOT EXISTS (
+                  SELECT 1 FROM dht_orders d WHERE d.order_code = oc.order_code
+              )
+            ORDER BY oc.created_at DESC
+        `, [request.user.id]);
+        return { codes, count: codes.length };
     });
 
     // ========== CUSTOMER SEARCH (from customers table) ==========

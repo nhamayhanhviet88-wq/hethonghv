@@ -763,6 +763,22 @@ async function customersRoutes(fastify, options) {
         const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
 
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
+
+        // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer
+        // At dat_coc time, order_code didn't exist yet → order_tt_coc was NULL
+        // Now that order_code is created, link it to the deposit records
+        const cust = await db.get('SELECT phone FROM customers WHERE id = ?', [Number(customer_id)]);
+        if (cust?.phone) {
+            await db.run(`
+                UPDATE payment_records SET
+                    order_tt_coc = $1,
+                    updated_at = NOW()
+                WHERE customer_phone = $2
+                  AND payment_type = 'dat_coc'
+                  AND (order_tt_coc IS NULL OR order_tt_coc = '')
+            `, [orderCode, cust.phone]);
+        }
+
         return { success: true, order_code: orderCode, order_id: result?.lastID };
     });
 

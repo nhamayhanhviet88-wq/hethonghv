@@ -157,6 +157,62 @@ function formatDepositInput(el) {
     el.setSelectionRange(newCursor, newCursor);
 }
 
+// ★ V4: Deposit Picker — fetch & filter unclaimed payment records
+var _ncDepositList = [];
+async function _ncFetchDeposits() {
+    try {
+        const data = await apiCall('/api/dht/unclaimed-deposits');
+        _ncDepositList = data.deposits || [];
+    } catch(e) { _ncDepositList = []; }
+}
+
+function _ncFilterDepositList() {
+    var q = (document.getElementById('consultDepositSearch')?.value || '').toLowerCase();
+    var dd = document.getElementById('consultDepositDropdown');
+    if (!dd) return;
+    var filtered = _ncDepositList.filter(function(d) {
+        var text = (d.payment_code + ' ' + (d.transfer_note||'') + ' ' + d.amount + ' ' + (d.customer_name||'')).toLowerCase();
+        return !q || text.indexOf(q) >= 0;
+    });
+    if (filtered.length === 0) {
+        dd.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không có mã tiền chưa nhận</div>';
+    } else {
+        dd.innerHTML = filtered.map(function(d) {
+            var amt = Number(d.amount||0).toLocaleString('vi-VN');
+            return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px"'
+                +' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
+                +' onclick="_ncPickDeposit('+d.id+')"'
+                +'><b style="color:#b8860b">'+d.payment_code+'</b>'
+                +' — <span style="color:#059669;font-weight:700">'+amt+'đ</span>'
+                +' — '+(d.payment_method||'')
+                +' <span style="color:#64748b;font-size:10px">'+(d.transfer_note||'').substring(0,40)+'</span></div>';
+        }).join('');
+    }
+    dd.style.display = 'block';
+}
+
+function _ncPickDeposit(prId) {
+    var d = _ncDepositList.find(function(x){ return x.id === prId; });
+    if (!d) return;
+    document.getElementById('consultPaymentRecordId').value = d.id;
+    document.getElementById('consultDepositAmount').value = d.amount;
+    var lbl = document.getElementById('consultDepositLabel');
+    if (lbl) lbl.textContent = d.payment_code + ' — ' + (d.payment_method||'');
+    var amtEl = document.getElementById('consultDepositAmountDisplay');
+    if (amtEl) amtEl.textContent = 'Số tiền: ' + Number(d.amount).toLocaleString('vi-VN') + 'đ';
+    var sel = document.getElementById('consultDepositSelected');
+    if (sel) sel.style.display = 'block';
+    var search = document.getElementById('consultDepositSearch');
+    if (search) { search.value = d.payment_code; search.style.background = '#f0fdf4'; search.style.fontWeight = '700'; }
+    document.getElementById('consultDepositDropdown').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('consultDepositDropdown');
+    var inp = document.getElementById('consultDepositSearch');
+    if (dd && inp && !inp.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
+});
+
 const VN_PROVINCES = [
     'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương',
     'Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai',
@@ -1264,10 +1320,17 @@ async function openConsultModal(customerId) {
             </select>
         </div>
         <div class="form-group" id="consultDepositGroup" style="display:none;">
-            <label>Số Tiền Đặt Cọc <span style="color:var(--danger)">*</span></label>
-            <input type="text" id="consultDepositAmount" class="form-control" placeholder="Nhập số tiền đặt cọc..." 
-                style="font-size:14px;font-weight:600;color:#e65100;"
-                oninput="formatDepositInput(this)">
+            <label>Chọn Mã Tiền Đặt Cọc <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(từ Sổ Ghi Nhận Tiền)</span></label>
+            <input type="text" id="consultDepositSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." 
+                autocomplete="off" oninput="_ncFilterDepositList()" onfocus="_ncFilterDepositList()"
+                style="font-size:13px;border:2px solid #daa520;">
+            <div id="consultDepositDropdown" style="display:none;position:relative;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:220px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>
+            <input type="hidden" id="consultPaymentRecordId">
+            <div id="consultDepositSelected" style="display:none;background:#f0fdf4;border:1px solid #059669;border-radius:8px;padding:10px 14px;margin-top:6px">
+                <span style="font-weight:800;color:#059669">✅ Đã chọn: </span><span id="consultDepositLabel" style="font-weight:700;color:#1e293b"></span>
+                <div style="margin-top:4px;font-size:13px;font-weight:800;color:#e65100" id="consultDepositAmountDisplay"></div>
+            </div>
+            <input type="hidden" id="consultDepositAmount" value="0">
         </div>
         <div class="form-group" id="consultContentGroup">
             <label>Nội Dung Tư Vấn <span style="color:var(--danger)">*</span></label>
@@ -1514,14 +1577,15 @@ function onConsultTypeChange() {
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
     }
 
-    // Đặt Cọc flow — show Mã Đơn + deposit amount + content + image + appointment
+    // Đặt Cọc flow — show Mã Đơn + deposit picker + content + image + appointment
     if (type === 'dat_coc') {
         if (contentGroup) contentGroup.style.display = 'block';
         if (imageGroup) imageGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'block';
-        // Show deposit amount field
+        // Show deposit picker (fetch unclaimed deposits)
         const depositGroup = document.getElementById('consultDepositGroup');
         if (depositGroup) depositGroup.style.display = 'block';
+        _ncFetchDeposits();
         // Show only the Mã Đơn field from orderGroup
         const ocGroup = document.getElementById('consultOrderCodeGroup');
         if (ocGroup) ocGroup.style.display = 'block';
@@ -1535,21 +1599,15 @@ function onConsultTypeChange() {
         if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
+        // ★ Hide product table (items will be entered in DHT instead)
+        var _oTable = document.getElementById('consultOrderTable');
+        if (_oTable) _oTable.closest('.form-group').style.display = 'none';
+        var _totalWrap = document.querySelector('#consultOrderGroup div[style*="justify-content:space-between"]');
+        if (_totalWrap) _totalWrap.style.display = 'none';
         // Fetch order code (reuses existing from đặt cọc if any)
         fetchOrderCode();
-        // Fetch deposit amount from dat_coc log
-        window._currentDepositAmount = 0;
-        const customerId = window._currentConsultCustomerId;
-        if (customerId) {
-            apiCall(`/api/customers/${customerId}/consult`).then(data => {
-                const datCocLog = (data.logs || []).find(l => l.log_type === 'dat_coc' && l.deposit_amount > 0);
-                if (datCocLog) {
-                    window._currentDepositAmount = datCocLog.deposit_amount;
-                    calcConsultOrderTotal();
-                }
-            });
-        }
     }
+
 
     // Cấp Cứu Sếp flow
     if (type === 'cap_cuu_sep') {
@@ -1964,20 +2022,20 @@ async function submitConsultLog(customerId) {
 
     // ========== Đặt Cọc flow ==========
     if (log_type === 'dat_coc') {
-        const depositAmount = Number((document.getElementById('consultDepositAmount')?.value || '').replace(/\./g, '')) || 0;
-        if (depositAmount <= 0) {
-            showToast('Vui lòng nhập số tiền đặt cọc!', 'error'); enableSubmitBtn(); return;
+        const paymentRecordId = document.getElementById('consultPaymentRecordId')?.value;
+        const depositAmount = Number(document.getElementById('consultDepositAmount')?.value) || 0;
+        if (!paymentRecordId || depositAmount <= 0) {
+            showToast('Vui lòng chọn mã tiền đặt cọc từ danh sách!', 'error'); enableSubmitBtn(); return;
         }
         if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); enableSubmitBtn(); return; }
         const contentText = content || `Đặt cọc: ${formatCurrency(depositAmount)} VNĐ`;
 
         try {
-
-            // Submit consultation log
             const formData = new FormData();
             formData.append('log_type', 'dat_coc');
             formData.append('content', contentText);
             formData.append('deposit_amount', depositAmount);
+            formData.append('payment_record_id', paymentRecordId);
             formData.append('appointment_date', appointment_date);
             if (window._consultImageBlob) {
                 formData.append('image', window._consultImageBlob, 'screenshot.png');
@@ -1985,7 +2043,7 @@ async function submitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Đặt cọc thành công!'); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
+                showToast('✅ Đặt cọc thành công! Mã tiền đã được khóa.'); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
             } else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
         return;
@@ -2006,36 +2064,13 @@ async function submitConsultLog(customerId) {
             showToast('SĐT phải đúng 10 chữ số', 'error'); enableSubmitBtn(); return;
         }
 
-        // Collect order items
-        const rows = document.querySelectorAll('#consultOrderTable tbody tr');
-        if (rows.length === 0) { showToast('Vui lòng thêm ít nhất 1 sản phẩm!', 'error'); enableSubmitBtn(); return; }
-        const items = [];
-        for (const row of rows) {
-            const desc = row.querySelector('.oi-desc')?.value;
-            const qty = Number(row.querySelector('.oi-qty')?.value) || 0;
-            const price = Number((row.querySelector('.oi-price')?.value || '').replace(/\./g, '')) || 0;
-            if (desc && qty > 0 && price > 0) items.push({ description: desc, quantity: qty, unit_price: price });
-        }
-        if (items.length === 0) { showToast('Vui lòng nhập sản phẩm hợp lệ!', 'error'); enableSubmitBtn(); return; }
-
-        // ★ Validate: Tổng đơn >= Đã cọc
-        const orderTotal = items.reduce((s, i) => s + (i.quantity * i.unit_price), 0);
-        const depositAmount = window._currentDepositAmount || 0;
-        if (depositAmount > 0 && orderTotal < depositAmount) {
-            showToast(`❌ Tổng đơn (${formatCurrency(orderTotal)} VNĐ) nhỏ hơn số tiền đã cọc (${formatCurrency(depositAmount)} VNĐ). Vui lòng kiểm tra lại đơn hàng!`, 'error');
-            enableSubmitBtn();
-            return;
-        }
 
         try {
-            // Generate order code FIRST so items link to new order
+            // Generate order code FIRST
             const orderCodeEl = document.getElementById('consultOrderCode');
             if (orderCodeEl && orderCodeEl.value) {
                 await apiCall('/api/order-codes', 'POST', { customer_id: customerId });
             }
-
-            // Save order items (now linked to the newly created order)
-            await apiCall(`/api/customers/${customerId}/items`, 'PUT', { items });
 
             // Sync phone + address + province
             const syncBody = { address, province: city };
@@ -2045,7 +2080,7 @@ async function submitConsultLog(customerId) {
             // Submit consultation log with chot_don type
             const formData = new FormData();
             formData.append('log_type', 'chot_don');
-            formData.append('content', `Chốt đơn: ${items.length} SP — ${address}, ${city}`);
+            formData.append('content', `Chốt đơn — ${address}, ${city}`);
             formData.append('address', address);
             formData.append('appointment_date', sbhDate);
             const chotDonNextType = document.getElementById('consultChotDonNextType')?.value;
@@ -2056,7 +2091,7 @@ async function submitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Chốt đơn thành công! Chuyển sang Sau Bán Hàng.'); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
+                showToast('✅ Chốt đơn thành công! Mã đơn đã sẵn sàng tạo ở Đơn Hàng Tổng.'); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
             } else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
         return;

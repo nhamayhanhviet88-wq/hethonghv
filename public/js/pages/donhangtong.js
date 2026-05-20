@@ -33,18 +33,19 @@ async function renderDonhangtongPage(content) {
     _dhtShowNextCode();
 }
 
-// ========== NEXT ORDER CODE DISPLAY ==========
+// ========== AVAILABLE ORDER CODES DISPLAY ==========
 async function _dhtShowNextCode() {
     var el = document.getElementById('dhtNextCode');
     var btn = document.getElementById('dhtCreateBtn');
     if (!el) return;
     try {
-        var res = await apiCall('/api/dht/next-order-code');
-        if (res.hasPrefix === false) {
-            el.innerHTML = '<span style="color:#dc2626;font-size:11px;font-weight:700">⚠️ Chưa có Mã Đơn KD — Không thể tạo đơn</span>';
+        var res = await apiCall('/api/dht/available-order-codes');
+        var count = res.count || 0;
+        if (count === 0) {
+            el.innerHTML = '<span style="color:#94a3b8;font-size:11px">📋 Không có mã đơn chờ — Chốt Đơn ở CRM trước</span>';
             if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
         } else {
-            el.innerHTML = '📋 Mã đơn tiếp theo: <span style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;padding:3px 14px;border-radius:6px;font-size:14px;font-weight:900;letter-spacing:1px">' + res.code + '</span>';
+            el.innerHTML = '📋 <span style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;padding:3px 14px;border-radius:6px;font-size:13px;font-weight:900">' + count + ' mã đơn chờ tạo</span>';
             if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
         }
     } catch(e) {
