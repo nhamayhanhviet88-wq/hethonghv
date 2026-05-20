@@ -257,8 +257,8 @@ module.exports = async function(fastify) {
                 has_vat, vat_amount, deposit_payment_id,
                 designer_user_id, designer_type, carrier_id,
                 expected_ship_date, shipping_priority, standard_proof_image, zalo_oa_sent,
-                department_id, notes, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$25)
+                department_id, notes, surcharges, created_by, last_updated_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$26)
             RETURNING *
         `, [
             b.order_code.trim(),
@@ -285,6 +285,7 @@ module.exports = async function(fastify) {
             b.zalo_oa_sent === true || b.zalo_oa_sent === 'true',
             b.department_id ? Number(b.department_id) : null,
             b.notes || null,
+            JSON.stringify(b.surcharges || []),
             request.user.id
         ]);
 

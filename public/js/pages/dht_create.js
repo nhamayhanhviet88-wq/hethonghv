@@ -1,11 +1,11 @@
 // ========== DHT CREATE ORDER — 2-STEP FLOW ==========
-var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null };
+var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
 
 var _dhtProvinces = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
 // === V4: Skip Step 1 — deposits are now selected in CRM ===
 async function _dhtShowCreate() {
-    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null };
+    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
     await _dhtGoStep2();
 }
 
@@ -13,7 +13,7 @@ function _dhtSelectDeposit(el) { /* V4: no longer used */ }
 function _dhtFilterDeposits() { /* V4: no longer used */ }
 
 async function _dhtCancelCreate() {
-    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null };
+    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
     closeModal();
 }
 
@@ -83,6 +83,12 @@ async function _dhtGoStep2() {
         +'<span style="font-weight:800;font-size:13px;color:var(--navy)">📋 Phiếu Đơn Hàng</span>'
         +'<button onclick="_dhtAddItem()" style="background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm Phiếu</button></div>'
         +'<div id="_co_items"></div></div>'
+        // === Phụ Phí ===
+        +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+        +'<span style="font-weight:800;font-size:12px;color:#92400e">💰 Phụ Phí</span>'
+        +'<button type="button" onclick="_dhtAddSurcharge()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">➕ Thêm Phụ Phí</button></div>'
+        +'<div id="_co_surcharges"></div></div>'
         // === Tổng kết: 2 hàng x 2 cột ===
         +'<div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #e2e8f0">'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px">'
@@ -118,6 +124,7 @@ async function _dhtGoStep2() {
 
     openModal('➕ Tạo Đơn Hàng', body, footer);
     _dhtCreate.phieuItems = []; // Reset phieu items
+    _dhtCreate.surcharges = []; // Reset surcharges
 }
 
 // === Order Code Search (dropdown from CRM available codes) ===
@@ -609,6 +616,10 @@ function _dhtRenderPhieuRows() {
 function _dhtCalcTotal() {
     var gRaw=0,gVat=0;
     _dhtCreate.phieuItems.forEach(function(p){if(!p)return;gRaw+=p.raw_total||0;gVat+=p.vat_amount||0;});
+    // Add surcharges to total
+    var surTotal=0;
+    (_dhtCreate.surcharges||[]).forEach(function(s){surTotal+=Number(s.amount)||0;});
+    gRaw+=surTotal;
     var depAmt = _dhtCreate.depositAmount || 0;
     var gTotal=gRaw+gVat, remain=gTotal-depAmt;
     var depEl = document.getElementById('_co_deposit');
@@ -632,6 +643,43 @@ function _dhtCalcTotal() {
             remainEl.style.border = '';
         }
     }
+}
+
+// === SURCHARGE FUNCTIONS ===
+function _dhtAddSurcharge() {
+    _dhtCreate.surcharges.push({ description: '', amount: 0 });
+    _dhtRenderSurcharges();
+}
+function _dhtRemoveSurcharge(idx) {
+    _dhtCreate.surcharges.splice(idx, 1);
+    _dhtRenderSurcharges();
+    _dhtCalcTotal();
+}
+function _dhtSurchargeChange() {
+    var rows = document.querySelectorAll('._surRow');
+    _dhtCreate.surcharges = [];
+    rows.forEach(function(row) {
+        var desc = row.querySelector('._surDesc')?.value || '';
+        var amt = Number(row.querySelector('._surAmt')?.value) || 0;
+        _dhtCreate.surcharges.push({ description: desc, amount: amt });
+    });
+    _dhtCalcTotal();
+}
+function _dhtRenderSurcharges() {
+    var c = document.getElementById('_co_surcharges'); if (!c) return;
+    if (_dhtCreate.surcharges.length === 0) {
+        c.innerHTML = '<div style="font-size:11px;color:#94a3b8;text-align:center;padding:4px">Chưa có phụ phí</div>';
+        return;
+    }
+    var h = '';
+    _dhtCreate.surcharges.forEach(function(s, i) {
+        h += '<div class="_surRow" style="display:grid;grid-template-columns:1fr 120px 30px;gap:6px;margin-bottom:4px;align-items:center">'
+            + '<input class="_surDesc" type="text" value="' + (s.description || '').replace(/"/g, '&quot;') + '" placeholder="Nội dung phụ phí" oninput="_dhtSurchargeChange()" style="padding:5px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:11px">'
+            + '<input class="_surAmt" type="number" value="' + (s.amount || 0) + '" min="0" placeholder="Số tiền" oninput="_dhtSurchargeChange()" style="padding:5px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;text-align:right">'
+            + '<button type="button" onclick="_dhtRemoveSurcharge(' + i + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:26px;width:26px;display:flex;align-items:center;justify-content:center">✕</button>'
+            + '</div>';
+    });
+    c.innerHTML = h;
 }
 
 
@@ -671,6 +719,7 @@ async function _dhtSubmitCreateV2() {
     // Validate: remaining amount must not be negative
     var _totalAmt = 0, _totalVat = 0;
     items.forEach(function(p) { _totalAmt += p.raw_total || 0; _totalVat += p.vat_amount || 0; });
+    (_dhtCreate.surcharges||[]).forEach(function(s) { _totalAmt += Number(s.amount) || 0; });
     var _depAmt = _dhtCreate.depositAmount || 0;
     var _remain = (_totalAmt + _totalVat) - _depAmt;
     if (_remain < 0) { showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn (' + (_totalAmt + _totalVat).toLocaleString('vi-VN') + 'đ) nhỏ hơn tiền cọc (' + _depAmt.toLocaleString('vi-VN') + 'đ)', 'error'); return; }
@@ -694,8 +743,9 @@ async function _dhtSubmitCreateV2() {
         address: addr,
         cskh_user_id: _dhtCreate.myInfo?.id,
         total_quantity: items.reduce(function(s,x){ return s + x.quantity; }, 0),
-        total_amount: totalAmt,
+        total_amount: totalAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
         discount_amount: 0,
+        surcharges: _dhtCreate.surcharges || [],
         has_vat: hasVat,
         vat_amount: vatAmt,
         deposit_payment_id: _dhtCreate.depositId,
@@ -716,7 +766,7 @@ async function _dhtSubmitCreateV2() {
             await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
         }
         showToast('✅ Đã tạo đơn hàng thành công!');
-        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null };
+        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
         closeModal();
         await _dhtLoadTree();
         await _dhtLoadOrders();
