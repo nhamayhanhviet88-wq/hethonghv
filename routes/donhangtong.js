@@ -368,6 +368,66 @@ module.exports = async function(fastify) {
     });
 
 
+    // ========== ORDERS: Detail (full info) ==========
+    fastify.get('/api/dht/orders/:id/detail', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+
+        // 1. Full order + joined fields
+        const order = await db.get(`
+            SELECT o.*,
+                c.name AS category_name,
+                u_cskh.full_name AS cskh_name,
+                u_created.full_name AS created_by_name,
+                u_updated.full_name AS last_updated_by_name,
+                u_designer.full_name AS designer_name,
+                cr.name AS carrier_name,
+                COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
+                COALESCE(o.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) AS remaining_amount
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+            LEFT JOIN users u_created ON o.created_by = u_created.id
+            LEFT JOIN users u_updated ON o.last_updated_by = u_updated.id
+            LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
+            LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+            ) pr_dep ON true
+            WHERE o.id = $1
+        `, [orderId]);
+
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        // 2. Order items
+        const items = await db.all(`
+            SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC
+        `, [orderId]);
+
+        // 3. Linked payment records
+        const payments = await db.all(`
+            SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
+                   customer_name, customer_phone, transfer_note, total_order_codes
+            FROM payment_records
+            WHERE total_order_codes ILIKE '%' || $1 || '%'
+            ORDER BY payment_date DESC
+        `, [order.order_code]);
+
+        // 4. Parse surcharges
+        let surcharges = [];
+        try {
+            surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
+        } catch(e) { surcharges = []; }
+
+        return {
+            order,
+            items,
+            payments,
+            surcharges
+        };
+    });
+
     // ========== ORDERS: Update (inline edit) ==========
     fastify.put('/api/dht/orders/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);

@@ -152,14 +152,14 @@ async function _dhtLoadOrders() {
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
 
-        return `<tr data-id="${o.id}">
+        return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td>${fmtD(o.order_date)}</td>
-            <td style="text-align:center;cursor:pointer;" onclick="_dhtToggleShip(${o.id},'${o.shipping_status}')" title="Click để đổi">${shipIcon}</td>
+            <td style="text-align:center;cursor:pointer;" onclick="event.stopPropagation();_dhtToggleShip(${o.id},'${o.shipping_status}')" title="Click để đổi">${shipIcon}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
             <td><strong style="color:var(--gold);">${o.order_code}</strong></td>
             <td>${o.source || '—'}</td>
             <td>${o.customer_name || '—'}</td>
-            <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);">'+o.customer_phone+'</a>' : '—'}</td>
+            <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.cskh_name || '—'}</td>
             <td>${o.province || '—'}</td>
             <td style="text-align:center;">${o.total_quantity || 0}</td>
@@ -169,8 +169,8 @@ async function _dhtLoadOrders() {
             <td>${fmtD(o.shipping_date)}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
-                <button class="btn btn-sm" onclick="_dhtEditOrder(${o.id})" title="Sửa">✏️</button>
-                <button class="btn btn-sm" onclick="_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>
+                <button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrder(${o.id})" title="Sửa">✏️</button>
+                <button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>
             </td>
         </tr>`;
     }).join('');
@@ -198,6 +198,165 @@ async function _dhtToggleShip(id, current) {
 // ========== CREATE ORDER (2-step flow in dht_create.js) ==========
 // _dhtShowCreate() is defined in public/js/pages/dht_create.js
 
+
+// ========== DETAIL MODAL ==========
+async function _dhtShowDetail(id) {
+    try {
+        const data = await apiCall(`/api/dht/orders/${id}/detail`);
+        if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
+        const o = data.order;
+        const items = data.items || [];
+        const payments = data.payments || [];
+        const surcharges = data.surcharges || [];
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+        const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+        const remaining = Number(o.remaining_amount) || 0;
+        const deposit = Number(o.deposit_amount) || 0;
+        const total = Number(o.total_amount) || 0;
+        const vat = Number(o.vat_amount) || 0;
+        const discount = Number(o.discount_amount) || 0;
+        const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
+        const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#059669' };
+        const priColor = priColors[o.shipping_priority] || '#059669';
+        const typeLabels = { thanh_toan: 'Thanh toán', dat_coc: 'Đặt cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
+
+        // ── Section 1: Action Buttons ──
+        var actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
+        const actionBtns = [
+            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrder(${id})` },
+            { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})` },
+        ];
+        for (const a of actionBtns) {
+            actionsHTML += `<div onclick="${a.fn}" style="text-align:center;cursor:pointer;padding:10px 14px;border-radius:12px;transition:all .15s;min-width:80px" onmouseover="this.style.background='${a.bg}'" onmouseout="this.style.background='transparent'">`;
+            actionsHTML += `<div style="width:42px;height:42px;border-radius:50%;background:${a.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 5px;font-size:18px">${a.icon}</div>`;
+            actionsHTML += `<div style="font-size:10px;font-weight:700;color:${a.color}">${a.label}</div></div>`;
+        }
+        actionsHTML += `</div>`;
+
+        // ── Section 2: Chi tiết đơn hàng (Items) ──
+        var itemsHTML = '';
+        if (items.length > 0) {
+            itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+            itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span></div>`;
+            itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+            itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:8px 10px;text-align:left;font-size:10px">VẢI - MÀU</th><th style="padding:8px 10px;text-align:center;font-size:10px">SỐ LƯỢNG</th><th style="padding:8px 10px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:8px 10px;text-align:right;font-size:10px">THÀNH TIỀN</th></tr></thead><tbody>`;
+            for (const it of items) {
+                const saleBadge = it.sale_type === 'ban' ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+                const matColor = (it.material_name || '') + (it.color_name ? ' - ' + it.color_name : '');
+                itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9">`;
+                itemsHTML += `<td style="padding:8px 10px">${saleBadge}</td>`;
+                itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:var(--navy)">${it.product_name || it.description || '—'}</td>`;
+                itemsHTML += `<td style="padding:8px 10px;color:#6366f1;font-weight:600">${matColor || '—'}</td>`;
+                itemsHTML += `<td style="padding:8px 10px;text-align:center;font-weight:700">${it.quantity || 0}</td>`;
+                itemsHTML += `<td style="padding:8px 10px;text-align:right">${fmt(it.unit_price)}đ</td>`;
+                itemsHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(it.item_total || it.total)}đ</td>`;
+                itemsHTML += `</tr>`;
+            }
+            itemsHTML += `</tbody></table></div></div>`;
+        }
+
+        // ── Section 3: Chi tiết cọc & thanh toán ──
+        var payHTML = '';
+        if (payments.length > 0) {
+            payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+            payHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💳 Chi tiết cọc và thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${payments.length}</span></div>`;
+            payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+            payHTML += `<thead><tr style="background:#f8fafc"><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">MÃ TT</th><th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--navy);font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">NGÀY</th><th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--navy);font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--navy);font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
+            for (const p of payments) {
+                const methodIcon = p.payment_method === 'TM' ? '💵' : '🏦';
+                payHTML += `<tr style="border-bottom:1px solid #f1f5f9">`;
+                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${methodIcon} ${p.payment_code}</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:center">${fmtD(p.payment_date)}</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:center"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${typeLabels[p.payment_type] || p.payment_type || '—'}</span></td>`;
+                payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
+                payHTML += `</tr>`;
+            }
+            payHTML += `</tbody></table></div></div>`;
+        }
+
+        // ── Section 4: Phụ phí ──
+        var surHTML = '';
+        if (surcharges.length > 0) {
+            surHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+            surHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📋 Phụ phí <span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${surcharges.length}</span></div>`;
+            for (const sc of surcharges) {
+                surHTML += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">`;
+                surHTML += `<span style="font-weight:600;color:#334155">${sc.name || 'Phụ phí'}</span>`;
+                surHTML += `<span style="font-weight:800;color:#dc2626">${fmt(sc.amount)}đ</span>`;
+                surHTML += `</div>`;
+            }
+            surHTML += `</div>`;
+        }
+
+        // ── Section 5: Tổng kết tài chính ──
+        const remColor = remaining > 0 ? '#dc2626' : '#059669';
+        const remIcon = remaining > 0 ? '🔴' : '🟢';
+        var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
+        finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
+        const finRows = [
+            ['Tổng tiền hàng', fmt(total) + 'đ', '#1e293b', true],
+            ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
+            ['VAT', fmt(vat) + 'đ', '#6366f1', false],
+            ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
+            ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
+            ['Còn lại', fmt(remaining) + 'đ', remColor, true],
+        ];
+        for (const [label, val, color, bold] of finRows) {
+            finHTML += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">`;
+            finHTML += `<span style="font-size:13px;color:#64748b;font-weight:${bold?700:500}">${label}</span>`;
+            finHTML += `<span style="font-size:${bold?15:13}px;font-weight:${bold?900:700};color:${color}">${val}</span>`;
+            finHTML += `</div>`;
+        }
+        finHTML += `</div>`;
+
+        // ── Section 6: Thông tin đơn hàng ──
+        const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:140px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
+        var infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+        infoHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📄 Thông tin đơn hàng</div>`;
+        infoHTML += `<table style="width:100%;border-collapse:collapse">`;
+        infoHTML += row('Mã đơn', `<span style="color:var(--gold);font-size:14px">${o.order_code}</span>`);
+        infoHTML += row('Khách hàng', `<strong>${o.customer_name || '—'}</strong>`);
+        infoHTML += row('SĐT', o.customer_phone ? `<a href="tel:${o.customer_phone}" style="color:var(--info)">${o.customer_phone}</a>` : '—');
+        infoHTML += row('CSKH', o.cskh_name || '—');
+        infoHTML += row('Thiết kế', o.designer_name || (o.designer_type === 'old' ? 'Thiết Kế Cũ' : '—'));
+        infoHTML += row('Địa chỉ', o.address || '—');
+        infoHTML += row('Tỉnh / TP', o.province || '—');
+        infoHTML += row('Nguồn', o.source || '—');
+        infoHTML += row('Lĩnh vực', o.category_name || '—');
+        infoHTML += row('TC gửi', `<span style="color:${priColor};font-weight:900">${o.shipping_priority || 'CHUẨN'}</span>`);
+        if (o.standard_proof_image) {
+            infoHTML += row('Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info)">📷 Xem ảnh</a>`);
+        }
+        infoHTML += row('Nhắc nhở', o.notes || '—');
+        infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
+        infoHTML += row('Ngày gửi dự kiến', fmtD(o.expected_ship_date));
+        infoHTML += row('Ngày gửi thực tế', fmtD(o.shipping_date));
+        infoHTML += row('Nhà vận chuyển', o.carrier_name || '—');
+        // Lịch sử
+        var historyHTML = '';
+        if (o.created_at) historyHTML += `<div style="margin-bottom:4px">📅 ${vnFormat(o.created_at)}<br>👤 <span style="color:var(--info)">${o.created_by_name || '—'}</span> đã tạo đơn.</div>`;
+        if (o.last_updated_at && o.last_updated_by_name) historyHTML += `<div>📅 ${vnFormat(o.last_updated_at)}<br>👤 <span style="color:var(--info)">${o.last_updated_by_name}</span> đã cập nhật.</div>`;
+        infoHTML += row('Lịch sử', historyHTML || '—');
+        infoHTML += `</table></div>`;
+
+        // ── Combine all sections ──
+        const bodyHTML = actionsHTML + itemsHTML + payHTML + surHTML + finHTML + infoHTML;
+
+        const titleText = `📦 ${o.order_code} — ${fmt(total)}đ`;
+        const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
+        openModal(titleText, bodyHTML, footerHTML);
+
+        // Widen modal
+        setTimeout(() => {
+            const mc = document.querySelector('.modal-content');
+            if (mc) { mc.style.maxWidth = '780px'; mc.style.width = '92vw'; }
+        }, 30);
+    } catch(e) {
+        console.error('Detail error:', e);
+        showToast('Lỗi tải chi tiết: ' + (e.message || ''), 'error');
+    }
+}
 
 // ========== EDIT ORDER ==========
 function _dhtEditOrder(id) {
