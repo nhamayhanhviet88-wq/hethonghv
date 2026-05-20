@@ -6,6 +6,8 @@ const path = require('path');
 
 module.exports = async function(fastify) {
 
+    // Auto-migrate: add ship_count if not exists
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS ship_count INTEGER DEFAULT 0`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -149,7 +151,7 @@ module.exports = async function(fastify) {
         }
 
         const orders = await db.all(`
-            SELECT o.*,
+            SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
@@ -752,12 +754,14 @@ module.exports = async function(fastify) {
 
         // Auto-fill shipping_date when marking as shipped
         if (b.shipping_status === 'shipped') {
-            const existing = await db.get('SELECT shipping_date FROM dht_orders WHERE id = $1', [orderId]);
+            const existing = await db.get('SELECT shipping_date, ship_count FROM dht_orders WHERE id = $1', [orderId]);
             if (!existing?.shipping_date) {
                 sets.push(`shipping_date = $${idx++}`);
                 const { vnDateStr } = require('../utils/timezone');
                 params.push(vnDateStr());
             }
+            // Increment ship_count
+            sets.push(`ship_count = COALESCE(ship_count, 0) + 1`);
         }
 
         if (sets.length > 0) {
