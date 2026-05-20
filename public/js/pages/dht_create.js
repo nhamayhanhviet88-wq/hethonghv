@@ -122,7 +122,7 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div>'
         +'</div>'
         // Deposit info
-        +'<div style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
+        +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
 
     var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
         +'<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Lưu Đơn Hàng</button>';
@@ -198,6 +198,17 @@ async function _dhtPickOrderCode(codeId) {
     } catch(e) { _dhtCreate.depositAmount = 0; }
     var depEl = document.getElementById('_co_deposit');
     if (depEl) depEl.value = _dhtCreate.depositAmount.toLocaleString('vi-VN') + 'đ';
+    // Update deposit info label
+    var depInfo = document.getElementById('_co_depositInfo');
+    if (depInfo) {
+        if (_dhtCreate.depositAmount > 0) {
+            depInfo.innerHTML = '💰 Mã Cọc: ' + c.order_code + ' — ' + _dhtCreate.depositAmount.toLocaleString('vi-VN') + 'đ';
+            depInfo.style.color = '#059669';
+        } else {
+            depInfo.innerHTML = '💰 Mã Cọc: ' + c.order_code + ' — Không có cọc';
+            depInfo.style.color = '#b8860b';
+        }
+    }
     _dhtCalcTotal();
 }
 
