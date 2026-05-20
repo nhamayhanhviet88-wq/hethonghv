@@ -1125,22 +1125,50 @@ function _dhtShowItemDetail(idx) {
 
 // ========== APPLY DISCOUNT ==========
 async function _dhtApplyDiscount(orderId) {
-    const input = prompt('Nhập số tiền giảm giá (VNĐ):');
-    if (input === null) return;
-    const amount = Number(input.replace(/[.,\s]/g, ''));
-    if (isNaN(amount) || amount < 0) return alert('Số tiền không hợp lệ!');
+    var o = (_dht.orders || []).find(function(x) { return x.id === orderId; });
+    var currentDiscount = o ? Number(o.discount_amount) || 0 : 0;
+    var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    var body = '<div style="text-align:center;padding:8px 0">'
+        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;display:inline-block;padding:12px 28px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px #05966940">'
+        +'<div style="font-size:10px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:4px">GIẢM GIÁ HIỆN TẠI</div>'
+        +'<div style="font-size:22px;font-weight:900">'+(currentDiscount > 0 ? '-'+fmt(currentDiscount)+'đ' : '0đ')+'</div>'
+        +'</div>'
+        +'<div style="text-align:left;margin-bottom:8px"><label style="font-size:12px;font-weight:700;color:#1e293b">💰 Nhập số tiền giảm giá mới (VNĐ):</label></div>'
+        +'<input type="text" id="dhtDiscountInput" class="form-control" placeholder="Ví dụ: 500000" '
+        +'style="font-size:18px;font-weight:900;text-align:center;padding:12px;border:2px solid #059669;border-radius:10px;color:#059669" '
+        +'value="'+(currentDiscount||'')+'" oninput="_dhtDiscountPreview(this)">'
+        +'<div id="dhtDiscountPreview" style="margin-top:8px;font-size:14px;font-weight:700;color:#059669;min-height:24px">'
+        +(currentDiscount > 0 ? '→ -'+fmt(currentDiscount)+'đ' : '')
+        +'</div>'
+        +'<div style="margin-top:4px;font-size:11px;color:#94a3b8">Nhập 0 để xóa giảm giá</div>'
+        +'</div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('+orderId+')},200)" style="padding:8px 20px">Hủy</button>'
+        +'<button class="btn" onclick="_dhtConfirmDiscount('+orderId+')" style="padding:8px 24px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận</button>';
+    openModal('🏷️ Giảm Giá — ' + (o ? o.order_code : ''), body, footer);
+    setTimeout(function() { var inp = document.getElementById('dhtDiscountInput'); if (inp) { inp.focus(); inp.select(); } }, 200);
+}
+function _dhtDiscountPreview(el) {
+    var raw = el.value.replace(/[^\d]/g, '');
+    var preview = document.getElementById('dhtDiscountPreview');
+    if (preview && raw) {
+        preview.innerHTML = '→ -' + Number(raw).toLocaleString('vi-VN') + 'đ';
+    } else if (preview) { preview.innerHTML = ''; }
+}
+async function _dhtConfirmDiscount(orderId) {
+    var inp = document.getElementById('dhtDiscountInput');
+    if (!inp) return;
+    var amount = Number(inp.value.replace(/[^\d]/g, ''));
+    if (isNaN(amount) || amount < 0) { inp.style.borderColor = '#dc2626'; return; }
     try {
-        const res = await fetch(`/api/dht/orders/${orderId}`, {
+        var res = await fetch('/api/dht/orders/' + orderId, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ discount_amount: amount })
         });
         if (!res.ok) throw new Error('Lỗi cập nhật');
-        alert('✅ Đã cập nhật giảm giá: ' + amount.toLocaleString('vi-VN') + 'đ');
         closeModal();
-        // Reload detail
-        const row = document.querySelector(`tr[data-dht-id="${orderId}"]`);
-        if (row) row.click();
+        await _dhtLoadOrders();
+        _dhtShowDetail(orderId);
     } catch(e) { alert('❌ ' + e.message); }
 }
 
