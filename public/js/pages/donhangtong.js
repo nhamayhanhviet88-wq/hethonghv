@@ -1,5 +1,5 @@
 // ========== ĐƠN HÀNG TỔNG — Bộ Phận Văn Phòng ==========
-var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {} };
+var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {}, sortCol: null, sortDir: null };
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 
 // ========== FILTER CHIPS ==========
@@ -46,6 +46,38 @@ function _dhtClearFilters() {
     _dhtRenderTable();
 }
 
+// ========== SORT DEFINITIONS ==========
+var _dhtSortDefs = [
+    { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
+    { key: 'ship_count',       label: 'Lần Trả Ship',   type: 'num',  align: 'center' },
+    { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
+    { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
+    { key: 'source',           label: 'Nguồn',          type: 'text' },
+    { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
+    { key: 'customer_phone',   label: 'SĐT',            type: 'text' },
+    { key: 'cskh_name',        label: 'CSKH',           type: 'text' },
+    { key: 'province',         label: 'Thành Phố',      type: 'text' },
+    { key: 'total_quantity',   label: 'Tổng SL',        type: 'num' },
+    { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
+    { key: 'deposit_amount',   label: 'Đặt Cọc',       type: 'num' },
+    { key: 'shipping_priority',label: 'TC Gửi',         type: 'text' },
+    { key: 'shipping_date',    label: 'Ngày Gửi',       type: 'date' },
+    { key: 'last_updated_at',  label: 'Lịch Sử CN',     type: 'date' },
+    { key: null,               label: '',                type: 'none' }
+];
+
+function _dhtSortCol(key) {
+    if (_dht.sortCol === key) {
+        // Cycle: asc → desc → none
+        if (_dht.sortDir === 'asc') { _dht.sortDir = 'desc'; }
+        else { _dht.sortCol = null; _dht.sortDir = null; }
+    } else {
+        _dht.sortCol = key;
+        _dht.sortDir = 'asc';
+    }
+    _dhtRenderTable();
+}
+
 function _dhtRenderTable() {
     // Re-render from cached data without API call
     _dhtRenderFilterChips();
@@ -58,7 +90,50 @@ function _dhtRenderTable() {
     if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
     if (af.sua) filtered = filtered.filter(function(o){ return o.is_edited; });
     if (af.no) filtered = filtered.filter(function(o){ return (Number(o.remaining_amount) || 0) > 0; });
+
+    // Apply sorting
+    if (_dht.sortCol && _dht.sortDir) {
+        var def = _dhtSortDefs.find(function(d){ return d.key === _dht.sortCol; });
+        if (def) {
+            var dir = _dht.sortDir === 'asc' ? 1 : -1;
+            filtered.sort(function(a, b) {
+                var va = a[_dht.sortCol], vb = b[_dht.sortCol];
+                if (def.type === 'num') {
+                    return (Number(va || 0) - Number(vb || 0)) * dir;
+                } else if (def.type === 'date') {
+                    var da = va ? new Date(va).getTime() : 0;
+                    var db = vb ? new Date(vb).getTime() : 0;
+                    return (da - db) * dir;
+                } else {
+                    var sa = (va || '').toString().toLowerCase();
+                    var sb = (vb || '').toString().toLowerCase();
+                    return sa.localeCompare(sb, 'vi') * dir;
+                }
+            });
+        }
+    }
+
+    // Re-render header sort indicators
+    _dhtRenderSortHeaders();
     _dhtRenderOrderRows(filtered);
+}
+
+function _dhtRenderSortHeaders() {
+    var thead = document.querySelector('#dhtTable thead tr');
+    if (!thead) return;
+    var ths = '';
+    for (var i = 0; i < _dhtSortDefs.length; i++) {
+        var d = _dhtSortDefs[i];
+        if (d.type === 'none') { ths += '<th></th>'; continue; }
+        var isActive = _dht.sortCol === d.key;
+        var arrow = '';
+        if (isActive && _dht.sortDir === 'asc') arrow = ' ▲';
+        else if (isActive && _dht.sortDir === 'desc') arrow = ' ▼';
+        var align = d.align ? ';text-align:' + d.align : '';
+        var cls = isActive ? ' dht-th-active' : '';
+        ths += '<th class="dht-th-sort' + cls + '" onclick="_dhtSortCol(\'' + d.key + '\')" style="cursor:pointer;user-select:none;position:relative' + align + '">' + d.label + '<span class="dht-sort-arrow">' + arrow + '</span></th>';
+    }
+    thead.innerHTML = ths;
 }
 
 async function renderDonhangtongPage(content) {
@@ -79,7 +154,11 @@ async function renderDonhangtongPage(content) {
             +'.dht-sb-month{padding:5px 16px 5px 44px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fafafa}'
             +'.dht-sb-month:hover{background:#fffbeb}.dht-sb-month.active{background:#fef3c7;font-weight:700}'
             +'.dht-sb-day{padding:4px 16px 4px 60px;font-size:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}'
-            +'.dht-sb-day:hover{background:#fffdf5}.dht-sb-day.active{background:#fef9c3;font-weight:700}';
+            +'.dht-sb-day:hover{background:#fffdf5}.dht-sb-day.active{background:#fef9c3;font-weight:700}'
+            +'.dht-th-sort{transition:background .15s,color .15s;white-space:nowrap}'
+            +'.dht-th-sort:hover{background:rgba(255,255,255,0.15) !important}'
+            +'.dht-th-active{background:rgba(218,165,32,0.25) !important}'
+            +'.dht-sort-arrow{font-size:10px;margin-left:3px;opacity:0.9}';
         document.head.appendChild(st);
     }
     const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
