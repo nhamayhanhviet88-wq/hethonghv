@@ -9,7 +9,7 @@ var _dhtFilterDefs = [
     { key: 'za',   label: 'Đã Zalo',     bg: '#dbeafe', color: '#1e40af', activeBg: '#2563eb', activeColor: '#fff' },
     { key: 'noza', label: 'Chưa Zalo',   bg: '#f1f5f9', color: '#64748b', activeBg: '#475569', activeColor: '#fff' },
     { key: 'loi',  label: 'Báo Lỗi',     bg: '#fee2e2', color: '#dc2626', activeBg: '#dc2626', activeColor: '#fff' },
-    { key: 'sua',  label: 'Đơn Sửa',     bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' },
+    { key: 'sua',  label: 'Lên Đơn Sửa', bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' },
     { key: 'no',   label: 'Còn Nợ',      bg: '#ffedd5', color: '#c2410c', activeBg: '#ea580c', activeColor: '#fff' }
 ];
 
