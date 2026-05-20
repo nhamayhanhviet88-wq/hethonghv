@@ -842,7 +842,7 @@ function _dhtEditOrder(id) {
             <div class="form-group"><label>Tên Khách</label><input id="dhtEdName" class="form-control" value="${o.customer_name || ''}"></div>
             <div class="form-group"><label>SĐT</label><input id="dhtEdPhone" class="form-control" value="${o.customer_phone || ''}"></div>
             <div class="form-group"><label>CSKH</label><select id="dhtEdCskh" class="form-control"><option value="">--</option>${staffOpts}</select></div>
-            <div class="form-group"><label>Thành Phố</label><input id="dhtEdProv" class="form-control" value="${o.province || ''}"></div>
+            <div class="form-group" style="position:relative"><label>Thành Phố</label><input id="dhtEdProv" class="form-control" value="${o.province || ''}" autocomplete="off" placeholder="Gõ để tìm tỉnh/TP..." oninput="_dhtFilterEdProv()" onfocus="_dhtFilterEdProv()"><div id="dhtEdProvList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>
             <div class="form-group"><label>Tổng SL</label><input type="number" id="dhtEdQty" class="form-control" value="${o.total_quantity || 0}"></div>
             <div class="form-group"><label>Tổng Tiền</label><input type="number" id="dhtEdTotal" class="form-control" value="${o.total_amount || 0}"></div>
             <div class="form-group"><label>Ưu Đãi</label><input type="number" id="dhtEdDiscount" class="form-control" value="${o.discount_amount || 0}"></div>
@@ -879,6 +879,44 @@ async function _dhtSubmitEdit(id) {
     if (data.success) { showToast('✅ Đã cập nhật'); closeModal(); await _dhtLoadTree(); await _dhtLoadOrders(); }
     else { showToast(data.error || 'Lỗi', 'error'); }
 }
+
+// ★ Edit form province filter/pick (reuses _dhtProvinces from dht_create.js)
+function _dhtFilterEdProv() {
+    var input = document.getElementById('dhtEdProv');
+    var list = document.getElementById('dhtEdProvList');
+    if (!input || !list || typeof _dhtProvinces === 'undefined') return;
+    var q = (input.value || '').toLowerCase().trim();
+    var matches = _dhtProvinces.filter(function(p) { return p.toLowerCase().indexOf(q) >= 0; });
+    if (matches.length === 1 && matches[0].toLowerCase() === q) {
+        input.value = matches[0]; input.style.borderColor = '#10b981'; list.style.display = 'none'; return;
+    }
+    if (matches.length === 0) {
+        list.innerHTML = '<div style="padding:10px 12px;text-align:center;font-size:11px;color:#dc2626;font-weight:600">❌ Không tìm thấy</div>';
+        list.style.display = 'block'; input.style.borderColor = '#ef4444'; return;
+    }
+    input.style.borderColor = '#daa520';
+    list.innerHTML = matches.map(function(p) {
+        return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px"'
+            + ' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
+            + ' onclick="document.getElementById(\'dhtEdProv\').value=\'' + p.replace(/'/g, "\\'") + '\';document.getElementById(\'dhtEdProv\').style.borderColor=\'#10b981\';document.getElementById(\'dhtEdProvList\').style.display=\'none\'">'
+            + p + '</div>';
+    }).join('');
+    list.style.display = 'block';
+}
+document.addEventListener('click', function(e) {
+    var list = document.getElementById('dhtEdProvList');
+    var input = document.getElementById('dhtEdProv');
+    if (list && input && !input.contains(e.target) && !list.contains(e.target)) {
+        list.style.display = 'none';
+        // Validate
+        var val = (input.value || '').trim();
+        if (val && typeof _dhtProvinces !== 'undefined') {
+            var found = _dhtProvinces.find(function(p) { return p.toLowerCase() === val.toLowerCase(); });
+            if (found) { input.value = found; input.style.borderColor = '#10b981'; }
+            else { input.value = ''; input.style.borderColor = '#ef4444'; showToast('⚠️ Tỉnh/TP không hợp lệ — chọn từ danh sách', 'error'); }
+        }
+    }
+});
 
 // ========== DELETE ==========
 async function _dhtDeleteOrder(id) {

@@ -981,9 +981,19 @@ function _dhtFilterProvince() {
     var matches = _dhtProvinces.filter(function(p) {
         return p.toLowerCase().indexOf(q) >= 0;
     });
-    if (matches.length === 0 || (matches.length === 1 && matches[0] === input.value)) {
+    // Auto-select if exact match typed
+    if (matches.length === 1 && matches[0].toLowerCase() === q) {
+        input.value = matches[0];
+        input.style.borderColor = '#10b981';
         list.style.display = 'none'; return;
     }
+    if (matches.length === 0) {
+        list.innerHTML = '<div style="padding:10px 12px;text-align:center;font-size:11px;color:#dc2626;font-weight:600">❌ Không tìm thấy tỉnh/TP</div>';
+        list.style.display = 'block';
+        input.style.borderColor = '#ef4444';
+        return;
+    }
+    input.style.borderColor = '#daa520';
     list.innerHTML = matches.map(function(p) {
         var isSelected = p === input.value;
         return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;'
@@ -997,17 +1007,37 @@ function _dhtFilterProvince() {
 
 function _dhtPickProvince(val) {
     var input = document.getElementById('_co_prov');
-    if (input) input.value = val;
+    if (input) { input.value = val; input.style.borderColor = '#10b981'; }
     var list = document.getElementById('_co_provList');
     if (list) list.style.display = 'none';
 }
 
-// Close province dropdown when clicking outside
+// ★ Validate on blur: only allow values from _dhtProvinces list
+function _dhtValidateProvince() {
+    var input = document.getElementById('_co_prov');
+    if (!input) return;
+    var val = (input.value || '').trim();
+    if (!val) { input.style.borderColor = ''; return; }
+    // Case-insensitive match
+    var found = _dhtProvinces.find(function(p) { return p.toLowerCase() === val.toLowerCase(); });
+    if (found) {
+        input.value = found; // normalize casing
+        input.style.borderColor = '#10b981';
+    } else {
+        showToast('⚠️ "' + val + '" không hợp lệ — chọn tỉnh/TP từ danh sách', 'error');
+        input.value = '';
+        input.style.borderColor = '#ef4444';
+        setTimeout(function() { input.focus(); }, 100);
+    }
+}
+
+// Close province dropdown when clicking outside + validate
 document.addEventListener('click', function(e) {
     var list = document.getElementById('_co_provList');
     var input = document.getElementById('_co_prov');
     if (list && input && !input.contains(e.target) && !list.contains(e.target)) {
         list.style.display = 'none';
+        _dhtValidateProvince();
     }
 });
 
