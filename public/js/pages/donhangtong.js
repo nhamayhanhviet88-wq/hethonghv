@@ -570,7 +570,7 @@ async function _dhtShowDetail(id) {
         infoHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📄 Thông tin đơn hàng</div>`;
         infoHTML += `<table style="width:100%;border-collapse:collapse">`;
         infoHTML += row('Khách hàng', `<strong>${o.customer_name || '—'}</strong>`);
-        infoHTML += row('SĐT', o.customer_phone ? `<a href="tel:${o.customer_phone}" style="color:var(--info)">${o.customer_phone}</a>` : '—');
+        infoHTML += `<tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📞 SĐT</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:#9a3412;text-decoration:underline">'+o.customer_phone+'</a>' : '—'}</td></tr>`;
         infoHTML += `<tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📍 Địa chỉ</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px;word-break:break-word">${o.address || '—'}</td></tr>`;
         infoHTML += `<tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">🏢 Tỉnh / TP</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.province || '—'}</td></tr>`;
         infoHTML += row('CSKH', o.cskh_name || '—');
@@ -617,7 +617,7 @@ async function _dhtShowDetail(id) {
         // ── Combine all sections ──
         const bodyHTML = actionsHTML + itemsHTML + payHTML + surHTML + finHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
 
-        const titleText = `📦 ${o.order_code} — ${fmt(total)}đ`;
+        const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
         openModal(titleText, bodyHTML, footerHTML);
 
