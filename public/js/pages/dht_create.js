@@ -120,9 +120,10 @@ async function _dhtGoStep2() {
         +'<img id="_co_proofImg" style="display:none;max-width:100%;max-height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">'
         +'</div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
-        +'<div class="form-group"><label>Nhà Vận Chuyển <span style="color:red">*</span></label><select id="_co_carrier" class="form-control"><option value="">-- Chọn --</option>'+carOpts+'</select></div>'
+        +'<div class="form-group"><label>Nhà Vận Chuyển <span style="color:red">*</span></label><select id="_co_carrier" class="form-control" onchange="_dhtOnCarrierChange()"><option value="">-- Chọn --</option>'+carOpts+'</select></div>'
         +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div>'
         +'</div>'
+        +'<div id="_co_carrierExtra" style="display:none;margin-top:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px"></div>'
         // Deposit info
         +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
 
@@ -183,6 +184,20 @@ async function _dhtGoStep2() {
         // Carrier
         var carSel = document.getElementById('_co_carrier');
         if (carSel && o.carrier_id) carSel.value = o.carrier_id;
+        // Carrier Extra (Nhà Xe / Người Nhận Hộ)
+        _dhtOnCarrierChange();
+        if (o.carrier_extra) {
+            var ce = typeof o.carrier_extra === 'string' ? JSON.parse(o.carrier_extra) : o.carrier_extra;
+            if (ce.type === 'nha_xe') {
+                var bn = document.getElementById('_co_busName'); if(bn) bn.value = ce.bus_name || '';
+                var bp = document.getElementById('_co_busPhone'); if(bp) bp.value = ce.bus_phone || '';
+                var bt = document.getElementById('_co_busTime'); if(bt) bt.value = ce.bus_departure_time || '';
+            } else if (ce.type === 'nguoi_nhan_ho') {
+                var pn = document.getElementById('_co_proxyName'); if(pn) pn.value = ce.proxy_name || '';
+                var pa = document.getElementById('_co_proxyAddr'); if(pa) pa.value = ce.proxy_address || '';
+                var pp = document.getElementById('_co_proxyPhone'); if(pp) pp.value = ce.proxy_phone || '';
+            }
+        }
         // Zalo
         var zaloSel = document.getElementById('_co_zalo');
         if (zaloSel) zaloSel.value = o.zalo_oa_sent ? '1' : '0';
@@ -316,6 +331,59 @@ function _dhtOnPriorityChange() {
         wrap.style.display = 'none';
         _dhtProofBase64 = null; // clear proof if switching away
     }
+}
+
+// === Carrier Change: show/hide extra fields ===
+function _dhtOnCarrierChange() {
+    var sel = document.getElementById('_co_carrier');
+    var wrap = document.getElementById('_co_carrierExtra');
+    if (!sel || !wrap) return;
+    var selectedText = sel.options[sel.selectedIndex]?.text || '';
+    if (selectedText.indexOf('Nhà Xe') >= 0) {
+        wrap.style.display = 'block';
+        wrap.innerHTML = '<div style="font-weight:800;font-size:12px;color:#0369a1;margin-bottom:8px">🚌 Thông tin Nhà Xe <span style="color:red">*</span></div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+            + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe</label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe</label><input id="_co_busPhone" class="form-control" placeholder="Số liên lạc" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy</label><input id="_co_busTime" class="form-control" type="time" style="font-size:12px"></div>'
+            + '</div>';
+    } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
+        wrap.style.display = 'block';
+        wrap.innerHTML = '<div style="font-weight:800;font-size:12px;color:#0369a1;margin-bottom:8px">🤝 Thông tin Người Nhận Hộ <span style="color:red">*</span></div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+            + '<div><label style="font-size:11px;font-weight:700">Tên Người Nhận Hộ</label><input id="_co_proxyName" class="form-control" placeholder="Họ tên" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Địa Chỉ</label><input id="_co_proxyAddr" class="form-control" placeholder="Địa chỉ nhận" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">SĐT Người Nhận Hộ</label><input id="_co_proxyPhone" class="form-control" placeholder="Số điện thoại" style="font-size:12px"></div>'
+            + '</div>';
+    } else {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+    }
+}
+
+// Collect carrier extra data (returns object, null, or false if validation fails)
+function _dhtGetCarrierExtra() {
+    var sel = document.getElementById('_co_carrier');
+    if (!sel) return null;
+    var selectedText = sel.options[sel.selectedIndex]?.text || '';
+    if (selectedText.indexOf('Nhà Xe') >= 0) {
+        var busName = document.getElementById('_co_busName')?.value?.trim();
+        var busPhone = document.getElementById('_co_busPhone')?.value?.trim();
+        var busTime = document.getElementById('_co_busTime')?.value?.trim();
+        if (!busName) { showToast('Nhập Tên Nhà Xe', 'error'); return false; }
+        if (!busPhone) { showToast('Nhập SĐT Nhà Xe', 'error'); return false; }
+        if (!busTime) { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
+        return { type: 'nha_xe', bus_name: busName, bus_phone: busPhone, bus_departure_time: busTime };
+    } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
+        var proxyName = document.getElementById('_co_proxyName')?.value?.trim();
+        var proxyAddr = document.getElementById('_co_proxyAddr')?.value?.trim();
+        var proxyPhone = document.getElementById('_co_proxyPhone')?.value?.trim();
+        if (!proxyName) { showToast('Nhập Tên Người Nhận Hộ', 'error'); return false; }
+        if (!proxyAddr) { showToast('Nhập Địa Chỉ Người Nhận Hộ', 'error'); return false; }
+        if (!proxyPhone) { showToast('Nhập SĐT Người Nhận Hộ', 'error'); return false; }
+        return { type: 'nguoi_nhan_ho', proxy_name: proxyName, proxy_address: proxyAddr, proxy_phone: proxyPhone };
+    }
+    return null;
 }
 
 // === Paste image proof ===
@@ -779,6 +847,9 @@ async function _dhtSubmitCreateV2() {
     if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
+    // Validate carrier extra fields
+    var carrierExtra = _dhtGetCarrierExtra();
+    if (carrierExtra === false) return; // validation failed inside
     // Validate proof image for CHUẨN priority
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
     if (pri === 'CHUẨN' && !_dhtProofBase64) {
@@ -827,6 +898,7 @@ async function _dhtSubmitCreateV2() {
         designer_user_id: desId,
         designer_type: desType,
         carrier_id: carrier,
+        carrier_extra: carrierExtra,
         expected_ship_date: shipDate,
         shipping_priority: pri,
         standard_proof_image: pri === 'CHUẨN' ? _dhtProofBase64 : null,
@@ -1200,6 +1272,7 @@ async function _dhtSubmitEditV2() {
         designer_user_id: desId,
         designer_type: desType,
         carrier_id: carrier || null,
+        carrier_extra: _dhtGetCarrierExtra() || null,
         expected_ship_date: shipDate || null,
         shipping_priority: pri,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',

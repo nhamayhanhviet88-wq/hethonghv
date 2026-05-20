@@ -9,6 +9,7 @@ module.exports = async function(fastify) {
     // Auto-migrate: add ship_count if not exists
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS ship_count INTEGER DEFAULT 0`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS carrier_extra JSONB DEFAULT NULL`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -258,10 +259,10 @@ module.exports = async function(fastify) {
                 customer_name, customer_phone, source, province, address,
                 cskh_user_id, total_quantity, total_amount, discount_amount,
                 has_vat, vat_amount, deposit_payment_id, deposit_amount_cache,
-                designer_user_id, designer_type, carrier_id,
+                designer_user_id, designer_type, carrier_id, carrier_extra,
                 expected_ship_date, shipping_priority, standard_proof_image, zalo_oa_sent,
                 department_id, notes, surcharges, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$27)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$28)
             RETURNING *
         `, [
             b.order_code.trim(),
@@ -283,6 +284,7 @@ module.exports = async function(fastify) {
             b.designer_user_id ? Number(b.designer_user_id) : null,
             b.designer_type || 'staff',
             b.carrier_id ? Number(b.carrier_id) : null,
+            b.carrier_extra ? JSON.stringify(b.carrier_extra) : null,
             b.expected_ship_date || null,
             b.shipping_priority || 'CHUẨN',
             proofPath,
@@ -725,6 +727,12 @@ module.exports = async function(fastify) {
         if (b.surcharges !== undefined) {
             sets.push(`surcharges = $${idx++}`);
             params.push(JSON.stringify(b.surcharges || []));
+        }
+
+        // Handle carrier_extra JSONB
+        if (b.carrier_extra !== undefined) {
+            sets.push(`carrier_extra = $${idx++}`);
+            params.push(b.carrier_extra ? JSON.stringify(b.carrier_extra) : null);
         }
 
         // Handle proof image

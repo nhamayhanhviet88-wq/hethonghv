@@ -541,6 +541,19 @@ async function _dhtShowDetail(id) {
         infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
         infoHTML += row('Ngày gửi dự kiến', fmtD(o.expected_ship_date));
         infoHTML += row('Vận Chuyển Đề Xuất', o.carrier_name || '—');
+        // Carrier Extra details (Nhà Xe / Người Nhận Hộ)
+        if (o.carrier_extra) {
+            var ce = typeof o.carrier_extra === 'string' ? JSON.parse(o.carrier_extra) : o.carrier_extra;
+            if (ce.type === 'nha_xe') {
+                infoHTML += row('🚌 Tên Nhà Xe', ce.bus_name || '—');
+                infoHTML += row('📞 SĐT Nhà Xe', ce.bus_phone ? '<a href="tel:'+ce.bus_phone+'" style="color:var(--info)">'+ce.bus_phone+'</a>' : '—');
+                infoHTML += row('🕐 Giờ Xe Chạy', ce.bus_departure_time || '—');
+            } else if (ce.type === 'nguoi_nhan_ho') {
+                infoHTML += row('🤝 Người Nhận Hộ', ce.proxy_name || '—');
+                infoHTML += row('📍 Địa Chỉ Nhận Hộ', ce.proxy_address || '—');
+                infoHTML += row('📞 SĐT Nhận Hộ', ce.proxy_phone ? '<a href="tel:'+ce.proxy_phone+'" style="color:var(--info)">'+ce.proxy_phone+'</a>' : '—');
+            }
+        }
         infoHTML += `</table></div>`;
 
         // ── Section 7: 🚚 Thông tin vận chuyển ──
