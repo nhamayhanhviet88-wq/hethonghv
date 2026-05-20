@@ -122,20 +122,19 @@ function _dhtRenderSortHeaders() {
     var thead = document.querySelector('#dhtTable thead tr');
     if (!thead) return;
     var ths = '';
-    var baseBg = 'var(--gray-800)';
-    var activeBg = '#3d350e';
-    var activeColor = '#ffd700';
     for (var i = 0; i < _dhtSortDefs.length; i++) {
         var d = _dhtSortDefs[i];
-        if (d.type === 'none') { ths += '<th style="background:' + baseBg + '"></th>'; continue; }
+        if (d.type === 'none') { ths += '<th></th>'; continue; }
         var isActive = _dht.sortCol === d.key;
         var arrow = '';
         if (isActive && _dht.sortDir === 'asc') arrow = ' ▲';
         else if (isActive && _dht.sortDir === 'desc') arrow = ' ▼';
         var align = d.align ? ';text-align:' + d.align : '';
-        var bg = isActive ? activeBg : baseBg;
-        var clr = isActive ? activeColor : '#fff';
-        ths += '<th class="dht-th-sort" onclick="_dhtSortCol(\'' + d.key + '\')" style="background:' + bg + ';color:' + clr + ';cursor:pointer;user-select:none' + align + '">' + d.label + '<span class="dht-sort-arrow">' + arrow + '</span></th>';
+        if (isActive) {
+            ths += '<th class="dht-th-sort" onclick="_dhtSortCol(\'' + d.key + '\')" style="background:#ffd700;color:#122546;cursor:pointer;user-select:none' + align + '">' + d.label + '<span class="dht-sort-arrow">' + arrow + '</span></th>';
+        } else {
+            ths += '<th class="dht-th-sort" onclick="_dhtSortCol(\'' + d.key + '\')" style="cursor:pointer;user-select:none' + align + '">' + d.label + '</th>';
+        }
     }
     thead.innerHTML = ths;
 }
