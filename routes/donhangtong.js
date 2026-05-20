@@ -154,8 +154,8 @@ module.exports = async function(fastify) {
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 u_updated.full_name AS last_updated_by_name,
-                COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) AS remaining_amount
+                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
+                COALESCE(o.total_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
