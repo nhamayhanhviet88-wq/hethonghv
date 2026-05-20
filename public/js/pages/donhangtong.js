@@ -262,9 +262,9 @@ async function renderDonhangtongPage(content) {
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtLoadOrders(), 400); });
-    // Default: load current month
+    // Default: load current year (no month pre-selected)
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    _dht.filter = { year: nowVN.getFullYear(), month: nowVN.getMonth()+1 };
+    _dht.filter = { year: nowVN.getFullYear() };
     _dhtSyncDateInputs();
     // Populate year dropdown (current year ± 2)
     var ypEl = document.getElementById('dhtYearPick');
@@ -442,11 +442,28 @@ function _dhtRenderOrderRows(filtered) {
 function _dhtUpdateInfo(count) {
     const el = document.getElementById('dhtFilterInfo');
     if (!el) return;
-    const parts = [];
-    if (_dht.filter.year) parts.push('Năm ' + _dht.filter.year);
-    if (_dht.filter.month) parts.push('T' + _dht.filter.month);
-    if (_dht.filter.day) parts.push('Ngày ' + _dht.filter.day);
-    el.textContent = (parts.length > 0 ? '🔍 ' + parts.join(' • ') + ' — ' : '') + count + ' đơn';
+    var parts = [];
+    if (_dht.filter.day) {
+        var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        parts.push('<span style="color:#fbbf24">📅</span> HÔM NAY ' + _dht.filter.day + '/' + (_dht.filter.month||d.getMonth()+1) + '/' + (_dht.filter.year||d.getFullYear()));
+    } else {
+        if (_dht.filter.year) parts.push('<span style="color:#fbbf24">📆</span> NĂM ' + _dht.filter.year);
+        if (_dht.filter.month) parts.push('<span style="color:#60a5fa">🗓️</span> THÁNG ' + _dht.filter.month);
+    }
+    if (_dht.filter.category_id) {
+        var cat = (_dht.categories||[]).find(function(c){ return c.id == _dht.filter.category_id; });
+        if (cat) parts.push('<span style="color:#34d399">📁</span> ' + cat.name);
+    }
+    if (_dht.cskhFilter) {
+        var cskhName = '';
+        (_dht.orders||[]).forEach(function(o){ if(Number(o.cskh_user_id)===_dht.cskhFilter) cskhName = o.cskh_name; });
+        if (cskhName) parts.push('<span style="color:#a78bfa">👤</span> ' + cskhName);
+    }
+    var label = parts.length > 0 ? parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ') : 'Tất cả';
+    el.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:0.3px">'
+        + label
+        + ' <span style="opacity:0.5;margin:0 4px">—</span> <span style="color:#fbbf24;font-weight:900">' + count + '</span> đơn'
+        + '</div>';
 }
 
 // ========== TOGGLE SHIPPING ==========
