@@ -115,7 +115,8 @@ async function _dhtGoStep2() {
         // === Paste zone for CHUẨN proof (hidden by default since GẤP is default) ===
         +'<div id="_co_proofWrap" style="margin-top:8px;display:none">'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Giờ Hàng Ra <span style="color:red">*</span></label><input id="_co_deliveryTime" class="form-control" list="_dl_deliveryTime" placeholder="VD: 08:00" style="font-size:12px"><datalist id="_dl_deliveryTime">'+_dhtTimeOpts()+'</datalist></div>'
+        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Giờ Hàng Ra (24h) <span style="color:red">*</span></label>'
+        +'<div style="display:flex;gap:6px;align-items:center"><select id="_co_deliveryHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_deliveryMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
         +'<div></div></div>'
         +'<label style="font-weight:700;font-size:12px;color:#1e293b">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN <span style="color:red">*</span></label>'
         +'<div id="_co_proofZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-top:4px;background:#f8fafc;transition:all .2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column" onpaste="_dhtPasteProof(event)" onclick="this.focus()" onfocus="this.style.borderColor=\'#b8860b\';this.style.background=\'#fffbeb\'" onblur="this.style.borderColor=\'#cbd5e1\';this.style.background=\'#f8fafc\'">'
@@ -175,8 +176,11 @@ async function _dhtGoStep2() {
         _dhtOnPriorityChange();
         // Pre-fill delivery time for CHUẨN
         if (o.standard_delivery_time) {
-            var dtSel = document.getElementById('_co_deliveryTime');
-            if (dtSel) dtSel.value = o.standard_delivery_time;
+            var dtParts = o.standard_delivery_time.split(':');
+            var dtH = document.getElementById('_co_deliveryHour');
+            var dtM = document.getElementById('_co_deliveryMin');
+            if (dtH && dtParts[0] !== undefined) dtH.value = dtParts[0];
+            if (dtM && dtParts[1] !== undefined) dtM.value = dtParts[1];
         }
         // Proof image
         if (o.standard_proof_image) {
@@ -199,7 +203,9 @@ async function _dhtGoStep2() {
             if (ce.type === 'nha_xe') {
                 var bn = document.getElementById('_co_busName'); if(bn) bn.value = ce.bus_name || '';
                 var bp = document.getElementById('_co_busPhone'); if(bp) bp.value = ce.bus_phone || '';
-                var bt = document.getElementById('_co_busTime'); if(bt) bt.value = ce.bus_departure_time || '';
+                var btParts = (ce.bus_departure_time || '').split(':');
+                var btH = document.getElementById('_co_busHour'); if(btH && btParts[0]) btH.value = btParts[0];
+                var btM = document.getElementById('_co_busMin'); if(btM && btParts[1]) btM.value = btParts[1];
             } else if (ce.type === 'nguoi_nhan_ho') {
                 var pn = document.getElementById('_co_proxyName'); if(pn) pn.value = ce.proxy_name || '';
                 var pa = document.getElementById('_co_proxyAddr'); if(pa) pa.value = ce.proxy_address || '';
@@ -327,14 +333,20 @@ function _dhtValidateShipDate() {
     }
 }
 
-// === 24h Time Options Helper ===
-function _dhtTimeOpts() {
+// === 24h Hour & Minute Options Helpers ===
+function _dhtHourOpts() {
     var h = '';
     for (var i = 0; i < 24; i++) {
-        for (var m = 0; m < 60; m += 30) {
-            var t = (i < 10 ? '0' : '') + i + ':' + (m < 10 ? '0' : '') + m;
-            h += '<option value="' + t + '">' + t + '</option>';
-        }
+        var v = (i < 10 ? '0' : '') + i;
+        h += '<option value="' + v + '">' + v + '</option>';
+    }
+    return h;
+}
+function _dhtMinOpts() {
+    var h = '';
+    for (var m = 0; m < 60; m += 5) {
+        var v = (m < 10 ? '0' : '') + m;
+        h += '<option value="' + v + '">' + v + '</option>';
     }
     return h;
 }
@@ -365,7 +377,7 @@ function _dhtOnCarrierChange() {
             + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
             + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe</label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
             + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe</label><input id="_co_busPhone" class="form-control" placeholder="Số liên lạc" style="font-size:12px"></div>'
-            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy</label><input id="_co_busTime" class="form-control" list="_dl_busTime" placeholder="VD: 14:00" style="font-size:12px"><datalist id="_dl_busTime">'+_dhtTimeOpts()+'</datalist></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy (24h)</label><div style="display:flex;gap:4px;align-items:center"><select id="_co_busHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_busMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
             + '</div>';
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         wrap.style.display = 'block';
@@ -389,10 +401,12 @@ function _dhtGetCarrierExtra() {
     if (selectedText.indexOf('Nhà Xe') >= 0) {
         var busName = document.getElementById('_co_busName')?.value?.trim();
         var busPhone = document.getElementById('_co_busPhone')?.value?.trim();
-        var busTime = document.getElementById('_co_busTime')?.value?.trim();
+        var busH = document.getElementById('_co_busHour')?.value;
+        var busM = document.getElementById('_co_busMin')?.value;
         if (!busName) { showToast('Nhập Tên Nhà Xe', 'error'); return false; }
         if (!busPhone) { showToast('Nhập SĐT Nhà Xe', 'error'); return false; }
-        if (!busTime) { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
+        if (!busH || busM === undefined || busM === '') { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
+        var busTime = busH + ':' + busM;
         return { type: 'nha_xe', bus_name: busName, bus_phone: busPhone, bus_departure_time: busTime };
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         var proxyName = document.getElementById('_co_proxyName')?.value?.trim();
@@ -873,8 +887,9 @@ async function _dhtSubmitCreateV2() {
     // Validate proof image for CHUẨN priority
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
     if (pri === 'CHUẨN') {
-        var deliveryTime = document.getElementById('_co_deliveryTime')?.value;
-        if (!deliveryTime) { showToast('⏰ Chọn Giờ Hàng Ra', 'error'); return; }
+        var dH = document.getElementById('_co_deliveryHour')?.value;
+        var dM = document.getElementById('_co_deliveryMin')?.value;
+        if (!dH || dM === undefined || dM === '') { showToast('⏰ Chọn Giờ Hàng Ra', 'error'); return; }
         if (!_dhtProofBase64) {
             showToast('📸 Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN (Ctrl+V)', 'error');
             document.getElementById('_co_proofZone')?.focus();
@@ -925,7 +940,7 @@ async function _dhtSubmitCreateV2() {
         carrier_extra: carrierExtra,
         expected_ship_date: shipDate,
         shipping_priority: pri,
-        standard_delivery_time: pri === 'CHUẨN' ? (document.getElementById('_co_deliveryTime')?.value || null) : null,
+        standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
         standard_proof_image: pri === 'CHUẨN' ? _dhtProofBase64 : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         department_id: _dhtCreate.myInfo?.department_id,
@@ -1300,7 +1315,7 @@ async function _dhtSubmitEditV2() {
         carrier_extra: _dhtGetCarrierExtra() || null,
         expected_ship_date: shipDate || null,
         shipping_priority: pri,
-        standard_delivery_time: pri === 'CHUẨN' ? (document.getElementById('_co_deliveryTime')?.value || null) : null,
+        standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         items: items
     };
