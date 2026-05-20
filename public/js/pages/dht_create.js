@@ -206,6 +206,8 @@ async function _dhtGoStep2() {
             if (ce.type === 'nha_xe') {
                 var bn = document.getElementById('_co_busName'); if(bn) bn.value = ce.bus_name || '';
                 var bp = document.getElementById('_co_busPhone'); if(bp) bp.value = ce.bus_phone || '';
+                var bl = document.getElementById('_co_busLocation'); if(bl) bl.value = ce.bus_location || '';
+                var bd = document.getElementById('_co_busDestination'); if(bd) bd.value = ce.bus_destination || '';
                 var btParts = (ce.bus_departure_time || '').split(':');
                 var btH = document.getElementById('_co_busHour'); if(btH && btParts[0]) btH.value = btParts[0];
                 var btM = document.getElementById('_co_busMin'); if(btM && btParts[1]) btM.value = btParts[1];
@@ -380,9 +382,15 @@ function _dhtOnCarrierChange() {
     if (selectedText.indexOf('Nhà Xe') >= 0) {
         wrap.style.display = 'block';
         wrap.innerHTML = '<div style="font-weight:800;font-size:12px;color:#0369a1;margin-bottom:8px">🚌 Thông tin Nhà Xe <span style="color:red">*</span></div>'
-            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
             + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe</label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
             + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe <span style="font-size:9px;color:#6b7280">(10 số)</span></label><input id="_co_busPhone" class="form-control" type="tel" maxlength="10" placeholder="VD: 0901234567" style="font-size:12px" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,10);this.style.borderColor=this.value.length===10?\'#10b981\':this.value.length>0?\'#f59e0b\':\'\'"></div>'
+            + '</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+            + '<div><label style="font-size:11px;font-weight:700">Địa Điểm Xe Đỗ <span style="color:red">*</span></label><input id="_co_busLocation" class="form-control" placeholder="Nhập địa điểm xe đỗ" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Xe Đi Về Đâu <span style="color:red">*</span></label><input id="_co_busDestination" class="form-control" placeholder="Nhập nơi xe đi về" style="font-size:12px"></div>'
+            + '</div>'
+            + '<div style="display:grid;grid-template-columns:1fr;gap:8px">'
             + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy (24h)</label><div style="display:flex;gap:4px;align-items:center"><select id="_co_busHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_busMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
             + '</div>';
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
@@ -413,10 +421,14 @@ function _dhtGetCarrierExtra() {
         if (!busPhone) { showToast('Nhập SĐT Nhà Xe', 'error'); return false; }
         var phoneDigits = busPhone.replace(/\D/g, '');
         if (phoneDigits.length !== 10) { showToast('SĐT Nhà Xe phải đúng 10 số (hiện tại: ' + phoneDigits.length + ' số)', 'error'); document.getElementById('_co_busPhone')?.focus(); return false; }
+        var busLocation = document.getElementById('_co_busLocation')?.value?.trim();
+        var busDestination = document.getElementById('_co_busDestination')?.value?.trim();
+        if (!busLocation) { showToast('Nhập Địa Điểm Xe Đỗ', 'error'); document.getElementById('_co_busLocation')?.focus(); return false; }
+        if (!busDestination) { showToast('Nhập Xe Đi Về Đâu', 'error'); document.getElementById('_co_busDestination')?.focus(); return false; }
         if (!busH || busH === '') { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
         if (busM === undefined || busM === null || busM === '') { showToast('Chọn Phút Xe Chạy', 'error'); return false; }
         var busTime = busH + ':' + busM;
-        return { type: 'nha_xe', bus_name: busName, bus_phone: phoneDigits, bus_departure_time: busTime };
+        return { type: 'nha_xe', bus_name: busName, bus_phone: phoneDigits, bus_location: busLocation, bus_destination: busDestination, bus_departure_time: busTime };
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         var proxyName = document.getElementById('_co_proxyName')?.value?.trim();
         var proxyAddr = document.getElementById('_co_proxyAddr')?.value?.trim();

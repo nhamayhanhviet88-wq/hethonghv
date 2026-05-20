@@ -728,6 +728,8 @@ async function _dhtShowDetail(id) {
             if (ce.type === 'nha_xe') {
                 saleKtHTML += row('🚌 Tên Nhà Xe', ce.bus_name || '—');
                 saleKtHTML += row('📞 SĐT Nhà Xe', ce.bus_phone ? '<a href="tel:'+ce.bus_phone+'" style="color:var(--info)">'+ce.bus_phone+'</a>' : '—');
+                saleKtHTML += row('📍 Địa Điểm Xe Đỗ', ce.bus_location || '—');
+                saleKtHTML += row('🗺️ Xe Đi Về Đâu', ce.bus_destination || '—');
                 saleKtHTML += row('🕐 Giờ Xe Chạy', ce.bus_departure_time || '—');
             } else if (ce.type === 'nguoi_nhan_ho') {
                 saleKtHTML += row('🤝 Người Nhận Hộ', ce.proxy_name || '—');
