@@ -170,37 +170,41 @@ var _isDoitacDomain = window.location.hostname.indexOf('dongphuchv.net') !== -1;
 // ========== GLOBAL AUTOCOMPLETE PROTECTION ==========
 // Prevents browser from suggesting previously entered customer data (names, phones, addresses)
 // Uses MutationObserver to catch dynamically rendered inputs (modals, CRM forms, etc.)
+// Covers ALL input types: text, tel, email, search, number, url, and inputs without type attribute
 (function() {
+    var _acSkipTypes = { password: 1, hidden: 1, checkbox: 1, radio: 1, file: 1, submit: 1, reset: 1, button: 1, image: 1, range: 1, color: 1 };
     function _killAutocomplete(root) {
-        const inputs = (root || document).querySelectorAll('input[type="text"]:not([autocomplete="one-time-code"]):not([data-ac-ok])');
-        inputs.forEach(inp => {
-            // Skip disabled/readonly/hidden inputs
-            if (inp.disabled || inp.readOnly || inp.type === 'hidden') return;
-            inp.setAttribute('autocomplete', 'one-time-code');
-            inp.setAttribute('data-ac-ok', '1');
-        });
-        // Also protect textareas and tel/email inputs
-        const extras = (root || document).querySelectorAll('textarea:not([data-ac-ok]), input[type="tel"]:not([data-ac-ok]), input[type="email"]:not([data-ac-ok])');
-        extras.forEach(inp => {
-            if (inp.disabled || inp.readOnly) return;
-            inp.setAttribute('autocomplete', 'one-time-code');
-            inp.setAttribute('data-ac-ok', '1');
-        });
-        // Protect forms
-        const forms = (root || document).querySelectorAll('form:not([autocomplete])');
-        forms.forEach(f => f.setAttribute('autocomplete', 'off'));
+        // Target ALL inputs and textareas that haven't been processed yet
+        var els = (root || document).querySelectorAll('input:not([data-ac-ok]), textarea:not([data-ac-ok])');
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            // Skip non-text-entry types, disabled, readonly
+            if (el.disabled || el.readOnly) continue;
+            var t = (el.type || 'text').toLowerCase();
+            if (_acSkipTypes[t]) continue;
+            // "one-time-code" is respected by Chrome/Edge even when "off" is ignored
+            el.setAttribute('autocomplete', 'one-time-code');
+            el.setAttribute('data-ac-ok', '1');
+        }
+        // Protect all forms
+        var forms = (root || document).querySelectorAll('form:not([data-ac-ok])');
+        for (var f = 0; f < forms.length; f++) {
+            forms[f].setAttribute('autocomplete', 'off');
+            forms[f].setAttribute('data-ac-ok', '1');
+        }
     }
     // Run on page load
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => _killAutocomplete());
+        document.addEventListener('DOMContentLoaded', function() { _killAutocomplete(); });
     } else {
         _killAutocomplete();
     }
     // Watch for dynamically added inputs (CRM modals, popups, etc.)
-    const _acObserver = new MutationObserver(mutations => {
-        for (const m of mutations) {
-            if (m.addedNodes.length) _killAutocomplete();
-        }
+    var _acTimer = null;
+    var _acObserver = new MutationObserver(function() {
+        // Debounce to avoid running on every tiny DOM mutation
+        if (_acTimer) clearTimeout(_acTimer);
+        _acTimer = setTimeout(function() { _killAutocomplete(); }, 50);
     });
     _acObserver.observe(document.documentElement, { childList: true, subtree: true });
 })();
