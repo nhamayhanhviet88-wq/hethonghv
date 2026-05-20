@@ -86,18 +86,23 @@ async function _dhtGoStep2() {
         // === Phụ Phí ===
         +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-        +'<span style="font-weight:800;font-size:12px;color:#92400e">💰 Phụ Phí</span>'
+        +'<span style="font-weight:800;font-size:12px;color:#92400e">Thêm Phụ Phí</span>'
         +'<button type="button" onclick="_dhtAddSurcharge()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">➕ Thêm Phụ Phí</button></div>'
         +'<div id="_co_surcharges"></div></div>'
-        // === Tổng kết: 2 hàng x 2 cột ===
+        // === Tổng kết: 4 hàng ===
         +'<div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #e2e8f0">'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label>Tổng Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
-        +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
-        +'<div class="form-group"><label>Tổng sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
+        +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div>'
         +'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
         +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div>'
         +'</div></div>'
         // === Vận chuyển: 2 hàng x 2 cột ===
@@ -624,8 +629,9 @@ function _dhtCalcTotal() {
     var gTotal=gRaw+gVat, remain=gTotal-depAmt;
     var depEl = document.getElementById('_co_deposit');
     if (depEl) depEl.value = depAmt.toLocaleString('vi-VN') + 'đ';
-    document.getElementById('_co_total').value=gRaw.toLocaleString('vi-VN')+'đ';
-    document.getElementById('_co_vatTotal').value=gVat.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_total').value=(gRaw-surTotal).toLocaleString('vi-VN')+'đ';
+    var surEl=document.getElementById('_co_surTotal');
+    if(surEl) surEl.value=surTotal.toLocaleString('vi-VN')+'đ';
     document.getElementById('_co_totalVatAmt').value=gVat.toLocaleString('vi-VN')+'đ';
     document.getElementById('_co_totalVat').value=gTotal.toLocaleString('vi-VN')+'đ';
     var remainEl = document.getElementById('_co_remain');
