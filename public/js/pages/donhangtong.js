@@ -679,7 +679,7 @@ function _dhtShowItemDetail(idx) {
 
         html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Kỹ thuật may (${techniques.length})</div>`;
         if (canSeeCost) {
-            html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;font-weight:700;color:var(--navy)">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700;color:var(--navy)">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí SX</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí PP</th></tr></thead><tbody>`;
+            html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px 10px;text-align:left;font-weight:700">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700">Phí SX</th><th style="padding:6px 10px;text-align:right;font-weight:700">Phí PP</th></tr></thead><tbody>`;
             for (const t of techniques) {
                 html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:600">${t.name}</td><td style="padding:6px 10px;text-align:center">${t.qty || 1}</td><td style="padding:6px 10px;text-align:right">${fmt(t.fp)}đ</td><td style="padding:6px 10px;text-align:right">${fmt(t.pp)}đ</td></tr>`;
             }
