@@ -239,7 +239,7 @@ async function _dhtShowDetail(id) {
             { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `alert('Chức năng Báo Đơn Lỗi đang phát triển!')` },
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})` },
             { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')` },
-            { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `window.open('/api/dht/orders/${id}/print','_blank')` },
+            { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})` },
         ];
         for (const a of actionBtns) {
             actionsHTML += `<div onclick="${a.fn}" style="text-align:center;cursor:pointer;padding:10px 14px;border-radius:12px;transition:all .15s;min-width:80px" onmouseover="this.style.background='${a.bg}'" onmouseout="this.style.background='transparent'">`;
@@ -752,5 +752,144 @@ async function _dhtApplyDiscount(orderId) {
         // Reload detail
         const row = document.querySelector(`tr[data-dht-id="${orderId}"]`);
         if (row) row.click();
+    } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ========== PRINT SHIPPING RECEIPT (Client-side) ==========
+async function _dhtPrintOrder(orderId) {
+    try {
+        const res = await fetch(`/api/dht/orders/${orderId}/detail`);
+        if (!res.ok) throw new Error('Không thể tải dữ liệu đơn hàng');
+        const d = await res.json();
+        const o = d.order;
+        const items = d.items || [];
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+
+        // Calculate financials
+        let calcBase = 0, calcVat = 0;
+        for (const it of items) {
+            const quantities = it.quantities || [];
+            const base = quantities.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+            calcBase += base;
+            calcVat += (Number(it.item_total) || 0) - base;
+        }
+        const deposit = Number(d.deposit) || 0;
+        const discount = Number(o.discount_amount) || 0;
+        const surcharges = d.surcharges || [];
+        const surTotal = surcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        const needToPay = calcBase + calcVat + surTotal - discount - deposit;
+
+        // Build item rows
+        let itemRows = '';
+        items.forEach((it, i) => {
+            const quantities = it.quantities || [];
+            const base = quantities.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+            const vatAmt = (Number(it.item_total) || 0) - base;
+            const vatPct = base > 0 && vatAmt > 0 ? Math.round(vatAmt / base * 100) : 0;
+            const matColor = (it.material_name || '') + (it.color_name ? ' - ' + it.color_name : '');
+            const saleLabel = (it.sale_type || '').toLowerCase() === 'bán' || (it.sale_type || '').toLowerCase() === 'ban' ? 'Bán' : 'Quà';
+            itemRows += `<tr>
+                <td style="text-align:center">${i+1}</td>
+                <td>${saleLabel}</td>
+                <td style="font-weight:700">${it.product_name || it.description || '—'}</td>
+                <td>${matColor}</td>
+                <td style="text-align:center;font-weight:700">${it.quantity || 0}</td>
+                <td style="text-align:right">${fmt(it.unit_price)}</td>
+                <td style="text-align:center">${vatPct}%</td>
+                <td style="text-align:right;font-weight:700">${fmt(it.item_total)}</td>
+            </tr>`;
+        });
+
+        const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
+        const printDate = new Date().toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+        const html = `<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><title>Phiếu Giao Hàng - ${o.order_code}</title>
+<style>
+@page { size: A4; margin: 10mm 15mm; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',Arial,sans-serif; font-size:13px; color:#1a1a2e; background:#fff; }
+.page { max-width:750px; margin:0 auto; padding:20px; }
+.header { display:flex; align-items:center; gap:16px; padding-bottom:12px; border-bottom:3px solid #1a1a2e; margin-bottom:16px; }
+.header img { width:70px; height:70px; border-radius:12px; object-fit:contain; }
+.header-info .brand { font-size:22px; font-weight:900; color:#1a1a2e; letter-spacing:1px; }
+.header-info .company { font-size:11px; font-weight:600; color:#4a4a6a; margin-top:2px; }
+.header-info .contact { font-size:10px; color:#6b7280; margin-top:4px; }
+.title { text-align:center; margin:16px 0; }
+.title h1 { font-size:24px; font-weight:900; color:#1a1a2e; letter-spacing:2px; }
+.title .sub { font-size:12px; color:#6b7280; margin-top:4px; }
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.info-box { background:#f8f9fa; border:1px solid #e5e7eb; border-radius:8px; padding:10px 14px; }
+.info-box .label { font-size:10px; font-weight:800; color:#1a1a2e; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; border-bottom:1px solid #d1d5db; padding-bottom:4px; }
+.info-box .row { display:flex; justify-content:space-between; padding:2px 0; font-size:12px; }
+.info-box .row .key { color:#6b7280; }
+.info-box .row .val { font-weight:700; color:#1a1a2e; }
+table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+table thead th { background:#1a1a2e; color:#fff; padding:8px 10px; font-size:10px; font-weight:700; text-transform:uppercase; }
+table tbody td { padding:7px 10px; border-bottom:1px solid #e5e7eb; font-size:12px; }
+table tbody tr:nth-child(even) { background:#f8f9fa; }
+.finance { background:linear-gradient(135deg,#fefce8,#fef9c3); border:2px solid #fbbf24; border-radius:10px; padding:14px; margin-bottom:16px; }
+.finance .row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
+.finance .row .key { color:#78350f; }
+.finance .row .val { font-weight:700; }
+.finance .total-row { border-top:2px solid #f59e0b; margin-top:6px; padding-top:8px; }
+.finance .total-row .key { font-size:16px; font-weight:900; color:#1a1a2e; }
+.finance .total-row .val { font-size:18px; font-weight:900; color:#dc2626; }
+.signatures { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:30px; text-align:center; }
+.sig .title-sig { font-weight:800; font-size:13px; color:#1a1a2e; margin-bottom:4px; }
+.sig .note { font-size:10px; color:#9ca3af; font-style:italic; }
+.sig .line { border-bottom:1px dotted #9ca3af; height:60px; margin-top:8px; }
+.footer { text-align:center; font-size:10px; color:#9ca3af; margin-top:20px; padding-top:8px; border-top:1px solid #e5e7eb; }
+.print-btn { position:fixed; top:16px; right:16px; background:#7c3aed; color:#fff; border:none; padding:12px 24px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(124,58,237,0.4); z-index:100; }
+.print-btn:hover { background:#6d28d9; }
+@media print { body { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; } .no-print { display:none !important; } }
+@media screen { body { background:#e5e7eb; } .page { margin:20px auto; background:#fff; box-shadow:0 4px 20px rgba(0,0,0,0.15); border-radius:8px; } }
+</style></head><body>
+<button class="print-btn no-print" onclick="window.print()">🖨️ In Phiếu</button>
+<div class="page">
+<div class="header">
+    <img src="/images/logo.png" alt="Logo">
+    <div class="header-info">
+        <div class="brand">ĐỒNG PHỤC HV</div>
+        <div class="company">Công Ty TNHH Sản Xuất & Thương Mại Quốc Tế Trương Tùng</div>
+        <div class="contact">📞 0939 845 956 &nbsp;|&nbsp; 📍 LK02-21 Khu Đô Thị Đô Nghĩa, Hà Đông, Hà Nội</div>
+    </div>
+</div>
+<div class="title"><h1>📄 PHIẾU GIAO HÀNG</h1><div class="sub">Ngày in: ${printDate}</div></div>
+<div class="info-grid">
+    <div class="info-box"><div class="label">📋 Thông tin đơn hàng</div>
+        <div class="row"><span class="key">Mã đơn:</span><span class="val">${o.order_code}</span></div>
+        <div class="row"><span class="key">Ngày lên đơn:</span><span class="val">${orderDate}</span></div>
+        <div class="row"><span class="key">Ưu tiên:</span><span class="val">${o.shipping_priority || 'CHUẨN'}</span></div>
+    </div>
+    <div class="info-box"><div class="label">👤 Thông tin khách hàng</div>
+        <div class="row"><span class="key">Họ tên:</span><span class="val">${o.customer_name || '—'}</span></div>
+        <div class="row"><span class="key">SĐT:</span><span class="val">${o.customer_phone || '—'}</span></div>
+        <div class="row"><span class="key">Địa chỉ:</span><span class="val">${o.address || '—'}</span></div>
+        <div class="row"><span class="key">Tỉnh/TP:</span><span class="val">${o.province || '—'}</span></div>
+    </div>
+</div>
+<table><thead><tr>
+    <th style="text-align:center;width:30px">#</th><th>Loại</th><th>Sản phẩm</th><th>Vải - Màu</th>
+    <th style="text-align:center">SL</th><th style="text-align:right">Đơn giá</th><th style="text-align:center">VAT</th><th style="text-align:right">Thành tiền</th>
+</tr></thead><tbody>${itemRows}</tbody></table>
+<div class="finance">
+    <div class="row"><span class="key">Tổng tiền hàng (trước VAT):</span><span class="val">${fmt(calcBase)}đ</span></div>
+    ${surTotal > 0 ? `<div class="row"><span class="key">Phụ phí:</span><span class="val">${fmt(surTotal)}đ</span></div>` : ''}
+    <div class="row"><span class="key">VAT:</span><span class="val" style="color:#6366f1">${fmt(calcVat)}đ</span></div>
+    ${discount > 0 ? `<div class="row"><span class="key">Giảm giá:</span><span class="val" style="color:#059669">-${fmt(discount)}đ</span></div>` : ''}
+    <div class="row"><span class="key">Đã đặt cọc:</span><span class="val" style="color:#2563eb">${fmt(deposit)}đ</span></div>
+    <div class="row total-row"><span class="key">💰 CẦN THANH TOÁN:</span><span class="val">${fmt(needToPay)}đ</span></div>
+</div>
+<div class="signatures">
+    <div class="sig"><div class="title-sig">BÊN GIAO HÀNG</div><div class="note">(Ký, ghi rõ họ tên)</div><div class="line"></div></div>
+    <div class="sig"><div class="title-sig">BÊN NHẬN HÀNG</div><div class="note">(Ký, ghi rõ họ tên)</div><div class="line"></div></div>
+</div>
+<div class="footer">Đồng Phục HV — Chất lượng tạo nên thương hiệu &nbsp;|&nbsp; dongphuchv.com</div>
+</div></body></html>`;
+
+        const w = window.open('', '_blank');
+        w.document.write(html);
+        w.document.close();
     } catch(e) { alert('❌ ' + e.message); }
 }
