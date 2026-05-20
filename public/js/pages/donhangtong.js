@@ -9,7 +9,7 @@ var _dhtFilterDefs = [
     { key: 'za',   label: 'Đã Zalo',     bg: '#dbeafe', color: '#1e40af', activeBg: '#2563eb', activeColor: '#fff' },
     { key: 'noza', label: 'Chưa Zalo',   bg: '#f1f5f9', color: '#64748b', activeBg: '#475569', activeColor: '#fff' },
     { key: 'loi',  label: 'Báo Lỗi',     bg: '#fee2e2', color: '#dc2626', activeBg: '#dc2626', activeColor: '#fff' },
-    { key: 'sua',  label: 'Đã Sửa',      bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' },
+    { key: 'sua',  label: 'Đơn Sửa',     bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' },
     { key: 'no',   label: 'Còn Nợ',      bg: '#ffedd5', color: '#c2410c', activeBg: '#ea580c', activeColor: '#fff' }
 ];
 
@@ -88,7 +88,7 @@ function _dhtRenderTable() {
     if (af.za) filtered = filtered.filter(function(o){ return o.zalo_oa_sent; });
     if (af.noza) filtered = filtered.filter(function(o){ return !o.zalo_oa_sent; });
     if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
-    if (af.sua) filtered = filtered.filter(function(o){ return o.is_edited; });
+    if (af.sua) filtered = filtered.filter(function(o){ return o.has_repair_order; });
     if (af.no) filtered = filtered.filter(function(o){ return (Number(o.remaining_amount) || 0) > 0; });
 
     // Apply sorting
@@ -310,7 +310,7 @@ function _dhtRenderOrderRows(filtered) {
         if (Number(o.discount_amount) > 0) badges += `<span style="${bStyle}background:#d1fae5;color:#065f46;">GG</span> `;
         if (o.zalo_oa_sent) badges += `<span style="${bStyle}background:#dbeafe;color:#1e40af;">ZA</span> `;
         if (o.has_error) badges += `<span style="${bStyle}background:#fee2e2;color:#dc2626;">LỖI</span> `;
-        if (o.is_edited) badges += `<span style="${bStyle}background:#ede9fe;color:#6d28d9;">SỬA</span> `;
+        if (o.has_repair_order) badges += `<span style="${bStyle}background:#ede9fe;color:#6d28d9;">SỬA</span> `;
         const badgeRow = badges ? `<div style="margin-top:2px;">${badges}</div>` : '';
 
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
