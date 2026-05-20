@@ -1132,7 +1132,10 @@ async function _dhtPrintOrder(orderId) {
             calcBase += base;
             calcVat += (Number(it.item_total) || 0) - base;
         }
-        const deposit = Number(d.deposit) || 0;
+        const payments = d.payments || [];
+        const deposit = payments.length > 0
+            ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+            : (Number(o.deposit_amount) || Number(o.deposit_amount_cache) || 0);
         const discount = Number(o.discount_amount) || 0;
         const surcharges = d.surcharges || [];
         const surTotal = surcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0);
