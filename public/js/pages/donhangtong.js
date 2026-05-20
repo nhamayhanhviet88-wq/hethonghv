@@ -38,7 +38,38 @@ function _dhtToggleFilter(key) {
     if (key === 'za' && _dht.activeFilters.noza) _dht.activeFilters.noza = false;
     if (key === 'noza' && _dht.activeFilters.za) _dht.activeFilters.za = false;
     _dht.activeFilters[key] = !_dht.activeFilters[key];
+    // Show discount popup when activating 'gg'
+    if (key === 'gg' && _dht.activeFilters.gg) _dhtShowDiscountPopup();
     _dhtRenderTable();
+}
+
+function _dhtShowDiscountPopup() {
+    var orders = (_dht.orders || []).filter(function(o) { return Number(o.discount_amount) > 0; });
+    var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    var totalDiscount = orders.reduce(function(s, o) { return s + (Number(o.discount_amount)||0); }, 0);
+    var rows = orders.map(function(o, i) {
+        return '<tr style="'+(i%2===0?'':'background:#f0fdf4')+'">'
+            +'<td style="padding:8px 12px;font-size:12px">'+(i+1)+'</td>'
+            +'<td style="padding:8px 12px;font-weight:700;font-size:12px;color:#1e293b">'+o.order_code+'</td>'
+            +'<td style="padding:8px 12px;font-size:12px">'+( o.customer_name||'—')+'</td>'
+            +'<td style="padding:8px 12px;text-align:right;font-size:12px">'+fmt(o.total_amount)+'đ</td>'
+            +'<td style="padding:8px 12px;text-align:right;font-weight:900;font-size:13px;color:#059669">-'+fmt(o.discount_amount)+'đ</td>'
+            +'</tr>';
+    }).join('');
+    if (orders.length === 0) {
+        rows = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;font-style:italic">Không có đơn giảm giá</td></tr>';
+    }
+    var body = '<div style="max-height:60vh;overflow-y:auto">'
+        +'<div style="display:flex;justify-content:center;margin-bottom:16px"><div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:12px 28px;border-radius:12px;text-align:center;box-shadow:0 4px 15px #05966940">'
+        +'<div style="font-size:10px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:4px">💰 TỔNG GIẢM GIÁ</div>'
+        +'<div style="font-size:22px;font-weight:900">-'+fmt(totalDiscount)+'đ</div>'
+        +'</div></div>'
+        +'<table style="width:100%;border-collapse:collapse">'
+        +'<thead><tr style="background:#065f46;color:#fff"><th style="padding:8px 12px;font-size:10px;text-align:left">#</th><th style="padding:8px 12px;font-size:10px;text-align:left">MÃ ĐƠN</th><th style="padding:8px 12px;font-size:10px;text-align:left">KHÁCH HÀNG</th><th style="padding:8px 12px;font-size:10px;text-align:right">TỔNG TIỀN</th><th style="padding:8px 12px;font-size:10px;text-align:right">GIẢM GIÁ</th></tr></thead>'
+        +'<tbody>'+rows+'</tbody>'
+        +'</table></div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px">Đóng</button>';
+    openModal('🏷️ Chi Tiết Giảm Giá — ' + orders.length + ' đơn', body, footer);
 }
 
 function _dhtClearFilters() {
