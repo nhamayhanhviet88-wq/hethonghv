@@ -236,6 +236,10 @@ async function _dhtShowDetail(id) {
         const actionBtns = [
             { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})` },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})` },
+            { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `alert('Chức năng Báo Đơn Lỗi đang phát triển!')` },
+            { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})` },
+            { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')` },
+            { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `window.open('/api/dht/orders/${id}/print','_blank')` },
         ];
         for (const a of actionBtns) {
             actionsHTML += `<div onclick="${a.fn}" style="text-align:center;cursor:pointer;padding:10px 14px;border-radius:12px;transition:all .15s;min-width:80px" onmouseover="this.style.background='${a.bg}'" onmouseout="this.style.background='transparent'">`;
@@ -728,4 +732,25 @@ function _dhtShowItemDetail(idx) {
     </div>`;
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
     document.body.appendChild(overlay);
+}
+
+// ========== APPLY DISCOUNT ==========
+async function _dhtApplyDiscount(orderId) {
+    const input = prompt('Nhập số tiền giảm giá (VNĐ):');
+    if (input === null) return;
+    const amount = Number(input.replace(/[.,\s]/g, ''));
+    if (isNaN(amount) || amount < 0) return alert('Số tiền không hợp lệ!');
+    try {
+        const res = await fetch(`/api/dht/orders/${orderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ discount_amount: amount })
+        });
+        if (!res.ok) throw new Error('Lỗi cập nhật');
+        alert('✅ Đã cập nhật giảm giá: ' + amount.toLocaleString('vi-VN') + 'đ');
+        closeModal();
+        // Reload detail
+        const row = document.querySelector(`tr[data-dht-id="${orderId}"]`);
+        if (row) row.click();
+    } catch(e) { alert('❌ ' + e.message); }
 }
