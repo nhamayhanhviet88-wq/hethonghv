@@ -689,10 +689,21 @@ async function _dhtShowDetail(id) {
             ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
             ['VAT', fmt(vat) + 'đ', '#6366f1', false],
             ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
+        ];
+        if (o.discount_reason) {
+            finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
+        }
+        finRows.push(
             ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
             ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
-        ];
+        );
         for (const [label, val, color, bold] of finRows) {
+            if (label === '_reason_') {
+                finHTML += `<div style="padding:2px 0 6px 16px;border-bottom:1px solid rgba(0,0,0,0.05)">`;
+                finHTML += `<span style="font-size:11px;color:#dc2626;font-weight:700;font-style:italic">📝 Lý do: ${val}</span>`;
+                finHTML += `</div>`;
+                continue;
+            }
             finHTML += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">`;
             finHTML += `<span style="font-size:13px;color:#64748b;font-weight:${bold?700:500}">${label}</span>`;
             finHTML += `<span style="font-size:${bold?15:13}px;font-weight:${bold?900:700};color:${color}">${val}</span>`;
@@ -1127,28 +1138,34 @@ function _dhtShowItemDetail(idx) {
 async function _dhtApplyDiscount(orderId) {
     var o = (_dht.orders || []).find(function(x) { return x.id === orderId; });
     var currentDiscount = o ? Number(o.discount_amount) || 0 : 0;
+    var currentReason = o ? (o.discount_reason || '') : '';
     var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
     var body = '<div style="text-align:center;padding:8px 0">'
         +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;display:inline-block;padding:12px 28px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px #05966940">'
         +'<div style="font-size:10px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:4px">GIẢM GIÁ HIỆN TẠI</div>'
         +'<div style="font-size:22px;font-weight:900">'+(currentDiscount > 0 ? '-'+fmt(currentDiscount)+'đ' : '0đ')+'</div>'
         +'</div>'
-        +'<div style="text-align:left;margin-bottom:8px"><label style="font-size:12px;font-weight:700;color:#1e293b">💰 Nhập số tiền giảm giá mới (VNĐ):</label></div>'
-        +'<input type="text" id="dhtDiscountInput" class="form-control" placeholder="Ví dụ: 500000" '
+        +'<div style="text-align:left;margin-bottom:8px"><label style="font-size:12px;font-weight:700;color:#1e293b">💰 Số tiền giảm giá (VNĐ):</label></div>'
+        +'<input type="text" id="dhtDiscountInput" class="form-control" placeholder="Ví dụ: 500.000" '
         +'style="font-size:18px;font-weight:900;text-align:center;padding:12px;border:2px solid #059669;border-radius:10px;color:#059669" '
-        +'value="'+(currentDiscount||'')+'" oninput="_dhtDiscountPreview(this)">'
-        +'<div id="dhtDiscountPreview" style="margin-top:8px;font-size:14px;font-weight:700;color:#059669;min-height:24px">'
+        +'value="'+(currentDiscount ? fmt(currentDiscount) : '')+'" oninput="_dhtDiscountFormat(this)">'
+        +'<div id="dhtDiscountPreview" style="margin-top:6px;font-size:13px;font-weight:700;color:#059669;min-height:20px">'
         +(currentDiscount > 0 ? '→ -'+fmt(currentDiscount)+'đ' : '')
         +'</div>'
-        +'<div style="margin-top:4px;font-size:11px;color:#94a3b8">Nhập 0 để xóa giảm giá</div>'
+        +'<div style="text-align:left;margin-top:14px;margin-bottom:8px"><label style="font-size:12px;font-weight:700;color:#dc2626">✍️ Lý do giảm giá <span style="color:#dc2626">*</span> (bắt buộc):</label></div>'
+        +'<textarea id="dhtDiscountReason" class="form-control" rows="3" placeholder="Nhập lý do giảm giá..." '
+        +'style="font-size:13px;border:2px solid #e2e8f0;border-radius:10px;resize:vertical;width:100%">'+currentReason+'</textarea>'
+        +'<div id="dhtDiscountReasonError" style="margin-top:4px;font-size:11px;color:#dc2626;display:none">⚠️ Vui lòng nhập lý do giảm giá!</div>'
+        +'<div style="margin-top:6px;font-size:11px;color:#94a3b8">Nhập 0 để xóa giảm giá</div>'
         +'</div>';
     var footer = '<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('+orderId+')},200)" style="padding:8px 20px">Hủy</button>'
         +'<button class="btn" onclick="_dhtConfirmDiscount('+orderId+')" style="padding:8px 24px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận</button>';
     openModal('🏷️ Giảm Giá — ' + (o ? o.order_code : ''), body, footer);
     setTimeout(function() { var inp = document.getElementById('dhtDiscountInput'); if (inp) { inp.focus(); inp.select(); } }, 200);
 }
-function _dhtDiscountPreview(el) {
+function _dhtDiscountFormat(el) {
     var raw = el.value.replace(/[^\d]/g, '');
+    if (raw) { el.value = Number(raw).toLocaleString('vi-VN'); }
     var preview = document.getElementById('dhtDiscountPreview');
     if (preview && raw) {
         preview.innerHTML = '→ -' + Number(raw).toLocaleString('vi-VN') + 'đ';
@@ -1156,14 +1173,23 @@ function _dhtDiscountPreview(el) {
 }
 async function _dhtConfirmDiscount(orderId) {
     var inp = document.getElementById('dhtDiscountInput');
+    var reasonEl = document.getElementById('dhtDiscountReason');
+    var errEl = document.getElementById('dhtDiscountReasonError');
     if (!inp) return;
     var amount = Number(inp.value.replace(/[^\d]/g, ''));
     if (isNaN(amount) || amount < 0) { inp.style.borderColor = '#dc2626'; return; }
+    var reason = (reasonEl ? reasonEl.value.trim() : '');
+    if (amount > 0 && !reason) {
+        if (reasonEl) reasonEl.style.borderColor = '#dc2626';
+        if (errEl) errEl.style.display = 'block';
+        if (reasonEl) reasonEl.focus();
+        return;
+    }
     try {
         var res = await fetch('/api/dht/orders/' + orderId, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ discount_amount: amount })
+            body: JSON.stringify({ discount_amount: amount, discount_reason: amount > 0 ? reason : null })
         });
         if (!res.ok) throw new Error('Lỗi cập nhật');
         closeModal();

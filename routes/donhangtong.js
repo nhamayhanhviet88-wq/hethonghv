@@ -703,7 +703,8 @@ module.exports = async function(fastify) {
             'has_vat', 'vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
             'expected_ship_date', 'zalo_oa_sent',
             'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
-            'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant'
+            'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
+            'discount_reason'
         ];
 
         const sets = [];
