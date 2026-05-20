@@ -108,9 +108,16 @@ function _dhtSyncDateInputs() {
 }
 function _dhtPopulateCskhDropdown() {
     var sel = document.getElementById('dhtCskhPick'); if (!sel) return;
+    var curVal = sel.value;
+    var map = {};
+    (_dht.orders || []).forEach(function(o) {
+        if (o.cskh_user_id && o.cskh_name) map[o.cskh_user_id] = o.cskh_name;
+    });
+    var keys = Object.keys(map).sort(function(a,b){ return map[a].localeCompare(map[b], 'vi'); });
     var opts = '<option value="">Tất cả</option>';
-    (_dht.staff || []).forEach(function(s) { opts += '<option value="'+s.id+'">'+s.full_name+'</option>'; });
+    keys.forEach(function(k){ opts += '<option value="'+k+'">'+map[k]+'</option>'; });
     sel.innerHTML = opts;
+    if (curVal) sel.value = curVal;
 }
 
 // ========== SORT DEFINITIONS ==========
@@ -262,8 +269,6 @@ async function renderDonhangtongPage(content) {
     // Populate year dropdown (current year ± 2)
     var ypEl = document.getElementById('dhtYearPick');
     if (ypEl) { var cy = nowVN.getFullYear(); for (var yi = cy+1; yi >= cy-3; yi--) { ypEl.innerHTML += '<option value="'+yi+'">'+yi+'</option>'; } }
-    // Populate CSKH dropdown
-    _dhtPopulateCskhDropdown();
     await _dhtLoadTree();
     await _dhtLoadOrders();
     _dhtShowNextCode();
@@ -368,6 +373,7 @@ async function _dhtLoadOrders() {
 
     const data = await apiCall(url);
     _dht.orders = data.orders || [];
+    _dhtPopulateCskhDropdown();
     _dhtRenderTable();
 }
 
