@@ -325,16 +325,17 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 5: Tổng kết tài chính ──
-        const remColor = remaining > 0 ? '#dc2626' : '#059669';
+        const finRemaining = calcBase + surchargeTotal + vat - discount - deposit;
+        const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         const finRows = [
-            ['Tổng tiền hàng', fmt(total) + 'đ', '#1e293b', true],
+            ['Tổng tiền hàng', fmt(calcBase) + 'đ', '#1e293b', true],
             ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
             ['VAT', fmt(vat) + 'đ', '#6366f1', false],
             ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
             ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
-            ['Còn lại', fmt(remaining) + 'đ', remColor, true],
+            ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
         ];
         for (const [label, val, color, bold] of finRows) {
             finHTML += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">`;
