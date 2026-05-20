@@ -616,6 +616,7 @@ function _dhtShowItemDetail(idx) {
     if (!it) return;
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
     const row = (label, val) => `<tr><td style="padding:6px 10px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:140px">${label}</td><td style="padding:6px 10px;font-size:13px;font-weight:700;color:#1e293b">${val}</td></tr>`;
+    const canSeeCost = typeof currentUser !== 'undefined' && currentUser && ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
 
     // Parse JSON fields
     let quantities = [], techniques = [], extraMats = [], matPairs = [];
@@ -625,6 +626,12 @@ function _dhtShowItemDetail(idx) {
     try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
     extraMats = extraMats.filter(m => m && m.trim());
 
+    // Calculate VAT
+    let baseTotal = 0;
+    for (const q of quantities) { baseTotal += (Number(q.qty)||0) * (Number(q.price)||0); }
+    const vatAmount = (Number(it.item_total) || 0) - baseTotal;
+    const vatPercent = baseTotal > 0 && vatAmount > 0 ? Math.round(vatAmount / baseTotal * 100) : 0;
+
     var html = `<div style="padding:20px">`;
 
     // Header
@@ -633,10 +640,12 @@ function _dhtShowItemDetail(idx) {
     const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">Quà</span>';
     html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">${saleBadge}<span style="font-size:18px;font-weight:900;color:var(--navy)">${it.product_name || '—'}</span></div>`;
 
-    // Basic info
+    // Basic info + VAT
     html += `<div style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:14px"><table style="width:100%;border-collapse:collapse">`;
     html += row('Áo mẫu (TSAM)', it.pattern_name || '—');
-    html += row('Thành tiền', `<span style="color:#dc2626;font-size:15px">${fmt(it.item_total)}đ</span>`);
+    html += row('Tiền hàng (trước VAT)', `${fmt(baseTotal)}đ`);
+    html += row('VAT', vatPercent > 0 ? `<span style="color:#6366f1;font-weight:800">${vatPercent}% → ${fmt(vatAmount)}đ</span>` : '<span style="color:#94a3b8">0%</span>');
+    html += row('Thành tiền (sau VAT)', `<span style="color:#dc2626;font-size:15px">${fmt(it.item_total)}đ</span>`);
     if (it.extra_product) html += row('SP phụ', it.extra_product + (it.extra_price ? ' (+' + fmt(it.extra_price) + 'đ)' : ''));
     if (it.accounting_notes) html += row('Nhắc nhở KT', `<span style="color:#f59e0b">${it.accounting_notes}</span>`);
     html += `</table></div>`;
@@ -660,14 +669,30 @@ function _dhtShowItemDetail(idx) {
         html += `</tbody></table></div>`;
     }
 
-    // Sewing techniques
+    // Sewing techniques — show names for all, prices only for giam_doc/qlcc
     if (techniques.length > 0) {
+        let totalSewingCost = 0;
+        for (const t of techniques) { totalSewingCost += (Number(t.fp) || 0) * (Number(t.qty) || 1); }
+
         html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Kỹ thuật may (${techniques.length})</div>`;
-        html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;font-weight:700;color:var(--navy)">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700;color:var(--navy)">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí SX</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí PP</th></tr></thead><tbody>`;
-        for (const t of techniques) {
-            html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:600">${t.name}</td><td style="padding:6px 10px;text-align:center">${t.qty || 1}</td><td style="padding:6px 10px;text-align:right">${fmt(t.fp)}đ</td><td style="padding:6px 10px;text-align:right">${fmt(t.pp)}đ</td></tr>`;
+        if (canSeeCost) {
+            html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;font-weight:700;color:var(--navy)">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700;color:var(--navy)">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí SX</th><th style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy)">Phí PP</th></tr></thead><tbody>`;
+            for (const t of techniques) {
+                html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:600">${t.name}</td><td style="padding:6px 10px;text-align:center">${t.qty || 1}</td><td style="padding:6px 10px;text-align:right">${fmt(t.fp)}đ</td><td style="padding:6px 10px;text-align:right">${fmt(t.pp)}đ</td></tr>`;
+            }
+            html += `</tbody></table>`;
+            // Total sewing cost
+            html += `<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;display:flex;justify-content:space-between;align-items:center">`;
+            html += `<span style="font-size:12px;font-weight:700;color:#92400e">💰 Tổng giá may (${it.pattern_name || 'TSAM'})</span>`;
+            html += `<span style="font-size:14px;font-weight:900;color:#dc2626">${fmt(totalSewingCost)}đ / áo</span>`;
+            html += `</div>`;
+        } else {
+            // Non-privileged: only show technique names
+            for (const t of techniques) {
+                html += `<div style="display:inline-block;background:#f1f5f9;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;color:var(--navy);margin:0 4px 4px 0">${t.name} (x${t.qty || 1})</div>`;
+            }
         }
-        html += `</tbody></table></div>`;
+        html += `</div>`;
     }
 
     // Extra materials
