@@ -383,15 +383,15 @@ function _dhtOnCarrierChange() {
         wrap.style.display = 'block';
         wrap.innerHTML = '<div style="font-weight:800;font-size:12px;color:#0369a1;margin-bottom:8px">🚌 Thông tin Nhà Xe <span style="color:red">*</span></div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-            + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe</label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
-            + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe <span style="font-size:9px;color:#6b7280">(10 số)</span></label><input id="_co_busPhone" class="form-control" type="tel" maxlength="10" placeholder="VD: 0901234567" style="font-size:12px" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,10);this.style.borderColor=this.value.length===10?\'#10b981\':this.value.length>0?\'#f59e0b\':\'\'"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Tên Nhà Xe <span style="color:red">*</span></label><input id="_co_busName" class="form-control" placeholder="VD: Phương Trang" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">SĐT Nhà Xe <span style="font-size:9px;color:#6b7280">(10 số)</span> <span style="color:red">*</span></label><input id="_co_busPhone" class="form-control" type="tel" maxlength="10" placeholder="VD: 0901234567" style="font-size:12px" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,10);this.style.borderColor=this.value.length===10?\'#10b981\':this.value.length>0?\'#f59e0b\':\'\'"></div>'
             + '</div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
             + '<div><label style="font-size:11px;font-weight:700">Địa Điểm Xe Đỗ <span style="color:red">*</span></label><input id="_co_busLocation" class="form-control" placeholder="Nhập địa điểm xe đỗ" style="font-size:12px"></div>'
             + '<div><label style="font-size:11px;font-weight:700">Xe Đi Về Đâu <span style="color:red">*</span></label><input id="_co_busDestination" class="form-control" placeholder="Nhập nơi xe đi về" style="font-size:12px"></div>'
             + '</div>'
             + '<div style="display:grid;grid-template-columns:1fr;gap:8px">'
-            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy (24h)</label><div style="display:flex;gap:4px;align-items:center"><select id="_co_busHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_busMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Mấy Giờ Xe Chạy (24h) <span style="color:red">*</span></label><div style="display:flex;gap:4px;align-items:center"><select id="_co_busHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_busMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
             + '</div>';
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         wrap.style.display = 'block';
