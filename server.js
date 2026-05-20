@@ -559,6 +559,9 @@ async function start() {
     // v5: Add material_pairs JSON column to dht_order_items for multi-phối support
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN material_pairs JSONB DEFAULT '[]'`); } catch(e) { /* already exists */ }
 
+    // v6: Add surcharges JSONB column to dht_orders for phụ phí support
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS surcharges JSONB DEFAULT '[]'`); } catch(e) { /* already exists */ }
+
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS bgm_items (
