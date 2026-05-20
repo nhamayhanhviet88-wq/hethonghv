@@ -79,9 +79,6 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'</div>'
         +'<div style="margin:10px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        +'<div class="form-group"><label>Tổng VAT (từ phiếu)</label><input id="_co_vatTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
-        +'</div>'
         // Phiếu đơn hàng
         +'<div style="margin:12px 0;border-top:1px solid #e2e8f0;padding-top:12px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
