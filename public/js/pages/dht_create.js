@@ -397,9 +397,9 @@ function _dhtOnCarrierChange() {
         wrap.style.display = 'block';
         wrap.innerHTML = '<div style="font-weight:800;font-size:12px;color:#0369a1;margin-bottom:8px">🤝 Thông tin Người Nhận Hộ <span style="color:red">*</span></div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
-            + '<div><label style="font-size:11px;font-weight:700">Tên Người Nhận Hộ</label><input id="_co_proxyName" class="form-control" placeholder="Họ tên" style="font-size:12px"></div>'
-            + '<div><label style="font-size:11px;font-weight:700">Địa Chỉ</label><input id="_co_proxyAddr" class="form-control" placeholder="Địa chỉ nhận" style="font-size:12px"></div>'
-            + '<div><label style="font-size:11px;font-weight:700">SĐT Người Nhận Hộ</label><input id="_co_proxyPhone" class="form-control" placeholder="Số điện thoại" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Tên Người Nhận Hộ <span style="color:red">*</span></label><input id="_co_proxyName" class="form-control" placeholder="Họ tên người nhận" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">Địa Chỉ <span style="color:red">*</span></label><input id="_co_proxyAddr" class="form-control" placeholder="Địa chỉ nhận hàng" style="font-size:12px"></div>'
+            + '<div><label style="font-size:11px;font-weight:700">SĐT Người Nhận Hộ <span style="font-size:9px;color:#6b7280">(10 số)</span> <span style="color:red">*</span></label><input id="_co_proxyPhone" class="form-control" type="tel" maxlength="10" placeholder="VD: 0901234567" style="font-size:12px" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,10);this.style.borderColor=this.value.length===10?\'#10b981\':this.value.length>0?\'#f59e0b\':\'\'"></div>'
             + '</div>';
     } else {
         wrap.style.display = 'none';
@@ -433,10 +433,12 @@ function _dhtGetCarrierExtra() {
         var proxyName = document.getElementById('_co_proxyName')?.value?.trim();
         var proxyAddr = document.getElementById('_co_proxyAddr')?.value?.trim();
         var proxyPhone = document.getElementById('_co_proxyPhone')?.value?.trim();
-        if (!proxyName) { showToast('Nhập Tên Người Nhận Hộ', 'error'); return false; }
-        if (!proxyAddr) { showToast('Nhập Địa Chỉ Người Nhận Hộ', 'error'); return false; }
-        if (!proxyPhone) { showToast('Nhập SĐT Người Nhận Hộ', 'error'); return false; }
-        return { type: 'nguoi_nhan_ho', proxy_name: proxyName, proxy_address: proxyAddr, proxy_phone: proxyPhone };
+        if (!proxyName) { showToast('Nhập Tên Người Nhận Hộ', 'error'); document.getElementById('_co_proxyName')?.focus(); return false; }
+        if (!proxyAddr) { showToast('Nhập Địa Chỉ Người Nhận Hộ', 'error'); document.getElementById('_co_proxyAddr')?.focus(); return false; }
+        if (!proxyPhone) { showToast('Nhập SĐT Người Nhận Hộ', 'error'); document.getElementById('_co_proxyPhone')?.focus(); return false; }
+        var proxyDigits = proxyPhone.replace(/\D/g, '');
+        if (proxyDigits.length !== 10) { showToast('SĐT Người Nhận Hộ phải đúng 10 số (hiện tại: ' + proxyDigits.length + ' số)', 'error'); document.getElementById('_co_proxyPhone')?.focus(); return false; }
+        return { type: 'nguoi_nhan_ho', proxy_name: proxyName, proxy_address: proxyAddr, proxy_phone: proxyDigits };
     }
     return null;
 }
