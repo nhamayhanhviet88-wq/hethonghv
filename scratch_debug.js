@@ -1,9 +1,7 @@
 const db = require('./db/pool');
 (async () => {
-    try {
-        await db.run('ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS deposit_amount_cache NUMERIC DEFAULT 0');
-    } catch(e) {}
-    await db.run("UPDATE dht_orders SET deposit_amount_cache = 1800000 WHERE order_code = 'AFF-VTTI0006'");
-    console.log('Done');
+    // Fix total_amount for existing order: base 11,500,000 + VAT 800,000 = 12,300,000
+    await db.run("UPDATE dht_orders SET total_amount = 12300000 WHERE order_code = 'AFF-VTTI0006'");
+    console.log('Fixed total_amount for AFF-VTTI0006');
     process.exit(0);
 })();

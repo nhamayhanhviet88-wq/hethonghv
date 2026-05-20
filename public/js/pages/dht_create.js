@@ -815,7 +815,7 @@ async function _dhtSubmitCreateV2() {
         address: addr,
         cskh_user_id: _dhtCreate.myInfo?.id,
         total_quantity: items.reduce(function(s,x){ return s + x.quantity; }, 0),
-        total_amount: totalAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
+        total_amount: totalAmt + vatAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
         discount_amount: 0,
         surcharges: _dhtCreate.surcharges || [],
         has_vat: hasVat,
@@ -839,7 +839,7 @@ async function _dhtSubmitCreateV2() {
             await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
         }
         showToast('✅ Đã tạo đơn hàng thành công!');
-        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
+        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null };
         closeModal();
         await _dhtLoadTree();
         await _dhtLoadOrders();
@@ -1178,11 +1178,12 @@ async function _dhtSubmitEditV2() {
         address: addr,
         province: prov || null,
         total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
-        total_amount: totalAmt + surTotal,
+        total_amount: totalAmt + totalVatAmt + surTotal,
         discount_amount: 0,
         surcharges: (_dhtCreate.surcharges || []).map(function(s) { return { name: s.description, amount: Number(s.amount) || 0 }; }),
         has_vat: hasVat,
         vat_amount: totalVatAmt,
+        deposit_amount_cache: _dhtCreate.depositAmount || 0,
         designer_user_id: desId,
         designer_type: desType,
         carrier_id: carrier || null,

@@ -458,7 +458,8 @@ module.exports = async function(fastify) {
             'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date',
             'has_vat', 'vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
             'expected_ship_date', 'zalo_oa_sent',
-            'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress'
+            'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
+            'deposit_amount_cache'
         ];
 
         const sets = [];
@@ -467,7 +468,7 @@ module.exports = async function(fastify) {
 
         for (const key of allowed) {
             if (b[key] !== undefined) {
-                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id', 'actual_carrier_id'];
+                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id', 'actual_carrier_id', 'deposit_amount_cache'];
                 const boolFields = ['has_vat', 'zalo_oa_sent'];
                 if (numericFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);
