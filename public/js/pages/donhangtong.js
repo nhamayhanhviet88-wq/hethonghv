@@ -244,7 +244,9 @@ async function renderDonhangtongPage(content) {
     const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
     _dht.categories = catRes.categories || [];
     _dht.staff = staffRes.staff || [];
-    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><div id="dhtFilterInfo" style="font-size:12px"></div><div style="margin-left:auto;display:flex;align-items:center;gap:12px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
+    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><div id="dhtFilterInfo" style="font-size:12px"></div>'
+        +'<div id="dhtStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
+        +'<div style="margin-left:auto;display:flex;align-items:center;gap:12px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
         +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
         +'<div id="dhtDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px">'
         +'<button onclick="_dhtDateFilterToday()" style="background:#0369a1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
@@ -383,7 +385,7 @@ function _dhtRenderOrderRows(filtered) {
 
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
-        _dhtUpdateInfo(0); return;
+        _dhtUpdateInfo(0, []); return;
     }
 
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
@@ -436,10 +438,10 @@ function _dhtRenderOrderRows(filtered) {
         </tr>`;
     }).join('');
 
-    _dhtUpdateInfo(filtered.length);
+    _dhtUpdateInfo(filtered.length, filtered);
 }
 
-function _dhtUpdateInfo(count) {
+function _dhtUpdateInfo(count, filtered) {
     const el = document.getElementById('dhtFilterInfo');
     if (!el) return;
     var parts = [];
@@ -464,6 +466,39 @@ function _dhtUpdateInfo(count) {
         + label
         + ' <span style="opacity:0.5;margin:0 4px">—</span> <span style="color:#fbbf24;font-weight:900">' + count + '</span> đơn'
         + '</div>';
+    // ── Stat Cards ──
+    var arr = filtered || [];
+    var totalRevenue = 0, totalRemaining = 0;
+    arr.forEach(function(o) {
+        totalRevenue += Number(o.total_amount) || 0;
+        totalRemaining += Number(o.remaining_amount) || 0;
+    });
+    var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    var sc = document.getElementById('dhtStatCards');
+    if (sc) {
+        sc.innerHTML = ''
+            +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden">'
+            +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite"></div>'
+            +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">💰 DOANH SỐ</div>'
+            +'<div style="font-size:15px;font-weight:900">'+fmt(totalRevenue)+'đ</div>'
+            +'</div>'
+            +'<div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #2563eb30;position:relative;overflow:hidden">'
+            +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.3s"></div>'
+            +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 SỐ ĐƠN</div>'
+            +'<div style="font-size:15px;font-weight:900">'+count+'</div>'
+            +'</div>'
+            +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden">'
+            +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.6s"></div>'
+            +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ CHƯA THU</div>'
+            +'<div style="font-size:15px;font-weight:900">'+fmt(totalRemaining)+'đ</div>'
+            +'</div>';
+        // Inject shimmer animation if not present
+        if (!document.getElementById('dhtShimmerStyle')) {
+            var st = document.createElement('style'); st.id = 'dhtShimmerStyle';
+            st.textContent = '@keyframes dhtShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }';
+            document.head.appendChild(st);
+        }
+    }
 }
 
 // ========== TOGGLE SHIPPING ==========
