@@ -855,9 +855,38 @@ async function customersRoutes(fastify, options) {
         const codes = await db.all(
             `SELECT oc.*, u.full_name as user_name FROM order_codes oc LEFT JOIN users u ON oc.user_id = u.id WHERE oc.customer_id = ? ORDER BY oc.id DESC`, [custId]);
         // Get items and deposit for each order
+        // ★ Priority: DHT is source of truth. Fallback to CRM order_items for pre-DHT orders.
         // ★ Cọc thuộc về đơn tạo SAU nó: range (previous_order.created_at, current_order.created_at]
         for (const code of codes) {
-            code.items = await db.all('SELECT * FROM order_items WHERE order_code_id = ? ORDER BY id', [code.id]);
+            // ★ Cross-reference DHT: check if this order_code exists in dht_orders
+            const dhtOrder = await db.get(
+                'SELECT id, total_amount, discount_amount, total_quantity, shipping_status FROM dht_orders WHERE order_code = $1',
+                [code.order_code]
+            );
+            if (dhtOrder) {
+                // DHT has the real product data — use it
+                code.items = await db.all(
+                    `SELECT product_name as description, quantity, unit_price, item_total as total
+                     FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`,
+                    [dhtOrder.id]
+                );
+                code.dht_order_id = dhtOrder.id;
+                code.dht_total = Number(dhtOrder.total_amount) || 0;
+                code.dht_discount = Number(dhtOrder.discount_amount) || 0;
+                code.dht_shipping_status = dhtOrder.shipping_status;
+            } else {
+                // Fallback: CRM order_items (đơn chưa lên DHT)
+                code.items = await db.all('SELECT * FROM order_items WHERE order_code_id = ? ORDER BY id', [code.id]);
+            }
+            // ★ Deposit: check payment_records linked via order_code (DHT flow) first, then fallback to consultation_logs
+            let depositFromPayments = 0;
+            if (code.order_code) {
+                const prDep = await db.get(
+                    `SELECT COALESCE(SUM(amount), 0) as dep FROM payment_records WHERE total_order_codes ILIKE '%' || $1 || '%'`,
+                    [code.order_code]
+                );
+                depositFromPayments = Number(prDep?.dep) || 0;
+            }
             const depRow = await db.get(`
                 SELECT COALESCE(SUM(deposit_amount), 0) as dep 
                 FROM consultation_logs 
@@ -869,7 +898,8 @@ async function customersRoutes(fastify, options) {
                     '1970-01-01'
                   )
             `, [custId, code.created_at, custId, code.id]);
-            code.deposit = depRow?.dep || 0;
+            const depositFromLogs = Number(depRow?.dep) || 0;
+            code.deposit = Math.max(depositFromPayments, depositFromLogs);
         }
         const depositRow = await db.get(`SELECT COALESCE(SUM(deposit_amount), 0) as total_deposit FROM consultation_logs WHERE customer_id = ? AND log_type = 'dat_coc'`, [custId]);
         return { codes, total_deposit: depositRow?.total_deposit || 0 };

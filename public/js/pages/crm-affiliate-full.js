@@ -1550,18 +1550,23 @@ function _affBuildOrderCardHTML(codes, customer) {
         const dateStr = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
         const orderItems = oc.items || [];
         const orderDeposit = oc.deposit || 0;
-        const orderTotal = orderItems.reduce((s, i) => s + (i.total || 0), 0);
+        // ★ Use DHT total if available, otherwise sum from items
+        const orderTotal = oc.dht_total || orderItems.reduce((s, i) => s + (i.total || 0), 0);
         if (oc.status !== 'cancelled') allOrdersTotal += orderTotal;
+        // ★ Smart status badge: reflect DHT state
+        const hasDHT = !!oc.dht_order_id;
         const statusBadge = oc.status === 'completed' 
             ? '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">✅ Hoàn thành</span>'
             : oc.status === 'cancelled'
             ? '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">❌ Đã hủy</span>'
-            : '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">🔄 Đang xử lý</span>';
+            : hasDHT
+            ? '<span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">📦 Đang sản xuất</span>'
+            : '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">🔄 Chờ lên đơn</span>';
         
         const actionBtns = '';
 
         return `
-            <div style="padding:12px;border:1px solid ${oc.status === 'completed' ? '#10b981' : oc.status === 'cancelled' ? '#ef4444' : '#e5e7eb'};border-radius:10px;margin-bottom:8px;background:${oc.status === 'completed' ? '#f0fdf4' : oc.status === 'cancelled' ? '#fef2f2' : '#fafafa'};">
+            <div style="padding:12px;border:1px solid ${oc.status === 'completed' ? '#10b981' : oc.status === 'cancelled' ? '#ef4444' : hasDHT ? '#3b82f6' : '#e5e7eb'};border-radius:10px;margin-bottom:8px;background:${oc.status === 'completed' ? '#f0fdf4' : oc.status === 'cancelled' ? '#fef2f2' : hasDHT ? '#eff6ff' : '#fafafa'};">
                 <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:8px;">
                     <div style="min-width:90px;">
                         <div style="font-size:10px;color:#6b7280;">Mã Đơn</div>
@@ -1611,6 +1616,7 @@ function _affBuildOrderCardHTML(codes, customer) {
 
     return cardsHTML + (allOrdersTotal > 0 ? `<div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #e5e7eb;">Tổng doanh số: <span style="color:#e65100;">${formatCurrency(allOrdersTotal)}</span> VNĐ</div>` : '');
 }
+
 
 // ========== ORDER CODES POPUP ==========
 async function _affOpenOrderCodesPopup(customerId) {
