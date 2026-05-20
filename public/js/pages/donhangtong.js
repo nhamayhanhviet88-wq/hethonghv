@@ -46,6 +46,63 @@ function _dhtClearFilters() {
     _dhtRenderTable();
 }
 
+// ========== DATE FILTER ==========
+function _dhtDateFilterToday() {
+    var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    _dht.filter = { year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate() };
+    _dht.dateRange = null;
+    _dhtSyncDateInputs();
+    _dhtLoadOrders();
+}
+function _dhtDateFilterMonth(offset) {
+    var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    d.setMonth(d.getMonth() + (offset || 0));
+    _dht.filter = { year: d.getFullYear(), month: d.getMonth()+1 };
+    delete _dht.filter.day;
+    _dht.dateRange = null;
+    _dhtSyncDateInputs();
+    _dhtLoadOrders();
+}
+function _dhtDateFilterMonthPick() {
+    var v = document.getElementById('dhtMonthPick')?.value; // "2026-05"
+    if (!v) return;
+    var parts = v.split('-');
+    _dht.filter = { year: Number(parts[0]), month: Number(parts[1]) };
+    delete _dht.filter.day;
+    _dht.dateRange = null;
+    _dhtSyncDateInputs();
+    _dhtLoadOrders();
+}
+function _dhtDateFilterRange() {
+    var from = document.getElementById('dhtDateFrom')?.value;
+    var to = document.getElementById('dhtDateTo')?.value;
+    if (!from || !to) return;
+    if (from > to) { var tmp = from; from = to; to = tmp; document.getElementById('dhtDateFrom').value = from; document.getElementById('dhtDateTo').value = to; }
+    _dht.filter = {}; // clear server-side month filter
+    _dht.dateRange = { from: from, to: to };
+    document.getElementById('dhtMonthPick').value = '';
+    _dhtLoadOrders();
+}
+function _dhtDateFilterClear() {
+    _dht.filter = {};
+    _dht.dateRange = null;
+    document.getElementById('dhtMonthPick').value = '';
+    document.getElementById('dhtDateFrom').value = '';
+    document.getElementById('dhtDateTo').value = '';
+    _dhtLoadOrders();
+}
+function _dhtSyncDateInputs() {
+    var mp = document.getElementById('dhtMonthPick');
+    var df = document.getElementById('dhtDateFrom');
+    var dt = document.getElementById('dhtDateTo');
+    if (mp && _dht.filter.year && _dht.filter.month) {
+        mp.value = _dht.filter.year + '-' + String(_dht.filter.month).padStart(2,'0');
+    } else if (mp) { mp.value = ''; }
+    if (df) df.value = '';
+    if (dt) dt.value = '';
+}
+
 // ========== SORT DEFINITIONS ==========
 var _dhtSortDefs = [
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
@@ -90,6 +147,14 @@ function _dhtRenderTable() {
     if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
     if (af.sua) filtered = filtered.filter(function(o){ return o.has_repair_order; });
     if (af.no) filtered = filtered.filter(function(o){ return (Number(o.remaining_amount) || 0) > 0; });
+    // Date range client-side filter
+    if (_dht.dateRange && _dht.dateRange.from && _dht.dateRange.to) {
+        filtered = filtered.filter(function(o) {
+            if (!o.order_date) return false;
+            var d = o.order_date.substring(0, 10);
+            return d >= _dht.dateRange.from && d <= _dht.dateRange.to;
+        });
+    }
 
     // Apply sorting
     if (_dht.sortCol && _dht.sortDir) {
@@ -168,8 +233,27 @@ async function renderDonhangtongPage(content) {
     _dht.staff = staffRes.staff || [];
     content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div style="margin-left:auto;font-size:12px;color:var(--gray-400)" id="dhtFilterInfo"></div><div style="display:flex;align-items:center;gap:12px"><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
         +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
+        +'<div id="dhtDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px">'
+        +'<button onclick="_dhtDateFilterToday()" style="background:#0369a1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
+        +'<button onclick="_dhtDateFilterMonth(0)" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Này</button>'
+        +'<button onclick="_dhtDateFilterMonth(-1)" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Trước</button>'
+        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">🗓️ CHỌN THÁNG</label>'
+        +'<input type="month" id="dhtMonthPick" class="form-control" style="width:160px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterMonthPick()">'
+        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">TỪ NGÀY</label>'
+        +'<input type="date" id="dhtDateFrom" class="form-control" style="width:140px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterRange()">'
+        +'<span style="font-weight:800;color:#0369a1">→</span>'
+        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">ĐẾN NGÀY</label>'
+        +'<input type="date" id="dhtDateTo" class="form-control" style="width:140px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterRange()">'
+        +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc ngày">✕ Xóa</button>'
+        +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtLoadOrders(), 400); });
+    // Default: load current month
+    var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    _dht.filter = { year: nowVN.getFullYear(), month: nowVN.getMonth()+1 };
+    _dhtSyncDateInputs();
     await _dhtLoadTree();
     await _dhtLoadOrders();
     _dhtShowNextCode();
