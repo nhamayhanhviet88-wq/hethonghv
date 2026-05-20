@@ -536,6 +536,7 @@ async function _dhtShowDetail(id) {
         infoHTML += row('Nguồn', o.source || '—');
         infoHTML += row('Lĩnh vực', o.category_name || '—');
         infoHTML += row('TC gửi', `<span style="color:${priColor};font-weight:900">${o.shipping_priority || 'CHUẨN'}</span>`);
+        if (o.standard_delivery_time) infoHTML += row('⏰ Giờ Hàng Ra', `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>`);
         if (o.standard_proof_image) infoHTML += row('Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info)">📷 Xem ảnh</a>`);
         infoHTML += row('Nhắc nhở', reminderText);
         infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
