@@ -1,11 +1,11 @@
 // ========== DHT CREATE ORDER — 2-STEP FLOW ==========
-var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null };
+var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null, reminders: [] };
 
 var _dhtProvinces = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
 // === V4: Skip Step 1 — deposits are now selected in CRM ===
 async function _dhtShowCreate() {
-    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
+    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
     await _dhtGoStep2();
 }
 
@@ -13,21 +13,23 @@ function _dhtSelectDeposit(el) { /* V4: no longer used */ }
 function _dhtFilterDeposits() { /* V4: no longer used */ }
 
 async function _dhtCancelCreate() {
-    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [] };
+    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
     closeModal();
 }
 
 // === STEP 2: Fill Order Info ===
 async function _dhtGoStep2() {
     // Fetch data
-    var [infoRes, codesRes, designRes, carrierRes, holidayRes, phieuRes] = await Promise.all([
+    var [infoRes, codesRes, designRes, carrierRes, holidayRes, phieuRes, nnRes] = await Promise.all([
         apiCall('/api/dht/my-info'),
         apiCall('/api/dht/available-order-codes'),
         apiCall('/api/dht/designers'),
         apiCall('/api/dht/carriers'),
         apiCall('/api/holidays'),
-        apiCall('/api/dht/phieu-options')
+        apiCall('/api/dht/phieu-options'),
+        apiCall('/api/nhacnho/active').catch(function(){ return { reminders: [] }; })
     ]);
+    window._ppNNAllList = (nnRes.reminders||[]).map(function(r){return{content:r.content,departments:r.departments||'',category:r.category||''};});
     _dhtCreate.phieuOpts = phieuRes || {};
     // Build holidays map: { 'YYYY-MM-DD': 'Tên lễ' }
     _dhtCreate.holidays = {};
@@ -75,6 +77,9 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Nguồn 🔒</label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
         // Row 6: Thiết kế
         +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
+        +'</div>'
+        +'<div style="margin:10px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         +'<div class="form-group"><label>Tổng VAT (từ phiếu)</label><input id="_co_vatTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
         +'</div>'
         // Phiếu đơn hàng
@@ -135,7 +140,11 @@ async function _dhtGoStep2() {
     if (!isEdit) {
         _dhtCreate.phieuItems = [];
         _dhtCreate.surcharges = [];
+        _dhtCreate.reminders = [];
     }
+    // Init NN tags from order-level reminders
+    window._ppNNTags = (_dhtCreate.reminders || []).slice();
+    _ppRenderNNTags();
 
     // ★ Edit mode: pre-fill all fields from editData
     if (isEdit && _dhtCreate.editData) {
@@ -374,14 +383,7 @@ async function _dhtAddItem(editIdx) {
     var patItems=(_tsamPatRes.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
     // Fallback: also include legacy patterns if any
     (po.patterns||[]).forEach(function(o){ if(!patItems.some(function(p){return p.value===o.name;})) patItems.push({text:o.name,value:o.name}); });
-    // Nhắc nhở: load ALL active reminders
-    var _nnAllList=[];
-    try {
-        var nnRes = await apiCall('/api/nhacnho/active');
-        _nnAllList = (nnRes.reminders||[]).map(function(r){return{content:r.content,departments:r.departments||'',category:r.category||''};});
-    } catch(e) {}
-    window._ppNNAllList = _nnAllList;
-    window._ppNNTags = (existing.reminders||[]).slice();
+    // Nhắc nhở: now order-level, not per-item
     var sewOpts=''; // Legacy removed — BGM picker used instead
     window._ppSewItems = (existing.sewing_techniques || []).slice();
     var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
@@ -399,8 +401,7 @@ async function _dhtAddItem(editIdx) {
     var sfPat=_ppSearchField('_pp_pattern','Thông Số Mẫu Áo *',patItems,existing.pattern_name||'');
     // Store patterns globally for mix_color_count lookup
     window._ppTsamPatterns = _tsamPatRes.patterns || [];
-    // Build single nhac nho section
-    var nnHTML='<div style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>';
+    // Nhắc nhở: moved to order-level form
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
@@ -409,7 +410,6 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_mixInfo" style="display:none;background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:11px;font-weight:700;color:#7c3aed"></div>'
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Kỹ Thuật May</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div><button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
-        +nnHTML
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +'<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div></div>';
@@ -419,7 +419,6 @@ async function _dhtAddItem(editIdx) {
         setTimeout(function(){ _dhtPatternChange(existing); }, 100);
     }
     setTimeout(_ppCalc,100);
-    _ppRenderNNTags();
     _ppRenderSewTags();
 }
 
@@ -629,7 +628,6 @@ function _dhtSavePhieu(idx) {
     var sale=document.getElementById('_pp_sale')?.value;
     var prod=document.getElementById('_pp_product')?.value;
     var pat=document.getElementById('_pp_pattern')?.value;
-    var nnArr=window._ppNNTags||[];
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
     if(!sale){showToast('Chọn Bán/Quà','error');return;}
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
@@ -655,6 +653,8 @@ function _dhtSavePhieu(idx) {
     var va=Math.round(raw*vp/100);
     var sewArr = (window._ppSewItems || []).slice();
     var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
+    // Nhắc nhở: order-level, get from _dhtCreate.reminders
+    var nnArr=(_dhtCreate.reminders||[]).slice();
     var acctNotes=nnArr.join(' | ');
     // Backward compat: first pair = main material/color
     var mainPair=pairs[0];
@@ -842,7 +842,7 @@ async function _dhtSubmitCreateV2() {
             await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
         }
         showToast('✅ Đã tạo đơn hàng thành công!');
-        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null };
+        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         closeModal();
         await _dhtLoadTree();
         await _dhtLoadOrders();
@@ -961,6 +961,7 @@ function _ppNNStep2(dept) {
 function _ppPickNNItem(label) {
     window._ppNNTags = window._ppNNTags || [];
     window._ppNNTags.push(label);
+    _dhtCreate.reminders = window._ppNNTags.slice();
     document.getElementById('_ppNNPicker')?.remove();
     _ppRenderNNTags();
     showToast('✅ Đã thêm nhắc nhở');
@@ -968,6 +969,7 @@ function _ppPickNNItem(label) {
 
 function _ppRemoveNNTag(idx) {
     (window._ppNNTags || []).splice(idx, 1);
+    _dhtCreate.reminders = (window._ppNNTags || []).slice();
     _ppRenderNNTags();
 }
 
@@ -1124,6 +1126,12 @@ async function _dhtEditOrderFull(id) {
             depAmt = Number(depRes.total_deposit || 0);
         } catch(e) { depAmt = Number(o.deposit_amount || 0); }
 
+        // Extract order-level reminders from first item (backward compat)
+        var orderReminders = [];
+        if (phieuItems.length > 0 && phieuItems[0].reminders && phieuItems[0].reminders.length > 0) {
+            orderReminders = phieuItems[0].reminders.slice();
+        }
+
         // Set up _dhtCreate for edit mode
         _dhtCreate = {
             step: 2,
@@ -1136,7 +1144,8 @@ async function _dhtEditOrderFull(id) {
             myInfo: null,
             surcharges: surchargeItems,
             orderCode: o.order_code,
-            phieuItems: phieuItems
+            phieuItems: phieuItems,
+            reminders: orderReminders
         };
 
         // Open the same form as create
@@ -1200,7 +1209,7 @@ async function _dhtSubmitEditV2() {
     var data = await apiCall('/api/dht/orders/' + id, 'PUT', payload);
     if (data.success) {
         showToast('✅ Đã cập nhật đơn hàng!');
-        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null };
+        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         closeModal();
         await _dhtLoadTree();
         await _dhtLoadOrders();
