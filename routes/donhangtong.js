@@ -1,6 +1,6 @@
 // ========== ĐƠN HÀNG TỔNG (DHT) — Routes ==========
 const db = require('../db/pool');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, requireRole, requirePerm } = require('../middleware/auth');
 const fs = require('fs');
 const path = require('path');
 
@@ -691,9 +691,28 @@ module.exports = async function(fastify) {
     });
 
     // ========== ORDERS: Update (full edit) ==========
-    fastify.put('/api/dht/orders/:id', { preHandler: [authenticate] }, async (request, reply) => {
+    // ★ Requires "Thêm" (create) permission for DHT
+    fastify.put('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('don_hang_tong', 'create')] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         const b = request.body || {};
+
+        // ★ Layer 2: If updating discount, require "Sửa" (edit) permission
+        if (b.discount_amount !== undefined || b.discount_reason !== undefined) {
+            if (request.user.role !== 'giam_doc') {
+                const permCol = 'can_edit';
+                const uP = await db.get(`SELECT ${permCol} FROM user_permissions WHERE user_id = $1 AND feature_key = 'don_hang_tong'`, [request.user.id]);
+                let hasEditPerm = false;
+                if (uP) {
+                    hasEditPerm = uP[permCol] > 0;
+                } else {
+                    const dP = await db.get(`SELECT dp.${permCol} FROM department_permissions dp JOIN users u ON u.department_id = dp.department_id WHERE u.id = $1 AND dp.feature_key = 'don_hang_tong'`, [request.user.id]);
+                    hasEditPerm = dP && dP[permCol] > 0;
+                }
+                if (!hasEditPerm) {
+                    return reply.code(403).send({ error: '🔒 Bạn không có quyền Giảm Giá' });
+                }
+            }
+        }
 
         // Build dynamic SET clause
         const allowed = [
@@ -848,7 +867,8 @@ module.exports = async function(fastify) {
     });
 
     // ========== ORDERS: Delete ==========
-    fastify.delete('/api/dht/orders/:id', { preHandler: [authenticate] }, async (request, reply) => {
+    // ★ Requires "Xóa" (delete) permission for DHT
+    fastify.delete('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('don_hang_tong', 'delete')] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         // Only creator or giam_doc can delete
         const order = await db.get('SELECT created_by FROM dht_orders WHERE id = $1', [orderId]);

@@ -463,8 +463,8 @@ function _dhtRenderOrderRows(filtered) {
             <td>${fmtD(o.shipping_date)}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
-                <button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>
-                <button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>
+                ${canDo('don_hang_tong', 'create') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>` : ''}
+                ${canDo('don_hang_tong', 'delete') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>` : ''}
             </td>
         </tr>`;
     }).join('');
@@ -575,21 +575,26 @@ async function _dhtShowDetail(id) {
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
         const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
 
-        // ── Section 1: Action Buttons ──
+        // ── Section 1: Action Buttons (permission-aware) ──
+        // Permission mapping: Xem=view, Thêm=create, Sửa=edit, Xóa=delete
+        // Sửa đơn/Lên Đơn Sửa → need "Thêm" | Giảm Giá → need "Sửa" | Xóa đơn → need "Xóa" | Báo lỗi/Zalo/In → need "Xem"
         var actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
         const actionBtns = [
-            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})` },
-            { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})` },
-            { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `alert('Chức năng Báo Đơn Lỗi đang phát triển!')` },
-            { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})` },
-            { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')` },
-            { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})` },
-            { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error },
+            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('don_hang_tong', 'create') },
+            { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('don_hang_tong', 'delete') },
+            { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `alert('Chức năng Báo Đơn Lỗi đang phát triển!')`, perm: canDo('don_hang_tong', 'view') },
+            { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('don_hang_tong', 'edit') },
+            { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')`, perm: canDo('don_hang_tong', 'view') },
+            { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('don_hang_tong', 'view') },
+            { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('don_hang_tong', 'create') },
         ];
         for (const a of actionBtns) {
-            if (a.disabled) {
-                actionsHTML += `<div style="text-align:center;padding:10px 14px;border-radius:12px;min-width:80px;opacity:0.4;cursor:not-allowed" title="Cần báo đơn lỗi trước">`;
-                actionsHTML += `<div style="width:42px;height:42px;border-radius:50%;background:${a.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 5px;font-size:18px">${a.icon}</div>`;
+            const noPerm = a.perm === false;
+            const isDisabled = a.disabled || noPerm;
+            const disabledTitle = noPerm ? '🔒 Bạn không có quyền' : 'Cần báo đơn lỗi trước';
+            if (isDisabled) {
+                actionsHTML += `<div style="text-align:center;padding:10px 14px;border-radius:12px;min-width:80px;opacity:0.35;cursor:not-allowed;filter:grayscale(${noPerm ? '0.6' : '0'})" title="${disabledTitle}">`;
+                actionsHTML += `<div style="width:42px;height:42px;border-radius:50%;background:${a.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 5px;font-size:18px">${noPerm ? '🔒' : a.icon}</div>`;
                 actionsHTML += `<div style="font-size:10px;font-weight:700;color:${a.color}">${a.label}</div></div>`;
             } else {
                 actionsHTML += `<div onclick="${a.fn}" style="text-align:center;cursor:pointer;padding:10px 14px;border-radius:12px;transition:all .15s;min-width:80px" onmouseover="this.style.background='${a.bg}'" onmouseout="this.style.background='transparent'">`;

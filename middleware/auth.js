@@ -60,4 +60,35 @@ function requireRole(...roles) {
     };
 }
 
-module.exports = { authenticate, requireRole };
+// ★ Permission-based access control (Layer 2 — server-side)
+// Usage: requirePerm('don_hang_tong', 'delete')
+// Checks user's effective permission (department + individual override)
+function requirePerm(featureKey, action) {
+    return async function (request, reply) {
+        if (!request.user) { reply.code(401).send({ error: 'Chưa đăng nhập' }); return; }
+        // GĐ always bypass
+        if (request.user.role === 'giam_doc') return;
+        const permCol = 'can_' + action;
+        // Check individual override first (value = 1 granted, -1 blocked)
+        const userPerm = await db.get(
+            `SELECT ${permCol} FROM user_permissions WHERE user_id = $1 AND feature_key = $2`,
+            [request.user.id, featureKey]
+        );
+        if (userPerm) {
+            if (userPerm[permCol] === -1) { reply.code(403).send({ error: '🔒 Bạn không có quyền thực hiện thao tác này' }); return; }
+            if (userPerm[permCol] > 0) return; // explicitly granted
+        }
+        // Fallback to department permission
+        const deptPerm = await db.get(
+            `SELECT dp.${permCol} FROM department_permissions dp
+             JOIN users u ON u.department_id = dp.department_id
+             WHERE u.id = $1 AND dp.feature_key = $2`,
+            [request.user.id, featureKey]
+        );
+        if (deptPerm && deptPerm[permCol] > 0) return; // department grants it
+        // No permission found
+        reply.code(403).send({ error: '🔒 Bạn không có quyền thực hiện thao tác này' });
+    };
+}
+
+module.exports = { authenticate, requireRole, requirePerm };
