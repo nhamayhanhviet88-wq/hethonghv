@@ -641,8 +641,8 @@ async function _dhtShowDetail(id) {
                 for (let pi = 0; pi < matPairs.length; pi++) {
                     const mp = matPairs[pi];
                     const isFirst = pi === 0;
-                    const pColor = _phoiColors[pi % _phoiColors.length];
-                    const pBg = _phoiBgs[pi % _phoiBgs.length];
+                    const pColor = _phoiColors[idx % _phoiColors.length];
+                    const pBg = _phoiBgs[idx % _phoiBgs.length];
                     const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
                     const phieuLabel = `Phiếu ${idx+1}`;
                     const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
