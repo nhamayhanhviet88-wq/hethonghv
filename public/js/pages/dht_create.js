@@ -41,7 +41,7 @@ async function _dhtGoStep2() {
     });
     _dhtCreate.myInfo = infoRes.user || {};
     _dhtCreate.availableCodes = codesRes.codes || [];
-    _dhtCreate.orderCode = '';
+    if (!_dhtCreate.editMode) _dhtCreate.orderCode = '';
     var mi = _dhtCreate.myInfo;
     var catOpts = _dht.categories.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var designers = designRes.designers || [];
@@ -562,10 +562,8 @@ async function _dhtAddItem(editIdx) {
     // Store patterns globally for mix_color_count lookup
     window._ppTsamPatterns = _tsamPatRes.patterns || [];
     // Nhắc nhở: moved to order-level form
-    var popupTitle = isRestricted ? '🔒 ' + orderCode + ' - Phiếu ' + (idx+1) + ' (Chỉ xem)' : '📋 ' + orderCode + ' - Phiếu ' + (idx+1);
-    var saveBtn = isRestricted
-        ? ''
-        : '<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div>';
+    var popupTitle = isRestricted ? '🔒 ' + orderCode + ' - Phiếu ' + (idx+1) : '📋 ' + orderCode + ' - Phiếu ' + (idx+1);
+    var saveBtn = '<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div>';
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:'+(isRestricted?'#64748b':'var(--navy)')+'">'+popupTitle+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
@@ -584,12 +582,14 @@ async function _dhtAddItem(editIdx) {
     }
     setTimeout(_ppCalc,100);
     _ppRenderSewTags();
-    // ★ READ-ONLY MODE: Disable all inputs inside popup for existing items
+    // ★ READ-ONLY MODE: Disable all inputs inside popup for existing items (except VAT)
     if (isRestricted) {
         setTimeout(function() {
             var popup = document.getElementById('_phieuPopup');
             if (!popup) return;
             popup.querySelectorAll('input, select, textarea').forEach(function(el) {
+                // Keep VAT editable
+                if (el.id === '_pp_vat') return;
                 el.disabled = true;
                 el.style.background = '#f1f5f9';
                 el.style.cursor = 'not-allowed';
