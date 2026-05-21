@@ -735,7 +735,7 @@ async function _dhtShowDetail(id) {
             finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
         }
         finRows.push(
-            ['Tổng tiền hàng (sau VAT)', fmt(calcBase + vat) + 'đ', '#1e293b', true],
+            ['Tổng Tiền Hàng Thực Tế', fmt(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
             ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
         );
