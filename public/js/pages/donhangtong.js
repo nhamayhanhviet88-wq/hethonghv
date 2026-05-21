@@ -465,9 +465,9 @@ function _dhtRenderOrderRows(filtered) {
             <td>${o.province || '—'}</td>
             <td>${o.cskh_name || '—'}</td>
             <td>${o.source || '—'}</td>
-            <td style="text-align:center;">${o.total_quantity || 0}</td>
-            <td style="color:var(--warning);">${fmt(o.discount_amount)}</td>
-            <td style="color:var(--success);">${fmt(o.deposit_amount)}</td>
+            <td style="text-align:center;font-weight:800;">${o.total_quantity || 0}</td>
+            <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
+            <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
             <td><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;${priStyle}">${o.shipping_priority || 'CHUẨN'}</span></td>
             <td>${fmtD(o.shipping_date)}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
