@@ -26,7 +26,7 @@ async function renderSoghinhantienPage(content) {
 .pr-table tbody tr:nth-child(even):hover{background:rgba(212,168,67,.06)}
 .pr-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.2px}
 .pr-ck{background:#dbeafe;color:#1e40af}.pr-tm{background:#dcfce7;color:#166534}
-.pr-tt{background:#d1fae5;color:#065f46}.pr-coc{background:#fef3c7;color:#92400e}.pr-sll{background:#dbeafe;color:#1d4ed8}
+.pr-tt{background:#d1fae5;color:#065f46}.pr-coc{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.15)}.pr-sll{background:#dbeafe;color:#1d4ed8}
 .pr-nhan{background:#d1fae5;color:#065f46}.pr-chua{background:#fee2e2;color:#991b1b}
 .pr-yr{padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:12px;color:var(--navy);border-bottom:1px solid var(--gray-100);transition:background .15s;user-select:none}
 .pr-yr:hover{background:var(--gray-50)}
@@ -160,7 +160,7 @@ function _prRenderTable() {
     cols.forEach(function(c){h+='<th style="width:'+c.w+'px">'+c.l+'</th>';});
     h += '</tr></thead><tbody>';
 
-    var typeLabels = {thanh_toan:'TT',dat_coc:'Cọc',tt_sll:'SLL',pending:'⏳'};
+    var typeLabels = {thanh_toan:'TT',dat_coc:'Đặt Cọc',tt_sll:'SLL',pending:'⏳'};
     var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll',pending:'pr-pending'};
     var srcLabels = {khach_hang:'KH',khach_hang_sll:'KH SLL',nha_van_chuyen:'NVC'};
 
@@ -572,7 +572,7 @@ function _prShowDetail(id) {
         +row('Nguồn tiền', '<span style="color:#059669">'+icon+'</span> '+(srcLabels[r.money_source]||r.money_source||''))
         +row('Khách hàng', '<b>'+(custDisplay||'—')+'</b>')
         +row('CSKH', r.cskh_name||'—')
-        +row('Loại tiền', typeLabels[r.payment_type]||r.payment_type||'')
+        +row('Loại tiền', r.payment_type === 'dat_coc' ? '<span style="background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:3px 10px;border-radius:10px;font-weight:800;font-size:11px;text-shadow:0 1px 2px rgba(0,0,0,.15)">🔒 Đặt Cọc</span>' : (typeLabels[r.payment_type]||r.payment_type||''))
         +row('Hình thức TT', r.payment_method||'')
         +row('Ngân hàng', r.bank_name||'—')
         +row('Nội dung CK', '<span style="word-break:break-all">'+(r.transfer_note||'—')+'</span>')

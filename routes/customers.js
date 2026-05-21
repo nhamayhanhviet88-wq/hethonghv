@@ -781,6 +781,7 @@ async function customersRoutes(fastify, options) {
             await db.run(`
                 UPDATE payment_records SET
                     order_tt_coc = $1,
+                    total_order_codes = $1,
                     updated_at = NOW()
                 WHERE customer_phone = $2
                   AND payment_type = 'dat_coc'
