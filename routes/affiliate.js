@@ -157,10 +157,12 @@ async function _calcFirstOrderRevenue(db, affiliates, from, to) {
             if (from) { dateFilter += ' AND oc.created_at >= ?'; params.push(from + ' 00:00:00'); }
             if (to) { dateFilter += ' AND oc.created_at <= ?'; params.push(to + ' 23:59:59'); }
             const revRows = await db.all(`
-                SELECT oc.customer_id, ${NET_REV_SQL} as revenue
-                FROM order_codes oc
-                WHERE oc.id IN (${foph})${dateFilter}
-                GROUP BY oc.customer_id
+                SELECT sub.customer_id, COALESCE(SUM(sub.rev), 0) as revenue FROM (
+                    SELECT oc.customer_id, ${NET_REV_SQL} as rev
+                    FROM order_codes oc
+                    WHERE oc.id IN (${foph})${dateFilter}
+                    GROUP BY oc.id, oc.customer_id, oc.order_code, oc.discount_amount
+                ) sub GROUP BY sub.customer_id
             `, params);
             const custRevMap = {};
             revRows.forEach(r => { custRevMap[r.customer_id] = Number(r.revenue); });
@@ -207,7 +209,7 @@ async function _calcFirstOrderRevenue(db, affiliates, from, to) {
         const selfOrders = await db.all(`
             SELECT oc.id as order_id, oc.customer_id, ${NET_REV_SQL} as revenue
             FROM order_codes oc
-            JOIN customers c ON c.id = oc.customer_id
+            JOIN customers c ON c.id = oc.customer_id
             WHERE oc.customer_id IN (${sph})
               AND COALESCE(oc.status, 'active') != 'cancelled'
               AND COALESCE(c.cancel_approved, 0) != 1
@@ -258,10 +260,12 @@ async function _calcFirstOrderRevenue(db, affiliates, from, to) {
             if (from) { cDateFilter += ' AND oc.created_at >= ?'; cParams.push(from + ' 00:00:00'); }
             if (to) { cDateFilter += ' AND oc.created_at <= ?'; cParams.push(to + ' 23:59:59'); }
             const childRevRows = await db.all(`
-                SELECT oc.customer_id, ${NET_REV_SQL} as revenue
-                FROM order_codes oc
-                WHERE oc.id IN (${cfoph})${cDateFilter}
-                GROUP BY oc.customer_id
+                SELECT sub.customer_id, COALESCE(SUM(sub.rev), 0) as revenue FROM (
+                    SELECT oc.customer_id, ${NET_REV_SQL} as rev
+                    FROM order_codes oc
+                    WHERE oc.id IN (${cfoph})${cDateFilter}
+                    GROUP BY oc.id, oc.customer_id, oc.order_code, oc.discount_amount
+                ) sub GROUP BY sub.customer_id
             `, cParams);
             const childCustRevMap = {};
             childRevRows.forEach(r => { childCustRevMap[r.customer_id] = Number(r.revenue); });
@@ -594,7 +598,7 @@ async function affiliateRoutes(fastify) {
                        aff.full_name as affiliate_name,
                        aff.managed_by_user_id as aff_manager_id,
                        emp.full_name as employee_name, emp.id as employee_id,
-                       COALESCE((SELECT COALESCE((SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc3.order_code), (SELECT SUM(oi3.total) FROM order_items oi3 WHERE oi3.order_code_id = oc3.id), 0) - COALESCE((SELECT d3.vat_amount FROM dht_orders d3 WHERE d3.order_code = oc3.order_code), 0) - COALESCE(oc3.discount_amount, 0) FROM order_codes oc3 WHERE oc3.customer_id = c.id AND COALESCE(oc3.status, 'active') != 'cancelled' AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') LIMIT 1), 0) as customer_revenue
+                       COALESCE((SELECT SUM(sub_rev.rev) FROM (SELECT COALESCE((SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc3.order_code), (SELECT SUM(oi3.total) FROM order_items oi3 WHERE oi3.order_code_id = oc3.id), 0) - COALESCE((SELECT d3.vat_amount FROM dht_orders d3 WHERE d3.order_code = oc3.order_code), 0) - COALESCE(oc3.discount_amount, 0) as rev FROM order_codes oc3 WHERE oc3.customer_id = c.id AND COALESCE(oc3.status, 'active') != 'cancelled' AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')) sub_rev), 0) as customer_revenue
                 FROM customers c
                 LEFT JOIN users aff ON aff.id = c.referrer_id
                 LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
@@ -693,7 +697,7 @@ async function affiliateRoutes(fastify) {
                        COALESCE(emp.id, self_emp.id) as employee_id,
                        ${NET_REV_SQL} as order_revenue
                 FROM order_codes oc
-                JOIN customers c ON c.id = oc.customer_id
+                JOIN customers c ON c.id = oc.customer_id
                 LEFT JOIN users aff ON aff.id = c.referrer_id
                 LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
                 LEFT JOIN users self_aff ON self_aff.source_customer_id = c.id AND self_aff.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
@@ -999,18 +1003,19 @@ async function affiliateRoutes(fastify) {
         let completedRevenueMap = {};
         if (customerIds.length > 0) {
             const cph2 = customerIds.map(() => '?').join(',');
-            let compRevQuery = `
-                SELECT oc.customer_id,
-                       ${NET_REV_SQL} as completed_revenue
-                FROM order_codes oc
-                WHERE oc.customer_id IN (${cph2})
-                AND oc.status = 'completed'`;
+            let innerWhere = `oc.customer_id IN (${cph2}) AND oc.status = 'completed'`;
             const compRevParams = [...customerIds];
             if (selfCreatedAt) {
-                compRevQuery += ` AND oc.created_at >= ?`;
+                innerWhere += ` AND oc.created_at >= ?`;
                 compRevParams.push(selfCreatedAtRaw);
             }
-            compRevQuery += ` GROUP BY oc.customer_id`;
+            const compRevQuery = `
+                SELECT sub.customer_id, COALESCE(SUM(sub.rev), 0) as completed_revenue FROM (
+                    SELECT oc.customer_id, ${NET_REV_SQL} as rev
+                    FROM order_codes oc
+                    WHERE ${innerWhere}
+                    GROUP BY oc.id, oc.customer_id, oc.order_code, oc.discount_amount
+                ) sub GROUP BY sub.customer_id`;
             const revenueRows = await db.all(compRevQuery, compRevParams);
             revenueRows.forEach(r => { completedRevenueMap[r.customer_id] = r.completed_revenue; });
         }
@@ -1025,7 +1030,7 @@ async function affiliateRoutes(fastify) {
                        COALESCE(SUM(sub.net_rev), 0) as total_revenue
                 FROM (
                     SELECT oc.customer_id, ${NET_REV_SQL} as net_rev
-                    FROM order_codes oc
+                    FROM order_codes oc
                     WHERE oc.customer_id IN (${cph3})
                     AND (oc.status IS NULL OR oc.status != 'cancelled')`;
             const totalRevParams = [...customerIds];
@@ -2163,10 +2168,10 @@ async function affiliateRoutes(fastify) {
         const orders = await db.all(
             `SELECT oc.id, oc.order_code, oc.customer_id, oc.created_at, oc.deposit_amount,
                 ${NET_REV_SQL} as order_total, (SELECT COUNT(*) FROM order_items oi_c WHERE oi_c.order_code_id = oc.id) as item_count
-            FROM order_codes oc 
+            FROM order_codes oc 
             WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
                 AND oc.created_at >= ? AND oc.created_at <= ?
-            GROUP BY oc.id, oc.discount_amount
+            GROUP BY oc.id, oc.order_code, oc.discount_amount
             ORDER BY oc.created_at DESC`,
             [...custIds, dateFrom, dateTo]
         );
@@ -2662,7 +2667,7 @@ async function affiliateRoutes(fastify) {
             if (rows.length > 0) {
                 const cids = rows.map(r => r.id);
                 const cph = cids.map(() => '?').join(',');
-                const revRows = await db.all(`SELECT oc.customer_id, ${NET_REV_SQL} as revenue FROM order_codes oc WHERE oc.customer_id IN (${cph}) AND oc.status='completed' GROUP BY oc.customer_id`, cids);
+                const revRows = await db.all(`SELECT sub.customer_id, COALESCE(SUM(sub.rev), 0) as revenue FROM (SELECT oc.customer_id, ${NET_REV_SQL} as rev FROM order_codes oc WHERE oc.customer_id IN (${cph}) AND oc.status='completed' GROUP BY oc.id, oc.customer_id, oc.order_code, oc.discount_amount) sub GROUP BY sub.customer_id`, cids);
                 const revMap = {};
                 revRows.forEach(r => { revMap[r.customer_id] = Number(r.revenue); });
                 rows.forEach(r => { r.total_revenue = revMap[r.id] || 0; });
@@ -2810,7 +2815,7 @@ async function affiliateRoutes(fastify) {
                        c.customer_name,
                        ${NET_REV_SQL} as revenue
                 FROM order_codes oc
-                LEFT JOIN customers c ON c.id = oc.customer_id
+                LEFT JOIN customers c ON c.id = oc.customer_id
                 WHERE ${orderWhere.join(' AND ')}
                 GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, oc.customer_id, oc.discount_amount, c.customer_name
                 ORDER BY oc.created_at DESC
@@ -3393,7 +3398,7 @@ async function affiliateRoutes(fastify) {
         let orderQuery = `
             SELECT oc.id, oc.order_code, oc.status, oc.created_at, oc.customer_id,
                    ${NET_REV_SQL} as revenue
-            FROM order_codes oc
+            FROM order_codes oc
             WHERE oc.status = 'completed'`;
         const orderParams = [];
         if (_capCheckedAt) {

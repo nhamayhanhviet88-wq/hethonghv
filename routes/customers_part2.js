@@ -701,9 +701,19 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const today = new Date().toISOString().split('T')[0];
         const newToday = await db.get(`SELECT COUNT(*) as cnt FROM customers ${whereClause ? whereClause + ' AND' : 'WHERE'} created_at::date = ?::date`, [...params, today]);
 
-        const totalRevenue = await db.get(`SELECT COALESCE(SUM(oi.total), 0) as revenue FROM order_items oi
-            JOIN customers c ON oi.customer_id = c.id ${whereClause ? whereClause.replace('WHERE', 'AND') : ''}
-            WHERE c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh')`, params);
+        const totalRevenue = await db.get(`SELECT COALESCE(SUM(sub.rev), 0) as revenue FROM (
+            SELECT COALESCE(
+                (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                0
+            ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
+              - COALESCE(oc.discount_amount, 0) as rev
+            FROM order_codes oc
+            JOIN customers c ON oc.customer_id = c.id ${whereClause ? whereClause.replace('WHERE', 'AND') : ''}
+            WHERE c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh')
+            AND (oc.status IS NULL OR oc.status != 'cancelled')
+            GROUP BY oc.id, oc.order_code, oc.discount_amount
+        ) sub`, params);
 
         const closed = await db.get(`SELECT COUNT(*) as cnt FROM customers ${whereClause ? whereClause + ' AND' : 'WHERE'} order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh')`, params);
         const rate = total?.cnt > 0 ? Math.round((closed?.cnt / total?.cnt) * 100) : 0;
@@ -953,7 +963,12 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     await db.run("UPDATE order_codes SET status = 'completed' WHERE id = ?", [ao.id]);
                     // Calculate commission for this order
                     if (customer.referrer_id) {
-                        const grandTotal = await db.get('SELECT COALESCE(SUM(total), 0) as t FROM order_items WHERE order_code_id = ?', [ao.id]);
+                        const grandTotal = await db.get(`SELECT COALESCE(
+                            (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                            (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                            0
+                        ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) as t
+                        FROM order_codes oc WHERE oc.id = $1`, [ao.id]);
                         if (grandTotal?.t) {
                             // Direct referrer commission
                             const referrer = await db.get('SELECT u.*, ct.percentage, ct.parent_percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [customer.referrer_id]);
@@ -1048,7 +1063,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const chotDon = (await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = ? AND status != 'cancelled'", [cid]))?.cnt || 0;
             const lastLog = await db.get(`SELECT log_type, content, created_at FROM consultation_logs WHERE customer_id = ? AND log_type != 'khong_xu_ly'
                 ORDER BY created_at DESC, CASE WHEN log_type = 'hoan_thanh_cap_cuu' THEN 0 ELSE 1 END, id DESC LIMIT 1`, [cid]);
-            const revenue = (await db.get("SELECT COALESCE(SUM(oi.total), 0) as t FROM order_items oi LEFT JOIN order_codes oc ON oi.order_code_id = oc.id WHERE oi.customer_id = ? AND (oc.status IS NULL OR oc.status != 'cancelled')", [cid]))?.t || 0;
+            const revenue = (await db.get(`SELECT COALESCE(SUM(sub.rev), 0) as t FROM (SELECT COALESCE((SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code), (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id), 0) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) - COALESCE(oc.discount_amount, 0) as rev FROM order_codes oc WHERE oc.customer_id = $1 AND (oc.status IS NULL OR oc.status != 'cancelled') GROUP BY oc.id, oc.order_code, oc.discount_amount) sub`, [cid]))?.t || 0;
             const latestOrderCode = await db.get('SELECT order_code FROM order_codes WHERE customer_id = ? ORDER BY id DESC LIMIT 1', [cid]);
             stats[cid] = { consultCount, chotDonCount: chotDon, lastLog, revenue, latestOrderCode: latestOrderCode?.order_code || null };
         }
