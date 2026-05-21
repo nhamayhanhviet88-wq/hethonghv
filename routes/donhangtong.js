@@ -712,6 +712,19 @@ module.exports = async function(fastify) {
                 }
             }
         }
+        // ★ EDIT RESTRICTIONS: Non-GĐ cannot change critical fields
+        if (request.user.role !== 'giam_doc') {
+            const restrictedFields = ['category_id', 'expected_ship_date', 'shipping_priority', 'standard_delivery_time'];
+            for (const rf of restrictedFields) {
+                if (b[rf] !== undefined) {
+                    // Check if value actually changed
+                    const existing = await db.get(`SELECT ${rf} FROM dht_orders WHERE id = $1`, [orderId]);
+                    if (existing && String(b[rf]) !== String(existing[rf])) {
+                        return reply.code(403).send({ error: '🔒 Bạn không có quyền thay đổi ' + rf });
+                    }
+                }
+            }
+        }
 
         // Build dynamic SET clause
         const allowed = [

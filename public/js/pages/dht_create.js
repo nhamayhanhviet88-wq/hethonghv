@@ -14,6 +14,7 @@ function _dhtFilterDeposits() { /* V4: no longer used */ }
 
 async function _dhtCancelCreate() {
     _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
+    window._dhtEditRestricted = false;
     closeModal();
 }
 
@@ -231,6 +232,37 @@ async function _dhtGoStep2() {
         _dhtRenderPhieuRows();
         _dhtRenderSurcharges();
         _dhtCalcTotal();
+
+        // ★ EDIT RESTRICTIONS: Non-GĐ users cannot modify critical fields
+        if (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
+            // 1. Lock Lĩnh Vực (category) — read-only
+            var catEl = document.getElementById('_co_cat');
+            if (catEl) { catEl.disabled = true; catEl.style.background = '#f1f5f9'; catEl.style.color = '#64748b'; catEl.style.cursor = 'not-allowed'; catEl.title = '🔒 Chỉ GĐ mới đổi được Lĩnh Vực'; }
+
+            // 2. Lock Ngày Gửi Hàng
+            var shipEl = document.getElementById('_co_shipDate');
+            if (shipEl) { shipEl.disabled = true; shipEl.style.background = '#f1f5f9'; shipEl.style.color = '#64748b'; shipEl.style.cursor = 'not-allowed'; shipEl.title = '🔒 Chỉ GĐ mới đổi được Ngày Gửi'; }
+
+            // 3. Lock Tiêu Chuẩn Gửi
+            var priEl = document.getElementById('_co_pri');
+            if (priEl) { priEl.disabled = true; priEl.style.background = '#f1f5f9'; priEl.style.color = '#64748b'; priEl.style.cursor = 'not-allowed'; priEl.title = '🔒 Chỉ GĐ mới đổi được Tiêu Chuẩn Gửi'; }
+
+            // 4. Lock Yêu Cầu Chuẩn Giờ Hàng Ra
+            var dhEl = document.getElementById('_co_deliveryHour');
+            var dmEl = document.getElementById('_co_deliveryMin');
+            if (dhEl) { dhEl.disabled = true; dhEl.style.background = '#f1f5f9'; dhEl.style.cursor = 'not-allowed'; dhEl.title = '🔒 Chỉ GĐ mới đổi được'; }
+            if (dmEl) { dmEl.disabled = true; dmEl.style.background = '#f1f5f9'; dmEl.style.cursor = 'not-allowed'; dmEl.title = '🔒 Chỉ GĐ mới đổi được'; }
+
+            // 5. Store restriction flag globally for render functions
+            window._dhtEditRestricted = true;
+
+            // 6. Re-render phiếu rows and surcharges with delete buttons hidden
+            _dhtRenderPhieuRows();
+            _dhtRenderSurcharges();
+            _ppRenderNNTags();
+        } else {
+            window._dhtEditRestricted = false;
+        }
     }
 }
 
@@ -803,12 +835,15 @@ function _dhtRenderPhieuRows() {
         d.onmouseout=function(){this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';};
         d.onclick=function(e){if(e.target.tagName==='BUTTON')return;_dhtAddItem(i);};
         var vl=p.vat_percent?'+'+p.vat_percent+'%':'';
+        var delBtn = (window._dhtEditRestricted && _dhtCreate.editMode)
+            ? ''
+            : '<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
         d.innerHTML='<div style="font-weight:700;color:var(--navy)">📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span></div>'
             +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
             +'<div style="text-align:center;font-size:10px;color:#b8860b;font-weight:700">'+vl+'</div>'
             +'<div style="text-align:right;font-weight:800;color:#059669">'+p.item_total.toLocaleString('vi-VN')+'đ</div>'
-            +'<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
+            +delBtn;
         c.appendChild(d);
     });
 }
@@ -874,10 +909,14 @@ function _dhtRenderSurcharges() {
     }
     var h = '';
     _dhtCreate.surcharges.forEach(function(s, i) {
-        h += '<div class="_surRow" style="display:grid;grid-template-columns:1fr 120px 30px;gap:6px;margin-bottom:4px;align-items:center">'
+        var delBtn = (window._dhtEditRestricted && _dhtCreate.editMode)
+            ? ''
+            : '<button type="button" onclick="_dhtRemoveSurcharge(' + i + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:26px;width:26px;display:flex;align-items:center;justify-content:center">✕</button>';
+        var gridCols = delBtn ? '1fr 120px 30px' : '1fr 120px';
+        h += '<div class="_surRow" style="display:grid;grid-template-columns:'+gridCols+';gap:6px;margin-bottom:4px;align-items:center">'
             + '<input class="_surDesc" type="text" value="' + (s.description || '').replace(/"/g, '&quot;') + '" placeholder="Nội dung phụ phí" oninput="_dhtSurchargeChange()" style="padding:5px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:11px">'
             + '<input class="_surAmt" type="number" value="' + (s.amount || 0) + '" min="0" placeholder="Số tiền" oninput="_dhtSurchargeChange()" style="padding:5px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;text-align:right">'
-            + '<button type="button" onclick="_dhtRemoveSurcharge(' + i + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:26px;width:26px;display:flex;align-items:center;justify-content:center">✕</button>'
+            + delBtn
             + '</div>';
     });
     c.innerHTML = h;
@@ -1150,8 +1189,11 @@ function _ppRenderNNTags() {
     var el = document.getElementById('_ppNNTags'); if (!el) return;
     if (tags.length === 0) { el.innerHTML = '<span style="font-size:10px;color:#9ca3af;font-style:italic">Chưa có nhắc nhở</span>'; return; }
     el.innerHTML = tags.map(function(t, i) {
-        return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
-            + t + ' <button onclick="_ppRemoveNNTag(' + i + ')" style="background:none;border:none;color:#92400e;cursor:pointer;font-size:12px;padding:0;line-height:1">✕</button></span>';
+        var delBtn = (window._dhtEditRestricted && _dhtCreate.editMode)
+            ? ''
+            : ' <button onclick=\"_ppRemoveNNTag(' + i + ')\" style=\"background:none;border:none;color:#92400e;cursor:pointer;font-size:12px;padding:0;line-height:1\">✕</button>';
+        return '<span style=\"display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700\">'
+            + t + delBtn + '</span>';
     }).join('');
 }
 
