@@ -840,8 +840,16 @@ async function _dhtShowDetail(id) {
                 shipHTML += row('📦 Mã vận đơn', `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`);
             }
             if (o.shipping_bill_link) {
+                // Convert Google Drive share link → embeddable direct image URL
+                var _billUrl = o.shipping_bill_link;
+                var _imgUrl = _billUrl;
+                var _driveMatch = _billUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                if (_driveMatch) _imgUrl = 'https://drive.google.com/uc?export=view&id=' + _driveMatch[1];
+                var _driveMatch2 = _billUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                if (_driveMatch2) _imgUrl = 'https://drive.google.com/uc?export=view&id=' + _driveMatch2[1];
+                var _imgStyle = 'max-width:220px;max-height:180px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.1)';
                 shipHTML += `<tr><td style="padding:8px 0;font-size:13px;color:#64748b;vertical-align:top;width:40%">🔗 Bill gửi hàng</td><td style="padding:8px 0;font-size:13px;color:#1e293b">`;
-                shipHTML += `<a href="${o.shipping_bill_link}" target="_blank" title="Xem ảnh gốc"><img src="${o.shipping_bill_link}" style="max-width:220px;max-height:180px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.1)" onerror="this.outerHTML='<a href=\\'${o.shipping_bill_link}\\' target=\\'_blank\\' style=\\'color:var(--info);font-weight:700\\'>📷 Xem bill</a>'"></a>`;
+                shipHTML += `<a href="${_billUrl}" target="_blank" title="Click để xem ảnh gốc"><img src="${_imgUrl}" style="${_imgStyle}" onerror="this.style.display='none';this.parentElement.innerHTML='<a href=&quot;${_billUrl}&quot; target=&quot;_blank&quot; style=&quot;color:#3b82f6;font-weight:700&quot;>📷 Xem bill (link)</a>'"></a>`;
                 shipHTML += `</td></tr>`;
             }
             if (o.carrier_phone) {
