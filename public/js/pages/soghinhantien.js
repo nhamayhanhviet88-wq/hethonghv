@@ -776,7 +776,7 @@ async function _prUpdateCustomer(id) {
         +'<div id="prSelectedOrderBox" style="display:none;margin-top:12px;padding:12px 16px;border-radius:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px solid #10b981"></div>';
 
     var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
-        +'<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrder('+id+')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);opacity:.5;pointer-events:none" disabled>💳 Nhận Thanh Toán Đơn Hàng</button>';
+        +'<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrder('+id+')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💳 NHẬN THANH TOÁN ĐƠN HÀNG</button>';
     openModal('💳 Cập Nhật Tiền Đơn Hàng', bodyHTML, footerHTML);
     setTimeout(function(){ var mc = document.querySelector('.modal-content'); if(mc){ mc.style.maxWidth='680px'; mc.style.width='90vw'; } }, 30);
     // Auto-load all unpaid orders on open
@@ -803,7 +803,7 @@ function _prSearchUnpaidOrders() {
                 var remain = Number(o.remaining) || 0;
                 var orderDate = o.order_date ? o.order_date.split('T')[0].split('-').reverse().join('/') : '';
                 var isSelected = _prSelectedOrder && _prSelectedOrder.order_code === o.order_code;
-                h += '<div onclick="_prSelectOrder('+JSON.stringify(o).replace(/"/g,'&quot;')+')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .15s;display:flex;align-items:center;gap:10px;'+(isSelected?'background:#ecfdf5;':'background:#fff;')+'" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\''+(isSelected?'#ecfdf5':'#fff')+'\'">'
+                h += '<div onclick="_prSelectOrder('+JSON.stringify(o).replace(/"/g,'&quot;')+')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .15s;display:flex;align-items:center;gap:10px;'+(isSelected?'background:#dbeafe;border-left:4px solid #3b82f6;':'background:#fff;border-left:4px solid transparent;')+'" onmouseover="if(!'+isSelected+')this.style.background=\'#f0f9ff\'" onmouseout="if(!'+isSelected+')this.style.background=\'#fff\'">'
                     +'<div style="flex:1">'
                     +'<div style="font-weight:800;font-size:13px;color:#1a1a2e">'+o.order_code+'</div>'
                     +'<div style="font-size:11px;color:#64748b;margin-top:2px">'+(o.customer_name||'—')+' · '+(o.customer_phone||'')+' · '+orderDate+'</div>'
@@ -835,6 +835,8 @@ function _prSelectOrder(o) {
     // Enable button
     var btn = document.getElementById('prBtnLinkOrder');
     if (btn) { btn.style.opacity='1'; btn.style.pointerEvents='auto'; btn.disabled=false; }
+    // Re-render list to show blue highlight on selected row
+    _prSearchUnpaidOrders();
 }
 
 async function _prSubmitLinkOrder(prId) {
