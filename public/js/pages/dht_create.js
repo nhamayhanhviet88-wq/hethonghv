@@ -583,18 +583,24 @@ async function _dhtAddItem(editIdx) {
     setTimeout(_ppCalc,100);
     _ppRenderSewTags();
     // ★ READ-ONLY MODE: Disable all inputs inside popup for existing items (except VAT)
+    window._dhtPhieuRestricted = isRestricted;
     if (isRestricted) {
-        setTimeout(function() {
+        // Run multiple passes to catch async-rendered elements (colors load via API)
+        var _lockPopup = function() {
             var popup = document.getElementById('_phieuPopup');
             if (!popup) return;
             popup.querySelectorAll('input, select, textarea').forEach(function(el) {
-                // Keep VAT editable
                 if (el.id === '_pp_vat') return;
                 el.disabled = true;
                 el.style.background = '#f1f5f9';
                 el.style.cursor = 'not-allowed';
             });
-        }, 150);
+        };
+        setTimeout(_lockPopup, 150);
+        setTimeout(_lockPopup, 500);
+        setTimeout(_lockPopup, 1000);
+    } else {
+        window._dhtPhieuRestricted = false;
     }
 }
 
@@ -1224,8 +1230,11 @@ function _ppRenderSewTags() {
     if (items.length === 0) { el.innerHTML = '<span style="font-size:10px;color:#9ca3af;font-style:italic">Chưa chọn</span>'; return; }
     el.innerHTML = items.map(function(s, i) {
         var label = typeof s === 'string' ? s : (s.name + (s.qty > 1 ? ' x'+s.qty : ''));
+        var removeBtn = window._dhtPhieuRestricted
+            ? ''
+            : ' <button type="button" onclick="_ppRemoveSew(' + i + ')" style="background:none;border:none;color:#fde68a;cursor:pointer;font-size:11px;padding:0">&times;</button>';
         return '<span style="display:inline-flex;align-items:center;gap:3px;background:#6366f1;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700">'
-            + label + ' <button type="button" onclick="_ppRemoveSew(' + i + ')" style="background:none;border:none;color:#fde68a;cursor:pointer;font-size:11px;padding:0">&times;</button></span>';
+            + label + removeBtn + '</span>';
     }).join('');
 }
 
