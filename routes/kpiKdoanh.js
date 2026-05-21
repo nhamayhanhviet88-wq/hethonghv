@@ -95,7 +95,11 @@ module.exports = async function(fastify) {
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (
-                    SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+                    SELECT COALESCE(
+                        (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                        (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                        0
+                    ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
                 ) oi_sum ON true
                 WHERE oc.customer_id IN (${custPh})
                   AND oc.created_at >= $${cPS}::timestamp
@@ -387,7 +391,11 @@ module.exports = async function(fastify) {
             FROM order_codes oc
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN LATERAL (
-                SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                    (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                    0
+                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
             ) oi_sum ON true
             LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
             WHERE c.assigned_to_id = $1
@@ -476,7 +484,11 @@ module.exports = async function(fastify) {
             FROM order_codes oc
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN LATERAL (
-                SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                    (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                    0
+                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
             ) oi_sum ON true
             WHERE c.assigned_to_id IN (${empPh})
               AND COALESCE(c.cancel_approved, 0) != 1
