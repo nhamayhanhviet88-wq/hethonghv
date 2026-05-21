@@ -150,7 +150,7 @@ function _prRenderTable() {
     }
     var cols = [
         {k:'code',l:'Mã TT',w:115},{k:'customer',l:'Khách Hàng',w:140},{k:'cskh',l:'CSKH',w:85},
-        {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:65},{k:'order',l:'Đơn TT/Cọc',w:100},
+        {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:65},{k:'order',l:'Mã Đơn TT/Cọc',w:100},
         {k:'sample',l:'Áo Mẫu',w:70},{k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
         {k:'bank',l:'NH',w:65},{k:'totalOrders',l:'SLL Mã Đơn TT',w:100},{k:'cod',l:'Tổng COD',w:80},
         {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100},{k:'date',l:'Ngày',w:65}
@@ -576,7 +576,7 @@ function _prShowDetail(id) {
         +row('Hình thức TT', r.payment_method||'')
         +row('Ngân hàng', r.bank_name||'—')
         +row('Nội dung CK', '<span style="word-break:break-all">'+(r.transfer_note||'—')+'</span>')
-        +row('Đơn TT, cọc', (r.order_tt_coc ? '<b>'+r.order_tt_coc+'</b>' + (r.amount ? ' - đ'+_prFmt(r.amount) : '') : '—'))
+        +row('Mã Đơn TT/Cọc', (r.order_tt_coc ? '<span style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.order_tt_coc + '</span>' + (r.amount ? ' <span style="color:#6d28d9;font-weight:700">— đ'+_prFmt(r.amount)+'</span>' : '') : '—'))
         +row('Số tiền về TK', '<span style="font-size:14px;color:#d32f2f">💰 '+_prFmt(r.amount)+'</span>')
         +row('Trạng thái BG', statusLabels[r.handover_status]||r.handover_status||'')
         +row('Lịch sử CN', (updatedAt ? '🗓️ '+updatedAt+'<br>' : '')+(histSrc||''))
