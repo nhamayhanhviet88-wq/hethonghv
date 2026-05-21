@@ -757,6 +757,44 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // ========== UNPAID DHT ORDERS: Tìm đơn chưa thanh toán hết ==========
+    fastify.get('/api/payment-records/unpaid-orders', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const { q } = request.query;
+        let searchWhere = '';
+        const params = [];
+        if (q && q.trim().length >= 2) {
+            searchWhere = ` AND (o.order_code ILIKE $1 OR o.customer_name ILIKE $1 OR o.customer_phone ILIKE $1)`;
+            params.push(`%${q.trim()}%`);
+        }
+
+        const orders = await db.all(`
+            SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
+                   o.total_amount, o.order_date,
+                   u.full_name AS cskh_name,
+                   GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_paid,
+                   COALESCE(o.total_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining
+            FROM dht_orders o
+            LEFT JOIN users u ON o.cskh_user_id = u.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
+            WHERE COALESCE(o.total_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) > 0
+            ${searchWhere}
+            ORDER BY o.order_date DESC, o.id DESC
+            LIMIT 30
+        `, params);
+
+        return { orders };
+    });
+
     // ========== APPSHEET SYNC CONFIG: Get ==========
     fastify.get('/api/payment-records/appsheet-config', async (request, reply) => {
         const token = request.cookies?.token;
