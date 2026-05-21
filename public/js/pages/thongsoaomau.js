@@ -124,9 +124,9 @@ function _tsamShowCreate(editId) {
         // === REMAINING FIELDS ===
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">'
         + '<div class="form-group"><label>Bộ Sưu Tập ' + rq + '</label><input id="_tsamCollection" class="form-control" autocomplete="off" value="' + (s.collection || '') + '" placeholder="VD: BST Hè 2026"></div>'
-        + '<div class="form-group"><label>🔗 Market Thiết Kế ' + rq + '</label><input id="_tsamMarket" class="form-control" autocomplete="off" value="' + (s.design_market || '') + '" placeholder="https://drive.google.com/..."></div>'
-        + '<div class="form-group"><label>🔗 Tổng Hợp Áo Mẫu ' + rq + '</label><input id="_tsamTotal" class="form-control" autocomplete="off" value="' + (s.total_sample || '') + '" placeholder="https://drive.google.com/..."></div>'
-        + '<div class="form-group"><label>🔗 Dưỡng Áo Mẫu ' + rq + '</label><input id="_tsamCare" class="form-control" autocomplete="off" value="' + (s.sample_care || '') + '" placeholder="https://drive.google.com/..."></div>'
+        + '<div class="form-group"><label>🔗 Market Thiết Kế ' + rq + '</label><input id="_tsamMarket" class="form-control" autocomplete="off" value="' + (s.design_market || '') + '" placeholder="https://drive.google.com/drive/folders/..."></div>'
+        + '<div class="form-group"><label>🔗 Tổng Hợp Áo Mẫu ' + rq + '</label><input id="_tsamTotal" class="form-control" autocomplete="off" value="' + (s.total_sample || '') + '" placeholder="https://drive.google.com/drive/folders/..."></div>'
+        + '<div class="form-group"><label>🔗 Dưỡng Áo Mẫu ' + rq + '</label><input id="_tsamCare" class="form-control" autocomplete="off" value="' + (s.sample_care || '') + '" placeholder="https://drive.google.com/drive/folders/..."></div>'
         + '</div>'
         // === SEWING TECH PICKER (full width) ===
         + '<div class="form-group" style="margin-top:8px"><label>✂️ Kỹ Thuật May ' + rq + '</label>'
@@ -150,6 +150,15 @@ function _tsamShowCreate(editId) {
         }
         _tsamRenderSewTags();
         _tsamLoadMixPositions(s);
+        // Attach real-time Google Drive link validation
+        ['_tsamMarket', '_tsamTotal', '_tsamCare'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', function() { _tsamValidateLinkInput(this); _tsamCheckDupLinks(); });
+                el.addEventListener('blur', function() { _tsamValidateLinkInput(this); _tsamCheckDupLinks(); });
+                _tsamValidateLinkInput(el);
+            }
+        });
     }, 100);
 }
 
@@ -171,6 +180,27 @@ function _tsamTypeChanged() {
     // Toggle mix position picker visibility
     var wrap = document.getElementById('_tsamMixPosWrap');
     if (wrap) wrap.style.display = (type === 'PHA_PHOI') ? 'block' : 'none';
+}
+
+// ========== REAL-TIME LINK VALIDATION ==========
+var _tsamDriveRe = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
+function _tsamValidateLinkInput(el) {
+    var val = (el.value || '').trim();
+    if (!val) { el.style.borderColor = ''; el.style.boxShadow = ''; return; }
+    if (_tsamDriveRe.test(val)) { el.style.borderColor = '#059669'; el.style.boxShadow = '0 0 0 2px rgba(5,150,105,0.15)'; }
+    else { el.style.borderColor = '#dc2626'; el.style.boxShadow = '0 0 0 2px rgba(220,38,38,0.15)'; }
+}
+function _tsamCheckDupLinks() {
+    var ids = ['_tsamMarket', '_tsamTotal', '_tsamCare'];
+    var vals = ids.map(function(id) { return (document.getElementById(id)?.value || '').trim().toLowerCase(); });
+    ids.forEach(function(id, i) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var v = vals[i];
+        if (!v) return;
+        var isDup = vals.some(function(x, j) { return j !== i && x && x === v; });
+        if (isDup) { el.style.borderColor = '#dc2626'; el.style.boxShadow = '0 0 0 2px rgba(220,38,38,0.15)'; }
+    });
 }
 
 // ========== MIX POSITION LOADER ==========
@@ -236,7 +266,7 @@ async function _tsamHandlePaste(e) {
 }
 
 async function _tsamSubmit(editId) {
-    var urlRe = /^https?:\/\/.+/i;
+    var urlRe = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
     var sewArr = (window._tsamSewItems || []).slice();
     // Auto-calc prices from selected BGM items
     var autoFP = 0, autoPP = 0;
@@ -264,11 +294,14 @@ async function _tsamSubmit(editId) {
     if (!data.spec_image) { showToast('Chưa dán Hình Ảnh Thông Số (Ctrl+V)', 'error'); return; }
     if (!data.collection) { showToast('Nhập Bộ Sưu Tập', 'error'); return; }
     if (!data.design_market) { showToast('Nhập Market Thiết Kế', 'error'); return; }
-    if (!urlRe.test(data.design_market)) { showToast('Market Thiết Kế phải là link (https://...)', 'error'); return; }
+    if (!urlRe.test(data.design_market)) { showToast('Market Thiết Kế phải là link Google Drive folder (https://drive.google.com/drive/folders/...)', 'error'); return; }
     if (!data.total_sample) { showToast('Nhập Tổng Hợp Áo Mẫu', 'error'); return; }
-    if (!urlRe.test(data.total_sample)) { showToast('Tổng Hợp Áo Mẫu phải là link (https://...)', 'error'); return; }
+    if (!urlRe.test(data.total_sample)) { showToast('Tổng Hợp Áo Mẫu phải là link Google Drive folder (https://drive.google.com/drive/folders/...)', 'error'); return; }
     if (!data.sample_care) { showToast('Nhập Dưỡng Áo Mẫu', 'error'); return; }
-    if (!urlRe.test(data.sample_care)) { showToast('Dưỡng Áo Mẫu phải là link (https://...)', 'error'); return; }
+    if (!urlRe.test(data.sample_care)) { showToast('Dưỡng Áo Mẫu phải là link Google Drive folder (https://drive.google.com/drive/folders/...)', 'error'); return; }
+    // === Check duplicate links ===
+    var _dm = data.design_market.trim().toLowerCase(), _ts = data.total_sample.trim().toLowerCase(), _sc = data.sample_care.trim().toLowerCase();
+    if (_dm === _ts || _dm === _sc || _ts === _sc) { showToast('3 link (Market TK, Tổng Hợp, Dưỡng) không được trùng nhau!', 'error'); return; }
     if (sewArr.length === 0) { showToast('Chọn Kỹ Thuật May từ Bảng Giá May', 'error'); return; }
     if (data.sample_type === 'PHA_PHOI' && Number(data.mix_color_count) < 2) { showToast('Pha Phối phải có ≥ 2 màu', 'error'); return; }
     if (data.sample_type === 'PHA_PHOI' && data.mix_positions.length === 0) { showToast('Chọn ít nhất 1 Vị Trí Phối', 'error'); return; }

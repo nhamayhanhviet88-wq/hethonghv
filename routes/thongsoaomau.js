@@ -71,7 +71,7 @@ module.exports = async function(fastify) {
     // ========== CREATE sample ==========
     fastify.post('/api/tsam/samples', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body || {};
-        const urlRegex = /^https?:\/\/.+/i;
+        const urlRegex = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
 
         // === All fields required ===
         if (!b.category_id) return reply.code(400).send({ error: 'Chọn Lĩnh Vực' });
@@ -80,13 +80,19 @@ module.exports = async function(fastify) {
         if (!['PHA_PHOI', '3D', 'DON'].includes(b.sample_type)) return reply.code(400).send({ error: 'Loại không hợp lệ' });
         if (!b.collection || !b.collection.trim()) return reply.code(400).send({ error: 'Nhập Bộ Sưu Tập' });
 
-        // === URL validation for 3 link fields ===
+        // === URL validation for 3 link fields (must be Google Drive folder links) ===
         if (!b.design_market || !b.design_market.trim()) return reply.code(400).send({ error: 'Nhập Market Thiết Kế' });
-        if (!urlRegex.test(b.design_market.trim())) return reply.code(400).send({ error: 'Market Thiết Kế phải là link (bắt đầu bằng https://)' });
+        if (!urlRegex.test(b.design_market.trim())) return reply.code(400).send({ error: 'Market Thiết Kế phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
         if (!b.total_sample || !b.total_sample.trim()) return reply.code(400).send({ error: 'Nhập Tổng Hợp Áo Mẫu' });
-        if (!urlRegex.test(b.total_sample.trim())) return reply.code(400).send({ error: 'Tổng Hợp Áo Mẫu phải là link (bắt đầu bằng https://)' });
+        if (!urlRegex.test(b.total_sample.trim())) return reply.code(400).send({ error: 'Tổng Hợp Áo Mẫu phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
         if (!b.sample_care || !b.sample_care.trim()) return reply.code(400).send({ error: 'Nhập Dưỡng Áo Mẫu' });
-        if (!urlRegex.test(b.sample_care.trim())) return reply.code(400).send({ error: 'Dưỡng Áo Mẫu phải là link (bắt đầu bằng https://)' });
+        if (!urlRegex.test(b.sample_care.trim())) return reply.code(400).send({ error: 'Dưỡng Áo Mẫu phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
+
+        // === Check duplicate links ===
+        const dm = b.design_market.trim().toLowerCase();
+        const ts = b.total_sample.trim().toLowerCase();
+        const sc = b.sample_care.trim().toLowerCase();
+        if (dm === ts || dm === sc || ts === sc) return reply.code(400).send({ error: '3 link (Market TK, Tổng Hợp, Dưỡng) không được trùng nhau' });
 
         // === Sewing tech required ===
         let sewingArr = b.sewing_tech || [];
@@ -149,7 +155,7 @@ module.exports = async function(fastify) {
     fastify.put('/api/tsam/samples/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
         const b = request.body || {};
-        const urlRegex = /^https?:\/\/.+/i;
+        const urlRegex = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
 
         const old = await db.get('SELECT * FROM tsam_samples WHERE id = $1', [id]);
         if (!old) return reply.code(404).send({ error: 'Không tìm thấy mẫu' });
@@ -160,15 +166,23 @@ module.exports = async function(fastify) {
         if (b.collection !== undefined && (!b.collection || !b.collection.trim())) return reply.code(400).send({ error: 'Nhập Bộ Sưu Tập' });
         if (b.design_market !== undefined) {
             if (!b.design_market || !b.design_market.trim()) return reply.code(400).send({ error: 'Nhập Market Thiết Kế' });
-            if (!urlRegex.test(b.design_market.trim())) return reply.code(400).send({ error: 'Market Thiết Kế phải là link (https://)' });
+            if (!urlRegex.test(b.design_market.trim())) return reply.code(400).send({ error: 'Market Thiết Kế phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
         }
         if (b.total_sample !== undefined) {
             if (!b.total_sample || !b.total_sample.trim()) return reply.code(400).send({ error: 'Nhập Tổng Hợp Áo Mẫu' });
-            if (!urlRegex.test(b.total_sample.trim())) return reply.code(400).send({ error: 'Tổng Hợp Áo Mẫu phải là link (https://)' });
+            if (!urlRegex.test(b.total_sample.trim())) return reply.code(400).send({ error: 'Tổng Hợp Áo Mẫu phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
         }
         if (b.sample_care !== undefined) {
             if (!b.sample_care || !b.sample_care.trim()) return reply.code(400).send({ error: 'Nhập Dưỡng Áo Mẫu' });
-            if (!urlRegex.test(b.sample_care.trim())) return reply.code(400).send({ error: 'Dưỡng Áo Mẫu phải là link (https://)' });
+            if (!urlRegex.test(b.sample_care.trim())) return reply.code(400).send({ error: 'Dưỡng Áo Mẫu phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
+        }
+
+        // === Check duplicate links (use old values as fallback for unmodified fields) ===
+        const effDM = (b.design_market !== undefined ? b.design_market : old.design_market || '').trim().toLowerCase();
+        const effTS = (b.total_sample !== undefined ? b.total_sample : old.total_sample || '').trim().toLowerCase();
+        const effSC = (b.sample_care !== undefined ? b.sample_care : old.sample_care || '').trim().toLowerCase();
+        if (effDM && effTS && effSC && (effDM === effTS || effDM === effSC || effTS === effSC)) {
+            return reply.code(400).send({ error: '3 link (Market TK, Tổng Hợp, Dưỡng) không được trùng nhau' });
         }
 
         // === Auto-enforce mix_color_count when type changes ===
