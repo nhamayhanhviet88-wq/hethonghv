@@ -618,10 +618,10 @@ async function _dhtShowDetail(id) {
         window._dhtDetailItems = items;
         var itemsHTML = '';
         if (items.length > 0) {
-            itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:8px;margin-bottom:16px">`;
+            itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:8px;margin-bottom:16px;overflow:hidden">`;
             itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span> <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-left:4px">— Bấm vào dòng để xem chi tiết</span></div>`;
-            itemsHTML += `<div style="overflow:hidden;border-radius:8px;border:1px solid #e2e8f0"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
-            itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px">PHỐI</th><th style="padding:8px 10px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:8px 10px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:8px 10px;text-align:left;font-size:10px">MÀU</th><th style="padding:8px 10px;text-align:center;font-size:10px">SỐ LƯỢNG</th><th style="padding:8px 10px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:8px 10px;text-align:center;font-size:10px">VAT</th><th style="padding:8px 10px;text-align:right;font-size:10px">THÀNH TIỀN</th></tr></thead><tbody>`;
+            itemsHTML += `<div><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+            itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHỐI</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:6px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:6px;text-align:left;font-size:10px">MÀU</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:center;font-size:10px">VAT</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">THÀNH TIỀN</th></tr></thead><tbody>`;
             const _phoiColors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626'];
             const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
             for (let idx = 0; idx < items.length; idx++) {
@@ -648,22 +648,22 @@ async function _dhtShowDetail(id) {
                     const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
                     itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}" onclick="_dhtShowItemDetail(${idx})" onmouseover="this.style.background='${pBg}'" onmouseout="this.style.background='${isFirst ? '' : pBg}'">`;
                     // Col 1: Phối label + Sale badge (only first row)
-                    itemsHTML += `<td style="padding:8px 10px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
+                    itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
                     // Col 2: Product name (only first row)
-                    itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:var(--navy)">${isFirst ? (it.product_name || it.description || '—') + ' <span style="font-size:9px;color:#94a3b8">🔍</span>' : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:var(--navy)">${isFirst ? (it.product_name || it.description || '—') + ' <span style="font-size:9px;color:#94a3b8">🔍</span>' : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
                     // Col 3: Material
-                    itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
                     // Col 4: Color
-                    itemsHTML += `<td style="padding:8px 10px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
                     // Col 5-8: Qty, Price, VAT, Total (only first row shows financials)
                     if (isFirst) {
-                        itemsHTML += `<td style="padding:8px 10px;text-align:center;font-weight:700">${totalQty}</td>`;
-                        itemsHTML += `<td style="padding:8px 10px;text-align:right">${fmt(it.unit_price)}đ</td>`;
-                        itemsHTML += `<td style="padding:8px 10px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
-                        itemsHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(it.item_total || it.total)}đ</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmt(it.unit_price)}đ</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmt(it.item_total || it.total)}đ</td>`;
                     } else {
-                        itemsHTML += `<td style="padding:8px 10px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
-                        itemsHTML += `<td colspan="3" style="padding:8px 10px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
+                        itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
                     }
                     itemsHTML += `</tr>`;
                 }
