@@ -160,7 +160,7 @@ function _prRenderTable() {
     cols.forEach(function(c){h+='<th style="width:'+c.w+'px">'+c.l+'</th>';});
     h += '</tr></thead><tbody>';
 
-    var typeLabels = {thanh_toan:'TT',dat_coc:'Đặt Cọc',tt_sll:'SLL',pending:'⏳'};
+    var typeLabels = {thanh_toan:'Thanh Toán',dat_coc:'Đặt Cọc',tt_sll:'SLL',pending:'⏳'};
     var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll',pending:'pr-pending'};
     var srcLabels = {khach_hang:'KH',khach_hang_sll:'KH SLL',nha_van_chuyen:'NVC'};
 
@@ -311,7 +311,7 @@ async function _prSubmitAdd() {
         customer_phone: '',
         cskh_user_id: null,
         amount: Number(amount),
-        payment_type: 'thanh_toan',
+        payment_type: 'pending',
         money_source: document.getElementById('prSource')?.value || 'khach_hang',
         bank_name: bank,
         order_tt_coc: '',
