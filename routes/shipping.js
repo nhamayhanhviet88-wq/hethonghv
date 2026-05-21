@@ -418,4 +418,45 @@ module.exports = async function(fastify) {
         `, [todayStr]);
         return { overdue, count: overdue.length, today: todayStr };
     });
+
+    // ========== Image Proxy: Resolve prnt.sc / lightshot to direct image URL ==========
+    fastify.get('/api/shipping/resolve-image', { preHandler: [authenticate] }, async (request, reply) => {
+        const url = request.query.url;
+        if (!url) return reply.code(400).send({ error: 'Missing url' });
+        try {
+            // For prnt.sc links, fetch the page and extract og:image
+            if (url.includes('prnt.sc') || url.includes('prntscr.com')) {
+                const https = require('https');
+                const http = require('http');
+                const fetchPage = (u) => new Promise((resolve, reject) => {
+                    const mod = u.startsWith('https') ? https : http;
+                    mod.get(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 }, (res) => {
+                        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                            return fetchPage(res.headers.location).then(resolve).catch(reject);
+                        }
+                        let body = '';
+                        res.on('data', c => body += c);
+                        res.on('end', () => resolve(body));
+                    }).on('error', reject);
+                });
+                const html = await fetchPage(url);
+                // Extract og:image meta tag
+                const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+                if (ogMatch && ogMatch[1]) {
+                    return { direct_url: ogMatch[1] };
+                }
+                // Fallback: look for image in screenshot-image id
+                const imgMatch = html.match(/<img[^>]*id=["']screenshot-image["'][^>]*src=["']([^"']+)["']/i);
+                if (imgMatch && imgMatch[1]) {
+                    return { direct_url: imgMatch[1] };
+                }
+                return { direct_url: null, fallback: url };
+            }
+            // For other URLs, just return as-is
+            return { direct_url: url };
+        } catch(e) {
+            console.error('[ImageProxy]', e.message);
+            return { direct_url: null, fallback: url };
+        }
+    });
 };

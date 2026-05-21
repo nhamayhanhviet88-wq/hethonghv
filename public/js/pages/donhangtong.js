@@ -840,17 +840,40 @@ async function _dhtShowDetail(id) {
                 shipHTML += row('📦 Mã vận đơn', `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`);
             }
             if (o.shipping_bill_link) {
-                // Convert Google Drive share link → embeddable direct image URL
-                var _billUrl = o.shipping_bill_link;
-                var _imgUrl = _billUrl;
-                var _driveMatch = _billUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
-                if (_driveMatch) _imgUrl = 'https://drive.google.com/uc?export=view&id=' + _driveMatch[1];
-                var _driveMatch2 = _billUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
-                if (_driveMatch2) _imgUrl = 'https://drive.google.com/uc?export=view&id=' + _driveMatch2[1];
-                var _imgStyle = 'max-width:220px;max-height:180px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.1)';
-                shipHTML += `<tr><td style="padding:8px 0;font-size:13px;color:#64748b;vertical-align:top;width:40%">🔗 Bill gửi hàng</td><td style="padding:8px 0;font-size:13px;color:#1e293b">`;
-                shipHTML += `<a href="${_billUrl}" target="_blank" title="Click để xem ảnh gốc"><img src="${_imgUrl}" style="${_imgStyle}" onerror="this.style.display='none';this.parentElement.innerHTML='<a href=&quot;${_billUrl}&quot; target=&quot;_blank&quot; style=&quot;color:#3b82f6;font-weight:700&quot;>📷 Xem bill (link)</a>'"></a>`;
-                shipHTML += `</td></tr>`;
+                var _billCid = '_billImg_' + id;
+                shipHTML += `<tr><td style="padding:8px 0;font-size:13px;color:#64748b;vertical-align:top;width:40%">🔗 Bill gửi hàng</td><td style="padding:8px 0;font-size:13px;color:#1e293b" id="${_billCid}"><span style="color:#94a3b8;font-size:12px">⏳ Đang tải ảnh...</span></td></tr>`;
+                // Deferred: resolve prnt.sc / Drive links after DOM render
+                (function(_cid, _origUrl) {
+                    setTimeout(async function() {
+                        var el = document.getElementById(_cid);
+                        if (!el) return;
+                        var imgSrc = _origUrl;
+                        try {
+                            if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                var r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                if (r && r.direct_url) imgSrc = r.direct_url;
+                            } else {
+                                var dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                var dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                            }
+                        } catch(e) { console.warn('[BillResolve]', e); }
+                        var img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:240px;max-height:200px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.1)';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                        };
+                        var link = document.createElement('a');
+                        link.href = _origUrl;
+                        link.target = '_blank';
+                        link.title = 'Click xem ảnh gốc';
+                        link.appendChild(img);
+                        el.innerHTML = '';
+                        el.appendChild(link);
+                    }, 100);
+                })(_billCid, o.shipping_bill_link);
             }
             if (o.carrier_phone) {
                 shipHTML += row('📞 SĐT Nhà Xe', `<a href="tel:${o.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${o.carrier_phone}</a>`);
