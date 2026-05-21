@@ -391,6 +391,10 @@ module.exports = async function(fastify) {
                 );
             }
         }
+        // ★ Sync discount_amount to CRM order_codes (doanh số = items - discount)
+        if ((Number(b.discount_amount) || 0) > 0) {
+            try { await db.run(`UPDATE order_codes SET discount_amount = $1 WHERE order_code = $2`, [Number(b.discount_amount) || 0, b.order_code.trim()]); } catch(e) { /* order_code may not exist in CRM yet */ }
+        }
 
         return { success: true, order: result };
     });
@@ -899,6 +903,15 @@ module.exports = async function(fastify) {
                     await db.run(`UPDATE customers SET ${syncSets.join(', ')}, updated_at = NOW() WHERE id = $${si}`, syncVals);
                 }
             }
+        }
+        // ★ Sync discount_amount to CRM order_codes (doanh số = items - discount)
+        if (b.discount_amount !== undefined) {
+            try {
+                const orderForSync = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
+                if (orderForSync) {
+                    await db.run(`UPDATE order_codes SET discount_amount = $1 WHERE order_code = $2`, [Number(b.discount_amount) || 0, orderForSync.order_code]);
+                }
+            } catch(e) { /* order_code may not exist in CRM */ }
         }
 
         return { success: true };

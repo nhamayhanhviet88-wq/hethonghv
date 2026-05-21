@@ -320,6 +320,9 @@ ALTER TABLE order_codes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
 ALTER TABLE order_codes ADD COLUMN IF NOT EXISTS deposit_amount DOUBLE PRECISION DEFAULT 0;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS order_code_id INTEGER REFERENCES order_codes(id);
 
+-- Discount trừ vào doanh số (sync từ DHT)
+ALTER TABLE order_codes ADD COLUMN IF NOT EXISTS discount_amount DOUBLE PRECISION DEFAULT 0;
+
 -- Multi-level affiliate: add parent_percentage to commission_tiers
 ALTER TABLE commission_tiers ADD COLUMN IF NOT EXISTS parent_percentage DOUBLE PRECISION NOT NULL DEFAULT 0;
 

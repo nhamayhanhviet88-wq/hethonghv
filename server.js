@@ -61,6 +61,8 @@ async function start() {
     await db.exec(`UPDATE users SET source_crm_type = (
         SELECT c.crm_type FROM customers c WHERE c.id = users.source_customer_id
     ) WHERE source_customer_id IS NOT NULL AND (source_crm_type IS NULL OR source_crm_type = '')`);
+    // One-time: backfill discount_amount from DHT → CRM order_codes
+    try { await db.exec(`UPDATE order_codes SET discount_amount = d.discount_amount FROM dht_orders d WHERE d.order_code = order_codes.order_code AND d.discount_amount > 0 AND COALESCE(order_codes.discount_amount, 0) = 0`); } catch(e) { /* done */ }
 
     // Migration: add phone2 column to customers
     try { await db.exec('ALTER TABLE customers ADD COLUMN phone2 TEXT'); } catch(e) { /* exists */ }
