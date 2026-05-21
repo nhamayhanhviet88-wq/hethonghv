@@ -138,7 +138,8 @@ function _prRenderToolbar() {
     var asColor = _pr.appsheetEnabled ? 'linear-gradient(135deg,#059669,#10b981)' : 'linear-gradient(135deg,#dc2626,#ef4444)';
     var asIcon = _pr.appsheetEnabled ? '🟢' : '🔴';
     var asBtn = isGD ? '<button class="pr-settings-btn" onclick="_prToggleAppSheet()" style="background:'+asColor+';color:#fff">📊 AppSheet '+asIcon+'</button>' : '';
-    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+permBtn+tgBtn+asBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
+    var bankBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowBankManager()" style="background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff">🏦 Quản Lý NH</button>' : '';
+    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
 }
 
 function _prRenderTable() {
@@ -214,6 +215,11 @@ async function _prToggleHandover(id, newStatus) {
 }
 
 async function _prShowAddModal() {
+    // Refresh bank list first
+    try {
+        var bankData = await apiCall('/api/payment-records/bank-list').catch(function(){return{}});
+        _pr.trackedBanks = bankData.banks || _prBanks;
+    } catch {}
     var today = new Date();
     var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
     var todayDisplay = String(today.getDate()).padStart(2,'0')+'/'+String(today.getMonth()+1).padStart(2,'0')+'/'+today.getFullYear();
@@ -874,4 +880,90 @@ async function _prToggleAppSheet() {
         showToast(newState ? '✅ Đã BẬT đẩy AppSheet' : '🔴 Đã TẮT đẩy AppSheet');
         _prRenderToolbar();
     } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
+}
+
+// ========== BANK MANAGER ==========
+async function _prShowBankManager() {
+    var bodyHTML = '<div style="margin-bottom:16px">'
+        +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">➕ Thêm Ngân Hàng Mới</label>'
+        +'<div style="display:flex;gap:8px">'
+        +'<input type="text" id="prNewBankName" class="form-control" placeholder="Nhập tên ngân hàng..." style="flex:1;padding:10px 12px;font-size:13px" onkeydown="if(event.key===\'Enter\')_prAddBank()">'
+        +'<button onclick="_prAddBank()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">➕ Thêm</button>'
+        +'</div></div>'
+        +'<div id="prBankManagerList" style="max-height:400px;overflow-y:auto"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">Đang tải...</div></div>';
+    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
+    openModal('🏦 Quản Lý Ngân Hàng', bodyHTML, footerHTML);
+    setTimeout(function(){ var mc = document.querySelector('.modal-content'); if(mc){ mc.style.maxWidth='520px'; mc.style.width='90vw'; } }, 30);
+    await _prRenderBankList();
+}
+
+async function _prRenderBankList() {
+    var box = document.getElementById('prBankManagerList');
+    if (!box) return;
+    try {
+        // Get email banks (locked, from email parsers)
+        var emailData = [];
+        try { emailData = (await apiCall('/api/payment-records/bank-list')).banks || []; } catch {}
+        // Get custom banks
+        var customBanks = [];
+        try {
+            var row = await apiCall('/api/payment-records/custom-banks-list').catch(function(){return{}});
+            customBanks = row.banks || [];
+        } catch {}
+        // Get email-linked bank names
+        var emailBankNames = [];
+        try {
+            // email_bank_parsers names only
+            var eRes = await apiCall('/api/payment-records/email-bank-names').catch(function(){return{}});
+            emailBankNames = eRes.banks || [];
+        } catch {}
+
+        var h = '<div style="font-size:11px;color:#64748b;margin-bottom:10px;font-weight:600">Tổng: <strong>'+emailData.length+'</strong> ngân hàng</div>';
+        emailData.forEach(function(name) {
+            var isEmail = emailBankNames.includes(name);
+            var isCustom = customBanks.includes(name);
+            h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9">';
+            h += '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">🏦 '+name+'</div>';
+            if (isEmail) {
+                h += '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700">📧 Email</span>';
+            }
+            if (isCustom) {
+                h += '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700">✏️ Tùy chỉnh</span>';
+                h += '<button onclick="_prDeleteBank(\''+name.replace(/'/g,"\\'")+'\')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer" title="Xóa">🗑️</button>';
+            } else if (isEmail) {
+                h += '<span style="color:#94a3b8;font-size:9px">🔒</span>';
+            }
+            h += '</div>';
+        });
+        box.innerHTML = h;
+    } catch(e) {
+        box.innerHTML = '<div style="text-align:center;padding:20px;color:#dc2626;font-size:12px">Lỗi tải danh sách</div>';
+    }
+}
+
+async function _prAddBank() {
+    var input = document.getElementById('prNewBankName');
+    if (!input) return;
+    var name = input.value.trim();
+    if (!name) { showToast('Vui lòng nhập tên ngân hàng!','error'); return; }
+    try {
+        await apiCall('/api/payment-records/custom-banks','POST',{bank_name:name});
+        showToast('✅ Đã thêm: '+name);
+        input.value = '';
+        // Refresh bank list in memory
+        var bankData = await apiCall('/api/payment-records/bank-list').catch(function(){return{}});
+        _pr.trackedBanks = bankData.banks || _prBanks;
+        await _prRenderBankList();
+    } catch(e) { showToast('Lỗi: '+(e.message||'Không thể thêm'),'error'); }
+}
+
+async function _prDeleteBank(name) {
+    if (!confirm('Xóa ngân hàng "'+name+'" khỏi danh sách?')) return;
+    try {
+        await apiCall('/api/payment-records/custom-banks','DELETE',{bank_name:name});
+        showToast('🗑️ Đã xóa: '+name);
+        var bankData = await apiCall('/api/payment-records/bank-list').catch(function(){return{}});
+        _pr.trackedBanks = bankData.banks || _prBanks;
+        await _prRenderBankList();
+    } catch(e) { showToast('Lỗi: '+(e.message||'Không thể xóa'),'error'); }
 }

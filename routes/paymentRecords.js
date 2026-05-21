@@ -423,6 +423,80 @@ module.exports = async function(fastify) {
         if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
         const jwt = require('jsonwebtoken');
         try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        // Merge: email bank parsers + custom banks from app_config
+        const emailBanks = await db.all('SELECT bank_name FROM email_bank_parsers ORDER BY id');
+        let customBanks = [];
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_custom_banks'");
+            if (row && row.value) customBanks = JSON.parse(row.value);
+        } catch {}
+        const allNames = emailBanks.map(b => b.bank_name);
+        customBanks.forEach(b => { if (!allNames.includes(b)) allNames.push(b); });
+        return { banks: allNames };
+    });
+
+    // ========== CUSTOM BANKS: Add ==========
+    fastify.post('/api/payment-records/custom-banks', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const { bank_name } = request.body || {};
+        if (!bank_name || !bank_name.trim()) return reply.code(400).send({ error: 'Tên ngân hàng không được trống' });
+        let customBanks = [];
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_custom_banks'");
+            if (row && row.value) customBanks = JSON.parse(row.value);
+        } catch {}
+        const name = bank_name.trim();
+        if (customBanks.includes(name)) return reply.code(400).send({ error: 'Ngân hàng đã tồn tại' });
+        customBanks.push(name);
+        await db.run("INSERT INTO app_config (key, value) VALUES ('pr_custom_banks', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [JSON.stringify(customBanks)]);
+        return { success: true, banks: customBanks };
+    });
+
+    // ========== CUSTOM BANKS: Delete ==========
+    fastify.delete('/api/payment-records/custom-banks', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const { bank_name } = request.body || {};
+        if (!bank_name) return reply.code(400).send({ error: 'Thiếu tên ngân hàng' });
+        let customBanks = [];
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_custom_banks'");
+            if (row && row.value) customBanks = JSON.parse(row.value);
+        } catch {}
+        customBanks = customBanks.filter(b => b !== bank_name);
+        await db.run("UPDATE app_config SET value = $1 WHERE key = 'pr_custom_banks'", [JSON.stringify(customBanks)]);
+        return { success: true, banks: customBanks };
+    });
+
+    // ========== CUSTOM BANKS: List (custom only) ==========
+    fastify.get('/api/payment-records/custom-banks-list', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        let customBanks = [];
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_custom_banks'");
+            if (row && row.value) customBanks = JSON.parse(row.value);
+        } catch {}
+        return { banks: customBanks };
+    });
+
+    // ========== EMAIL BANK NAMES (from parsers only) ==========
+    fastify.get('/api/payment-records/email-bank-names', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
         const banks = await db.all('SELECT bank_name FROM email_bank_parsers ORDER BY id');
         return { banks: banks.map(b => b.bank_name) };
     });
