@@ -1775,11 +1775,10 @@ function buildOrderCardHTML(codes, customer) {
         const d = new Date(oc.created_at);
         const dateStr = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
         const orderItems = oc.items || [];
-        const orderDeposit = oc.deposit || 0;
-        // ★ Use DHT total if available, otherwise sum from items
-        const orderTotal = oc.dht_total || orderItems.reduce((s, i) => s + (i.total || 0), 0);
-        if (oc.status !== 'cancelled') allOrdersTotal += orderTotal;
-        // ★ Smart status badge: reflect DHT state
+        const grossTotal = oc.dht_total || orderItems.reduce((s, i) => s + (i.total || 0), 0);
+        const discount = oc.dht_discount || 0;
+        const netRevenue = grossTotal - discount;
+        if (oc.status !== 'cancelled') allOrdersTotal += netRevenue;
         const hasDHT = !!oc.dht_order_id;
         const statusBadge = oc.status === 'completed' 
             ? '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">✅ Hoàn thành</span>'
@@ -1788,12 +1787,10 @@ function buildOrderCardHTML(codes, customer) {
             : hasDHT
             ? '<span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">📦 Đang sản xuất</span>'
             : '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">🔄 Chờ lên đơn</span>';
-        
-        const actionBtns = '';
 
         return `
             <div style="padding:12px;border:1px solid ${oc.status === 'completed' ? '#10b981' : oc.status === 'cancelled' ? '#ef4444' : hasDHT ? '#3b82f6' : '#e5e7eb'};border-radius:10px;margin-bottom:8px;background:${oc.status === 'completed' ? '#f0fdf4' : oc.status === 'cancelled' ? '#fef2f2' : hasDHT ? '#eff6ff' : '#fafafa'};">
-                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:8px;">
+                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
                     <div style="min-width:90px;">
                         <div style="font-size:10px;color:#6b7280;">Mã Đơn</div>
                         <div style="font-weight:700;color:#e65100;font-size:15px;">${oc.order_code}</div>
@@ -1807,41 +1804,18 @@ function buildOrderCardHTML(codes, customer) {
                         <div style="font-weight:600;color:#122546;font-size:12px;">${dateStr}</div>
                     </div>
                     <div>${statusBadge}</div>
+                    <div style="margin-left:auto;text-align:right;">
+                        <div style="font-size:10px;color:#6b7280;">Doanh Số</div>
+                        <div style="font-weight:700;color:#e65100;font-size:15px;">${formatCurrency(netRevenue)}đ</div>
+                    </div>
                 </div>
-                ${orderItems.length > 0 ? `
-                    <table style="width:100%;font-size:12px;border-collapse:collapse;border-radius:6px;overflow:hidden;">
-                        <thead><tr style="background:#122546;">
-                            <th style="text-align:left;padding:6px 8px;color:#fad24c;font-weight:700;">TÊN SP</th>
-                            <th style="text-align:center;padding:6px 8px;color:#fad24c;font-weight:700;width:45px;">SL</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:90px;">GIÁ</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:100px;">THÀNH TIỀN</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:90px;">CỌC</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:100px;">CÒN LẠI</th>
-                        </tr></thead>
-                        <tbody>
-                            ${orderItems.map(it => {
-                                const itemDeposit = orderItems.length === 1 ? orderDeposit : Math.round(orderDeposit * (it.total || 0) / orderTotal);
-                                const itemRemain = Math.max(0, (it.total || 0) - itemDeposit);
-                                return `<tr style="border-top:1px solid #e5e7eb;">
-                                    <td style="padding:5px 8px;color:#122546;">${it.description || '—'}</td>
-                                    <td style="padding:5px 8px;text-align:center;color:#122546;font-weight:600;">${it.quantity}</td>
-                                    <td style="padding:5px 8px;text-align:right;color:#122546;">${formatCurrency(it.unit_price || 0)}đ</td>
-                                    <td style="padding:5px 8px;text-align:right;font-weight:600;color:#e65100;">${formatCurrency(it.total)}đ</td>
-                                    <td style="padding:5px 8px;text-align:right;color:#10b981;font-weight:600;">${orderDeposit > 0 ? formatCurrency(itemDeposit) + 'đ' : '—'}</td>
-                                    <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e65100;">${orderDeposit > 0 ? formatCurrency(itemRemain) + 'đ' : formatCurrency(it.total) + 'đ'}</td>
-                                </tr>`;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                    <div style="text-align:right;font-size:13px;font-weight:600;margin-top:4px;color:#122546;">Tổng đơn: <span style="color:#e65100;">${formatCurrency(orderTotal)}</span> VNĐ${orderDeposit > 0 ? ` | Cọc: <span style="color:#10b981;">${formatCurrency(orderDeposit)}</span> VNĐ` : ''}</div>
-                ` : '<p style="color:#9ca3af;font-size:12px;text-align:center;">Chưa có sản phẩm</p>'}
-                ${actionBtns}
             </div>
         `;
     }).join('');
 
     return cardsHTML + (allOrdersTotal > 0 ? `<div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #e5e7eb;">Tổng doanh số: <span style="color:#e65100;">${formatCurrency(allOrdersTotal)}</span> VNĐ</div>` : '');
 }
+
 
 // ========== ORDER CODES POPUP ==========
 async function openOrderCodesPopup(customerId) {
