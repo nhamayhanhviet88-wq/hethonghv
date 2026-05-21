@@ -691,24 +691,23 @@ module.exports = async function(fastify) {
     });
 
     // ========== ORDERS: Update (full edit) ==========
-    // ★ Requires "Thêm" (create) permission for DHT
-    fastify.put('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('don_hang_tong', 'create')] }, async (request, reply) => {
+    // ★ Requires “Sửa Đơn” permission
+    fastify.put('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('dht_sua_don', 'view')] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         const b = request.body || {};
 
-        // ★ Layer 2: If updating discount, require "Sửa" (edit) permission
+        // ★ Layer 2: If updating discount, require "Giảm Giá" permission
         if (b.discount_amount !== undefined || b.discount_reason !== undefined) {
             if (request.user.role !== 'giam_doc') {
-                const permCol = 'can_edit';
-                const uP = await db.get(`SELECT ${permCol} FROM user_permissions WHERE user_id = $1 AND feature_key = 'don_hang_tong'`, [request.user.id]);
-                let hasEditPerm = false;
+                const uP = await db.get(`SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'dht_giam_gia'`, [request.user.id]);
+                let hasGGPerm = false;
                 if (uP) {
-                    hasEditPerm = uP[permCol] > 0;
+                    hasGGPerm = uP.can_view > 0;
                 } else {
-                    const dP = await db.get(`SELECT dp.${permCol} FROM department_permissions dp JOIN users u ON u.department_id = dp.department_id WHERE u.id = $1 AND dp.feature_key = 'don_hang_tong'`, [request.user.id]);
-                    hasEditPerm = dP && dP[permCol] > 0;
+                    const dP = await db.get(`SELECT dp.can_view FROM department_permissions dp JOIN users u ON u.department_id = dp.department_id WHERE u.id = $1 AND dp.feature_key = 'dht_giam_gia'`, [request.user.id]);
+                    hasGGPerm = dP && dP.can_view > 0;
                 }
-                if (!hasEditPerm) {
+                if (!hasGGPerm) {
                     return reply.code(403).send({ error: '🔒 Bạn không có quyền Giảm Giá' });
                 }
             }
@@ -867,8 +866,8 @@ module.exports = async function(fastify) {
     });
 
     // ========== ORDERS: Delete ==========
-    // ★ Requires "Xóa" (delete) permission for DHT
-    fastify.delete('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('don_hang_tong', 'delete')] }, async (request, reply) => {
+    // ★ Requires “Xóa Đơn” permission
+    fastify.delete('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('dht_xoa_don', 'view')] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         // Only creator or giam_doc can delete
         const order = await db.get('SELECT created_by FROM dht_orders WHERE id = $1', [orderId]);

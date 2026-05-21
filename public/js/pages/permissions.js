@@ -92,6 +92,13 @@ const PERM_FEATURES = [
 
     // ===== VĂN PHÒNG QUẢN LÝ =====
     { key: 'don_hang_tong', label: 'Đơn Hàng Tổng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_sua_don', label: '  ↳ Nút: ✏️ Sửa Đơn', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_xoa_don', label: '  ↳ Nút: 🗑️ Xóa Đơn', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_bao_loi', label: '  ↳ Nút: 🚨 Báo Đơn Lỗi', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_giam_gia', label: '  ↳ Nút: 🏷️ Giảm Giá', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_zalo_oa', label: '  ↳ Nút: 📱 Gửi Zalo OA', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_in_phieu', label: '  ↳ Nút: 🖨️ In Phiếu', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_don_sua', label: '  ↳ Nút: 🔧 Lên Đơn Sửa', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_gui_ao_mau', label: 'Đơn Gửi Áo Mẫu', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_ghi_nhan_tien', label: 'Sổ Ghi Nhận Tiền', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_thu_chi', label: 'Sổ Thu Chi', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
