@@ -240,7 +240,7 @@ module.exports = async function(fastify) {
                 if (match) {
                     const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
                     const buffer = Buffer.from(match[2], 'base64');
-                    const dir = path.join(__dirname, '..', 'public', 'uploads', 'dht-proofs');
+                    const dir = path.join(__dirname, '..', 'uploads', 'dht-proofs');
                     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
                     const filename = `proof_${b.order_code.trim()}_${Date.now()}.${ext}`;
                     fs.writeFileSync(path.join(dir, filename), buffer);
@@ -749,7 +749,7 @@ module.exports = async function(fastify) {
                     if (match) {
                         const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
                         const buffer = Buffer.from(match[2], 'base64');
-                        const dir = path.join(__dirname, '..', 'public', 'uploads', 'dht-proofs');
+                        const dir = path.join(__dirname, '..', 'uploads', 'dht-proofs');
                         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
                         const orderRow = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
                         const filename = `proof_${(orderRow?.order_code || orderId)}_${Date.now()}.${ext}`;
