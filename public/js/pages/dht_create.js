@@ -581,9 +581,9 @@ async function _dhtAddItem(editIdx) {
         setTimeout(function(){ _dhtPatternChange(existing); }, 100);
     }
     setTimeout(_ppCalc,100);
-    _ppRenderSewTags();
-    // ★ READ-ONLY MODE: Disable all inputs inside popup for existing items (except VAT)
+    // ★ READ-ONLY MODE: Set flag BEFORE rendering sew tags
     window._dhtPhieuRestricted = isRestricted;
+    _ppRenderSewTags();
     if (isRestricted) {
         // Run multiple passes to catch async-rendered elements (colors load via API)
         var _lockPopup = function() {
