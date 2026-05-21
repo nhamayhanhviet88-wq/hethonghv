@@ -585,6 +585,7 @@ async function _dhtShowDetail(id) {
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
             { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')`, perm: canDo('dht_zalo_oa', 'view') },
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
+            { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: canDo('dht_in_phieu_sx', 'view') },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('dht_don_sua', 'view') },
         ];
         for (const a of actionBtns) {
@@ -1176,6 +1177,105 @@ function _dhtShowItemDetail(idx) {
     </div>`;
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
     document.body.appendChild(overlay);
+}
+
+// ========== IN PHIẾU SẢN XUẤT ==========
+async function _dhtShowPhieuSX(orderId) {
+    try {
+        const res = await fetch(`/api/dht/orders/${orderId}/detail`);
+        if (!res.ok) throw new Error('Không thể tải dữ liệu');
+        const data = await res.json();
+        const o = data.order;
+        const items = data.items || [];
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+
+        // Check confirm permission
+        const canConfirm = canDo('dht_xn_in_sx', 'view');
+
+        // Build items table
+        let itemsHTML = '';
+        items.forEach((it, idx) => {
+            const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []);
+            const totalQty = qs.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+            const sew = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : (it.sewing_techniques || []);
+            const sewStr = sew.map(s => typeof s === 'string' ? s : s.name).join(', ') || '—';
+            const matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []);
+            const matStr = matPairs.length > 0
+                ? matPairs.map(p => `${p.material || ''}/${p.color || ''}`).join(', ')
+                : `${it.material_name || ''}/${it.color_name || ''}`;
+            itemsHTML += `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span style="font-weight:800;font-size:13px;color:#0f172a">📋 Phiếu ${idx + 1}: ${it.product_name || '—'}</span>
+                    <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">SL: ${totalQty}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#475569">
+                    <div>🏷️ Loại: <b>${it.sale_type || '—'}</b></div>
+                    <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
+                    <div>🧵 Chất liệu: <b>${matStr}</b></div>
+                    <div>✂️ KT May: <b>${sewStr}</b></div>
+                </div>
+                ${qs.length > 0 ? `<div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:6px;font-size:10px;color:#64748b">
+                    ${qs.map((q, qi) => `<span style="background:#f1f5f9;padding:2px 6px;border-radius:3px;margin-right:4px">SL${qi+1}: <b>${q.qty}</b> × ${fmt(q.price)}đ</span>`).join('')}
+                </div>` : ''}
+            </div>`;
+        });
+
+        if (items.length === 0) {
+            itemsHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">Chưa có phiếu đơn hàng</div>';
+        }
+
+        // Status badge
+        const confirmed = o.sx_print_confirmed;
+        const statusBadge = confirmed
+            ? `<div style="background:#d1fae5;color:#059669;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:4px">✅ Đã Xác Nhận In SX</div>`
+            : `<div style="background:#fef3c7;color:#92400e;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:4px">⏳ Chờ Xác Nhận</div>`;
+
+        var body = `<div style="padding:4px 0">
+            <div style="text-align:center;margin-bottom:16px">${statusBadge}</div>
+            <div style="max-height:45vh;overflow-y:auto;padding-right:4px">${itemsHTML}</div>
+            <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #7dd3fc;border-radius:10px;padding:10px 14px;margin-top:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
+                    <div>📦 Tổng phiếu: <b>${items.length}</b></div>
+                    <div>🚚 Ngày gửi: <b>${o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—'}</b></div>
+                    <div>⏰ Giờ ra hàng: <b>${o.standard_delivery_time || '—'}</b></div>
+                    <div>📋 Tiêu chuẩn: <b>${o.shipping_priority || '—'}</b></div>
+                </div>
+            </div>
+        </div>`;
+
+        var confirmBtn = '';
+        if (canConfirm && !confirmed) {
+            confirmBtn = `<button class="btn" onclick="_dhtConfirmPhieuSX(${orderId})" style="padding:8px 24px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận In SX</button>`;
+        } else if (canConfirm && confirmed) {
+            confirmBtn = `<button class="btn" disabled style="padding:8px 24px;background:#d1d5db;color:#6b7280;border:none;border-radius:8px;font-weight:800;cursor:not-allowed;margin-left:8px">✅ Đã Xác Nhận</button>`;
+        }
+        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail(${orderId})},200)" style="padding:8px 20px">← Quay Lại</button>`
+            + confirmBtn;
+
+        openModal(`🏭 Phiếu Sản Xuất — ${o.order_code}`, body, footer);
+    } catch(e) {
+        console.error(e);
+        showToast('❌ ' + (e.message || 'Lỗi tải phiếu SX'), 'error');
+    }
+}
+
+async function _dhtConfirmPhieuSX(orderId) {
+    if (!confirm('Xác nhận IN PHIẾU SẢN XUẤT cho đơn hàng này?')) return;
+    try {
+        var res = await fetch('/api/dht/orders/' + orderId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sx_print_confirmed: true, sx_print_confirmed_at: new Date().toISOString(), sx_print_confirmed_by: currentUser ? currentUser.id : null })
+        });
+        if (!res.ok) {
+            var errData = {}; try { errData = await res.json(); } catch(e) {}
+            throw new Error(errData.error || 'Lỗi xác nhận');
+        }
+        showToast('✅ Đã xác nhận in phiếu sản xuất!', 'success');
+        closeModal();
+        await _dhtLoadOrders();
+        _dhtShowDetail(orderId);
+    } catch(e) { showToast('❌ ' + e.message, 'error'); }
 }
 
 // ========== APPLY DISCOUNT ==========

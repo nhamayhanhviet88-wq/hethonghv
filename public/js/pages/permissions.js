@@ -107,6 +107,8 @@ const PERM_FEATURES = [
     { key: 'dht_giam_gia', label: '  ↳ Nút: 🏷️ Giảm Giá', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_zalo_oa', label: '  ↳ Nút: 📱 Gửi Zalo OA', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_in_phieu', label: '  ↳ Nút: 🖨️ In Phiếu', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_in_phieu_sx', label: '  ↳ Nút: 🏭 In Phiếu SX', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_xn_in_sx', label: '    ↳ Xác Nhận In Phiếu SX', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_don_sua', label: '  ↳ Nút: 🔧 Lên Đơn Sửa', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_gui_ao_mau', label: 'Đơn Gửi Áo Mẫu', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_ghi_nhan_tien', label: 'Sổ Ghi Nhận Tiền', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },

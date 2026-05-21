@@ -12,6 +12,9 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS carrier_extra JSONB DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS standard_delivery_time TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sale_note_for_accountant TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed BOOLEAN DEFAULT FALSE`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_at TIMESTAMP DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_by INTEGER DEFAULT NULL`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -742,7 +745,8 @@ module.exports = async function(fastify) {
             'expected_ship_date', 'zalo_oa_sent',
             'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
             'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
-            'discount_reason'
+            'discount_reason',
+            'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by'
         ];
 
         const sets = [];
@@ -752,7 +756,7 @@ module.exports = async function(fastify) {
         for (const key of allowed) {
             if (b[key] !== undefined) {
                 const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id', 'actual_carrier_id', 'deposit_amount_cache'];
-                const boolFields = ['has_vat', 'zalo_oa_sent'];
+                const boolFields = ['has_vat', 'zalo_oa_sent', 'sx_print_confirmed'];
                 if (numericFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);
                     params.push(b[key] === null || b[key] === '' ? null : Number(b[key]));
