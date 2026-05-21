@@ -642,6 +642,13 @@ async function start() {
     // Penalty config for shipping delays
     try { await db.exec(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('gui_hang_tre', 'Gửi hàng trễ — KT chưa gửi đơn hôm nay', 100000) ON CONFLICT (key) DO NOTHING`); } catch(e) {}
 
+    // v9: Shipping Modal — Phí gửi hàng + NVC thực tế fields
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_fee_payer TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_fee_method TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS receiver_name TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

@@ -15,6 +15,28 @@ async function isKeToan(userId) {
     return n.includes('kế toán') || n.includes('ke toan');
 }
 
+// Helper: build TM cashflow code  TM1-15-5-Y26
+function _buildTMCode(seq, date) {
+    const d = new Date(date);
+    const dd = d.getDate();
+    const mm = d.getMonth() + 1;
+    const yy = d.getFullYear().toString().slice(-2);
+    return `TM${seq}-${dd}-${mm}-Y${yy}`;
+}
+
+// Helper: get next TM seq (shared with cashflow + payment_records)
+async function _getNextTMSeq(cfDate) {
+    const prRow = await db.get(
+        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM payment_records WHERE payment_date = $1 AND payment_method = 'TM'`,
+        [cfDate]
+    );
+    const cfRow = await db.get(
+        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1 AND cashflow_code LIKE 'TM%'`,
+        [cfDate]
+    );
+    return Math.max(Number(prRow.max_seq), Number(cfRow.max_seq)) + 1;
+}
+
 module.exports = async function(fastify) {
 
     // ========== LIST ORDERS — 4 Filters ==========
@@ -32,17 +54,14 @@ module.exports = async function(fastify) {
         if (!FULL_VIEW_ROLES.includes(userRole)) {
             const kt = await isKeToan(userId);
             if (!kt && page_type === 'ketoan') {
-                // Non-KT user on KT page — still restricted
                 visibilityFilter = ` AND (o.created_by = $${idx} OR o.cskh_user_id = $${idx})`;
                 params.push(userId);
                 idx++;
             } else if (!kt) {
-                // KD page — only own orders
                 visibilityFilter = ` AND (o.created_by = $${idx} OR o.cskh_user_id = $${idx})`;
                 params.push(userId);
                 idx++;
             }
-            // KT user sees all
         }
 
         // Build filter condition using effective_ship_date
@@ -53,7 +72,6 @@ module.exports = async function(fastify) {
 
         switch (filter) {
             case 'early':
-                // Gửi Sớm: chưa đến ngày gửi, chưa gửi
                 filterWhere = ` AND o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) > $${idx}::date`;
                 params.push(todayStr);
                 idx++;
@@ -61,16 +79,13 @@ module.exports = async function(fastify) {
                 break;
 
             case 'today':
-                // Hôm Nay Gửi: đến hạn hoặc quá hạn
                 filterWhere = ` AND o.shipping_status IN ('pending','rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $${idx}::date`;
                 params.push(todayStr);
                 idx++;
-                // Quá hạn lên đầu (ngày cũ nhất trước)
                 orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date) ASC';
                 break;
 
             case 'rescheduled':
-                // Chưa Gửi: đã hẹn lại, ngày mới chưa đến
                 filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
                 params.push(todayStr);
                 idx++;
@@ -78,13 +93,11 @@ module.exports = async function(fastify) {
                 break;
 
             case 'shipped':
-                // Đã Gửi
                 filterWhere = ` AND o.shipping_status = 'shipped'`;
                 orderBy = 'o.shipped_at DESC NULLS LAST, o.shipping_date DESC NULLS LAST';
                 break;
 
             default:
-                // All orders with expected_ship_date
                 filterWhere = ` AND o.expected_ship_date IS NOT NULL`;
                 orderBy = 'o.expected_ship_date DESC';
         }
@@ -99,6 +112,10 @@ module.exports = async function(fastify) {
                 o.shipped_by, o.shipped_at, o.total_amount,
                 o.carrier_id, o.actual_carrier_id,
                 o.created_by, o.cskh_user_id,
+                o.sale_note_for_accountant, o.shipping_fee,
+                o.shipping_fee_payer, o.shipping_fee_method, o.receiver_name,
+                o.discount_amount, o.has_vat, o.vat_amount,
+                o.deposit_amount_cache,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
                 u_cskh.full_name AS cskh_name,
@@ -107,13 +124,20 @@ module.exports = async function(fastify) {
                 COALESCE(o.rescheduled_ship_date, o.expected_ship_date) AS effective_ship_date,
                 CASE WHEN o.shipping_status IN ('pending','rescheduled')
                      AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) < $${idx}::date
-                     THEN true ELSE false END AS is_overdue
+                     THEN true ELSE false END AS is_overdue,
+                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount
             FROM dht_orders o
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
             WHERE o.expected_ship_date IS NOT NULL
             ${visibilityFilter}
             ${filterWhere}
@@ -132,7 +156,7 @@ module.exports = async function(fastify) {
             WHERE expected_ship_date IS NOT NULL
         `, [todayParam]);
 
-        // Overdue count for today filter
+        // Overdue count
         const overdueCount = await db.get(`
             SELECT COUNT(*) AS cnt FROM dht_orders
             WHERE shipping_status IN ('pending','rescheduled')
@@ -152,7 +176,7 @@ module.exports = async function(fastify) {
         };
     });
 
-    // ========== SHIP — Xác nhận gửi hàng ==========
+    // ========== SHIP — Xác nhận gửi hàng (FULL MODAL) ==========
     fastify.post('/api/shipping/orders/:id/ship', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const userRole = request.user.role;
@@ -164,24 +188,114 @@ module.exports = async function(fastify) {
         }
 
         const orderId = Number(request.params.id);
-        const order = await db.get('SELECT id, shipping_status, order_code FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
         if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã được gửi rồi' });
 
-        const now = vnNow();
-        await db.run(`
-            UPDATE dht_orders SET
-                shipping_status = 'shipped',
-                shipped_by = $1,
-                shipped_at = $2,
-                shipping_date = $3,
-                actual_ship_datetime = $2,
-                last_updated_by = $1,
-                last_updated_at = NOW()
-            WHERE id = $4
-        `, [userId, now.toISOString(), vnDateStr(now), orderId]);
+        const b = request.body || {};
 
-        return { success: true, message: `✅ Đã xác nhận gửi đơn ${order.order_code}` };
+        // Validate carrier
+        if (!b.actual_carrier_id) return reply.code(400).send({ error: 'Vui lòng chọn Nhà Vận Chuyển' });
+
+        // Validate shipping fee
+        if (b.shipping_fee === undefined || b.shipping_fee === null || b.shipping_fee === '') {
+            return reply.code(400).send({ error: 'Vui lòng nhập phí gửi hàng' });
+        }
+        const shipFee = Number(b.shipping_fee);
+        if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+
+        if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
+        }
+        if (!b.shipping_fee_method || !['ck', 'tm'].includes(b.shipping_fee_method)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
+        }
+
+        const now = vnNow();
+        const todayStr = vnDateStr(now);
+
+        // Build update SET
+        const sets = [];
+        const params = [];
+        let idx = 1;
+
+        // Core shipping fields
+        sets.push(`shipping_status = 'shipped'`);
+        sets.push(`shipped_by = $${idx++}`); params.push(userId);
+        sets.push(`shipped_at = $${idx++}`); params.push(now.toISOString());
+        sets.push(`shipping_date = $${idx++}`); params.push(todayStr);
+        sets.push(`actual_ship_datetime = $${idx++}`); params.push(now.toISOString());
+        sets.push(`actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
+
+        // Tracking fields (conditional, from modal)
+        if (b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
+        if (b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+        if (b.carrier_phone) { sets.push(`carrier_phone = $${idx++}`); params.push(b.carrier_phone); }
+        if (b.receiver_name) { sets.push(`receiver_name = $${idx++}`); params.push(b.receiver_name); }
+
+        // Fee fields
+        sets.push(`shipping_fee = $${idx++}`); params.push(shipFee);
+        sets.push(`shipping_fee_payer = $${idx++}`); params.push(b.shipping_fee_payer);
+        sets.push(`shipping_fee_method = $${idx++}`); params.push(b.shipping_fee_method);
+
+        sets.push(`last_updated_by = $${idx++}`); params.push(userId);
+        sets.push(`last_updated_at = NOW()`);
+
+        // Handle "HV trả + TM" → Auto create CHI in Sổ Thu Chi
+        let cashflowResult = null;
+        if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+            try {
+                const seq = await _getNextTMSeq(todayStr);
+                const cfCode = _buildTMCode(seq, todayStr);
+                const cfDescription = `Tiền ship đơn ${order.order_code}`;
+                const cfImageUrl = b.shipping_bill_link || null;
+
+                // Reserve TM code in payment_records (same as cashflow.js pattern)
+                await db.run(`
+                    INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                    VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'shipping_chi', $5, $6)
+                `, [cfCode, seq, shipFee, cfDescription, todayStr, userId]);
+
+                // Create CHI in cashflow_records
+                cashflowResult = await db.get(`
+                    INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, order_code, image_url, money_source, created_by)
+                    VALUES ($1, 'CHI', $2, $3, $4, $5, $6, $7, 'congty', $8)
+                    RETURNING id, cashflow_code
+                `, [cfCode, seq, todayStr, cfDescription, shipFee, order.order_code, cfImageUrl, userId]);
+
+                // Link cashflow to order
+                sets.push(`shipping_cashflow_id = $${idx++}`);
+                params.push(cashflowResult.id);
+
+                // Send Telegram for CHI
+                try {
+                    const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
+                    if (tgRow && tgRow.value) {
+                        const { sendTelegramMessage } = require('../utils/telegram');
+                        const amtStr = shipFee.toLocaleString('vi-VN');
+                        const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
+                        const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
+                        const runBal = Number(thuSum.t) - Number(chiSum.t);
+                        const balStr = runBal.toLocaleString('vi-VN');
+                        const msg = `🔴CHI TM <b>CÔNG TY</b> :\n💰${cfCode} : <b>${amtStr}đ</b> ${cfDescription} 👤 ${request.user.full_name || request.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
+                        await sendTelegramMessage(tgRow.value, msg);
+                    }
+                } catch (tgErr) { console.error('[Ship TG] Error:', tgErr.message); }
+            } catch (cfErr) {
+                console.error('[Ship Cashflow] Error:', cfErr.message);
+                return reply.code(500).send({ error: 'Lỗi tạo phiếu chi tiền ship: ' + cfErr.message });
+            }
+        }
+
+        // Update order
+        params.push(orderId);
+        await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+
+        const resultMsg = cashflowResult
+            ? `✅ Đã gửi đơn ${order.order_code} — Phiếu chi ship: ${cashflowResult.cashflow_code}`
+            : `✅ Đã gửi đơn ${order.order_code}`;
+
+        return { success: true, message: resultMsg, cashflow_code: cashflowResult?.cashflow_code || null };
     });
 
     // ========== RESCHEDULE — Hẹn lại ngày gửi ==========
@@ -269,7 +383,7 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // ========== HISTORY — Lịch sử hẹn lại (CN) ==========
+    // ========== HISTORY — Lịch sử hẹn lại ==========
     fastify.get('/api/shipping/orders/:id/history', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         const rows = await db.all(`
