@@ -264,7 +264,10 @@ function _shOnCarrierChange() {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">SĐT Nhà Xe <span style="color:#dc2626">*</span></label><input id="shCarrierPhone" style="${fStyle}" placeholder="0909...">
         <div style="margin-top:8px;"><label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label><input id="shBillLink" style="${fStyle}" placeholder="https://..."></div>`;
     } else if (g === 'receiver_name') {
-        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Tên Người Nhận Hàng <span style="color:#dc2626">*</span></label><input id="shReceiverName" style="${fStyle}" placeholder="Nhập tên người nhận...">`;
+        const isNVHV = name.toLowerCase().includes('nhân viên hv') || name.toLowerCase().includes('nhan vien hv');
+        const lbl = isNVHV ? 'Tên Nhân Viên Gửi Hàng' : 'Tên Người Nhận Hàng';
+        const ph = isNVHV ? 'Nhập tên nhân viên gửi...' : 'Nhập tên người nhận...';
+        h = `<label style="font-size:12px;font-weight:700;color:#374151;">${lbl} <span style="color:#dc2626">*</span></label><input id="shReceiverName" style="${fStyle}" placeholder="${ph}">`;
     }
     el.innerHTML = h;
 }
