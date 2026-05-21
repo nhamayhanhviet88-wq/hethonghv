@@ -861,7 +861,7 @@ async function _dhtShowDetail(id) {
         // Widen modal
         setTimeout(() => {
             const mc = document.querySelector('.modal-content');
-            if (mc) { mc.style.maxWidth = '780px'; mc.style.width = '92vw'; }
+            if (mc) { mc.style.maxWidth = '950px'; mc.style.width = '95vw'; }
         }, 30);
     } catch(e) {
         console.error('Detail error:', e);
