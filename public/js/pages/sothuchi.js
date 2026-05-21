@@ -121,10 +121,11 @@ function _cfRenderTable() {
         var closedBadge = r.is_closed ? '<span style="background:#059669;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700">Đã chốt</span>' : '<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700">Chưa chốt</span>';
         var balColor = r.running_balance >= 0 ? '#1a5276' : '#dc2626';
 
-        // Image thumbnail
+        // Image thumbnail (handles prnt.sc + direct URLs)
         var imgCell = '—';
         if (r.image_url) {
-            imgCell = '<img src="'+r.image_url+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0" onclick="event.stopPropagation();_cfLightbox(\''+r.image_url+'\')" title="Ấn để xem ảnh">';
+            var _uid = 'cfImg_' + r.id;
+            imgCell = '<img id="'+_uid+'" src="'+r.image_url+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0" onclick="event.stopPropagation();_cfLightbox(\''+r.image_url+'\')" title="Ấn để xem ảnh" onerror="_cfResolveImg(this,\''+r.image_url+'\')">';
         }
 
         h += '<tr'+(isThu?' class="cf-row-thu"':'')+' style="cursor:pointer" onclick="_cfShowDetail('+r.id+')">';
@@ -156,14 +157,50 @@ function _cfRenderTable() {
     wrap.innerHTML = h;
 }
 
+// ========== Resolve prnt.sc images ==========
+var _cfResolvedCache = {};
+async function _cfResolveImg(imgEl, origUrl) {
+    if (_cfResolvedCache[origUrl]) { imgEl.onerror = null; imgEl.src = _cfResolvedCache[origUrl]; return; }
+    if (origUrl.includes('prnt.sc') || origUrl.includes('prntscr.com')) {
+        try {
+            var r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(origUrl));
+            if (r && r.direct_url) { _cfResolvedCache[origUrl] = r.direct_url; imgEl.onerror = null; imgEl.src = r.direct_url; return; }
+        } catch(e) {}
+    }
+    imgEl.onerror = null;
+    imgEl.style.display = 'none';
+    imgEl.parentElement.innerHTML = '<a href="'+origUrl+'" target="_blank" style="color:#3b82f6;font-size:10px" onclick="event.stopPropagation()">🔗</a>';
+}
+async function _cfResolveDetailImg(containerId, origUrl) {
+    var el = document.getElementById(containerId); if (!el) return;
+    var imgSrc = origUrl;
+    if (_cfResolvedCache[origUrl]) { imgSrc = _cfResolvedCache[origUrl]; }
+    else if (origUrl.includes('prnt.sc') || origUrl.includes('prntscr.com')) {
+        try {
+            var r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(origUrl));
+            if (r && r.direct_url) { imgSrc = r.direct_url; _cfResolvedCache[origUrl] = imgSrc; }
+        } catch(e) {}
+    }
+    el.innerHTML = '<img src="'+imgSrc+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+origUrl+'\')">';
+}
+
 // ========== LIGHTBOX ==========
-function _cfLightbox(url) {
+async function _cfLightbox(url) {
     var overlay = document.createElement('div');
     overlay.id = 'cfLightbox';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:fadeIn .2s';
     overlay.onclick = function() { overlay.remove(); };
+    // Resolve prnt.sc URLs
+    var imgSrc = url;
+    if (_cfResolvedCache[url]) { imgSrc = _cfResolvedCache[url]; }
+    else if (url.includes('prnt.sc') || url.includes('prntscr.com')) {
+        try {
+            var r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(url));
+            if (r && r.direct_url) { imgSrc = r.direct_url; _cfResolvedCache[url] = imgSrc; }
+        } catch(e) {}
+    }
     var img = document.createElement('img');
-    img.src = url;
+    img.src = imgSrc;
     img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain';
     img.onclick = function(e) { e.stopPropagation(); };
     overlay.appendChild(img);
@@ -204,7 +241,8 @@ function _cfShowDetail(id) {
     body += row('💰 Số dư lúc tạo', '<span style="color:'+(r.running_balance>=0?'#1a5276':'#dc2626')+'">'+_cfFmt(r.running_balance)+'</span>');
 
     if (r.image_url) {
-        body += '<div style="margin-top:14px;text-align:center"><div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px">📸 Hình ảnh</div><img src="'+r.image_url+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+r.image_url+'\')"></div>';
+        var _dImgId = '_cfDImg_' + r.id;
+        body += '<div style="margin-top:14px;text-align:center"><div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px">📸 Hình ảnh</div><div id="'+_dImgId+'"><img src="'+r.image_url+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+r.image_url+'\')" onerror="_cfResolveDetailImg(\''+_dImgId+'\',\''+r.image_url+'\')"></div></div>';
     }
 
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
