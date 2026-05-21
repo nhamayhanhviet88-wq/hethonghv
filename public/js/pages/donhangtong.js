@@ -725,7 +725,8 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 5: Tổng kết tài chính ──
-        const finRemaining = calcBase + surchargeTotal + vat - discount - deposit;
+        const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+        const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
         const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -741,6 +742,11 @@ async function _dhtShowDetail(id) {
         finRows.push(
             ['Tổng Tiền Hàng Thực Tế', fmt(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
+        );
+        if (shipCK > 0) {
+            finRows.push(['🚚 Ship HV Trả CK', fmt(shipCK) + 'đ', '#7c3aed', true]);
+        }
+        finRows.push(
             ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
         );
         for (const [label, val, color, bold] of finRows) {

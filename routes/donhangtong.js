@@ -179,7 +179,7 @@ module.exports = async function(fastify) {
                 u_created.full_name AS created_by_name,
                 u_updated.full_name AS last_updated_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -417,7 +417,7 @@ module.exports = async function(fastify) {
                 cr2.name AS actual_carrier_name,
                 u_shipped.full_name AS shipped_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -467,7 +467,8 @@ module.exports = async function(fastify) {
                 payments = [depRecord];
                 // Also fix deposit_amount
                 order.deposit_amount = Number(depRecord.amount) || 0;
-                order.remaining_amount = (Number(order.total_amount) || 0) - (Number(order.discount_amount) || 0) - order.deposit_amount;
+                var _shipCkDeduct = (order.shipping_fee_payer === 'hv' && order.shipping_fee_method === 'ck') ? (Number(order.shipping_fee) || 0) : 0;
+                order.remaining_amount = (Number(order.total_amount) || 0) - (Number(order.discount_amount) || 0) - order.deposit_amount - _shipCkDeduct;
             }
         }
 
@@ -954,7 +955,7 @@ module.exports = async function(fastify) {
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) AS remaining_amount
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
