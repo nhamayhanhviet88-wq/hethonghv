@@ -115,6 +115,13 @@ const MENU_CONFIG = [
     { id: 'bao-cao-hoa-hong-hv', label: 'Báo Cáo Hoa Hồng HV', icon: '📊', roles: ['tkaffiliate'], section: 'BÁO CÁO', href: '/bao-cao-hoa-hong-hv', strictRoles: true },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
 
+    // ========== NỘI QUY & QUY TẮC LÀM VIỆC ==========
+    { id: 'noi-quy-cong-ty', label: 'Nội Quy & Điều Khoản', icon: '📜', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/noiquycongtyhv', permKey: 'noi_quy_cong_ty' },
+    { id: 'tu-lieu-xuong-vp', label: 'Tư Liệu Xưởng & VP', icon: '📂', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/tulieuxuongvp', permKey: 'tu_lieu_xuong_vp' },
+    { id: 'chinh-sach-kh', label: 'Chính Sách Khách Hàng', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chinhsachkhhv', permKey: 'chinh_sach_kh' },
+    { id: 'xu-ly-don-loi', label: 'Cách Xử Lý Đơn Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
+    { id: 'chuong-trinh-kh', label: 'Chương Trình Khách Hàng', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
+
     // ========== BỘ PHẬN VĂN PHÒNG ==========
     { id: 'don-hang-tong', label: 'Đơn Hàng Tổng', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangtong', permKey: 'don_hang_tong' },
     // [Moved to Cài Đặt Sản Xuất tab] { id: 'cai-dat-sp-qt', label: 'Cài Đặt SP & QT', icon: '⚙️', roles: ['giam_doc'], section: 'VĂN PHÒNG QUẢN LÝ', permKey: 'cai_dat_sp_qt' },
@@ -1072,6 +1079,7 @@ var _sidebarSectionKeys = [];
 var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
+    { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
     { name: 'BỘ PHẬN XƯỞNG SX', sections: ['XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
     { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },

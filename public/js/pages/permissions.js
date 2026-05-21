@@ -90,6 +90,15 @@ const PERM_FEATURES = [
     { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET Tem', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'thong_so_ao_mau', label: 'Thông Số Mẫu Áo', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
 
+    // ===== NỘI QUY & TƯ LIỆU NỘI BỘ =====
+    { key: 'noi_quy_cong_ty', label: 'Nội Quy & Điều Khoản', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
+    { key: 'tu_lieu_xuong_vp', label: 'Tư Liệu Xưởng & VP', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
+
+    // ===== QUY TẮC & CHÍNH SÁCH KH =====
+    { key: 'chinh_sach_kh', label: 'Chính Sách Khách Hàng', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
+    { key: 'xu_ly_don_loi', label: 'Cách Xử Lý Đơn Lỗi', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
+    { key: 'chuong_trinh_kh', label: 'Chương Trình Khách Hàng', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
+
     // ===== VĂN PHÒNG QUẢN LÝ =====
     { key: 'don_hang_tong', label: 'Đơn Hàng Tổng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_sua_don', label: '  ↳ Nút: ✏️ Sửa Đơn', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
