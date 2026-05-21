@@ -863,7 +863,7 @@ async function customersRoutes(fastify, options) {
         for (const code of codes) {
             // ★ Cross-reference DHT: check if this order_code exists in dht_orders
             const dhtOrder = await db.get(
-                'SELECT id, total_amount, discount_amount, total_quantity, shipping_status FROM dht_orders WHERE order_code = $1',
+                'SELECT id, total_amount, discount_amount, vat_amount, surcharges, total_quantity, shipping_status FROM dht_orders WHERE order_code = $1',
                 [code.order_code]
             );
             if (dhtOrder) {
@@ -876,6 +876,11 @@ async function customersRoutes(fastify, options) {
                 code.dht_order_id = dhtOrder.id;
                 code.dht_total = Number(dhtOrder.total_amount) || 0;
                 code.dht_discount = Number(dhtOrder.discount_amount) || 0;
+                code.dht_vat = Number(dhtOrder.vat_amount) || 0;
+                // Parse surcharges JSON to get total surcharge amount
+                let _surcharges = [];
+                try { _surcharges = typeof dhtOrder.surcharges === 'string' ? JSON.parse(dhtOrder.surcharges) : (dhtOrder.surcharges || []); } catch(e){}
+                code.dht_surcharges = _surcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0);
                 code.dht_shipping_status = dhtOrder.shipping_status;
             } else {
                 // Fallback: CRM order_items (đơn chưa lên DHT)

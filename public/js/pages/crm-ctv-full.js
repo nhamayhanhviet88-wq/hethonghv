@@ -1554,10 +1554,11 @@ function _ctvBuildOrderCardHTML(codes, customer) {
         const d = new Date(oc.created_at);
         const dateStr = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
         const orderItems = oc.items || [];
-        // ★ Use DHT total if available, otherwise sum from items
-        const grossTotal = oc.dht_total || orderItems.reduce((s, i) => s + (i.total || 0), 0);
+        // ★ Doanh số = Tổng tiền hàng (trước VAT) - Giảm giá
+        const grossItems = orderItems.reduce((s, i) => s + (i.total || 0), 0);
+        const vat = oc.dht_vat || 0;
         const discount = oc.dht_discount || 0;
-        const netRevenue = grossTotal - discount;
+        const netRevenue = grossItems - vat - discount;
         if (oc.status !== 'cancelled') allOrdersTotal += netRevenue;
         // ★ Smart status badge: reflect DHT state
         const hasDHT = !!oc.dht_order_id;
