@@ -554,9 +554,17 @@ async function customersRoutes(fastify, options) {
         await db.run("UPDATE customers SET order_status = ?, updated_at = NOW() WHERE id = ?", [order_status, custId]);
 
         if (order_status === 'chot_don' && customer?.referrer_id) {
-            const totalRow = await db.get('SELECT COALESCE(SUM(total), 0) as grand_total FROM order_items WHERE customer_id = ?', [custId]);
-            const discountRow = await db.get("SELECT COALESCE(SUM(discount_amount), 0) as total_disc FROM order_codes WHERE customer_id = ? AND COALESCE(status, 'active') != 'cancelled'", [custId]);
-            const grandTotal = order_total ? Number(order_total) : ((totalRow?.grand_total || 0) - (discountRow?.total_disc || 0));
+            const totalRow = await db.get(`SELECT COALESCE(SUM(sub.rev), 0) as grand_total FROM (
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                    (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                    0
+                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
+                  - COALESCE(oc.discount_amount, 0) as rev
+                FROM order_codes oc WHERE oc.customer_id = $1 AND COALESCE(oc.status, 'active') != 'cancelled'
+                GROUP BY oc.id, oc.order_code, oc.discount_amount
+            ) sub`, [custId]);
+            const grandTotal = order_total ? Number(order_total) : (totalRow?.grand_total || 0);
             if (grandTotal > 0) {
                 const ctv = await db.get('SELECT u.*, ct.percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [customer.referrer_id]);
                 if (ctv && ctv.percentage) {
@@ -796,9 +804,14 @@ async function customersRoutes(fastify, options) {
         // Mark order completed
         await db.run("UPDATE order_codes SET status = 'completed' WHERE id = ?", [orderId]);
         // Calculate commission for this order
-        const grandTotalRow = await db.get('SELECT COALESCE(SUM(total), 0) as t FROM order_items WHERE order_code_id = ?', [orderId]);
-        const orderDiscRow = await db.get('SELECT COALESCE(discount_amount, 0) as disc FROM order_codes WHERE id = ?', [orderId]);
-        const grandTotal = { t: (grandTotalRow?.t || 0) - (orderDiscRow?.disc || 0) };
+        const grandTotalRow = await db.get(`SELECT COALESCE(
+            (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+            (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+            0
+        ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
+          - COALESCE(oc.discount_amount, 0) as t
+        FROM order_codes oc WHERE oc.id = $1`, [orderId]);
+        const grandTotal = { t: grandTotalRow?.t || 0 };
         if (order.referrer_id && grandTotal?.t) {
             const referrer = await db.get('SELECT u.*, ct.percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [order.referrer_id]);
             if (referrer?.percentage) {
