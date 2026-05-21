@@ -172,6 +172,8 @@ module.exports = async function(fastify) {
         const code = `${b.payment_method}${seq}-${dd}-${mm}-Y${yy}`;
 
         try {
+            // CK = money already in bank → thu_quy_nhan; TM = cash needs handover → chua_bangiao
+            const autoHandover = b.payment_method === 'CK' ? 'thu_quy_nhan' : 'chua_bangiao';
             const result = await db.get(`
                 INSERT INTO payment_records (
                     payment_code, payment_method, daily_seq,
@@ -180,8 +182,8 @@ module.exports = async function(fastify) {
                     order_tt_coc, order_ao_mau,
                     transfer_note, money_source, bank_name,
                     total_order_codes, total_cod, shipping_fee,
-                    source, payment_date, created_by
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                    handover_status, source, payment_date, created_by
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
                 RETURNING id, payment_code
             `, [
                 code, b.payment_method, seq,
@@ -190,7 +192,7 @@ module.exports = async function(fastify) {
                 b.order_tt_coc || null, b.order_ao_mau || null,
                 b.transfer_note || null, b.money_source || 'khach_hang', b.bank_name || null,
                 b.total_order_codes || null, b.total_cod || 0, b.shipping_fee || 0,
-                'manual', b.payment_date, user.id
+                autoHandover, 'manual', b.payment_date, user.id
             ]);
 
             // === Send Telegram notification ===
