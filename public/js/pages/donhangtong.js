@@ -1188,11 +1188,11 @@ async function _dhtApplyDiscount(orderId) {
     var role = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
     var maxDiscount = 0; // 0 = unlimited
     var limitMsg = '';
-    if (role === 'ke_toan') {
-        maxDiscount = 5000;
-        limitMsg = '<div style="margin-top:8px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:700">⚠️ Kế Toán: Giảm tối đa <b>5.000đ</b></div>';
-    } else if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
+    if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
         limitMsg = '<div style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:11px;color:#059669;font-weight:700">✅ Không giới hạn số tiền giảm</div>';
+    } else {
+        maxDiscount = 5000;
+        limitMsg = '<div style="margin-top:8px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:700">⚠️ Giảm tối đa <b>5.000đ</b></div>';
     }
     var body = '<div style="text-align:center;padding:8px 0">'
         +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;display:inline-block;padding:12px 28px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px #05966940">'

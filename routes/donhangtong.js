@@ -711,11 +711,11 @@ module.exports = async function(fastify) {
                     return reply.code(403).send({ error: '🔒 Bạn không có quyền Giảm Giá' });
                 }
             }
-            // ★ Kế Toán: max 5,000đ discount
-            if (request.user.role === 'ke_toan') {
+            // ★ Discount limit: only GĐ and QLCC can discount unlimited
+            if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
                 const discAmt = Number(b.discount_amount) || 0;
                 if (discAmt > 5000) {
-                    return reply.code(403).send({ error: '⛔ Kế Toán chỉ được giảm tối đa 5.000đ' });
+                    return reply.code(403).send({ error: '⛔ Bạn chỉ được giảm tối đa 5.000đ' });
                 }
             }
         }
