@@ -189,6 +189,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
             ) pr_dep ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
@@ -320,7 +321,7 @@ module.exports = async function(fastify) {
         // Link deposit permanently
         if (b.deposit_payment_id) {
             await db.run(
-                'UPDATE payment_records SET total_order_codes = $1, locked_by = NULL, locked_at = NULL WHERE id = $2',
+                'UPDATE payment_records SET order_tt_coc = $1, locked_by = NULL, locked_at = NULL WHERE id = $2',
                 [b.order_code.trim(), Number(b.deposit_payment_id)]
             );
         }
@@ -428,6 +429,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
             ) pr_dep ON true
             WHERE o.id = $1
         `, [orderId]);
@@ -448,6 +450,7 @@ module.exports = async function(fastify) {
                    customer_name, customer_phone, transfer_note, total_order_codes
             FROM payment_records
             WHERE total_order_codes ILIKE '%' || $1 || '%'
+               OR order_tt_coc = $1
             ORDER BY payment_date DESC
         `, [order.order_code]);
 
@@ -506,7 +509,7 @@ module.exports = async function(fastify) {
             calcVat += (Number(it.item_total) || 0) - base;
         }
         // Deposit
-        const payments = await db.all("SELECT COALESCE(SUM(amount),0) as total FROM payment_records WHERE total_order_codes ILIKE '%' || $1 || '%'", [order.order_code]);
+        const payments = await db.all("SELECT COALESCE(SUM(amount),0) as total FROM payment_records WHERE total_order_codes ILIKE '%' || $1 || '%' OR order_tt_coc = $1", [order.order_code]);
         const depositFromPayments = Number(payments[0]?.total) || 0;
         const deposit = Math.max(depositFromPayments, Number(order.deposit_amount_cache) || 0);
         const discount = Number(order.discount_amount) || 0;
@@ -957,6 +960,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
             ) pr_dep ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
@@ -1004,6 +1008,7 @@ module.exports = async function(fastify) {
             WHERE COALESCE(pr.source, '') != 'cashflow_chi'
               AND COALESCE(pr.payment_type, '') != 'dat_coc'
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
+              AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
               AND (
                   pr.locked_by IS NULL
                   OR pr.locked_by = $1

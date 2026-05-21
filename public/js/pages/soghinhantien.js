@@ -152,7 +152,7 @@ function _prRenderTable() {
         {k:'code',l:'Mã TT',w:115},{k:'customer',l:'Khách Hàng',w:140},{k:'cskh',l:'CSKH',w:85},
         {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:65},{k:'order',l:'Đơn TT/Cọc',w:100},
         {k:'sample',l:'Áo Mẫu',w:70},{k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
-        {k:'bank',l:'NH',w:65},{k:'totalOrders',l:'Tổng Đơn TT',w:100},{k:'cod',l:'Tổng COD',w:80},
+        {k:'bank',l:'NH',w:65},{k:'totalOrders',l:'SLL Mã Đơn TT',w:100},{k:'cod',l:'Tổng COD',w:80},
         {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100},{k:'date',l:'Ngày',w:65}
     ];
     var totalW = cols.reduce(function(s,c){return s+c.w},0);

@@ -781,7 +781,6 @@ async function customersRoutes(fastify, options) {
             await db.run(`
                 UPDATE payment_records SET
                     order_tt_coc = $1,
-                    total_order_codes = $1,
                     updated_at = NOW()
                 WHERE customer_phone = $2
                   AND payment_type = 'dat_coc'
@@ -904,7 +903,7 @@ async function customersRoutes(fastify, options) {
             let depositFromPayments = 0;
             if (code.order_code) {
                 const prDep = await db.get(
-                    `SELECT COALESCE(SUM(amount), 0) as dep FROM payment_records WHERE total_order_codes ILIKE '%' || $1 || '%'`,
+                    `SELECT COALESCE(SUM(amount), 0) as dep FROM payment_records WHERE total_order_codes ILIKE '%' || $1 || '%' OR order_tt_coc = $1`,
                     [code.order_code]
                 );
                 depositFromPayments = Number(prDep?.dep) || 0;
