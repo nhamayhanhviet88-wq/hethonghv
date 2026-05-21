@@ -585,7 +585,7 @@ async function _dhtShowDetail(id) {
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
             { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')`, perm: canDo('dht_zalo_oa', 'view') },
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
-            { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: canDo('dht_in_phieu_sx', 'view') },
+            { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('dht_don_sua', 'view') },
         ];
         for (const a of actionBtns) {
