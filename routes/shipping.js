@@ -296,6 +296,26 @@ module.exports = async function(fastify) {
             ? `✅ Đã gửi đơn ${order.order_code} — Phiếu chi ship: ${cashflowResult.cashflow_code}`
             : `✅ Đã gửi đơn ${order.order_code}`;
 
+        // ★ Audit log: Gửi hàng
+        try {
+            const carrierRow = await db.get('SELECT name FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
+            const carrierName = carrierRow?.name || b.actual_carrier_id;
+            const payerLabel = b.shipping_fee_payer === 'hv' ? 'HV trả' : 'Khách trả';
+            const methodLabel = b.shipping_fee_method === 'ck' ? 'CK' : 'TM';
+            const changes = [
+                { field: 'actual_carrier', label: 'Nhà vận chuyển', old: null, new: carrierName },
+                { field: 'shipping_fee', label: 'Phí gửi hàng', old: null, new: String(shipFee) },
+                { field: 'fee_payer', label: 'Người trả', old: null, new: payerLabel + ' — ' + methodLabel }
+            ];
+            if (b.tracking_code) changes.push({ field: 'tracking_code', label: 'Mã vận đơn', old: null, new: b.tracking_code });
+            if (b.carrier_phone) changes.push({ field: 'carrier_phone', label: 'SĐT Nhà Xe', old: null, new: b.carrier_phone });
+            if (b.receiver_name) changes.push({ field: 'receiver_name', label: 'Người nhận', old: null, new: b.receiver_name });
+            const summary = `Đã gửi hàng qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+            await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
+                orderId, 'ship', summary, JSON.stringify(changes), request.user.id
+            ]);
+        } catch(auditErr) { console.error('[AuditLog] ship:', auditErr.message); }
+
         return { success: true, message: resultMsg, cashflow_code: cashflowResult?.cashflow_code || null };
     });
 

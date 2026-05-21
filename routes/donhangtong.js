@@ -397,6 +397,23 @@ module.exports = async function(fastify) {
             try { await db.run(`UPDATE order_codes SET discount_amount = $1 WHERE order_code = $2`, [Number(b.discount_amount) || 0, b.order_code.trim()]); } catch(e) { /* order_code may not exist in CRM yet */ }
         }
 
+        // ★ Audit log: Tạo đơn
+        if (result) {
+            try {
+                await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1, $2, $3, $4, $5)`, [
+                    result.id, 'create', 'Đã tạo đơn ' + b.order_code.trim(),
+                    JSON.stringify([
+                        { field: 'order_code', label: 'Mã đơn', old: null, new: b.order_code.trim() },
+                        { field: 'total_amount', label: 'Tổng tiền', old: null, new: String(Number(b.total_amount) || 0) },
+                        { field: 'total_quantity', label: 'Tổng SL', old: null, new: String(Number(b.total_quantity) || 0) },
+                        ...(Number(b.deposit_amount) > 0 ? [{ field: 'deposit', label: 'Tiền cọc', old: null, new: String(Number(b.deposit_amount)) }] : []),
+                        ...(Number(b.discount_amount) > 0 ? [{ field: 'discount', label: 'Giảm giá', old: null, new: String(Number(b.discount_amount)) }] : [])
+                    ]),
+                    request.user.id
+                ]);
+            } catch(auditErr) { console.error('[AuditLog] create:', auditErr.message); }
+        }
+
         return { success: true, order: result };
     });
 
@@ -478,11 +495,21 @@ module.exports = async function(fastify) {
             surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
         } catch(e) { surcharges = []; }
 
+        // 5. Audit logs
+        const audit_logs = await db.all(`
+            SELECT al.*, u.full_name AS performer_name
+            FROM dht_audit_logs al
+            LEFT JOIN users u ON al.performed_by = u.id
+            WHERE al.dht_order_id = $1
+            ORDER BY al.created_at ASC
+        `, [orderId]);
+
         return {
             order,
             items,
             payments,
-            surcharges
+            surcharges,
+            audit_logs
         };
     });
 
@@ -761,6 +788,10 @@ module.exports = async function(fastify) {
             }
         }
 
+        // ★ Fetch old data for audit log diff
+        const oldOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
+        if (!oldOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
+
         // Build dynamic SET clause
         const allowed = [
             'customer_name', 'customer_phone', 'source', 'province', 'address',
@@ -919,6 +950,42 @@ module.exports = async function(fastify) {
                 }
             } catch(e) { /* order_code may not exist in CRM */ }
         }
+
+        // ★ Audit log: Cập nhật đơn (diff old vs new)
+        try {
+            const _labels = {
+                customer_name: 'Tên KH', customer_phone: 'SĐT KH', source: 'Nguồn', province: 'Tỉnh/TP', address: 'Địa chỉ',
+                total_quantity: 'Tổng SL', total_amount: 'Tổng tiền', discount_amount: 'Giảm giá', discount_reason: 'Lý do GG',
+                vat_amount: 'VAT', has_vat: 'Có VAT', shipping_priority: 'TC Gửi', expected_ship_date: 'Ngày gửi DK',
+                notes: 'Ghi chú', sale_note_for_accountant: 'Dặn KT', standard_delivery_time: 'Yêu cầu giờ',
+                category_id: 'Danh mục', designer_type: 'Loại TK', carrier_id: 'NVC YC',
+                deposit_amount_cache: 'Tiền cọc', zalo_oa_sent: 'Zalo OA'
+            };
+            const changes = [];
+            for (const key of Object.keys(_labels)) {
+                if (b[key] !== undefined) {
+                    const oldVal = oldOrder[key] === null || oldOrder[key] === undefined ? '' : String(oldOrder[key]);
+                    const newVal = b[key] === null || b[key] === undefined || b[key] === '' ? '' : String(b[key]);
+                    if (oldVal !== newVal) {
+                        changes.push({ field: key, label: _labels[key], old: oldVal || '(trống)', new: newVal || '(trống)' });
+                    }
+                }
+            }
+            if (Array.isArray(b.items)) {
+                changes.push({ field: 'items', label: 'Danh sách sản phẩm', old: '(cũ)', new: 'Đã cập nhật ' + b.items.length + ' sản phẩm' });
+            }
+            if (b.surcharges !== undefined) {
+                changes.push({ field: 'surcharges', label: 'Phụ phí', old: '(cũ)', new: 'Đã cập nhật' });
+            }
+            if (changes.length > 0) {
+                const summary = changes.length === 1
+                    ? 'Đã thay đổi ' + changes[0].label
+                    : 'Đã cập nhật ' + changes.length + ' thông tin';
+                await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
+                    orderId, 'update', summary, JSON.stringify(changes), request.user.id
+                ]);
+            }
+        } catch(auditErr) { console.error('[AuditLog] update:', auditErr.message); }
 
         return { success: true };
     });

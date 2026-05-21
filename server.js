@@ -649,6 +649,20 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS receiver_name TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
 
+    // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_audit_logs (
+            id              SERIAL PRIMARY KEY,
+            dht_order_id    INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            action          TEXT NOT NULL,
+            summary         TEXT NOT NULL,
+            changes         JSONB DEFAULT '[]',
+            performed_by    INTEGER REFERENCES users(id),
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_audit_order ON dht_audit_logs(dht_order_id)`);
+    } catch(e) { console.error('[Migration v10] Audit logs:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

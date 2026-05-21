@@ -561,6 +561,7 @@ async function _dhtShowDetail(id) {
         const items = data.items || [];
         const payments = data.payments || [];
         const surcharges = data.surcharges || [];
+        const auditLogs = data.audit_logs || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
         const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
         // Recalculate totals from items (source of truth)
@@ -908,12 +909,54 @@ async function _dhtShowDetail(id) {
         errorHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:13px;font-style:italic">Chưa có thông tin đơn lỗi</div>`;
         errorHTML += `</div>`;
 
-        // ── Section 9: 📝 Lịch sử cập nhật ──
+        // ── Section 9: 📝 Lịch sử cập nhật (Audit Log) ──
         var histHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
-        histHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📝 Lịch sử cập nhật</div>`;
-        if (o.created_at) histHTML += `<div style="padding:8px 12px;border-left:3px solid #059669;margin-bottom:8px;background:#f0fdf4;border-radius:0 8px 8px 0"><div style="font-size:11px;color:#64748b">${vnFormat(o.created_at)}</div><div style="font-size:13px;font-weight:700;color:#1e293b">👤 <span style="color:var(--info)">${o.created_by_name || '—'}</span> đã tạo đơn.</div></div>`;
-        if (o.last_updated_at && o.last_updated_by_name) histHTML += `<div style="padding:8px 12px;border-left:3px solid #f59e0b;margin-bottom:8px;background:#fffbeb;border-radius:0 8px 8px 0"><div style="font-size:11px;color:#64748b">${vnFormat(o.last_updated_at)}</div><div style="font-size:13px;font-weight:700;color:#1e293b">👤 <span style="color:var(--info)">${o.last_updated_by_name}</span> đã cập nhật.</div></div>`;
-        if (!o.created_at && !o.last_updated_at) histHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:13px">Không có lịch sử</div>`;
+        histHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📝 Lịch sử cập nhật <span style="background:#64748b;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${auditLogs.length || 0}</span></div>`;
+        var _actionStyles = {
+            create:   { color: '#059669', bg: '#f0fdf4', border: '#059669', icon: '🟢' },
+            update:   { color: '#d97706', bg: '#fffbeb', border: '#f59e0b', icon: '🟡' },
+            ship:     { color: '#2563eb', bg: '#eff6ff', border: '#3b82f6', icon: '🔵' },
+            discount: { color: '#7c3aed', bg: '#f5f3ff', border: '#8b5cf6', icon: '🟣' },
+            error:    { color: '#dc2626', bg: '#fef2f2', border: '#ef4444', icon: '🔴' }
+        };
+        if (auditLogs.length > 0) {
+            for (const log of auditLogs) {
+                var st = _actionStyles[log.action] || _actionStyles.update;
+                histHTML += `<div style="padding:10px 12px;border-left:3px solid ${st.border};margin-bottom:8px;background:${st.bg};border-radius:0 8px 8px 0">`;
+                histHTML += `<div style="font-size:11px;color:#64748b">${st.icon} ${vnFormat(log.created_at)}</div>`;
+                histHTML += `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">👤 <span style="color:var(--info)">${log.performer_name || '—'}</span> ${log.summary}</div>`;
+                // Render changes detail
+                var changes = [];
+                try { changes = typeof log.changes === 'string' ? JSON.parse(log.changes) : (log.changes || []); } catch(e) {}
+                if (changes.length > 0 && log.action !== 'create') {
+                    histHTML += `<div style="margin-top:6px;padding-left:8px;border-left:2px solid ${st.border}30">`;
+                    for (var ci = 0; ci < changes.length; ci++) {
+                        var c = changes[ci];
+                        var isLast = ci === changes.length - 1;
+                        var connector = isLast ? '└─' : '├─';
+                        var _fmtVal = function(v, f) {
+                            if (!v || v === '(trống)') return '<span style="color:#94a3b8;font-style:italic">(trống)</span>';
+                            if (['total_amount','discount_amount','vat_amount','shipping_fee','deposit_amount_cache'].includes(f)) {
+                                return Number(v).toLocaleString('vi-VN') + 'đ';
+                            }
+                            return v;
+                        };
+                        if (c.old && c.old !== '(trống)' && c.old !== '(cũ)') {
+                            histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="color:#dc2626;text-decoration:line-through">${_fmtVal(c.old, c.field)}</span> → <span style="color:#059669;font-weight:700">${_fmtVal(c.new, c.field)}</span></div>`;
+                        } else {
+                            histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="font-weight:700;color:${st.color}">${_fmtVal(c.new, c.field)}</span></div>`;
+                        }
+                    }
+                    histHTML += `</div>`;
+                }
+                histHTML += `</div>`;
+            }
+        } else {
+            // Fallback for legacy orders without audit logs
+            if (o.created_at) histHTML += `<div style="padding:8px 12px;border-left:3px solid #059669;margin-bottom:8px;background:#f0fdf4;border-radius:0 8px 8px 0"><div style="font-size:11px;color:#64748b">🟢 ${vnFormat(o.created_at)}</div><div style="font-size:13px;font-weight:700;color:#1e293b">👤 <span style="color:var(--info)">${o.created_by_name || '—'}</span> đã tạo đơn.</div></div>`;
+            if (o.last_updated_at && o.last_updated_by_name) histHTML += `<div style="padding:8px 12px;border-left:3px solid #f59e0b;margin-bottom:8px;background:#fffbeb;border-radius:0 8px 8px 0"><div style="font-size:11px;color:#64748b">🟡 ${vnFormat(o.last_updated_at)}</div><div style="font-size:13px;font-weight:700;color:#1e293b">👤 <span style="color:var(--info)">${o.last_updated_by_name}</span> đã cập nhật.</div></div>`;
+            if (!o.created_at && !o.last_updated_at) histHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:13px">Không có lịch sử</div>`;
+        }
         histHTML += `</div>`;
 
         // ── Combine all sections ──
