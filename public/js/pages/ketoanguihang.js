@@ -317,7 +317,12 @@ async function _shDoShip(id) {
     const receiver = document.getElementById('shReceiverName')?.value?.trim();
     if (g === 'tracking_code' && !tracking) return alert('Vui lòng nhập Mã Vận Đơn');
     if (g === 'bill_link' && !bill) return alert('Vui lòng nhập Bill Gửi Hàng');
-    if (g === 'bill_and_phone') { if (!phone) return alert('Vui lòng nhập SĐT Nhà Xe'); if (!bill) return alert('Vui lòng nhập Bill Gửi Hàng'); }
+    if (g === 'bill_and_phone') {
+        if (!phone) return alert('Vui lòng nhập SĐT Nhà Xe');
+        var phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length !== 10) return alert('SĐT Nhà Xe phải đúng 10 số (hiện tại: ' + phoneDigits.length + ' số)');
+        if (!bill) return alert('Vui lòng nhập Bill Gửi Hàng');
+    }
     if (g === 'receiver_name' && !receiver) return alert('Vui lòng nhập Tên Người Nhận');
     // Validate fee
     const feeRaw = (document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'');
