@@ -329,7 +329,7 @@ module.exports = async function(fastify) {
     // ========== DROPDOWN for DHT Phiếu form ==========
     fastify.get('/api/tsam/dropdown', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
-            SELECT id, sample_code AS name, sample_type, category_id, approval_status, mix_color_count
+            SELECT id, sample_code AS name, sample_type, category_id, approval_status, mix_color_count, spec_image
             FROM tsam_samples
             WHERE is_active = true AND approval_status = 'APPROVED'
             ORDER BY display_order ASC, sample_code ASC

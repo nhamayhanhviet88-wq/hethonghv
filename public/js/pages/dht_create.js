@@ -569,6 +569,7 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
+        +'<div id="_pp_specImage" style="display:none;margin-bottom:8px"></div>'
         +'<div id="_pp_mixInfo" style="display:none;background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:11px;font-weight:700;color:#7c3aed"></div>'
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Kỹ Thuật May</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
@@ -690,9 +691,22 @@ function _dhtPatternChange(existing) {
     var pairsEl = document.getElementById('_pp_matColorPairs');
     var mixInfo = document.getElementById('_pp_mixInfo');
     if (!pairsEl) return;
-    if (!patName) { pairsEl.innerHTML=''; if(mixInfo)mixInfo.style.display='none'; return; }
+    if (!patName) { pairsEl.innerHTML=''; if(mixInfo)mixInfo.style.display='none'; var imgEl=document.getElementById('_pp_specImage');if(imgEl)imgEl.style.display='none'; return; }
     var pats = window._ppTsamPatterns || [];
     var pat = pats.find(function(p){ return p.name === patName; });
+    // Show spec_image preview
+    var imgEl = document.getElementById('_pp_specImage');
+    if (imgEl) {
+        if (pat && pat.spec_image) {
+            imgEl.innerHTML = '<div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #7dd3fc;border-radius:10px;padding:10px;text-align:center">'
+                + '<div style="font-size:11px;font-weight:800;color:#0284c7;margin-bottom:6px">📷 Hình Ảnh Thông Số</div>'
+                + '<img src="' + pat.spec_image + '" style="max-width:100%;max-height:250px;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.1)" onclick="window.open(\'' + pat.spec_image + '\',\'_blank\')" title="Click để xem lớn">'
+                + '</div>';
+            imgEl.style.display = 'block';
+        } else {
+            imgEl.style.display = 'none';
+        }
+    }
     var mixCount = (pat && pat.mix_color_count) ? Number(pat.mix_color_count) : 1;
     if (mixInfo) {
         mixInfo.innerHTML = mixCount > 1
