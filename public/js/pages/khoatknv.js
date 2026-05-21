@@ -97,7 +97,8 @@ async function _penaltyLoadConfig() {
             { title: '🔗 Công Việc Chuỗi', icon: '🔗', keys: ['cv_chuoi_khong_nop', 'cv_chuoi_ql_khong_duyet'] },
             { title: '🚨 Cấp Cứu Sếp', icon: '🚨', keys: ['cap_cuu_ql_khong_xu_ly'] },
             { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay'] },
-            { title: '⏰ KH Chưa Xử Lý Trễ', icon: '⏰', keys: ['kh_chua_xu_ly_tre'] }
+            { title: '⏰ KH Chưa Xử Lý Trễ', icon: '⏰', keys: ['kh_chua_xu_ly_tre'] },
+            { title: '📦 Gửi Hàng Trễ', icon: '📦', keys: ['gui_hang_tre'] }
         ];
 
         const configMap = {};
@@ -409,7 +410,8 @@ async function _penaltyLoadStats() {
             support: { icon: '🆘', label: 'Sếp Hỗ Trợ', color: '#2563eb', bg: '#eff6ff' },
             emergency: { icon: '🚨', label: 'Cấp Cứu Sếp', color: '#b91c1c', bg: '#fef2f2' },
             customer_unhandled: { icon: '❌', label: 'KH Chưa XL', color: '#ea580c', bg: '#fff7ed' },
-            customer_overdue: { icon: '⏰', label: 'KH Trễ', color: '#b91c1c', bg: '#fef2f2' }
+            customer_overdue: { icon: '⏰', label: 'KH Trễ', color: '#b91c1c', bg: '#fef2f2' },
+            gui_hang_tre: { icon: '📦', label: 'Gửi Hàng Trễ', color: '#7c3aed', bg: '#f5f3ff' }
         };
 
         // Build HTML tree
@@ -638,7 +640,8 @@ async function _penaltyShowSlip(managerId, month, managerName) {
                 support: { bg: '#eff6ff', color: '#2563eb', label: '🆘 Hỗ trợ' },
                 emergency: { bg: '#fef2f2', color: '#b91c1c', label: '🚨 Cấp cứu' },
                 customer_unhandled: { bg: '#fff7ed', color: '#ea580c', label: '❌ KH Chưa XL' },
-                customer_overdue: { bg: '#fef2f2', color: '#b91c1c', label: '⏰ KH Trễ' }
+                customer_overdue: { bg: '#fef2f2', color: '#b91c1c', label: '⏰ KH Trễ' },
+                gui_hang_tre: { bg: '#f5f3ff', color: '#7c3aed', label: '📦 Gửi Hàng Trễ' }
             };
             const cfg = map[type] || { bg: '#f3f4f6', color: '#6b7280', label: type };
             return `<span style="background:${cfg.bg};color:${cfg.color};padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">${cfg.label}</span>`;

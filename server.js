@@ -604,6 +604,34 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_bgm_hist_iid ON bgm_history(item_id)`);
     } catch(e) { console.error('[BGM Migration]', e.message); }
 
+    // v8: Shipping Module — Gửi Hàng (Kế Toán + Kinh Doanh)
+    try {
+        // Expand shipping_status CHECK to support 'rescheduled'
+        await db.exec(`ALTER TABLE dht_orders DROP CONSTRAINT IF EXISTS dht_orders_shipping_status_check`);
+        await db.exec(`ALTER TABLE dht_orders ADD CONSTRAINT dht_orders_shipping_status_check CHECK (shipping_status IN ('pending','shipped','rescheduled'))`);
+        // New columns for shipping management
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS rescheduled_ship_date DATE`);
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS reschedule_reason TEXT`);
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS carrier_phone TEXT`);
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_bill_link TEXT`);
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS completion_images TEXT`);
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipped_by INTEGER`);
+        await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMPTZ`);
+        // Reschedule history table
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_shipping_reschedules (
+            id              SERIAL PRIMARY KEY,
+            dht_order_id    INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            old_date        DATE NOT NULL,
+            new_date        DATE NOT NULL,
+            reason          TEXT,
+            rescheduled_by  INTEGER REFERENCES users(id),
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_sr_order ON dht_shipping_reschedules(dht_order_id)`);
+        // Penalty config for shipping delays
+        await db.exec(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('gui_hang_tre', 'Gửi hàng trễ — KT chưa gửi đơn hôm nay', 100000) ON CONFLICT (key) DO NOTHING`);
+    } catch(e) { console.error('[Shipping Migration]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -705,6 +733,7 @@ async function start() {
     fastify.register(require('./routes/nhacnho'));
     fastify.register(require('./routes/thongsoaomau'));
     fastify.register(require('./routes/banggiamay'));
+    fastify.register(require('./routes/shipping'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login

@@ -184,6 +184,33 @@ async function syncLedgerForDate(dateStr) {
         }
     } catch (e) { console.error('  ❌ [Ledger] KH:', e.message); }
 
+    // Source 9: Gửi Hàng Trễ — KT chưa gửi đơn đúng hạn (FLAT 100k/ngày)
+    if (!isDateOff) {
+    try {
+        const overdueOrders = await db.all(`
+            SELECT id, order_code FROM dht_orders
+            WHERE shipping_status IN ('pending','rescheduled')
+              AND expected_ship_date IS NOT NULL
+              AND COALESCE(rescheduled_ship_date, expected_ship_date) <= $1::date
+        `, [dateStr]);
+        if (overdueOrders.length > 0) {
+            const PENALTY_AMT = GPC.gui_hang_tre || 100000;
+            const ktUsers = await db.all(`
+                SELECT u.id FROM users u
+                JOIN departments d ON u.department_id = d.id
+                WHERE (d.name ILIKE '%kế toán%' OR d.name ILIKE '%ke toan%')
+                  AND u.status = 'active' AND u.role != 'giam_doc'
+            `);
+            for (const kt of ktUsers) {
+                await writeLedger(kt.id, dateStr, 'gui_hang_tre', 'shipping_daily',
+                    `Gửi Hàng Trễ: ${overdueOrders.length} đơn quá hạn`,
+                    PENALTY_AMT, 'Kế toán chưa gửi đơn hàng đúng hạn');
+                count++;
+            }
+        }
+    } catch (e) { console.error('  ❌ [Ledger] Gửi Hàng Trễ:', e.message); }
+    } // end if (!isDateOff) Source 9
+
     if (count > 0) console.log(`  📒 [Ledger] Synced ${count} entries for ${dateStr}`);
     return count;
 }
