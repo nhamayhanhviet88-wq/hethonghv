@@ -157,6 +157,21 @@ module.exports = async function(fastify) {
             idx++;
         }
 
+        // ★ ORDER VISIBILITY: Only GĐ, QLCC, and Phòng Kế Toán see all orders
+        const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+        if (!FULL_VIEW_ROLES.includes(request.user.role)) {
+            // Check if user is in Phòng Kế Toán
+            const userDept = await db.get(
+                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                [request.user.id]
+            );
+            const isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
+            if (!isKeToan) {
+                where += ` AND o.created_by = $${idx++}`;
+                params.push(request.user.id);
+            }
+        }
+
         const orders = await db.all(`
             SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
                 c.name AS category_name,
