@@ -756,11 +756,13 @@ async function _prSavePermissions() {
 
 // ========== UPDATE CUSTOMER — Link payment to unpaid order ==========
 var _prSelectedOrder = null;
+var _prPaymentAmount = 0;
 
 async function _prUpdateCustomer(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
     _prSelectedOrder = null;
+    _prPaymentAmount = Number(r.amount) || 0;
     var icon = r.payment_method === 'TM' ? '💵' : '🏦';
 
     var bodyHTML = '<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:14px 16px;border-radius:12px;margin-bottom:16px;text-align:center">'
@@ -796,8 +798,15 @@ function _prSearchUnpaidOrders() {
                 box.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Không tìm thấy đơn hàng nào còn nợ</div>';
                 return;
             }
+            // Smart sort: closest remaining to payment amount first
+            var orders = data.orders.slice();
+            orders.sort(function(a, b) {
+                var diffA = Math.abs((Number(a.remaining) || 0) - _prPaymentAmount);
+                var diffB = Math.abs((Number(b.remaining) || 0) - _prPaymentAmount);
+                return diffA - diffB;
+            });
             var h = '';
-            data.orders.forEach(function(o){
+            orders.forEach(function(o){
                 var totalAmt = Number(o.total_amount) || 0;
                 var paid = Number(o.deposit_paid) || 0;
                 var remain = Number(o.remaining) || 0;
