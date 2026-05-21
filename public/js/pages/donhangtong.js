@@ -585,8 +585,11 @@ async function _dhtShowDetail(id) {
         const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
 
         // ── Section 1: Action Buttons (permission-aware) ──
+        // Hide when opened from shipping page
+        var actionsHTML = '';
+        if (window._dhtDetailSource !== 'shipping') {
         // Mỗi nút có feature key riêng → GĐ tick từng nút trong trang Phân Quyền
-        var actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
+        actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
         const actionBtns = [
             { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view') },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('dht_xoa_don', 'view') },
@@ -612,6 +615,7 @@ async function _dhtShowDetail(id) {
             }
         }
         actionsHTML += `</div>`;
+        } // end if not shipping
 
         // ── Section 2: Chi tiết đơn hàng (Items) ──
         // Store items globally for click-to-detail
@@ -863,6 +867,7 @@ async function _dhtShowDetail(id) {
         setTimeout(() => {
             const mc = document.querySelector('.modal-content');
             if (mc) { mc.style.maxWidth = '1200px'; mc.style.width = '95vw'; }
+            window._dhtDetailSource = null; // Reset flag
         }, 30);
     } catch(e) {
         console.error('Detail error:', e);
