@@ -119,7 +119,7 @@ async function _dhtGoStep2() {
         // === Paste zone for CHUẨN proof (hidden by default since GẤP is default) ===
         +'<div id="_co_proofWrap" style="margin-top:8px;display:none">'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Giờ Hàng Ra (24h) <span style="color:red">*</span></label>'
+        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:red">*</span></label>'
         +'<div style="display:flex;gap:6px;align-items:center"><select id="_co_deliveryHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_deliveryMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
         +'<div></div></div>'
         +'<label style="font-weight:700;font-size:12px;color:#1e293b">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN <span style="color:red">*</span></label>'
@@ -918,8 +918,8 @@ async function _dhtSubmitCreateV2() {
     if (pri === 'CHUẨN') {
         var dH = document.getElementById('_co_deliveryHour')?.value;
         var dM = document.getElementById('_co_deliveryMin')?.value;
-        if (!dH || dH === '') { showToast('⏰ Chọn Giờ Hàng Ra', 'error'); return; }
-        if (dM === undefined || dM === null || dM === '') { showToast('⏰ Chọn Phút Hàng Ra', 'error'); return; }
+        if (!dH || dH === '') { showToast('⏰ Chọn Giờ Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
+        if (dM === undefined || dM === null || dM === '') { showToast('⏰ Chọn Phút Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
         if (!_dhtProofBase64) {
             showToast('📸 Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN (Ctrl+V)', 'error');
             document.getElementById('_co_proofZone')?.focus();
