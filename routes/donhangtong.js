@@ -711,6 +711,13 @@ module.exports = async function(fastify) {
                     return reply.code(403).send({ error: '🔒 Bạn không có quyền Giảm Giá' });
                 }
             }
+            // ★ Kế Toán: max 5,000đ discount
+            if (request.user.role === 'ke_toan') {
+                const discAmt = Number(b.discount_amount) || 0;
+                if (discAmt > 5000) {
+                    return reply.code(403).send({ error: '⛔ Kế Toán chỉ được giảm tối đa 5.000đ' });
+                }
+            }
         }
         // ★ EDIT RESTRICTIONS: Non-GĐ cannot change critical fields
         if (request.user.role !== 'giam_doc') {

@@ -1184,6 +1184,16 @@ async function _dhtApplyDiscount(orderId) {
     var currentDiscount = o ? Number(o.discount_amount) || 0 : 0;
     var currentReason = o ? (o.discount_reason || '') : '';
     var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    // Role-based discount limit
+    var role = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    var maxDiscount = 0; // 0 = unlimited
+    var limitMsg = '';
+    if (role === 'ke_toan') {
+        maxDiscount = 5000;
+        limitMsg = '<div style="margin-top:8px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:700">⚠️ Kế Toán: Giảm tối đa <b>5.000đ</b></div>';
+    } else if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
+        limitMsg = '<div style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:11px;color:#059669;font-weight:700">✅ Không giới hạn số tiền giảm</div>';
+    }
     var body = '<div style="text-align:center;padding:8px 0">'
         +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;display:inline-block;padding:12px 28px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px #05966940">'
         +'<div style="font-size:10px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:4px">GIẢM GIÁ HIỆN TẠI</div>'
@@ -1196,10 +1206,12 @@ async function _dhtApplyDiscount(orderId) {
         +'<div id="dhtDiscountPreview" style="margin-top:6px;font-size:13px;font-weight:700;color:#059669;min-height:20px">'
         +(currentDiscount > 0 ? '→ -'+fmt(currentDiscount)+'đ' : '')
         +'</div>'
+        + limitMsg
         +'<div style="text-align:left;margin-top:14px;margin-bottom:8px"><label style="font-size:12px;font-weight:700;color:#dc2626">✍️ Lý do giảm giá <span style="color:#dc2626">*</span> (bắt buộc):</label></div>'
         +'<textarea id="dhtDiscountReason" class="form-control" rows="3" placeholder="Nhập lý do giảm giá..." '
         +'style="font-size:13px;border:2px solid #e2e8f0;border-radius:10px;resize:vertical;width:100%">'+currentReason+'</textarea>'
         +'<div id="dhtDiscountReasonError" style="margin-top:4px;font-size:11px;color:#dc2626;display:none">⚠️ Vui lòng nhập lý do giảm giá!</div>'
+        +'<input type="hidden" id="dhtDiscountMaxLimit" value="'+maxDiscount+'">'
         +'<div style="margin-top:6px;font-size:11px;color:#94a3b8">Nhập 0 để xóa giảm giá</div>'
         +'</div>';
     var footer = '<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('+orderId+')},200)" style="padding:8px 20px">Hủy</button>'
@@ -1222,6 +1234,13 @@ async function _dhtConfirmDiscount(orderId) {
     if (!inp) return;
     var amount = Number(inp.value.replace(/[^\d]/g, ''));
     if (isNaN(amount) || amount < 0) { inp.style.borderColor = '#dc2626'; return; }
+    // ★ Frontend limit check
+    var maxLimit = Number(document.getElementById('dhtDiscountMaxLimit')?.value || 0);
+    if (maxLimit > 0 && amount > maxLimit) {
+        inp.style.borderColor = '#dc2626';
+        showToast('⛔ Kế Toán chỉ được giảm tối đa ' + maxLimit.toLocaleString('vi-VN') + 'đ', 'error');
+        return;
+    }
     var reason = (reasonEl ? reasonEl.value.trim() : '');
     if (amount > 0 && !reason) {
         if (reasonEl) reasonEl.style.borderColor = '#dc2626';
@@ -1235,11 +1254,14 @@ async function _dhtConfirmDiscount(orderId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ discount_amount: amount, discount_reason: amount > 0 ? reason : null })
         });
-        if (!res.ok) throw new Error('Lỗi cập nhật');
+        if (!res.ok) {
+            var errData = {}; try { errData = await res.json(); } catch(e) {}
+            throw new Error(errData.error || 'Lỗi cập nhật');
+        }
         closeModal();
         await _dhtLoadOrders();
         _dhtShowDetail(orderId);
-    } catch(e) { alert('❌ ' + e.message); }
+    } catch(e) { showToast('❌ ' + e.message, 'error'); }
 }
 
 // ========== PRINT SHIPPING RECEIPT (Client-side) ==========
