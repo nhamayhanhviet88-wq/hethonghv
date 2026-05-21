@@ -840,7 +840,9 @@ async function _dhtShowDetail(id) {
                 shipHTML += row('📦 Mã vận đơn', `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`);
             }
             if (o.shipping_bill_link) {
-                shipHTML += row('🔗 Bill gửi hàng', `<a href="${o.shipping_bill_link}" target="_blank" style="color:var(--info);font-weight:700">📷 Xem bill</a>`);
+                shipHTML += `<tr><td style="padding:8px 0;font-size:13px;color:#64748b;vertical-align:top;width:40%">🔗 Bill gửi hàng</td><td style="padding:8px 0;font-size:13px;color:#1e293b">`;
+                shipHTML += `<a href="${o.shipping_bill_link}" target="_blank" title="Xem ảnh gốc"><img src="${o.shipping_bill_link}" style="max-width:220px;max-height:180px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.1)" onerror="this.outerHTML='<a href=\\'${o.shipping_bill_link}\\' target=\\'_blank\\' style=\\'color:var(--info);font-weight:700\\'>📷 Xem bill</a>'"></a>`;
+                shipHTML += `</td></tr>`;
             }
             if (o.carrier_phone) {
                 shipHTML += row('📞 SĐT Nhà Xe', `<a href="tel:${o.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${o.carrier_phone}</a>`);
