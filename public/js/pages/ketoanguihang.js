@@ -62,8 +62,7 @@ function _shRenderTable(el) {
         el.innerHTML = `<div style="text-align:center;padding:60px;"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="color:#9ca3af;font-size:14px;font-weight:600;">Không có đơn hàng nào</div></div>`;
         return;
     }
-    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
-    const fmtMoney = n => (Number(n)||0).toLocaleString('vi-VN');
+    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014';
     const isKT = _shFilter !== 'shipped';
     const today = new Date().toISOString().split('T')[0];
 
@@ -82,7 +81,21 @@ function _shRenderTable(el) {
         const rowBg = overdue ? '#fef2f2' : '';
         const prioColors = { 'GỬI':'#3b82f6', 'GẤP':'#dc2626', 'CHUẨN':'#7c3aed' };
         const prioColor = prioColors[o.shipping_priority] || '#6b7280';
-        const progressBadge = o.delivery_progress ? `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;${o.delivery_progress?.startsWith('late') ? 'background:#fef2f2;color:#dc2626;' : o.delivery_progress?.startsWith('early') ? 'background:#ecfdf5;color:#059669;' : 'background:#eff6ff;color:#3b82f6;'}">${o.delivery_progress}</span>` : '<span style="color:#d1d5db;">—</span>';
+
+        // Tiến Độ: real-time (today vs expected_ship_date)
+        let progressBadge = '<span style="color:#d1d5db;">\u2014</span>';
+        if (o.expected_ship_date) {
+            const shipDate = new Date(o.expected_ship_date);
+            const todayDate = new Date(today);
+            const diffDays = Math.round((shipDate - todayDate) / 86400000);
+            if (diffDays > 0) {
+                progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#ecfdf5;color:#059669;">🚀 Nhanh hơn ${diffDays} ngày</span>`;
+            } else if (diffDays < 0) {
+                progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+            } else {
+                progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📦 Đúng hạn</span>`;
+            }
+        }
 
         html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'">`;
         // Col 1: Ship button
@@ -104,23 +117,24 @@ function _shRenderTable(el) {
         // Col 5: Progress
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
         // Col 6: Order code
-        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '\u2014'}</td>`;
         // Col 7: Priority
         html += `<td style="padding:8px 6px;"><span style="background:${prioColor};color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority || 'CHUẨN'}</span></td>`;
         // Col 8-9: Customer
-        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '—'}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '\u2014'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '\u2014'}</td>`;
         // Col 10: CSKH
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '—'}</td>`;
-        // Col 11-12: Carriers
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '—'}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#1e293b;cursor:pointer;" onclick="_shEditCarrier(${o.id},${o.actual_carrier_id||'null'})" title="Click để chọn NVC thực tế">${o.actual_carrier_name || '<span style=color:#3b82f6>+ Chọn</span>'}</td>`;
-        // Col 13: Tracking code
-        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;cursor:pointer;" onclick="_shEditTracking(${o.id},'tracking_code','${(o.tracking_code||'').replace(/'/g,"\\'")}')">${o.tracking_code || '<span style=color:#3b82f6>+ Nhập</span>'}</td>`;
-        // Col 14: Carrier phone
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;cursor:pointer;" onclick="_shEditTracking(${o.id},'carrier_phone','${(o.carrier_phone||'').replace(/'/g,"\\'")}')">${o.carrier_phone || '<span style=color:#3b82f6>+ Nhập</span>'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '\u2014'}</td>`;
+        // Col 11: NVC DK
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '\u2014'}</td>`;
+        // Col 12: NVC TT (read-only)
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#1e293b;">${o.actual_carrier_name || '\u2014'}</td>`;
+        // Col 13: Tracking code (read-only)
+        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${o.tracking_code || '\u2014'}</td>`;
+        // Col 14: Carrier phone (read-only)
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_phone || '\u2014'}</td>`;
         // Col 15: Ship time
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '\u2014'}</td>`;
         // Col 16: History
         html += `<td style="padding:8px 6px;text-align:center;"><button onclick="_shShowHistory(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;cursor:pointer;font-size:10px;font-weight:600;">📋</button></td>`;
         html += '</tr>';
@@ -180,43 +194,12 @@ async function _shDoReschedule(id) {
 }
 
 function _shEditTracking(id, field, currentVal) {
-    const labels = { tracking_code:'Mã Vận Đơn', carrier_phone:'SĐT Nhà Xe', shipping_bill_link:'Link Bill Gửi Hàng' };
+    const labels = { shipping_bill_link:'Link Bill Gửi Hàng' };
     const val = prompt(labels[field] || field, currentVal || '');
     if (val === null) return;
     apiCall(`/api/shipping/orders/${id}/tracking`, 'PUT', { [field]: val })
         .then(r => { if (r.error) alert(r.error); else { showToast('✅ Đã cập nhật'); _shLoadOrders(); } })
         .catch(e => alert('Lỗi: ' + e.message));
-}
-
-function _shEditCarrier(id, currentId) {
-    document.getElementById('shCarrierModal')?.remove();
-    const m = document.createElement('div');
-    m.id = 'shCarrierModal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    let opts = '<option value="">— Chọn NVC —</option>' + _shCarriers.map(c =>
-        `<option value="${c.id}" ${c.id === currentId ? 'selected' : ''}>${c.name}</option>`
-    ).join('');
-    m.innerHTML = `<div style="background:white;border-radius:16px;width:360px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);">
-        <div style="font-size:15px;font-weight:800;color:#122546;margin-bottom:16px;">🚚 Chọn NVC Thực Tế</div>
-        <select id="shCarrierSelect" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:16px;">${opts}</select>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('shCarrierModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
-            <button onclick="_shSaveCarrier(${id})" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:700;font-size:13px;">💾 Lưu</button>
-        </div>
-    </div>`;
-    document.body.appendChild(m);
-    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-}
-
-async function _shSaveCarrier(id) {
-    const val = document.getElementById('shCarrierSelect')?.value;
-    try {
-        const r = await apiCall(`/api/shipping/orders/${id}/tracking`, 'PUT', { actual_carrier_id: val || null });
-        if (r.error) { alert(r.error); return; }
-        showToast('✅ Đã cập nhật NVC');
-        document.getElementById('shCarrierModal')?.remove();
-        _shLoadOrders();
-    } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
 async function _shShowHistory(id, code) {
@@ -227,7 +210,7 @@ async function _shShowHistory(id, code) {
         const m = document.createElement('div');
         m.id = 'shHistoryModal';
         m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-        const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+        const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014';
         m.innerHTML = `<div style="background:white;border-radius:16px;width:500px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.3);">
             <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">
                 <div style="color:white;font-weight:800;font-size:15px;">📋 Lịch Sử Hẹn Lại — ${code}</div>
@@ -238,8 +221,8 @@ async function _shShowHistory(id, code) {
                     <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2563eb;flex-shrink:0;">${rows.length - i}</div>
                     <div style="flex:1;">
                         <div style="font-size:12px;font-weight:700;color:#1e293b;">${fmt(r.old_date)} → ${fmt(r.new_date)}</div>
-                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '—'}</div>
-                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '—'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '—'}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '\u2014'}</div>
+                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '\u2014'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '\u2014'}</div>
                     </div>
                 </div>`).join('')}
             </div>
