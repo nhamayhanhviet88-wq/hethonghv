@@ -620,7 +620,7 @@ async function _dhtShowDetail(id) {
         if (items.length > 0) {
             itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
             itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span> <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-left:4px">— Bấm vào dòng để xem chi tiết</span></div>`;
-            itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+            itemsHTML += `<div><table style="width:100%;border-collapse:collapse;font-size:12px">`;
             itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px">PHỐI</th><th style="padding:8px 10px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:8px 10px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:8px 10px;text-align:left;font-size:10px">MÀU</th><th style="padding:8px 10px;text-align:center;font-size:10px">SỐ LƯỢNG</th><th style="padding:8px 10px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:8px 10px;text-align:center;font-size:10px">VAT</th><th style="padding:8px 10px;text-align:right;font-size:10px">THÀNH TIỀN</th></tr></thead><tbody>`;
             const _phoiColors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626'];
             const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
@@ -861,7 +861,7 @@ async function _dhtShowDetail(id) {
         // Widen modal
         setTimeout(() => {
             const mc = document.querySelector('.modal-content');
-            if (mc) { mc.style.maxWidth = '950px'; mc.style.width = '95vw'; }
+            if (mc) { mc.style.maxWidth = '1200px'; mc.style.width = '95vw'; }
         }, 30);
     } catch(e) {
         console.error('Detail error:', e);
