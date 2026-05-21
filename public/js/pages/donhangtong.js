@@ -726,7 +726,7 @@ async function _dhtShowDetail(id) {
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         const finRows = [
-            ['Tổng tiền hàng', fmt(calcBase) + 'đ', '#1e293b', true],
+            ['Tổng tiền hàng (trước VAT)', fmt(calcBase) + 'đ', '#1e293b', false],
             ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
             ['VAT', fmt(vat) + 'đ', '#6366f1', false],
             ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
@@ -735,6 +735,7 @@ async function _dhtShowDetail(id) {
             finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
         }
         finRows.push(
+            ['Tổng tiền hàng (sau VAT)', fmt(calcBase + vat) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
             ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
         );
