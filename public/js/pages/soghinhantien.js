@@ -559,7 +559,8 @@ function _prShowDetail(id) {
     if (up.pr_change_source) btnsHTML += '<div onclick="event.stopPropagation();_prChangeSource('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🔄</div><div style="font-size:10px;font-weight:700;color:#0c4a6e">Đổi nguồn tiền</div></div>';
     if (up.pr_delete) btnsHTML += '<div onclick="event.stopPropagation();_prDeleteRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🗑️</div><div style="font-size:10px;font-weight:700;color:#991b1b">Xóa</div></div>';
     if (up.pr_edit) btnsHTML += '<div onclick="event.stopPropagation();_prEditRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">✏️</div><div style="font-size:10px;font-weight:700;color:#065f46">Chỉnh sửa</div></div>';
-    if (up.pr_update_customer) btnsHTML += '<div onclick="event.stopPropagation();_prUpdateCustomer('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">💳</div><div style="font-size:10px;font-weight:700;color:#c2410c">Cập nhật mã<br>tiền KH</div></div>';
+    var isClaimed = (r.payment_type === 'dat_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+    if (up.pr_update_customer && !isClaimed) btnsHTML += '<div onclick="event.stopPropagation();_prUpdateCustomer('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">💳</div><div style="font-size:10px;font-weight:700;color:#c2410c">Cập Nhật Tiền<br>Đơn Hàng</div></div>';
 
     var actionsBar = btnsHTML ? '<div style="display:flex;gap:4px;background:#f8fafc;border-radius:12px;padding:12px 8px;border:1px solid #e2e8f0;margin-bottom:16px">'+btnsHTML+'</div>' : '';
 
@@ -705,7 +706,7 @@ async function _prShowPermissions() {
             {k:'pr_change_source', l:'🔄 Đổi Nguồn Tiền', desc:'Đổi nguồn tiền KH/NVC/SLL'},
             {k:'pr_delete', l:'🗑️ Xóa', desc:'Xóa mã tiền'},
             {k:'pr_edit', l:'✏️ Chỉnh Sửa', desc:'Sửa toàn bộ nội dung'},
-            {k:'pr_update_customer', l:'💳 Cập Nhật Mã Tiền KH', desc:'Cập nhật thông tin khách hàng'}
+            {k:'pr_update_customer', l:'💳 Cập Nhật Tiền Đơn Hàng', desc:'Cập nhật thông tin khách hàng cho mã tiền'}
         ];
         var roles = [
             {k:'giam_doc',l:'GĐ'},{k:'quan_ly_cap_cao',l:'QLCC'},{k:'quan_ly',l:'QL'},{k:'truong_phong',l:'TP'},{k:'nhan_vien',l:'NV'}
@@ -773,7 +774,7 @@ function _prUpdateCustomer(id) {
         +'</div>';
 
     var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="_prSubmitUpdateCustomer('+id+')" style="width:auto;background:linear-gradient(135deg,#f97316,#ea580c)">💳 Cập Nhật</button>';
-    openModal('💳 Cập Nhật Mã Tiền Khách Hàng', bodyHTML, footerHTML);
+    openModal('💳 Cập Nhật Tiền Đơn Hàng', bodyHTML, footerHTML);
 }
 
 async function _prSubmitUpdateCustomer(id) {
@@ -786,7 +787,7 @@ async function _prSubmitUpdateCustomer(id) {
     };
     try {
         await apiCall('/api/payment-records/'+id,'PUT',body);
-        showToast('✅ Đã cập nhật mã tiền KH');
+        showToast('✅ Đã cập nhật tiền đơn hàng');
         closeModal();
         await _prLoadRecords();
     } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
