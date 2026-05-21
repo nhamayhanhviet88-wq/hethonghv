@@ -189,7 +189,7 @@ module.exports = async function(fastify) {
                             oc.created_at,
                             c.phone,
                             c.assigned_to_id,
-                            COALESCE(oi_sum.revenue, 0) - COALESCE(oc.discount_amount, 0) AS revenue
+                            COALESCE(oi_sum.revenue, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue
                         FROM order_codes oc
                         JOIN customers c ON oc.customer_id = c.id
                         LEFT JOIN LATERAL (
@@ -605,7 +605,7 @@ module.exports = async function(fastify) {
                     c.phone,
                     c.customer_name,
                     c.assigned_to_id,
-                    COALESCE(oi_sum.revenue, 0) - COALESCE(oc.discount_amount, 0) AS revenue,
+                    COALESCE(oi_sum.revenue, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue,
                     ref.full_name AS referrer_name
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
@@ -744,7 +744,7 @@ module.exports = async function(fastify) {
                     oc.created_at,
                     c.phone,
                     c.assigned_to_id,
-                    COALESCE(oi_sum.revenue, 0) - COALESCE(oc.discount_amount, 0) AS revenue
+                    COALESCE(oi_sum.revenue, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (
@@ -862,7 +862,7 @@ module.exports = async function(fastify) {
         const leaderRows = await db.all(`
             WITH completed AS (
                 SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
-                    COALESCE(oi.rev, 0) - COALESCE(oc.discount_amount, 0) AS revenue
+                    COALESCE(oi.rev, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (SELECT COALESCE(
@@ -941,7 +941,7 @@ module.exports = async function(fastify) {
         const prevLeaderRows = await db.all(`
             WITH completed AS (
                 SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
-                    COALESCE(oi.rev, 0) - COALESCE(oc.discount_amount, 0) AS revenue
+                    COALESCE(oi.rev, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (SELECT COALESCE(
@@ -1089,7 +1089,7 @@ module.exports = async function(fastify) {
         const topCust = await db.all(`
             SELECT c.customer_name, c.phone, c.assigned_to_id,
                 COUNT(DISTINCT oc.id) AS order_count,
-                COALESCE(SUM(oi.rev), 0) - COALESCE(SUM(DISTINCT oc.discount_amount), 0) AS total_revenue
+                COALESCE(SUM(oi.rev), 0) - COALESCE(SUM(DISTINCT (SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code)), 0) AS total_revenue
             FROM customers c
             JOIN order_codes oc ON oc.customer_id = c.id
             LEFT JOIN LATERAL (SELECT COALESCE(

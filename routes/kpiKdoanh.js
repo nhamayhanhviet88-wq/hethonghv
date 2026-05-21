@@ -91,7 +91,7 @@ module.exports = async function(fastify) {
                 SELECT
                     c.assigned_to_id AS uid,
                     EXTRACT(DAY FROM oc.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS day_num,
-                    COALESCE(SUM(oi_sum.revenue - COALESCE(oc.discount_amount, 0)), 0) AS daily_rev
+                    COALESCE(SUM(oi_sum.revenue - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0)), 0) AS daily_rev
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (
@@ -375,7 +375,7 @@ module.exports = async function(fastify) {
                 oc.order_code,
                 c.customer_name AS customer_name,
                 c.phone AS customer_phone,
-                COALESCE(oi_sum.revenue, 0) - COALESCE(oc.discount_amount, 0) AS revenue,
+                COALESCE(oi_sum.revenue, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue,
                 oc.created_at,
                 ref.full_name AS referrer_name,
                 (SELECT COUNT(*) FROM order_codes oc2
@@ -480,7 +480,7 @@ module.exports = async function(fastify) {
             SELECT
                 c.assigned_to_id AS uid,
                 EXTRACT(MONTH FROM oc.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS mo,
-                COALESCE(SUM(oi_sum.revenue - COALESCE(oc.discount_amount, 0)), 0) AS revenue
+                COALESCE(SUM(oi_sum.revenue - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0)), 0) AS revenue
             FROM order_codes oc
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN LATERAL (

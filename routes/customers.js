@@ -560,9 +560,9 @@ async function customersRoutes(fastify, options) {
                     (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
                     0
                 ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
-                  - COALESCE(oc.discount_amount, 0) as rev
+                  - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) as rev
                 FROM order_codes oc WHERE oc.customer_id = $1 AND COALESCE(oc.status, 'active') != 'cancelled'
-                GROUP BY oc.id, oc.order_code, oc.discount_amount
+                GROUP BY oc.id, oc.order_code
             ) sub`, [custId]);
             const grandTotal = order_total ? Number(order_total) : (totalRow?.grand_total || 0);
             if (grandTotal > 0) {
@@ -809,7 +809,7 @@ async function customersRoutes(fastify, options) {
             (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
             0
         ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
-          - COALESCE(oc.discount_amount, 0) as t
+          - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) as t
         FROM order_codes oc WHERE oc.id = $1`, [orderId]);
         const grandTotal = { t: grandTotalRow?.t || 0 };
         if (order.referrer_id && grandTotal?.t) {
