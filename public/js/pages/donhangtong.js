@@ -431,7 +431,7 @@ function _dhtRenderOrderRows(filtered) {
             : sc === 1
                 ? '<span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">L1</span>'
                 : '<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">L' + sc + '</span>';
-        const priColors = { 'GẤP': 'background:#dc2626;color:#fff;', 'GỬI': 'background:#2563eb;color:#fff;', 'CHUẨN': 'background:var(--gray-700);color:var(--gray-300);' };
+        const priColors = { 'GẤP': 'background:#dc2626;color:#fff;', 'GỬI': 'background:#2563eb;color:#fff;', 'CHUẨN': 'background:#7c3aed;color:#fff;' };
         const priStyle = priColors[o.shipping_priority] || priColors['CHUẨN'];
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
@@ -571,8 +571,8 @@ async function _dhtShowDetail(id) {
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
         const total = calcBase + calcVat + surchargeTotal - discount;
         const remaining = total - deposit;
-        const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#059669' };
-        const priColor = priColors[o.shipping_priority] || '#059669';
+        const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
+        const priColor = priColors[o.shipping_priority] || '#7c3aed';
         const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
 
         // ── Section 1: Action Buttons ──
@@ -739,7 +739,7 @@ async function _dhtShowDetail(id) {
         }
         saleKtHTML += row('⚠️ Nhắc Nhở', reminderText);
         saleKtHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>');
-        var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#059669' : '#f59e0b';
+        var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
         saleKtHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);
         if (o.standard_delivery_time) saleKtHTML += row('⏰ Giờ Hàng Ra', `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>`);
         var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
