@@ -186,7 +186,7 @@ module.exports = async function(fastify) {
             `, [
                 code, b.payment_method, seq,
                 b.customer_name || null, b.customer_phone || null, b.cskh_user_id || null,
-                b.amount, b.payment_type || 'thanh_toan',
+                b.amount, b.payment_type || 'pending',
                 b.order_tt_coc || null, b.order_ao_mau || null,
                 b.transfer_note || null, b.money_source || 'khach_hang', b.bank_name || null,
                 b.total_order_codes || null, b.total_cod || 0, b.shipping_fee || 0,
