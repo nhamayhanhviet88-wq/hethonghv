@@ -415,6 +415,7 @@ module.exports = async function(fastify) {
                 u_designer.full_name AS designer_name,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
+                u_shipped.full_name AS shipped_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount
             FROM dht_orders o
@@ -425,6 +426,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
+            LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records

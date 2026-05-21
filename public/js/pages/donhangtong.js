@@ -826,21 +826,51 @@ async function _dhtShowDetail(id) {
         // ── Section 7: 🚚 Thông tin vận chuyển ──
         var shipHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
         shipHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>`;
-        shipHTML += `<table style="width:100%;border-collapse:collapse">`;
-        shipHTML += row('Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
-        shipHTML += row('Vận Chuyển Thực Tế', o.actual_carrier_name || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
-        shipHTML += row('Mã vận đơn', o.tracking_code || '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
-        shipHTML += row('Bill gửi hàng', o.shipping_bill_image ? `<a href="${o.shipping_bill_image}" target="_blank" style="color:var(--info)">📷 Xem bill</a>` : '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>');
-        // Delivery progress
-        var progressText = '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>';
-        if (o.delivery_progress) {
-            if (o.delivery_progress === 'ontime') progressText = '<span style="color:#059669;font-weight:900">✅ Đúng ngày</span>';
-            else if (o.delivery_progress.startsWith('early_')) progressText = '<span style="color:#2563eb;font-weight:900">🚀 Nhanh hơn ' + o.delivery_progress.replace('early_','') + ' ngày</span>';
-            else if (o.delivery_progress.startsWith('late_')) progressText = '<span style="color:#dc2626;font-weight:900">⚠️ Chậm hơn ' + o.delivery_progress.replace('late_','') + ' ngày</span>';
-            else progressText = o.delivery_progress;
+        if (o.shipping_status === 'shipped' || o.shipped_at) {
+            shipHTML += `<table style="width:100%;border-collapse:collapse">`;
+            // 1. Người Gửi
+            shipHTML += row('👤 Người Gửi', o.shipped_by_name ? `<span style="color:#2563eb;font-weight:800">${o.shipped_by_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
+            // 2. Ngày giờ
+            shipHTML += row('📅 Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">—</span>');
+            // 3. NVC Thực Tế
+            shipHTML += row('🚛 Vận Chuyển Thực Tế', o.actual_carrier_name ? `<span style="font-weight:800;color:#1e293b">${o.actual_carrier_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
+            // 4. Conditional fields based on carrier type
+            var _acn = (o.actual_carrier_name || '').toLowerCase();
+            if (o.tracking_code) {
+                shipHTML += row('📦 Mã vận đơn', `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`);
+            }
+            if (o.shipping_bill_link) {
+                shipHTML += row('🔗 Bill gửi hàng', `<a href="${o.shipping_bill_link}" target="_blank" style="color:var(--info);font-weight:700">📷 Xem bill</a>`);
+            }
+            if (o.carrier_phone) {
+                shipHTML += row('📞 SĐT Nhà Xe', `<a href="tel:${o.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${o.carrier_phone}</a>`);
+            }
+            if (o.receiver_name) {
+                var _rnLabel = _acn.includes('nhân viên hv') || _acn.includes('nhan vien hv') ? '👷 Tên Nhân Viên Gửi Hàng' : '🤝 Tên Người Nhận Hàng';
+                shipHTML += row(_rnLabel, `<span style="font-weight:800;color:#1e293b">${o.receiver_name}</span>`);
+            }
+            // 5. Phí gửi hàng
+            var _sfee = Number(o.shipping_fee) || 0;
+            shipHTML += row('💰 Phí Gửi Hàng', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
+            // 6. Người Trả + Hình Thức
+            var _payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+            var _methodLabel = o.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : o.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
+            var _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+            shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span> — <span style="font-weight:700;color:#334155">${_methodLabel}</span>`);
+            // 7. Delivery progress
+            var progressText = '<span style="color:#94a3b8;font-style:italic">Chưa cập nhật</span>';
+            if (o.delivery_progress) {
+                if (o.delivery_progress === 'ontime') progressText = '<span style="color:#059669;font-weight:900">✅ Đúng ngày</span>';
+                else if (o.delivery_progress.startsWith('early_')) progressText = '<span style="color:#2563eb;font-weight:900">🚀 Nhanh hơn ' + o.delivery_progress.replace('early_','') + ' ngày</span>';
+                else if (o.delivery_progress.startsWith('late_')) progressText = '<span style="color:#dc2626;font-weight:900">⚠️ Chậm hơn ' + o.delivery_progress.replace('late_','') + ' ngày</span>';
+                else progressText = o.delivery_progress;
+            }
+            shipHTML += row('📊 Tình trạng tiến độ', progressText);
+            shipHTML += `</table>`;
+        } else {
+            shipHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px;font-style:italic">📭 Chưa gửi hàng</div>`;
         }
-        shipHTML += row('Tình trạng tiến độ', progressText);
-        shipHTML += `</table></div>`;
+        shipHTML += `</div>`;
 
         // ── Section 8: ⚠️ Đơn Lỗi ──
         var errorHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
