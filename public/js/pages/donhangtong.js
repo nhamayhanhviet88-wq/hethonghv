@@ -153,6 +153,7 @@ function _dhtPopulateCskhDropdown() {
 
 // ========== SORT DEFINITIONS ==========
 var _dhtSortDefs = [
+    { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
     { key: 'ship_count',       label: 'Lần Trả Ship',   type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
@@ -446,8 +447,15 @@ function _dhtRenderOrderRows(filtered) {
         if (o.has_repair_order) badges += `<span style="${bStyle}background:#ede9fe;color:#6d28d9;">SỬA</span> `;
         const badgeRow = badges ? `<div style="margin-top:2px;">${badges}</div>` : '';
 
+        // Category color badge
+        const _catColors = ['#7c3aed','#0891b2','#059669','#d97706','#dc2626','#2563eb','#c026d3','#0d9488','#ea580c','#4f46e5'];
+        const _catBgs = ['#ede9fe','#cffafe','#d1fae5','#fef3c7','#fee2e2','#dbeafe','#fae8ff','#ccfbf1','#ffedd5','#e0e7ff'];
+        const _catHash = (o.category_name || '').split('').reduce(function(a,c){return a + c.charCodeAt(0);}, 0) % _catColors.length;
+        const _catColor = _catColors[_catHash];
+        const _catBg = _catBgs[_catHash];
+
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
-            <td style="font-size:10px;font-weight:700;color:#6366f1">${o.category_name || '—'}</td>
+            <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${fmtD(o.order_date)}</td>
             <td style="text-align:center;" title="Số lần ship: ${sc}">${shipBadge}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
