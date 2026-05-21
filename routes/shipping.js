@@ -116,6 +116,7 @@ module.exports = async function(fastify) {
                 o.shipping_fee_payer, o.shipping_fee_method, o.receiver_name,
                 o.discount_amount, o.has_vat, o.vat_amount,
                 o.deposit_amount_cache,
+                o.carrier_extra, o.notes, o.standard_delivery_time, o.standard_proof_image,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
                 u_cskh.full_name AS cskh_name,

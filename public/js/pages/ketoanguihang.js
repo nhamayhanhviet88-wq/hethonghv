@@ -1,4 +1,4 @@
-// ========== ĐƠN HÀNG KẾ TOÁN GỬI ==========
+﻿// ========== ĐƠN HÀNG KẾ TOÁN GỬI ==========
 let _shFilter = 'today';
 let _shOrders = [];
 let _shCounts = {};
@@ -163,79 +163,91 @@ function _shShipOrder(id, code) {
     document.getElementById('shShipModal')?.remove();
     const m = document.createElement('div'); m.id = 'shShipModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;';
-    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014';
     const fmtMoney = n => (Number(n)||0).toLocaleString('vi-VN');
     const today = new Date().toISOString().split('T')[0];
-    let diffText = '—';
+    let diffText = '\u2014';
     if (o.expected_ship_date) {
         const diff = Math.round((new Date(o.expected_ship_date) - new Date(today)) / 86400000);
-        diffText = diff > 0 ? `🚀 Nhanh hơn ${diff} ngày` : diff < 0 ? `⚠️ Trễ ${Math.abs(diff)} ngày` : '📦 Đúng hạn';
+        if (diff > 0) diffText = '\ud83d\ude80 Nhanh h\u01a1n ' + diff + ' ng\u00e0y';
+        else if (diff < 0) diffText = '\u26a0\ufe0f Tr\u1ec5 ' + Math.abs(diff) + ' ng\u00e0y';
+        else diffText = '\ud83d\udce6 \u0110\u00fang h\u1ea1n';
     }
-    const prioColors = {'GỬI':'#3b82f6','GẤP':'#dc2626','CHUẨN':'#7c3aed'};
-    const pc = prioColors[o.shipping_priority] || '#6b7280';
+    const prioMap = {'G\u1eecI':'#3b82f6','G\u1ea4P':'#dc2626','CHU\u1ea8N':'#7c3aed'};
+    const pc = prioMap[o.shipping_priority] || '#6b7280';
     const deposit = Number(o.deposit_amount) || 0;
     const remaining = (Number(o.total_amount)||0) - deposit - (Number(o.discount_amount)||0);
-    // Carrier options
-    let carrierOpts = '<option value="">— Chọn NVC —</option>' + _shCarriers.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('');
+    let carrierOpts = '<option value="">\u2014 Ch\u1ecdn NVC \u2014</option>';
+    _shCarriers.forEach(c => { carrierOpts += '<option value="' + c.id + '" data-name="' + c.name + '">' + c.name + '</option>'; });
+    // Parse carrier_extra
+    let ce = null;
+    try { ce = o.carrier_extra ? (typeof o.carrier_extra === 'string' ? JSON.parse(o.carrier_extra) : o.carrier_extra) : null; } catch(e){}
+    // Build Sale D\u1eb7n KT rows dynamically
+    const _R = (icon, lbl, val) => !val ? '' : '<span style="color:#92400e;font-weight:600;">' + icon + ' ' + lbl + '</span><span style="font-weight:700;color:#1e293b;">' + val + '</span>';
+    let sR = _R('\ud83d\ude9a','V\u1eadn Chuy\u1ec3n YC C\u1ee7a Sale', o.carrier_name);
+    if (ce && ce.type === 'nha_xe') {
+        sR += _R('\ud83d\ude8c','T\u00ean Nh\u00e0 Xe', ce.bus_name);
+        if (ce.bus_phone) sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcde S\u0110T Nh\u00e0 Xe</span><span style="font-weight:700;"><a href="tel:' + ce.bus_phone + '" style="color:#2563eb;text-decoration:underline;">' + ce.bus_phone + '</a></span>';
+        sR += _R('\ud83d\udccd','\u0110\u1ecba \u0110i\u1ec3m Xe \u0110\u1ed7', ce.bus_location);
+        sR += _R('\ud83d\ude80','Xe \u0110i V\u1ec1 \u0110\u00e2u', ce.bus_destination);
+        sR += _R('\u23f0','Gi\u1edd Xe Ch\u1ea1y', ce.bus_departure_time);
+    }
+    if (o.notes) sR += _R('\ud83d\udd14','Nh\u1eafc Nh\u1edf', o.notes);
+    sR += _R('\ud83d\udcdd','N\u1ed9i Dung D\u1eb7n KT', o.sale_note_for_accountant);
+    sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udd25 TC G\u1eedi</span><span><span style="background:' + pc + ';color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;">' + (o.shipping_priority||'CHU\u1ea8N') + '</span></span>';
+    if (o.standard_delivery_time) sR += _R('\u23f1\ufe0f','Y\u00eau C\u1ea7u Chu\u1ea9n Gi\u1edd H\u00e0ng Ra', o.standard_delivery_time);
+    if (o.standard_proof_image) sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcf7 \u1ea2nh TC</span><span><a href="' + o.standard_proof_image + '" target="_blank" style="color:#2563eb;text-decoration:underline;font-weight:700;">Xem \u1ea3nh</a></span>';
+    sR += '<span style="color:#92400e;font-weight:600;">\ud83d\ude80 Ti\u1ebfn \u0110\u1ed9 Ra H\u00e0ng</span><span style="font-weight:700;color:#059669;">' + diffText + '</span>';
+    sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcc5 Ng\u00e0y g\u1eedi d\u1ef1 ki\u1ebfn</span><span style="font-weight:700;color:#1e293b;">' + fmt(o.expected_ship_date) + '</span>';
+    // Customer phone link
+    const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '\u2014';
 
-    m.innerHTML = `<div style="background:white;border-radius:16px;width:520px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">
-    <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">
-        <div style="color:white;font-weight:800;font-size:16px;">📤 Gửi Hàng — ${code}</div>
-        <div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;">Tiền đơn còn lại: <b style="color:#fbbf24">${fmtMoney(remaining)}đ</b></div>
-    </div>
-    <div style="padding:20px 24px;">
-        <!-- P1: Sale Dặn KT -->
-        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:16px;">
-            <div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:10px;">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>
-            <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;">
-                <span style="color:#92400e;font-weight:600;">🚚 VC YC Của Sale</span><span style="font-weight:700;color:#1e293b;">${o.carrier_name||'—'}</span>
-                <span style="color:#92400e;font-weight:600;">📝 Nội Dung Dặn KT</span><span style="color:#334155;">${o.sale_note_for_accountant||'—'}</span>
-                <span style="color:#92400e;font-weight:600;">🔥 TC Gửi</span><span><span style="background:${pc};color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority||'CHUẨN'}</span></span>
-                <span style="color:#92400e;font-weight:600;">🚀 Tiến Độ</span><span style="font-weight:700;color:#059669;">${diffText}</span>
-                <span style="color:#92400e;font-weight:600;">📅 Ngày gửi DK</span><span style="font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</span>
-            </div>
-        </div>
-        <!-- P2: NVC Thực Tế -->
-        <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">🚛 Nhà Vận Chuyển <span style="color:#dc2626">*</span></label>
-            <select id="shCarrierSel" onchange="_shOnCarrierChange()" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:600;">${carrierOpts}</select>
-        </div>
-        <div id="shDynFields" style="margin-bottom:16px;"></div>
-        <!-- P3: Phí Ship -->
-        <div style="border-top:1px solid #e2e8f0;padding-top:14px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">💰 Phí Gửi Hàng <span style="color:#dc2626">*</span></label>
-            <div style="position:relative;margin-top:4px;margin-bottom:12px;">
-                <input type="text" id="shFeeInput" placeholder="0" oninput="_shFmtFee()" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;">
-                <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;font-weight:600;">đ</span>
-            </div>
-            <div style="display:flex;gap:12px;margin-bottom:10px;">
-                <div style="flex:1;">
-                    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">Người trả <span style="color:#dc2626">*</span></div>
-                    <div style="display:flex;gap:6px;" id="shPayerBtns">
-                        <button type="button" onclick="_shToggle('payer','hv')" data-val="hv" class="sh-toggle" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">HV trả</button>
-                        <button type="button" onclick="_shToggle('payer','khach')" data-val="khach" class="sh-toggle" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">Khách trả</button>
-                    </div>
-                </div>
-                <div style="flex:1;">
-                    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">Hình thức <span style="color:#dc2626">*</span></div>
-                    <div style="display:flex;gap:6px;" id="shMethodBtns">
-                        <button type="button" onclick="_shToggle('method','ck')" data-val="ck" class="sh-toggle" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">CK</button>
-                        <button type="button" onclick="_shToggle('method','tm')" data-val="tm" class="sh-toggle" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">TM</button>
-                    </div>
-                </div>
-            </div>
-            <div id="shFeeNote" style="font-size:11px;color:#6b7280;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:12px;display:none;"></div>
-        </div>
-    </div>
-    <div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
-        <button onclick="document.getElementById('shShipModal')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy bỏ</button>
-        <button onclick="_shDoShip(${id})" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">📤 Lưu</button>
-    </div>
-    </div>`;
+    m.innerHTML = '<div style="background:white;border-radius:16px;width:560px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
+    + '<div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">'
+    + '<div style="color:white;font-weight:800;font-size:16px;">\ud83d\udce4 G\u1eedi H\u00e0ng \u2014 ' + code + '</div>'
+    + '<div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;">Ti\u1ec1n \u0111\u01a1n c\u00f2n l\u1ea1i: <b style="color:#fbbf24">' + fmtMoney(remaining) + '\u0111</b></div>'
+    + '</div>'
+    + '<div style="padding:20px 24px;">'
+    // P1: Sale D\u1eb7n KT
+    + '<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
+    + '<div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:10px;">\ud83d\udccb Sale D\u1eb7n K\u1ebf To\u00e1n Tr\u01b0\u1edbc G\u1eedi H\u00e0ng</div>'
+    + '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;">' + sR + '</div>'
+    + '</div>'
+    // P1.5: Th\u00f4ng tin \u0111\u01a1n h\u00e0ng
+    + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
+    + '<div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">\ud83d\udcc4 Th\u00f4ng tin \u0111\u01a1n h\u00e0ng</div>'
+    + '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;">'
+    + '<span style="color:#64748b;font-weight:600;">\ud83d\udc64 Kh\u00e1ch h\u00e0ng</span><span style="font-weight:700;color:#1e293b;">' + (o.customer_name||'\u2014') + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">\ud83d\udcde S\u0110T</span><span style="font-weight:700;color:#2563eb;">' + phoneHtml + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">\ud83c\udfe0 \u0110\u1ecba ch\u1ec9</span><span style="color:#334155;">' + (o.address||'\u2014') + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">\ud83d\uddfa T\u1ec9nh / TP</span><span style="font-weight:700;color:#1e293b;">' + (o.province||'\u2014') + '</span>'
+    + '</div></div>'
+    // P2: NVC
+    + '<div style="margin-bottom:16px;">'
+    + '<label style="font-size:12px;font-weight:700;color:#374151;">\ud83d\ude9b Nh\u00e0 V\u1eadn Chuy\u1ec3n <span style="color:#dc2626">*</span></label>'
+    + '<select id="shCarrierSel" onchange="_shOnCarrierChange()" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:600;">' + carrierOpts + '</select>'
+    + '</div>'
+    + '<div id="shDynFields" style="margin-bottom:16px;"></div>'
+    // P3: Ph\u00ed Ship
+    + '<div style="border-top:1px solid #e2e8f0;padding-top:14px;">'
+    + '<label style="font-size:12px;font-weight:700;color:#374151;">\ud83d\udcb0 Ph\u00ed G\u1eedi H\u00e0ng <span style="color:#dc2626">*</span></label>'
+    + '<div style="position:relative;margin-top:4px;margin-bottom:12px;"><input type="text" id="shFeeInput" placeholder="0" oninput="_shFmtFee()" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;font-weight:600;">\u0111</span></div>'
+    + '<div style="display:flex;gap:12px;margin-bottom:10px;">'
+    + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">Ng\u01b0\u1eddi tr\u1ea3 <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shPayerBtns"><button type="button" onclick="_shToggle(\'payer\',\'hv\')" data-val="hv" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">HV tr\u1ea3</button><button type="button" onclick="_shToggle(\'payer\',\'khach\')" data-val="khach" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">Kh\u00e1ch tr\u1ea3</button></div></div>'
+    + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">H\u00ecnh th\u1ee9c <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shMethodBtns"><button type="button" onclick="_shToggle(\'method\',\'ck\')" data-val="ck" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">CK</button><button type="button" onclick="_shToggle(\'method\',\'tm\')" data-val="tm" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">TM</button></div></div>'
+    + '</div>'
+    + '<div id="shFeeNote" style="font-size:11px;color:#6b7280;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:12px;display:none;"></div>'
+    + '</div></div>'
+    // Footer
+    + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
+    + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">H\u1ee7y b\u1ecf</button>'
+    + '<button onclick="_shDoShip(' + id + ')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">\ud83d\udce4 G\u1eedi H\u00e0ng</button>'
+    + '</div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
     window._shModalState = { payer: null, method: null, orderId: id, remaining };
 }
+
 
 function _shOnCarrierChange() {
     const sel = document.getElementById('shCarrierSel'); if (!sel) return;
