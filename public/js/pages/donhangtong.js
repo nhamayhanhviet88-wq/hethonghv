@@ -1189,8 +1189,10 @@ async function _dhtShowPhieuSX(orderId) {
         const items = data.items || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
 
-        // Check confirm permission
-        const canConfirm = canDo('dht_xn_in_sx', 'view');
+        // Check confirm permission: GĐ + Phòng Kế Toán
+        const deptName = (currentUser && currentUser.department_name) ? currentUser.department_name : '';
+        const isKeToan = deptName.toLowerCase().indexOf('kế toán') !== -1 || deptName.toLowerCase().indexOf('ke toan') !== -1;
+        const canConfirm = (currentUser && currentUser.role === 'giam_doc') || isKeToan;
 
         // Build items table
         let itemsHTML = '';

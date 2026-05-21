@@ -129,7 +129,7 @@ async function authRoutes(fastify, options) {
     // Lấy thông tin user hiện tại + effective permissions
     fastify.get('/api/auth/me', { preHandler: authenticate }, async (request, reply) => {
         const user = await db.get(
-            'SELECT id, username, full_name, phone, role, status, telegram_group_id, order_code_prefix, department_id, managed_by_user_id, access_blocked, can_approve_tsam FROM users WHERE id = ?',
+            'SELECT u.id, u.username, u.full_name, u.phone, u.role, u.status, u.telegram_group_id, u.order_code_prefix, u.department_id, u.managed_by_user_id, u.access_blocked, u.can_approve_tsam, d.name AS department_name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = ?',
             [request.user.id]
         );
 
