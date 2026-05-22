@@ -777,7 +777,7 @@ async function _prUpdateCustomer(id) {
 
     var bodyHTML = '<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:14px 16px;border-radius:12px;margin-bottom:16px;text-align:center">'
         +'<div style="font-size:11px;opacity:.8">Mã thanh toán</div>'
-        +'<div style="font-size:18px;font-weight:900;letter-spacing:1px">'+icon+' '+r.payment_code+' — '+_prFmt(r.amount)+'đ</div></div>'
+        +'<div style="font-size:18px;font-weight:900;letter-spacing:1px">'+icon+' '+r.payment_code+' — '+_prFmt(r.amount)+'</div></div>'
         +'<div style="margin-bottom:12px">'
         +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng</label>'
         +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
@@ -830,9 +830,9 @@ function _prSearchUnpaidOrders() {
                     +'<div style="font-size:11px;color:#64748b;margin-top:2px">'+(o.customer_name||'—')+' · '+(o.customer_phone||'')+' · '+orderDate+'</div>'
                     +'</div>'
                     +'<div style="text-align:right">'
-                    +'<div style="font-size:10px;color:#64748b">Tổng: '+_prFmt(totalAmt)+'đ</div>'
-                    +'<div style="font-size:10px;color:#10b981">Đã TT: '+_prFmt(paid)+'đ</div>'
-                    +'<div style="font-size:12px;font-weight:800;color:#dc2626">Còn: '+_prFmt(remain)+'đ</div>'
+                    +'<div style="font-size:10px;color:#64748b">Tổng: '+_prFmt(totalAmt)+'</div>'
+                    +'<div style="font-size:10px;color:#10b981">Đã TT: '+_prFmt(paid)+'</div>'
+                    +'<div style="font-size:12px;font-weight:800;color:#dc2626">Còn: '+_prFmt(remain)+'</div>'
                     +'</div>'
                     +'</div>';
             });
@@ -850,7 +850,7 @@ function _prSelectOrder(o) {
         +'<div style="width:36px;height:36px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff">✓</div>'
         +'<div style="flex:1">'
         +'<div style="font-weight:800;font-size:14px;color:#065f46">'+o.order_code+'</div>'
-        +'<div style="font-size:11px;color:#047857">'+(o.customer_name||'')+' — Còn: <b>'+_prFmt(remain)+'đ</b></div>'
+        +'<div style="font-size:11px;color:#047857">'+(o.customer_name||'')+' — Còn: <b>'+_prFmt(remain)+'</b></div>'
         +'</div>'
         +'</div>';
     // Enable button
