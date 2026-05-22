@@ -169,23 +169,28 @@ function _qtARenderButtons() {
 
     panel.innerHTML = html;
 
-    // Event delegation for edit + delete buttons (avoids SortableJS blocking inline onclick)
+    // Event delegation for edit + delete + toggle buttons
     if (_qtAIsGD) {
         panel.addEventListener('click', function(e) {
             const editBtn = e.target.closest('.qt-edit-btn');
             if (editBtn) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
+                e.preventDefault(); e.stopImmediatePropagation();
                 const card = editBtn.closest('.qt-btn-card');
                 if (card && card.dataset.key) _qtAShowEditTypeModal(card.dataset.key);
                 return;
             }
             const delBtn = e.target.closest('.qt-del-btn');
             if (delBtn) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
+                e.preventDefault(); e.stopImmediatePropagation();
                 const card = delBtn.closest('.qt-btn-card');
                 if (card && card.dataset.key) _qtADeleteType(card.dataset.key);
+                return;
+            }
+            const toggleWrap = e.target.closest('.qt-toggle-wrap');
+            if (toggleWrap) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                const card = toggleWrap.closest('.qt-btn-card');
+                if (card && card.dataset.key) _qtAToggleActive(card.dataset.key, card);
                 return;
             }
         }, true);
@@ -211,7 +216,7 @@ function _qtARenderButtons() {
 
 function _qtARenderButtonCard(t) {
     return `
-        <div class="qt-btn-card ${t.is_active ? '' : 'inactive'}" data-key="${t.key}" style="--card-accent:${t.color}">
+        <div class="qt-btn-card ${t.is_active ? '' : 'inactive'}" data-key="${t.key}" data-active="${t.is_active ? '1' : '0'}" style="--card-accent:${t.color}">
             ${_qtAIsGD ? `<span class="qt-drag-hint">⠿</span>` : ''}
             ${_qtAIsGD ? `<button class="qt-edit-btn" type="button">✏️</button>` : ''}
             ${_qtAIsGD ? `<button class="qt-del-btn" type="button">🗑️</button>` : ''}
@@ -222,9 +227,18 @@ function _qtARenderButtonCard(t) {
                 <span class="qt-color-hex">${t.color}</span>
             </div>
             <div class="qt-key">${t.key}</div>
+            ${_qtAIsGD ? `
+            <div class="qt-toggle-wrap" data-key="${t.key}" title="${t.is_active ? 'Click để tắt nút này' : 'Click để bật lại nút này'}">
+                <div class="qt-toggle ${t.is_active ? 'qt-toggle-on' : 'qt-toggle-off'}">
+                    <div class="qt-toggle-knob"></div>
+                </div>
+                <span class="qt-toggle-label">${t.is_active ? 'Đang bật' : 'Đã tắt'}</span>
+            </div>
+            ` : `
             <span class="qt-status ${t.is_active ? 'qt-status-on' : 'qt-status-off'}">
                 ${t.is_active ? '● Đang bật' : '○ Đã tắt'}
             </span>
+            `}
         </div>
     `;
 }
@@ -404,6 +418,35 @@ async function _qtADeleteStage(stageId) {
 
     showToast('✅ Đã xóa giai đoạn!', 'success');
     await _qtALoadData();
+}
+
+// ========== TOGGLE ACTIVE ==========
+async function _qtAToggleActive(key, cardEl) {
+    const t = _qtAAllTypes.find(x => x.key === key);
+    if (!t) return;
+    const newActive = !t.is_active;
+    const toggle = cardEl.querySelector('.qt-toggle');
+    const label = cardEl.querySelector('.qt-toggle-label');
+    const wrap = cardEl.querySelector('.qt-toggle-wrap');
+    if (toggle) { toggle.className = 'qt-toggle ' + (newActive ? 'qt-toggle-on' : 'qt-toggle-off'); }
+    if (label) { label.textContent = newActive ? 'Đang bật' : 'Đã tắt'; }
+    if (wrap) { wrap.title = newActive ? 'Click để tắt nút này' : 'Click để bật lại nút này'; }
+    cardEl.classList.toggle('inactive', !newActive);
+    cardEl.dataset.active = newActive ? '1' : '0';
+    try {
+        await apiCall(`/api/consult-types/${key}`, 'PUT', {
+            label: t.label, icon: t.icon, color: t.color, text_color: t.text_color,
+            is_active: newActive, stage: t.stage || null, crm_menu: 'affiliate'
+        });
+        t.is_active = newActive;
+        showToast(newActive ? `✅ Đã bật: ${t.icon} ${t.label}` : `🔴 Đã tắt: ${t.icon} ${t.label}`, newActive ? 'success' : 'warning');
+    } catch(e) {
+        if (toggle) { toggle.className = 'qt-toggle ' + (t.is_active ? 'qt-toggle-on' : 'qt-toggle-off'); }
+        if (label) { label.textContent = t.is_active ? 'Đang bật' : 'Đã tắt'; }
+        cardEl.classList.toggle('inactive', !t.is_active);
+        cardEl.dataset.active = t.is_active ? '1' : '0';
+        showToast('❌ Lỗi: ' + (e.message || ''), 'error');
+    }
 }
 
 // ========== DELETE TYPE ==========

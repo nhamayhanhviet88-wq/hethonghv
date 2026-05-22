@@ -100,6 +100,27 @@
 .qt-status-on { background:rgba(34,197,94,.12); color:#16a34a; }
 .qt-status-off { background:rgba(239,68,68,.1); color:#ef4444; }
 
+/* Toggle Switch */
+.qt-toggle-wrap { display:flex; align-items:center; gap:6px; margin-top:6px; cursor:pointer;
+    justify-content:center; user-select:none; }
+.qt-toggle { width:36px; height:20px; border-radius:12px; position:relative;
+    transition:all .3s cubic-bezier(.4,0,.2,1); flex-shrink:0; }
+.qt-toggle-on { background:linear-gradient(135deg,#22c55e,#16a34a);
+    box-shadow:0 2px 8px rgba(34,197,94,.35); }
+.qt-toggle-off { background:linear-gradient(135deg,#94a3b8,#64748b);
+    box-shadow:0 1px 4px rgba(100,116,139,.25); }
+.qt-toggle-knob { width:16px; height:16px; border-radius:50%; background:white;
+    position:absolute; top:2px; transition:all .3s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 1px 4px rgba(0,0,0,.15); }
+.qt-toggle-on .qt-toggle-knob { left:18px; }
+.qt-toggle-off .qt-toggle-knob { left:2px; }
+.qt-toggle-wrap:hover .qt-toggle { transform:scale(1.08); }
+.qt-toggle-wrap:hover .qt-toggle-on { box-shadow:0 3px 12px rgba(34,197,94,.45); }
+.qt-toggle-wrap:hover .qt-toggle-off { box-shadow:0 2px 8px rgba(100,116,139,.35); }
+.qt-toggle-label { font-size:10px; font-weight:700; letter-spacing:.2px; }
+.qt-toggle-on + .qt-toggle-label { color:#16a34a; }
+.qt-toggle-off + .qt-toggle-label { color:#ef4444; }
+
 /* Drag handle hint */
 .qt-btn-card .qt-drag-hint { position:absolute; top:8px; left:8px; font-size:10px;
     color:#cbd5e1; opacity:0; transition:opacity .2s; user-select:none; }
