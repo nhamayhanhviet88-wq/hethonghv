@@ -155,7 +155,7 @@ function _dhtPopulateCskhDropdown() {
 var _dhtSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'expected_ship_date',label: '🚛Ngày Gửi',    type: 'date' },
+    { key: 'shipped_at',       label: '🚛Ngày Gửi',    type: 'date' },
     { key: null,               label: 'Tiến Độ',        type: 'none' },
     { key: 'prod_done',        label: 'Quy Trình SX',  type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
@@ -542,7 +542,7 @@ function _dhtRenderOrderRows(filtered) {
                 }
             }
         }
-        const shipDateFmt = o.expected_ship_date ? '🚛' + fmtD(o.expected_ship_date) : '—';
+        const shipDateFmt = o.shipped_at ? '🚛' + fmtD(o.shipped_at) : '—';
 
             return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
