@@ -80,14 +80,24 @@ async function _dhtShowCreateFree() {
         // Mã đơn: tự sinh
         +'<div style="grid-column:span 2"><div class="form-group"><label>Mã Đơn <span style="font-size:10px;color:#059669;font-weight:700">✅ Tự động khi xác nhận</span></label>'
         +'<input id="_co_codeFreeLabel" class="form-control" disabled value="🔄 Chọn lĩnh vực trước..." style="'+_dis+';font-weight:800;font-size:14px;color:#059669;border:2px solid #059669;background:#f0fdf4"></div></div>'
+        +'</div>'
+        // ★ GATE: All fields below only show after selecting Lĩnh Vực
+        +'<div id="_co_freeFormFields" style="display:none">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         // ★ STEP 1: Tên KH trước (có autocomplete)
         +'<div class="form-group" style="position:relative;grid-column:span 2"><label style="font-weight:800;color:#166534">① Tên Khách Hàng <span style="color:red">*</span> ✏️ <span style="font-size:10px;font-weight:600;color:#64748b">— Gõ tên để tìm KH cũ hoặc nhập mới</span></label>'
         +'<input id="_co_name" class="form-control" placeholder="🔍 Gõ tên khách hàng..." autocomplete="off" oninput="_dhtNameAutocomplete()" onfocus="_dhtNameAutocomplete()" style="font-size:14px;border:2px solid #059669">'
         +'<div id="_co_nameList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         // ★ STEP 2: SĐT (disabled cho đến khi nhập tên, cũng có autocomplete)
         +'<div class="form-group" style="position:relative"><label style="font-weight:800;color:#1e40af">② SĐT Khách Hàng <span style="color:red">*</span> ✏️</label>'
-        +'<input id="_co_phone" class="form-control" placeholder="Nhập tên KH trước..." disabled autocomplete="off" oninput="_dhtPhoneAutocomplete()" style="background:#f1f5f9;cursor:not-allowed">'
-        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<input id="_co_phone" class="form-control" placeholder="Nhập tên KH trước..." disabled autocomplete="off" oninput="_dhtPhoneAutocomplete();_dhtCheckPhoneChange()" style="background:#f1f5f9;cursor:not-allowed">'
+        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>'
+        +'<div id="_co_phoneAction" style="display:none;margin-top:6px;background:#fffbeb;border:2px solid #f59e0b;border-radius:8px;padding:10px 12px">'
+        +'<div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:8px">⚠️ SĐT đã thay đổi! Chọn hành động: <span style="color:red">*</span></div>'
+        +'<div style="display:flex;gap:8px">'
+        +'<label style="flex:1;cursor:pointer;padding:8px 10px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-size:11px;font-weight:700;transition:all .2s" id="_co_phoneAction_update" onclick="_dhtSetPhoneAction(\'update\')">🔄 Đổi SĐT cho KH cũ</label>'
+        +'<label style="flex:1;cursor:pointer;padding:8px 10px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-size:11px;font-weight:700;transition:all .2s" id="_co_phoneAction_new" onclick="_dhtSetPhoneAction(\'create_new\')">➕ Tạo KH mới</label>'
+        +'</div></div></div>'
         // ★ STEP 3: Địa chỉ + Tỉnh (luôn sửa được)
         +'<div class="form-group"><label>③ Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
         +'<div class="form-group" style="position:relative"><label>③ Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
@@ -140,9 +150,10 @@ async function _dhtShowCreateFree() {
         +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div></div>'
         +'<div id="_co_carrierExtra" style="display:none;margin-top:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px"></div>'
         // Sale note
-        +'<div class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Ghi Chú</label>'
-        +'<textarea id="_co_saleNote" class="form-control" rows="2" placeholder="Ghi chú cho đơn PET/TEM (tùy chọn)..." style="font-size:12px;resize:vertical"></textarea></div>'
-        +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Không cọc</div>';
+        +'<div class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:red">*</span></label>'
+        +'<textarea id="_co_saleNote" class="form-control" rows="2" placeholder="Nhập nội dung dặn kế toán gửi hàng..." style="font-size:12px;resize:vertical;border:2px solid #f59e0b"></textarea></div>'
+        +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Không cọc</div>'
+        +'</div>'; // close _co_freeFormFields
 
     var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
         +'<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">🐾 Lưu Đơn PET/TEM</button>';
@@ -169,26 +180,32 @@ async function _dhtOnFreeCatSwitch() {
     var catSel = document.getElementById('_co_cat');
     var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
     var freeLabel = document.getElementById('_co_codeFreeLabel');
+    var formFields = document.getElementById('_co_freeFormFields');
+
+    if (!catName || catName === '-- Chọn --') {
+        // Chưa chọn lĩnh vực → ẩn toàn bộ form
+        if (freeLabel) freeLabel.value = '🔄 Chọn lĩnh vực trước...';
+        if (formFields) formFields.style.display = 'none';
+        return;
+    }
+
+    // Đã chọn → hiện form
+    if (formFields) formFields.style.display = '';
     if (freeLabel) {
-        if (!catName || catName === '-- Chọn --') {
-            freeLabel.value = '🔄 Chọn lĩnh vực trước...';
-        } else {
-            var prefix = catName === 'TEM' ? 'GCTEM' : 'GCPET';
-            freeLabel.value = '🔄 ' + prefix + '???? — Mã tự động khi bấm Lưu Đơn';
-        }
+        var prefix = catName === 'TEM' ? 'GCTEM' : 'GCPET';
+        freeLabel.value = '🔄 ' + prefix + '???? — Mã tự động khi bấm Lưu Đơn';
     }
+
     // Reload sources for the selected cat
-    if (catName && catName !== '-- Chọn --') {
-        try {
-            var srcApi = catName === 'TEM' ? '/api/dht/tem-sources' : '/api/dht/pet-sources';
-            var srcRes = await apiCall(srcApi);
-            var srcSelect = document.getElementById('_co_srcFreeSelect');
-            if (srcSelect) {
-                srcSelect.innerHTML = '<option value="">-- Chọn nguồn ' + catName + ' --</option>'
-                    + (srcRes.items || []).map(function(s) { return '<option value="' + s.name + '">' + s.name + '</option>'; }).join('');
-            }
-        } catch(e) {}
-    }
+    try {
+        var srcApi = catName === 'TEM' ? '/api/dht/tem-sources' : '/api/dht/pet-sources';
+        var srcRes = await apiCall(srcApi);
+        var srcSelect = document.getElementById('_co_srcFreeSelect');
+        if (srcSelect) {
+            srcSelect.innerHTML = '<option value="">-- Chọn nguồn ' + catName + ' --</option>'
+                + (srcRes.items || []).map(function(s) { return '<option value="' + s.name + '">' + s.name + '</option>'; }).join('');
+        }
+    } catch(e) {}
 }
 
 // ★ STEP 1: Name autocomplete — gõ tên, gợi ý KH cũ
@@ -214,12 +231,50 @@ function _dhtNameAutocomplete() {
         }
     }
 
-    if (q.length < 2) { listEl.style.display = 'none'; return; }
+    // Helper: get current category name
+    var _catSel = document.getElementById('_co_cat');
+    var _curCat = _catSel ? (_catSel.options[_catSel.selectedIndex]?.text || '') : '';
+    if (_curCat === '-- Chọn --') _curCat = '';
+    var catParam = _curCat ? '&cat=' + encodeURIComponent(_curCat) : '';
+
+    // Helper: build category badges
+    function _buildCatBadges(cats) {
+        if (!cats || !cats.length) return '';
+        var badges = '';
+        if (cats.includes('PET')) badges += '<span style="background:#059669;color:#fff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;margin-left:4px">🐾 PET</span>';
+        if (cats.includes('TEM')) badges += '<span style="background:#7c3aed;color:#fff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;margin-left:4px">🏷️ TEM</span>';
+        return badges;
+    }
+
+    if (q.length < 1) {
+        // Focus với ô trống → hiện tất cả KH gần đây
+        clearTimeout(_dhtNameTimer);
+        _dhtNameTimer = setTimeout(async function() {
+            try {
+                var res = await apiCall('/api/dht/free-customers/search?q=' + catParam);
+                var custs = res.customers || [];
+                if (custs.length === 0) {
+                    listEl.innerHTML = '<div style="padding:10px 14px;color:#64748b;font-size:12px">Chưa có khách hàng — nhập tên mới</div>';
+                    listEl.style.display = 'block';
+                    return;
+                }
+                var html = custs.map(function(c) {
+                    return '<div onclick="_dhtSelectFreeCust('+c.id+',\''+_escHtml(c.name)+'\',\''+_escHtml(c.phone||'')+'\',\''+_escHtml(c.address||'')+'\',\''+_escHtml(c.province||'')+'\')" style="padding:8px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'#fff\'">'
+                        + '<div style="font-weight:700;font-size:13px;color:#1e293b">' + (c.name || '—') + _buildCatBadges(c.categories) + '</div>'
+                        + '<div style="font-size:11px;color:#64748b">📱 ' + (c.phone || 'Không SĐT') + '  •  📍 ' + (c.province || '') + '</div>'
+                        + '</div>';
+                }).join('');
+                listEl.innerHTML = html;
+                listEl.style.display = 'block';
+            } catch(e) { listEl.style.display = 'none'; }
+        }, 150);
+        return;
+    }
 
     clearTimeout(_dhtNameTimer);
     _dhtNameTimer = setTimeout(async function() {
         try {
-            var res = await apiCall('/api/dht/free-customers/search?q=' + encodeURIComponent(q));
+            var res = await apiCall('/api/dht/free-customers/search?q=' + encodeURIComponent(q) + catParam);
             var custs = res.customers || [];
             if (custs.length === 0) {
                 listEl.innerHTML = '<div style="padding:10px 14px;color:#64748b;font-size:12px">KH mới — tiếp tục nhập SĐT bên dưới ②</div>';
@@ -228,7 +283,7 @@ function _dhtNameAutocomplete() {
             }
             var html = custs.map(function(c) {
                 return '<div onclick="_dhtSelectFreeCust('+c.id+',\''+_escHtml(c.name)+'\',\''+_escHtml(c.phone||'')+'\',\''+_escHtml(c.address||'')+'\',\''+_escHtml(c.province||'')+'\')" style="padding:8px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'#fff\'">'
-                    + '<div style="font-weight:700;font-size:13px;color:#1e293b">' + (c.name || '—') + '</div>'
+                    + '<div style="font-weight:700;font-size:13px;color:#1e293b">' + (c.name || '—') + _buildCatBadges(c.categories) + '</div>'
                     + '<div style="font-size:11px;color:#64748b">📱 ' + (c.phone || 'Không SĐT') + '  •  📍 ' + (c.province || '') + '</div>'
                     + '</div>';
             }).join('');
@@ -243,7 +298,16 @@ function _dhtNameAutocomplete() {
 function _escHtml(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
 // ★ Select customer — điền tất cả, vẫn sửa được
+var _dhtSelectedCustId = null;
+var _dhtSelectedOrigPhone = null;
+var _dhtPhoneAction = null; // 'update' or 'create_new'
+
 function _dhtSelectFreeCust(id, name, phone, addr, prov) {
+    // Store selected customer ID + original phone
+    _dhtSelectedCustId = id;
+    _dhtSelectedOrigPhone = phone;
+    _dhtPhoneAction = null;
+
     var phoneEl = document.getElementById('_co_phone');
     var nameEl = document.getElementById('_co_name');
     var addrEl = document.getElementById('_co_addr');
@@ -253,11 +317,48 @@ function _dhtSelectFreeCust(id, name, phone, addr, prov) {
     if (addrEl) addrEl.value = addr;
     if (provEl) provEl.value = prov;
 
-    // Hide all dropdowns
+    // Hide toggle + dropdowns
+    var actionEl = document.getElementById('_co_phoneAction');
+    if (actionEl) actionEl.style.display = 'none';
     var nameListEl = document.getElementById('_co_nameList');
     if (nameListEl) nameListEl.style.display = 'none';
     var phoneListEl = document.getElementById('_co_phoneList');
     if (phoneListEl) phoneListEl.style.display = 'none';
+}
+
+// Detect phone change after selecting a customer
+function _dhtCheckPhoneChange() {
+    var actionEl = document.getElementById('_co_phoneAction');
+    if (!actionEl) return;
+    var phoneEl = document.getElementById('_co_phone');
+    var curPhone = (phoneEl?.value || '').trim();
+
+    if (_dhtSelectedCustId && _dhtSelectedOrigPhone && curPhone !== _dhtSelectedOrigPhone) {
+        // Phone changed → show toggle
+        actionEl.style.display = 'block';
+        _dhtPhoneAction = null; // Reset choice
+        _dhtSetPhoneAction(null); // Reset UI
+    } else {
+        // Same phone or no selection → hide
+        actionEl.style.display = 'none';
+        _dhtPhoneAction = null;
+    }
+}
+
+function _dhtSetPhoneAction(action) {
+    _dhtPhoneAction = action;
+    var updateEl = document.getElementById('_co_phoneAction_update');
+    var newEl = document.getElementById('_co_phoneAction_new');
+    if (updateEl) {
+        updateEl.style.background = action === 'update' ? '#059669' : '#fff';
+        updateEl.style.color = action === 'update' ? '#fff' : '#1e293b';
+        updateEl.style.borderColor = action === 'update' ? '#059669' : '#e2e8f0';
+    }
+    if (newEl) {
+        newEl.style.background = action === 'create_new' ? '#7c3aed' : '#fff';
+        newEl.style.color = action === 'create_new' ? '#fff' : '#1e293b';
+        newEl.style.borderColor = action === 'create_new' ? '#7c3aed' : '#e2e8f0';
+    }
 }
 
 // ★ STEP 2: Phone autocomplete — gõ SĐT cũng gợi ý KH cũ
@@ -1609,7 +1710,7 @@ async function _dhtSubmitCreateV2() {
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
     var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
-    if (!isFree && !saleNote) { showToast('📝 Nhập Nội Dung Dặn Kế Toán Gửi Hàng', 'error'); return; }
+    if (!saleNote) { showToast('📝 Nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng', 'error'); return; }
     var carrierExtra = _dhtGetCarrierExtra();
     if (carrierExtra === false) return;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
@@ -1641,6 +1742,13 @@ async function _dhtSubmitCreateV2() {
     var desType = desVal2 === 'old_design' ? 'old_design' : 'staff';
     var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
 
+    // Check if phone action toggle is needed
+    var phoneActionEl = document.getElementById('_co_phoneAction');
+    if (phoneActionEl && phoneActionEl.style.display !== 'none' && !_dhtPhoneAction) {
+        showToast('⚠️ Chọn hành động: Đổi SĐT cho KH cũ hay Tạo KH mới', 'error');
+        return;
+    }
+
     var payload = {
         order_date: vnDateStr(),
         category_id: cat,
@@ -1668,6 +1776,8 @@ async function _dhtSubmitCreateV2() {
         standard_proof_image: (!isFree && pri === 'CHUẨN') ? _dhtProofBase64 : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         sale_note_for_accountant: saleNote || null,
+        free_customer_id: _dhtSelectedCustId || null,
+        free_customer_action: _dhtPhoneAction || null,
         department_id: _dhtCreate.myInfo?.department_id,
         items: items
     };

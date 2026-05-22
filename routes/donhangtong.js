@@ -15,6 +15,8 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed BOOLEAN DEFAULT FALSE`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_at TIMESTAMP DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_by INTEGER DEFAULT NULL`); } catch(e) {}
+    // Smart Customer: link orders to free customer record
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS free_customer_id INTEGER DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_carriers ADD COLUMN IF NOT EXISTS tracking_url_template TEXT DEFAULT NULL`); } catch(e) {}
     // Auto-seed J&T tracking URL if not set
     try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://jtexpress.vn/vi/tracking?type=track&billcode={code}' WHERE name ILIKE '%J&T%' AND tracking_url_template IS NULL`); } catch(e) {}
@@ -47,6 +49,8 @@ module.exports = async function(fastify) {
     )`); } catch(e) {}
     try { await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_free_cust_phone ON dht_free_customers(phone)`); } catch(e) {}
     try { await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_free_cust_name ON dht_free_customers(name)`); } catch(e) {}
+    // Smart Priority: categories column (TEXT[] array)
+    try { await db.run(`ALTER TABLE dht_free_customers ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT '{}'`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -391,8 +395,8 @@ module.exports = async function(fastify) {
                 has_vat, vat_amount, deposit_payment_id, deposit_amount_cache,
                 designer_user_id, designer_type, carrier_id, carrier_extra,
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
-                sale_note_for_accountant, department_id, notes, surcharges, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$30)
+                sale_note_for_accountant, department_id, notes, surcharges, free_customer_id, created_by, last_updated_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$31)
             RETURNING *
         `, [
             orderCode,
@@ -424,6 +428,7 @@ module.exports = async function(fastify) {
             b.department_id ? Number(b.department_id) : null,
             b.notes || null,
             JSON.stringify(b.surcharges || []),
+            b.free_customer_id ? parseInt(b.free_customer_id) : null,
             request.user.id
         ]);
 
@@ -527,18 +532,47 @@ module.exports = async function(fastify) {
         if (isFreeOrder && b.customer_name) {
             try {
                 const phone = (b.customer_phone || '').trim();
-                if (phone) {
-                    const existing = await db.get('SELECT id FROM dht_free_customers WHERE phone = $1', [phone]);
+                const catRow = catId ? await db.get('SELECT name FROM dht_categories WHERE id=$1', [catId]) : null;
+                const catName = catRow ? catRow.name : '';
+                const freeCustId = b.free_customer_id ? parseInt(b.free_customer_id) : null;
+                const custAction = b.free_customer_action || null;
+
+                if (freeCustId && custAction === 'update') {
+                    // User chose "Đổi SĐT cho KH cũ" → update by ID including phone
+                    const existing = await db.get('SELECT categories FROM dht_free_customers WHERE id=$1', [freeCustId]);
+                    const existCats = existing?.categories || [];
+                    const newCats = catName && !existCats.includes(catName) ? [...existCats, catName] : existCats;
+                    await db.run('UPDATE dht_free_customers SET name=$1, phone=$2, address=$3, province=$4, categories=$5, updated_at=NOW() WHERE id=$6',
+                        [b.customer_name.trim(), phone || null, b.address || null, b.province || null, newCats, freeCustId]);
+                    // ★ CASCADE: Update ALL orders linked to this customer
+                    await db.run('UPDATE dht_orders SET customer_name=$1, customer_phone=$2, address=$3, province=$4 WHERE free_customer_id=$5',
+                        [b.customer_name.trim(), phone || null, b.address || null, b.province || null, freeCustId]);
+                } else if (custAction === 'create_new') {
+                    // User chose "Tạo KH mới" → always insert
+                    await db.run('INSERT INTO dht_free_customers (name, phone, address, province, categories, created_by) VALUES ($1,$2,$3,$4,$5,$6)',
+                        [b.customer_name.trim(), phone || null, b.address || null, b.province || null, catName ? [catName] : [], request.user.id]);
+                } else if (freeCustId) {
+                    // Selected existing customer, no phone change → update by ID
+                    const existing = await db.get('SELECT categories FROM dht_free_customers WHERE id=$1', [freeCustId]);
+                    const existCats = existing?.categories || [];
+                    const newCats = catName && !existCats.includes(catName) ? [...existCats, catName] : existCats;
+                    await db.run('UPDATE dht_free_customers SET name=$1, address=$2, province=$3, categories=$4, updated_at=NOW() WHERE id=$5',
+                        [b.customer_name.trim(), b.address || null, b.province || null, newCats, freeCustId]);
+                } else if (phone) {
+                    // No selected customer, typed new → phone-based upsert (own records only)
+                    const existing = await db.get('SELECT id, categories FROM dht_free_customers WHERE phone=$1 AND created_by=$2', [phone, request.user.id]);
                     if (existing) {
-                        await db.run('UPDATE dht_free_customers SET name=$1, address=$2, province=$3, updated_at=NOW() WHERE id=$4',
-                            [b.customer_name.trim(), b.address || null, b.province || null, existing.id]);
+                        const existCats = existing.categories || [];
+                        const newCats = catName && !existCats.includes(catName) ? [...existCats, catName] : existCats;
+                        await db.run('UPDATE dht_free_customers SET name=$1, address=$2, province=$3, categories=$4, updated_at=NOW() WHERE id=$5',
+                            [b.customer_name.trim(), b.address || null, b.province || null, newCats, existing.id]);
                     } else {
-                        await db.run('INSERT INTO dht_free_customers (name, phone, address, province, created_by) VALUES ($1,$2,$3,$4,$5)',
-                            [b.customer_name.trim(), phone, b.address || null, b.province || null, request.user.id]);
+                        await db.run('INSERT INTO dht_free_customers (name, phone, address, province, categories, created_by) VALUES ($1,$2,$3,$4,$5,$6)',
+                            [b.customer_name.trim(), phone, b.address || null, b.province || null, catName ? [catName] : [], request.user.id]);
                     }
                 } else {
-                    await db.run('INSERT INTO dht_free_customers (name, phone, address, province, created_by) VALUES ($1,$2,$3,$4,$5)',
-                        [b.customer_name.trim(), null, b.address || null, b.province || null, request.user.id]);
+                    await db.run('INSERT INTO dht_free_customers (name, phone, address, province, categories, created_by) VALUES ($1,$2,$3,$4,$5,$6)',
+                        [b.customer_name.trim(), null, b.address || null, b.province || null, catName ? [catName] : [], request.user.id]);
                 }
             } catch(custErr) { console.error('[FreeCust] save:', custErr.message); }
         }
@@ -1697,6 +1731,7 @@ module.exports = async function(fastify) {
                    pr.payment_date, pr.bank_name, pr.transfer_note as description, pr.payment_method
             FROM payment_records pr
             WHERE (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
+              AND COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'thanh_toan', 'tt_sll')
               AND (pr.locked_by IS NULL OR pr.locked_by = $1
                    OR pr.locked_at < NOW() - INTERVAL '10 minutes')
               AND NOT EXISTS (
@@ -1746,14 +1781,36 @@ module.exports = async function(fastify) {
     // ========== PET/TEM: Free Customer Search ==========
     fastify.get('/api/dht/free-customers/search', { preHandler: [authenticate] }, async (request, reply) => {
         const q = (request.query.q || '').trim();
-        if (!q || q.length < 2) return { customers: [] };
-        const rows = await db.all(`
-            SELECT id, name, phone, address, province
-            FROM dht_free_customers
-            WHERE name ILIKE $1 OR phone ILIKE $1
-            ORDER BY updated_at DESC
-            LIMIT 15
-        `, ['%' + q + '%']);
+        const cat = (request.query.cat || '').trim();
+        const role = request.user.role || '';
+        const userId = request.user.id;
+
+        // GĐ + QLCC see all, others see only their own
+        const seeAll = (role === 'giam_doc' || role === 'quan_ly_cap_cao');
+        const ownerFilter = seeAll ? '' : ' AND created_by = ' + parseInt(userId);
+
+        let rows;
+        if (!q) {
+            rows = await db.all(`
+                SELECT id, name, phone, address, province, categories
+                FROM dht_free_customers
+                WHERE 1=1 ${ownerFilter}
+                ORDER BY
+                    CASE WHEN $1 != '' AND $1 = ANY(categories) THEN 0 ELSE 1 END,
+                    updated_at DESC
+                LIMIT 30
+            `, [cat]);
+        } else {
+            rows = await db.all(`
+                SELECT id, name, phone, address, province, categories
+                FROM dht_free_customers
+                WHERE (name ILIKE $1 OR phone ILIKE $1) ${ownerFilter}
+                ORDER BY
+                    CASE WHEN $2 != '' AND $2 = ANY(categories) THEN 0 ELSE 1 END,
+                    updated_at DESC
+                LIMIT 15
+            `, ['%' + q + '%', cat]);
+        }
         return { customers: rows };
     });
 };

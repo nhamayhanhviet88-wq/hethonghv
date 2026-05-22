@@ -10,8 +10,11 @@ module.exports = async function(fastify) {
         // ★ VISIBILITY RULES:
         // GĐ, QLCC → see ALL designers + "Thiết Kế Cũ"
         // NV Thiết Kế → only their own orders (designer_user_id = their id)
+        //   + only categories: Công Ty, Áo Lớp, Mầm Non (hide PET, TEM, Đơn Sửa)
         // Others with permission → same as NV Thiết Kế (their own only)
         const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+        // Categories hidden from design staff view
+        const DESIGN_HIDDEN_CATS = ['pet', 'tem', 'đơn sửa'];
         const isFullView = FULL_VIEW_ROLES.includes(request.user.role);
 
         // ★ FIX: "old_design" has designer_user_id = NULL
@@ -25,8 +28,10 @@ module.exports = async function(fastify) {
             whereClause = `WHERE (o.designer_user_id IS NOT NULL OR o.designer_type = 'old_design')`;
         } else {
             // Non-admin: only see orders assigned to them as designer
-            whereClause = `WHERE o.designer_user_id = $1 AND o.designer_type = 'staff'`;
-            params.push(request.user.id);
+            // + exclude hidden categories (PET, TEM, Đơn Sửa)
+            whereClause = `WHERE o.designer_user_id = $1 AND o.designer_type = 'staff'
+                AND (c_filter.name IS NULL OR LOWER(c_filter.name) NOT IN (${DESIGN_HIDDEN_CATS.map((_, i) => '$' + (i + 2)).join(',')}))`;
+            params.push(request.user.id, ...DESIGN_HIDDEN_CATS);
         }
 
         // Aggregate: year → month → designer
@@ -45,6 +50,7 @@ module.exports = async function(fastify) {
                 COUNT(*)::int AS order_count
             FROM dht_orders o
             LEFT JOIN users u ON o.designer_user_id = u.id
+            LEFT JOIN dht_categories c_filter ON o.category_id = c_filter.id
             ${whereClause}
             GROUP BY year, month, designer_id, designer_name
             ORDER BY year DESC, month DESC, designer_name ASC
@@ -123,11 +129,18 @@ module.exports = async function(fastify) {
         const params = [];
         let idx = 1;
 
+        // Categories hidden from design staff view
+        const DESIGN_HIDDEN_CATS_O = ['pet', 'tem', 'đơn sửa'];
+
         if (isFullView) {
             where = `WHERE (o.designer_user_id IS NOT NULL OR o.designer_type = 'old_design')`;
         } else {
             where = `WHERE o.designer_user_id = $${idx++} AND o.designer_type = 'staff'`;
             params.push(request.user.id);
+            // Exclude hidden categories for design staff
+            const catPlaceholders = DESIGN_HIDDEN_CATS_O.map(() => `$${idx++}`).join(',');
+            where += ` AND (c.name IS NULL OR LOWER(c.name) NOT IN (${catPlaceholders}))`;
+            params.push(...DESIGN_HIDDEN_CATS_O);
         }
 
         // Date filters
