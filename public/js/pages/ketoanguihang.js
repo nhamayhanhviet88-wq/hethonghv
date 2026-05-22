@@ -82,18 +82,34 @@ function _shRenderTable(el) {
         const prioColors = { 'GỬI':'#3b82f6', 'GẤP':'#dc2626', 'CHUẨN':'#7c3aed' };
         const prioColor = prioColors[o.shipping_priority] || '#6b7280';
 
-        // Tiến Độ: real-time (today vs expected_ship_date)
+        // Tiến Độ: shipped → compare shipped_at vs expected, unshipped → compare today vs expected
         let progressBadge = '<span style="color:#d1d5db;">\u2014</span>';
         if (o.expected_ship_date) {
-            const shipDate = new Date(o.expected_ship_date);
-            const todayDate = new Date(today);
-            const diffDays = Math.round((shipDate - todayDate) / 86400000);
-            if (diffDays > 0) {
-                progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#ecfdf5;color:#059669;">🚀 Nhanh hơn ${diffDays} ngày</span>`;
-            } else if (diffDays < 0) {
-                progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+            const expectedDate = new Date(o.expected_ship_date);
+            expectedDate.setHours(0,0,0,0);
+            if (o.shipped_at) {
+                // Shipped: compare actual ship date vs expected
+                const actualDate = new Date(o.shipped_at);
+                actualDate.setHours(0,0,0,0);
+                const diffDays = Math.round((expectedDate - actualDate) / 86400000);
+                if (diffDays > 0) {
+                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#ecfdf5;color:#059669;">🚀 Nhanh ${diffDays} ngày</span>`;
+                } else if (diffDays < 0) {
+                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+                } else {
+                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📦 Đúng hạn</span>`;
+                }
             } else {
-                progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📦 Đúng hạn</span>`;
+                // Unshipped: show remaining days
+                const todayDate = new Date(today);
+                const remainDays = Math.round((expectedDate - todayDate) / 86400000);
+                if (remainDays > 0) {
+                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📅 Còn ${remainDays} ngày</span>`;
+                } else if (remainDays < 0) {
+                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
+                } else {
+                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef3c7;color:#d97706;">📦 Hôm nay gửi</span>`;
+                }
             }
         }
 
@@ -174,10 +190,20 @@ function _shShipOrder(id, code) {
     const today = new Date().toISOString().split('T')[0];
     let diffText = '\u2014';
     if (o.expected_ship_date) {
-        const diff = Math.round((new Date(o.expected_ship_date) - new Date(today)) / 86400000);
-        if (diff > 0) diffText = '\ud83d\ude80 Nhanh h\u01a1n ' + diff + ' ng\u00e0y';
-        else if (diff < 0) diffText = '\u26a0\ufe0f Tr\u1ec5 ' + Math.abs(diff) + ' ng\u00e0y';
-        else diffText = '\ud83d\udce6 \u0110\u00fang h\u1ea1n';
+        const expectedD = new Date(o.expected_ship_date); expectedD.setHours(0,0,0,0);
+        if (o.shipped_at) {
+            const actualD = new Date(o.shipped_at); actualD.setHours(0,0,0,0);
+            const diff = Math.round((expectedD - actualD) / 86400000);
+            if (diff > 0) diffText = '\ud83d\ude80 Nhanh ' + diff + ' ng\u00e0y';
+            else if (diff < 0) diffText = '\u26a0\ufe0f Tr\u1ec5 ' + Math.abs(diff) + ' ng\u00e0y';
+            else diffText = '\ud83d\udce6 \u0110\u00fang h\u1ea1n';
+        } else {
+            const todayD = new Date(today);
+            const remain = Math.round((expectedD - todayD) / 86400000);
+            if (remain > 0) diffText = '\ud83d\udcc5 C\u00f2n ' + remain + ' ng\u00e0y';
+            else if (remain < 0) diffText = '\u26a0\ufe0f Qu\u00e1 h\u1ea1n ' + Math.abs(remain) + ' ng\u00e0y';
+            else diffText = '\ud83d\udce6 H\u00f4m nay g\u1eedi';
+        }
     }
     const prioMap = {'G\u1eecI':'#3b82f6','G\u1ea4P':'#dc2626','CHU\u1ea8N':'#7c3aed'};
     const pc = prioMap[o.shipping_priority] || '#6b7280';

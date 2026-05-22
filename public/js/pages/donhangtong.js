@@ -1054,17 +1054,32 @@ async function _dhtShowDetail(id) {
         if (o.standard_proof_image) saleKtHTML += row('📷 Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info);font-weight:700">📷 Xem ảnh</a>`);
         var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
         if (o.expected_ship_date) {
-            var todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            todayVN.setHours(0,0,0,0);
             var shipVN = new Date(o.expected_ship_date);
             shipVN.setHours(0,0,0,0);
-            var diffDays = Math.round((todayVN - shipVN) / 86400000);
-            if (diffDays === 0) {
-                progressSaleHTML = '<span style="color:#059669;font-weight:900;font-size:14px">✅ Ra đúng ngày</span>';
-            } else if (diffDays < 0) {
-                progressSaleHTML = '<span style="color:#0369a1;font-weight:900;font-size:14px">🚀 Nhanh hơn ' + Math.abs(diffDays) + ' ngày</span>';
+            if (o.shipped_at) {
+                // Shipped: compare actual ship date vs expected
+                var actualVN = new Date(o.shipped_at);
+                actualVN.setHours(0,0,0,0);
+                var diffDays = Math.round((shipVN - actualVN) / 86400000);
+                if (diffDays > 0) {
+                    progressSaleHTML = '<span style="color:#0369a1;font-weight:900;font-size:14px">🚀 Nhanh ' + diffDays + ' ngày</span>';
+                } else if (diffDays < 0) {
+                    progressSaleHTML = '<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Trễ ' + Math.abs(diffDays) + ' ngày</span>';
+                } else {
+                    progressSaleHTML = '<span style="color:#059669;font-weight:900;font-size:14px">✅ Đúng hạn</span>';
+                }
             } else {
-                progressSaleHTML = '<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Chậm hơn ' + diffDays + ' ngày</span>';
+                // Unshipped: show remaining days
+                var todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                todayVN.setHours(0,0,0,0);
+                var remainDays = Math.round((shipVN - todayVN) / 86400000);
+                if (remainDays > 0) {
+                    progressSaleHTML = '<span style="color:#3b82f6;font-weight:900;font-size:14px">📅 Còn ' + remainDays + ' ngày</span>';
+                } else if (remainDays < 0) {
+                    progressSaleHTML = '<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Quá hạn ' + Math.abs(remainDays) + ' ngày</span>';
+                } else {
+                    progressSaleHTML = '<span style="color:#d97706;font-weight:900;font-size:14px">📦 Hôm nay gửi</span>';
+                }
             }
         }
         saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
