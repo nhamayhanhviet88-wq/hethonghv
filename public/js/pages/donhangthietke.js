@@ -97,8 +97,17 @@ async function renderDonhangthietkePage(content) {
 async function _dhtkLoadTree() {
     var data = await apiCall('/api/dht-design/tree');
     _dhtk.tree = data.tree || [];
+    _dhtk.allDesigners = data.designers || [];
     var sb = document.getElementById('dhtkSidebar'); if (!sb) return;
-    var curYear = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).getFullYear();
+    var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    var curYear = nowVN.getFullYear();
+    var curMonth = nowVN.getMonth() + 1;
+
+    // Auto-expand current month's designers on first load
+    if (!_dhtkOpen._monthInit) {
+        _dhtkOpen['y' + curYear + 'm' + curMonth] = true;
+        _dhtkOpen._monthInit = true;
+    }
 
     var grandCount = data.grandCount || 0;
     var h = '<div class="dhtk-sb-title"><span style="opacity:0.5">───</span> <span style="color:#e94560">🎨 Đơn Hàng Thiết Kế</span> <span style="opacity:0.5">───</span></div>';
@@ -120,26 +129,50 @@ async function _dhtkLoadTree() {
             var mCount = mData ? mData.count : 0;
             var mKey = yKey + 'm' + mi;
             var mOpen = !!_dhtkOpen[mKey];
-            var mActive = _dhtk.filter.year == yr.year && _dhtk.filter.month == mi && !_dhtk.filter.designer_id;
+            var mActive = _dhtk.filter.year == yr.year && _dhtk.filter.month == mi && !_dhtk.filter.designer_id && _dhtk.filter.designer_id !== 0;
+
+            // ★ Build merged designers list: all dept designers + "Thiết Kế Cũ" with counts from data
+            var dataDesigners = mData ? (mData.designers || []) : [];
+            var mergedDesigners = [];
+            // First: add all department designers (staff) with their counts
+            (_dhtk.allDesigners || []).forEach(function(ad) {
+                var found = dataDesigners.find(function(dd) { return dd.designer_id === ad.id; });
+                mergedDesigners.push({
+                    designer_id: ad.id,
+                    designer_name: ad.full_name,
+                    count: found ? found.count : 0
+                });
+            });
+            // Then: add "Thiết Kế Cũ" if exists in data
+            var oldDesignEntry = dataDesigners.find(function(dd) { return dd.designer_id === 0; });
+            if (oldDesignEntry) {
+                mergedDesigners.push(oldDesignEntry);
+            }
+
+            // Determine if we should show expand arrow
+            var hasDesigners = mergedDesigners.length > 0;
 
             h += '<div class="dhtk-sb-month' + (mActive ? ' active' : '') + '" onclick="event.stopPropagation();_dhtkFilterMonth(' + yr.year + ',' + mi + ')">'
                 + '<span style="display:flex;align-items:center;gap:6px">'
-                + (mData && mData.designers && mData.designers.length > 0 ? '<span onclick="event.stopPropagation();_dhtkToggle(\'' + mKey + '\')" style="cursor:pointer;font-size:9px;width:14px;text-align:center">' + (mOpen ? '▼' : '▶') + '</span>' : '<span style="width:14px;display:inline-block"></span>')
+                + (hasDesigners ? '<span onclick="event.stopPropagation();_dhtkToggle(\'' + mKey + '\')" style="cursor:pointer;font-size:9px;width:14px;text-align:center">' + (mOpen ? '▼' : '▶') + '</span>' : '<span style="width:14px;display:inline-block"></span>')
                 + '📅 Tháng ' + String(mi).padStart(2, '0')
                 + '</span>'
                 + '<span style="color:' + (mCount > 0 ? '#e94560' : 'rgba(255,255,255,0.2)') + ';font-weight:' + (mCount > 0 ? '800' : '400') + ';font-size:11px">' + mCount + '</span>'
                 + '</div>';
 
-            // Designers within this month
-            if (mData && mData.designers && mData.designers.length > 0) {
+            // Designers within this month (always show all dept designers)
+            if (hasDesigners) {
                 h += '<div style="display:' + (mOpen ? 'block' : 'none') + '">';
-                mData.designers.forEach(function(d) {
+                mergedDesigners.forEach(function(d) {
                     var dActive = _dhtk.filter.year == yr.year && _dhtk.filter.month == mi && _dhtk.filter.designer_id == d.designer_id;
                     var isOldDesign = d.designer_id === 0;
                     var icon = isOldDesign ? '📁' : '👤';
+                    var countStyle = d.count > 0
+                        ? 'background:' + (isOldDesign ? 'rgba(255,255,255,0.08)' : 'rgba(233,69,96,0.2)') + ';color:' + (isOldDesign ? '#94a3b8' : '#e94560')
+                        : 'background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.15)';
                     h += '<div class="dhtk-sb-designer' + (dActive ? ' active' : '') + '" onclick="event.stopPropagation();_dhtkFilterDesigner(' + yr.year + ',' + mi + ',' + d.designer_id + ')">'
                         + '<span>' + icon + ' ' + d.designer_name + '</span>'
-                        + '<span style="background:' + (isOldDesign ? 'rgba(255,255,255,0.08)' : 'rgba(233,69,96,0.2)') + ';color:' + (isOldDesign ? '#94a3b8' : '#e94560') + ';padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800">' + d.count + '</span>'
+                        + '<span style="' + countStyle + ';padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800">' + d.count + '</span>'
                         + '</div>';
                 });
                 h += '</div>';

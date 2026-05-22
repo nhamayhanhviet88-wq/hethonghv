@@ -14,12 +14,18 @@ module.exports = async function(fastify) {
         const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
         const isFullView = FULL_VIEW_ROLES.includes(request.user.role);
 
-        let whereClause = `WHERE o.designer_user_id IS NOT NULL`;
+        // ★ FIX: "old_design" has designer_user_id = NULL
+        // GĐ/QLCC: see staff orders + old_design orders
+        // Others: only see their own staff orders
+        let whereClause;
         const params = [];
 
-        if (!isFullView) {
+        if (isFullView) {
+            // Full view: orders with a designer assigned OR old_design type
+            whereClause = `WHERE (o.designer_user_id IS NOT NULL OR o.designer_type = 'old_design')`;
+        } else {
             // Non-admin: only see orders assigned to them as designer
-            whereClause += ` AND o.designer_user_id = $1 AND o.designer_type = 'staff'`;
+            whereClause = `WHERE o.designer_user_id = $1 AND o.designer_type = 'staff'`;
             params.push(request.user.id);
         }
 
@@ -43,6 +49,16 @@ module.exports = async function(fastify) {
             GROUP BY year, month, designer_id, designer_name
             ORDER BY year DESC, month DESC, designer_name ASC
         `, params);
+
+        // Also return all designers in the design department (for sidebar even if 0 orders)
+        const allDesigners = await db.all(`
+            SELECT u.id, u.full_name FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN positions p ON u.position_id = p.id
+            WHERE u.status = 'active'
+              AND (d.name ILIKE '%thiết kế%' OR p.name ILIKE '%thiết kế%')
+            ORDER BY u.full_name
+        `);
 
         // Build tree: year → months → designers
         const yearMap = {};
@@ -82,7 +98,7 @@ module.exports = async function(fastify) {
 
         const grandCount = tree.reduce((s, y) => s + y.count, 0);
 
-        return { tree, grandCount };
+        return { tree, grandCount, designers: allDesigners };
     });
 
     // ========== ORDERS: List with filters ==========
@@ -92,13 +108,15 @@ module.exports = async function(fastify) {
         const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
         const isFullView = FULL_VIEW_ROLES.includes(request.user.role);
 
-        let where = `WHERE o.designer_user_id IS NOT NULL`;
+        // ★ FIX: same logic — include old_design for full view
+        let where;
         const params = [];
         let idx = 1;
 
-        // ★ Visibility filter
-        if (!isFullView) {
-            where += ` AND o.designer_user_id = $${idx++} AND o.designer_type = 'staff'`;
+        if (isFullView) {
+            where = `WHERE (o.designer_user_id IS NOT NULL OR o.designer_type = 'old_design')`;
+        } else {
+            where = `WHERE o.designer_user_id = $${idx++} AND o.designer_type = 'staff'`;
             params.push(request.user.id);
         }
 
