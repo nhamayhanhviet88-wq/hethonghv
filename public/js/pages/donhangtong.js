@@ -155,7 +155,7 @@ function _dhtPopulateCskhDropdown() {
 var _dhtSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'shipping_date',    label: '🚛Ngày Gửi',    type: 'date' },
+    { key: 'expected_ship_date',label: '🚛Ngày Gửi',    type: 'date' },
     { key: null,               label: 'Tiến Độ',        type: 'none' },
     { key: 'prod_done',        label: 'Quy Trình SX',  type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
@@ -243,7 +243,7 @@ function _dhtRenderSortHeaders() {
     var ths = '';
     for (var i = 0; i < _dhtSortDefs.length; i++) {
         var d = _dhtSortDefs[i];
-        if (d.type === 'none') { ths += '<th></th>'; continue; }
+        if (d.type === 'none') { ths += '<th>' + (d.label || '') + '</th>'; continue; }
         var isActive = _dht.sortCol === d.key;
         var arrow = '';
         if (isActive && _dht.sortDir === 'asc') arrow = ' ▲';
@@ -514,35 +514,35 @@ function _dhtRenderOrderRows(filtered) {
         const _catColor = _catColors[_catHash];
         const _catBg = _catBgs[_catHash];
 
-        // ★ Tiến Độ calculation
+        // ★ Tiến Độ calculation: today vs expected_ship_date
         let tienDo = '';
-        if (o.shipping_date) {
-            const shipPlan = new Date(o.shipping_date); shipPlan.setHours(0,0,0,0);
-            if (o.shipped_at) {
-                // Already shipped — compare actual vs planned
-                const shipActual = new Date(new Date(o.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        if (o.expected_ship_date) {
+            const shipExpected = new Date(o.expected_ship_date); shipExpected.setHours(0,0,0,0);
+            const diffDays = Math.round((_todayVN.getTime() - shipExpected.getTime()) / 86400000);
+            if (o.shipped_at || o.shipping_status === 'shipped') {
+                // Already shipped
+                const shipActual = o.shipped_at ? new Date(new Date(o.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })) : _todayVN;
                 shipActual.setHours(0,0,0,0);
-                const diffDays = Math.round((shipPlan.getTime() - shipActual.getTime()) / 86400000);
-                if (diffDays > 0) {
-                    tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">⚡Nhanh hơn ${diffDays} ngày</span>`;
-                } else if (diffDays === 0) {
+                const shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
+                if (shipDiff > 0) {
+                    tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">⚡Nhanh ${shipDiff} ngày</span>`;
+                } else if (shipDiff === 0) {
                     tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">✅ Đúng hạn</span>`;
                 } else {
-                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ Trễ ${Math.abs(shipDiff)} ngày</span>`;
                 }
             } else {
-                // Not shipped yet — compare today vs planned
-                const diffDays = Math.round((shipPlan.getTime() - _todayVN.getTime()) / 86400000);
-                if (diffDays > 0) {
-                    tienDo = `<span style="color:#2563eb;font-size:10px;font-weight:700">⏳ Còn ${diffDays} ngày</span>`;
+                // Not shipped yet — compare today vs expected
+                if (diffDays < 0) {
+                    tienDo = `<span style="color:#2563eb;font-size:10px;font-weight:700">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
                 } else if (diffDays === 0) {
                     tienDo = `<span style="color:#f59e0b;font-size:10px;font-weight:800">📦 Hôm nay!</span>`;
                 } else {
-                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:800;animation:dhtBlink 1s infinite">🔥 Quá hạn ${Math.abs(diffDays)} ngày</span>`;
+                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:800;animation:dhtBlink 1s infinite">🔥 Quá hạn ${diffDays} ngày</span>`;
                 }
             }
         }
-        const shipDateFmt = o.shipping_date ? '🚛' + fmtD(o.shipping_date) : '—';
+        const shipDateFmt = o.expected_ship_date ? '🚛' + fmtD(o.expected_ship_date) : '—';
 
             return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
