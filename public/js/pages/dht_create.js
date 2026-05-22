@@ -1452,7 +1452,6 @@ async function _dhtSubmitEditV2() {
         province: prov || null,
         total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
         total_amount: totalAmt + totalVatAmt + surTotal,
-        discount_amount: 0,
         surcharges: (_dhtCreate.surcharges || []).map(function(s) { return { name: s.description, amount: Number(s.amount) || 0 }; }),
         has_vat: hasVat,
         vat_amount: totalVatAmt,
