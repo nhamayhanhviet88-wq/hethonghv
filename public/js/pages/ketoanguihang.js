@@ -1,69 +1,207 @@
 // ========== ĐƠN HÀNG KẾ TOÁN GỬI ==========
-let _shFilter = 'today';
-let _shOrders = [];
-let _shCounts = {};
+let _shAllOrders = [];   // All orders from API (loaded once)
+let _shFiltered = [];    // After date/CSKH filter
+let _shSearched = [];    // After search
+let _shPage = 1;
+const _SH_PER_PAGE = 100;
 let _shCarriers = [];
+let _shDateFilter = '';  // '', 'today', 'month'
+let _shMonthVal = '';    // YYYY-MM
+let _shYearVal = '';     // YYYY or ''
+let _shCskhVal = '';     // user id or ''
+let _shSearchVal = '';   // search text
 
 async function renderKetoanguihangPage(container) {
-    _shFilter = 'today';
+    _shDateFilter = ''; _shMonthVal = ''; _shYearVal = ''; _shCskhVal = ''; _shSearchVal = ''; _shPage = 1;
     container.innerHTML = `<div style="max-width:1600px;margin:0 auto;padding:16px;">
         <h2 style="margin:0 0 16px;font-size:22px;color:#122546;font-weight:800;">📤 Đơn Hàng Kế Toán Gửi</h2>
-        <div style="display:flex;gap:16px;align-items:flex-start;">
-            <div id="shSidebar" style="width:220px;flex-shrink:0;"></div>
-            <div id="shContent" style="flex:1;min-width:0;"></div>
-        </div>
+        <div id="shFilterBar"></div>
+        <div id="shSearchBar" style="margin-bottom:12px;"></div>
+        <div id="shContent"></div>
     </div>`;
     try { const c = await apiCall('/api/shipping/carriers'); _shCarriers = c.carriers || []; } catch(e){}
-    _shRenderSidebar();
-    _shLoadOrders();
+    _shRenderFilterBar();
+    _shRenderSearchBar();
+    _shLoadAllOrders();
 }
 
-function _shRenderSidebar() {
-    const sb = document.getElementById('shSidebar');
+// ===== FILTER BAR =====
+function _shRenderFilterBar() {
+    const fb = document.getElementById('shFilterBar');
+    if (!fb) return;
+    // Build CSKH options from loaded data
+    const cskhMap = {};
+    _shAllOrders.forEach(o => { if (o.cskh_name && o.cskh_user_id) cskhMap[o.cskh_user_id] = o.cskh_name; });
+    const cskhOpts = Object.entries(cskhMap).sort((a,b) => a[1].localeCompare(b[1]));
+    // Build Year options
+    const years = new Set();
+    _shAllOrders.forEach(o => { if(o.expected_ship_date) years.add(new Date(o.expected_ship_date).getFullYear()); });
+    const yearList = [...years].sort((a,b) => b - a);
+
+    const btnStyle = (active) => `padding:7px 16px;border:1.5px solid ${active?'#122546':'#cbd5e1'};border-radius:8px;background:${active?'#122546':'white'};color:${active?'white':'#334155'};cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;`;
+    const selStyle = 'padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;background:white;';
+
+    fb.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+        <button onclick="_shQuickFilter('today')" style="${btnStyle(_shDateFilter==='today')}">📅 Hôm Nay</button>
+        <button onclick="_shQuickFilter('month')" style="${btnStyle(_shDateFilter==='month')}">📅 Tháng Này</button>
+        <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:700;color:#64748b;">📅 CHỌN THÁNG</span>
+            <input type="month" id="shMonthPick" value="${_shMonthVal}" onchange="_shOnMonthChange(this.value)" style="${selStyle}min-width:150px;">
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:700;color:#64748b;">📅 CHỌN NĂM</span>
+            <select id="shYearPick" onchange="_shOnYearChange(this.value)" style="${selStyle}min-width:90px;">
+                <option value="">Tất cả</option>
+                ${yearList.map(y => `<option value="${y}" ${_shYearVal==String(y)?'selected':''}>${y}</option>`).join('')}
+            </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:11px;font-weight:700;color:#64748b;">👤 CSKH</span>
+            <select id="shCskhPick" onchange="_shOnCskhChange(this.value)" style="${selStyle}min-width:120px;">
+                <option value="">Tất cả</option>
+                ${cskhOpts.map(([id,name]) => `<option value="${id}" ${_shCskhVal==String(id)?'selected':''}>${name}</option>`).join('')}
+            </select>
+        </div>
+        <button onclick="_shClearFilters()" style="padding:7px 14px;border:1.5px solid #dc2626;border-radius:8px;background:white;color:#dc2626;cursor:pointer;font-size:12px;font-weight:700;">❌ Xóa</button>
+    </div>`;
+}
+
+// ===== SEARCH BAR =====
+function _shRenderSearchBar() {
+    const sb = document.getElementById('shSearchBar');
     if (!sb) return;
-    const filters = [
-        { key:'early', icon:'🔵', label:'Gửi Sớm', color:'#3b82f6', bg:'#eff6ff' },
-        { key:'today', icon:'🔴', label:'Hôm Nay Gửi', color:'#dc2626', bg:'#fef2f2' },
-        { key:'rescheduled', icon:'🟡', label:'Chưa Gửi', color:'#d97706', bg:'#fffbeb' },
-        { key:'shipped', icon:'✅', label:'Đã Gửi', color:'#059669', bg:'#ecfdf5' }
-    ];
-    sb.innerHTML = filters.map(f => {
-        const active = _shFilter === f.key;
-        const cnt = _shCounts[f.key] || 0;
-        return `<div onclick="_shSetFilter('${f.key}')" style="padding:12px 14px;margin-bottom:6px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .2s;border:2px solid ${active ? f.color : '#e2e8f0'};background:${active ? f.bg : 'white'};box-shadow:${active ? '0 2px 8px rgba(0,0,0,.08)' : 'none'};" onmouseover="if(!${active})this.style.borderColor='${f.color}'" onmouseout="if(!${active})this.style.borderColor='#e2e8f0'">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:16px;">${f.icon}</span>
-                <span style="font-size:13px;font-weight:700;color:${active ? f.color : '#334155'};">${f.label}</span>
-            </div>
-            <span style="background:${active ? f.color : '#e2e8f0'};color:${active ? 'white' : '#64748b'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800;">${cnt}</span>
-        </div>`;
-    }).join('') + `${_shCounts.overdue > 0 ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;"><div style="font-size:11px;font-weight:700;color:#dc2626;">⚠️ ${_shCounts.overdue} đơn quá hạn!</div><div style="font-size:10px;color:#991b1b;margin-top:2px;">Phạt 100.000đ/ngày nếu không gửi</div></div>` : ''}`;
+    sb.innerHTML = `<div style="display:flex;gap:8px;align-items:center;">
+        <div style="flex:1;max-width:420px;position:relative;">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
+            <input type="text" id="shSearchInput" value="${_shSearchVal}" oninput="_shOnSearch(this.value)" placeholder="Tìm mã đơn hàng, SĐT, tên khách..." style="width:100%;padding:9px 12px 9px 36px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
+        </div>
+    </div>`;
 }
 
-function _shSetFilter(key) { _shFilter = key; _shRenderSidebar(); _shLoadOrders(); }
+// ===== FILTER ACTIONS =====
+function _shQuickFilter(type) {
+    if (_shDateFilter === type) { _shDateFilter = ''; } else { _shDateFilter = type; }
+    _shMonthVal = ''; _shYearVal = '';
+    _shPage = 1;
+    _shApplyFilters();
+    _shRenderFilterBar();
+}
+function _shOnMonthChange(val) {
+    _shMonthVal = val; _shDateFilter = ''; _shYearVal = '';
+    _shPage = 1; _shApplyFilters(); _shRenderFilterBar();
+}
+function _shOnYearChange(val) {
+    _shYearVal = val; _shDateFilter = ''; _shMonthVal = '';
+    _shPage = 1; _shApplyFilters(); _shRenderFilterBar();
+}
+function _shOnCskhChange(val) {
+    _shCskhVal = val; _shPage = 1; _shApplyFilters();
+}
+function _shOnSearch(val) {
+    _shSearchVal = val; _shPage = 1; _shApplySearch(); _shRenderContent();
+}
+function _shClearFilters() {
+    _shDateFilter = ''; _shMonthVal = ''; _shYearVal = ''; _shCskhVal = ''; _shSearchVal = ''; _shPage = 1;
+    const si = document.getElementById('shSearchInput'); if (si) si.value = '';
+    _shApplyFilters(); _shRenderFilterBar();
+}
 
-async function _shLoadOrders() {
+// ===== DATA PIPELINE =====
+async function _shLoadAllOrders() {
     const el = document.getElementById('shContent');
     if (!el) return;
-    el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải tất cả đơn hàng...</div>';
     try {
-        const data = await apiCall(`/api/shipping/orders?filter=${_shFilter}&page_type=ketoan`);
-        _shOrders = data.orders || [];
-        _shCounts = data.counts || {};
-        _shRenderSidebar();
-        _shRenderTable(el);
+        const data = await apiCall('/api/shipping/orders?filter=all&page_type=ketoan');
+        _shAllOrders = data.orders || [];
+        _shApplyFilters();
+        _shRenderFilterBar(); // Re-render to populate CSKH/Year dropdowns
     } catch(e) {
         el.innerHTML = `<div style="color:#dc2626;text-align:center;padding:40px;">Lỗi: ${e.message}</div>`;
     }
 }
 
-function _shRenderTable(el) {
-    if (_shOrders.length === 0) {
+function _shApplyFilters() {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const curMonth = todayStr.substring(0, 7); // YYYY-MM
+
+    _shFiltered = _shAllOrders.filter(o => {
+        // Date filter
+        const esd = o.expected_ship_date ? o.expected_ship_date.split('T')[0] : '';
+        if (_shDateFilter === 'today') {
+            if (esd !== todayStr) return false;
+        } else if (_shDateFilter === 'month') {
+            if (!esd || esd.substring(0, 7) !== curMonth) return false;
+        } else if (_shMonthVal) {
+            if (!esd || esd.substring(0, 7) !== _shMonthVal) return false;
+        } else if (_shYearVal) {
+            if (!esd || !esd.startsWith(_shYearVal)) return false;
+        }
+        // CSKH filter
+        if (_shCskhVal && String(o.cskh_user_id) !== _shCskhVal) return false;
+        return true;
+    });
+    _shApplySearch();
+    _shRenderContent();
+}
+
+function _shApplySearch() {
+    const q = (_shSearchVal || '').toLowerCase().trim();
+    if (!q) { _shSearched = _shFiltered.slice(); return; }
+    _shSearched = _shFiltered.filter(o => {
+        return (o.order_code || '').toLowerCase().includes(q)
+            || (o.customer_phone || '').toLowerCase().includes(q)
+            || (o.customer_name || '').toLowerCase().includes(q);
+    });
+}
+
+// ===== PAGINATION =====
+function _shPaginationHTML(total, page, perPage) {
+    const totalPages = Math.ceil(total / perPage) || 1;
+    if (totalPages <= 1) return '';
+    const btns = [];
+    btns.push(`<button onclick="_shGoPage(1)" ${page<=1?'disabled':''} style="${_shPgBtn(page>1)}">⏮</button>`);
+    btns.push(`<button onclick="_shGoPage(${page-1})" ${page<=1?'disabled':''} style="${_shPgBtn(page>1)}">◀</button>`);
+    btns.push(`<span style="font-size:12px;font-weight:700;color:#334155;padding:0 8px;">Trang ${page} / ${totalPages}</span>`);
+    btns.push(`<button onclick="_shGoPage(${page+1})" ${page>=totalPages?'disabled':''} style="${_shPgBtn(page<totalPages)}">▶</button>`);
+    btns.push(`<button onclick="_shGoPage(${totalPages})" ${page>=totalPages?'disabled':''} style="${_shPgBtn(page<totalPages)}">⏭</button>`);
+    return `<div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:8px 0;">${btns.join('')}</div>`;
+}
+function _shPgBtn(enabled) {
+    return `padding:5px 10px;border:1px solid ${enabled?'#122546':'#e2e8f0'};border-radius:6px;background:${enabled?'white':'#f1f5f9'};color:${enabled?'#122546':'#cbd5e1'};cursor:${enabled?'pointer':'not-allowed'};font-size:12px;font-weight:700;`;
+}
+function _shGoPage(p) {
+    const totalPages = Math.ceil(_shSearched.length / _SH_PER_PAGE) || 1;
+    _shPage = Math.max(1, Math.min(p, totalPages));
+    _shRenderContent();
+}
+
+// ===== RENDER =====
+function _shRenderContent() {
+    const el = document.getElementById('shContent');
+    if (!el) return;
+    if (_shSearched.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:60px;"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="color:#9ca3af;font-size:14px;font-weight:600;">Không có đơn hàng nào</div></div>`;
         return;
     }
-    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014';
-    const isKT = _shFilter !== 'shipped';
+    const total = _shSearched.length;
+    const totalPages = Math.ceil(total / _SH_PER_PAGE);
+    if (_shPage > totalPages) _shPage = totalPages;
+    const start = (_shPage - 1) * _SH_PER_PAGE;
+    const pageOrders = _shSearched.slice(start, start + _SH_PER_PAGE);
+
+    const pgHTML = _shPaginationHTML(total, _shPage, _SH_PER_PAGE);
+    const countHTML = `<div style="font-size:11px;color:#64748b;font-weight:600;text-align:center;padding:4px 0;">Tổng: ${total} đơn${totalPages>1?` — Hiển thị ${start+1}-${Math.min(start+_SH_PER_PAGE,total)}`:''}</div>`;
+
+    let html = pgHTML + countHTML;
+    html += _shBuildTable(pageOrders);
+    html += countHTML + pgHTML;
+    el.innerHTML = html;
+}
+
+function _shBuildTable(orders) {
+    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const today = new Date().toISOString().split('T')[0];
 
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
@@ -74,42 +212,29 @@ function _shRenderTable(el) {
         ).join('')}
     </tr></thead><tbody>`;
 
-    for (const o of _shOrders) {
+    for (const o of orders) {
         const overdue = o.is_overdue;
-        const effDate = o.effective_ship_date;
-        const daysLate = overdue ? Math.ceil((new Date(today) - new Date(effDate)) / 86400000) : 0;
         const rowBg = overdue ? '#fef2f2' : '';
         const prioColors = { 'GỬI':'#3b82f6', 'GẤP':'#dc2626', 'CHUẨN':'#7c3aed' };
         const prioColor = prioColors[o.shipping_priority] || '#6b7280';
+        const isKT = o.shipping_status !== 'shipped';
 
-        // Tiến Độ: shipped → compare shipped_at vs expected, unshipped → compare today vs expected
-        let progressBadge = '<span style="color:#d1d5db;">\u2014</span>';
+        // Progress badge
+        let progressBadge = '<span style="color:#d1d5db;">—</span>';
         if (o.expected_ship_date) {
-            const expectedDate = new Date(o.expected_ship_date);
-            expectedDate.setHours(0,0,0,0);
+            const expectedDate = new Date(o.expected_ship_date); expectedDate.setHours(0,0,0,0);
             if (o.shipped_at) {
-                // Shipped: compare actual ship date vs expected
-                const actualDate = new Date(o.shipped_at);
-                actualDate.setHours(0,0,0,0);
+                const actualDate = new Date(o.shipped_at); actualDate.setHours(0,0,0,0);
                 const diffDays = Math.round((expectedDate - actualDate) / 86400000);
-                if (diffDays > 0) {
-                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#ecfdf5;color:#059669;">🚀 Nhanh ${diffDays} ngày</span>`;
-                } else if (diffDays < 0) {
-                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
-                } else {
-                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📦 Đúng hạn</span>`;
-                }
+                if (diffDays > 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#ecfdf5;color:#059669;">🚀 Nhanh ${diffDays} ngày</span>`;
+                else if (diffDays < 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+                else progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📦 Đúng hạn</span>`;
             } else {
-                // Unshipped: show remaining days
                 const todayDate = new Date(today);
                 const remainDays = Math.round((expectedDate - todayDate) / 86400000);
-                if (remainDays > 0) {
-                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📅 Còn ${remainDays} ngày</span>`;
-                } else if (remainDays < 0) {
-                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
-                } else {
-                    progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef3c7;color:#d97706;">📦 Hôm nay gửi</span>`;
-                }
+                if (remainDays > 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📅 Còn ${remainDays} ngày</span>`;
+                else if (remainDays < 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
+                else progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef3c7;color:#d97706;">📦 Hôm nay gửi</span>`;
             }
         }
 
@@ -125,45 +250,43 @@ function _shRenderTable(el) {
         }
         // Col 2: Bill link
         html += `<td style="padding:8px 4px;text-align:center;">${o.shipping_bill_link ? `<a href="${o.shipping_bill_link}" target="_blank" style="color:#3b82f6;font-size:14px;" title="Xem bill" onclick="event.stopPropagation()">🔗</a>` : `<span style="color:#d1d5db;cursor:pointer;font-size:14px;" onclick="event.stopPropagation();_shEditTracking(${o.id},'shipping_bill_link','${(o.shipping_bill_link||'').replace(/'/g,"\\'")}')" title="Thêm link bill">➕</span>`}</td>`;
-        // Col 3: Gửi Dự Kiến (expected ship date)
+        // Col 3: Gửi Dự Kiến
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</td>`;
-        // Col 4: 🚛 Ngày Gửi (actual ship date - when accounting clicks ship)
+        // Col 4: 🚛 Ngày Gửi
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? fmt(o.shipped_at) : '—'}</td>`;
         // Col 5: Hẹn Lại
-        html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">\u2014</span>'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
-        // Col 6: Order code
-        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '\u2014'}</td>`;
-        // Col 7: Priority
+        // Col 7: Order code
+        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '—'}</td>`;
+        // Col 8: Priority
         html += `<td style="padding:8px 6px;"><span style="background:${prioColor};color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority || 'CHUẨN'}</span></td>`;
-        // Col 8-9: Customer
-        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '\u2014'}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '\u2014'}</td>`;
-        // Col 10: CSKH
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '\u2014'}</td>`;
-        // Col 11: NVC DK
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '\u2014'}</td>`;
-        // Col 12: NVC TT (read-only)
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#1e293b;">${o.actual_carrier_name || '\u2014'}</td>`;
-        // Col 13: Tracking code (read-only, with tracking link if available)
-        var _tcDisplay = o.tracking_code || '\u2014';
+        // Col 9-10: Customer
+        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
+        // Col 11: CSKH
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '—'}</td>`;
+        // Col 12-13: NVC
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#1e293b;">${o.actual_carrier_name || '—'}</td>`;
+        // Col 14: Tracking
+        var _tcDisplay = o.tracking_code || '—';
         if (o.tracking_code && o.actual_carrier_tracking_url) {
             var _tcUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
             _tcDisplay = `<a href="${_tcUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#1e40af;font-weight:700;text-decoration:underline;" title="Tra cứu vận đơn">${o.tracking_code}</a>`;
         }
         html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${_tcDisplay}</td>`;
-        // Col 14: Carrier phone (read-only)
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_phone || '\u2014'}</td>`;
-        // Col 15: Ship time
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '\u2014'}</td>`;
-        // Col 16: History
+        // Col 15: Carrier phone
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_phone || '—'}</td>`;
+        // Col 16: Ship time
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '—'}</td>`;
+        // Col 17: History
         html += `<td style="padding:8px 6px;text-align:center;"><button onclick="event.stopPropagation();_shShowHistory(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;cursor:pointer;font-size:10px;font-weight:600;">📋</button></td>`;
         html += '</tr>';
     }
     html += '</tbody></table></div>';
-    html += `<div style="margin-top:8px;font-size:11px;color:#9ca3af;">Tổng: ${_shOrders.length} đơn</div>`;
-    el.innerHTML = html;
+    return html;
 }
 
 // ===== CARRIER RULES =====
@@ -181,7 +304,7 @@ function _shGetCarrierGroup(name) {
 
 // ===== SHIP MODAL =====
 function _shShipOrder(id, code) {
-    const o = _shOrders.find(x => x.id === id); if (!o) return;
+    const o = _shAllOrders.find(x => x.id === id); if (!o) return;
     document.getElementById('shShipModal')?.remove();
     const m = document.createElement('div'); m.id = 'shShipModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;';
@@ -377,7 +500,7 @@ async function _shDoShip(id) {
         if (r.error) { alert(r.error); return; }
         showToast(r.message || '✅ Đã gửi');
         document.getElementById('shShipModal')?.remove();
-        _shLoadOrders();
+        _shLoadAllOrders();
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
@@ -459,7 +582,7 @@ async function _shDoReschedule(id) {
         if (r.error) { alert(r.error); return; }
         showToast(r.message || '✅ Đã hẹn lại');
         document.getElementById('shRescheduleModal')?.remove();
-        _shLoadOrders();
+        _shLoadAllOrders();
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
@@ -468,7 +591,7 @@ function _shEditTracking(id, field, currentVal) {
     const val = prompt(labels[field] || field, currentVal || '');
     if (val === null) return;
     apiCall(`/api/shipping/orders/${id}/tracking`, 'PUT', { [field]: val })
-        .then(r => { if (r.error) alert(r.error); else { showToast('✅ Đã cập nhật'); _shLoadOrders(); } })
+        .then(r => { if (r.error) alert(r.error); else { showToast('✅ Đã cập nhật'); _shLoadAllOrders(); } })
         .catch(e => alert('Lỗi: ' + e.message));
 }
 

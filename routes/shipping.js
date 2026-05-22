@@ -97,6 +97,12 @@ module.exports = async function(fastify) {
                 orderBy = 'o.shipped_at DESC NULLS LAST, o.shipping_date DESC NULLS LAST';
                 break;
 
+            case 'all':
+                // Return ALL orders (no status/date filter) for client-side filtering
+                filterWhere = ``;
+                orderBy = 'o.expected_ship_date DESC NULLS LAST, o.created_at DESC';
+                break;
+
             default:
                 filterWhere = ` AND o.expected_ship_date IS NOT NULL`;
                 orderBy = 'o.expected_ship_date DESC';
