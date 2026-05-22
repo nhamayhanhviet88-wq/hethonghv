@@ -488,7 +488,7 @@ module.exports = async function(fastify) {
         // 3. Linked payment records (by order_code match OR by deposit_payment_id)
         let payments = await db.all(`
             SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
-                   customer_name, customer_phone, transfer_note, total_order_codes
+                   customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by
             FROM payment_records
             WHERE total_order_codes ILIKE '%' || $1 || '%'
                OR order_tt_coc = $1
@@ -499,7 +499,7 @@ module.exports = async function(fastify) {
         if (payments.length === 0 && order.deposit_payment_id) {
             const depRecord = await db.get(`
                 SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
-                       customer_name, customer_phone, transfer_note, total_order_codes
+                       customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by
                 FROM payment_records WHERE id = $1
             `, [order.deposit_payment_id]);
             if (depRecord) {
@@ -547,7 +547,7 @@ module.exports = async function(fastify) {
 
         let runningPaid = 0;
         // Sort payments by date ascending for running balance
-        const sortedPayments = payments.slice().sort((a, b) => new Date(a.payment_date || a.created_at) - new Date(b.payment_date || b.created_at));
+        const sortedPayments = payments.slice().sort((a, b) => new Date(a.created_at || a.payment_date) - new Date(b.created_at || b.payment_date));
 
         for (const p of sortedPayments) {
             const amt = Number(p.amount) || 0;
@@ -585,7 +585,7 @@ module.exports = async function(fastify) {
                 changes: JSON.stringify(changes),
                 performed_by: p.created_by || null,
                 performer_name: p.customer_name || '—',
-                created_at: p.payment_date || p.created_at || order.created_at,
+                created_at: p.created_at || p.payment_date || order.created_at,
                 _is_virtual: true,
                 _payment_type: pType,
                 _is_outflow: isOutflow,
