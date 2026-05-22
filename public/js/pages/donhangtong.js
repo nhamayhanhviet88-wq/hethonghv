@@ -362,7 +362,7 @@ async function renderDonhangtongPage(content) {
     _dht.staff = staffRes.staff || [];
     content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="dhtSearchWrap" style="position:relative;display:flex;align-items:center;gap:0"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn hàng, SĐT, tên khách..." style="width:320px;font-size:13px;padding:8px 36px 8px 14px;border-radius:10px 0 0 10px;border:2px solid #daa520;border-right:none;transition:all .2s" onfocus="this.style.borderColor=&apos;#b8860b&apos;;this.style.boxShadow=&apos;0 0 0 3px rgba(184,134,11,0.15)&apos;" onblur="this.style.borderColor=&apos;#daa520&apos;;this.style.boxShadow=&apos;none&apos;"><button onclick="_dhtDoSearch()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 16px;border-radius:0 10px 10px 0;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;height:100%;transition:all .15s" onmouseover="this.style.filter=&apos;brightness(1.1)&apos;" onmouseout="this.style.filter=&apos;&apos;">Tìm</button><button id="dhtSearchClear" onclick="_dhtClearSearch()" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;white-space:nowrap" title="Xóa tìm kiếm">✕</button></div><div id="dhtSearchBadge" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#92400e"></div><div id="dhtFilterInfo" style="font-size:12px"></div>'
         +'<div id="dhtStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
-        +'<div style="margin-left:auto;display:flex;align-items:center;gap:12px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
+        +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateFreBtn" onclick="_dhtShowCreateFree()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(5,150,105,0.35);transition:all .2s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">🐾 Tạo PET/TEM</button><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#b8860b,#daa520,#f0c040);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(184,134,11,0.4);transition:all .2s;text-shadow:0 1px 2px rgba(0,0,0,0.2)" onmouseover="this.style.transform=\'scale(1.05)\';this.style.boxShadow=\'0 5px 18px rgba(184,134,11,0.5)\'" onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 3px 12px rgba(184,134,11,0.4)\'">✨ Tạo Đồng Phục</button></div></div>'
         +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
         +'<div id="dhtDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px">'
         +'<button onclick="_dhtDateFilterToday()" style="background:#0369a1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
@@ -408,7 +408,7 @@ async function _dhtShowNextCode() {
             el.innerHTML = '<span style="color:#94a3b8;font-size:11px">📋 Không có mã đơn chờ — Chốt Đơn ở CRM trước</span>';
             if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
         } else {
-            el.innerHTML = '📋 <span style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;padding:3px 14px;border-radius:6px;font-size:13px;font-weight:900">' + count + ' mã đơn chờ tạo</span>';
+            el.innerHTML = '📋 <span style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:3px 14px;border-radius:6px;font-size:13px;font-weight:900">' + count + ' mã đơn chờ tạo</span>';
             if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
         }
     } catch(e) {
@@ -465,6 +465,8 @@ async function _dhtLoadTree() {
     if(isGD){
         h += '<div style="padding:12px;border-top:1px solid var(--gray-200);display:flex;flex-direction:column;gap:6px">';
         h += '<button onclick="_dhtShowCatSetup()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">⚙️ Quản Lý Lĩnh Vực</button>';
+        h += '<button onclick="_dhtShowSourceSetup(\'pet\')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🐾 Quản Lý Nguồn PET</button>';
+        h += '<button onclick="_dhtShowSourceSetup(\'tem\')" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:8px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🏷️ Quản Lý Nguồn TEM</button>';
         h += '</div>';
     }
     sb.innerHTML = h;
@@ -1501,6 +1503,69 @@ function _dhtRenderCatModal() {
 
     openModal('⚙️ Quản Lý Lĩnh Vực', body, '<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px">Đóng</button>');
     setTimeout(function(){document.getElementById('dhtNewCatName')?.focus()},200);
+}
+
+// ========== PET/TEM SOURCE MANAGEMENT ==========
+async function _dhtShowSourceSetup(type) {
+    var label = type === 'tem' ? 'TEM' : 'PET';
+    var emoji = type === 'tem' ? '🏷️' : '🐾';
+    var color = type === 'tem' ? '#7c3aed' : '#059669';
+    var apiUrl = '/api/dht/' + type + '-sources';
+
+    try {
+        var res = await apiCall(apiUrl);
+        var items = res.items || [];
+
+        var cards = items.map(function(s) {
+            return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-radius:8px;margin-bottom:4px;border-left:3px solid '+color+';box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
+                + '<span style="flex:1;font-weight:700;font-size:13px;color:#1e293b">' + s.name + '</span>'
+                + '<button onclick="_dhtDelSource(\''+type+'\','+s.id+')" style="background:#fee2e2;color:#dc2626;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:12px" title="Xóa">✕</button>'
+                + '</div>';
+        }).join('');
+
+        if (items.length === 0) {
+            cards = '<div style="text-align:center;padding:24px;color:#94a3b8"><div style="font-size:28px;margin-bottom:6px">' + emoji + '</div>Chưa có nguồn ' + label + ' nào</div>';
+        }
+
+        var body = '<div style="background:#f8fafc;border-radius:10px;padding:14px;border:1px solid #e2e8f0;margin-bottom:14px">'
+            + '<div style="font-weight:800;font-size:13px;color:'+color+';margin-bottom:10px">' + emoji + ' Danh Sách Nguồn ' + label + ' (' + items.length + ')</div>'
+            + '<div style="max-height:300px;overflow-y:auto">' + cards + '</div></div>'
+            + '<div style="background:#fffbeb;border-radius:10px;padding:12px;border:1px dashed '+color+'">'
+            + '<div style="font-size:11px;font-weight:800;color:'+color+';margin-bottom:8px">➕ THÊM NGUỒN ' + label + ' MỚI</div>'
+            + '<div style="display:flex;gap:8px">'
+            + '<input id="_dhtNewSrcName" class="form-control" placeholder="Nhập tên nguồn..." style="flex:1;font-size:13px;padding:8px 12px;border-radius:8px" onkeydown="if(event.key===\'Enter\')_dhtAddSource(\''+type+'\')">'
+            + '<button onclick="_dhtAddSource(\''+type+'\')" style="background:'+color+';color:#fff;border:none;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">➕ Thêm</button>'
+            + '</div></div>';
+
+        openModal(emoji + ' Quản Lý Nguồn ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px">Đóng</button>');
+        setTimeout(function(){document.getElementById('_dhtNewSrcName')?.focus()},200);
+    } catch(e) {
+        showToast('Lỗi tải nguồn ' + label, 'error');
+    }
+}
+
+async function _dhtAddSource(type) {
+    var nameEl = document.getElementById('_dhtNewSrcName');
+    var name = (nameEl?.value || '').trim();
+    if (!name) { showToast('Nhập tên nguồn', 'error'); return; }
+    try {
+        await apiCall('/api/dht/' + type + '-sources', 'POST', { name: name });
+        showToast('Đã thêm nguồn!', 'success');
+        _dhtShowSourceSetup(type);
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || ''), 'error');
+    }
+}
+
+async function _dhtDelSource(type, id) {
+    if (!confirm('Xóa nguồn này?')) return;
+    try {
+        await apiCall('/api/dht/' + type + '-sources/' + id, 'DELETE');
+        showToast('Đã xóa nguồn!', 'success');
+        _dhtShowSourceSetup(type);
+    } catch(e) {
+        showToast('Lỗi xóa: ' + (e.message || ''), 'error');
+    }
 }
 
 async function _dhtMoveCat(index, dir) {

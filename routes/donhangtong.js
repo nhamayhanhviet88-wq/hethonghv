@@ -19,6 +19,34 @@ module.exports = async function(fastify) {
     // Auto-seed J&T tracking URL if not set
     try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://jtexpress.vn/vi/tracking?type=track&billcode={code}' WHERE name ILIKE '%J&T%' AND tracking_url_template IS NULL`); } catch(e) {}
     try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://nascoexpress.com/tra-cuu-van-don.html?s={code}' WHERE name ILIKE '%Nasco%' AND tracking_url_template IS NULL`); } catch(e) {}
+
+    // ★ PET/TEM free order: sequences + source tables
+    try { await db.run(`CREATE SEQUENCE IF NOT EXISTS gcpet_seq`); } catch(e) {}
+    try { await db.run(`CREATE SEQUENCE IF NOT EXISTS gctem_seq`); } catch(e) {}
+    // Sync sequences to current max if orders already exist
+    try {
+        const maxPet = await db.get("SELECT order_code FROM dht_orders WHERE order_code LIKE 'GCPET%' ORDER BY id DESC LIMIT 1");
+        if (maxPet) { const m = maxPet.order_code.match(/(\d+)$/); if (m) await db.run(`SELECT setval('gcpet_seq', $1)`, [parseInt(m[1])]); }
+    } catch(e) {}
+    try {
+        const maxTem = await db.get("SELECT order_code FROM dht_orders WHERE order_code LIKE 'GCTEM%' ORDER BY id DESC LIMIT 1");
+        if (maxTem) { const m = maxTem.order_code.match(/(\d+)$/); if (m) await db.run(`SELECT setval('gctem_seq', $1)`, [parseInt(m[1])]); }
+    } catch(e) {}
+    try { await db.run(`CREATE TABLE IF NOT EXISTS dht_pet_sources (id SERIAL PRIMARY KEY, name TEXT NOT NULL, sort_order INTEGER DEFAULT 0)`); } catch(e) {}
+    try { await db.run(`CREATE TABLE IF NOT EXISTS dht_tem_sources (id SERIAL PRIMARY KEY, name TEXT NOT NULL, sort_order INTEGER DEFAULT 0)`); } catch(e) {}
+    // ★ Free customers for PET/TEM
+    try { await db.run(`CREATE TABLE IF NOT EXISTS dht_free_customers (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT,
+        address TEXT,
+        province TEXT,
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    )`); } catch(e) {}
+    try { await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_free_cust_phone ON dht_free_customers(phone)`); } catch(e) {}
+    try { await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_free_cust_name ON dht_free_customers(name)`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -257,16 +285,23 @@ module.exports = async function(fastify) {
     });
 
     // ========== ORDERS: Create ==========
+    // ★ FREE_ORDER categories: PET=8, TEM=9 → auto-generate order code
+    const FREE_CAT_MAP = { 8: { prefix: 'GCPET', seq: 'gcpet_seq' }, 9: { prefix: 'GCTEM', seq: 'gctem_seq' } };
+
     fastify.post('/api/dht/orders', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body || {};
+        const catId = b.category_id ? Number(b.category_id) : null;
+        const isFreeOrder = !!FREE_CAT_MAP[catId];
 
-        // Block users without order_code_prefix (Mã Đơn KD)
-        const userPrefixCheck = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
-        if (!userPrefixCheck?.order_code_prefix) {
-            return reply.code(403).send({ error: 'Tài khoản chưa được cấp Mã Đơn KD. Không thể tạo đơn hàng.' });
+        // ★ NORMAL orders: require order_code_prefix
+        if (!isFreeOrder) {
+            const userPrefixCheck = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
+            if (!userPrefixCheck?.order_code_prefix) {
+                return reply.code(403).send({ error: 'Tài khoản chưa được cấp Mã Đơn KD. Không thể tạo đơn hàng.' });
+            }
+            if (!b.order_code || !b.order_code.trim()) return reply.code(400).send({ error: 'Vui lòng nhập Mã Đơn' });
         }
 
-        if (!b.order_code || !b.order_code.trim()) return reply.code(400).send({ error: 'Vui lòng nhập Mã Đơn' });
         if (!b.order_date) return reply.code(400).send({ error: 'Vui lòng chọn Ngày Lên Đơn' });
 
         // Validate province against whitelist
@@ -275,22 +310,29 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Tỉnh/Thành phố không hợp lệ' });
         }
 
-        // Validate customer_id: must exist and belong to this user
-        if (b.customer_id) {
-            const cust = await db.get(`
-                SELECT c.customer_name, s.name as source_name
-                FROM customers c
-                LEFT JOIN settings_sources s ON c.source_id = s.id
-                WHERE c.id = $1 AND c.assigned_to_id = $2
-            `, [Number(b.customer_id), request.user.id]);
-            if (!cust) {
-                return reply.code(400).send({ error: 'Khách hàng không tồn tại hoặc không thuộc về bạn' });
+        // ★ Customer validation: different for free vs normal
+        if (isFreeOrder) {
+            // PET/TEM: customer entered manually, no CRM customer required
+            if (!b.customer_name || !b.customer_name.trim()) {
+                return reply.code(400).send({ error: 'Vui lòng nhập Tên Khách Hàng' });
             }
-            // Override client values with DB truth
-            b.customer_name = cust.customer_name;
-            b.source = cust.source_name || b.source;
         } else {
-            return reply.code(400).send({ error: 'Vui lòng chọn khách hàng từ danh sách' });
+            // Normal: require CRM customer
+            if (b.customer_id) {
+                const cust = await db.get(`
+                    SELECT c.customer_name, s.name as source_name
+                    FROM customers c
+                    LEFT JOIN settings_sources s ON c.source_id = s.id
+                    WHERE c.id = $1 AND c.assigned_to_id = $2
+                `, [Number(b.customer_id), request.user.id]);
+                if (!cust) {
+                    return reply.code(400).send({ error: 'Khách hàng không tồn tại hoặc không thuộc về bạn' });
+                }
+                b.customer_name = cust.customer_name;
+                b.source = cust.source_name || b.source;
+            } else {
+                return reply.code(400).send({ error: 'Vui lòng chọn khách hàng từ danh sách' });
+            }
         }
 
         // Validate ship date: must be >= today and not a holiday
@@ -305,13 +347,22 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Validate proof image for CHUẨN priority
+        // ★ Generate order code for PET/TEM via sequence (atomic)
+        let orderCode;
+        if (isFreeOrder) {
+            const cfg = FREE_CAT_MAP[catId];
+            const seqRow = await db.get(`SELECT nextval('${cfg.seq}') as seq`);
+            orderCode = cfg.prefix + String(seqRow.seq).padStart(4, '0');
+        } else {
+            orderCode = b.order_code.trim();
+        }
+
+        // Validate proof image for CHUẨN priority (skip for free orders)
         let proofPath = null;
-        if ((b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
+        if (!isFreeOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
             if (!b.standard_proof_image) {
                 return reply.code(400).send({ error: 'Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN' });
             }
-            // Save base64 image to file
             try {
                 const match = b.standard_proof_image.match(/^data:image\/(\w+);base64,(.+)$/);
                 if (match) {
@@ -319,7 +370,7 @@ module.exports = async function(fastify) {
                     const buffer = Buffer.from(match[2], 'base64');
                     const dir = path.join(__dirname, '..', 'uploads', 'dht-proofs');
                     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                    const filename = `proof_${b.order_code.trim()}_${Date.now()}.${ext}`;
+                    const filename = `proof_${orderCode}_${Date.now()}.${ext}`;
                     fs.writeFileSync(path.join(dir, filename), buffer);
                     proofPath = '/uploads/dht-proofs/' + filename;
                 }
@@ -328,9 +379,9 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Check duplicate
-        const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [b.order_code.trim()]);
-        if (existing) return reply.code(409).send({ error: `Mã đơn "${b.order_code.trim()}" đã tồn tại!` });
+        // Check duplicate (safety net — sequence should prevent this)
+        const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
+        if (existing) return reply.code(409).send({ error: `Mã đơn "${orderCode}" đã tồn tại!` });
 
         const result = await db.get(`
             INSERT INTO dht_orders (
@@ -344,15 +395,15 @@ module.exports = async function(fastify) {
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$30)
             RETURNING *
         `, [
-            b.order_code.trim(),
+            orderCode,
             b.order_date,
-            b.category_id ? Number(b.category_id) : null,
+            catId,
             b.customer_name || null,
             b.customer_phone || null,
             b.source || null,
             b.province || null,
             b.address || null,
-            b.cskh_user_id ? Number(b.cskh_user_id) : null,
+            isFreeOrder ? request.user.id : (b.cskh_user_id ? Number(b.cskh_user_id) : null),
             Number(b.total_quantity) || 0,
             Number(b.total_amount) || 0,
             Number(b.discount_amount) || 0,
@@ -365,7 +416,7 @@ module.exports = async function(fastify) {
             b.carrier_id ? Number(b.carrier_id) : null,
             b.carrier_extra ? JSON.stringify(b.carrier_extra) : null,
             b.expected_ship_date || null,
-            b.shipping_priority || 'CHUẨN',
+            isFreeOrder ? (b.shipping_priority || 'GẤP') : (b.shipping_priority || 'CHUẨN'),
             proofPath,
             b.standard_delivery_time || null,
             b.zalo_oa_sent === true || b.zalo_oa_sent === 'true',
@@ -380,7 +431,7 @@ module.exports = async function(fastify) {
         if (b.deposit_payment_id) {
             await db.run(
                 'UPDATE payment_records SET order_tt_coc = $1, locked_by = NULL, locked_at = NULL WHERE id = $2',
-                [b.order_code.trim(), Number(b.deposit_payment_id)]
+                [orderCode, Number(b.deposit_payment_id)]
             );
         }
 
@@ -428,7 +479,7 @@ module.exports = async function(fastify) {
                         if (sample) {
                             await db.run(`INSERT INTO tsam_order_links (sample_id, dht_order_id, dht_order_code, linked_by)
                                 VALUES ($1, $2, $3, $4) ON CONFLICT (sample_id, dht_order_id) DO NOTHING`,
-                                [sample.id, result.id, b.order_code.trim(), request.user.id]);
+                                [sample.id, result.id, orderCode, request.user.id]);
                         }
                     } catch(linkErr) { /* ignore link errors */ }
                 }
@@ -452,16 +503,16 @@ module.exports = async function(fastify) {
         }
         // ★ Sync discount_amount to CRM order_codes (doanh số = items - discount)
         if ((Number(b.discount_amount) || 0) > 0) {
-            try { await db.run(`UPDATE order_codes SET discount_amount = $1 WHERE order_code = $2`, [Number(b.discount_amount) || 0, b.order_code.trim()]); } catch(e) { /* order_code may not exist in CRM yet */ }
+            try { await db.run(`UPDATE order_codes SET discount_amount = $1 WHERE order_code = $2`, [Number(b.discount_amount) || 0, orderCode]); } catch(e) { /* order_code may not exist in CRM yet */ }
         }
 
         // ★ Audit log: Tạo đơn
         if (result) {
             try {
                 await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1, $2, $3, $4, $5)`, [
-                    result.id, 'create', 'Đã tạo đơn ' + b.order_code.trim(),
+                    result.id, 'create', 'Đã tạo đơn ' + orderCode,
                     JSON.stringify([
-                        { field: 'order_code', label: 'Mã đơn', old: null, new: b.order_code.trim() },
+                        { field: 'order_code', label: 'Mã đơn', old: null, new: orderCode },
                         { field: 'total_amount', label: 'Tổng tiền', old: null, new: String(Number(b.total_amount) || 0) },
                         { field: 'total_quantity', label: 'Tổng SL', old: null, new: String(Number(b.total_quantity) || 0) },
                         ...(Number(b.deposit_amount) > 0 ? [{ field: 'deposit', label: 'Tiền cọc', old: null, new: String(Number(b.deposit_amount)) }] : []),
@@ -470,6 +521,26 @@ module.exports = async function(fastify) {
                     request.user.id
                 ]);
             } catch(auditErr) { console.error('[AuditLog] create:', auditErr.message); }
+        }
+
+        // ★ Auto-save free customer for PET/TEM reuse
+        if (isFreeOrder && b.customer_name) {
+            try {
+                const phone = (b.customer_phone || '').trim();
+                if (phone) {
+                    const existing = await db.get('SELECT id FROM dht_free_customers WHERE phone = $1', [phone]);
+                    if (existing) {
+                        await db.run('UPDATE dht_free_customers SET name=$1, address=$2, province=$3, updated_at=NOW() WHERE id=$4',
+                            [b.customer_name.trim(), b.address || null, b.province || null, existing.id]);
+                    } else {
+                        await db.run('INSERT INTO dht_free_customers (name, phone, address, province, created_by) VALUES ($1,$2,$3,$4,$5)',
+                            [b.customer_name.trim(), phone, b.address || null, b.province || null, request.user.id]);
+                    }
+                } else {
+                    await db.run('INSERT INTO dht_free_customers (name, phone, address, province, created_by) VALUES ($1,$2,$3,$4,$5)',
+                        [b.customer_name.trim(), null, b.address || null, b.province || null, request.user.id]);
+                }
+            } catch(custErr) { console.error('[FreeCust] save:', custErr.message); }
         }
 
         return { success: true, order: result };
@@ -1617,5 +1688,72 @@ module.exports = async function(fastify) {
             ORDER BY ps.display_order
         `, [orderId]);
         return { success: true, steps };
+    });
+
+    // ========== PET/TEM: Available Deposits (from Sổ Ghi Nhận Tiền) ==========
+    fastify.get('/api/dht/available-deposits', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(`
+            SELECT pr.id, pr.payment_code, pr.amount, pr.customer_name, pr.customer_phone,
+                   pr.payment_date, pr.bank_name, pr.transfer_note as description, pr.payment_method
+            FROM payment_records pr
+            WHERE (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
+              AND (pr.locked_by IS NULL OR pr.locked_by = $1
+                   OR pr.locked_at < NOW() - INTERVAL '10 minutes')
+              AND NOT EXISTS (
+                  SELECT 1 FROM dht_orders d WHERE d.deposit_payment_id = pr.id
+              )
+            ORDER BY pr.payment_date DESC, pr.id DESC
+            LIMIT 100
+        `, [request.user.id]);
+        return { deposits: rows };
+    });
+
+    // ========== PET/TEM: Source Settings ==========
+    // PET sources
+    fastify.get('/api/dht/pet-sources', { preHandler: [authenticate] }, async (request, reply) => {
+        const items = await db.all('SELECT * FROM dht_pet_sources ORDER BY sort_order ASC, id ASC');
+        return { items };
+    });
+    fastify.post('/api/dht/pet-sources', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { name } = request.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Nhập tên nguồn PET' });
+        const mx = await db.get('SELECT COALESCE(MAX(sort_order),0) as mx FROM dht_pet_sources');
+        const r = await db.get('INSERT INTO dht_pet_sources (name, sort_order) VALUES ($1, $2) RETURNING *', [name.trim(), (mx?.mx || 0) + 1]);
+        return { success: true, item: r };
+    });
+    fastify.delete('/api/dht/pet-sources/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        await db.run('DELETE FROM dht_pet_sources WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
+
+    // TEM sources
+    fastify.get('/api/dht/tem-sources', { preHandler: [authenticate] }, async (request, reply) => {
+        const items = await db.all('SELECT * FROM dht_tem_sources ORDER BY sort_order ASC, id ASC');
+        return { items };
+    });
+    fastify.post('/api/dht/tem-sources', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { name } = request.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Nhập tên nguồn TEM' });
+        const mx = await db.get('SELECT COALESCE(MAX(sort_order),0) as mx FROM dht_tem_sources');
+        const r = await db.get('INSERT INTO dht_tem_sources (name, sort_order) VALUES ($1, $2) RETURNING *', [name.trim(), (mx?.mx || 0) + 1]);
+        return { success: true, item: r };
+    });
+    fastify.delete('/api/dht/tem-sources/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        await db.run('DELETE FROM dht_tem_sources WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
+
+    // ========== PET/TEM: Free Customer Search ==========
+    fastify.get('/api/dht/free-customers/search', { preHandler: [authenticate] }, async (request, reply) => {
+        const q = (request.query.q || '').trim();
+        if (!q || q.length < 2) return { customers: [] };
+        const rows = await db.all(`
+            SELECT id, name, phone, address, province
+            FROM dht_free_customers
+            WHERE name ILIKE $1 OR phone ILIKE $1
+            ORDER BY updated_at DESC
+            LIMIT 15
+        `, ['%' + q + '%']);
+        return { customers: rows };
     });
 };

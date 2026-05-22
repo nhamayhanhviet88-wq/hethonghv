@@ -1013,6 +1013,11 @@ async function start() {
     const { startCron: startEmailCron } = require('./services/emailChecker');
     startEmailCron().catch(e => console.error('[Startup] Email checker error:', e.message));
 
+    // Start notification retry cron — retry failed Telegram/AppSheet (every 5 min)
+    const { retryFailedSync } = require('./services/appsheetSync');
+    setInterval(() => retryFailedSync().catch(e => console.error('[Retry Cron]', e.message)), 5 * 60 * 1000);
+    console.log('[Retry] ✅ Notification retry cron started (every 5 min)');
+
     // Start unified daily report cron — Tổng Kết Hàng Ngày
     const { vnNow } = require('./utils/timezone');
     const { sendTelegramMessage } = require('./utils/telegram');

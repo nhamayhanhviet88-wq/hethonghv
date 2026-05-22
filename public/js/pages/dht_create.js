@@ -15,8 +15,374 @@ function _dhtFilterDeposits() { /* V4: no longer used */ }
 async function _dhtCancelCreate() {
     _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
     window._dhtEditRestricted = false;
+    _dhtFreeMode = false;
     closeModal();
 }
+
+// ========== ★ DEDICATED PET/TEM FREE ORDER FORM ==========
+async function _dhtShowCreateFree() {
+    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
+    _dhtFreeMode = true;
+
+    var [infoRes, designRes, carrierRes, holidayRes, phieuRes, petSrcRes, temSrcRes, depRes] = await Promise.all([
+        apiCall('/api/dht/my-info'),
+        apiCall('/api/dht/designers'),
+        apiCall('/api/dht/carriers'),
+        apiCall('/api/holidays'),
+        apiCall('/api/dht/phieu-options'),
+        apiCall('/api/dht/pet-sources'),
+        apiCall('/api/dht/tem-sources'),
+        apiCall('/api/dht/available-deposits')
+    ]);
+
+    _dhtCreate.phieuOpts = phieuRes || {};
+    _dhtCreate.holidays = {};
+    (holidayRes.holidays || []).forEach(function(h) {
+        var d = h.holiday_date;
+        if (typeof d === 'string') d = d.split('T')[0];
+        _dhtCreate.holidays[d] = h.holiday_name;
+    });
+    _dhtCreate.myInfo = infoRes.user || {};
+    var mi = _dhtCreate.myInfo;
+
+    // Only PET & TEM categories
+    var freeCats = (_dht.categories || []).filter(function(c) { return c.name === 'PET' || c.name === 'TEM'; });
+    var catOpts = freeCats.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+
+    var designers = designRes.designers || [];
+    var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
+        + designers.map(function(d){ return '<option value="'+d.id+'">'+d.full_name+'</option>'; }).join('');
+    var carriers = carrierRes.carriers || [];
+    var carOpts = carriers.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+
+    // Build PET/TEM source options
+    var petSrcOpts = (petSrcRes.items || []).map(function(s) { return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
+    var temSrcOpts = (temSrcRes.items || []).map(function(s) { return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
+
+    // Build deposit options
+    var depOpts = (depRes.deposits || []).map(function(d) {
+        var amt = Number(d.amount || 0).toLocaleString('vi-VN');
+        var dt = d.payment_date ? d.payment_date.split('T')[0] : '';
+        return '<option value="'+d.id+'" data-amount="'+d.amount+'">'+d.payment_code+' — '+amt+'đ'+(d.customer_name?' — '+d.customer_name:'')+(dt?' ('+dt+')':'')+'</option>';
+    }).join('');
+
+    var _dis = 'background:#f1f5f9;color:#64748b;cursor:not-allowed';
+    var _teamName = mi.parent_department_name ? (mi.department_name || 'Không có') : (mi.team_name || 'Không có');
+
+    var body = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0">'
+        +'<div class="form-group"><label>Tên Nhân Viên</label><input class="form-control" value="'+(mi.full_name||'')+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.phong_ban||mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Team</label><input class="form-control" value="'+_teamName+'" disabled style="'+_dis+'"></div>'
+        +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        // Ngày + Lĩnh vực (chỉ PET/TEM)
+        +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control" onchange="_dhtOnFreeCatSwitch()"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
+        // Mã đơn: tự sinh
+        +'<div style="grid-column:span 2"><div class="form-group"><label>Mã Đơn <span style="font-size:10px;color:#059669;font-weight:700">✅ Tự động khi xác nhận</span></label>'
+        +'<input id="_co_codeFreeLabel" class="form-control" disabled value="🔄 Chọn lĩnh vực trước..." style="'+_dis+';font-weight:800;font-size:14px;color:#059669;border:2px solid #059669;background:#f0fdf4"></div></div>'
+        // ★ STEP 1: Tên KH trước (có autocomplete)
+        +'<div class="form-group" style="position:relative;grid-column:span 2"><label style="font-weight:800;color:#166534">① Tên Khách Hàng <span style="color:red">*</span> ✏️ <span style="font-size:10px;font-weight:600;color:#64748b">— Gõ tên để tìm KH cũ hoặc nhập mới</span></label>'
+        +'<input id="_co_name" class="form-control" placeholder="🔍 Gõ tên khách hàng..." autocomplete="off" oninput="_dhtNameAutocomplete()" onfocus="_dhtNameAutocomplete()" style="font-size:14px;border:2px solid #059669">'
+        +'<div id="_co_nameList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        // ★ STEP 2: SĐT (disabled cho đến khi nhập tên, cũng có autocomplete)
+        +'<div class="form-group" style="position:relative"><label style="font-weight:800;color:#1e40af">② SĐT Khách Hàng <span style="color:red">*</span> ✏️</label>'
+        +'<input id="_co_phone" class="form-control" placeholder="Nhập tên KH trước..." disabled autocomplete="off" oninput="_dhtPhoneAutocomplete()" style="background:#f1f5f9;cursor:not-allowed">'
+        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        // ★ STEP 3: Địa chỉ + Tỉnh (luôn sửa được)
+        +'<div class="form-group"><label>③ Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
+        +'<div class="form-group" style="position:relative"><label>③ Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
+        +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
+        +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
+        // Nguồn PET/TEM (dropdown)
+        +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
+        // Thiết kế
+        +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
+        +'</div>'
+        // Nhắc Nhở
+        +'<div style="margin:10px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>'
+        // Phiếu đơn hàng
+        +'<div style="margin:12px 0;border-top:1px solid #e2e8f0;padding-top:12px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        +'<span style="font-weight:800;font-size:13px;color:var(--navy)">📋 Phiếu Đơn Hàng</span>'
+        +'<button onclick="_dhtAddItemFree()" style="background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm Phiếu</button></div>'
+        +'<div id="_co_items"></div></div>'
+        // 💰 Chọn Mã Cọc (tùy chọn) — ngay sau phiếu
+        +'<div style="margin:10px 0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #86efac;border-radius:10px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#166534;margin-bottom:6px;display:block">💰 Chọn Mã Cọc (tùy chọn) <span style="font-size:10px;color:#64748b;font-weight:600">— từ Sổ Ghi Nhận Tiền</span></label>'
+        +'<div style="position:relative"><input id="_co_depSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." autocomplete="off" oninput="_dhtSearchDeposit()" onfocus="_dhtSearchDeposit()" style="font-size:12px;border:2px solid #059669">'
+        +'<div id="_co_depSearchList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
+        +'</div>'
+        // Phụ Phí
+        +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+        +'<span style="font-weight:800;font-size:12px;color:#92400e">Thêm Phụ Phí</span>'
+        +'<button type="button" onclick="_dhtAddSurcharge()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">➕ Thêm Phụ Phí</button></div>'
+        +'<div id="_co_surcharges"></div></div>'
+        // Tổng kết
+        +'<div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #e2e8f0">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
+        +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
+        +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div></div></div>'
+        // Vận chuyển
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
+        +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
+        +'<div class="form-group"><label>Tiêu Chuẩn Gửi</label><select id="_co_pri" class="form-control"><option selected>GẤP</option><option>GỬI</option></select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
+        +'<div class="form-group"><label>Nhà Vận Chuyển <span style="color:red">*</span></label><select id="_co_carrier" class="form-control" onchange="_dhtOnCarrierChange()"><option value="">-- Chọn --</option>'+carOpts+'</select></div>'
+        +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div></div>'
+        +'<div id="_co_carrierExtra" style="display:none;margin-top:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px"></div>'
+        // Sale note
+        +'<div class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Ghi Chú</label>'
+        +'<textarea id="_co_saleNote" class="form-control" rows="2" placeholder="Ghi chú cho đơn PET/TEM (tùy chọn)..." style="font-size:12px;resize:vertical"></textarea></div>'
+        +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Không cọc</div>';
+
+    var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
+        +'<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">🐾 Lưu Đơn PET/TEM</button>';
+
+    openModal('🐾 Tạo Đơn PET / TEM', body, footer);
+
+    _dhtCreate.phieuItems = [];
+    _dhtCreate.surcharges = [];
+    _dhtCreate.reminders = [];
+    _dhtCreate._allDeposits = depRes.deposits || depRes || [];
+    console.log('[PET/TEM] depRes:', depRes, '_allDeposits count:', _dhtCreate._allDeposits.length);
+    _dhtCreate.depositId = null;
+    _dhtCreate.depositAmount = 0;
+    _dhtCreate.depositCode = '';
+    window._ppNNTags = [];
+    _ppRenderNNTags();
+
+    // Update free code label based on first selected cat
+    _dhtOnFreeCatSwitch();
+}
+
+// Switch source dropdown when PET/TEM category changes in free form
+async function _dhtOnFreeCatSwitch() {
+    var catSel = document.getElementById('_co_cat');
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    var freeLabel = document.getElementById('_co_codeFreeLabel');
+    if (freeLabel) {
+        if (!catName || catName === '-- Chọn --') {
+            freeLabel.value = '🔄 Chọn lĩnh vực trước...';
+        } else {
+            var prefix = catName === 'TEM' ? 'GCTEM' : 'GCPET';
+            freeLabel.value = '🔄 ' + prefix + '???? — Mã tự động khi bấm Lưu Đơn';
+        }
+    }
+    // Reload sources for the selected cat
+    if (catName && catName !== '-- Chọn --') {
+        try {
+            var srcApi = catName === 'TEM' ? '/api/dht/tem-sources' : '/api/dht/pet-sources';
+            var srcRes = await apiCall(srcApi);
+            var srcSelect = document.getElementById('_co_srcFreeSelect');
+            if (srcSelect) {
+                srcSelect.innerHTML = '<option value="">-- Chọn nguồn ' + catName + ' --</option>'
+                    + (srcRes.items || []).map(function(s) { return '<option value="' + s.name + '">' + s.name + '</option>'; }).join('');
+            }
+        } catch(e) {}
+    }
+}
+
+// ★ STEP 1: Name autocomplete — gõ tên, gợi ý KH cũ
+var _dhtNameTimer = null;
+function _dhtNameAutocomplete() {
+    var q = (document.getElementById('_co_name')?.value || '').trim();
+    var listEl = document.getElementById('_co_nameList');
+    if (!listEl) return;
+
+    // Unlock SĐT khi đã nhập tên (≥1 ký tự)
+    var phoneEl = document.getElementById('_co_phone');
+    if (phoneEl) {
+        if (q.length >= 1) {
+            phoneEl.disabled = false;
+            phoneEl.style.background = '#fff';
+            phoneEl.style.cursor = 'text';
+            phoneEl.placeholder = 'Nhập SĐT khách hàng';
+        } else {
+            phoneEl.disabled = true;
+            phoneEl.style.background = '#f1f5f9';
+            phoneEl.style.cursor = 'not-allowed';
+            phoneEl.placeholder = 'Nhập tên KH trước...';
+        }
+    }
+
+    if (q.length < 2) { listEl.style.display = 'none'; return; }
+
+    clearTimeout(_dhtNameTimer);
+    _dhtNameTimer = setTimeout(async function() {
+        try {
+            var res = await apiCall('/api/dht/free-customers/search?q=' + encodeURIComponent(q));
+            var custs = res.customers || [];
+            if (custs.length === 0) {
+                listEl.innerHTML = '<div style="padding:10px 14px;color:#64748b;font-size:12px">KH mới — tiếp tục nhập SĐT bên dưới ②</div>';
+                listEl.style.display = 'block';
+                return;
+            }
+            var html = custs.map(function(c) {
+                return '<div onclick="_dhtSelectFreeCust('+c.id+',\''+_escHtml(c.name)+'\',\''+_escHtml(c.phone||'')+'\',\''+_escHtml(c.address||'')+'\',\''+_escHtml(c.province||'')+'\')" style="padding:8px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'#fff\'">'
+                    + '<div style="font-weight:700;font-size:13px;color:#1e293b">' + (c.name || '—') + '</div>'
+                    + '<div style="font-size:11px;color:#64748b">📱 ' + (c.phone || 'Không SĐT') + '  •  📍 ' + (c.province || '') + '</div>'
+                    + '</div>';
+            }).join('');
+            listEl.innerHTML = html;
+            listEl.style.display = 'block';
+        } catch(e) {
+            listEl.style.display = 'none';
+        }
+    }, 300);
+}
+
+function _escHtml(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ★ Select customer — điền tất cả, vẫn sửa được
+function _dhtSelectFreeCust(id, name, phone, addr, prov) {
+    var phoneEl = document.getElementById('_co_phone');
+    var nameEl = document.getElementById('_co_name');
+    var addrEl = document.getElementById('_co_addr');
+    var provEl = document.getElementById('_co_prov');
+    if (nameEl) nameEl.value = name;
+    if (phoneEl) { phoneEl.value = phone; phoneEl.disabled = false; phoneEl.style.background = '#fff'; phoneEl.style.cursor = 'text'; phoneEl.placeholder = 'Nhập SĐT khách hàng'; }
+    if (addrEl) addrEl.value = addr;
+    if (provEl) provEl.value = prov;
+
+    // Hide all dropdowns
+    var nameListEl = document.getElementById('_co_nameList');
+    if (nameListEl) nameListEl.style.display = 'none';
+    var phoneListEl = document.getElementById('_co_phoneList');
+    if (phoneListEl) phoneListEl.style.display = 'none';
+}
+
+// ★ STEP 2: Phone autocomplete — gõ SĐT cũng gợi ý KH cũ
+var _dhtPhoneTimer = null;
+function _dhtPhoneAutocomplete() {
+    var q = (document.getElementById('_co_phone')?.value || '').trim();
+    var listEl = document.getElementById('_co_phoneList');
+    if (!listEl) return;
+    if (q.length < 3) { listEl.style.display = 'none'; return; }
+
+    clearTimeout(_dhtPhoneTimer);
+    _dhtPhoneTimer = setTimeout(async function() {
+        try {
+            var res = await apiCall('/api/dht/free-customers/search?q=' + encodeURIComponent(q));
+            var custs = res.customers || [];
+            if (custs.length === 0) { listEl.style.display = 'none'; return; }
+            var html = custs.map(function(c) {
+                return '<div onclick="_dhtSelectFreeCust('+c.id+',\''+_escHtml(c.name)+'\',\''+_escHtml(c.phone||'')+'\',\''+_escHtml(c.address||'')+'\',\''+_escHtml(c.province||'')+'\')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'#fff\'">'
+                    + '<div style="font-weight:700;font-size:12px;color:#1e293b">📱 ' + (c.phone || '—') + ' — <span style="color:#059669">' + (c.name || '') + '</span></div>'
+                    + (c.province ? '<div style="font-size:10px;color:#94a3b8">📍 ' + c.province + '</div>' : '')
+                    + '</div>';
+            }).join('');
+            listEl.innerHTML = html;
+            listEl.style.display = 'block';
+        } catch(e) {
+            listEl.style.display = 'none';
+        }
+    }, 300);
+}
+
+// ★ Deposit search for PET/TEM — live fetch like CRM
+var _dhtDepSearchTimer = null;
+function _dhtSearchDeposit() {
+    var q = (document.getElementById('_co_depSearch')?.value || '').trim().toLowerCase();
+    var listEl = document.getElementById('_co_depSearchList');
+    if (!listEl) return;
+
+    clearTimeout(_dhtDepSearchTimer);
+    _dhtDepSearchTimer = setTimeout(async function() {
+        try {
+            var res = await apiCall('/api/dht/available-deposits');
+            var deps = res.deposits || [];
+
+            var filtered;
+            if (q.length < 1) {
+                filtered = deps.slice(0, 20);
+            } else {
+                filtered = deps.filter(function(d) {
+                    var searchStr = ((d.payment_code || '') + ' ' + (d.amount || '') + ' ' + (d.description || '') + ' ' + (d.customer_name || '')).toLowerCase();
+                    return searchStr.indexOf(q) >= 0;
+                }).slice(0, 15);
+            }
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = '<div style="padding:10px 14px;color:#64748b;font-size:12px">Không tìm thấy mã tiền phù hợp</div>';
+                listEl.style.display = 'block';
+                return;
+            }
+
+            var html = filtered.map(function(d) {
+                var amt = Number(d.amount || 0).toLocaleString('vi-VN');
+                var method = d.payment_method === 'CK' ? 'CK' : 'TM';
+                var methodColor = method === 'CK' ? '#2563eb' : '#059669';
+                return '<div onclick="_dhtSelectDeposit('+d.id+',\''+_escHtml(d.payment_code)+'\','+d.amount+')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'#fff\'">'
+                    + '<div style="font-weight:700;font-size:12px;color:#1e293b"><span style="color:'+methodColor+'">' + d.payment_code + '</span> — <span style="color:#dc2626">' + amt + 'đ</span> — <span style="color:'+methodColor+'">' + method + '</span></div>'
+                    + '<div style="font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (d.description || d.customer_name || '') + '</div>'
+                    + '</div>';
+            }).join('');
+            listEl.innerHTML = html;
+            listEl.style.display = 'block';
+        } catch(e) {
+            console.error('[DepSearch]', e);
+            listEl.innerHTML = '<div style="padding:10px 14px;color:#dc2626;font-size:12px">Lỗi tải mã tiền: ' + (e.message||'') + '</div>';
+            listEl.style.display = 'block';
+        }
+    }, 200);
+}
+
+function _dhtSelectDeposit(id, code, amount) {
+    _dhtCreate.depositId = id;
+    _dhtCreate.depositAmount = amount;
+    _dhtCreate.depositCode = code;
+
+    // Show selected badge
+    var selEl = document.getElementById('_co_depSelected');
+    if (selEl) {
+        selEl.innerHTML = '✅ <strong>' + code + '</strong> — ' + Number(amount).toLocaleString('vi-VN') + 'đ <span onclick="_dhtClearDeposit()" style="cursor:pointer;color:#dc2626;margin-left:8px;font-size:11px">✕ Bỏ cọc</span>';
+        selEl.style.display = 'block';
+    }
+    // Update deposit info
+    var infoEl = document.getElementById('_co_depositInfo');
+    if (infoEl) infoEl.innerHTML = '💰 Đã cọc: <strong>' + code + '</strong> — ' + Number(amount).toLocaleString('vi-VN') + 'đ';
+
+    // Hide search
+    var listEl = document.getElementById('_co_depSearchList');
+    if (listEl) listEl.style.display = 'none';
+    var searchEl = document.getElementById('_co_depSearch');
+    if (searchEl) searchEl.value = '';
+
+    _dhtCalcTotal();
+}
+
+function _dhtClearDeposit() {
+    _dhtCreate.depositId = null;
+    _dhtCreate.depositAmount = 0;
+    _dhtCreate.depositCode = '';
+    var selEl = document.getElementById('_co_depSelected');
+    if (selEl) { selEl.style.display = 'none'; selEl.innerHTML = ''; }
+    var infoEl = document.getElementById('_co_depositInfo');
+    if (infoEl) infoEl.innerHTML = '💰 Không cọc';
+    _dhtCalcTotal();
+}
+
+// Close all dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    ['_co_nameList', '_co_phoneList', '_co_depSearchList'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && !el.contains(e.target)) {
+            var inputMap = {'_co_nameList':'_co_name', '_co_phoneList':'_co_phone', '_co_depSearchList':'_co_depSearch'};
+            var inp = document.getElementById(inputMap[id]);
+            if (inp && !inp.contains(e.target)) el.style.display = 'none';
+        }
+    });
+});
+
 
 // === STEP 2: Fill Order Info ===
 async function _dhtGoStep2() {
@@ -43,7 +409,7 @@ async function _dhtGoStep2() {
     _dhtCreate.availableCodes = codesRes.codes || [];
     if (!_dhtCreate.editMode) _dhtCreate.orderCode = '';
     var mi = _dhtCreate.myInfo;
-    var catOpts = _dht.categories.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+    var catOpts = _dht.categories.filter(function(c){ return c.name !== 'PET' && c.name !== 'TEM'; }).map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var designers = designRes.designers || [];
     var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
         + designers.map(function(d){ return '<option value="'+d.id+'">'+d.full_name+'</option>'; }).join('');
@@ -64,22 +430,26 @@ async function _dhtGoStep2() {
         +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         // Row 2: Ngày + Lĩnh vực
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
-        +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
-        // Row 3: Mã Đơn (searchable dropdown from CRM order codes)
-        +'<div class="form-group" style="position:relative;grid-column:span 2"><label>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></label>'
+        +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control" onchange="_dhtOnCatChange()"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
+        // Row 3: Mã Đơn — Normal (CRM) + Free (auto-generate)
+        +'<div id="_co_codeNormal" class="form-group" style="position:relative;grid-column:span 2"><label>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></label>'
         +'<input id="_co_code" class="form-control" placeholder="🔍 Gõ mã đơn hoặc tên KH để tìm..." autocomplete="off" oninput="_dhtSearchOrderCode()" onfocus="_dhtSearchOrderCode()" style="font-size:14px;font-weight:700;border:2px solid #daa520">'
         +'<input type="hidden" id="_co_custId">'
         +'<div id="_co_codeList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:250px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
-        // Row 4: SĐT (readonly) + Tên KH (readonly)
-        +'<div class="form-group"><label>SĐT Khách Hàng 🔒</label><input id="_co_phone" class="form-control" disabled placeholder="← Chọn mã đơn" style="'+_dis+'"></div>'
-        +'<div class="form-group"><label>Tên Khách Hàng 🔒</label><input id="_co_name" class="form-control" disabled placeholder="← Chọn mã đơn" style="'+_dis+'"></div>'
-        // Row 5: Địa chỉ (editable ✏️) + Tỉnh (editable ✏️)
+        // Free mode: auto-generate code placeholder
+        +'<div id="_co_codeFree" style="display:none;grid-column:span 2"><div class="form-group"><label>Mã Đơn <span style="font-size:10px;color:#059669;font-weight:700">✅ Tự động khi xác nhận</span></label>'
+        +'<input id="_co_codeFreeLabel" class="form-control" disabled value="🔄 Mã sẽ tự động tạo khi bấm Lưu Đơn" style="'+_dis+';font-weight:800;font-size:14px;color:#059669;border:2px solid #059669;background:#f0fdf4"></div></div>'
+        // Row 4: SĐT + Tên KH (toggleable readonly/editable)
+        +'<div class="form-group"><label id="_co_phoneLabel">SĐT Khách Hàng 🔒</label><input id="_co_phone" class="form-control" disabled placeholder="← Chọn mã đơn" style="'+_dis+'"></div>'
+        +'<div class="form-group"><label id="_co_nameLabel">Tên Khách Hàng 🔒</label><input id="_co_name" class="form-control" disabled placeholder="← Chọn mã đơn" style="'+_dis+'"></div>'
+        // Row 5: Địa chỉ + Tỉnh
         +'<div class="form-group"><label>Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
         +'<div class="form-group" style="position:relative"><label>Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
         +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
         +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
-        // Row 6: Nguồn (readonly)
-        +'<div class="form-group"><label>Nguồn 🔒</label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
+        // Row 6: Nguồn (normal=readonly, free=dropdown)
+        +'<div id="_co_srcNormal" class="form-group"><label>Nguồn 🔒</label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
+        +'<div id="_co_srcFree" class="form-group" style="display:none"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
         // Row 6: Thiết kế (bắt buộc)
         +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'</div>'
@@ -134,8 +504,13 @@ async function _dhtGoStep2() {
         +'</div>'
         +'<div id="_co_carrierExtra" style="display:none;margin-top:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px"></div>'
         // Sale note for accounting
-        +'<div class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:red">*</span></label>'
+        +'<div id="_co_saleNoteWrap" class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:red">*</span></label>'
         +'<textarea id="_co_saleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò cho kế toán trước khi gửi hàng..." style="font-size:12px;resize:vertical"></textarea></div>'
+        // ★ Free order deposit picker (hidden by default)
+        +'<div id="_co_freeDepositWrap" style="display:none;margin-top:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#166534">💰 Chọn Mã Cọc (tùy chọn)</label>'
+        +'<select id="_co_freeDeposit" class="form-control" onchange="_dhtOnFreeDepositChange()" style="margin-top:6px;font-size:12px"><option value="">Không cọc</option></select>'
+        +'</div>'
         // Deposit info
         +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
 
@@ -264,6 +639,130 @@ async function _dhtGoStep2() {
             window._dhtEditRestricted = false;
         }
     }
+}
+
+// === ★ PET/TEM Free Order Mode Switch ===
+var _dhtFreeMode = false;
+var _dhtFreeCatNames = {}; // { catId: catName } — filled from categories
+
+async function _dhtOnCatChange() {
+    var catSel = document.getElementById('_co_cat');
+    var catId = catSel ? catSel.value : '';
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    var isFree = (catName === 'PET' || catName === 'TEM');
+    _dhtFreeMode = isFree;
+    _dhtCreate.freeCatName = catName;
+
+    // Toggle visibility: normal vs free
+    var codeNormal = document.getElementById('_co_codeNormal');
+    var codeFree = document.getElementById('_co_codeFree');
+    var srcNormal = document.getElementById('_co_srcNormal');
+    var srcFree = document.getElementById('_co_srcFree');
+    var freeDepWrap = document.getElementById('_co_freeDepositWrap');
+    var phoneEl = document.getElementById('_co_phone');
+    var nameEl = document.getElementById('_co_name');
+    var phoneLbl = document.getElementById('_co_phoneLabel');
+    var nameLbl = document.getElementById('_co_nameLabel');
+
+    if (isFree) {
+        // Switch to FREE mode
+        if (codeNormal) codeNormal.style.display = 'none';
+        if (codeFree) codeFree.style.display = 'block';
+        if (srcNormal) srcNormal.style.display = 'none';
+        if (srcFree) srcFree.style.display = 'block';
+        if (freeDepWrap) freeDepWrap.style.display = 'block';
+
+        // Unlock phone + name for manual entry
+        if (phoneEl) { phoneEl.disabled = false; phoneEl.placeholder = 'Nhập SĐT khách hàng'; phoneEl.style.background = '#fff'; phoneEl.style.color = '#1e293b'; phoneEl.style.cursor = 'text'; phoneEl.value = ''; }
+        if (nameEl) { nameEl.disabled = false; nameEl.placeholder = 'Nhập tên khách hàng'; nameEl.style.background = '#fff'; nameEl.style.color = '#1e293b'; nameEl.style.cursor = 'text'; nameEl.value = ''; }
+        if (phoneLbl) phoneLbl.innerHTML = 'SĐT Khách Hàng <span style="color:red">*</span> ✏️';
+        if (nameLbl) nameLbl.innerHTML = 'Tên Khách Hàng <span style="color:red">*</span> ✏️';
+
+        // Update free code label
+        var freeLabel = document.getElementById('_co_codeFreeLabel');
+        if (freeLabel) {
+            var prefix = catName === 'PET' ? 'GCPET' : 'GCTEM';
+            freeLabel.value = '🔄 ' + prefix + '???? — Mã tự động khi bấm Lưu Đơn';
+        }
+
+        // Load PET/TEM sources
+        try {
+            var srcApi = catName === 'PET' ? '/api/dht/pet-sources' : '/api/dht/tem-sources';
+            var srcRes = await apiCall(srcApi);
+            var srcSelect = document.getElementById('_co_srcFreeSelect');
+            if (srcSelect) {
+                srcSelect.innerHTML = '<option value="">-- Chọn nguồn ' + catName + ' --</option>'
+                    + (srcRes.items || []).map(function(s) {
+                        return '<option value="' + s.name + '">' + s.name + '</option>';
+                    }).join('');
+            }
+        } catch(e) { console.error('Load sources:', e); }
+
+        // Load available deposits
+        try {
+            var depRes = await apiCall('/api/dht/available-deposits');
+            var depSelect = document.getElementById('_co_freeDeposit');
+            if (depSelect) {
+                depSelect.innerHTML = '<option value="">Không cọc</option>'
+                    + (depRes.deposits || []).map(function(d) {
+                        var amt = Number(d.amount || 0).toLocaleString('vi-VN');
+                        var dt = d.payment_date ? d.payment_date.split('T')[0] : '';
+                        return '<option value="' + d.id + '" data-amount="' + d.amount + '">'
+                            + d.payment_code + ' — ' + amt + 'đ'
+                            + (d.customer_name ? ' — ' + d.customer_name : '')
+                            + (dt ? ' (' + dt + ')' : '')
+                            + '</option>';
+                    }).join('');
+            }
+        } catch(e) { console.error('Load deposits:', e); }
+
+        // Reset deposit for free mode
+        _dhtCreate.depositId = null;
+        _dhtCreate.depositAmount = 0;
+        var depEl = document.getElementById('_co_deposit');
+        if (depEl) depEl.value = '0đ';
+        _dhtCalcTotal();
+    } else {
+        // Switch back to NORMAL mode
+        if (codeNormal) codeNormal.style.display = 'block';
+        if (codeFree) codeFree.style.display = 'none';
+        if (srcNormal) srcNormal.style.display = 'block';
+        if (srcFree) srcFree.style.display = 'none';
+        if (freeDepWrap) freeDepWrap.style.display = 'none';
+
+        // Lock phone + name back
+        var _dis2 = 'background:#f1f5f9;color:#64748b;cursor:not-allowed';
+        if (phoneEl) { phoneEl.disabled = true; phoneEl.placeholder = '← Chọn mã đơn'; phoneEl.style.cssText = _dis2; phoneEl.value = ''; }
+        if (nameEl) { nameEl.disabled = true; nameEl.placeholder = '← Chọn mã đơn'; nameEl.style.cssText = _dis2; nameEl.value = ''; }
+        if (phoneLbl) phoneLbl.innerHTML = 'SĐT Khách Hàng 🔒';
+        if (nameLbl) nameLbl.innerHTML = 'Tên Khách Hàng 🔒';
+    }
+}
+
+function _dhtOnFreeDepositChange() {
+    var sel = document.getElementById('_co_freeDeposit');
+    if (!sel) return;
+    var opt = sel.options[sel.selectedIndex];
+    if (sel.value) {
+        _dhtCreate.depositId = Number(sel.value);
+        _dhtCreate.depositAmount = Number(opt.getAttribute('data-amount') || 0);
+    } else {
+        _dhtCreate.depositId = null;
+        _dhtCreate.depositAmount = 0;
+    }
+    var depEl = document.getElementById('_co_deposit');
+    if (depEl) depEl.value = _dhtCreate.depositAmount.toLocaleString('vi-VN') + 'đ';
+    var depInfo = document.getElementById('_co_depositInfo');
+    if (depInfo) {
+        if (_dhtCreate.depositAmount > 0) {
+            depInfo.innerHTML = '💰 Mã Cọc: ' + (opt ? opt.text.split(' — ')[0] : '') + ' — ' + _dhtCreate.depositAmount.toLocaleString('vi-VN') + 'đ';
+            depInfo.style.color = '#059669';
+        } else {
+            depInfo.innerHTML = '💰 Không cọc';
+            depInfo.style.color = '#b8860b';
+        }
+    }
+    _dhtCalcTotal();
 }
 
 // === Order Code Search (dropdown from CRM available codes) ===
@@ -525,6 +1024,104 @@ function _ppShowList(id){var l=document.getElementById(id+'_list');if(l){l.style
 function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
 function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();if(id==='_pp_pattern')_dhtPatternChange();}
 document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
+
+// ========== ★ PET/TEM SIMPLIFIED PHIẾU ==========
+function _dhtAddItemFree(editIdx) {
+    var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
+    var existing = _dhtCreate.phieuItems[idx] || {};
+    var ov = document.createElement('div');
+    ov.id = '_phieuPopup';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+    // Qty/price rows
+    var qps = existing.quantities || [{qty:0, price:0}];
+    var qpHTML = '';
+    for (var qi = 0; qi < qps.length; qi++) {
+        var n = qi + 1;
+        var rm = qi > 0 ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
+        qpHTML += '<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
+            + '<div><label style="font-size:10px;font-weight:700">SL' + n + ' *</label><input type="number" class="_pp_qty" value="' + (qps[qi].qty || 0) + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+            + '<div><label style="font-size:10px;font-weight:700">Giá ' + n + ' *</label><input type="number" class="_pp_price" value="' + (qps[qi].price || 0) + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+            + rm + '</div>';
+    }
+
+    var vatSel = '<option value="0"' + (existing.vat_percent === 8 ? '' : ' selected') + '>0%</option><option value="8"' + (existing.vat_percent === 8 ? ' selected' : '') + '>8%</option>';
+    var prodSel = '<option value="">-- Chọn --</option><option value="Tờ"' + (existing.product_name === 'Tờ' ? ' selected' : '') + '>Tờ</option><option value="Mét"' + (existing.product_name === 'Mét' ? ' selected' : '') + '>Mét</option><option value="Thiết Kế"' + (existing.product_name === 'Thiết Kế' ? ' selected' : '') + '>Thiết Kế</option>';
+
+    ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:800;font-size:14px;color:var(--navy)">🐾 Phiếu PET/TEM #' + (idx + 1) + '</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        + '<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'
+        + '<div class="form-group"><label style="font-weight:700;font-size:12px">Sản Phẩm <span style="color:red">*</span></label><select id="_ppf_product" class="form-control" style="font-size:13px">' + prodSel + '</select></div>'
+        + '</div>'
+        + '<div style="border-top:1px solid #e2e8f0;padding-top:10px">'
+        + '<div id="_ppf_qtyRows">' + qpHTML + '</div>'
+        + '<button type="button" onclick="_ppAddQtyFree()" style="background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin:4px 0">+ Thêm SL/Giá</button>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
+        + '<div><label style="font-size:10px;font-weight:700">VAT</label><select id="_ppf_vat" class="form-control" onchange="_ppCalcFree()" style="width:80px;font-size:12px">' + vatSel + '</select></div>'
+        + '<div style="flex:1;text-align:right;font-size:14px;font-weight:800;color:#dc2626" id="_ppf_total">Tổng: 0đ</div>'
+        + '</div>'
+        + '<div style="text-align:right;margin-top:12px"><button type="button" onclick="_dhtSavePhieuFree(' + idx + ')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div>'
+        + '</div>';
+
+    document.body.appendChild(ov);
+    _ppCalcFree();
+}
+
+function _ppAddQtyFree() {
+    var rows = document.getElementById('_ppf_qtyRows'); if (!rows) return;
+    var count = rows.querySelectorAll('._ppQR').length + 1;
+    var row = document.createElement('div');
+    row.className = '_ppQR';
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
+    row.innerHTML = '<div><label style="font-size:10px;font-weight:700">SL' + count + ' *</label><input type="number" class="_pp_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+        + '<div><label style="font-size:10px;font-weight:700">Giá ' + count + ' *</label><input type="number" class="_pp_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+        + '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
+    rows.appendChild(row);
+}
+
+function _ppCalcFree() {
+    var qs = document.querySelectorAll('#_ppf_qtyRows ._pp_qty');
+    var ps = document.querySelectorAll('#_ppf_qtyRows ._pp_price');
+    var raw = 0;
+    for (var i = 0; i < qs.length; i++) { raw += (Number(qs[i].value) || 0) * (Number(ps[i].value) || 0); }
+    var vp = Number(document.getElementById('_ppf_vat')?.value) || 0;
+    var va = Math.round(raw * vp / 100);
+    var el = document.getElementById('_ppf_total');
+    if (el) el.textContent = 'Tổng: ' + (raw + va).toLocaleString('vi-VN') + 'đ';
+}
+
+function _dhtSavePhieuFree(idx) {
+    var prod = document.getElementById('_ppf_product')?.value;
+    var vp = Number(document.getElementById('_ppf_vat')?.value) || 0;
+    if (!prod) { showToast('Chọn Sản Phẩm', 'error'); return; }
+
+    var qs = document.querySelectorAll('#_ppf_qtyRows ._pp_qty');
+    var ps = document.querySelectorAll('#_ppf_qtyRows ._pp_price');
+    var qtyPairs = [], raw = 0;
+    for (var i = 0; i < qs.length; i++) {
+        var qv = Number(qs[i].value) || 0, pv = Number(ps[i].value) || 0;
+        qtyPairs.push({qty: qv, price: pv, subtotal: qv * pv});
+        raw += qv * pv;
+    }
+    if (!qtyPairs.length || qtyPairs[0].qty === 0) { showToast('SL1 phải > 0', 'error'); return; }
+
+    var va = Math.round(raw * vp / 100);
+    _dhtCreate.phieuItems[idx] = {
+        sale_type: 'Bán',
+        product_name: prod,
+        material_id: null, material_name: prod, color_id: null, color_name: '',
+        pattern_name: '', material_pairs: [],
+        sewing_techniques: [], reminders: [], accounting_notes: '', extra_materials: [],
+        quantities: qtyPairs, vat_percent: vp, vat_amount: va,
+        raw_total: raw, item_total: raw + va,
+        quantity: qtyPairs.reduce(function(s, x) { return s + x.qty; }, 0),
+        unit_price: qtyPairs[0]?.price || 0
+    };
+    document.getElementById('_phieuPopup')?.remove();
+    _dhtRenderPhieuRows(); _dhtCalcTotal();
+    showToast('✅ Đã lưu Phiếu #' + (idx + 1));
+}
 
 async function _dhtAddItem(editIdx) {
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
@@ -867,16 +1464,20 @@ function _dhtRenderPhieuRows() {
     var c = document.getElementById('_co_items'); if (!c) return; c.innerHTML='';
     _dhtCreate.phieuItems.forEach(function(p,i){
         if(!p) return;
+        var isFree = !p.material_pairs || p.material_pairs.length === 0;
         var d=document.createElement('div');
         d.style.cssText='display:grid;grid-template-columns:2fr 70px 100px 50px 100px 30px;gap:6px;margin-bottom:6px;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:12px;transition:all .15s';
         d.onmouseover=function(){this.style.background='#dbeafe';this.style.borderColor='#3b82f6';};
         d.onmouseout=function(){this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';};
-        d.onclick=function(e){if(e.target.tagName==='BUTTON')return;_dhtAddItem(i);};
+        d.onclick=function(e){if(e.target.tagName==='BUTTON')return; isFree ? _dhtAddItemFree(i) : _dhtAddItem(i);};
         var vl=p.vat_percent?'+'+p.vat_percent+'%':'';
         var delBtn = (window._dhtEditRestricted && _dhtCreate.editMode)
             ? ''
             : '<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
-        d.innerHTML='<div style="font-weight:700;color:var(--navy)">📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span></div>'
+        var label = isFree
+            ? '🐾 #'+(i+1)+' '+p.product_name
+            : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>';
+        d.innerHTML='<div style="font-weight:700;color:var(--navy)">'+label+'</div>'
             +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
             +'<div style="text-align:center;font-size:10px;color:#b8860b;font-weight:700">'+vl+'</div>'
@@ -971,30 +1572,48 @@ async function _dhtSubmitCreateV2() {
     var name = document.getElementById('_co_name')?.value?.trim();
     var addr = document.getElementById('_co_addr')?.value?.trim();
     var prov = document.getElementById('_co_prov')?.value;
-    var src = document.getElementById('_co_src')?.value;
     var shipDate = document.getElementById('_co_shipDate')?.value;
     var carrier = document.getElementById('_co_carrier')?.value;
     if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
-    var custId = document.getElementById('_co_custId')?.value;
-    if (!_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
-    if (!custId) { showToast('Vui lòng chọn mã đơn để tự điền khách hàng', 'error'); return; }
-    if (!phone) { showToast('Chọn Số Điện Thoại', 'error'); return; }
-    if (!name) { showToast('Chưa có Tên Khách Hàng', 'error'); return; }
+
+    // ★ Determine free vs normal mode
+    var catSel = document.getElementById('_co_cat');
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    var isFree = _dhtFreeMode || (catName === 'PET' || catName === 'TEM');
+
+    // ★ Source: different for free vs normal
+    var src;
+    if (isFree) {
+        src = document.getElementById('_co_srcFreeSelect')?.value;
+        if (!src) { showToast('Chọn Nguồn ' + catName, 'error'); return; }
+    } else {
+        src = document.getElementById('_co_src')?.value;
+    }
+
+    var custId;
+    if (isFree) {
+        custId = null;
+    } else {
+        custId = document.getElementById('_co_custId')?.value;
+        if (!_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
+        if (!custId) { showToast('Vui lòng chọn mã đơn để tự điền khách hàng', 'error'); return; }
+    }
+
+    if (!phone) { showToast('Nhập Số Điện Thoại', 'error'); return; }
+    if (!name) { showToast('Nhập Tên Khách Hàng', 'error'); return; }
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
     if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
-    if (!src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
+    if (!isFree && !src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
     var desVal = document.getElementById('_co_designer')?.value;
     if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
     var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
-    if (!saleNote) { showToast('📝 Nhập Nội Dung Dặn Kế Toán Gửi Hàng', 'error'); return; }
-    // Validate carrier extra fields
+    if (!isFree && !saleNote) { showToast('📝 Nhập Nội Dung Dặn Kế Toán Gửi Hàng', 'error'); return; }
     var carrierExtra = _dhtGetCarrierExtra();
-    if (carrierExtra === false) return; // validation failed inside
-    // Validate proof image for CHUẨN priority
+    if (carrierExtra === false) return;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
-    if (pri === 'CHUẨN') {
+    if (!isFree && pri === 'CHUẨN') {
         var dH = document.getElementById('_co_deliveryHour')?.value;
         var dM = document.getElementById('_co_deliveryMin')?.value;
         if (!dH || dH === '') { showToast('⏰ Chọn Giờ Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
@@ -1006,10 +1625,8 @@ async function _dhtSubmitCreateV2() {
         }
     }
 
-    // Use pre-saved phiếu items
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
-    // Validate: remaining amount must not be negative
     var _totalAmt = 0, _totalVat = 0;
     items.forEach(function(p) { _totalAmt += p.raw_total || 0; _totalVat += p.vat_amount || 0; });
     (_dhtCreate.surcharges||[]).forEach(function(s) { _totalAmt += Number(s.amount) || 0; });
@@ -1020,15 +1637,13 @@ async function _dhtSubmitCreateV2() {
     items.forEach(function(p) { totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var hasVat = totalVatAmt > 0;
     var vatAmt = totalVatAmt;
-    var desVal = document.getElementById('_co_designer')?.value;
-    var desType = desVal === 'old_design' ? 'old_design' : 'staff';
-    var desId = desVal === 'old_design' ? null : (desVal || null);
+    var desVal2 = document.getElementById('_co_designer')?.value;
+    var desType = desVal2 === 'old_design' ? 'old_design' : 'staff';
+    var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
 
-    var data = await apiCall('/api/dht/orders', 'POST', {
-        order_code: _dhtCreate.orderCode,
+    var payload = {
         order_date: vnDateStr(),
         category_id: cat,
-        customer_id: custId,
         customer_name: name,
         customer_phone: phone,
         source: src,
@@ -1048,22 +1663,30 @@ async function _dhtSubmitCreateV2() {
         carrier_id: carrier,
         carrier_extra: carrierExtra,
         expected_ship_date: shipDate,
-        shipping_priority: pri,
-        standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
-        standard_proof_image: pri === 'CHUẨN' ? _dhtProofBase64 : null,
+        shipping_priority: isFree ? (pri || 'GẤP') : pri,
+        standard_delivery_time: (!isFree && pri === 'CHUẨN') ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
+        standard_proof_image: (!isFree && pri === 'CHUẨN') ? _dhtProofBase64 : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
-        sale_note_for_accountant: saleNote,
+        sale_note_for_accountant: saleNote || null,
         department_id: _dhtCreate.myInfo?.department_id,
         items: items
-    });
+    };
+    // ★ Normal: send order_code + customer_id
+    if (!isFree) {
+        payload.order_code = _dhtCreate.orderCode;
+        payload.customer_id = custId;
+    }
+
+    var data = await apiCall('/api/dht/orders', 'POST', payload);
 
     if (data.success) {
-        // Link deposit permanently
         if (_dhtCreate.depositId) {
             await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
         }
-        showToast('✅ Đã tạo đơn hàng thành công!');
+        var generatedCode = data.order?.order_code || '';
+        showToast('✅ Đã tạo đơn thành công!' + (isFree ? ' Mã: ' + generatedCode : ''));
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
+        _dhtFreeMode = false;
         closeModal();
         await _dhtLoadTree();
         await _dhtLoadOrders();

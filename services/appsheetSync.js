@@ -90,50 +90,83 @@ async function isAppSheetSyncEnabled() {
     } catch { return false; }
 }
 
-// ========== RETRY FAILED ==========
+// ========== RETRY FAILED NOTIFICATIONS ==========
+// Retries BOTH Telegram and AppSheet for records that failed initial send
+// Uses atomic claim (UPDATE RETURNING) — only ONE process can retry each record
+// NEVER rolls back — if claimed, stays claimed (prevents infinite loops)
 async function retryFailedSync() {
+    const { sendTelegramMessage } = require('../utils/telegram');
     try {
+        // Find records needing retry (either Telegram or AppSheet unsent)
         const failed = await db.all(
-            `SELECT id, payment_code, payment_date, amount, bank_name, transfer_note
+            `SELECT id, payment_code, payment_date, amount, bank_name, transfer_note,
+                    telegram_sent, appsheet_synced
              FROM payment_records
              WHERE source = 'email_auto'
-               AND (appsheet_synced IS NULL OR appsheet_synced = false)
+               AND (telegram_sent = false OR appsheet_synced = false)
                AND created_at < NOW() - INTERVAL '3 minutes'
-             ORDER BY id DESC LIMIT 10`
+             ORDER BY id ASC LIMIT 10`
         );
         if (!failed.length) return;
-        console.log(`[AppSheet Retry] 🔄 ${failed.length} records to retry`);
+        console.log(`[Retry] 🔄 ${failed.length} records need retry`);
+
+        // Read Telegram group config once
+        let tgGroup = null;
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'tg_payment_notify_group'");
+            tgGroup = row?.value?.trim() || null;
+        } catch {}
+
         for (const r of failed) {
-            try {
-                // Atomically claim — only ONE process can win
+            // ── Retry Telegram ──
+            if (!r.telegram_sent) {
                 const claimed = await db.get(
-                    `UPDATE payment_records SET appsheet_synced = true
-                     WHERE id = $1 AND (appsheet_synced IS NULL OR appsheet_synced = false)
+                    `UPDATE payment_records SET telegram_sent = true
+                     WHERE id = $1 AND telegram_sent = false
                      RETURNING id`, [r.id]
                 );
-                if (!claimed) {
-                    console.log(`[AppSheet Retry] ⏭️ Already claimed ${r.payment_code}, skip`);
-                    continue;
+                if (claimed && tgGroup) {
+                    try {
+                        const fmtAmt = Number(r.amount).toLocaleString('vi-VN');
+                        const tgMsg = `🏦${r.payment_code} : ${fmtAmt}đ ${r.bank_name} ${(r.transfer_note || '').substring(0, 100)}`;
+                        await sendTelegramMessage(tgGroup, tgMsg);
+                        console.log(`[Retry TG] ✅ ${r.payment_code}`);
+                    } catch (e) {
+                        // Keep telegram_sent=true — do NOT retry endlessly
+                        console.error(`[Retry TG] ❌ ${r.payment_code} (giving up):`, e.message);
+                    }
                 }
-                const dateStr = r.payment_date instanceof Date
-                    ? r.payment_date.toISOString().split('T')[0]
-                    : String(r.payment_date).split('T')[0];
-                await syncToAppSheet({
-                    payment_code: r.payment_code,
-                    date: dateStr,
-                    amount: r.amount,
-                    bank_name: r.bank_name,
-                    description: r.transfer_note
-                });
-                console.log(`[AppSheet Retry] ✅ ${r.payment_code}`);
-            } catch (e) {
-                // Do NOT rollback — keep synced=true to prevent infinite retry loops
-                // Better to miss one record than to send it 1000+ times
-                console.error(`[AppSheet Retry] ❌ ${r.payment_code} (will NOT retry):`, e.message);
+            }
+
+            // ── Retry AppSheet ──
+            if (!r.appsheet_synced) {
+                const claimed = await db.get(
+                    `UPDATE payment_records SET appsheet_synced = true
+                     WHERE id = $1 AND appsheet_synced = false
+                     RETURNING id`, [r.id]
+                );
+                if (claimed) {
+                    try {
+                        const dateStr = r.payment_date instanceof Date
+                            ? r.payment_date.toISOString().split('T')[0]
+                            : String(r.payment_date).split('T')[0];
+                        await syncToAppSheet({
+                            payment_code: r.payment_code,
+                            date: dateStr,
+                            amount: r.amount,
+                            bank_name: r.bank_name,
+                            description: r.transfer_note
+                        });
+                        console.log(`[Retry AppSheet] ✅ ${r.payment_code}`);
+                    } catch (e) {
+                        // Keep appsheet_synced=true — do NOT retry endlessly
+                        console.error(`[Retry AppSheet] ❌ ${r.payment_code} (giving up):`, e.message);
+                    }
+                }
             }
         }
     } catch (e) {
-        console.error('[AppSheet Retry] Error:', e.message);
+        console.error('[Retry] Error:', e.message);
     }
 }
 
