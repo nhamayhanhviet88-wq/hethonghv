@@ -817,7 +817,9 @@ function _prSearchUnpaidOrders() {
             });
             var h = '';
             orders.forEach(function(o){
-                var totalAmt = Number(o.total_amount) || 0;
+                var discount = Number(o.discount_amount) || 0;
+                var shipCk = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+                var totalAmt = (Number(o.total_amount) || 0) - discount - shipCk;
                 var paid = Number(o.deposit_paid) || 0;
                 var remain = Number(o.remaining) || 0;
                 var orderDate = o.order_date ? o.order_date.split('T')[0].split('-').reverse().join('/') : '';

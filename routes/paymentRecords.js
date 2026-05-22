@@ -850,10 +850,15 @@ module.exports = async function(fastify) {
 
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
-                   o.total_amount, o.order_date,
+                   o.total_amount, o.discount_amount, o.order_date,
+                   o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,
                    u.full_name AS cskh_name,
                    GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_paid,
-                   COALESCE(o.total_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining
+                   COALESCE(o.total_amount, 0)
+                     - COALESCE(o.discount_amount, 0)
+                     - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                     - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                     AS remaining
             FROM dht_orders o
             LEFT JOIN users u ON o.cskh_user_id = u.id
             LEFT JOIN LATERAL (
@@ -862,7 +867,11 @@ module.exports = async function(fastify) {
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
-            WHERE COALESCE(o.total_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) > 0
+            WHERE COALESCE(o.total_amount, 0)
+                    - COALESCE(o.discount_amount, 0)
+                    - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                    - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                    > 0
             ${searchWhere}
             ORDER BY o.order_date DESC, o.id DESC
             LIMIT 30
