@@ -1661,3 +1661,30 @@ DO $$ BEGIN
 END $$;
 DROP INDEX IF EXISTS idx_telesale_sources_name_crm;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_telesale_sources_name_crm ON telesale_sources(name, COALESCE(crm_type, '__none__'));
+
+-- ========== PERMISSION VIEWS ==========
+-- auth.js middleware and donhangtong.js query "user_permissions" and "department_permissions"
+-- but only the unified "permissions" table exists. Create VIEWs to bridge.
+CREATE OR REPLACE VIEW user_permissions AS
+SELECT
+    id,
+    target_id AS user_id,
+    feature   AS feature_key,
+    can_view,
+    can_create,
+    can_edit,
+    can_delete
+FROM permissions
+WHERE target_type = 'user';
+
+CREATE OR REPLACE VIEW department_permissions AS
+SELECT
+    id,
+    target_id AS department_id,
+    feature   AS feature_key,
+    can_view,
+    can_create,
+    can_edit,
+    can_delete
+FROM permissions
+WHERE target_type = 'department';

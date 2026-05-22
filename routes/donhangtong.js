@@ -526,12 +526,85 @@ module.exports = async function(fastify) {
             ORDER BY al.created_at ASC
         `, [orderId]);
 
+        // 6. ★ Merge payment records into audit timeline as virtual 'payment' entries
+        // This gives full cash flow visibility: every deposit, payment, refund shows in history
+        const paymentLogs = [];
+        const typeLabelsVN = {
+            dat_coc: 'Đặt cọc', thanh_toan: 'Thanh toán', tt_sll: 'Thanh toán SLL',
+            tra_lai_coc: 'Trả lại cọc', chi: 'Chi', pending: 'Chờ xử lý'
+        };
+        const methodLabelsVN = { CK: 'Chuyển Khoản', TM: 'Tiền Mặt' };
+
+        // Calculate running total for remaining balance display
+        const totalOrderAmount = Number(order.total_amount) || 0;
+        const discountAmount = Number(order.discount_amount) || 0;
+        const shipCkDeduct = (order.shipping_fee_payer === 'hv' && order.shipping_fee_method === 'ck') ? (Number(order.shipping_fee) || 0) : 0;
+        const netTotal = totalOrderAmount - discountAmount;
+        // Surcharges
+        let surTotal = 0;
+        for (const s of surcharges) surTotal += Number(s.amount) || 0;
+        const grandTotal = netTotal + surTotal;
+
+        let runningPaid = 0;
+        // Sort payments by date ascending for running balance
+        const sortedPayments = payments.slice().sort((a, b) => new Date(a.payment_date || a.created_at) - new Date(b.payment_date || b.created_at));
+
+        for (const p of sortedPayments) {
+            const amt = Number(p.amount) || 0;
+            const pType = p.payment_type || 'thanh_toan';
+            const isOutflow = pType === 'tra_lai_coc' || pType === 'chi';
+            if (!isOutflow) runningPaid += amt;
+            else runningPaid -= amt;
+
+            const remaining = grandTotal - runningPaid - shipCkDeduct;
+            const typeLabel = typeLabelsVN[pType] || pType;
+            const methodLabel = methodLabelsVN[(p.payment_method || '').toUpperCase()] || p.payment_method || '—';
+            const fmtAmt = Number(amt).toLocaleString('vi-VN');
+
+            const changes = [
+                { field: 'payment_code', label: 'Mã tiền', old: null, new: p.payment_code || '—' },
+                { field: 'payment_amount', label: 'Số tiền', old: null, new: String(amt) },
+                { field: 'payment_method', label: 'Hình thức', old: null, new: methodLabel },
+            ];
+            if (p.transfer_note) {
+                changes.push({ field: 'transfer_note', label: 'Nội dung', old: null, new: p.transfer_note });
+            }
+            if (p.bank_name) {
+                changes.push({ field: 'bank_name', label: 'Ngân hàng', old: null, new: p.bank_name });
+            }
+            changes.push({ field: 'remaining', label: 'Còn lại sau GD', old: null, new: String(remaining) });
+
+            const summaryIcon = isOutflow ? '🔴 ' : '💰 ';
+            const summary = `${summaryIcon}${typeLabel}: ${fmtAmt}đ — Mã tiền: ${p.payment_code || '—'}`;
+
+            paymentLogs.push({
+                id: 'pr_' + p.id,
+                dht_order_id: orderId,
+                action: 'payment',
+                summary: summary,
+                changes: JSON.stringify(changes),
+                performed_by: p.created_by || null,
+                performer_name: p.customer_name || '—',
+                created_at: p.payment_date || p.created_at || order.created_at,
+                _is_virtual: true,
+                _payment_type: pType,
+                _is_outflow: isOutflow,
+                _amount: amt,
+                _remaining: remaining
+            });
+        }
+
+        // Merge and sort by created_at
+        const merged_logs = [...audit_logs, ...paymentLogs].sort((a, b) =>
+            new Date(a.created_at) - new Date(b.created_at)
+        );
+
         return {
             order,
             items,
             payments,
             surcharges,
-            audit_logs
+            audit_logs: merged_logs
         };
     });
 

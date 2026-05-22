@@ -865,7 +865,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // NOTE: Items validation removed — products are now entered in DHT, not CRM
 
         if (log_type === 'hoan_thanh' && !doneTypes.includes('chot_don')) return reply.code(400).send({ error: 'Phải Chốt Đơn trước khi Hoàn Thành!' });
-        if (log_type === 'sau_ban_hang' && !doneTypes.includes('hoan_thanh')) return reply.code(400).send({ error: 'Phải Hoàn Thành Đơn trước khi Sau Bán Hàng!' });
 
         // ★ V4.1: Lock payment record BEFORE inserting consultation log
         // NOTE: order_tt_coc is NULL here because order code is created at chot_don (AFTER dat_coc)

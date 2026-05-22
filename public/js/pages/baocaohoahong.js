@@ -211,6 +211,13 @@ async function hhShowCustomerPopup(customerId) {
             }
         }
 
+        // ★ CONSULTATION LOCK: Ẩn log tư vấn sau thời điểm tạo đơn đầu tiên
+        // Affiliate chỉ thấy lịch sử đến lúc chốt đơn, không thấy hoạt động NV sau đó
+        if (hhItem && hhItem.consultation_locked && hhItem.first_order_date) {
+            const cutoffDate = new Date(hhItem.first_order_date);
+            logs = logs.filter(l => new Date(l.created_at) <= cutoffDate);
+        }
+
         // Show all logs (including khong_xu_ly)
         const visibleLogs = logs;
 
@@ -458,6 +465,7 @@ function hhRenderTable(items) {
                 <div style="flex:1;min-width:0;">
                     <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${(() => { const _cf = window._hhCrmFilter; if (_cf === 'ctv_hoa_hong') { if ((window._hhAffLockedIds||[]).includes(item.id)) return '🔒 '; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '🔑 '; if ((window._hhAffPendingIds||[]).includes(item.id)) return '⏳ '; if (item.crm_type === 'ctv_hoa_hong') return '💎 '; } return ''; })()}${item.customer_name}</div>${(item.is_silently_frozen && typeof currentUser !== 'undefined' && currentUser.role === 'giam_doc') ? '<div style="font-size:9px;color:#dc2626;font-weight:700;margin-top:3px;background:#fef2f2;padding:2px 8px;border-radius:6px;display:inline-block;">🔒 KH Chuyển Affiliate</div>' : ''}
                     <div style="font-size:11px;color:${item.is_direct ? '#059669' : '#7c3aed'};font-weight:600;margin-top:5px;letter-spacing:0.1px;">${refLabel}</div>
+
                 </div>
                 <div style="text-align:right;flex-shrink:0;background:${hasRevenue ? 'linear-gradient(135deg,#fef2f2,#fee2e2)' : '#f8fafc'};padding:8px 12px;border-radius:10px;min-width:105px;border:1px solid ${hasRevenue ? '#fecaca' : '#e2e8f0'};">
                     <div style="font-size:13px;font-weight:800;color:${hasRevenue ? '#dc2626' : '#94a3b8'};letter-spacing:-0.3px;">${revenueAmt}</div>
@@ -483,9 +491,16 @@ function hhRenderTable(items) {
             let ct = null;
             if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
             if (OVERRIDE_STATUSES_HH.includes(item.order_status) && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];
-            const consultBtn = ct 
-                ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
-                : `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
+            // ★ CONSULTATION LOCK: KH đã chốt đơn đầu → nút hiện y hệt bình thường, chỉ chặn tạo tư vấn mới
+            let consultBtn;
+            if (item.consultation_locked) {
+                // Luôn hiện "✅ Chốt Đơn" — bất kể last_log_type là gì
+                consultBtn = `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#22c55e;color:white;font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">✅ Chốt Đơn</span>`;
+            } else {
+                consultBtn = ct 
+                    ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
+                    : `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
+            }
 
             let contentShort = item.last_log_content || '';
             if (contentShort.length > 30) contentShort = contentShort.substring(0, 30) + '...';
@@ -636,7 +651,7 @@ function hhShowMobileDetail(index) {
             </div>` : ''}
             <div style="display:flex;gap:10px;">
                 <button onclick="document.getElementById('hhMobileDetail').remove();hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="flex:1;padding:12px;border:none;border-radius:10px;background:#3b82f6;color:white;font-size:13px;font-weight:700;cursor:pointer;">📋 Xem Đơn</button>
-                <button onclick="document.getElementById('hhMobileDetail').remove();openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="flex:1;padding:12px;border:none;border-radius:10px;background:${consultColor};color:${consultTextColor};font-size:13px;font-weight:700;cursor:pointer;">${consultLabel}</button>
+                <button onclick="document.getElementById('hhMobileDetail').remove();hhShowCustomerPopup(${item.id})" style="flex:1;padding:12px;border:none;border-radius:10px;background:${consultColor};color:${consultTextColor};font-size:13px;font-weight:700;cursor:pointer;">${consultLabel}</button>
             </div>
         </div>
     </div>`;

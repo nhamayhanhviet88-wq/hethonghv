@@ -412,6 +412,12 @@ async function customersRoutes(fastify, options) {
                 );
                 const completedSet = new Set(completedRows.map(r => r.customer_id));
 
+                // 1b. KH đã có BẤT KỲ đơn nào (bao gồm active) → giai đoạn 1 xong
+                const hasOrderRows = await db.all(
+                    `SELECT DISTINCT customer_id FROM order_codes WHERE customer_id IN (${custIds.map(() => '?').join(',')}) AND COALESCE(status, 'active') != 'cancelled'`, custIds
+                );
+                const hasOrderSet = new Set(hasOrderRows.map(r => r.customer_id));
+
                 // 2. KH đã tạo TK affiliate → map customer_id → affiliate_user_id
                 const selfRows = await db.all(
                     `SELECT id, source_customer_id FROM users WHERE source_customer_id IN (${custIds.map(() => '?').join(',')}) AND status = 'active'`, custIds
@@ -422,36 +428,52 @@ async function customersRoutes(fastify, options) {
                 }
 
                 // 3. Referrer có affiliate cha không (referrer.source_customer_id → customer.referrer_id)
-                const parentMap = {}; // referrer_user_id → hasParent
-                if (refIds.length > 0) {
+                // ★ Merge selfAffMap IDs vào refIds để parentMap cũng cover TK mới tạo
+                const selfAffIds = Object.values(selfAffMap).filter(Boolean);
+                const allLookupIds = [...new Set([...refIds, ...selfAffIds])];
+                const parentMap = {}; // user_id → hasParent
+                if (allLookupIds.length > 0) {
                     const refRows = await db.all(
                         `SELECT u.id as ref_id, u.source_customer_id, c2.referrer_id as parent_ref_id
                          FROM users u
                          LEFT JOIN customers c2 ON c2.id = u.source_customer_id
-                         WHERE u.id IN (${refIds.map(() => '?').join(',')})`, refIds
+                         WHERE u.id IN (${allLookupIds.map(() => '?').join(',')})`, allLookupIds
                     );
                     for (const r of refRows) {
                         parentMap[r.ref_id] = !!(r.source_customer_id && r.parent_ref_id);
                     }
                 }
 
-                // Gắn next_aff_rate cho từng KH
+                // ★ Gắn next_aff_rate cho từng KH — Quy tắc HH AFF:
+                // GIAI ĐOẠN 1 (chưa có đơn): referrer ăn % đơn đầu
+                // GIAI ĐOẠN 2 (đã có đơn): tính lại — chỉ TK affiliate chính chủ mới có %
                 for (const c of customers) {
                     const ownAffId = selfAffMap[c.id]; // TK affiliate của chính KH
-                    const isSelfReferrer = ownAffId && c.referrer_id === ownAffId;
-                    const hasOwnAffNoRef = ownAffId && !c.referrer_id;
+                    const hasOrder = hasOrderSet.has(c.id); // Đã có đơn → giai đoạn 1 xong
 
-                    if (isSelfReferrer || hasOwnAffNoRef) {
-                        // ★ Self-order: referrer chính là TK mình, HOẶC có TK nhưng không có referrer ngoài → 10% lifetime
-                        c.next_aff_rate = 10;
+                    if (ownAffId) {
+                        // ★ CÓ TK affiliate (dù referrer_id chưa đổi thành self)
+                        if (hasOrder) {
+                            // Giai đoạn 2: self 10% lifetime, cha 0%
+                            c.next_aff_rate = 10;
+                        } else {
+                            // Giai đoạn 1: self 10% + cha 5% nếu có cha
+                            c.next_aff_rate = parentMap[ownAffId] ? 15 : 10;
+                        }
                     } else if (!c.referrer_id) {
-                        // Không có referrer + không có TK affiliate → 0%
+                        // Không có referrer → 0%
                         c.next_aff_rate = 0;
-                    } else if (completedSet.has(c.id)) {
-                        // Referrer ngoài + first-order-only done → 0%
+                    } else if (hasOrder) {
+                        // ★ Giai đoạn 2 + KHÔNG CÓ TK affiliate → 0% (không ai ăn %)
                         c.next_aff_rate = 0;
+                    } else if (c.crm_type === 'ctv') {
+                        // ★ CTV: luôn 0% (FOO đã xong trước khi chuyển sang CTV)
+                        c.next_aff_rate = 0;
+                    } else if (c.crm_type === 'ctv_hoa_hong' || c.crm_type === 'koc_tiktok') {
+                        // ★ Affiliate/KOL chưa có TK: referrer hưởng 5% (parent rate)
+                        c.next_aff_rate = 5;
                     } else {
-                        // Referrer ngoài + chưa completed → check parent
+                        // nhu_cau: referrer 10% + cha 5% nếu có
                         c.next_aff_rate = parentMap[c.referrer_id] ? 15 : 10;
                     }
                 }

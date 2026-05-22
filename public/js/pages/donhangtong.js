@@ -472,7 +472,7 @@ function _dhtRenderOrderRows(filtered) {
             <td>${fmtD(o.shipping_date)}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
-                ${canDo('dht_sua_don', 'view') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>` : ''}
+                ${canDo('dht_sua_don', 'view') ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>`) : ''}
                 ${canDo('dht_xoa_don', 'view') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>` : ''}
             </td>
         </tr>`;
@@ -591,8 +591,9 @@ async function _dhtShowDetail(id) {
         if (window._dhtDetailSource !== 'shipping') {
         // Mỗi nút có feature key riêng → GĐ tick từng nút trong trang Phân Quyền
         actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
+        const _isFullyPaid = remaining <= 0;
         const actionBtns = [
-            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view') },
+            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn' },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('dht_xoa_don', 'view') },
             { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `alert('Chức năng Báo Đơn Lỗi đang phát triển!')`, perm: canDo('dht_bao_loi', 'view') },
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
@@ -605,7 +606,7 @@ async function _dhtShowDetail(id) {
         for (const a of actionBtns) {
             const noPerm = a.perm === false;
             const isDisabled = a.disabled || noPerm;
-            const disabledTitle = noPerm ? '🔒 Bạn không có quyền' : 'Cần báo đơn lỗi trước';
+            const disabledTitle = noPerm ? '🔒 Bạn không có quyền' : (a.disabledTitle || 'Cần báo đơn lỗi trước');
             if (isDisabled) {
                 actionsHTML += `<div style="text-align:center;padding:10px 14px;border-radius:12px;min-width:80px;opacity:0.35;cursor:not-allowed;filter:grayscale(${noPerm ? '0.6' : '0'})" title="${disabledTitle}">`;
                 actionsHTML += `<div style="width:42px;height:42px;border-radius:50%;background:${a.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 5px;font-size:18px">${noPerm ? '🔒' : a.icon}</div>`;
@@ -916,19 +917,69 @@ async function _dhtShowDetail(id) {
         errorHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:13px;font-style:italic">Chưa có thông tin đơn lỗi</div>`;
         errorHTML += `</div>`;
 
-        // ── Section 9: 📝 Lịch sử cập nhật (Audit Log) ──
+        // ── Section 9: 📝 Lịch sử cập nhật (Audit Log + Dòng tiền) ──
         var histHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
         histHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📝 Lịch sử cập nhật <span style="background:#64748b;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${auditLogs.length || 0}</span></div>`;
+
+        // ★ Financial summary mini-bar (calculate from payment-type entries)
+        var _payInflow = 0, _payOutflow = 0;
+        for (var _pi = 0; _pi < auditLogs.length; _pi++) {
+            var _pl = auditLogs[_pi];
+            if (_pl.action === 'payment' || _pl._is_virtual) {
+                var _pAmt = Number(_pl._amount || 0);
+                if (_pAmt === 0) {
+                    // Parse from changes
+                    try {
+                        var _pch = typeof _pl.changes === 'string' ? JSON.parse(_pl.changes) : (_pl.changes || []);
+                        for (var _ci2 = 0; _ci2 < _pch.length; _ci2++) {
+                            if (_pch[_ci2].field === 'payment_amount') _pAmt = Number(_pch[_ci2].new) || 0;
+                        }
+                    } catch(e) {}
+                }
+                if (_pl._is_outflow || (_pl.summary && _pl.summary.indexOf('🔴') >= 0)) {
+                    _payOutflow += _pAmt;
+                } else {
+                    _payInflow += _pAmt;
+                }
+            }
+        }
+        if (_payInflow > 0 || _payOutflow > 0) {
+            var _netFlow = _payInflow - _payOutflow;
+            histHTML += `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">`;
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:10px 12px;text-align:center">`;
+            histHTML += `<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.5px">💰 Tổng Thu</div>`;
+            histHTML += `<div style="font-size:16px;font-weight:900;color:#059669;margin-top:2px">${fmt(_payInflow)}đ</div>`;
+            histHTML += `</div>`;
+            if (_payOutflow > 0) {
+                histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;border-radius:10px;padding:10px 12px;text-align:center">`;
+                histHTML += `<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px">🔴 Tổng Chi</div>`;
+                histHTML += `<div style="font-size:16px;font-weight:900;color:#dc2626;margin-top:2px">${fmt(_payOutflow)}đ</div>`;
+                histHTML += `</div>`;
+            }
+            var _remainColor = remaining > 0 ? '#dc2626' : '#059669';
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;text-align:center">`;
+            histHTML += `<div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px">📊 Còn Lại</div>`;
+            histHTML += `<div style="font-size:16px;font-weight:900;color:${_remainColor};margin-top:2px">${fmt(remaining)}đ</div>`;
+            histHTML += `</div>`;
+            histHTML += `</div>`;
+        }
+
         var _actionStyles = {
-            create:   { color: '#059669', bg: '#f0fdf4', border: '#059669', icon: '🟢' },
-            update:   { color: '#d97706', bg: '#fffbeb', border: '#f59e0b', icon: '🟡' },
-            ship:     { color: '#2563eb', bg: '#eff6ff', border: '#3b82f6', icon: '🔵' },
-            discount: { color: '#7c3aed', bg: '#f5f3ff', border: '#8b5cf6', icon: '🟣' },
-            error:    { color: '#dc2626', bg: '#fef2f2', border: '#ef4444', icon: '🔴' }
+            create:      { color: '#059669', bg: '#f0fdf4', border: '#059669', icon: '🟢' },
+            update:      { color: '#d97706', bg: '#fffbeb', border: '#f59e0b', icon: '🟡' },
+            ship:        { color: '#2563eb', bg: '#eff6ff', border: '#3b82f6', icon: '🔵' },
+            discount:    { color: '#7c3aed', bg: '#f5f3ff', border: '#8b5cf6', icon: '🟣' },
+            error:       { color: '#dc2626', bg: '#fef2f2', border: '#ef4444', icon: '🔴' },
+            payment:     { color: '#059669', bg: '#f0fdf4', border: '#10b981', icon: '💰' },
+            payment_out: { color: '#dc2626', bg: '#fef2f2', border: '#ef4444', icon: '🔴' }
         };
         if (auditLogs.length > 0) {
             for (const log of auditLogs) {
-                var st = _actionStyles[log.action] || _actionStyles.update;
+                // Determine style: payment outflow gets red, inflow gets green
+                var isPaymentOutflow = log.action === 'payment' && (log._is_outflow || (log.summary && log.summary.indexOf('🔴') >= 0));
+                var stKey = isPaymentOutflow ? 'payment_out' : log.action;
+                var st = _actionStyles[stKey] || _actionStyles.update;
+
                 histHTML += `<div style="padding:10px 12px;border-left:3px solid ${st.border};margin-bottom:8px;background:${st.bg};border-radius:0 8px 8px 0">`;
                 histHTML += `<div style="font-size:11px;color:#64748b">${st.icon} ${vnFormat(log.created_at)}</div>`;
                 histHTML += `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">👤 <span style="color:var(--info)">${log.performer_name || '—'}</span> ${log.summary}</div>`;
@@ -943,12 +994,31 @@ async function _dhtShowDetail(id) {
                         var connector = isLast ? '└─' : '├─';
                         var _fmtVal = function(v, f) {
                             if (!v || v === '(trống)') return '<span style="color:#94a3b8;font-style:italic">(trống)</span>';
-                            if (['total_amount','discount_amount','vat_amount','shipping_fee','deposit_amount_cache','surcharge_add','surcharge_edit','surcharge_del'].includes(f)) {
-                                return Number(v).toLocaleString('vi-VN') + 'đ';
+                            // Format money fields with currency
+                            if (['total_amount','discount_amount','vat_amount','shipping_fee','deposit_amount_cache','surcharge_add','surcharge_edit','surcharge_del','payment_amount','remaining'].includes(f)) {
+                                var numV = Number(v);
+                                if (!isNaN(numV)) return numV.toLocaleString('vi-VN') + 'đ';
                             }
                             return v;
                         };
-                        if (c.old && c.old !== '(trống)' && c.old !== '(cũ)') {
+
+                        // Special styling for payment-related fields
+                        var isAmountField = c.field === 'payment_amount';
+                        var isRemainingField = c.field === 'remaining';
+
+                        if (isAmountField) {
+                            // Large, bold amount display
+                            var _amtColor = isPaymentOutflow ? '#dc2626' : '#059669';
+                            var _amtSign = isPaymentOutflow ? '-' : '+';
+                            histHTML += `<div style="font-size:12px;color:#475569;padding:3px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="font-weight:900;font-size:14px;color:${_amtColor}">${_amtSign}${_fmtVal(c.new, c.field)}</span></div>`;
+                        } else if (isRemainingField) {
+                            // Remaining balance with status indicator
+                            var _remVal = Number(c.new) || 0;
+                            var _remColor = _remVal > 0 ? '#dc2626' : '#059669';
+                            var _remIcon = _remVal <= 0 ? '✅' : '⏳';
+                            var _remText = _remVal <= 0 ? 'ĐÃ THU ĐỦ' : 'Chưa thu đủ';
+                            histHTML += `<div style="font-size:12px;color:#475569;padding:3px 0;background:${_remVal <= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(220,38,38,0.06)'};border-radius:4px;padding:4px 6px;margin-top:2px"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="font-weight:900;color:${_remColor}">${_remIcon} ${_fmtVal(c.new, c.field)} — ${_remText}</span></div>`;
+                        } else if (c.old && c.old !== '(trống)' && c.old !== '(cũ)') {
                             histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="color:#dc2626;text-decoration:line-through">${_fmtVal(c.old, c.field)}</span> → <span style="color:#059669;font-weight:700">${_fmtVal(c.new, c.field)}</span></div>`;
                         } else {
                             histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="font-weight:700;color:${st.color}">${_fmtVal(c.new, c.field)}</span></div>`;

@@ -1086,6 +1086,52 @@ async function affiliateRoutes(fastify) {
             _fcRows.forEach(r => { _fooFirstCompletedMap[r.customer_id] = r; });
         }
 
+        // ★ CONSULTATION LOCK: Batch-fetch chot_don status + first order code + DHT remaining
+        let _consultChotDonMap = {};
+        let _firstOrderCodeMap = {};
+        let _firstOrderDhtRemainingMap = {};
+        if (filteredIds.length > 0) {
+            const _clPh = filteredIds.map(() => '?').join(',');
+            const _clRows = await db.all(`
+                SELECT DISTINCT customer_id FROM consultation_logs
+                WHERE customer_id IN (${_clPh}) AND log_type = 'chot_don'
+            `, filteredIds);
+            _clRows.forEach(r => { _consultChotDonMap[r.customer_id] = true; });
+            const _foCodeRows = await db.all(`
+                SELECT DISTINCT ON (customer_id) customer_id, order_code, status, created_at
+                FROM order_codes
+                WHERE customer_id IN (${_clPh})
+                AND COALESCE(status, 'active') != 'cancelled'
+                ORDER BY customer_id, id ASC
+            `, filteredIds);
+            _foCodeRows.forEach(r => { _firstOrderCodeMap[r.customer_id] = r; });
+            const orderCodesToCheck = _foCodeRows.map(r => r.order_code).filter(Boolean);
+            if (orderCodesToCheck.length > 0) {
+                const _dhtPh = orderCodesToCheck.map(() => '?').join(',');
+                const _dhtRows = await db.all(`
+                    SELECT o.order_code,
+                        COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0)
+                        - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                        - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
+                    FROM dht_orders o
+                    LEFT JOIN LATERAL (
+                        SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                        FROM payment_records
+                        WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                           OR order_tt_coc = o.order_code
+                    ) pr_dep ON true
+                    WHERE o.order_code IN (${_dhtPh})
+                `, orderCodesToCheck);
+                const _dhtByCode = {};
+                _dhtRows.forEach(r => { _dhtByCode[r.order_code] = Number(r.remaining_amount) || 0; });
+                _foCodeRows.forEach(r => {
+                    if (_dhtByCode.hasOwnProperty(r.order_code)) {
+                        _firstOrderDhtRemainingMap[r.customer_id] = _dhtByCode[r.order_code];
+                    }
+                });
+            }
+        }
+
         if (filteredIds.length > 0) {
             const cphOrd2 = filteredIds.map(() => '?').join(',');
             // ★ CHỈ tính đơn SAU ngày tạo TK Affiliate
@@ -1294,9 +1340,34 @@ async function affiliateRoutes(fastify) {
                 }
             }
 
+            // ★ CONSULTATION LOCK: Khóa nút tư vấn cho KH được giới thiệu sau khi chốt đơn đầu
+            let consultationLocked = false;
+            let lockReason = null;
+            let firstOrderCode = null;
+            let firstOrderRemaining = null;
+            let firstOrderDate = null;
+            if (!isSelf) {
+                const foCode = _firstOrderCodeMap[c.id] || null;
+                if (foCode) {
+                    consultationLocked = true;
+                    firstOrderCode = foCode.order_code;
+                    firstOrderDate = foCode.created_at || null;
+                    const dhtRemaining = _firstOrderDhtRemainingMap[c.id];
+                    if (foCode.status === 'completed') {
+                        lockReason = 'completed';
+                        firstOrderRemaining = 0;
+                    } else if (dhtRemaining !== undefined) {
+                        firstOrderRemaining = dhtRemaining;
+                        lockReason = dhtRemaining <= 0 ? 'paid' : 'pending';
+                    } else {
+                        lockReason = 'chot_don';
+                        firstOrderRemaining = null;
+                    }
+                }
+            }
+
             return {
                 ...c,
-                // ★ KH chuyển từ nhu_cau → ctv_hoa_hong: trả crm_type = 'nhu_cau' để frontend phân loại đúng tab Khách
                 crm_type: isConverted ? 'nhu_cau' : c.crm_type,
                 phone: displayPhone,
                 is_direct: isDirect,
@@ -1308,6 +1379,11 @@ async function affiliateRoutes(fastify) {
                 is_converted_to_affiliate: isConverted,
                 is_silently_frozen: isSilentlyFrozen,
                 is_first_order_frozen: isFirstOrderFrozen,
+                consultation_locked: consultationLocked,
+                lock_reason: lockReason,
+                first_order_code: firstOrderCode,
+                first_order_remaining: firstOrderRemaining,
+                first_order_date: firstOrderDate,
                 referrer_name: isSelf ? 'Đơn Của Tôi' : (isDirect ? 'Trực tiếp' : (childAffiliates.find(a => a.id === c.referrer_id)?.full_name || 'Con')),
                 last_log_type: frozenLog?.log_type || null,
                 last_log_content: frozenLog?.content || null,

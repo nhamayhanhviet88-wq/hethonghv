@@ -315,6 +315,20 @@ module.exports = async function(fastify) {
             await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
                 orderId, 'ship', summary, JSON.stringify(changes), request.user.id
             ]);
+
+            // ★ Audit log: Auto CHI for HV+TM shipping fee
+            if (cashflowResult && shipFee > 0) {
+                const chiChanges = [
+                    { field: 'payment_code', label: 'Mã phiếu CHI', old: null, new: cashflowResult.cashflow_code },
+                    { field: 'payment_amount', label: 'Số tiền CHI', old: null, new: String(shipFee) },
+                    { field: 'payment_method', label: 'Hình thức', old: null, new: 'Tiền Mặt' },
+                    { field: 'transfer_note', label: 'Nội dung', old: null, new: `Tiền ship đơn ${order.order_code}` }
+                ];
+                const chiSummary = `🔴 Phí ship (CHI tự động): ${Number(shipFee).toLocaleString('vi-VN')}đ — Mã phiếu: ${cashflowResult.cashflow_code}`;
+                await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
+                    orderId, 'payment', chiSummary, JSON.stringify(chiChanges), request.user.id
+                ]);
+            }
         } catch(auditErr) { console.error('[AuditLog] ship:', auditErr.message); }
 
         return { success: true, message: resultMsg, cashflow_code: cashflowResult?.cashflow_code || null };
