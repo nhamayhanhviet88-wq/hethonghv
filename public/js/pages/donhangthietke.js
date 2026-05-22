@@ -157,7 +157,7 @@ async function _dhtkLoadTree() {
                 + (hasDesigners ? '<span onclick="event.stopPropagation();_dhtkToggle(\'' + mKey + '\')" style="cursor:pointer;font-size:9px;width:14px;text-align:center">' + (mOpen ? '▼' : '▶') + '</span>' : '<span style="width:14px;display:inline-block"></span>')
                 + '📅 Tháng ' + String(mi).padStart(2, '0')
                 + '</span>'
-                + '<span style="color:' + (mCount > 0 ? '#e94560' : 'rgba(255,255,255,0.2)') + ';font-weight:' + (mCount > 0 ? '800' : '400') + ';font-size:11px">' + mCount + '</span>'
+                + '<span style="' + (mCount > 0 ? 'background:linear-gradient(135deg,#e94560,#c23152);color:#fff;padding:3px 10px;border-radius:8px;box-shadow:0 2px 8px rgba(233,69,96,0.3)' : 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);padding:3px 10px;border-radius:8px') + ';font-weight:800;font-size:11px;min-width:24px;text-align:center;display:inline-block">' + mCount + '</span>'
                 + '</div>';
 
             // Designers within this month (always show all dept designers)
@@ -168,8 +168,8 @@ async function _dhtkLoadTree() {
                     var isOldDesign = d.designer_id === 0;
                     var icon = isOldDesign ? '📁' : '👤';
                     var countStyle = d.count > 0
-                        ? 'background:' + (isOldDesign ? 'rgba(255,255,255,0.1)' : 'rgba(233,69,96,0.25)') + ';color:' + (isOldDesign ? '#cbd5e1' : '#e94560')
-                        : 'background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3)';
+                        ? 'background:' + (isOldDesign ? 'rgba(255,255,255,0.15)' : 'linear-gradient(135deg,#e94560,#c23152)') + ';color:#fff;box-shadow:0 2px 6px rgba(233,69,96,0.25)'
+                        : 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4)';
                     h += '<div class="dhtk-sb-designer' + (dActive ? ' active' : '') + '" onclick="event.stopPropagation();_dhtkFilterDesigner(' + yr.year + ',' + mi + ',' + d.designer_id + ')">'
                         + '<span>' + icon + ' ' + d.designer_name + '</span>'
                         + '<span style="' + countStyle + ';padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800">' + d.count + '</span>'
