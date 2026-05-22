@@ -190,10 +190,11 @@ module.exports = async function(fastify) {
             }));
 
         // ★ Summary visibility based on role/department (reuses isKeToan from above)
-        // 'full' = GĐ/QLCC: see revenue + count + unpaid
+        // 'full' = GĐ/QLCC: see ALL revenue + count + unpaid
         // 'limited' = Kế Toán: see count + unpaid (no revenue)
-        // 'none' = others: see nothing
-        const summaryVisibility = isFullView ? 'full' : (isKeToan ? 'limited' : 'none');
+        // 'self' = NV/TP/QL: see OWN order count + unpaid (no revenue, data already filtered by created_by)
+        // 'none' = external roles: see nothing
+        const summaryVisibility = isFullView ? 'full' : (isKeToan ? 'limited' : 'self');
 
         // Grand total — only send revenue if user has 'full' visibility
         const grandTotal = summaryVisibility === 'full' ? tree.reduce((s, y) => s + y.total, 0) : 0;

@@ -1,6 +1,7 @@
 // ========== ĐƠN HÀNG TỔNG — Bộ Phận Văn Phòng ==========
 var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {}, sortCol: null, sortDir: null, page: 1, pageSize: 100 };
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
+function _dhtFmtCount(n) { return Number(n||0).toLocaleString('vi-VN') + ' đơn'; }
 
 // ========== FILTER CHIPS ==========
 var _dhtFilterDefs = [
@@ -428,16 +429,18 @@ async function _dhtLoadTree() {
     // Default: current year open
     if (!_dhtOpen._init) { _dhtOpen['y'+curYear] = true; _dhtOpen._init = true; }
 
+    var isFull = _dht.summaryVisibility === 'full';
+    var _sbVal = function(total, count) { return isFull ? _dhtFmt(total) : _dhtFmtCount(count); };
     var h = '<div class="dht-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#b8860b;font-weight:900">✨ Đơn hàng tổng ✨</span> <span style="color:var(--navy)">───</span></div>';
     // Only show Tổng Doanh Số in sidebar for 'full' visibility (GĐ/QLCC)
-    if (_dht.summaryVisibility === 'full') {
+    if (isFull) {
         h += '<div class="dht-sb-total" onclick="_dhtFilterOnly({})"><span>▼ Tổng Doanh Số</span><span>'+_dhtFmt(data.grandTotal||0)+'</span></div>';
     }
     var years = _dht.tree.length > 0 ? _dht.tree : [{year:curYear,total:0,count:0,categories:[]}];
     years.forEach(function(yr) {
         var yKey = 'y'+yr.year;
         var yOpen = !!_dhtOpen[yKey];
-        h += '<div class="dht-sb-year" onclick="_dhtToggleKey(\''+yKey+'\')"><span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span><span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_dhtFmt(yr.total)+'</span></div>';
+        h += '<div class="dht-sb-year" onclick="_dhtToggleKey(\''+yKey+'\')"><span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span><span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(yr.total, yr.count)+'</span></div>';
         h += '<div style="display:'+(yOpen?'block':'none')+'">';
         var cats = _dht.categories.map(function(cat) {
             var found = (yr.categories||[]).find(function(c){return c.id===cat.id;});
@@ -449,13 +452,15 @@ async function _dhtLoadTree() {
             var cKey = yKey+'c'+cat.id;
             var cOpen = !!_dhtOpen[cKey];
             var cActive = _dht.filter.year==yr.year&&_dht.filter.category_id==cat.id&&!_dht.filter.month;
-            h += '<div class="dht-sb-cat'+(cActive?' active':'')+'" onclick="_dhtToggleKey(\''+cKey+'\','+yr.year+','+cat.id+')"><span>'+(cOpen?'▼':'▶')+' 🏷️ '+cat.name+'</span><span style="color:#b8860b;font-weight:800">'+_dhtFmt(cat.total)+'</span></div>';
+            h += '<div class="dht-sb-cat'+(cActive?' active':'')+'" onclick="_dhtToggleKey(\''+cKey+'\','+yr.year+','+cat.id+')"><span>'+(cOpen?'▼':'▶')+' 🏷️ '+cat.name+'</span><span style="color:#b8860b;font-weight:800">'+_sbVal(cat.total, cat.count)+'</span></div>';
             h += '<div style="display:'+(cOpen?'block':'none')+'">';
             for(var mi=12;mi>=1;mi--){
                 var mData=(cat.months||[]).find(function(m){return m.month===mi;});
                 var mTotal=mData?mData.total:0;
+                var mCount=mData?mData.count:0;
+                var mVal=isFull?mTotal:mCount;
                 var mActive=_dht.filter.year==yr.year&&_dht.filter.category_id==cat.id&&_dht.filter.month==mi;
-                h += '<div class="dht-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhtFilterOnly({year:'+yr.year+',category_id:'+cat.id+',month:'+mi+'})"><span>▸ Tháng '+String(mi).padStart(2,'0')+'</span><span style="color:'+(mTotal>0?'#b8860b':'#999')+';font-weight:'+(mTotal>0?'800':'400')+'">'+_dhtFmt(mTotal)+'</span></div>';
+                h += '<div class="dht-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhtFilterOnly({year:'+yr.year+',category_id:'+cat.id+',month:'+mi+'})"><span>▸ Tháng '+String(mi).padStart(2,'0')+'</span><span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mTotal, mCount)+'</span></div>';
             }
             h += '</div>';
         });
@@ -693,7 +698,7 @@ function _dhtUpdateInfo(count, filtered) {
     var sc = document.getElementById('dhtStatCards');
     if (sc) {
         var vis = _dht.summaryVisibility || 'none';
-        // 'none' = no cards at all (other roles)
+        // 'none' = no cards at all (external roles)
         if (vis === 'none') {
             sc.innerHTML = '';
         } else {
