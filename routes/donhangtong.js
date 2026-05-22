@@ -73,6 +73,22 @@ module.exports = async function(fastify) {
 
     // ========== TREE: Sidebar data ==========
     fastify.get('/api/dht/tree', { preHandler: [authenticate] }, async (request, reply) => {
+        // ★ TREE VISIBILITY: Same rules as /api/dht/orders
+        let treeWhere = '';
+        const treeParams = [];
+        const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+        if (!FULL_VIEW_ROLES.includes(request.user.role)) {
+            const userDept = await db.get(
+                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                [request.user.id]
+            );
+            const isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
+            if (!isKeToan) {
+                treeWhere = 'WHERE o.created_by = $1';
+                treeParams.push(request.user.id);
+            }
+        }
+
         // Group by year → category → month → day with revenue
         const rows = await db.all(`
             SELECT 
@@ -85,9 +101,10 @@ module.exports = async function(fastify) {
                 COUNT(*)::int AS order_count
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
+            ${treeWhere}
             GROUP BY year, month, day, o.category_id, c.name
             ORDER BY year DESC, month DESC, day DESC
-        `);
+        `, treeParams);
 
         // Build tree: year → categories → months → days
         const yearMap = {};
@@ -1047,6 +1064,20 @@ module.exports = async function(fastify) {
         if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
         if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
+
+        // ★ EXPORT VISIBILITY: Same rules as /api/dht/orders
+        const FULL_VIEW_ROLES_EXP = ['giam_doc', 'quan_ly_cap_cao'];
+        if (!FULL_VIEW_ROLES_EXP.includes(request.user.role)) {
+            const userDeptExp = await db.get(
+                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                [request.user.id]
+            );
+            const isKeToanExp = userDeptExp && userDeptExp.name && (userDeptExp.name.toLowerCase().includes('kế toán') || userDeptExp.name.toLowerCase().includes('ke toan'));
+            if (!isKeToanExp) {
+                where += ` AND o.created_by = $${idx++}`;
+                params.push(request.user.id);
+            }
+        }
 
         const orders = await db.all(`
             SELECT o.*,
