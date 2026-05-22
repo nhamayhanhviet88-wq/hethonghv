@@ -81,12 +81,16 @@ module.exports = async function(fastify) {
         let treeWhere = '';
         const treeParams = [];
         const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
-        if (!FULL_VIEW_ROLES.includes(request.user.role)) {
+        const isFullView = FULL_VIEW_ROLES.includes(request.user.role);
+
+        // Check department ONCE — reused for both tree filter and summary visibility
+        let isKeToan = false;
+        if (!isFullView) {
             const userDept = await db.get(
-                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                'SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
                 [request.user.id]
             );
-            const isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
+            isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
             if (!isKeToan) {
                 treeWhere = 'WHERE o.created_by = $1';
                 treeParams.push(request.user.id);
@@ -153,21 +157,11 @@ module.exports = async function(fastify) {
                     }))
             }));
 
-        // ★ Summary visibility based on role/department
+        // ★ Summary visibility based on role/department (reuses isKeToan from above)
         // 'full' = GĐ/QLCC: see revenue + count + unpaid
         // 'limited' = Kế Toán: see count + unpaid (no revenue)
         // 'none' = others: see nothing
-        let summaryVisibility = 'none';
-        if (FULL_VIEW_ROLES.includes(request.user.role)) {
-            summaryVisibility = 'full';
-        } else {
-            const deptCheck = await db.get(
-                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
-                [request.user.id]
-            );
-            const isKT = deptCheck && deptCheck.name && (deptCheck.name.toLowerCase().includes('kế toán') || deptCheck.name.toLowerCase().includes('ke toan'));
-            if (isKT) summaryVisibility = 'limited';
-        }
+        const summaryVisibility = isFullView ? 'full' : (isKeToan ? 'limited' : 'none');
 
         // Grand total — only send revenue if user has 'full' visibility
         const grandTotal = summaryVisibility === 'full' ? tree.reduce((s, y) => s + y.total, 0) : 0;
