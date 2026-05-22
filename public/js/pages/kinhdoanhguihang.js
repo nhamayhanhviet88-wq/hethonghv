@@ -82,8 +82,8 @@ function _kdShRenderTable(el) {
 
         html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'">`;
         html += `<td style="padding:8px 6px;text-align:center;font-size:14px;">${statusIcon}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${fmt(o.order_date)}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;${overdue ? 'color:#dc2626;' : 'color:#1e293b;'}">${fmt(effDate)}${overdue ? `<div style="font-size:9px;color:#dc2626;font-weight:800;">Trễ ${daysLate} ngày</div>` : ''}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? fmt(o.shipped_at) : '—'}</td>`;
         html += `<td style="padding:8px 6px;">${o.delivery_progress ? `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">${o.delivery_progress}</span>` : '—'}</td>`;
         html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;">${o.order_code || '—'}</td>`;
         html += `<td style="padding:8px 6px;"><span style="background:${prioColor};color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority || 'CHUẨN'}</span></td>`;

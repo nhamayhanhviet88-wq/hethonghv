@@ -109,10 +109,10 @@ function _shRenderTable(el) {
         }
         // Col 2: Bill link
         html += `<td style="padding:8px 4px;text-align:center;">${o.shipping_bill_link ? `<a href="${o.shipping_bill_link}" target="_blank" style="color:#3b82f6;font-size:14px;" title="Xem bill" onclick="event.stopPropagation()">🔗</a>` : `<span style="color:#d1d5db;cursor:pointer;font-size:14px;" onclick="event.stopPropagation();_shEditTracking(${o.id},'shipping_bill_link','${(o.shipping_bill_link||'').replace(/'/g,"\\'")}')" title="Thêm link bill">➕</span>`}</td>`;
-        // Col 3-4: Dates
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${fmt(o.order_date)}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">
-            ${fmt(o.expected_ship_date)}</td>`;
+        // Col 3: Gửi Dự Kiến (expected ship date)
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</td>`;
+        // Col 4: 🚛 Ngày Gửi (actual ship date - when accounting clicks ship)
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? fmt(o.shipped_at) : '—'}</td>`;
         // Col 5: Hẹn Lại
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">\u2014</span>'}</td>`;
         // Col 6: Progress
