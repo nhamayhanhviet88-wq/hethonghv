@@ -10,10 +10,10 @@ module.exports = async function(fastify) {
         // ★ VISIBILITY RULES:
         // GĐ, QLCC → see ALL designers + "Thiết Kế Cũ"
         // NV Thiết Kế → only their own orders (designer_user_id = their id)
-        //   + only categories: Công Ty, Áo Lớp, Mầm Non (hide PET, TEM, Đơn Sửa)
+        // ALL users: hide PET, TEM, Đơn Sửa categories (not relevant for design)
         // Others with permission → same as NV Thiết Kế (their own only)
         const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
-        // Categories hidden from design staff view
+        // Categories hidden from Đơn Hàng Thiết Kế page (for ALL users)
         const DESIGN_HIDDEN_CATS = ['pet', 'tem', 'đơn sửa'];
         const isFullView = FULL_VIEW_ROLES.includes(request.user.role);
 
@@ -28,11 +28,15 @@ module.exports = async function(fastify) {
             whereClause = `WHERE (o.designer_user_id IS NOT NULL OR o.designer_type = 'old_design')`;
         } else {
             // Non-admin: only see orders assigned to them as designer
-            // + exclude hidden categories (PET, TEM, Đơn Sửa)
-            whereClause = `WHERE o.designer_user_id = $1 AND o.designer_type = 'staff'
-                AND (c_filter.name IS NULL OR LOWER(c_filter.name) NOT IN (${DESIGN_HIDDEN_CATS.map((_, i) => '$' + (i + 2)).join(',')}))`;
-            params.push(request.user.id, ...DESIGN_HIDDEN_CATS);
+            whereClause = `WHERE o.designer_user_id = $1 AND o.designer_type = 'staff'`;
+            params.push(request.user.id);
         }
+
+        // ★ Global filter: exclude hidden categories for ALL users on this page
+        const catStartIdx = params.length + 1;
+        const catPlaceholders = DESIGN_HIDDEN_CATS.map((_, i) => '$' + (catStartIdx + i)).join(',');
+        whereClause += ` AND (c_filter.name IS NULL OR LOWER(c_filter.name) NOT IN (${catPlaceholders}))`;
+        params.push(...DESIGN_HIDDEN_CATS);
 
         // Aggregate: year → month → designer
         const rows = await db.all(`
@@ -129,7 +133,7 @@ module.exports = async function(fastify) {
         const params = [];
         let idx = 1;
 
-        // Categories hidden from design staff view
+        // Categories hidden from Đơn Hàng Thiết Kế page (for ALL users)
         const DESIGN_HIDDEN_CATS_O = ['pet', 'tem', 'đơn sửa'];
 
         if (isFullView) {
@@ -137,11 +141,12 @@ module.exports = async function(fastify) {
         } else {
             where = `WHERE o.designer_user_id = $${idx++} AND o.designer_type = 'staff'`;
             params.push(request.user.id);
-            // Exclude hidden categories for design staff
-            const catPlaceholders = DESIGN_HIDDEN_CATS_O.map(() => `$${idx++}`).join(',');
-            where += ` AND (c.name IS NULL OR LOWER(c.name) NOT IN (${catPlaceholders}))`;
-            params.push(...DESIGN_HIDDEN_CATS_O);
         }
+
+        // ★ Global filter: exclude hidden categories for ALL users on this page
+        const catPlaceholders = DESIGN_HIDDEN_CATS_O.map(() => `$${idx++}`).join(',');
+        where += ` AND (c.name IS NULL OR LOWER(c.name) NOT IN (${catPlaceholders}))`;
+        params.push(...DESIGN_HIDDEN_CATS_O);
 
         // Date filters
         if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
