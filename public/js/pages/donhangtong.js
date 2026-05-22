@@ -155,7 +155,9 @@ function _dhtPopulateCskhDropdown() {
 var _dhtSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'prod_done',       label: 'Quy Trình SX',   type: 'num',  align: 'center' },
+    { key: 'shipping_date',    label: '🚛Ngày Gửi',    type: 'date' },
+    { key: null,               label: 'Tiến Độ',        type: 'none' },
+    { key: 'prod_done',        label: 'Quy Trình SX',  type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
     { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
     { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
@@ -167,8 +169,7 @@ var _dhtSortDefs = [
     { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
     { key: 'deposit_amount',   label: 'Đặt Cọc',       type: 'num' },
     { key: 'shipping_priority',label: 'TC Gửi',         type: 'text' },
-    { key: 'shipping_date',    label: 'Ngày Gửi',       type: 'date' },
-    { key: 'last_updated_at',  label: 'Lịch Sử CN',     type: 'date' },
+    { key: 'last_updated_at',  label: 'Lịch Sử CN',    type: 'date' },
     { key: null,               label: '',                type: 'none' }
 ];
 
@@ -302,7 +303,7 @@ async function renderDonhangtongPage(content) {
         +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th style="text-align:center">Quy Trình SX</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>🚛Ngày Gửi</th><th>Tiến Độ</th><th style="text-align:center">Quy Trình SX</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
     document.getElementById('dhtSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhtDoSearch(); } });
     // Default: load current year (no month pre-selected)
@@ -459,12 +460,14 @@ function _dhtRenderOrderRows(filtered) {
     if (!tbody) return;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="18"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
         _dhtUpdateInfo(0, []); return;
     }
 
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
-    const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+    const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; };
+    const _todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    _todayVN.setHours(0,0,0,0);
 
     tbody.innerHTML = filtered.map(o => {
         const remaining = Number(o.remaining_amount) || 0;
@@ -511,9 +514,41 @@ function _dhtRenderOrderRows(filtered) {
         const _catColor = _catColors[_catHash];
         const _catBg = _catBgs[_catHash];
 
+        // ★ Tiến Độ calculation
+        let tienDo = '';
+        if (o.shipping_date) {
+            const shipPlan = new Date(o.shipping_date); shipPlan.setHours(0,0,0,0);
+            if (o.shipped_at) {
+                // Already shipped — compare actual vs planned
+                const shipActual = new Date(new Date(o.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                shipActual.setHours(0,0,0,0);
+                const diffDays = Math.round((shipPlan.getTime() - shipActual.getTime()) / 86400000);
+                if (diffDays > 0) {
+                    tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">⚡Nhanh hơn ${diffDays} ngày</span>`;
+                } else if (diffDays === 0) {
+                    tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">✅ Đúng hạn</span>`;
+                } else {
+                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+                }
+            } else {
+                // Not shipped yet — compare today vs planned
+                const diffDays = Math.round((shipPlan.getTime() - _todayVN.getTime()) / 86400000);
+                if (diffDays > 0) {
+                    tienDo = `<span style="color:#2563eb;font-size:10px;font-weight:700">⏳ Còn ${diffDays} ngày</span>`;
+                } else if (diffDays === 0) {
+                    tienDo = `<span style="color:#f59e0b;font-size:10px;font-weight:800">📦 Hôm nay!</span>`;
+                } else {
+                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:800;animation:dhtBlink 1s infinite">🔥 Quá hạn ${Math.abs(diffDays)} ngày</span>`;
+                }
+            }
+        }
+        const shipDateFmt = o.shipping_date ? '🚛' + fmtD(o.shipping_date) : '—';
+
             return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${fmtD(o.order_date)}</td>
+            <td style="font-weight:600;">${shipDateFmt}</td>
+            <td>${tienDo}</td>
             <td style="text-align:center;">${prodBadge}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
             <td><strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
@@ -526,7 +561,6 @@ function _dhtRenderOrderRows(filtered) {
             <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
             <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
             <td><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;${priStyle}">${o.shipping_priority || 'CHUẨN'}</span></td>
-            <td>${fmtD(o.shipping_date)}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
                 ${canDo('dht_sua_don', 'view') ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>`) : ''}
@@ -596,7 +630,7 @@ function _dhtUpdateInfo(count, filtered) {
         // Inject shimmer animation if not present
         if (!document.getElementById('dhtShimmerStyle')) {
             var st = document.createElement('style'); st.id = 'dhtShimmerStyle';
-            st.textContent = '@keyframes dhtShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }';
+            st.textContent = '@keyframes dhtShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} } @keyframes dhtBlink { 0%,100%{opacity:1} 50%{opacity:0.4} }';
             document.head.appendChild(st);
         }
     }
