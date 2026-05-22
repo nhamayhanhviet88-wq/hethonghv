@@ -18,6 +18,7 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_carriers ADD COLUMN IF NOT EXISTS tracking_url_template TEXT DEFAULT NULL`); } catch(e) {}
     // Auto-seed J&T tracking URL if not set
     try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://jtexpress.vn/vi/tracking?type=track&billcode={code}' WHERE name ILIKE '%J&T%' AND tracking_url_template IS NULL`); } catch(e) {}
+    try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://nascoexpress.com/tra-cuu-van-don.html?s={code}' WHERE name ILIKE '%Nasco%' AND tracking_url_template IS NULL`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
