@@ -782,7 +782,7 @@ function _qtARenderSectionAccordion(sec) {
                         return `<div class="qt-toggle-wrap" style="margin:0;gap:4px;" onclick="event.stopPropagation();_qtAToggleSection_Active('${sec.key}',this)" title="${secActive ? 'Click để tắt loại này' : 'Click để bật lại loại này'}">
                             <div class="qt-toggle ${secActive ? 'qt-toggle-on' : 'qt-toggle-off'}"><div class="qt-toggle-knob"></div></div>
                             <span class="qt-toggle-label">${secActive ? 'Bật' : 'Tắt'}</span>
-                        </div><button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtAShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtADeleteSection('${sec.key}')" title="Xóa loại">🗑️</button><button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowMergeModal('${sec.key}')" title="Gom thêm nút vào loại này">➕</button>${isGroup ? `<button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowUngroupModal('${sec.key}')" title="Hủy gom nhóm">🔓</button>` : ''}`;
+                        </div><button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtAShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtADeleteSection('${sec.key}')" title="Xóa loại">🗑️</button><button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowMergeModal('${sec.key}')" title="Gom thêm nút vào loại này">➕</button>${isGroup ? `<button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowUngroupModal('${sec.key}')" title="Hủy gom nhóm">🔓</button>` : ''}<button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);padding:4px 8px;min-width:0;position:relative;" onclick="event.stopPropagation();_qtAShowChangePhaseDropdown('${sec.key}',this)" title="Đổi thuộc Phần">▼</button>`;
                     })() : ''}
                     <span class="qt-flow-chevron">▼</span>
                 </div>
@@ -878,6 +878,43 @@ function _qtAGetGroupKeys(groupId) {
         if (m.section_group === groupId && !keys.includes(m.key)) keys.push(m.key);
     }
     return keys;
+}
+
+// ========== CHANGE PHASE DROPDOWN ==========
+function _qtAShowChangePhaseDropdown(key, btnEl) {
+    document.querySelectorAll('.qt-phase-dropdown').forEach(d => d.remove());
+    const sec = _qtASections.find(s => s.key === key);
+    const currentPhase = sec ? sec.rule_phase : null;
+    let ddHtml = `<div class="qt-phase-dropdown" style="position:absolute;right:0;top:100%;z-index:999;min-width:240px;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);border:1px solid #e2e8f0;padding:6px 0;margin-top:4px;">
+        <div style="padding:6px 14px;font-size:10px;font-weight:800;color:#64748b;letter-spacing:0.5px;text-transform:uppercase;">Thuộc Phần:</div>`;
+    const isNone = !currentPhase;
+    ddHtml += `<div style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:${isNone ? '800' : '600'};color:${isNone ? '#2563eb' : '#64748b'};background:${isNone ? '#eff6ff' : 'transparent'};transition:background .15s;border-left:3px solid ${isNone ? '#2563eb' : 'transparent'};" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isNone ? '#eff6ff' : 'transparent'}'" onclick="event.stopPropagation();_qtAChangePhase('${key}',null)">
+        <span style="font-size:14px;">📋</span><span>(Chưa phân phần)</span>${isNone ? '<span style="margin-left:auto;color:#2563eb;font-size:11px;">✓</span>' : ''}</div>`;
+    for (const phase of _qtARulePhases) {
+        const isCurrent = currentPhase === phase.id;
+        ddHtml += `<div style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:${isCurrent ? '800' : '600'};color:${isCurrent ? phase.color : '#334155'};background:${isCurrent ? phase.gradient : 'transparent'};transition:background .15s;border-left:3px solid ${isCurrent ? phase.color : 'transparent'};" onmouseover="if(!${isCurrent})this.style.background='#f1f5f9'" onmouseout="if(!${isCurrent})this.style.background='transparent'" onclick="event.stopPropagation();_qtAChangePhase('${key}','${phase.id}')">
+            <span style="font-size:14px;">${phase.icon}</span><span>PHẦN ${phase.sort_order}: ${phase.title}</span>${isCurrent ? `<span style="margin-left:auto;color:${phase.color};font-size:11px;">✓</span>` : ''}</div>`;
+    }
+    ddHtml += `</div>`;
+    const wrapper = btnEl.closest('div') || btnEl.parentNode;
+    wrapper.style.position = 'relative';
+    btnEl.insertAdjacentHTML('afterend', ddHtml);
+    const closeHandler = function(e) {
+        if (!e.target.closest('.qt-phase-dropdown') && !e.target.closest('.qt-flow-edit-btn')) {
+            document.querySelectorAll('.qt-phase-dropdown').forEach(d => d.remove());
+            document.removeEventListener('click', closeHandler);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler), 50);
+}
+async function _qtAChangePhase(key, phaseId) {
+    document.querySelectorAll('.qt-phase-dropdown').forEach(d => d.remove());
+    try {
+        await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: phaseId || null, crm_menu: 'affiliate' });
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'affiliate' });
+        showToast('✅ Đã đổi phần thành công!', 'success');
+        await _qtALoadData();
+    } catch(e) { showToast('❌ Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 // ========== PHASE MANAGEMENT ==========
