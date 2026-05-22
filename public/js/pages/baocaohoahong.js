@@ -116,51 +116,58 @@ async function hhViewOrders(customerId, customerName) {
             return;
         }
 
-        const statusMap = { active: { label: 'Đang xử lý', color: '#3b82f6', icon: '⏳' }, completed: { label: 'Hoàn thành', color: '#10b981', icon: '✅' }, cancelled: { label: 'Đã hủy', color: '#ef4444', icon: '❌' } };
+        const statusMap = { active: { label: 'Đang xử lý', color: '#f59e0b', icon: '⏳' }, completed: { label: 'Hoàn thành', color: '#10b981', icon: '✅' }, cancelled: { label: 'Đã hủy', color: '#ef4444', icon: '❌' } };
         let grandTotal = 0;
 
         let html = codes.map(code => {
-            const st = statusMap[code.status] || statusMap.active;
-            const orderTotal = (code.items || []).reduce((s, it) => s + (it.total || 0), 0);
-            if (code.status !== 'cancelled') grandTotal += orderTotal;
-            const deposit = code.deposit || 0;
-            const remaining = orderTotal - deposit;
+            // ★ Smart status badge: reflect DHT state (giống CRM NV)
+            const hasDHT = !!code.dht_order_id;
+            let statusBadge;
+            if (code.status === 'completed') {
+                statusBadge = '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">✅ Hoàn thành</span>';
+            } else if (code.status === 'cancelled') {
+                statusBadge = '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">❌ Đã hủy</span>';
+            } else if (hasDHT) {
+                statusBadge = '<span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">📦 Đang sản xuất</span>';
+            } else {
+                statusBadge = '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">🔄 Chờ lên đơn</span>';
+            }
 
-            return `<div style="border:2px solid ${st.color}22;border-radius:12px;margin-bottom:14px;overflow:hidden;">
-                <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;background:${st.color}08;">
-                    <div>
-                        <span style="font-weight:800;font-size:15px;color:#1e3a5f;">${code.order_code}</span>
-                        <span style="font-size:11px;color:#6b7280;margin-left:8px;">NV: ${code.user_name || '-'}</span>
-                        <span style="font-size:11px;color:#6b7280;margin-left:8px;">Ngày: ${code.created_at ? new Date(code.created_at).toLocaleDateString('vi-VN') : '-'}</span>
+            // ★ Doanh số = SUM(item_total) - VAT - Discount (giống CRM NV)
+            const grossItems = (code.items || []).reduce((s, it) => s + (it.total || 0), 0);
+            const vat = code.dht_vat || 0;
+            const discount = code.dht_discount || 0;
+            const netRevenue = grossItems - vat - discount;
+            if (code.status !== 'cancelled') grandTotal += netRevenue;
+
+            const dateStr = code.created_at ? new Date(code.created_at).toLocaleDateString('vi-VN') : '-';
+            const borderColor = code.status === 'completed' ? '#10b981' : code.status === 'cancelled' ? '#ef4444' : hasDHT ? '#3b82f6' : '#e5e7eb';
+            const bgColor = code.status === 'completed' ? '#f0fdf4' : code.status === 'cancelled' ? '#fef2f2' : hasDHT ? '#eff6ff' : '#fafafa';
+
+            return `<div style="padding:12px;border:1px solid ${borderColor};border-radius:10px;margin-bottom:8px;background:${bgColor};">
+                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+                    <div style="min-width:90px;">
+                        <div style="font-size:10px;color:#6b7280;">Mã Đơn</div>
+                        <div style="font-weight:700;color:#e65100;font-size:15px;">${code.order_code}</div>
                     </div>
-                    <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:${st.color};color:white;font-weight:600;">${st.icon} ${st.label}</span>
+                    <div style="min-width:80px;">
+                        <div style="font-size:10px;color:#6b7280;">NV Tạo</div>
+                        <div style="font-weight:600;color:#122546;font-size:12px;">${code.user_name || '—'}</div>
+                    </div>
+                    <div style="min-width:80px;">
+                        <div style="font-size:10px;color:#6b7280;">Ngày</div>
+                        <div style="font-weight:600;color:#122546;font-size:12px;">${dateStr}</div>
+                    </div>
+                    <div>${statusBadge}</div>
+                    <div style="margin-left:auto;text-align:right;">
+                        <div style="font-size:10px;color:#6b7280;">Doanh Số</div>
+                        <div style="font-weight:700;color:#e65100;font-size:15px;">${hhFormatMoney(netRevenue)}</div>
+                    </div>
                 </div>
-                ${(code.items && code.items.length > 0) ? `
-                <table style="width:100%;font-size:12px;margin:0;">
-                    <thead><tr style="background:#f1f5f9;">
-                        <th style="padding:6px 10px;text-align:left;">Tên SP</th>
-                        <th style="padding:6px 10px;text-align:center;">SL</th>
-                        <th style="padding:6px 10px;text-align:right;">Giá</th>
-                        <th style="padding:6px 10px;text-align:right;">Thành Tiền</th>
-                    </tr></thead>
-                    <tbody>${code.items.map(it => `<tr>
-                        <td style="padding:5px 10px;">${it.description || '-'}</td>
-                        <td style="padding:5px 10px;text-align:center;">${it.quantity}</td>
-                        <td style="padding:5px 10px;text-align:right;">${hhFormatMoney(it.unit_price)}</td>
-                        <td style="padding:5px 10px;text-align:right;font-weight:600;">${hhFormatMoney(it.total)}</td>
-                    </tr>`).join('')}</tbody>
-                </table>
-                <div style="padding:8px 14px;font-size:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:16px;">
-                    <span>Tổng đơn: <strong style="color:#1e3a5f;">${hhFormatMoney(orderTotal)}</strong></span>
-                    ${deposit > 0 ? `<span>Cọc: <strong style="color:#f97316;">${hhFormatMoney(deposit)}</strong></span>` : ''}
-                    ${deposit > 0 ? `<span>Còn lại: <strong style="color:#dc2626;">${hhFormatMoney(remaining)}</strong></span>` : ''}
-                </div>` : '<div style="padding:12px 14px;font-size:12px;color:#9ca3af;">Chưa có sản phẩm</div>'}
             </div>`;
         }).join('');
 
-        html += `<div style="text-align:right;padding:10px 0;border-top:2px solid #e5e7eb;margin-top:4px;">
-            <span style="font-size:15px;font-weight:800;color:#1e3a5f;">Tổng doanh số: <span style="color:#10b981;">${hhFormatMoney(grandTotal)}</span></span>
-        </div>`;
+        html += grandTotal > 0 ? `<div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #e5e7eb;">Tổng doanh số: <span style="color:#e65100;">${hhFormatMoney(grandTotal)}</span></div>` : '';
 
         document.getElementById('hhOrderPopupBody').innerHTML = html;
     } catch (e) {
