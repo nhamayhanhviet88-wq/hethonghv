@@ -276,7 +276,7 @@ async function renderDonhangtongPage(content) {
     const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
     _dht.categories = catRes.categories || [];
     _dht.staff = staffRes.staff || [];
-    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn, tên, SĐT..." style="width:auto;min-width:220px"><div id="dhtFilterInfo" style="font-size:12px"></div>'
+    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="dhtSearchWrap" style="position:relative;display:flex;align-items:center;gap:0"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn hàng, SĐT, tên khách..." style="width:320px;font-size:13px;padding:8px 36px 8px 14px;border-radius:10px 0 0 10px;border:2px solid #daa520;border-right:none;transition:all .2s" onfocus="this.style.borderColor=&apos;#b8860b&apos;;this.style.boxShadow=&apos;0 0 0 3px rgba(184,134,11,0.15)&apos;" onblur="this.style.borderColor=&apos;#daa520&apos;;this.style.boxShadow=&apos;none&apos;"><button onclick="_dhtDoSearch()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 16px;border-radius:0 10px 10px 0;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;height:100%;transition:all .15s" onmouseover="this.style.filter=&apos;brightness(1.1)&apos;" onmouseout="this.style.filter=&apos;&apos;">Tìm</button><button id="dhtSearchClear" onclick="_dhtClearSearch()" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;white-space:nowrap" title="Xóa tìm kiếm">✕</button></div><div id="dhtSearchBadge" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#92400e"></div><div id="dhtFilterInfo" style="font-size:12px"></div>'
         +'<div id="dhtStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'<div style="margin-left:auto;display:flex;align-items:center;gap:12px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Tạo Đơn</button></div></div>'
         +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
@@ -295,7 +295,8 @@ async function renderDonhangtongPage(content) {
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
-    let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtLoadOrders(), 400); });
+    let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
+    document.getElementById('dhtSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhtDoSearch(); } });
     // Default: load current year (no month pre-selected)
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _dht.filter = { year: nowVN.getFullYear() };
@@ -394,16 +395,50 @@ function _dhtFilterOnly(filter) {
     _dhtLoadOrders();
 }
 
+// ========== SEARCH ==========
+function _dhtDoSearch() {
+    var q = (document.getElementById('dhtSearch')?.value || '').trim();
+    var badge = document.getElementById('dhtSearchBadge');
+    var clearBtn = document.getElementById('dhtSearchClear');
+    if (q.length > 0) {
+        // ★ When searching: bypass date/category filters → search ALL orders
+        _dht._preSearchFilter = _dht._preSearchFilter || Object.assign({}, _dht.filter);
+        _dht._isSearching = true;
+        if (badge) { badge.style.display = ''; badge.textContent = '🔍 Đang tìm: "' + q + '" — Tất cả đơn hàng'; }
+        if (clearBtn) clearBtn.style.display = '';
+    } else {
+        _dht._isSearching = false;
+        if (badge) badge.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+    }
+    _dhtLoadOrders();
+}
+function _dhtClearSearch() {
+    var el = document.getElementById('dhtSearch'); if (el) el.value = '';
+    var badge = document.getElementById('dhtSearchBadge'); if (badge) badge.style.display = 'none';
+    var clearBtn = document.getElementById('dhtSearchClear'); if (clearBtn) clearBtn.style.display = 'none';
+    _dht._isSearching = false;
+    // Restore previous filter
+    if (_dht._preSearchFilter) { _dht.filter = _dht._preSearchFilter; _dht._preSearchFilter = null; }
+    _dhtSyncDateInputs();
+    _dhtLoadOrders();
+}
+
 // ========== ORDERS TABLE ==========
 async function _dhtLoadOrders() {
     const f = _dht.filter;
     let url = '/api/dht/orders?';
-    if (f.year) url += `year=${f.year}&`;
-    if (f.month) url += `month=${f.month}&`;
-    if (f.day) url += `day=${f.day}&`;
-    if (f.category_id) url += `category_id=${f.category_id}&`;
-    const search = document.getElementById('dhtSearch')?.value;
-    if (search) url += `search=${encodeURIComponent(search)}&`;
+    const search = (document.getElementById('dhtSearch')?.value || '').trim();
+    if (search) {
+        // ★ When searching: send ONLY search param (no date/category filter)
+        url += `search=${encodeURIComponent(search)}&`;
+    } else {
+        // Normal mode: apply date/category filters
+        if (f.year) url += `year=${f.year}&`;
+        if (f.month) url += `month=${f.month}&`;
+        if (f.day) url += `day=${f.day}&`;
+        if (f.category_id) url += `category_id=${f.category_id}&`;
+    }
 
     const data = await apiCall(url);
     _dht.orders = data.orders || [];
