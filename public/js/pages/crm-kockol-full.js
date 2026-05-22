@@ -234,6 +234,11 @@ async function renderCRMKocKolPage(container) {
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
             </div>
+            <div class="crm-stat-card" data-cat="gui_hang_hoan_thanh" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:white;" onclick="_kockolFilterByCat('gui_hang_hoan_thanh')">
+                <div class="stat-icon">📦✅</div>
+                <div class="stat-count" id="crmStatGuiHangHT">0</div>
+                <div class="stat-label">Gửi Hàng & Hoàn Thành</div>
+            </div>
 
         </div>
         <div id="crmDateChipsArea"></div>
@@ -789,7 +794,7 @@ async function loadCrmKocKolData() {
     _kockolAllStats = stats;
 
     // Count categories
-    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, gui_hang_hoan_thanh: 0 };
     customers.forEach(c => { const cat = _kockolGetCategory(c, stats); if (counts[cat] !== undefined) counts[cat]++; });
 
     // Update stat cards - show TOTAL counts (not monthly filtered)
@@ -799,6 +804,7 @@ async function loadCrmKocKolData() {
     if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
     if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = counts.cho_xu_ly;
     if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = counts.huy_khach;
+    if (el('crmStatGuiHangHT')) el('crmStatGuiHangHT').textContent = counts.gui_hang_hoan_thanh;
 
 
     // Re-highlight active card
