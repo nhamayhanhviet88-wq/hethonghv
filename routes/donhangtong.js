@@ -1143,7 +1143,7 @@ module.exports = async function(fastify) {
                    pr.locked_by, pr.locked_at
             FROM payment_records pr
             WHERE COALESCE(pr.source, '') != 'cashflow_chi'
-              AND COALESCE(pr.payment_type, '') != 'dat_coc'
+              AND COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll')
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
               AND (
