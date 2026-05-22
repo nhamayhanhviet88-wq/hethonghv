@@ -69,7 +69,7 @@ function _shRenderTable(el) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','🔗','Ngày ĐH','Ngày Gửi DK','Tiến Độ','Mã Đơn','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
+        ${['','🔗','Ngày ĐH','Ngày Gửi DK','Hẹn Lại','Tiến Độ','Mã Đơn','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
             `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;">${h}</th>`
         ).join('')}
     </tr></thead><tbody>`;
@@ -114,7 +114,9 @@ function _shRenderTable(el) {
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;${overdue ? 'color:#dc2626;' : 'color:#1e293b;'}">
             ${fmt(effDate)}${overdue ? `<div style="font-size:9px;color:#dc2626;font-weight:800;">⚠️ Trễ ${daysLate} ngày</div>` : ''}
             ${o.rescheduled_ship_date && o.shipping_status === 'rescheduled' ? `<div style="font-size:9px;color:#d97706;">📅 Hẹn lại</div>` : ''}</td>`;
-        // Col 5: Progress
+        // Col 5: Hẹn Lại
+        html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">\u2014</span>'}</td>`;
+        // Col 6: Progress
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
         // Col 6: Order code
         html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '\u2014'}</td>`;
