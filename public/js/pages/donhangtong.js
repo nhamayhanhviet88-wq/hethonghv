@@ -422,13 +422,17 @@ var _dhtOpen = {}; // persist open/close state: {y2026:true, y2026c1:true, ...}
 async function _dhtLoadTree() {
     var data = await apiCall('/api/dht/tree');
     _dht.tree = data.tree || [];
+    _dht.summaryVisibility = data.summaryVisibility || 'none';
     var sb = document.getElementById('dhtSidebar'); if (!sb) return;
     var curYear = new Date().getFullYear();
     // Default: current year open
     if (!_dhtOpen._init) { _dhtOpen['y'+curYear] = true; _dhtOpen._init = true; }
 
     var h = '<div class="dht-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#b8860b;font-weight:900">✨ Đơn hàng tổng ✨</span> <span style="color:var(--navy)">───</span></div>';
-    h += '<div class="dht-sb-total" onclick="_dhtFilterOnly({})"><span>▼ Tổng Doanh Số</span><span>'+_dhtFmt(data.grandTotal||0)+'</span></div>';
+    // Only show Tổng Doanh Số in sidebar for 'full' visibility (GĐ/QLCC)
+    if (_dht.summaryVisibility === 'full') {
+        h += '<div class="dht-sb-total" onclick="_dhtFilterOnly({})"><span>▼ Tổng Doanh Số</span><span>'+_dhtFmt(data.grandTotal||0)+'</span></div>';
+    }
     var years = _dht.tree.length > 0 ? _dht.tree : [{year:curYear,total:0,count:0,categories:[]}];
     years.forEach(function(yr) {
         var yKey = 'y'+yr.year;
@@ -686,26 +690,37 @@ function _dhtUpdateInfo(count, filtered) {
     var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
     var sc = document.getElementById('dhtStatCards');
     if (sc) {
-        var sf = _dht.statFilter || '';
-        var _ring = function(type) {
-            return sf === type ? 'outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px rgba(0,0,0,0.3);transform:scale(1.08);' : '';
-        };
-        sc.innerHTML = ''
-            +'<div onclick="_dhtStatFilter(\'revenue\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden;transition:all .2s;'+_ring('revenue')+'">'
-            +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite"></div>'
-            +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">💰 DOANH SỐ</div>'
-            +'<div style="font-size:15px;font-weight:900">'+fmt(totalRevenue)+'đ</div>'
-            +'</div>'
-            +'<div onclick="_dhtStatFilter(\'count\')" style="cursor:pointer;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #2563eb30;position:relative;overflow:hidden;transition:all .2s;'+_ring('count')+'">'
-            +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.3s"></div>'
-            +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 SỐ ĐƠN</div>'
-            +'<div style="font-size:15px;font-weight:900">'+count+'</div>'
-            +'</div>'
-            +'<div onclick="_dhtStatFilter(\'remaining\')" style="cursor:pointer;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden;transition:all .2s;'+_ring('remaining')+'">'
-            +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.6s"></div>'
-            +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ CHƯA THU</div>'
-            +'<div style="font-size:15px;font-weight:900">'+fmt(totalRemaining)+'đ</div>'
-            +'</div>';
+        var vis = _dht.summaryVisibility || 'none';
+        // 'none' = no cards at all (other roles)
+        if (vis === 'none') {
+            sc.innerHTML = '';
+        } else {
+            var sf = _dht.statFilter || '';
+            var _ring = function(type) {
+                return sf === type ? 'outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px rgba(0,0,0,0.3);transform:scale(1.08);' : '';
+            };
+            var cardsHTML = '';
+            // 'full' = GĐ/QLCC: show revenue card
+            if (vis === 'full') {
+                cardsHTML += '<div onclick="_dhtStatFilter(\'revenue\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden;transition:all .2s;'+_ring('revenue')+'">'
+                    +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite"></div>'
+                    +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">💰 DOANH SỐ</div>'
+                    +'<div style="font-size:15px;font-weight:900">'+fmt(totalRevenue)+'đ</div>'
+                    +'</div>';
+            }
+            // 'full' + 'limited' = show count + remaining cards
+            cardsHTML += '<div onclick="_dhtStatFilter(\'count\')" style="cursor:pointer;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #2563eb30;position:relative;overflow:hidden;transition:all .2s;'+_ring('count')+'">'
+                +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.3s"></div>'
+                +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 SỐ ĐƠN</div>'
+                +'<div style="font-size:15px;font-weight:900">'+count+'</div>'
+                +'</div>'
+                +'<div onclick="_dhtStatFilter(\'remaining\')" style="cursor:pointer;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden;transition:all .2s;'+_ring('remaining')+'">'
+                +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.6s"></div>'
+                +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ CHƯA THU</div>'
+                +'<div style="font-size:15px;font-weight:900">'+fmt(totalRemaining)+'đ</div>'
+                +'</div>';
+            sc.innerHTML = cardsHTML;
+        }
         // Inject shimmer animation if not present
         if (!document.getElementById('dhtShimmerStyle')) {
             var st = document.createElement('style'); st.id = 'dhtShimmerStyle';

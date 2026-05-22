@@ -153,11 +153,41 @@ module.exports = async function(fastify) {
                     }))
             }));
 
-        // Grand total
-        const grandTotal = tree.reduce((s, y) => s + y.total, 0);
+        // ★ Summary visibility based on role/department
+        // 'full' = GĐ/QLCC: see revenue + count + unpaid
+        // 'limited' = Kế Toán: see count + unpaid (no revenue)
+        // 'none' = others: see nothing
+        let summaryVisibility = 'none';
+        if (FULL_VIEW_ROLES.includes(request.user.role)) {
+            summaryVisibility = 'full';
+        } else {
+            const deptCheck = await db.get(
+                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                [request.user.id]
+            );
+            const isKT = deptCheck && deptCheck.name && (deptCheck.name.toLowerCase().includes('kế toán') || deptCheck.name.toLowerCase().includes('ke toan'));
+            if (isKT) summaryVisibility = 'limited';
+        }
+
+        // Grand total — only send revenue if user has 'full' visibility
+        const grandTotal = summaryVisibility === 'full' ? tree.reduce((s, y) => s + y.total, 0) : 0;
         const grandCount = tree.reduce((s, y) => s + y.count, 0);
 
-        return { tree, grandTotal, grandCount };
+        // Strip revenue from tree data for non-full users
+        if (summaryVisibility !== 'full') {
+            for (const yr of tree) {
+                yr.total = 0;
+                for (const cat of yr.categories) {
+                    cat.total = 0;
+                    for (const mo of cat.months) {
+                        mo.total = 0;
+                        for (const d of mo.days) d.total = 0;
+                    }
+                }
+            }
+        }
+
+        return { tree, grandTotal, grandCount, summaryVisibility };
     });
 
     // ========== ORDERS: List with filters ==========
