@@ -4,12 +4,13 @@ let _shOrders = [];
 let _shCounts = {};
 let _shCarriers = [];
 let _shSearchVal = '';
+let _shCskhVal = '';
 let _shSearched = [];
 let _shPage = 1;
 const _SH_PER_PAGE = 100;
 
 async function renderKetoanguihangPage(container) {
-    _shFilter = 'today'; _shSearchVal = ''; _shPage = 1;
+    _shFilter = 'today'; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
     container.innerHTML = `<div style="max-width:1600px;margin:0 auto;padding:16px;">
         <h2 style="margin:0 0 16px;font-size:22px;color:#122546;font-weight:800;">📤 Đơn Hàng Kế Toán Gửi</h2>
         <div style="display:flex;gap:16px;align-items:flex-start;">
@@ -36,6 +37,11 @@ function _shRenderSidebar() {
         { key:'rescheduled', icon:'🟡', label:'Chưa Gửi', color:'#d97706', bg:'#fffbeb' },
         { key:'shipped', icon:'✅', label:'Đã Gửi', color:'#059669', bg:'#ecfdf5' }
     ];
+    // Build CSKH options from loaded data
+    const cskhMap = {};
+    _shOrders.forEach(o => { if (o.cskh_name && o.cskh_user_id) cskhMap[o.cskh_user_id] = o.cskh_name; });
+    const cskhOpts = Object.entries(cskhMap).sort((a,b) => a[1].localeCompare(b[1]));
+
     sb.innerHTML = filters.map(f => {
         const active = _shFilter === f.key;
         const cnt = _shCounts[f.key] || 0;
@@ -46,13 +52,24 @@ function _shRenderSidebar() {
             </div>
             <span style="background:${active ? f.color : '#e2e8f0'};color:${active ? 'white' : '#64748b'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800;">${cnt}</span>
         </div>`;
-    }).join('') + `${_shCounts.overdue > 0 ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;"><div style="font-size:11px;font-weight:700;color:#dc2626;">⚠️ ${_shCounts.overdue} đơn quá hạn!</div><div style="font-size:10px;color:#991b1b;margin-top:2px;">Phạt 100.000đ/ngày nếu không gửi</div></div>` : ''}`;
+    }).join('') + `
+    <div style="margin-top:12px;padding:10px 12px;border-radius:10px;border:2px solid #e2e8f0;background:white;">
+        <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">👤 CSKH</div>
+        <select onchange="_shOnCskhChange(this.value)" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;background:white;">
+            <option value="">Tất cả</option>
+            ${cskhOpts.map(([id,name]) => `<option value="${id}" ${_shCskhVal==String(id)?'selected':''}>${name}</option>`).join('')}
+        </select>
+    </div>
+    ` + `${_shCounts.overdue > 0 ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;"><div style="font-size:11px;font-weight:700;color:#dc2626;">⚠️ ${_shCounts.overdue} đơn quá hạn!</div><div style="font-size:10px;color:#991b1b;margin-top:2px;">Phạt 100.000đ/ngày nếu không gửi</div></div>` : ''}`;
 }
 
 function _shSetFilter(key) {
-    _shFilter = key; _shSearchVal = ''; _shPage = 1;
+    _shFilter = key; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
     const si = document.getElementById('shSearchInput'); if (si) si.value = '';
     _shRenderSidebar(); _shLoadOrders();
+}
+function _shOnCskhChange(val) {
+    _shCskhVal = val; _shPage = 1; _shApplySearch(); _shRenderContent(); _shRenderSidebar();
 }
 
 // ===== SEARCH BAR =====
@@ -88,13 +105,19 @@ async function _shLoadOrders() {
 }
 
 function _shApplySearch() {
+    let list = _shOrders.slice();
+    // CSKH filter
+    if (_shCskhVal) list = list.filter(o => String(o.cskh_user_id) === _shCskhVal);
+    // Search filter
     const q = (_shSearchVal || '').toLowerCase().trim();
-    if (!q) { _shSearched = _shOrders.slice(); return; }
-    _shSearched = _shOrders.filter(o => {
-        return (o.order_code || '').toLowerCase().includes(q)
-            || (o.customer_phone || '').toLowerCase().includes(q)
-            || (o.customer_name || '').toLowerCase().includes(q);
-    });
+    if (q) {
+        list = list.filter(o => {
+            return (o.order_code || '').toLowerCase().includes(q)
+                || (o.customer_phone || '').toLowerCase().includes(q)
+                || (o.customer_name || '').toLowerCase().includes(q);
+        });
+    }
+    _shSearched = list;
 }
 
 
