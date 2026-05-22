@@ -27,10 +27,10 @@ async function renderDonhangthietkePage(content) {
             +'.dhtk-sb-month{padding:8px 18px 8px 32px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.03);color:#94a3b8;transition:all .15s}'
             +'.dhtk-sb-month:hover{background:rgba(233,69,96,0.1);color:#e94560}'
             +'.dhtk-sb-month.active{background:rgba(233,69,96,0.15);color:#e94560;font-weight:800}'
-            // Designer row
-            +'.dhtk-sb-designer{padding:7px 18px 7px 48px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:#64748b;transition:all .15s}'
-            +'.dhtk-sb-designer:hover{background:rgba(233,69,96,0.08);color:#f8b4c0}'
-            +'.dhtk-sb-designer.active{background:rgba(233,69,96,0.18);color:#fff;font-weight:800}'
+            // Designer row — ★ Bright colors for visibility on dark background
+            +'.dhtk-sb-designer{padding:8px 18px 8px 48px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:#e2e8f0;transition:all .15s;border-left:3px solid transparent}'
+            +'.dhtk-sb-designer:hover{background:rgba(233,69,96,0.12);color:#fff;border-left:3px solid #e94560}'
+            +'.dhtk-sb-designer.active{background:rgba(233,69,96,0.25);color:#fff;font-weight:900;border-left:3px solid #e94560}'
             // Table styles
             +'.dhtk-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}'
             +'.dhtk-table thead th{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#e2e8f0;padding:12px 14px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;position:sticky;top:0;z-index:2;white-space:nowrap}'
@@ -168,8 +168,8 @@ async function _dhtkLoadTree() {
                     var isOldDesign = d.designer_id === 0;
                     var icon = isOldDesign ? '📁' : '👤';
                     var countStyle = d.count > 0
-                        ? 'background:' + (isOldDesign ? 'rgba(255,255,255,0.08)' : 'rgba(233,69,96,0.2)') + ';color:' + (isOldDesign ? '#94a3b8' : '#e94560')
-                        : 'background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.15)';
+                        ? 'background:' + (isOldDesign ? 'rgba(255,255,255,0.1)' : 'rgba(233,69,96,0.25)') + ';color:' + (isOldDesign ? '#cbd5e1' : '#e94560')
+                        : 'background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3)';
                     h += '<div class="dhtk-sb-designer' + (dActive ? ' active' : '') + '" onclick="event.stopPropagation();_dhtkFilterDesigner(' + yr.year + ',' + mi + ',' + d.designer_id + ')">'
                         + '<span>' + icon + ' ' + d.designer_name + '</span>'
                         + '<span style="' + countStyle + ';padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800">' + d.count + '</span>'

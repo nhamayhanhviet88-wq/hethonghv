@@ -50,15 +50,25 @@ module.exports = async function(fastify) {
             ORDER BY year DESC, month DESC, designer_name ASC
         `, params);
 
-        // Also return all designers in the design department (for sidebar even if 0 orders)
-        const allDesigners = await db.all(`
-            SELECT u.id, u.full_name FROM users u
-            LEFT JOIN departments d ON u.department_id = d.id
-            LEFT JOIN positions p ON u.position_id = p.id
-            WHERE u.status = 'active'
-              AND (d.name ILIKE '%thiết kế%' OR p.name ILIKE '%thiết kế%')
-            ORDER BY u.full_name
-        `);
+        // Also return designers list for sidebar
+        // GĐ/QLCC → all designers in department
+        // NV Thiết Kế → only themselves
+        let allDesigners;
+        if (isFullView) {
+            allDesigners = await db.all(`
+                SELECT u.id, u.full_name FROM users u
+                LEFT JOIN departments d ON u.department_id = d.id
+                LEFT JOIN positions p ON u.position_id = p.id
+                WHERE u.status = 'active'
+                  AND (d.name ILIKE '%thiết kế%' OR p.name ILIKE '%thiết kế%')
+                ORDER BY u.full_name
+            `);
+        } else {
+            // Non-admin: only show themselves
+            allDesigners = await db.all(`
+                SELECT id, full_name FROM users WHERE id = $1
+            `, [request.user.id]);
+        }
 
         // Build tree: year → months → designers
         const yearMap = {};
