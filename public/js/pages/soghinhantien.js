@@ -869,8 +869,14 @@ async function _prSubmitLinkOrder(prId) {
         payment_type: 'thanh_toan'
     };
     try {
-        await apiCall('/api/payment-records/'+prId,'PUT',body);
-        showToast('✅ Đã nhận thanh toán cho đơn '+_prSelectedOrder.order_code);
+        var res = await apiCall('/api/payment-records/'+prId,'PUT',body);
+        if (res.auto_completed) {
+            var msg = '🏆 Đơn '+_prSelectedOrder.order_code+' đã HOÀN THÀNH (thanh toán đủ)';
+            if (res.auto_commission > 0) msg += '\n💰 Hoa hồng: ' + (res.auto_commission||0).toLocaleString('vi-VN') + 'đ';
+            showToast(msg);
+        } else {
+            showToast('✅ Đã nhận thanh toán cho đơn '+_prSelectedOrder.order_code);
+        }
         _prSelectedOrder = null;
         closeModal();
         await _prLoadRecords();

@@ -318,7 +318,114 @@ module.exports = async function(fastify) {
             }
         } catch (e) { console.error('[PR Edit] Sync error:', e.message); }
 
-        return { success: true };
+        // ★ AUTO-COMPLETE: Khi thanh toán đủ → tự động hoàn thành đơn DHT + tính hoa hồng
+        let autoCompleted = false;
+        let autoCommission = 0;
+        const orderCode = b.order_tt_coc;
+        if (orderCode) {
+            try {
+                // 1. Kiểm tra đơn có trong DHT không (chỉ áp dụng cho đơn DHT)
+                const dhtOrder = await db.get(
+                    'SELECT id, order_code FROM dht_orders WHERE order_code = $1', [orderCode]
+                );
+
+                if (dhtOrder) {
+                    // 2. Tính remaining_amount (cùng công thức chuẩn DHT — Source of Truth)
+                    const remainRow = await db.get(`
+                        SELECT
+                            COALESCE(o.total_amount, 0)
+                            - COALESCE(o.discount_amount, 0)
+                            - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                            - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck'
+                                   THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                            AS remaining
+                        FROM dht_orders o
+                        LEFT JOIN LATERAL (
+                            SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                            FROM payment_records
+                            WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                               OR order_tt_coc = o.order_code
+                        ) pr_dep ON true
+                        WHERE o.order_code = $1
+                    `, [orderCode]);
+
+                    if (remainRow && remainRow.remaining <= 0) {
+                        // 3. Tìm order_code record + customer referrer
+                        const oc = await db.get(
+                            `SELECT oc.*, c.referrer_id, c.id as cust_id
+                             FROM order_codes oc
+                             JOIN customers c ON c.id = oc.customer_id
+                             WHERE oc.order_code = $1`,
+                            [orderCode]
+                        );
+
+                        if (oc && oc.status !== 'completed') {
+                            // 4a. Mark order completed
+                            await db.run("UPDATE order_codes SET status = 'completed' WHERE id = $1", [oc.id]);
+                            console.log(`[AutoComplete] ✅ Order ${orderCode} marked completed (remaining=${remainRow.remaining})`);
+
+                            // 4b. Tính hoa hồng cho affiliate (nếu có referrer)
+                            if (oc.referrer_id) {
+                                const grandTotalRow = await db.get(`
+                                    SELECT COALESCE(
+                                        (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                                        (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                                        0
+                                    ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
+                                      - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) as t
+                                    FROM order_codes oc WHERE oc.id = $1
+                                `, [oc.id]);
+                                const grandTotal = grandTotalRow?.t || 0;
+
+                                if (grandTotal > 0) {
+                                    const referrer = await db.get(
+                                        'SELECT u.*, ct.percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = $1',
+                                        [oc.referrer_id]
+                                    );
+                                    if (referrer?.percentage) {
+                                        // ★ FIRST-ORDER-ONLY: check if this is a repeat order
+                                        let skipComm = false;
+                                        try {
+                                            const fooCfg = await db.get("SELECT value FROM app_config WHERE key = 'commission_first_order_cutoff'");
+                                            if (fooCfg?.value && new Date() >= new Date(fooCfg.value)) {
+                                                const isSelfCust = referrer.source_customer_id && referrer.source_customer_id === oc.cust_id;
+                                                if (!isSelfCust) {
+                                                    const orderCount = await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = $1 AND status != 'cancelled'", [oc.cust_id]);
+                                                    if (orderCount && orderCount.cnt > 1) skipComm = true;
+                                                }
+                                            }
+                                        } catch(e) { /* fallback: allow commission */ }
+
+                                        if (!skipComm) {
+                                            autoCommission = Math.round(grandTotal * referrer.percentage / 100);
+                                            await db.run('UPDATE users SET balance = balance + $1 WHERE id = $2', [autoCommission, referrer.id]);
+                                            console.log(`[AutoComplete] 💰 Commission ${autoCommission.toLocaleString()} → affiliate #${referrer.id} (${referrer.full_name})`);
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 4c. Cập nhật customer status (nếu là đơn mới nhất)
+                            const latestOrder = await db.get(
+                                'SELECT id FROM order_codes WHERE customer_id = $1 ORDER BY id DESC LIMIT 1',
+                                [oc.cust_id]
+                            );
+                            if (latestOrder && latestOrder.id === oc.id) {
+                                await db.run("UPDATE customers SET order_status = 'hoan_thanh', updated_at = NOW() WHERE id = $1", [oc.cust_id]);
+                                console.log(`[AutoComplete] 🏆 Customer #${oc.cust_id} → hoan_thanh`);
+                            }
+
+                            autoCompleted = true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[AutoComplete] Error:', e.message);
+                // Không throw — payment đã update thành công, auto-complete là bonus
+            }
+        }
+
+        return { success: true, auto_completed: autoCompleted, auto_commission: autoCommission };
     });
 
     // ========== HANDOVER: Bàn giao thủ quỹ ==========
