@@ -1,5 +1,5 @@
 // ========== ĐƠN HÀNG TỔNG — Bộ Phận Văn Phòng ==========
-var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {}, sortCol: null, sortDir: null };
+var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {}, sortCol: null, sortDir: null, page: 1, pageSize: 100 };
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 
 // ========== FILTER CHIPS ==========
@@ -40,6 +40,7 @@ function _dhtToggleFilter(key) {
     _dht.activeFilters[key] = !_dht.activeFilters[key];
     // Show discount popup when activating 'gg'
     if (key === 'gg' && _dht.activeFilters.gg) _dhtShowDiscountPopup();
+    _dht.page = 1;
     _dhtRenderTable();
 }
 
@@ -232,9 +233,18 @@ function _dhtRenderTable() {
         }
     }
 
+    // Paginate
+    var totalFiltered = filtered.length;
+    var totalPages = Math.ceil(totalFiltered / _dht.pageSize) || 1;
+    if (_dht.page > totalPages) _dht.page = totalPages;
+    if (_dht.page < 1) _dht.page = 1;
+    var startIdx = (_dht.page - 1) * _dht.pageSize;
+    var paged = filtered.slice(startIdx, startIdx + _dht.pageSize);
+
     // Re-render header sort indicators
     _dhtRenderSortHeaders();
-    _dhtRenderOrderRows(filtered);
+    _dhtRenderOrderRows(paged);
+    _dhtRenderPagination(totalFiltered, totalPages);
 }
 
 function _dhtRenderSortHeaders() {
@@ -258,6 +268,71 @@ function _dhtRenderSortHeaders() {
     thead.innerHTML = ths;
 }
 
+function _dhtRenderPagination(totalItems, totalPages) {
+    var html = '';
+    if (totalPages <= 1) {
+        // No pagination needed, but show count
+        html = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px">'
+            + '<span style="font-weight:700">' + totalItems + ' đơn</span></div>';
+    } else {
+        html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;padding:6px 0">';
+        // Prev button
+        html += '<button onclick="_dhtGoPage(' + (_dht.page - 1) + ')" ' + (_dht.page <= 1 ? 'disabled' : '')
+            + ' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:' + (_dht.page <= 1 ? '#f1f5f9' : '#fff')
+            + ';color:' + (_dht.page <= 1 ? '#94a3b8' : '#0369a1') + ';font-size:11px;font-weight:700;cursor:' + (_dht.page <= 1 ? 'not-allowed' : 'pointer')
+            + '">◀ Trước</button>';
+
+        // Page numbers — show max 7 around current
+        var pages = [];
+        pages.push(1);
+        var start = Math.max(2, _dht.page - 2);
+        var end = Math.min(totalPages - 1, _dht.page + 2);
+        if (start > 2) pages.push('...');
+        for (var p = start; p <= end; p++) pages.push(p);
+        if (end < totalPages - 1) pages.push('...');
+        if (totalPages > 1) pages.push(totalPages);
+
+        for (var i = 0; i < pages.length; i++) {
+            var pg = pages[i];
+            if (pg === '...') {
+                html += '<span style="padding:4px 6px;color:#94a3b8;font-size:11px">...</span>';
+            } else {
+                var isActive = pg === _dht.page;
+                html += '<button onclick="_dhtGoPage(' + pg + ')" style="min-width:30px;padding:4px 8px;border-radius:6px;border:1px solid '
+                    + (isActive ? '#0369a1' : '#cbd5e1') + ';background:' + (isActive ? '#0369a1' : '#fff')
+                    + ';color:' + (isActive ? '#fff' : '#334155') + ';font-size:11px;font-weight:' + (isActive ? '800' : '600')
+                    + ';cursor:pointer">' + pg + '</button>';
+            }
+        }
+
+        // Next button
+        html += '<button onclick="_dhtGoPage(' + (_dht.page + 1) + ')" ' + (_dht.page >= totalPages ? 'disabled' : '')
+            + ' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:' + (_dht.page >= totalPages ? '#f1f5f9' : '#fff')
+            + ';color:' + (_dht.page >= totalPages ? '#94a3b8' : '#0369a1') + ';font-size:11px;font-weight:700;cursor:' + (_dht.page >= totalPages ? 'not-allowed' : 'pointer')
+            + '">Sau ▶</button>';
+
+        // Summary
+        var from = (_dht.page - 1) * _dht.pageSize + 1;
+        var to = Math.min(_dht.page * _dht.pageSize, totalItems);
+        html += '<span style="margin-left:8px;font-size:11px;color:#64748b;font-weight:600">'
+            + 'Trang ' + _dht.page + '/' + totalPages + ' — hiển thị ' + from + '-' + to + ' / ' + totalItems + ' đơn</span>';
+        html += '</div>';
+    }
+    var top = document.getElementById('dhtPaginationTop');
+    var bot = document.getElementById('dhtPaginationBottom');
+    if (top) top.innerHTML = html;
+    if (bot) bot.innerHTML = html;
+}
+
+function _dhtGoPage(p) {
+    var totalPages = Math.ceil((_dht.orders || []).length / _dht.pageSize) || 1;
+    if (p < 1 || p > totalPages) return;
+    _dht.page = p;
+    _dhtRenderTable();
+    // Scroll to top of table
+    var tbl = document.getElementById('dhtTable');
+    if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 async function renderDonhangtongPage(content) {
     if (!document.getElementById('dhtStyles')) {
         var st = document.createElement('style'); st.id = 'dhtStyles';
@@ -303,7 +378,10 @@ async function renderDonhangtongPage(content) {
         +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>🚛Ngày Gửi</th><th>Tiến Độ</th><th style="text-align:center">Quy Trình SX</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>🚛Ngày Gửi</th><th>Tiến Độ</th><th style="text-align:center">Quy Trình SX</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
+        +'</div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
     document.getElementById('dhtSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhtDoSearch(); } });
     // Default: load current year (no month pre-selected)
@@ -451,6 +529,7 @@ async function _dhtLoadOrders() {
 
     const data = await apiCall(url);
     _dht.orders = data.orders || [];
+    _dht.page = 1;
     _dhtPopulateCskhDropdown();
     _dhtRenderTable();
 }
@@ -644,6 +723,7 @@ function _dhtStatFilter(type) {
     } else {
         _dht.statFilter = type;
     }
+    _dht.page = 1;
     _dhtRenderTable();
 }
 
