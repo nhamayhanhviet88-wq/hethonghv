@@ -110,6 +110,7 @@ const PERM_FEATURES = [
     { key: 'dht_in_phieu_sx', label: '  ↳ Nút: 🏭 In Phiếu SX', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_xn_in_sx', label: '    ↳ Xác Nhận In Phiếu SX', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_don_sua', label: '  ↳ Nút: 🔧 Lên Đơn Sửa', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'dht_huy_don_tra_coc', label: '  ↳ Nút: 🚫 Hủy Đơn Trả Cọc', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_gui_ao_mau', label: 'Đơn Gửi Áo Mẫu', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_ghi_nhan_tien', label: 'Sổ Ghi Nhận Tiền', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_thu_chi', label: 'Sổ Thu Chi', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },

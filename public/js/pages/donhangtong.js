@@ -600,6 +600,7 @@ async function _dhtShowDetail(id) {
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
             { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('dht_don_sua', 'view') },
+            { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
         ];
         for (const a of actionBtns) {
             const noPerm = a.perm === false;
