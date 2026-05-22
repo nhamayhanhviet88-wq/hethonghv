@@ -178,19 +178,23 @@ module.exports = async function(fastify) {
             ORDER BY group_name ASC, display_order ASC, name ASC
         `);
 
-        // ★ DHT order-creating roles always need to see BGM items for sewing technique selection
-        const DHT_ROLES = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'];
-        const isDHTRole = DHT_ROLES.includes(userRole);
-
         // Filter by user role
         const filtered = rows.filter(r => {
-            // DHT roles can see all items (they need to pick sewing techniques when creating orders)
-            if (isDHTRole) return true;
             let roles = r.allowed_roles;
             if (typeof roles === 'string') { try { roles = JSON.parse(roles); } catch(e) { roles = []; } }
-            // quan_ly_cap_cao is senior manager — grant access to all BGM items accessible by quan_ly_xuong
-            const effectiveRole = (userRole === 'quan_ly_cap_cao') ? 'quan_ly_xuong' : userRole;
-            return Array.isArray(roles) && (roles.includes(effectiveRole) || roles.includes(userRole) || roles.includes('all'));
+            if (!Array.isArray(roles)) return false;
+
+            // ★ Role mapping for BGM dropdown:
+            // BGM stores: giam_doc=AD, quan_ly_xuong=QLX, nhan_vien=SALE
+            // DHT order-creating roles (truong_phong, quan_ly, thu_viec, part_time)
+            //   → map to 'nhan_vien' to see items tagged as SALE
+            // quan_ly_cap_cao → also check 'quan_ly_xuong'
+            const SALE_MAPPED_ROLES = ['truong_phong', 'quan_ly', 'thu_viec', 'part_time'];
+            const effectiveRole = SALE_MAPPED_ROLES.includes(userRole) ? 'nhan_vien'
+                : (userRole === 'quan_ly_cap_cao') ? 'quan_ly_xuong'
+                : userRole;
+
+            return roles.includes(effectiveRole) || roles.includes(userRole) || roles.includes('all');
         });
 
         return { items: filtered };
