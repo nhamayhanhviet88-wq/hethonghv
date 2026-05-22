@@ -552,17 +552,17 @@ function _dhtUpdateInfo(count, filtered) {
     var sc = document.getElementById('dhtStatCards');
     if (sc) {
         sc.innerHTML = ''
-            +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden">'
+            +'<div onclick="_dhtShowStatPopup(\'revenue\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'\'">'
             +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite"></div>'
             +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">💰 DOANH SỐ</div>'
             +'<div style="font-size:15px;font-weight:900">'+fmt(totalRevenue)+'đ</div>'
             +'</div>'
-            +'<div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #2563eb30;position:relative;overflow:hidden">'
+            +'<div onclick="_dhtShowStatPopup(\'count\')" style="cursor:pointer;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #2563eb30;position:relative;overflow:hidden;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'\'">'
             +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.3s"></div>'
             +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 SỐ ĐƠN</div>'
             +'<div style="font-size:15px;font-weight:900">'+count+'</div>'
             +'</div>'
-            +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden">'
+            +'<div onclick="_dhtShowStatPopup(\'remaining\')" style="cursor:pointer;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:140px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'\'">'
             +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.6s"></div>'
             +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ CHƯA THU</div>'
             +'<div style="font-size:15px;font-weight:900">'+fmt(totalRemaining)+'đ</div>'
@@ -574,6 +574,88 @@ function _dhtUpdateInfo(count, filtered) {
             document.head.appendChild(st);
         }
     }
+}
+
+// ========== STAT CARD POPUP ==========
+function _dhtShowStatPopup(type) {
+    var orders = _dht.orders || [];
+    var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    var title = '', headerBg = '', filtered = [], totalLabel = '', totalVal = 0;
+
+    if (type === 'revenue') {
+        title = '💰 Doanh Số — Chi Tiết Đơn Hàng';
+        headerBg = '#059669';
+        filtered = orders.slice();
+        totalLabel = 'TỔNG DOANH SỐ';
+        filtered.forEach(function(o) { totalVal += Number(o.total_amount) || 0; });
+    } else if (type === 'count') {
+        title = '📦 Tất Cả Đơn Hàng';
+        headerBg = '#2563eb';
+        filtered = orders.slice();
+        totalLabel = 'TỔNG SỐ ĐƠN';
+        totalVal = filtered.length;
+    } else if (type === 'remaining') {
+        title = '⚠️ Đơn Chưa Thu Đủ Tiền';
+        headerBg = '#dc2626';
+        filtered = orders.filter(function(o) { return (Number(o.remaining_amount) || 0) > 0; });
+        totalLabel = 'TỔNG CHƯA THU';
+        filtered.forEach(function(o) { totalVal += Number(o.remaining_amount) || 0; });
+    }
+
+    // Sort: remaining desc for "remaining", total_amount desc for "revenue", order_date desc for "count"
+    if (type === 'remaining') {
+        filtered.sort(function(a, b) { return (Number(b.remaining_amount)||0) - (Number(a.remaining_amount)||0); });
+    } else if (type === 'revenue') {
+        filtered.sort(function(a, b) { return (Number(b.total_amount)||0) - (Number(a.total_amount)||0); });
+    }
+
+    // Build summary card
+    var totalDisplay = type === 'count' ? totalVal : fmt(totalVal) + 'đ';
+    var body = '<div style="max-height:70vh;overflow-y:auto">';
+    body += '<div style="display:flex;justify-content:center;margin-bottom:16px"><div style="background:linear-gradient(135deg,' + headerBg + ',' + headerBg + 'cc);color:#fff;padding:14px 32px;border-radius:12px;text-align:center;box-shadow:0 4px 15px ' + headerBg + '40">';
+    body += '<div style="font-size:10px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:4px">' + totalLabel + '</div>';
+    body += '<div style="font-size:24px;font-weight:900">' + totalDisplay + '</div>';
+    body += '<div style="font-size:11px;margin-top:4px;opacity:0.8">' + filtered.length + ' đơn hàng</div>';
+    body += '</div></div>';
+
+    // Build table
+    body += '<table style="width:100%;border-collapse:collapse">';
+    body += '<thead><tr style="background:' + headerBg + ';color:#fff">';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:left">#</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:left">MÃ ĐƠN</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:left">KHÁCH HÀNG</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:left">SĐT</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:right">TỔNG TIỀN</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:right">ĐẶT CỌC</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:right">CÒN LẠI</th>';
+    body += '<th style="padding:8px 10px;font-size:10px;text-align:left">NGÀY LĐ</th>';
+    body += '</tr></thead><tbody>';
+
+    if (filtered.length === 0) {
+        body += '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;font-style:italic">Không có đơn hàng</td></tr>';
+    } else {
+        filtered.forEach(function(o, i) {
+            var rem = Number(o.remaining_amount) || 0;
+            var remColor = rem > 0 ? '#dc2626' : '#059669';
+            var remBold = rem > 0 ? 'font-weight:900' : '';
+            var rowBg = i % 2 === 0 ? '' : 'background:#f8fafc';
+            body += '<tr style="' + rowBg + ';cursor:pointer;transition:background .1s" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'' + (i % 2 === 0 ? '' : '#f8fafc') + '\'" onclick="closeModal();_dhtShowDetail(' + o.id + ')">';
+            body += '<td style="padding:8px 10px;font-size:12px;color:#64748b">' + (i + 1) + '</td>';
+            body += '<td style="padding:8px 10px;font-weight:700;font-size:12px;color:#1e293b">' + o.order_code + '</td>';
+            body += '<td style="padding:8px 10px;font-size:12px">' + (o.customer_name || '—') + '</td>';
+            body += '<td style="padding:8px 10px;font-size:12px;color:#64748b">' + (o.customer_phone || '—') + '</td>';
+            body += '<td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700">' + fmt(o.total_amount) + 'đ</td>';
+            body += '<td style="padding:8px 10px;text-align:right;font-size:12px;color:#2563eb">' + fmt(o.deposit_amount) + 'đ</td>';
+            body += '<td style="padding:8px 10px;text-align:right;font-size:12px;color:' + remColor + ';' + remBold + '">' + fmt(rem) + 'đ</td>';
+            var dateStr = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
+            body += '<td style="padding:8px 10px;font-size:11px;color:#64748b">' + dateStr + '</td>';
+            body += '</tr>';
+        });
+    }
+
+    body += '</tbody></table></div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px">Đóng</button>';
+    openModal(title + ' — ' + filtered.length + ' đơn', body, footer);
 }
 
 // ========== TOGGLE SHIPPING ==========
