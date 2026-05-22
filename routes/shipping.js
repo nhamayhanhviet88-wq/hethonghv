@@ -337,6 +337,12 @@ module.exports = async function(fastify) {
         const todayStr = vnDateStr(vnNow());
         if (new_date <= todayStr) return reply.code(400).send({ error: 'Ngày gửi mới phải sau hôm nay' });
 
+        // ★ Holiday check: cannot reschedule to a public holiday
+        const holidayRow = await db.get('SELECT holiday_name FROM holidays WHERE holiday_date = $1', [new_date]);
+        if (holidayRow) {
+            return reply.code(400).send({ error: `⚠️ Không được hẹn vào ngày lễ: ${holidayRow.holiday_name}` });
+        }
+
         const orderId = Number(request.params.id);
         const order = await db.get('SELECT id, shipping_status, expected_ship_date, rescheduled_ship_date, order_code FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });

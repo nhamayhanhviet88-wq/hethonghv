@@ -356,6 +356,9 @@ async function _shDoShip(id) {
 
 function _shShowReschedule(id, code) {
     document.getElementById('shRescheduleModal')?.remove();
+    // Calculate tomorrow's date for min attribute
+    const _now = new Date(); _now.setDate(_now.getDate() + 1);
+    const _minDate = _now.toISOString().split('T')[0];
     const m = document.createElement('div');
     m.id = 'shRescheduleModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
@@ -363,7 +366,8 @@ function _shShowReschedule(id, code) {
         <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
         <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
-            <input type="date" id="shNewDate" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;">
+            <input type="date" id="shNewDate" min="${_minDate}" onchange="_shCheckHoliday()" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;">
+            <div id="shHolidayWarn" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fca5a5;font-size:12px;color:#dc2626;font-weight:700;"></div>
         </div>
         <div style="margin-bottom:16px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
@@ -371,11 +375,49 @@ function _shShowReschedule(id, code) {
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button onclick="document.getElementById('shRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
-            <button onclick="_shDoReschedule(${id})" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
+            <button id="shRescheduleBtn" onclick="_shDoReschedule(${id})" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
         </div>
     </div>`;
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    // Load holidays for validation
+    _shLoadHolidays();
+}
+
+// Holiday cache
+var _shHolidayMap = {};
+
+async function _shLoadHolidays() {
+    try {
+        const year = new Date().getFullYear();
+        const res = await apiCall('/api/holidays?year=' + year);
+        const res2 = await apiCall('/api/holidays?year=' + (year + 1));
+        _shHolidayMap = {};
+        (res.holidays || []).concat(res2.holidays || []).forEach(h => {
+            const d = h.holiday_date ? h.holiday_date.split('T')[0] : '';
+            if (d) _shHolidayMap[d] = h.holiday_name;
+        });
+    } catch(e) { console.error('[Holidays]', e); }
+}
+
+function _shCheckHoliday() {
+    const dateVal = document.getElementById('shNewDate')?.value;
+    const warnEl = document.getElementById('shHolidayWarn');
+    const btn = document.getElementById('shRescheduleBtn');
+    if (!dateVal || !warnEl || !btn) return;
+    const holidayName = _shHolidayMap[dateVal];
+    if (holidayName) {
+        warnEl.style.display = 'block';
+        warnEl.innerHTML = '⚠️ Ngày ' + dateVal.split('-').reverse().join('/') + ' là <b>' + holidayName + '</b> — Không được hẹn vào ngày lễ!';
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    } else {
+        warnEl.style.display = 'none';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
 }
 
 async function _shDoReschedule(id) {
@@ -383,6 +425,8 @@ async function _shDoReschedule(id) {
     const reason = document.getElementById('shReason')?.value;
     if (!newDate) { alert('Chọn ngày gửi mới'); return; }
     if (!reason?.trim()) { alert('Nhập lý do'); return; }
+    // Double-check holiday on client
+    if (_shHolidayMap[newDate]) { alert('⚠️ Không được hẹn vào ngày lễ: ' + _shHolidayMap[newDate]); return; }
     try {
         const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', { new_date: newDate, reason: reason.trim() });
         if (r.error) { alert(r.error); return; }
