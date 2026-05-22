@@ -1538,12 +1538,6 @@ module.exports = async function(fastify) {
 
     // ========== PRODUCTION WORKFLOW — Quy Trình Sản Xuất ==========
 
-    // GET all process step definitions
-    fastify.get('/api/dht/process-steps', { preHandler: [authenticate] }, async (request, reply) => {
-        const steps = await db.all('SELECT * FROM dht_process_steps WHERE is_active = true ORDER BY display_order');
-        return { steps };
-    });
-
     // GET production status for a specific order
     fastify.get('/api/dht/orders/:orderId/production', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.orderId);
