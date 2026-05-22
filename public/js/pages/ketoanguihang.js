@@ -394,14 +394,39 @@ function _shOnCarrierChange() {
 
 function _shToggle(type, val) {
     if (!window._shModalState) return;
-    window._shModalState[type] = val;
-    const containerId = type === 'payer' ? 'shPayerBtns' : 'shMethodBtns';
-    document.querySelectorAll(`#${containerId} button`).forEach(b => {
-        const active = b.dataset.val === val;
+    var s = window._shModalState;
+    s[type] = val;
+    var containerId = type === 'payer' ? 'shPayerBtns' : 'shMethodBtns';
+    document.querySelectorAll('#' + containerId + ' button').forEach(function(b) {
+        var active = b.dataset.val === val;
         b.style.background = active ? '#122546' : 'white';
         b.style.color = active ? 'white' : '#374151';
         b.style.borderColor = active ? '#122546' : '#e2e8f0';
     });
+    // ★ When remaining <= 0 and payer = 'hv': disable CK, auto-select TM
+    var ckBtn = document.querySelector('#shMethodBtns button[data-val="ck"]');
+    if (s.remaining <= 0 && s.payer === 'hv') {
+        if (ckBtn) {
+            ckBtn.disabled = true;
+            ckBtn.style.opacity = '0.35';
+            ckBtn.style.cursor = 'not-allowed';
+            ckBtn.title = 'Tiền đơn còn lại = 0đ, không thể trừ CK';
+        }
+        // If CK was selected, force switch to TM
+        if (s.method === 'ck') {
+            s.method = 'tm';
+            _shToggle('method', 'tm');
+            return;
+        }
+    } else {
+        // Re-enable CK when payer != hv or remaining > 0
+        if (ckBtn) {
+            ckBtn.disabled = false;
+            ckBtn.style.opacity = '1';
+            ckBtn.style.cursor = 'pointer';
+            ckBtn.title = '';
+        }
+    }
     _shUpdateFeeNote();
 }
 
@@ -409,9 +434,12 @@ function _shUpdateFeeNote() {
     const s = window._shModalState; if (!s) return;
     const el = document.getElementById('shFeeNote'); if (!el) return;
     const fee = Number((document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'')) || 0;
-    if (s.payer === 'hv' && s.method === 'ck' && fee > 0) {
+    if (s.remaining <= 0 && s.payer === 'hv' && s.method === 'ck') {
         el.style.display = 'block';
-        el.innerHTML = `💡 Ship sẽ CK vào STK công ty: <b>${(s.remaining - fee).toLocaleString('vi-VN')}đ</b> (đã trừ ${fee.toLocaleString('vi-VN')}đ ship)`;
+        el.innerHTML = '⚠️ <b style="color:#dc2626">Tiền đơn còn lại = 0đ</b> — Không thể trừ CK. Vui lòng chọn TM nếu HV trả.';
+    } else if (s.payer === 'hv' && s.method === 'ck' && fee > 0) {
+        el.style.display = 'block';
+        el.innerHTML = '💡 Ship sẽ CK vào STK công ty: <b>' + (s.remaining - fee).toLocaleString('vi-VN') + 'đ</b> (đã trừ ' + fee.toLocaleString('vi-VN') + 'đ ship)';
     } else if (s.payer === 'hv' && s.method === 'tm') {
         el.style.display = 'block';
         el.innerHTML = '💡 Sẽ tự tạo <b>phiếu CHI tiền mặt</b> trong Sổ Thu Chi';
@@ -449,6 +477,10 @@ async function _shDoShip(id) {
     if (!feeRaw) return alert('Vui lòng nhập Phí Gửi Hàng');
     if (!s.payer) return alert('Vui lòng chọn Người trả');
     if (!s.method) return alert('Vui lòng chọn Hình thức trả');
+    // ★ Block HV+CK when remaining <= 0
+    if (s.payer === 'hv' && s.method === 'ck' && s.remaining <= 0) {
+        return alert('⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.');
+    }
     // Submit
     try {
         const body = {

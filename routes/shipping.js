@@ -219,6 +219,26 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
         }
 
+        // ★ Block HV+CK when remaining_amount <= 0 (nothing to deduct from)
+        if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck') {
+            const depRow = await db.get(
+                `SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                 FROM payment_records
+                 WHERE total_order_codes ILIKE '%' || $1 || '%'
+                    OR order_tt_coc = $1`,
+                [order.order_code]
+            );
+            const depositTotal = Number(depRow?.deposit_total) || 0;
+            const remaining = (Number(order.total_amount) || 0)
+                - (Number(order.discount_amount) || 0)
+                - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0);
+            if (remaining <= 0) {
+                return reply.code(400).send({
+                    error: '⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.'
+                });
+            }
+        }
+
         const now = vnNow();
         const todayStr = vnDateStr(now);
 
