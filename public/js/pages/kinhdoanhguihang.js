@@ -91,7 +91,12 @@ function _kdShRenderTable(el) {
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '—'}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;color:#1e293b;">${o.actual_carrier_name || '—'}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${o.tracking_code || '—'}</td>`;
+        var _kdTcDisplay = o.tracking_code || '—';
+        if (o.tracking_code && o.actual_carrier_tracking_url) {
+            var _kdTcUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+            _kdTcDisplay = `<a href="${_kdTcUrl}" target="_blank" rel="noopener" style="color:#1e40af;font-weight:700;text-decoration:underline;" title="Tra cứu vận đơn">${o.tracking_code}</a>`;
+        }
+        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${_kdTcDisplay}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '—'}</td>`;
         html += '</tr>';
     }

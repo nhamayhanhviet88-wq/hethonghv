@@ -15,6 +15,9 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed BOOLEAN DEFAULT FALSE`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_at TIMESTAMP DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_by INTEGER DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_carriers ADD COLUMN IF NOT EXISTS tracking_url_template TEXT DEFAULT NULL`); } catch(e) {}
+    // Auto-seed J&T tracking URL if not set
+    try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://jtexpress.vn/vi/tracking?type=track&billcode={code}' WHERE name ILIKE '%J&T%' AND tracking_url_template IS NULL`); } catch(e) {}
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -449,6 +452,7 @@ module.exports = async function(fastify) {
                 u_designer.full_name AS designer_name,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
+                cr2.tracking_url_template AS actual_carrier_tracking_url,
                 u_shipped.full_name AS shipped_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
@@ -1273,9 +1277,13 @@ module.exports = async function(fastify) {
     });
 
     fastify.put('/api/dht/carriers/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const { name } = request.body || {};
+        const { name, tracking_url_template } = request.body || {};
         if (!name || !name.trim()) return reply.code(400).send({ error: 'Nhập tên NVC' });
-        await db.run('UPDATE dht_carriers SET name = $1 WHERE id = $2', [name.trim(), Number(request.params.id)]);
+        await db.run('UPDATE dht_carriers SET name = $1, tracking_url_template = $2 WHERE id = $3', [
+            name.trim(),
+            (tracking_url_template && tracking_url_template.trim()) ? tracking_url_template.trim() : null,
+            Number(request.params.id)
+        ]);
         return { success: true };
     });
 

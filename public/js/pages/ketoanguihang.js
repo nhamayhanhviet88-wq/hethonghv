@@ -129,8 +129,13 @@ function _shRenderTable(el) {
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '\u2014'}</td>`;
         // Col 12: NVC TT (read-only)
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#1e293b;">${o.actual_carrier_name || '\u2014'}</td>`;
-        // Col 13: Tracking code (read-only)
-        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${o.tracking_code || '\u2014'}</td>`;
+        // Col 13: Tracking code (read-only, with tracking link if available)
+        var _tcDisplay = o.tracking_code || '\u2014';
+        if (o.tracking_code && o.actual_carrier_tracking_url) {
+            var _tcUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+            _tcDisplay = `<a href="${_tcUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#1e40af;font-weight:700;text-decoration:underline;" title="Tra cứu vận đơn">${o.tracking_code}</a>`;
+        }
+        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${_tcDisplay}</td>`;
         // Col 14: Carrier phone (read-only)
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_phone || '\u2014'}</td>`;
         // Col 15: Ship time

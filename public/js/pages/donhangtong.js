@@ -844,7 +844,13 @@ async function _dhtShowDetail(id) {
             // 4. Conditional fields based on carrier type
             var _acn = (o.actual_carrier_name || '').toLowerCase();
             if (o.tracking_code) {
-                shipHTML += row('📦 Mã vận đơn', `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`);
+                var _trackingDisplay = `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`;
+                // If carrier has tracking URL template, make it a clickable link
+                if (o.actual_carrier_tracking_url) {
+                    var _trackingUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+                    _trackingDisplay = `<a href="${_trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;letter-spacing:0.5px;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
+                }
+                shipHTML += row('📦 Mã vận đơn', _trackingDisplay);
             }
             if (o.shipping_bill_link) {
                 var _billCid = '_billImg_' + id;

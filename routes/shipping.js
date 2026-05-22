@@ -119,6 +119,7 @@ module.exports = async function(fastify) {
                 o.carrier_extra, o.notes, o.standard_delivery_time, o.standard_proof_image,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
+                cr2.tracking_url_template AS actual_carrier_tracking_url,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 u_shipped.full_name AS shipped_by_name,

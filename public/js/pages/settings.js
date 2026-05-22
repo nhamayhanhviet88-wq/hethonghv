@@ -2174,19 +2174,23 @@ async function loadCarriersSettings() {
     if (carriers.length === 0) {
         listHtml = '<div class="text-muted" style="padding:20px;text-align:center;">Chưa có nhà vận chuyển nào. Thêm mới bên dưới.</div>';
     } else {
-        listHtml = '<ul class="setting-list">' + carriers.map((c, idx) => `
+        listHtml = '<ul class="setting-list">' + carriers.map((c, idx) => {
+            var urlBadge = c.tracking_url_template
+                ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px" title="' + (c.tracking_url_template || '').replace(/"/g,'&quot;') + '">🔗 Tracking</span>'
+                : '';
+            return `
             <li class="setting-item" style="padding:10px 14px;border-radius:10px;border:1px solid var(--gray-200);margin-bottom:8px;">
                 <div class="item-info" style="flex:1;display:flex;align-items:center;gap:8px;">
                     <span style="color:#9ca3af;font-size:11px;font-weight:700;min-width:22px;">#${idx + 1}</span>
                     <span style="font-size:18px;">🚚</span>
-                    <span class="fw-600" style="color:var(--navy);">${c.name}</span>
+                    <span class="fw-600" style="color:var(--navy);">${c.name}</span>${urlBadge}
                 </div>
                 <div class="item-actions" style="display:flex;gap:4px;align-items:center;">
-                    <button class="btn btn-xs btn-secondary" onclick="editCarrierItem(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" title="Sửa">✏️</button>
+                    <button class="btn btn-xs btn-secondary" onclick="editCarrierItem(${c.id}, '${c.name.replace(/'/g, "\\\\'")}', '${(c.tracking_url_template||'').replace(/'/g, "\\\\'")}')" title="Sửa">✏️</button>
                     <button class="btn btn-xs btn-danger" onclick="deleteCarrierItem(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" title="Xóa">🗑️</button>
                 </div>
-            </li>
-        `).join('') + '</ul>';
+            </li>`;
+        }).join('') + '</ul>';
     }
 
     el.innerHTML = `
@@ -2225,11 +2229,16 @@ async function addCarrierItem() {
     }
 }
 
-function editCarrierItem(id, currentName) {
+function editCarrierItem(id, currentName, currentTrackingUrl) {
     const bodyHTML = `
         <div class="form-group">
             <label>Tên Nhà Vận Chuyển</label>
             <input type="text" id="editCarrierName" class="form-control" value="${currentName}">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label style="display:flex;align-items:center;gap:6px;">🔗 URL Tracking <span style="font-size:10px;color:#9ca3af;font-weight:400;">(tùy chọn)</span></label>
+            <input type="text" id="editCarrierTrackingUrl" class="form-control" value="${currentTrackingUrl || ''}" placeholder="https://...?code={code}" style="font-family:monospace;font-size:12px;">
+            <div style="font-size:10px;color:#64748b;margin-top:4px;">Dùng <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">{code}</code> làm chỗ thay thế mã vận đơn. VD: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">https://jtexpress.vn/vi/tracking?type=track&billcode={code}</code></div>
         </div>
     `;
     openModal('✏️ Sửa NVC: ' + currentName, bodyHTML, `
@@ -2241,7 +2250,8 @@ function editCarrierItem(id, currentName) {
 async function submitEditCarrier(id) {
     const name = document.getElementById('editCarrierName')?.value?.trim();
     if (!name) { showToast('Tên không được trống', 'error'); return; }
-    const data = await apiCall(`/api/dht/carriers/${id}`, 'PUT', { name });
+    const trackingUrl = document.getElementById('editCarrierTrackingUrl')?.value?.trim() || null;
+    const data = await apiCall(`/api/dht/carriers/${id}`, 'PUT', { name, tracking_url_template: trackingUrl });
     if (data.success) {
         showToast('✅ Đã cập nhật');
         closeModal();
