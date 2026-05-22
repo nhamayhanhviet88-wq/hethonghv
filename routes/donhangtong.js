@@ -971,11 +971,42 @@ module.exports = async function(fastify) {
                     }
                 }
             }
+            // Smart items comparison — only log if actually changed
             if (Array.isArray(b.items)) {
-                changes.push({ field: 'items', label: 'Danh sách sản phẩm', old: '(cũ)', new: 'Đã cập nhật ' + b.items.length + ' sản phẩm' });
+                const oldItems = await db.all('SELECT product_name, quantity, item_total FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id', [orderId]);
+                const oldKey = oldItems.map(i => `${i.product_name}|${i.quantity}|${i.item_total}`).sort().join(';;');
+                const newKey = b.items.map(i => `${i.product_name}|${i.quantity}|${i.item_total}`).sort().join(';;');
+                if (oldKey !== newKey) {
+                    if (oldItems.length !== b.items.length) {
+                        changes.push({ field: 'items', label: 'Số lượng phiếu', old: oldItems.length + ' phiếu', new: b.items.length + ' phiếu' });
+                    } else {
+                        changes.push({ field: 'items', label: 'Sản phẩm', old: '(cũ)', new: 'Đã sửa nội dung ' + b.items.length + ' phiếu' });
+                    }
+                }
             }
+            // Smart surcharges comparison — log specific adds/removes
             if (b.surcharges !== undefined) {
-                changes.push({ field: 'surcharges', label: 'Phụ phí', old: '(cũ)', new: 'Đã cập nhật' });
+                let oldSur = [];
+                try { oldSur = typeof oldOrder.surcharges === 'string' ? JSON.parse(oldOrder.surcharges) : (oldOrder.surcharges || []); } catch(e) {}
+                const newSur = b.surcharges || [];
+                const oldMap = {};
+                oldSur.forEach(s => { oldMap[s.name] = Number(s.amount) || 0; });
+                const newMap = {};
+                newSur.forEach(s => { newMap[s.name] = Number(s.amount) || 0; });
+                // Find added
+                for (const s of newSur) {
+                    if (oldMap[s.name] === undefined) {
+                        changes.push({ field: 'surcharge_add', label: 'Thêm phụ phí "' + s.name + '"', old: null, new: String(Number(s.amount) || 0) });
+                    } else if (oldMap[s.name] !== (Number(s.amount) || 0)) {
+                        changes.push({ field: 'surcharge_edit', label: 'Phụ phí "' + s.name + '"', old: String(oldMap[s.name]), new: String(Number(s.amount) || 0) });
+                    }
+                }
+                // Find removed
+                for (const s of oldSur) {
+                    if (newMap[s.name] === undefined) {
+                        changes.push({ field: 'surcharge_del', label: 'Xóa phụ phí "' + s.name + '"', old: String(Number(s.amount) || 0), new: null });
+                    }
+                }
             }
             if (changes.length > 0) {
                 const summary = changes.length === 1

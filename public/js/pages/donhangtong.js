@@ -936,7 +936,7 @@ async function _dhtShowDetail(id) {
                         var connector = isLast ? '└─' : '├─';
                         var _fmtVal = function(v, f) {
                             if (!v || v === '(trống)') return '<span style="color:#94a3b8;font-style:italic">(trống)</span>';
-                            if (['total_amount','discount_amount','vat_amount','shipping_fee','deposit_amount_cache'].includes(f)) {
+                            if (['total_amount','discount_amount','vat_amount','shipping_fee','deposit_amount_cache','surcharge_add','surcharge_edit','surcharge_del'].includes(f)) {
                                 return Number(v).toLocaleString('vi-VN') + 'đ';
                             }
                             return v;
