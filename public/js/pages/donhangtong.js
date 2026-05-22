@@ -338,7 +338,7 @@ async function renderDonhangtongPage(content) {
         var st = document.createElement('style'); st.id = 'dhtStyles';
         st.textContent = '.dht-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}'
             +'.dht-sidebar{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:relative}'
-            +'.dht-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}'
+            +'.dht-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.dht-main>*{flex-shrink:0}.dht-main .card{overflow:visible}'
             +'.dht-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden}'
             +'.dht-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(250,210,76,0.08) 50%,transparent 70%);animation:dhtShimmer 3s infinite}'
             +'@keyframes dhtShimmer{0%{transform:translateX(-100%) rotate(0)}100%{transform:translateX(100%) rotate(0)}}'
