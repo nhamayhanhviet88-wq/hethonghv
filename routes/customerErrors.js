@@ -1,0 +1,259 @@
+// ========== CUSTOMER ERROR ORDERS — Đơn Lỗi Khách Hàng ==========
+const db = require('../db/pool');
+const path = require('path');
+const fs = require('fs');
+const { vnNow } = require('../utils/timezone');
+
+// Image upload directory
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'customer-errors');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+async function routes(fastify) {
+    // ========== AUTH MIDDLEWARE ==========
+    const authenticate = require('../middleware/auth');
+
+    // ========== GET /api/customer-errors/tree — Sidebar tree data ==========
+    fastify.get('/api/customer-errors/tree', { preHandler: authenticate }, async (request) => {
+        const rows = await db.all(`
+            SELECT
+                EXTRACT(YEAR FROM report_date)::int AS year,
+                EXTRACT(MONTH FROM report_date)::int AS month,
+                COUNT(*)::int AS count
+            FROM customer_error_orders
+            GROUP BY EXTRACT(YEAR FROM report_date), EXTRACT(MONTH FROM report_date)
+            ORDER BY year DESC, month DESC
+        `);
+        const total = rows.reduce((s, r) => s + r.count, 0);
+        return { tree: rows, total };
+    });
+
+    // ========== GET /api/customer-errors — List with filters ==========
+    fastify.get('/api/customer-errors', { preHandler: authenticate }, async (request) => {
+        const { year, month } = request.query;
+        let where = '';
+        const params = [];
+        if (year) {
+            params.push(Number(year));
+            where += ` AND EXTRACT(YEAR FROM ceo.report_date) = $${params.length}`;
+        }
+        if (month) {
+            params.push(Number(month));
+            where += ` AND EXTRACT(MONTH FROM ceo.report_date) = $${params.length}`;
+        }
+
+        const rows = await db.all(`
+            SELECT ceo.*,
+                   u.full_name AS created_by_name
+            FROM customer_error_orders ceo
+            LEFT JOIN users u ON u.id = ceo.created_by
+            WHERE 1=1 ${where}
+            ORDER BY ceo.report_date DESC, ceo.id DESC
+        `, params);
+
+        return { items: rows };
+    });
+
+    // ========== GET /api/customer-errors/:id — Detail ==========
+    fastify.get('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
+        const row = await db.get(`
+            SELECT ceo.*,
+                   u.full_name AS created_by_name
+            FROM customer_error_orders ceo
+            LEFT JOIN users u ON u.id = ceo.created_by
+            WHERE ceo.id = $1
+        `, [request.params.id]);
+        if (!row) return { error: 'Không tìm thấy' };
+        return { item: row };
+    });
+
+    // ========== POST /api/customer-errors — Create ==========
+    fastify.post('/api/customer-errors', { preHandler: authenticate }, async (request) => {
+        const b = request.body;
+        const userId = request.user.id;
+
+        if (!b.report_date) return { error: 'Ngày báo cáo lỗi là bắt buộc' };
+
+        const result = await db.get(`
+            INSERT INTO customer_error_orders (
+                order_code, report_date, cskh_name, error_quantity,
+                error_content, error_images, sale_resolution,
+                violator_name, production_cost, shipping_cost,
+                violation_month, penalty_month, violator_commitment,
+                fix_plan, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+            RETURNING id
+        `, [
+            b.order_code || null,
+            b.report_date,
+            b.cskh_name || null,
+            Number(b.error_quantity) || 0,
+            b.error_content || null,
+            JSON.stringify(b.error_images || []),
+            b.sale_resolution || null,
+            b.violator_name || null,
+            Number(b.production_cost) || 0,
+            Number(b.shipping_cost) || 0,
+            b.violation_month || null,
+            b.penalty_month || null,
+            b.violator_commitment || null,
+            b.fix_plan || null,
+            userId
+        ]);
+
+        return { success: true, id: result.id };
+    });
+
+    // ========== PUT /api/customer-errors/:id — Update ==========
+    fastify.put('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
+        const b = request.body;
+        const id = request.params.id;
+
+        const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        await db.run(`
+            UPDATE customer_error_orders SET
+                order_code = $1, report_date = $2, cskh_name = $3,
+                error_quantity = $4, error_content = $5, error_images = $6,
+                sale_resolution = $7, violator_name = $8,
+                production_cost = $9, shipping_cost = $10,
+                violation_month = $11, penalty_month = $12,
+                violator_commitment = $13, fix_plan = $14,
+                updated_at = NOW()
+            WHERE id = $15
+        `, [
+            b.order_code || null,
+            b.report_date,
+            b.cskh_name || null,
+            Number(b.error_quantity) || 0,
+            b.error_content || null,
+            JSON.stringify(b.error_images || []),
+            b.sale_resolution || null,
+            b.violator_name || null,
+            Number(b.production_cost) || 0,
+            Number(b.shipping_cost) || 0,
+            b.violation_month || null,
+            b.penalty_month || null,
+            b.violator_commitment || null,
+            b.fix_plan || null,
+            id
+        ]);
+
+        return { success: true };
+    });
+
+    // ========== PATCH /api/customer-errors/:id/field — Inline field update ==========
+    fastify.patch('/api/customer-errors/:id/field', { preHandler: authenticate }, async (request) => {
+        const { field, value } = request.body;
+        const id = request.params.id;
+
+        // Whitelist of editable fields
+        const ALLOWED = [
+            'order_code', 'report_date', 'cskh_name', 'error_quantity',
+            'error_content', 'sale_resolution', 'violator_name',
+            'production_cost', 'shipping_cost', 'violation_month',
+            'penalty_month', 'violator_commitment', 'fix_plan'
+        ];
+        if (!ALLOWED.includes(field)) return { error: 'Trường không hợp lệ' };
+
+        const numericFields = ['error_quantity', 'production_cost', 'shipping_cost'];
+        const finalValue = numericFields.includes(field) ? (Number(value) || 0) : (value || null);
+
+        await db.run(
+            `UPDATE customer_error_orders SET ${field} = $1, updated_at = NOW() WHERE id = $2`,
+            [finalValue, id]
+        );
+
+        return { success: true };
+    });
+
+    // ========== DELETE /api/customer-errors/:id — Delete ==========
+    fastify.delete('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
+        // Only GĐ/QL can delete
+        if (!['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(request.user.role)) {
+            return { error: 'Không có quyền xóa' };
+        }
+
+        const existing = await db.get('SELECT id, error_images FROM customer_error_orders WHERE id = $1', [request.params.id]);
+        if (!existing) return { error: 'Không tìm thấy' };
+
+        // Delete associated images
+        try {
+            const images = JSON.parse(existing.error_images || '[]');
+            for (const img of images) {
+                const filePath = path.join(__dirname, '..', img.replace(/^\//, ''));
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            }
+        } catch(e) { /* silent */ }
+
+        await db.run('DELETE FROM customer_error_orders WHERE id = $1', [request.params.id]);
+        return { success: true };
+    });
+
+    // ========== POST /api/customer-errors/:id/images — Upload images ==========
+    fastify.post('/api/customer-errors/:id/images', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const existing = await db.get('SELECT id, error_images FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        const parts = request.parts();
+        const uploadedUrls = [];
+
+        for await (const part of parts) {
+            if (part.type === 'file' && part.filename) {
+                const ext = path.extname(part.filename).toLowerCase() || '.jpg';
+                const fileName = `ceo_${id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+                const filePath = path.join(UPLOAD_DIR, fileName);
+
+                const chunks = [];
+                for await (const chunk of part.file) {
+                    chunks.push(chunk);
+                }
+                fs.writeFileSync(filePath, Buffer.concat(chunks));
+                uploadedUrls.push(`/uploads/customer-errors/${fileName}`);
+            }
+        }
+
+        // Merge with existing images
+        let currentImages = [];
+        try { currentImages = JSON.parse(existing.error_images || '[]'); } catch(e) {}
+        const allImages = [...currentImages, ...uploadedUrls];
+
+        await db.run(
+            'UPDATE customer_error_orders SET error_images = $1, updated_at = NOW() WHERE id = $2',
+            [JSON.stringify(allImages), id]
+        );
+
+        return { success: true, images: allImages };
+    });
+
+    // ========== DELETE /api/customer-errors/:id/images — Remove single image ==========
+    fastify.delete('/api/customer-errors/:id/images', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const { image_url } = request.body;
+
+        const existing = await db.get('SELECT id, error_images FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        let currentImages = [];
+        try { currentImages = JSON.parse(existing.error_images || '[]'); } catch(e) {}
+
+        // Remove from array
+        const filtered = currentImages.filter(img => img !== image_url);
+
+        // Delete file
+        try {
+            const filePath = path.join(__dirname, '..', image_url.replace(/^\//, ''));
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch(e) { /* silent */ }
+
+        await db.run(
+            'UPDATE customer_error_orders SET error_images = $1, updated_at = NOW() WHERE id = $2',
+            [JSON.stringify(filtered), id]
+        );
+
+        return { success: true, images: filtered };
+    });
+}
+
+module.exports = routes;

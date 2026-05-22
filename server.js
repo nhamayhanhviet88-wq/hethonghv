@@ -772,6 +772,32 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_order_prod_order ON dht_order_production(dht_order_id)`);
     } catch(e) { console.error('[Migration v11] Production:', e.message); }
 
+    // v12: Customer Error Orders — Đơn Lỗi Khách Hàng
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS customer_error_orders (
+            id              SERIAL PRIMARY KEY,
+            order_code      TEXT,
+            report_date     DATE NOT NULL,
+            cskh_name       TEXT,
+            error_quantity  NUMERIC DEFAULT 0,
+            error_content   TEXT,
+            error_images    JSONB DEFAULT '[]',
+            sale_resolution TEXT,
+            violator_name   TEXT,
+            production_cost NUMERIC DEFAULT 0,
+            shipping_cost   NUMERIC DEFAULT 0,
+            violation_month TEXT,
+            penalty_month   TEXT,
+            violator_commitment TEXT,
+            fix_plan        TEXT,
+            created_by      INTEGER REFERENCES users(id),
+            created_at      TIMESTAMPTZ DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_ceo_report_date ON customer_error_orders(report_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_ceo_order_code ON customer_error_orders(order_code)`);
+    } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -875,6 +901,7 @@ async function start() {
     fastify.register(require('./routes/banggiamay'));
     fastify.register(require('./routes/shipping'));
     fastify.register(require('./routes/donhangthietke'));
+    fastify.register(require('./routes/customerErrors'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
