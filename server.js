@@ -662,6 +662,73 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_audit_order ON dht_audit_logs(dht_order_id)`);
     } catch(e) { console.error('[Migration v10] Audit logs:', e.message); }
+    // v10b: Backfill audit logs for existing orders
+    try {
+        const hasLogs = await db.get('SELECT COUNT(*) AS cnt FROM dht_audit_logs');
+        if (Number(hasLogs?.cnt || 0) === 0) {
+            const allOrders = await db.all(`
+                SELECT o.id, o.order_code, o.total_amount, o.total_quantity, o.deposit_amount_cache,
+                       o.discount_amount, o.created_at, o.created_by, o.last_updated_at, o.last_updated_by,
+                       o.shipped_at, o.shipped_by, o.actual_carrier_id, o.shipping_fee, o.shipping_fee_payer,
+                       o.shipping_fee_method, o.tracking_code, o.carrier_phone, o.receiver_name,
+                       c.name AS carrier_name
+                FROM dht_orders o
+                LEFT JOIN dht_carriers c ON c.id = o.actual_carrier_id
+                ORDER BY o.id ASC
+            `);
+            let backfilled = 0;
+            for (const o of allOrders) {
+                // 1. Create log
+                if (o.created_at) {
+                    await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,$6)`, [
+                        o.id, 'create', 'Đã tạo đơn ' + (o.order_code || ''),
+                        JSON.stringify([
+                            { field: 'order_code', label: 'Mã đơn', old: null, new: o.order_code || '' },
+                            { field: 'total_amount', label: 'Tổng tiền', old: null, new: String(Number(o.total_amount) || 0) },
+                            { field: 'total_quantity', label: 'Tổng SL', old: null, new: String(Number(o.total_quantity) || 0) },
+                            ...(Number(o.deposit_amount_cache) > 0 ? [{ field: 'deposit', label: 'Tiền cọc', old: null, new: String(Number(o.deposit_amount_cache)) }] : []),
+                            ...(Number(o.discount_amount) > 0 ? [{ field: 'discount', label: 'Giảm giá', old: null, new: String(Number(o.discount_amount)) }] : [])
+                        ]),
+                        o.created_by, o.created_at
+                    ]);
+                    backfilled++;
+                }
+                // 2. Ship log
+                if (o.shipped_at && o.actual_carrier_id) {
+                    const pLabel = o.shipping_fee_payer === 'hv' ? 'HV trả' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                    const mLabel = o.shipping_fee_method === 'ck' ? 'CK' : o.shipping_fee_method === 'tm' ? 'TM' : '—';
+                    const cName = o.carrier_name || 'NVC';
+                    await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,$6)`, [
+                        o.id, 'ship',
+                        `Đã gửi hàng qua ${cName} — Phí ${Number(o.shipping_fee || 0).toLocaleString('vi-VN')}đ ${pLabel} ${mLabel}`,
+                        JSON.stringify([
+                            { field: 'actual_carrier', label: 'Nhà vận chuyển', old: null, new: cName },
+                            { field: 'shipping_fee', label: 'Phí gửi hàng', old: null, new: String(Number(o.shipping_fee) || 0) },
+                            { field: 'fee_payer', label: 'Người trả', old: null, new: pLabel + ' — ' + mLabel },
+                            ...(o.tracking_code ? [{ field: 'tracking_code', label: 'Mã vận đơn', old: null, new: o.tracking_code }] : []),
+                            ...(o.carrier_phone ? [{ field: 'carrier_phone', label: 'SĐT Nhà Xe', old: null, new: o.carrier_phone }] : []),
+                            ...(o.receiver_name ? [{ field: 'receiver_name', label: 'Người nhận', old: null, new: o.receiver_name }] : [])
+                        ]),
+                        o.shipped_by, o.shipped_at
+                    ]);
+                    backfilled++;
+                }
+                // 3. Update log (if different from create time)
+                if (o.last_updated_at && o.last_updated_by && o.created_at) {
+                    const cTime = new Date(o.created_at).getTime();
+                    const uTime = new Date(o.last_updated_at).getTime();
+                    if (Math.abs(uTime - cTime) > 60000) { // more than 1 minute apart
+                        await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,$6)`, [
+                            o.id, 'update', 'Đã cập nhật đơn hàng',
+                            JSON.stringify([]), o.last_updated_by, o.last_updated_at
+                        ]);
+                        backfilled++;
+                    }
+                }
+            }
+            console.log(`[Migration v10b] Backfilled ${backfilled} audit logs for ${allOrders.length} orders`);
+        }
+    } catch(e) { console.error('[Migration v10b] Backfill:', e.message); }
 
     // Plugins
     fastify.register(require('@fastify/cookie'));
