@@ -449,6 +449,32 @@ async function _qtAToggleActive(key, cardEl) {
     }
 }
 
+async function _qtAToggleSection_Active(key, toggleWrapEl) {
+    const t = _qtAAllTypes.find(x => x.key === key);
+    if (!t) return;
+    const newActive = !t.is_active;
+    const toggle = toggleWrapEl.querySelector('.qt-toggle');
+    const label = toggleWrapEl.querySelector('.qt-toggle-label');
+    if (toggle) { toggle.className = 'qt-toggle ' + (newActive ? 'qt-toggle-on' : 'qt-toggle-off'); }
+    if (label) { label.textContent = newActive ? 'Bật' : 'Tắt'; }
+    toggleWrapEl.title = newActive ? 'Click để tắt loại này' : 'Click để bật lại loại này';
+    const section = toggleWrapEl.closest('.qt-flow-section');
+    if (section) { section.style.opacity = newActive ? '1' : '0.45'; }
+    try {
+        await apiCall(`/api/consult-types/${key}`, 'PUT', {
+            label: t.label, icon: t.icon, color: t.color, text_color: t.text_color,
+            is_active: newActive, stage: t.stage || null, crm_menu: 'affiliate'
+        });
+        t.is_active = newActive;
+        showToast(newActive ? `✅ Đã bật: ${t.icon} ${t.label}` : `🔴 Đã tắt: ${t.icon} ${t.label}`, newActive ? 'success' : 'warning');
+    } catch(e) {
+        if (toggle) { toggle.className = 'qt-toggle ' + (t.is_active ? 'qt-toggle-on' : 'qt-toggle-off'); }
+        if (label) { label.textContent = t.is_active ? 'Bật' : 'Tắt'; }
+        if (section) { section.style.opacity = t.is_active ? '1' : '0.45'; }
+        showToast('❌ Lỗi: ' + (e.message || ''), 'error');
+    }
+}
+
 // ========== DELETE TYPE ==========
 async function _qtADeleteType(key) {
     const t = _qtAAllTypes.find(x => x.key === key);
@@ -750,7 +776,14 @@ function _qtARenderSectionAccordion(sec) {
                     ${_qtAIsGD ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${sec.max_appointment_days > 0 ? '#f59e0b20' : '#64748b20'};color:${sec.max_appointment_days > 0 ? '#f59e0b' : '#94a3b8'};cursor:pointer;border:1px solid ${sec.max_appointment_days > 0 ? '#f59e0b40' : '#64748b30'};margin-left:4px;" onclick="event.stopPropagation();_qtAEditMaxDays('${sec.key}',${sec.max_appointment_days || 0})" title="Giới hạn ngày hẹn tối đa">📅 ${sec.max_appointment_days > 0 ? sec.max_appointment_days + ' ngày' : 'Không giới hạn'}</span>` : (sec.max_appointment_days > 0 ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#f59e0b20;color:#f59e0b;">📅 ${sec.max_appointment_days} ngày</span>` : '')}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    ${_qtAIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtAShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtADeleteSection('${sec.key}')" title="Xóa loại">🗑️</button><button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowMergeModal('${sec.key}')" title="Gom thêm nút vào loại này">➕</button>${isGroup ? `<button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowUngroupModal('${sec.key}')" title="Hủy gom nhóm">🔓</button>` : ''}` : ''}
+                    ${_qtAIsGD ? (() => {
+                        const secType = _qtAAllTypes.find(x => x.key === sec.key);
+                        const secActive = secType ? secType.is_active : true;
+                        return `<div class="qt-toggle-wrap" style="margin:0;gap:4px;" onclick="event.stopPropagation();_qtAToggleSection_Active('${sec.key}',this)" title="${secActive ? 'Click để tắt loại này' : 'Click để bật lại loại này'}">
+                            <div class="qt-toggle ${secActive ? 'qt-toggle-on' : 'qt-toggle-off'}"><div class="qt-toggle-knob"></div></div>
+                            <span class="qt-toggle-label">${secActive ? 'Bật' : 'Tắt'}</span>
+                        </div><button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtAShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtADeleteSection('${sec.key}')" title="Xóa loại">🗑️</button><button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowMergeModal('${sec.key}')" title="Gom thêm nút vào loại này">➕</button>${isGroup ? `<button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtAShowUngroupModal('${sec.key}')" title="Hủy gom nhóm">🔓</button>` : ''}`;
+                    })() : ''}
                     <span class="qt-flow-chevron">▼</span>
                 </div>
             </div>
