@@ -733,6 +733,45 @@ async function start() {
         }
     } catch(e) { console.error('[Migration v10b] Backfill:', e.message); }
 
+    // v11: Production Workflow — Quy Trình Sản Xuất per order
+    try {
+        // Ensure process steps table exists
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_process_steps (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            short_name TEXT,
+            display_order INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT true
+        )`);
+        // Seed 8 default steps
+        const _steps = [
+            { name: 'Chuẩn Bị QLX', short: 'CBQLX', order: 1 },
+            { name: 'Cắt', short: 'CẮT', order: 2 },
+            { name: 'In', short: 'IN', order: 3 },
+            { name: 'Ép', short: 'ÉP', order: 4 },
+            { name: 'May', short: 'MAY', order: 5 },
+            { name: 'Hoàn Thiện', short: 'HT', order: 6 },
+            { name: 'Kiểm Tra Chất Lượng', short: 'KTCL', order: 7 },
+            { name: 'Đóng Gói', short: 'ĐG', order: 8 }
+        ];
+        for (const s of _steps) {
+            await db.run(`INSERT INTO dht_process_steps (name, short_name, display_order) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`, [s.name, s.short, s.order]);
+        }
+        // Order production tracking — which step each order has completed
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_production (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            step_id INTEGER NOT NULL REFERENCES dht_process_steps(id),
+            is_completed BOOLEAN DEFAULT false,
+            completed_at TIMESTAMPTZ,
+            completed_by INTEGER REFERENCES users(id),
+            notes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(dht_order_id, step_id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_order_prod_order ON dht_order_production(dht_order_id)`);
+    } catch(e) { console.error('[Migration v11] Production:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

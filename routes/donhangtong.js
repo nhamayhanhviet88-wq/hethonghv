@@ -200,7 +200,10 @@ module.exports = async function(fastify) {
                 u_created.full_name AS created_by_name,
                 u_updated.full_name AS last_updated_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
+                COALESCE(prod_progress.done_steps, 0) AS prod_done,
+                COALESCE(prod_progress.total_steps, 0) AS prod_total,
+                prod_progress.current_step_short AS prod_current
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -212,6 +215,16 @@ module.exports = async function(fastify) {
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) FILTER (WHERE op.is_completed) AS done_steps,
+                       COUNT(*) AS total_steps,
+                       (SELECT ps2.short_name FROM dht_order_production op2
+                        JOIN dht_process_steps ps2 ON op2.step_id = ps2.id
+                        WHERE op2.dht_order_id = o.id AND op2.is_completed
+                        ORDER BY ps2.display_order DESC LIMIT 1) AS current_step_short
+                FROM dht_order_production op
+                WHERE op.dht_order_id = o.id
+            ) prod_progress ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
         `, params);
@@ -1521,5 +1534,70 @@ module.exports = async function(fastify) {
                 ON CONFLICT (product_id, step_id) DO UPDATE SET is_active = true`, [pid, sid]);
         }
         return { success: true };
+    });
+
+    // ========== PRODUCTION WORKFLOW — Quy Trình Sản Xuất ==========
+
+    // GET all process step definitions
+    fastify.get('/api/dht/process-steps', { preHandler: [authenticate] }, async (request, reply) => {
+        const steps = await db.all('SELECT * FROM dht_process_steps WHERE is_active = true ORDER BY display_order');
+        return { steps };
+    });
+
+    // GET production status for a specific order
+    fastify.get('/api/dht/orders/:orderId/production', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.orderId);
+        // Get all steps with their completion status for this order
+        const steps = await db.all(`
+            SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order,
+                   COALESCE(op.is_completed, false) AS is_completed,
+                   op.completed_at, op.completed_by, op.notes,
+                   u.full_name AS completed_by_name
+            FROM dht_process_steps ps
+            LEFT JOIN dht_order_production op ON op.step_id = ps.id AND op.dht_order_id = $1
+            LEFT JOIN users u ON op.completed_by = u.id
+            WHERE ps.is_active = true
+            ORDER BY ps.display_order
+        `, [orderId]);
+        return { steps };
+    });
+
+    // POST toggle a production step for an order
+    fastify.post('/api/dht/orders/:orderId/production/:stepId', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.orderId);
+        const stepId = Number(request.params.stepId);
+        const userId = request.user.id;
+        const { vnNow } = require('./utils/timezone');
+        const now = vnNow();
+
+        // Check if record exists
+        const existing = await db.get('SELECT * FROM dht_order_production WHERE dht_order_id = $1 AND step_id = $2', [orderId, stepId]);
+
+        if (existing) {
+            // Toggle: if completed → uncomplete, if not → complete
+            if (existing.is_completed) {
+                await db.run('UPDATE dht_order_production SET is_completed = false, completed_at = NULL, completed_by = NULL WHERE id = $1', [existing.id]);
+            } else {
+                await db.run('UPDATE dht_order_production SET is_completed = true, completed_at = $1, completed_by = $2 WHERE id = $3', [now, userId, existing.id]);
+            }
+        } else {
+            // Create new as completed
+            await db.run(`INSERT INTO dht_order_production (dht_order_id, step_id, is_completed, completed_at, completed_by)
+                VALUES ($1, $2, true, $3, $4)`, [orderId, stepId, now, userId]);
+        }
+
+        // Return updated steps
+        const steps = await db.all(`
+            SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order,
+                   COALESCE(op.is_completed, false) AS is_completed,
+                   op.completed_at, op.completed_by, op.notes,
+                   u.full_name AS completed_by_name
+            FROM dht_process_steps ps
+            LEFT JOIN dht_order_production op ON op.step_id = ps.id AND op.dht_order_id = $1
+            LEFT JOIN users u ON op.completed_by = u.id
+            WHERE ps.is_active = true
+            ORDER BY ps.display_order
+        `, [orderId]);
+        return { success: true, steps };
     });
 };

@@ -155,7 +155,7 @@ function _dhtPopulateCskhDropdown() {
 var _dhtSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'ship_count',       label: 'Lần Trả Ship',   type: 'num',  align: 'center' },
+    { key: 'prod_done',       label: 'Quy Trình SX',   type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
     { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
     { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
@@ -302,7 +302,7 @@ async function renderDonhangtongPage(content) {
         +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th style="text-align:center">Lần Trả Ship</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th style="text-align:center">Quy Trình SX</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Ngày Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
     document.getElementById('dhtSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhtDoSearch(); } });
     // Default: load current year (no month pre-selected)
@@ -469,12 +469,26 @@ function _dhtRenderOrderRows(filtered) {
     tbody.innerHTML = filtered.map(o => {
         const remaining = Number(o.remaining_amount) || 0;
         const remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
-        const sc = Number(o.ship_count) || 0;
-        const shipBadge = sc === 0
-            ? '<span style="color:#cbd5e1;font-size:10px;">—</span>'
-            : sc === 1
-                ? '<span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">L1</span>'
-                : '<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">L' + sc + '</span>';
+        const prodDone = Number(o.prod_done) || 0;
+        const prodTotal = Number(o.prod_total) || 0;
+        const prodCurrent = o.prod_current || '';
+        let prodBadge;
+        if (prodTotal === 0) {
+            // No production steps assigned yet
+            prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;color:#94a3b8;font-size:10px;padding:2px 6px;border:1px dashed #cbd5e1;border-radius:4px;" title="Chưa có quy trình">⚙️</span>';
+        } else if (prodDone >= 8) {
+            // All done
+            prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:800;box-shadow:0 2px 6px #05966940;" title="Hoàn thành">✅ XONG</span>';
+        } else {
+            // In progress
+            var pctProd = Math.round((prodDone / 8) * 100);
+            var prodColor = pctProd < 30 ? '#dc2626' : pctProd < 60 ? '#f59e0b' : '#059669';
+            prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:2px;" title="' + prodDone + '/8 — ' + (prodCurrent || 'Xem') + '">'
+                + '<span style="font-size:9px;font-weight:800;color:' + prodColor + ';">' + prodDone + '/8</span>'
+                + '<span style="width:40px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><span style="display:block;width:' + pctProd + '%;height:100%;background:' + prodColor + ';border-radius:2px;"></span></span>'
+                + (prodCurrent ? '<span style="font-size:7px;font-weight:700;color:#64748b;">' + prodCurrent + '</span>' : '')
+                + '</span>';
+        }
         const priColors = { 'GẤP': 'background:#dc2626;color:#fff;', 'GỬI': 'background:#2563eb;color:#fff;', 'CHUẨN': 'background:#7c3aed;color:#fff;' };
         const priStyle = priColors[o.shipping_priority] || priColors['CHUẨN'];
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
@@ -497,10 +511,10 @@ function _dhtRenderOrderRows(filtered) {
         const _catColor = _catColors[_catHash];
         const _catBg = _catBgs[_catHash];
 
-        return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
+            return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${fmtD(o.order_date)}</td>
-            <td style="text-align:center;" title="Số lần ship: ${sc}">${shipBadge}</td>
+            <td style="text-align:center;">${prodBadge}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
             <td><strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
@@ -597,6 +611,74 @@ function _dhtStatFilter(type) {
         _dht.statFilter = type;
     }
     _dhtRenderTable();
+}
+
+// ========== PRODUCTION WORKFLOW POPUP ==========
+async function _dhtShowProduction(orderId, orderCode) {
+    var data = await apiCall('/api/dht/orders/' + orderId + '/production');
+    var steps = data.steps || [];
+    var doneCount = steps.filter(function(s) { return s.is_completed; }).length;
+    var pct = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+    var barColor = pct < 30 ? '#dc2626' : pct < 60 ? '#f59e0b' : pct >= 100 ? '#059669' : '#059669';
+
+    var body = '<div style="padding:0">';
+    // Progress header
+    body += '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:16px 20px;border-radius:12px;margin-bottom:16px">';
+    body += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    body += '<span style="color:#94a3b8;font-size:11px;font-weight:600">TIẾN ĐỘ SẢN XUẤT</span>';
+    body += '<span style="color:#fff;font-size:14px;font-weight:900">' + doneCount + '/' + steps.length + ' bước</span>';
+    body += '</div>';
+    body += '<div style="width:100%;height:8px;background:#334155;border-radius:4px;overflow:hidden">';
+    body += '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width .3s"></div>';
+    body += '</div>';
+    body += '<div style="text-align:right;margin-top:4px;font-size:11px;color:' + barColor + ';font-weight:700">' + pct + '%</div>';
+    body += '</div>';
+
+    // Steps list
+    body += '<div style="display:flex;flex-direction:column;gap:4px">';
+    var _stepColors = ['#7c3aed','#0891b2','#2563eb','#d97706','#c026d3','#059669','#ea580c','#dc2626'];
+    for (var i = 0; i < steps.length; i++) {
+        var s = steps[i];
+        var isDone = s.is_completed;
+        var stepColor = _stepColors[i % _stepColors.length];
+        var bg = isDone ? '#f0fdf4' : '#f8fafc';
+        var border = isDone ? '2px solid #059669' : '1px solid #e2e8f0';
+        var icon = isDone ? '✅' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid #cbd5e1;"></span>';
+        var timeStr = '';
+        if (isDone && s.completed_at) {
+            timeStr = vnFormat(s.completed_at);
+        }
+
+        body += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:' + bg + ';border:' + border + ';border-radius:10px;transition:all .15s" '
+            + 'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+        // Step number badge
+        body += '<div style="min-width:28px;height:28px;border-radius:6px;background:' + stepColor + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800">' + s.short_name + '</div>';
+        // Step name
+        body += '<div style="flex:1">';
+        body += '<div style="font-size:12px;font-weight:700;color:' + (isDone ? '#059669' : '#1e293b') + '">' + s.name + '</div>';
+        if (isDone) {
+            body += '<div style="font-size:10px;color:#64748b;margin-top:2px">';
+            if (s.completed_by_name) body += '👤 ' + s.completed_by_name;
+            if (timeStr) body += ' · 🕐 ' + timeStr;
+            body += '</div>';
+        }
+        body += '</div>';
+        // Toggle button
+        body += '<button onclick="_dhtToggleProdStep(' + orderId + ',' + s.step_id + ',\'' + orderCode + '\')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px" title="' + (isDone ? 'Bỏ hoàn thành' : 'Đánh dấu hoàn thành') + '">' + icon + '</button>';
+        body += '</div>';
+    }
+    body += '</div></div>';
+
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px">Đóng</button>';
+    openModal('⚙️ Quy Trình SX — ' + orderCode, body, footer);
+}
+
+async function _dhtToggleProdStep(orderId, stepId, orderCode) {
+    await apiCall('/api/dht/orders/' + orderId + '/production/' + stepId, 'POST');
+    // Refresh popup
+    _dhtShowProduction(orderId, orderCode);
+    // Also refresh the table to update badge
+    _dhtLoadOrders();
 }
 
 // ========== TOGGLE SHIPPING ==========
