@@ -178,8 +178,14 @@ module.exports = async function(fastify) {
             ORDER BY group_name ASC, display_order ASC, name ASC
         `);
 
+        // ★ DHT order-creating roles always need to see BGM items for sewing technique selection
+        const DHT_ROLES = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'];
+        const isDHTRole = DHT_ROLES.includes(userRole);
+
         // Filter by user role
         const filtered = rows.filter(r => {
+            // DHT roles can see all items (they need to pick sewing techniques when creating orders)
+            if (isDHTRole) return true;
             let roles = r.allowed_roles;
             if (typeof roles === 'string') { try { roles = JSON.parse(roles); } catch(e) { roles = []; } }
             // quan_ly_cap_cao is senior manager — grant access to all BGM items accessible by quan_ly_xuong
