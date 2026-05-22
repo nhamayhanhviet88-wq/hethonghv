@@ -713,11 +713,14 @@ async function start() {
                     ]);
                     backfilled++;
                 }
-                // 3. Update log (if different from create time)
+                // 3. Update log (if different from create AND ship time)
                 if (o.last_updated_at && o.last_updated_by && o.created_at) {
                     const cTime = new Date(o.created_at).getTime();
                     const uTime = new Date(o.last_updated_at).getTime();
-                    if (Math.abs(uTime - cTime) > 60000) { // more than 1 minute apart
+                    const sTime = o.shipped_at ? new Date(o.shipped_at).getTime() : 0;
+                    const diffCreate = Math.abs(uTime - cTime);
+                    const diffShip = sTime ? Math.abs(uTime - sTime) : Infinity;
+                    if (diffCreate > 60000 && diffShip > 60000) { // different from both create and ship
                         await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,$6)`, [
                             o.id, 'update', 'Đã cập nhật đơn hàng',
                             JSON.stringify([]), o.last_updated_by, o.last_updated_at
