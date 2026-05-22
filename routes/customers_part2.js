@@ -889,6 +889,29 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
+        // ★ V4.2: Unlock payment record when Hủy Cọc — atomic reversal
+        if (log_type === 'huy_coc') {
+            try {
+                const unlockResult = await db.run(`
+                    UPDATE payment_records SET
+                        payment_type = 'tra_lai_coc',
+                        locked_by = NULL,
+                        locked_at = NULL,
+                        updated_at = NOW()
+                    WHERE payment_type = 'dat_coc'
+                      AND customer_name = $1
+                      AND customer_phone = $2
+                `, [customer.customer_name, customer.phone]);
+                if (unlockResult.changes > 0) {
+                    console.log(`[HỦY CỌC] Unlocked ${unlockResult.changes} payment record(s) for customer: ${customer.customer_name} - ${customer.phone}`);
+                } else {
+                    console.warn(`[HỦY CỌC] No locked payment record found for customer: ${customer.customer_name} - ${customer.phone}`);
+                }
+            } catch (unlockErr) {
+                console.error('[HỦY CỌC] Error unlocking payment record:', unlockErr.message);
+            }
+        }
+
         const deposit_amount = Number(fields.deposit_amount) || 0;
         const next_consult_type = fields.next_consult_type || null;
         await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type) VALUES (?,?,?,?,?,?,?)`,

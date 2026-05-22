@@ -583,7 +583,7 @@ async function _dhtShowDetail(id) {
         const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
-        const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ' };
+        const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
 
         // ── Section 1: Action Buttons (permission-aware) ──
         // Hide when opened from shipping page
