@@ -801,6 +801,7 @@ async function start() {
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS customer_name TEXT`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS production_quantity NUMERIC DEFAULT 0`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS linh_vuc TEXT`);
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS error_video TEXT`);
     } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
 
     // Plugins

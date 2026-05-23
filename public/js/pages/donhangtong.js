@@ -2151,17 +2151,24 @@ function _dhtReportError() {
         // Editable section
         '<div style="border-top:2px solid #fed7aa;padding-top:16px">' +
         '<div style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">✏️ THÔNG TIN LỖI (Nhập tay)</div>' +
-        inputField('Số Lượng Lỗi', '_errQty', 'number', false, 'VD: 2') +
+        inputField('Số Lượng Lỗi', '_errQty', 'number', true, 'VD: 2') +
         textareaField('Nội Dung Lỗi', '_errContent', true, 'Mô tả chi tiết lỗi...') +
-        // Image paste zone
+        // Image paste zone (Ctrl+V only)
         '<div style="margin-bottom:10px">' +
-        '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">HÌNH ẢNH LỖI</label>' +
-        '<div id="_errPasteZone" style="border:2px dashed #d1d5db;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa;min-height:60px" ' +
-        'onclick="document.getElementById(\'_errFileInput\').click()">' +
+        '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">HÌNH ẢNH LỖI<span style="color:#dc2626;font-weight:900"> *</span></label>' +
+        '<div id="_errPasteZone" style="border:2px dashed #d1d5db;border-radius:10px;padding:20px;text-align:center;transition:all .2s;background:#fafafa;min-height:60px">' +
         '<div id="_errPastePreview" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px"></div>' +
-        '<div style="color:#94a3b8;font-size:12px;font-weight:600">📋 <b>Ctrl+V</b> để dán ảnh &nbsp;|&nbsp; 📁 Click để chọn file</div>' +
+        '<div style="color:#94a3b8;font-size:12px;font-weight:600">📋 <b>Ctrl+V</b> để dán ảnh từ clipboard</div>' +
         '</div>' +
-        '<input type="file" id="_errFileInput" multiple accept="image/*" style="display:none">' +
+        '</div>' +
+        // Video upload zone
+        '<div style="margin-bottom:10px">' +
+        '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">🎬 VIDEO LỖI <span style="color:#94a3b8;font-size:9px;font-weight:500">(không bắt buộc)</span></label>' +
+        '<div id="_errVideoZone" onclick="document.getElementById(\'_errVideoInput\').click()" style="border:2px dashed #d1d5db;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa">' +
+        '<div id="_errVideoPreview" style="margin-bottom:6px"></div>' +
+        '<div style="color:#94a3b8;font-size:12px;font-weight:600">📁 Click để chọn video (MP4, AVI, MOV, MKV...)</div>' +
+        '</div>' +
+        '<input type="file" id="_errVideoInput" accept="video/*" style="display:none">' +
         '</div>' +
         inputField('Người Vi Phạm', '_errViolator', 'text', true, 'Nhập tên người vi phạm') +
         textareaField('Cách Xử Lý Lỗi', '_errResolution', true, 'Nhập cách xử lý...') +
@@ -2196,15 +2203,7 @@ function _dhtReportError() {
         }
     });
 
-    // File input handler
-    document.getElementById('_errFileInput').addEventListener('change', function() {
-        for (var i = 0; i < this.files.length; i++) {
-            window._dhtErrorPastedFiles.push(this.files[i]);
-        }
-        _errRenderPreview();
-    });
-
-    // Drag & drop on paste zone
+    // Drag & drop on paste zone (images)
     pasteZone.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#ea580c'; this.style.background = '#fff7ed'; });
     pasteZone.addEventListener('dragleave', function() { this.style.borderColor = '#d1d5db'; this.style.background = '#fafafa'; });
     pasteZone.addEventListener('drop', function(e) {
@@ -2217,6 +2216,26 @@ function _dhtReportError() {
                 }
             }
             _errRenderPreview();
+        }
+    });
+
+    // Video input handler
+    window._dhtErrorVideoFile = null;
+    document.getElementById('_errVideoInput').addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            window._dhtErrorVideoFile = this.files[0];
+            var preview = document.getElementById('_errVideoPreview');
+            if (preview) {
+                var sizeMB = (this.files[0].size / 1048576).toFixed(1);
+                preview.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 14px">' +
+                    '<span style="font-size:18px">🎬</span>' +
+                    '<div style="text-align:left">' +
+                    '<div style="font-size:12px;font-weight:700;color:#059669">' + this.files[0].name + '</div>' +
+                    '<div style="font-size:10px;color:#64748b">' + sizeMB + ' MB</div>' +
+                    '</div>' +
+                    '<span onclick="event.stopPropagation();window._dhtErrorVideoFile=null;document.getElementById(\'_errVideoPreview\').innerHTML=\'\';document.getElementById(\'_errVideoInput\').value=\'\'" style="cursor:pointer;color:#dc2626;font-weight:700;font-size:14px" title="Xóa">✕</span>' +
+                    '</div>';
+            }
         }
     });
 }
@@ -2249,14 +2268,17 @@ async function _dhtSubmitErrorReport() {
     var qty = document.getElementById('_errQty').value;
 
     var errors = [];
+    if (!qty || Number(qty) <= 0) errors.push('Số Lượng Lỗi');
     if (!content) errors.push('Nội Dung Lỗi');
+    if (!window._dhtErrorPastedFiles || window._dhtErrorPastedFiles.length === 0) errors.push('Hình Ảnh Lỗi');
     if (!violator) errors.push('Người Vi Phạm');
     if (!resolution) errors.push('Cách Xử Lý Lỗi');
 
     if (errors.length > 0) {
         showToast('⚠️ Vui lòng điền: ' + errors.join(', '), 'error');
-        // Highlight empty fields
+        if (!qty || Number(qty) <= 0) document.getElementById('_errQty').style.borderColor = '#dc2626';
         if (!content) document.getElementById('_errContent').style.borderColor = '#dc2626';
+        if (!window._dhtErrorPastedFiles || window._dhtErrorPastedFiles.length === 0) { var pz = document.getElementById('_errPasteZone'); if(pz) pz.style.borderColor = '#dc2626'; }
         if (!violator) document.getElementById('_errViolator').style.borderColor = '#dc2626';
         if (!resolution) document.getElementById('_errResolution').style.borderColor = '#dc2626';
         return;
@@ -2302,6 +2324,19 @@ async function _dhtSubmitErrorReport() {
                     body: formData
                 });
             } catch(imgErr) { console.warn('[ErrorReport] Image upload failed:', imgErr); }
+        }
+
+        // Step 3: Upload video if selected
+        if (window._dhtErrorVideoFile) {
+            var videoData = new FormData();
+            videoData.append('video', window._dhtErrorVideoFile, window._dhtErrorVideoFile.name);
+            try {
+                await fetch('/api/customer-errors/' + newId + '/video', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    body: videoData
+                });
+            } catch(vidErr) { console.warn('[ErrorReport] Video upload failed:', vidErr); }
         }
 
         // Success!

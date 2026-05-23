@@ -267,6 +267,40 @@ async function routes(fastify) {
 
         return { success: true, images: filtered };
     });
+
+    // ========== POST /api/customer-errors/:id/video — Upload video ==========
+    fastify.post('/api/customer-errors/:id/video', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        const parts = request.parts();
+        let videoUrl = null;
+
+        for await (const part of parts) {
+            if (part.type === 'file' && part.filename) {
+                const ext = path.extname(part.filename).toLowerCase() || '.mp4';
+                const fileName = `ceo_video_${id}_${Date.now()}${ext}`;
+                const filePath = path.join(UPLOAD_DIR, fileName);
+
+                const chunks = [];
+                for await (const chunk of part.file) {
+                    chunks.push(chunk);
+                }
+                fs.writeFileSync(filePath, Buffer.concat(chunks));
+                videoUrl = `/uploads/customer-errors/${fileName}`;
+            }
+        }
+
+        if (videoUrl) {
+            await db.run(
+                'UPDATE customer_error_orders SET error_video = $1, updated_at = NOW() WHERE id = $2',
+                [videoUrl, id]
+            );
+        }
+
+        return { success: true, video: videoUrl };
+    });
 }
 
 module.exports = routes;
