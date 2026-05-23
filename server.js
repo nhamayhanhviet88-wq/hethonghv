@@ -915,6 +915,7 @@ async function start() {
     fastify.register(require('./routes/bophanin'));
     fastify.register(require('./routes/bophanmay'));
     fastify.register(require('./routes/bophanhoanthien'));
+    fastify.register(require('./routes/bophanep'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
@@ -983,6 +984,14 @@ async function start() {
     });
     fastify.get('/m/bophanhoanthienhv', async (request, reply) => {
         return reply.sendFile('mobile-bophanhoanthien.html');
+    });
+
+    // Mobile Bộ Phận Ép — standalone touch-optimized page
+    fastify.get('/m/bophanep', async (request, reply) => {
+        return reply.sendFile('mobile-bophanep.html');
+    });
+    fastify.get('/m/bophanephv', async (request, reply) => {
+        return reply.sendFile('mobile-bophanep.html');
     });
 
     // Đối Tác — public standalone page (no auth required)
