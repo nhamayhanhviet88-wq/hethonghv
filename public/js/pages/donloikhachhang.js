@@ -90,7 +90,7 @@ function _ceoRenderTable() {
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1600px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Mã Đơn','Ngày','CSKH','SL','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale','Người Vi Phạm',
+    var cols = ['Ngày','Lỗi Thường Gặp','Mã Đơn','CSKH','SL','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale','Người Vi Phạm',
         'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý VP Tháng?','Đã Trừ Phạt Tháng?','Cam Kết NVP','Cách Khắc Phục',''];
     cols.forEach(function(c) {
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">' + c + '</th>';
@@ -98,7 +98,7 @@ function _ceoRenderTable() {
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="15" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="16" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -110,8 +110,9 @@ function _ceoRenderTable() {
             var fmtMoney = function(v) { return Number(v||0) > 0 ? Number(v).toLocaleString('vi-VN') : ''; };
 
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
-            h += '<td style="padding:6px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc">' + (item.order_code || '—') + '</td>';
             h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc">' + rd + '</td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.common_error_type || '') + '</td>';
+            h += '<td style="padding:6px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc">' + (item.order_code || '—') + '</td>';
             h += '<td style="padding:6px;font-weight:600;border-right:1px solid #f8fafc">' + (item.cskh_name || '—') + '</td>';
             h += '<td style="padding:6px;text-align:center;font-weight:700;border-right:1px solid #f8fafc">' + (Number(item.error_quantity)||'') + '</td>';
             h += '<td style="padding:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
@@ -169,13 +170,16 @@ async function _ceoOpenForm(id) {
         '<span onclick="document.getElementById(\'ceoFormOverlay\').remove()" style="cursor:pointer;color:#fff;font-size:22px;font-weight:700;opacity:0.8">✕</span></div>' +
         '<form id="ceoForm" style="padding:20px">' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-        _ceoField('Mã Đơn', 'ceoF_code', item.order_code, 'text', false) +
         _ceoField('Ngày Báo Cáo Lỗi *', 'ceoF_date', item.report_date ? item.report_date.split('T')[0] : today, 'date', true) +
+        _ceoField('Lỗi Thường Gặp', 'ceoF_common', item.common_error_type, 'text', false) +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
+        _ceoField('Mã Đơn', 'ceoF_code', item.order_code, 'text', false) +
         _ceoField('CSKH (Sale/KD)', 'ceoF_cskh', item.cskh_name, 'text', false) +
-        _ceoField('Số Lượng Lỗi', 'ceoF_qty', item.error_quantity, 'number', false) +
         '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
+        _ceoField('Số Lượng Lỗi', 'ceoF_qty', item.error_quantity, 'number', false) +
+        '<div></div></div>' +
         '<div style="margin-bottom:12px">' + _ceoTextarea('Nội Dung Lỗi', 'ceoF_content', item.error_content) + '</div>' +
         '<div style="margin-bottom:12px">' + _ceoTextarea('Cách Xử Lý Lỗi Sale', 'ceoF_resolution', item.sale_resolution) + '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
@@ -226,8 +230,9 @@ function _ceoRemoveImg(el, url) {
 async function _ceoSubmitForm(e) {
     e.preventDefault();
     var body = {
-        order_code: document.getElementById('ceoF_code').value.trim(),
         report_date: document.getElementById('ceoF_date').value,
+        common_error_type: document.getElementById('ceoF_common').value.trim(),
+        order_code: document.getElementById('ceoF_code').value.trim(),
         cskh_name: document.getElementById('ceoF_cskh').value.trim(),
         error_quantity: document.getElementById('ceoF_qty').value,
         error_content: document.getElementById('ceoF_content').value.trim(),

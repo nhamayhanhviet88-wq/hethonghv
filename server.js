@@ -796,6 +796,7 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_ceo_report_date ON customer_error_orders(report_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_ceo_order_code ON customer_error_orders(order_code)`);
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS common_error_type TEXT`);
     } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
 
     // Plugins

@@ -79,8 +79,8 @@ async function routes(fastify) {
                 error_content, error_images, sale_resolution,
                 violator_name, production_cost, shipping_cost,
                 violation_month, penalty_month, violator_commitment,
-                fix_plan, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                fix_plan, common_error_type, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
             RETURNING id
         `, [
             b.order_code || null,
@@ -97,6 +97,7 @@ async function routes(fastify) {
             b.penalty_month || null,
             b.violator_commitment || null,
             b.fix_plan || null,
+            b.common_error_type || null,
             userId
         ]);
 
@@ -119,8 +120,8 @@ async function routes(fastify) {
                 production_cost = $9, shipping_cost = $10,
                 violation_month = $11, penalty_month = $12,
                 violator_commitment = $13, fix_plan = $14,
-                updated_at = NOW()
-            WHERE id = $15
+                common_error_type = $15, updated_at = NOW()
+            WHERE id = $16
         `, [
             b.order_code || null,
             b.report_date,
@@ -136,6 +137,7 @@ async function routes(fastify) {
             b.penalty_month || null,
             b.violator_commitment || null,
             b.fix_plan || null,
+            b.common_error_type || null,
             id
         ]);
 
@@ -152,7 +154,7 @@ async function routes(fastify) {
             'order_code', 'report_date', 'cskh_name', 'error_quantity',
             'error_content', 'sale_resolution', 'violator_name',
             'production_cost', 'shipping_cost', 'violation_month',
-            'penalty_month', 'violator_commitment', 'fix_plan'
+            'penalty_month', 'violator_commitment', 'fix_plan', 'common_error_type'
         ];
         if (!ALLOWED.includes(field)) return { error: 'Trường không hợp lệ' };
 
