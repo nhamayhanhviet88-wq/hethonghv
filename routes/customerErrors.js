@@ -10,7 +10,7 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 async function routes(fastify) {
     // ========== AUTH MIDDLEWARE ==========
-    const authenticate = require('../middleware/auth');
+    const { authenticate } = require('../middleware/auth');
 
     // ========== GET /api/customer-errors/tree — Sidebar tree data ==========
     fastify.get('/api/customer-errors/tree', { preHandler: authenticate }, async (request) => {
