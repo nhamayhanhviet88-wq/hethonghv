@@ -102,7 +102,7 @@ function _ceoRenderTable() {
     } else {
         items.forEach(function(item) {
             var imgs = [];
-            try { imgs = JSON.parse(item.error_images || '[]'); } catch(e) {}
+            try { imgs = typeof item.error_images === 'string' ? JSON.parse(item.error_images || '[]') : (item.error_images || []); } catch(e) {}
             var imgHtml = imgs.length ? imgs.slice(0,3).map(function(url) {
                 return '<img src="' + url + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e5e7eb" onclick="_ceoViewImage(\'' + url + '\')">';
             }).join('') + (imgs.length > 3 ? '<span style="font-size:10px;color:#9ca3af">+' + (imgs.length-3) + '</span>' : '') : '<span style="color:#d1d5db">—</span>';
