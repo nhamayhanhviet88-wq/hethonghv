@@ -437,9 +437,4 @@ module.exports = async function(fastify) {
         `);
         return { staff };
     });
-
-    // ========== MOBILE: Serve standalone mobile page ==========
-    fastify.get('/m/bophancat', async (request, reply) => {
-        return reply.type('text/html').sendFile('mobile-bophancat.html');
-    });
 };
