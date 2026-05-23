@@ -116,7 +116,7 @@ const PERM_FEATURES = [
     { key: 'so_thu_chi', label: 'Sổ Thu Chi', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_co_phan_may', label: 'Sổ Cổ Phần May', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_hang_thiet_ke', label: 'Đơn Hàng Thiết Kế', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
-    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách Hàng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_loi_noi_bo', label: 'Đơn Lỗi Nội Bộ', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
 
     // ===== HỆ THỐNG =====

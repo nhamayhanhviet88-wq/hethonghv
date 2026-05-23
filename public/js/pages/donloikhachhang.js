@@ -1,4 +1,4 @@
-// ========== ĐƠN LỖI KHÁCH HÀNG — Bộ Phận Văn Phòng ==========
+// ========== ĐƠN LỖI KHÁCH & NỘI BỘ — Bộ Phận Văn Phòng ==========
 var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: null };
 
 function renderDonloikhachhangPage(content) {
@@ -85,7 +85,7 @@ function _ceoRenderTable() {
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
 
     var h = '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;background:#fff">' +
-        '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH HÀNG — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + ' đơn)</span></div>' +
+        '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH & NỘI BỘ — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + ' đơn)</span></div>' +
         '<button onclick="_ceoOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Đơn Lỗi</button></div>';
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
