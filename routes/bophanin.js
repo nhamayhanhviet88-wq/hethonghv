@@ -257,9 +257,4 @@ module.exports = async function(fastify) {
         const staff = await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`);
         return { staff };
     });
-
-    // ========== MOBILE ROUTE ==========
-    fastify.get('/m/bophanin', async (req, reply) => {
-        return reply.type('text/html').sendFile('mobile-bophanin.html');
-    });
 };

@@ -951,6 +951,16 @@ async function start() {
         return reply.sendFile('mobile-accounts.html');
     });
 
+    // Mobile Bộ Phận Cắt — standalone touch-optimized page
+    fastify.get('/m/bophancat', async (request, reply) => {
+        return reply.sendFile('mobile-bophancat.html');
+    });
+
+    // Mobile Bộ Phận In — standalone touch-optimized page
+    fastify.get('/m/bophanin', async (request, reply) => {
+        return reply.sendFile('mobile-bophanin.html');
+    });
+
     // Đối Tác — public standalone page (no auth required)
     fastify.get('/doitac', async (request, reply) => {
         return reply.type('text/html').sendFile('doitac.html');
