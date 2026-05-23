@@ -90,7 +90,7 @@ function _ceoRenderTable() {
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Đơn Lỗi','Ngày','Lĩnh Vực','Lỗi Thường Gặp','Mã Đơn','Tên KH','CSKH','SL SX','SL Lỗi','Nội Dung Lỗi','Video','Hình Ảnh','Cách Xử Lý Lỗi',
+    var cols = ['Đơn Lỗi','Lỗi Thường Gặp','Ngày','Lĩnh Vực','Mã Đơn','Tên KH','CSKH','SL SX','SL Lỗi','Nội Dung Lỗi','Video','Hình Ảnh','Cách Xử Lý Lỗi',
         'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục',''];
     cols.forEach(function(c) {
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">' + c + '</th>';
@@ -119,9 +119,9 @@ function _ceoRenderTable() {
 
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
             h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:' + etColor + ';background:' + etBg + ';border:1px solid ' + etColor + '22">' + errorType + '</span></td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc">' + rd + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc;font-weight:600;color:#7c3aed">' + (item.linh_vuc || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:6px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc">' + (item.order_code || '—') + '</td>';
             h += '<td style="padding:6px;font-weight:600;border-right:1px solid #f8fafc">' + (item.customer_name || '') + '</td>';
             h += '<td style="padding:6px;font-weight:600;border-right:1px solid #f8fafc">' + (item.cskh_name || '—') + '</td>';
