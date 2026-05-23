@@ -955,9 +955,15 @@ async function start() {
     fastify.get('/m/bophancat', async (request, reply) => {
         return reply.sendFile('mobile-bophancat.html');
     });
+    fastify.get('/m/bophancathv', async (request, reply) => {
+        return reply.sendFile('mobile-bophancat.html');
+    });
 
     // Mobile Bộ Phận In — standalone touch-optimized page
     fastify.get('/m/bophanin', async (request, reply) => {
+        return reply.sendFile('mobile-bophanin.html');
+    });
+    fastify.get('/m/bophaninhv', async (request, reply) => {
         return reply.sendFile('mobile-bophanin.html');
     });
 
