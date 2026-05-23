@@ -908,6 +908,10 @@ async function start() {
     fastify.register(require('./routes/shipping'));
     fastify.register(require('./routes/donhangthietke'));
     fastify.register(require('./routes/customerErrors'));
+    fastify.register(require('./routes/donguiaomau'));
+    fastify.register(require('./routes/tulieuxuong'));
+    fastify.register(require('./routes/chuanbiqlx'));
+    fastify.register(require('./routes/bophancat'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
