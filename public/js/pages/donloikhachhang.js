@@ -89,11 +89,11 @@ function _ceoRenderTable() {
         '<button onclick="_ceoOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Đơn Lỗi</button></div>';
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1600px">';
-    h += '<thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb">';
+    h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
     var cols = ['Mã Đơn','Ngày','CSKH','SL','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale','Người Vi Phạm',
         'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý VP Tháng?','Đã Trừ Phạt Tháng?','Cam Kết NVP','Cách Khắc Phục',''];
     cols.forEach(function(c) {
-        h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;border-right:1px solid #f1f5f9">' + c + '</th>';
+        h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">' + c + '</th>';
     });
     h += '</tr></thead><tbody>';
 
