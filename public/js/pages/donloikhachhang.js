@@ -90,8 +90,8 @@ function _ceoRenderTable() {
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1600px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Ngày','Lỗi Thường Gặp','Mã Đơn','CSKH','SL','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale','Người Vi Phạm',
-        'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý VP Tháng?','Đã Trừ Phạt Tháng?','Cam Kết NVP','Cách Khắc Phục',''];
+    var cols = ['Ngày','Lỗi Thường Gặp','Mã Đơn','CSKH','SL','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale',
+        'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục',''];
     cols.forEach(function(c) {
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">' + c + '</th>';
     });
@@ -118,11 +118,11 @@ function _ceoRenderTable() {
             h += '<td style="padding:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc"><div style="display:flex;gap:2px;align-items:center">' + imgHtml + '</div></td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.sale_resolution || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.production_cost) + '</td>';
             h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.shipping_cost) + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violation_month || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.penalty_month || '') + '</td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.fix_plan || '') + '</td>';
             h += '<td style="padding:6px;white-space:nowrap"><button onclick="_ceoOpenForm(' + item.id + ')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
