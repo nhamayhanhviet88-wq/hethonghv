@@ -131,7 +131,7 @@ const MENU_CONFIG = [
     { id: 'so-co-phan-may', label: 'Sổ Cổ Phần May', icon: '🧵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/socophanmay', permKey: 'so_co_phan_may' },
     { id: 'don-hang-thiet-ke', label: 'Đơn Hàng Thiết Kế', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangthietke', permKey: 'don_hang_thiet_ke' },
     { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
-    { id: 'don-loi-noi-bo', label: 'Đơn Lỗi Nội Bộ', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donloinoibo', permKey: 'don_loi_noi_bo' },
+    { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp \u0026 Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
 
     // ========== BỘ PHẬN XƯỞNG SX ==========
     { id: 'bang-mau-vai', label: 'Bảng Màu Vải', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bangmauvai', permKey: 'bang_mau_vai' },
@@ -2060,6 +2060,7 @@ var _PAGE_INIT_REGISTRY = {
     'donkhachmoi': '_dkmInit',
     'don-quan-he': '_dqhInit',
     'donquanhe': '_dqhInit',
+    'loithuonggap': '_ltgInit',
 };
 
 function _tryAutoRenderPage(pageId, content) {
