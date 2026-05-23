@@ -117,7 +117,7 @@ function _ceoRenderTable() {
             // Video column
             var videoHtml = item.error_video ? '<a href="' + item.error_video + '" target="_blank" style="color:#2563eb;font-weight:700;font-size:11px" title="Xem video">🎬 Xem</a>' : '<span style="color:#d1d5db">—</span>';
 
-            h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
+            h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'" onclick="_ceoViewDetail(' + item.id + ')">';
             h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:' + etColor + ';background:' + etBg + ';border:1px solid ' + etColor + '22">' + errorType + '</span></td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc">' + rd + '</td>';
@@ -135,15 +135,129 @@ function _ceoRenderTable() {
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.fix_plan || '') + '</td>';
-            h += '<td style="padding:6px;white-space:nowrap"><button onclick="_ceoOpenForm(' + item.id + ')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
+            h += '<td style="padding:6px;white-space:nowrap"><button onclick="event.stopPropagation();_ceoOpenForm(' + item.id + ')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
             if (currentUser && ['giam_doc','quan_ly_cap_cao','quan_ly'].includes(currentUser.role)) {
-                h += '<button onclick="_ceoDelete(' + item.id + ')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
+                h += '<button onclick="event.stopPropagation();_ceoDelete(' + item.id + ')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
             }
             h += '</td></tr>';
         });
     }
     h += '</tbody></table></div>';
     main.innerHTML = h;
+}
+
+// ===== DETAIL VIEWER =====
+function _ceoViewDetail(id) {
+    var item = _ceo.items.find(function(x) { return x.id === id; });
+    if (!item) return;
+
+    var rd = item.report_date ? new Date(item.report_date).toLocaleDateString('vi-VN') : '—';
+    var fmtMoney = function(v) { return Number(v||0) > 0 ? Number(v).toLocaleString('vi-VN') + 'đ' : '—'; };
+    var errorType = item.dht_order_id ? 'Khách Hàng' : 'Nội Bộ';
+    var etColor = item.dht_order_id ? '#dc2626' : '#2563eb';
+    var etBg = item.dht_order_id ? '#fee2e2' : '#dbeafe';
+
+    // Parse images
+    var imgs = [];
+    try { imgs = typeof item.error_images === 'string' ? JSON.parse(item.error_images || '[]') : (item.error_images || []); } catch(e) {}
+    var imgHtml = imgs.length ? imgs.map(function(url) {
+        return '<img src="' + url + '" style="width:120px;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;transition:transform .2s" onclick="_ceoViewImage(\'' + url + '\')" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">';
+    }).join('') : '<span style="color:#9ca3af;font-style:italic">Không có hình ảnh</span>';
+
+    // Video
+    var videoHtml = item.error_video
+        ? '<video controls style="max-width:100%;max-height:300px;border-radius:8px;border:2px solid #e5e7eb"><source src="' + item.error_video + '"></video>'
+        : '<span style="color:#9ca3af;font-style:italic">Không có video</span>';
+
+    // Field helper
+    var field = function(label, value, color) {
+        return '<div style="margin-bottom:12px">' +
+            '<div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">' + label + '</div>' +
+            '<div style="font-size:14px;font-weight:600;color:' + (color || '#1e293b') + '">' + (value || '—') + '</div>' +
+            '</div>';
+    };
+
+    var ov = document.createElement('div');
+    ov.id = 'ceoDetailModal';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">' +
+        // Header
+        '<div style="padding:20px 24px;background:linear-gradient(135deg,#1e3a5f,#0f2a3a);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">' +
+            '<div style="display:flex;align-items:center;gap:12px">' +
+                '<span style="font-size:24px">📝</span>' +
+                '<div>' +
+                    '<div style="font-size:16px;font-weight:800;color:#fff">Đơn Lỗi — ' + (item.order_code || 'N/A') + '</div>' +
+                    '<div style="font-size:12px;color:#94a3b8;margin-top:2px">' + rd + ' · Người tạo: ' + (item.created_by_name || '—') + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+                '<span style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;color:' + etColor + ';background:' + etBg + ';border:1px solid ' + etColor + '33">' + errorType + '</span>' +
+                '<button onclick="document.getElementById(\'ceoDetailModal\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>' +
+            '</div>' +
+        '</div>' +
+        // Body
+        '<div style="padding:24px">' +
+            // Row 1: Info grid
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:16px;background:#f8fafc;border-radius:10px;margin-bottom:20px">' +
+                field('Mã Đơn', item.order_code, '#ea580c') +
+                field('Lĩnh Vực', item.linh_vuc, '#7c3aed') +
+                field('Lỗi Thường Gặp', item.common_error_type) +
+                field('Tên Khách Hàng', item.customer_name) +
+                field('CSKH', item.cskh_name) +
+                field('Người Vi Phạm', item.violator_name, '#dc2626') +
+            '</div>' +
+            // Row 2: Quantities
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px">' +
+                '<div style="background:#f0fdf4;padding:14px;border-radius:10px;text-align:center;border:1px solid #bbf7d0">' +
+                    '<div style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase">SL Sản Xuất</div>' +
+                    '<div style="font-size:22px;font-weight:800;color:#166534;margin-top:4px">' + (Number(item.production_quantity) || 0) + '</div>' +
+                '</div>' +
+                '<div style="background:#fef2f2;padding:14px;border-radius:10px;text-align:center;border:1px solid #fecaca">' +
+                    '<div style="font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase">SL Lỗi</div>' +
+                    '<div style="font-size:22px;font-weight:800;color:#dc2626;margin-top:4px">' + (Number(item.error_quantity) || 0) + '</div>' +
+                '</div>' +
+                '<div style="background:#eff6ff;padding:14px;border-radius:10px;text-align:center;border:1px solid #bfdbfe">' +
+                    '<div style="font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase">Chi Phí SX</div>' +
+                    '<div style="font-size:16px;font-weight:800;color:#1e40af;margin-top:4px">' + fmtMoney(item.production_cost) + '</div>' +
+                '</div>' +
+                '<div style="background:#fefce8;padding:14px;border-radius:10px;text-align:center;border:1px solid #fde68a">' +
+                    '<div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase">Phí Ship</div>' +
+                    '<div style="font-size:16px;font-weight:800;color:#92400e;margin-top:4px">' + fmtMoney(item.shipping_cost) + '</div>' +
+                '</div>' +
+            '</div>' +
+            // Row 3: Content
+            '<div style="margin-bottom:20px">' +
+                '<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📌 Nội Dung Lỗi</div>' +
+                '<div style="padding:14px;background:#fff7ed;border-radius:8px;border:1px solid #fed7aa;font-size:14px;color:#9a3412;line-height:1.6">' + (item.error_content || '—') + '</div>' +
+            '</div>' +
+            // Row 4: Resolution
+            '<div style="margin-bottom:20px">' +
+                '<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">✅ Cách Xử Lý Lỗi</div>' +
+                '<div style="padding:14px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;font-size:14px;color:#166534;line-height:1.6">' + (item.sale_resolution || '—') + '</div>' +
+            '</div>' +
+            // Row 5: Images
+            '<div style="margin-bottom:20px">' +
+                '<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📷 Hình Ảnh Lỗi</div>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap">' + imgHtml + '</div>' +
+            '</div>' +
+            // Row 6: Video
+            '<div style="margin-bottom:20px">' +
+                '<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🎬 Video Lỗi</div>' +
+                videoHtml +
+            '</div>' +
+            // Row 7: Extra info
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;background:#f8fafc;border-radius:10px">' +
+                field('Xử Lý Tháng', item.violation_month) +
+                field('Đã Phạt Tháng', item.penalty_month) +
+                field('Cam Kết Người Vi Phạm', item.violator_commitment) +
+                field('Cách Khắc Phục', item.fix_plan) +
+            '</div>' +
+        '</div>' +
+    '</div>';
+
+    document.body.appendChild(ov);
 }
 
 // ===== IMAGE VIEWER =====
