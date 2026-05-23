@@ -88,9 +88,9 @@ function _ceoRenderTable() {
         '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH HÀNG — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + ' đơn)</span></div>' +
         '<button onclick="_ceoOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Đơn Lỗi</button></div>';
 
-    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1600px">';
+    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Ngày','Lỗi Thường Gặp','Mã Đơn','CSKH','SL','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale',
+    var cols = ['Ngày','Lĩnh Vực','Lỗi Thường Gặp','Mã Đơn','Tên KH','CSKH','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi Sale',
         'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục',''];
     cols.forEach(function(c) {
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">' + c + '</th>';
@@ -98,7 +98,7 @@ function _ceoRenderTable() {
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="16" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="19" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -111,10 +111,13 @@ function _ceoRenderTable() {
 
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
             h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc">' + rd + '</td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc;font-weight:600;color:#7c3aed">' + (item.linh_vuc || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:6px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc">' + (item.order_code || '—') + '</td>';
+            h += '<td style="padding:6px;font-weight:600;border-right:1px solid #f8fafc">' + (item.customer_name || '') + '</td>';
             h += '<td style="padding:6px;font-weight:600;border-right:1px solid #f8fafc">' + (item.cskh_name || '—') + '</td>';
-            h += '<td style="padding:6px;text-align:center;font-weight:700;border-right:1px solid #f8fafc">' + (Number(item.error_quantity)||'') + '</td>';
+            h += '<td style="padding:6px;text-align:center;font-weight:700;border-right:1px solid #f8fafc">' + (Number(item.production_quantity)||'') + '</td>';
+            h += '<td style="padding:6px;text-align:center;font-weight:700;color:#dc2626;border-right:1px solid #f8fafc">' + (Number(item.error_quantity)||'') + '</td>';
             h += '<td style="padding:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc"><div style="display:flex;gap:2px;align-items:center">' + imgHtml + '</div></td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.sale_resolution || '') + '</td>';

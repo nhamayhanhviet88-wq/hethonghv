@@ -834,6 +834,7 @@ async function _dhtShowDetail(id) {
         const data = await apiCall(`/api/dht/orders/${id}/detail`);
         if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
         const o = data.order;
+        window._dhtCurrentOrder = o; // Store for sub-modals like Báo Đơn Lỗi
         const items = data.items || [];
         const payments = data.payments || [];
         const surcharges = data.surcharges || [];
@@ -871,7 +872,7 @@ async function _dhtShowDetail(id) {
         const actionBtns = [
             { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn' },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('dht_xoa_don', 'view') },
-            { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `alert('Chức năng Báo Đơn Lỗi đang phát triển!')`, perm: canDo('dht_bao_loi', 'view') },
+            { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `_dhtReportError()`, perm: canDo('dht_bao_loi', 'view') },
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
             { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')`, perm: canDo('dht_zalo_oa', 'view') },
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
@@ -2085,4 +2086,237 @@ table tbody tr:nth-child(even) { background:#f8f9fa; }
         w.document.write(html);
         w.document.close();
     } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ========== BÁO ĐƠN LỖI — Report Error from DHT ==========
+function _dhtReportError() {
+    var o = window._dhtCurrentOrder;
+    if (!o) { showToast('Không tìm thấy dữ liệu đơn hàng', 'error'); return; }
+
+    // Gather auto-fill data
+    var linhVuc = o.category_name || '—';
+    var customerName = o.customer_name || '—';
+    var orderCode = o.order_code || '—';
+    var cskhName = o.cskh_name || '—';
+    var totalQty = Number(o.total_quantity) || 0;
+    var today = vnDateStr();
+
+    // Pasted files storage
+    window._dhtErrorPastedFiles = [];
+
+    // Build sub-modal overlay
+    var ov = document.createElement('div');
+    ov.id = '_dhtErrorOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s';
+
+    var readonlyField = function(label, value) {
+        return '<div style="margin-bottom:10px">' +
+            '<label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">' + label + '</label>' +
+            '<div style="padding:8px 12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1e293b">' + value + ' <span style="color:#94a3b8;font-size:10px">🔒</span></div>' +
+            '</div>';
+    };
+
+    var inputField = function(label, id, type, required, placeholder) {
+        var req = required ? '<span style="color:#dc2626;font-weight:900"> *</span>' : '';
+        return '<div style="margin-bottom:10px">' +
+            '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">' + label + req + '</label>' +
+            '<input id="' + id + '" type="' + type + '" placeholder="' + (placeholder||'') + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border .2s" onfocus="this.style.borderColor=\'#ea580c\'" onblur="this.style.borderColor=\'#d1d5db\'">' +
+            '</div>';
+    };
+
+    var textareaField = function(label, id, required, placeholder) {
+        var req = required ? '<span style="color:#dc2626;font-weight:900"> *</span>' : '';
+        return '<div style="margin-bottom:10px">' +
+            '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">' + label + req + '</label>' +
+            '<textarea id="' + id + '" rows="3" placeholder="' + (placeholder||'') + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;transition:border .2s" onfocus="this.style.borderColor=\'#ea580c\'" onblur="this.style.borderColor=\'#d1d5db\'"></textarea>' +
+            '</div>';
+    };
+
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:580px;max-width:95vw;max-height:92vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.35)">' +
+        // Header
+        '<div style="background:linear-gradient(135deg,#ea580c,#dc2626);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">' +
+        '<h3 style="margin:0;color:#fff;font-size:16px;font-weight:900">🚨 BÁO ĐƠN LỖI — ' + orderCode + '</h3>' +
+        '<span onclick="document.getElementById(\'_dhtErrorOverlay\').remove()" style="cursor:pointer;color:#fff;font-size:22px;font-weight:700;opacity:0.8;line-height:1">✕</span></div>' +
+        // Body
+        '<div style="padding:20px">' +
+        // Readonly section
+        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:16px">' +
+        '<div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📋 THÔNG TIN ĐƠN HÀNG (Tự động)</div>' +
+        readonlyField('Lĩnh Vực', linhVuc) +
+        readonlyField('Tên Khách Hàng', customerName) +
+        readonlyField('Mã Đơn', orderCode) +
+        readonlyField('CSKH', cskhName) +
+        readonlyField('Số Lượng Sản Xuất', totalQty) +
+        '</div>' +
+        // Editable section
+        '<div style="border-top:2px solid #fed7aa;padding-top:16px">' +
+        '<div style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">✏️ THÔNG TIN LỖI (Nhập tay)</div>' +
+        inputField('Số Lượng Lỗi', '_errQty', 'number', false, 'VD: 2') +
+        textareaField('Nội Dung Lỗi', '_errContent', true, 'Mô tả chi tiết lỗi...') +
+        // Image paste zone
+        '<div style="margin-bottom:10px">' +
+        '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">HÌNH ẢNH LỖI</label>' +
+        '<div id="_errPasteZone" style="border:2px dashed #d1d5db;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa;min-height:60px" ' +
+        'onclick="document.getElementById(\'_errFileInput\').click()">' +
+        '<div id="_errPastePreview" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px"></div>' +
+        '<div style="color:#94a3b8;font-size:12px;font-weight:600">📋 <b>Ctrl+V</b> để dán ảnh &nbsp;|&nbsp; 📁 Click để chọn file</div>' +
+        '</div>' +
+        '<input type="file" id="_errFileInput" multiple accept="image/*" style="display:none">' +
+        '</div>' +
+        inputField('Người Vi Phạm', '_errViolator', 'text', true, 'Nhập tên người vi phạm') +
+        textareaField('Cách Xử Lý Lỗi', '_errResolution', true, 'Nhập cách xử lý...') +
+        '</div>' +
+        // Buttons
+        '<div style="display:flex;gap:8px;margin-top:16px">' +
+        '<button id="_errSubmitBtn" onclick="_dhtSubmitErrorReport()" style="flex:1;padding:12px;background:linear-gradient(135deg,#ea580c,#dc2626);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">🚨 Gửi Báo Đơn Lỗi</button>' +
+        '<button onclick="document.getElementById(\'_dhtErrorOverlay\').remove()" style="padding:12px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Hủy</button>' +
+        '</div>' +
+        '</div></div>';
+
+    document.body.appendChild(ov);
+
+    // ── Ctrl+V Paste handler ──
+    var pasteZone = document.getElementById('_errPasteZone');
+    document.addEventListener('paste', function _errPasteHandler(e) {
+        if (!document.getElementById('_dhtErrorOverlay')) {
+            document.removeEventListener('paste', _errPasteHandler);
+            return;
+        }
+        var items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                var file = items[i].getAsFile();
+                if (file) {
+                    window._dhtErrorPastedFiles.push(file);
+                    _errRenderPreview();
+                }
+            }
+        }
+    });
+
+    // File input handler
+    document.getElementById('_errFileInput').addEventListener('change', function() {
+        for (var i = 0; i < this.files.length; i++) {
+            window._dhtErrorPastedFiles.push(this.files[i]);
+        }
+        _errRenderPreview();
+    });
+
+    // Drag & drop on paste zone
+    pasteZone.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#ea580c'; this.style.background = '#fff7ed'; });
+    pasteZone.addEventListener('dragleave', function() { this.style.borderColor = '#d1d5db'; this.style.background = '#fafafa'; });
+    pasteZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.borderColor = '#d1d5db'; this.style.background = '#fafafa';
+        if (e.dataTransfer && e.dataTransfer.files) {
+            for (var i = 0; i < e.dataTransfer.files.length; i++) {
+                if (e.dataTransfer.files[i].type.indexOf('image') !== -1) {
+                    window._dhtErrorPastedFiles.push(e.dataTransfer.files[i]);
+                }
+            }
+            _errRenderPreview();
+        }
+    });
+}
+
+function _errRenderPreview() {
+    var preview = document.getElementById('_errPastePreview');
+    if (!preview) return;
+    preview.innerHTML = '';
+    window._dhtErrorPastedFiles.forEach(function(file, idx) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'position:relative;display:inline-block';
+            wrap.innerHTML = '<img src="' + e.target.result + '" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:2px solid #ea580c">' +
+                '<span onclick="event.stopPropagation();window._dhtErrorPastedFiles.splice(' + idx + ',1);_errRenderPreview()" style="position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;width:16px;height:16px;border-radius:50%;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">×</span>';
+            preview.appendChild(wrap);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function _dhtSubmitErrorReport() {
+    var o = window._dhtCurrentOrder;
+    if (!o) return;
+
+    // Validate required fields
+    var content = (document.getElementById('_errContent').value || '').trim();
+    var violator = (document.getElementById('_errViolator').value || '').trim();
+    var resolution = (document.getElementById('_errResolution').value || '').trim();
+    var qty = document.getElementById('_errQty').value;
+
+    var errors = [];
+    if (!content) errors.push('Nội Dung Lỗi');
+    if (!violator) errors.push('Người Vi Phạm');
+    if (!resolution) errors.push('Cách Xử Lý Lỗi');
+
+    if (errors.length > 0) {
+        showToast('⚠️ Vui lòng điền: ' + errors.join(', '), 'error');
+        // Highlight empty fields
+        if (!content) document.getElementById('_errContent').style.borderColor = '#dc2626';
+        if (!violator) document.getElementById('_errViolator').style.borderColor = '#dc2626';
+        if (!resolution) document.getElementById('_errResolution').style.borderColor = '#dc2626';
+        return;
+    }
+
+    // Disable submit button
+    var btn = document.getElementById('_errSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; btn.style.opacity = '0.6'; }
+
+    try {
+        // Step 1: Create record
+        var body = {
+            report_date: vnDateStr(),
+            dht_order_id: o.id,
+            order_code: o.order_code || '',
+            linh_vuc: o.category_name || '',
+            customer_name: o.customer_name || '',
+            cskh_name: o.cskh_name || '',
+            production_quantity: Number(o.total_quantity) || 0,
+            error_quantity: Number(qty) || 0,
+            error_content: content,
+            violator_name: violator,
+            sale_resolution: resolution,
+            error_images: []
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { showToast(result.error, 'error'); return; }
+
+        var newId = result.id;
+
+        // Step 2: Upload pasted/selected images
+        if (window._dhtErrorPastedFiles && window._dhtErrorPastedFiles.length > 0) {
+            var formData = new FormData();
+            window._dhtErrorPastedFiles.forEach(function(file, idx) {
+                formData.append('images', file, 'error_img_' + idx + '.jpg');
+            });
+
+            try {
+                await fetch('/api/customer-errors/' + newId + '/images', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    body: formData
+                });
+            } catch(imgErr) { console.warn('[ErrorReport] Image upload failed:', imgErr); }
+        }
+
+        // Success!
+        showToast('✅ Đã báo đơn lỗi thành công!', 'success');
+
+        // Close sub-modal
+        var overlay = document.getElementById('_dhtErrorOverlay');
+        if (overlay) overlay.remove();
+
+        // Reload DHT to update badge
+        _dhtLoadOrders();
+
+    } catch(e) {
+        showToast('❌ Lỗi: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 Gửi Báo Đơn Lỗi'; btn.style.opacity = '1'; }
+    }
 }

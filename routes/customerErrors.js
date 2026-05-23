@@ -79,8 +79,9 @@ async function routes(fastify) {
                 error_content, error_images, sale_resolution,
                 violator_name, production_cost, shipping_cost,
                 violation_month, penalty_month, violator_commitment,
-                fix_plan, common_error_type, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+                fix_plan, common_error_type, dht_order_id,
+                customer_name, production_quantity, linh_vuc, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
             RETURNING id
         `, [
             b.order_code || null,
@@ -98,6 +99,10 @@ async function routes(fastify) {
             b.violator_commitment || null,
             b.fix_plan || null,
             b.common_error_type || null,
+            b.dht_order_id ? Number(b.dht_order_id) : null,
+            b.customer_name || null,
+            Number(b.production_quantity) || 0,
+            b.linh_vuc || null,
             userId
         ]);
 
@@ -120,8 +125,10 @@ async function routes(fastify) {
                 production_cost = $9, shipping_cost = $10,
                 violation_month = $11, penalty_month = $12,
                 violator_commitment = $13, fix_plan = $14,
-                common_error_type = $15, updated_at = NOW()
-            WHERE id = $16
+                common_error_type = $15, dht_order_id = $16,
+                customer_name = $17, production_quantity = $18,
+                linh_vuc = $19, updated_at = NOW()
+            WHERE id = $20
         `, [
             b.order_code || null,
             b.report_date,
@@ -138,6 +145,10 @@ async function routes(fastify) {
             b.violator_commitment || null,
             b.fix_plan || null,
             b.common_error_type || null,
+            b.dht_order_id ? Number(b.dht_order_id) : null,
+            b.customer_name || null,
+            Number(b.production_quantity) || 0,
+            b.linh_vuc || null,
             id
         ]);
 
