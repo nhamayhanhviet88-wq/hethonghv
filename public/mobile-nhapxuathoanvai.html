@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🔄 Nhập Xuất Hoàn Vải — Đồng Phục HV</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Inter',-apple-system,sans-serif;background:linear-gradient(135deg,#164e63,#155e75);min-height:100vh;color:#e2e8f0}
+        .mh{background:linear-gradient(135deg,#0891b2,#06b6d4);padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);position:sticky;top:0;z-index:100}
+        .mh img{width:32px;height:32px;border-radius:8px}.mh h1{font-size:14px;font-weight:800;color:#cffafe;flex:1}
+        .mu{font-size:10px;color:#a5f3fc;font-weight:600;background:rgba(255,255,255,.1);padding:4px 8px;border-radius:6px}
+        .mf{background:rgba(255,255,255,.05);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.08)}
+        .mf select{flex:1;min-width:100px;padding:10px 12px;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;font-family:inherit;background:rgba(255,255,255,.06);color:#e2e8f0;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+        .mf option{background:#155e75;color:#e2e8f0}
+        .ms{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 16px}
+        .ms>div{text-align:center;padding:12px 8px;border-radius:12px;color:#fff}
+        .ms .mv{font-size:16px;font-weight:900}.ms .ml{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.85;margin-top:2px}
+        .mc{padding:0 12px 80px}
+        .card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-bottom:12px;overflow:hidden;transition:transform .1s}
+        .card:active{transform:scale(.98)}
+        .ct{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+        .ci{font-size:26px}.cn{font-size:13px;font-weight:800;color:#a5f3fc;flex:1}.cc{font-size:10px;font-weight:700;padding:3px 10px;border-radius:10px;color:#fff}
+        .cb{padding:12px 16px}
+        .cr{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+        .cl{font-size:11px;color:#94a3b8;font-weight:600}.cv{font-size:13px;color:#e2e8f0;font-weight:700}
+        .cd{border-top:1px solid rgba(255,255,255,.06);margin:8px 0}
+        .bd{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800}
+        .bd.red{background:rgba(239,68,68,.2);color:#fca5a5}.bd.green{background:rgba(16,185,129,.2);color:#6ee7b7}
+        .ca{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)}
+        .ab{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;font-size:14px;font-weight:700;color:#a5f3fc}
+        .ab:active{transform:scale(.95)}.ab.on{border-color:#06b6d4;background:rgba(6,182,212,.15)}
+        .ch{padding:8px 16px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,.04)}.ch span{color:#a5f3fc;font-weight:700}
+        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
+        .tt{padding:14px 18px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:si .3s ease}
+        .ts{background:linear-gradient(135deg,#06b6d4,#0891b2)}.te{background:linear-gradient(135deg,#ef4444,#dc2626)}
+        @keyframes si{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        .sp{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:#06b6d4;border-radius:50%;animation:sn .6s linear infinite;display:inline-block;margin-bottom:8px}
+        @keyframes sn{to{transform:rotate(360deg)}}
+        .mb{display:inline-flex;align-items:center;gap:6px;color:#a5f3fc;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,.05);border-radius:8px}
+    </style>
+</head>
+<body>
+    <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>🔄 NHẬP XUẤT HOÀN VẢI</h1><span class="mu" id="mU">...</span></div>
+    <div class="tc" id="mTC"></div>
+    <div id="mFB" class="mf" style="display:none">
+        <select id="mFT" onchange="mLoad()"><option value="">Tất cả nghiệp vụ</option><option value="HOAN">🔄 Hoàn</option><option value="NHAP_KK">📥 Nhập KK</option><option value="XUAT_KK">📤 Xuất KK</option><option value="NHAP">📦 Nhập Vải</option><option value="XUAT">🚛 Xuất Vải</option></select>
+        <select id="mFS" onchange="mLoad()"><option value="">Tất cả</option><option value="approved">Đã duyệt</option><option value="pending">Chưa duyệt</option><option value="debt">Còn nợ</option></select>
+    </div>
+    <div id="mSB" class="ms" style="display:none">
+        <div style="background:linear-gradient(135deg,#0891b2,#06b6d4)"><div class="mv" id="sT">0</div><div class="ml">TỔNG GD</div></div>
+        <div style="background:linear-gradient(135deg,#1e293b,#334155)"><div class="mv" id="sM">0₫</div><div class="ml">THÀNH TIỀN</div></div>
+        <div style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="mv" id="sD">0₫</div><div class="ml">CÔNG NỢ</div></div>
+        <div style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mv" id="sP">0₫</div><div class="ml">THANH TOÁN</div></div>
+    </div>
+    <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
+    <a href="/nhapxuathoanvai" class="mb">← Về trang Desktop</a>
+<script>
+let cu=null,mr=[];
+const TL={HOAN:'Hoàn',NHAP_KK:'Nhập KK',XUAT_KK:'Xuất KK',NHAP:'Nhập Vải',XUAT:'Xuất Vải'};
+const TC={HOAN:'#059669',NHAP_KK:'#7c3aed',XUAT_KK:'#ea580c',NHAP:'#2563eb',XUAT:'#dc2626'};
+const TI={HOAN:'🔄',NHAP_KK:'📥',XUAT_KK:'📤',NHAP:'📦',XUAT:'🚛'};
+async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
+function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
+function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
+function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
+function fns(n){const v=Number(n)||0;if(v>=1e9)return(v/1e9).toFixed(1)+'tỷ';if(v>=1e6)return(v/1e6).toFixed(1)+'tr';if(v>=1e3)return(v/1e3).toFixed(0)+'k';return v.toString()}
+function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;
+document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi: '+e.message+'</div></div>'}}
+async function mLoad(){const tt=document.getElementById('mFT')?.value||'',st=document.getElementById('mFS')?.value||'';let q='?_=1';if(tt)q+='&tx_type='+tt;if(st)q+='&status='+st;
+try{const r=await api('/api/fabrictx/records'+q);mr=r.records||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
+function mStats(){const t=mr.length;let sm=0,sd=0,sp=0;mr.forEach(r=>{sm+=Number(r.total_amount)||0;sd+=Number(r.debt)||0;sp+=Number(r.payment)||0;});
+document.getElementById('sT').textContent=t;document.getElementById('sM').textContent=fns(sm);document.getElementById('sD').textContent=fns(sd);document.getElementById('sP').textContent=fns(sp)}
+function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🔄</div><div style="font-size:16px;font-weight:700">Chưa có giao dịch</div></div>';return}
+c.innerHTML=mr.map(r=>{
+const ic=TI[r.tx_type]||'🔄',cl=TC[r.tx_type]||'#0891b2',lb=TL[r.tx_type]||r.tx_type;
+const aA=r.is_approved?'unapprove':'approve';
+const debt=Number(r.debt)||0;const dB=debt>0?'<span class="bd red">🔴 '+fn(debt)+'₫</span>':'<span class="bd green">✅ 0</span>';
+const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
+let imgs='';try{const ia=typeof r.bill_images==='string'?JSON.parse(r.bill_images):r.bill_images;if(ia&&ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
+return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.material_name||'Vải')+' — '+(r.color_name||'')+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
++'<div class="cb">'
++'<div class="cr"><span class="cl">📅 Ngày</span><span class="cv">'+fd(r.tx_date)+'</span></div>'
++'<div class="cr"><span class="cl">🏪 Nguồn</span><span class="cv" style="color:#a5f3fc">'+(r.source_name||'—')+'</span></div>'
++'<div class="cr"><span class="cl">👤 NV</span><span class="cv">'+(r.staff_name||'—')+'</span></div>'
++'<div class="cr"><span class="cl">📏 ĐVT</span><span class="cv" style="font-size:11px">'+(r.unit||'kg')+'</span></div>'
++(r.tree_details?'<div class="cr"><span class="cl">🌲 Các cây</span><span class="cv" style="font-size:11px">'+r.tree_details+'</span></div>':'')
++'<div class="cr"><span class="cl">🌲 Số cây</span><span class="cv">'+fn(r.tree_count)+'</span></div>'
++'<div class="cr"><span class="cl">⚖️ Tổng SL</span><span class="cv" style="color:#a5f3fc;font-size:16px;font-weight:900">'+fn(r.total_quantity)+'</span></div>'
++'<div class="cd"></div>'
++'<div class="cr"><span class="cl">💵 Giá</span><span class="cv" style="color:#fbbf24">'+fn(r.price)+'₫</span></div>'
++'<div class="cr"><span class="cl">💰 Thành tiền</span><span class="cv" style="font-size:16px;font-weight:900">'+fn(r.total_amount)+'₫</span></div>'
++'<div class="cr"><span class="cl">📊 Công nợ</span>'+dB+'</div>'
++'<div class="cr"><span class="cl">✅ Thanh toán</span><span class="cv" style="color:#6ee7b7">'+fn(r.payment)+'₫</span></div>'
++imgs
++'</div>'
++'<div class="ca"><button class="ab'+(r.is_approved?' on':'')+'" onclick="mTog('+r.id+',\''+aA+'\')">✅ '+(r.is_approved?'ĐÃ DUYỆT':'DUYỆT HOÀN')+'</button></div>'
++(hl?'<div class="ch">'+hl+'</div>':'')
++'</div>'}).join('')}
+async function mTog(id,a){try{await api('/api/fabrictx/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
+mInit();
+</script>
+</body>
+</html>
