@@ -917,6 +917,7 @@ async function start() {
     fastify.register(require('./routes/bophanhoanthien'));
     fastify.register(require('./routes/bophanep'));
     fastify.register(require('./routes/billnhaphang'));
+    fastify.register(require('./routes/kiemkho'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
@@ -998,6 +999,11 @@ async function start() {
     // Mobile Bill Nhập Hàng — standalone touch-optimized page
     fastify.get('/m/billnhaphang', async (request, reply) => {
         return reply.sendFile('mobile-billnhaphang.html');
+    });
+
+    // Mobile Kiểm Kho — standalone touch-optimized page
+    fastify.get('/m/kiemkho', async (request, reply) => {
+        return reply.sendFile('mobile-kiemkho.html');
     });
 
     // Đối Tác — public standalone page (no auth required)
