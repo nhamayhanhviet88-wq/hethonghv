@@ -31,7 +31,7 @@ function renderKiemkhoPage(content){
 async function _kkLoadAll(){try{var tR=await apiCall('/api/stockcheck/tree');_kk.tree=tR;_kkRenderSb();await _kkLoadRolls();}catch(e){console.error('[KK]',e);}}
 
 function _kkRenderSb(){var sb=document.getElementById('kkSb');if(!sb||!_kk.tree)return;var t=_kk.tree,f=_kk.filter;
-var h='<div class="kk-sb-title">────── 📋 Kiểm Kho ──────</div>';
+var h='<div class="kk-sb-title">────── 📋 Kiểm Kho Vải ──────</div>';
 h+='<div class="kk-sb-total" onclick="_kkFilter()"><div style="display:flex;justify-content:space-between"><span>📦 Tất cả</span><span class="tv">'+(t.totals.total_rolls||0)+'</span></div><div class="ts">⚖️ '+Number(t.totals.total_weight||0).toLocaleString('vi-VN')+' kg &nbsp;|&nbsp; ✅ Đã kiểm: '+(t.checked_count||0)+'</div></div>';
 if(t.tree)t.tree.forEach(function(w){var wo=!!_kkOpen['w'+w.id];
 h+='<div class="kk-sb-wh" onclick="_kkTgl(\'w'+w.id+'\')"><span>'+(wo?'▼':'▶')+' 🏭 '+w.name+'</span><span style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+w.roll_count+'</span></div>';
@@ -78,7 +78,7 @@ function _kkRender(){
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
     });});
     tb.innerHTML=html;}
-    var el=document.getElementById('kkInfo');if(el){el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">📋 Kiểm Kho — <span style="color:#99f6e4;font-weight:900">'+tot+'</span> cây</div>';}
+    var el=document.getElementById('kkInfo');if(el){el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">📋 Kiểm Kho Vải — <span style="color:#99f6e4;font-weight:900">'+tot+'</span> cây</div>';}
     var sc=document.getElementById('kkStats');if(sc){
     var sumW=all.reduce(function(s,r){return s+Number(r.system_weight||0);},0);
     sc.innerHTML='<div style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG CÂY</div><div style="font-size:15px;font-weight:900">'+tot+'</div></div>'

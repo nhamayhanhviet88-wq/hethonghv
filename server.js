@@ -1001,8 +1001,11 @@ async function start() {
         return reply.sendFile('mobile-billnhaphang.html');
     });
 
-    // Mobile Kiểm Kho — standalone touch-optimized page
+    // Mobile Kiểm Kho Vải — standalone touch-optimized page
     fastify.get('/m/kiemkho', async (request, reply) => {
+        return reply.sendFile('mobile-kiemkho.html');
+    });
+    fastify.get('/m/kiemkhohv', async (request, reply) => {
         return reply.sendFile('mobile-kiemkho.html');
     });
 
