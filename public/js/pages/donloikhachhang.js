@@ -130,16 +130,17 @@ function _ceoRenderTable() {
     h += '<div style="font-size:13px;font-weight:700;color:#166534">Hoàn Thành</div></div></div>';
     h += '</div>';
 
-    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
+    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
     var cols = ['Ngày','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
         'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Đã Phạt'];
+    var colW={'Ngày':'40px','Đơn Lỗi':'55px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
         if (c === 'Xử Lý') extraStyle = 'background:#dc2626;color:#fef08a;';
         if (c === 'Đã Phạt') extraStyle = 'background:#fef08a;color:#dc2626;';
-        h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1);' + extraStyle + '">' + c + '</th>';
+        h += '<th style="padding:6px 4px;text-align:left;font-size:10px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1);width:'+(colW[c]||'auto')+';' + extraStyle + '">' + c + '</th>';
     });
     h += '</tr></thead><tbody>';
 
@@ -149,9 +150,9 @@ function _ceoRenderTable() {
         items.forEach(function(item) {
             var imgs = [];
             try { imgs = typeof item.error_images === 'string' ? JSON.parse(item.error_images || '[]') : (item.error_images || []); } catch(e) {}
-            var imgHtml = imgs.length ? imgs.slice(0,3).map(function(url) {
-                return '<img src="' + url + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e5e7eb" onclick="_ceoViewImage(\'' + url + '\')">';
-            }).join('') + (imgs.length > 3 ? '<span style="font-size:10px;color:#9ca3af">+' + (imgs.length-3) + '</span>' : '') : '<span style="color:#d1d5db">—</span>';
+            var imgHtml = imgs.length ? imgs.slice(0,2).map(function(url) {
+                return '<img src="' + url + '" style="width:24px;height:24px;object-fit:cover;border-radius:3px;cursor:pointer;border:1px solid #e5e7eb" onclick="_ceoViewImage(\'' + url + '\')">';
+            }).join('') + (imgs.length > 2 ? '<span style="font-size:9px;color:#9ca3af">+' + (imgs.length-2) + '</span>' : '') : '<span style="color:#d1d5db">—</span>';
             var rd = item.report_date ? (function(d){return d.getDate()+'/'+(d.getMonth()+1);})(new Date(item.report_date)) : '—';
             var fmtMoney = function(v) { return Number(v||0) > 0 ? Number(v).toLocaleString('vi-VN') : ''; };
 
@@ -164,21 +165,21 @@ function _ceoRenderTable() {
             var videoHtml = item.error_video ? '<a href="' + item.error_video + '" target="_blank" style="color:#2563eb;font-weight:700;font-size:11px" title="Xem video">🎬 Xem</a>' : '<span style="color:#d1d5db">—</span>';
 
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'" onclick="_ceoViewDetail(' + item.id + ')">';
-            h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc">' + rd + '</td>';
-            h += '<td style="padding:6px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:' + etColor + ';background:' + etBg + ';border:1px solid ' + etColor + '22">' + errorType + '</span></td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.common_error_type || '') + '</td>';
-            h += '<td style="padding:6px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc">' + (item.order_code || '—') + '</td>';
-            h += '<td style="padding:6px;text-align:center;font-weight:700;border-right:1px solid #f8fafc">' + (Number(item.production_quantity)||'') + '</td>';
-            h += '<td style="padding:6px;text-align:center;font-weight:700;color:#dc2626;border-right:1px solid #f8fafc">' + (Number(item.error_quantity)||'') + '</td>';
-            h += '<td style="padding:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc"><div style="display:flex;gap:2px;align-items:center">' + imgHtml + '</div></td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fff7ed;color:#c2410c;font-weight:700">' + (item.sale_resolution || '') + '</td>';
-            h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.production_cost) + '</td>';
-            h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.shipping_cost) + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef2f2;color:#fef08a;font-weight:700;background:#dc2626">' + (item.violation_month || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700">' + (item.penalty_month || '') + '</td>';
+            h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc;font-size:11px">' + rd + '</td>';
+            h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;color:' + etColor + ';background:' + etBg + '">' + errorType + '</span></td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">' + (item.common_error_type || '') + '</td>';
+            h += '<td style="padding:4px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc;font-size:10px">' + (item.order_code || '—') + '</td>';
+            h += '<td style="padding:4px;text-align:center;font-weight:700;border-right:1px solid #f8fafc;font-size:11px">' + (Number(item.production_quantity)||'') + '</td>';
+            h += '<td style="padding:4px;text-align:center;font-weight:700;color:#dc2626;border-right:1px solid #f8fafc;font-size:11px">' + (Number(item.error_quantity)||'') + '</td>';
+            h += '<td style="padding:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid #f8fafc;font-size:11px" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc"><div style="display:flex;gap:1px;align-items:center">' + imgHtml + '</div></td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#fff7ed;color:#c2410c;font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.sale_resolution || '') + '</td>';
+            h += '<td style="padding:4px;text-align:right;border-right:1px solid #f8fafc;font-size:11px">' + fmtMoney(item.production_cost) + '</td>';
+            h += '<td style="padding:4px;text-align:right;border-right:1px solid #f8fafc;font-size:11px">' + fmtMoney(item.shipping_cost) + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#dc2626;color:#fef08a;font-weight:700;font-size:10px;white-space:nowrap">' + (item.violation_month || '') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.violator_name || '') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis">' + (item.violator_commitment || '') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700;font-size:10px;white-space:nowrap">' + (item.penalty_month || '') + '</td>';
             h += '</tr>';
         });
     }
