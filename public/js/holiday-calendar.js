@@ -211,7 +211,7 @@ async function renderCalendar(container, state) {
             // Determine if date is in valid range
             const isPast = state.minDate ? dateStr < state.minDate : false;
             const isFuture = state.maxDate ? dateStr > state.maxDate : false;
-            const isDisabled = isPast || isFuture || isHoliday || !isCurrentMonth;
+            const isDisabled = isPast || isFuture || isHoliday || (isSunday && isCurrentMonth) || !isCurrentMonth;
 
             // Styles
             let bg = 'transparent';
@@ -244,15 +244,17 @@ async function renderCalendar(container, state) {
                 fontWeight = '700';
             } else if (isSunday && isCurrentMonth) {
                 color = '#ef4444';
+                cursor_style = 'not-allowed';
+                opacity = '0.5';
             }
 
             if (isDisabled && !isSelected) {
-                cursor_style = isHoliday && isCurrentMonth ? 'not-allowed' : 'default';
-                if (!isHoliday || !isCurrentMonth) opacity = '0.4';
+                if ((isHoliday && isCurrentMonth) || (isSunday && isCurrentMonth)) { cursor_style = 'not-allowed'; }
+                else { cursor_style = 'default'; opacity = '0.4'; }
             }
 
             const onClick = isDisabled 
-                ? (isHoliday && isCurrentMonth ? `showToast('🎌 ${holidayName.replace(/'/g,"\\'")} — Ngày lễ không thể chọn!','error')` : '')
+                ? (isHoliday && isCurrentMonth ? `showToast('🎌 ${holidayName.replace(/'/g,"\\'")} — Ngày lễ không thể chọn!','error')` : (isSunday && isCurrentMonth ? "showToast('🚫 Chủ Nhật không thể chọn!','error')" : ''))
                 : `calSelectDate('${container.id}','${dateStr}')`;
 
             html += `<td style="text-align:center;padding:2px;vertical-align:top;">
