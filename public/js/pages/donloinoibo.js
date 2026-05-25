@@ -61,6 +61,12 @@ function _ltgRender(){
   h+='<button onclick="_ltgOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Lỗi Thường Gặp</button>';
   h+='</div></div>';
 
+  // Search bar
+  h+='<div style="position:relative;margin-bottom:14px">';
+  h+='<input id="ltgSearchInput" type="text" placeholder="🔍 Tìm kiếm tên lỗi, loại lỗi..." oninput="_ltgSearch(this.value)" style="width:100%;padding:10px 14px 10px 14px;border:1.5px solid #d1d5db;border-radius:10px;font-size:13px;outline:none;transition:border .2s" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="setTimeout(function(){var s=document.getElementById(\'ltgSearchSuggest\');if(s)s.style.display=\'none\'},200)">';
+  h+='<div id="ltgSearchSuggest" style="display:none;position:absolute;top:44px;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:280px;overflow-y:auto;z-index:100"></div>';
+  h+='</div>';
+
   // 3 Stat cards
   h+='<div style="display:flex;gap:12px;margin-bottom:16px">';
   h+=_ltgCard('🔴','Chưa Xử Lý',st.pending||0,'#dc2626','#fef2f2','#fecaca','pending');
@@ -190,6 +196,43 @@ function _ltgCard(icon,label,count,color,bg,border,status){
 // ===== FILTERS =====
 function _ltgSetFilter(s){_ltg.filter=(_ltg.filter===s)?null:s;_ltgLoadList();}
 function _ltgSetDept(d){_ltg.deptFilter=(_ltg.deptFilter===d)?null:d;_ltgLoadList();}
+
+// ===== SEARCH =====
+function _ltgSearch(q){
+  var box=document.getElementById('ltgSearchSuggest');
+  if(!box)return;
+  q=(q||'').trim().toLowerCase();
+  if(!q){box.style.display='none';return;}
+  var matches=_ltg.items.filter(function(item){
+    var name=(item.error_name||'').toLowerCase();
+    var cat=(item.category_name||'').toLowerCase();
+    return name.indexOf(q)>=0||cat.indexOf(q)>=0;
+  }).slice(0,8);
+  if(!matches.length){
+    box.innerHTML='<div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px">Không tìm thấy kết quả</div>';
+    box.style.display='block';return;
+  }
+  var h='';
+  matches.forEach(function(item){
+    var si=_ltgStatusInfo(item.status);
+    var depts=[];
+    try{depts=typeof item.departments==='string'?JSON.parse(item.departments||'[]'):(item.departments||[]);}catch(e){}
+    var deptStr=depts.length?depts.join(', '):'—';
+    h+='<div onmousedown="_ltgViewDetail('+item.id+')" style="padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'">';
+    h+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#1e293b">'+_ltgHighlight(item.error_name||'',q)+'</div>';
+    h+='<div style="font-size:11px;color:#6b7280;margin-top:2px">'+_ltgHighlight(item.category_name||'',q)+' · '+deptStr+'</div></div>';
+    h+='<span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;color:'+si.c+';background:'+si.bg+'">'+si.icon+' '+si.l+'</span>';
+    h+='</div>';
+  });
+  box.innerHTML=h;
+  box.style.display='block';
+}
+function _ltgHighlight(text,q){
+  if(!q)return text;
+  var idx=text.toLowerCase().indexOf(q);
+  if(idx<0)return text;
+  return text.substring(0,idx)+'<mark style="background:#fef08a;padding:0 1px;border-radius:2px">'+text.substring(idx,idx+q.length)+'</mark>'+text.substring(idx+q.length);
+}
 
 // ===== AUTO-NUMBER for textareas =====
 function _ltgAutoNum(el){
