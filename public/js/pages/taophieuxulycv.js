@@ -66,7 +66,7 @@ function _wtRender(){
     // Table
     h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e5e7eb"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     h+='<thead><tr style="background:#1e3a5f">';
-    ['STT','Mã Phiếu','Tiêu Đề','Mã Đơn','Ưu Tiên','Người Tạo','Người Nhận','Trạng Thái','Ngày Tạo','TL'].forEach(function(c){
+    ['STT','Người Tạo','Mã Đơn','Trạng Thái','Ngày Hẹn Xử Lý','Tiêu Đề','Nội Dung Yêu Cầu','Người Nhận','Trả Lời Yêu Cầu','Ngày Tạo'].forEach(function(c){
         h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">'+c+'</th>';
     });
     h+='</tr></thead><tbody>';
@@ -76,17 +76,20 @@ function _wtRender(){
     }else{
         items.forEach(function(t,idx){
             var si=_wtSI(t.status);
-            h+='<tr onclick="_wtViewDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
+            var dueD=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
+            var today=vnDateStr();
+            var late=dueD&&dueD<today&&t.status!=='resolved'&&t.status!=='closed';
+            h+='<tr onclick="_wtViewDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">'; 
             h+='<td style="padding:6px;text-align:center;color:#9ca3af">'+(idx+1)+'</td>';
-            h+='<td style="padding:6px;font-weight:800;color:#6366f1">'+(t.ticket_code||'—')+'</td>';
-            h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+(t.title||'—')+'</td>';
-            h+='<td style="padding:6px;color:#64748b">'+(t.order_code||'—')+'</td>';
-            h+='<td style="padding:6px">'+_wtPB(t.priority)+'</td>';
-            h+='<td style="padding:6px;color:#2563eb;font-weight:600">'+(t.created_by_name||'—')+'</td>';
-            h+='<td style="padding:6px;color:#d97706;font-weight:600">'+(t.assigned_to_name||'—')+'</td>';
-            h+='<td style="padding:6px"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:'+si.c+';background:'+si.bg+'">'+si.icon+' '+si.l+'</span></td>';
+            h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
+            h+='<td style="padding:6px;color:#64748b;font-weight:600">'+(t.order_code||'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+si.bg+';color:'+si.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+si.c+'22">'+si.icon+' '+si.l+'</span></td>';
+            h+='<td style="padding:6px;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+(dueD?dueD.split('-').reverse().join('/'):'—')+'</td>';
+            h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
+            h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||'—')+'</td>';
+            h+='<td style="padding:6px;color:#d97706;font-weight:600;white-space:nowrap">'+(t.assigned_to_name||'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center"><span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">💬 '+(t.reply_count||0)+'</span></td>';
             h+='<td style="padding:6px;color:#64748b;font-size:11px;white-space:nowrap">'+vnFormat(t.created_at)+'</td>';
-            h+='<td style="padding:6px;text-align:center"><span style="background:#e0e7ff;color:#4338ca;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">'+(t.reply_count||0)+'</span></td>';
             h+='</tr>';
         });
     }
