@@ -213,12 +213,17 @@ async function routes(fastify) {
     // ========== PUT /api/work-tickets/:id/status — Update status ==========
     fastify.put('/api/work-tickets/:id/status', { preHandler: authenticate }, async (request) => {
         const { id } = request.params;
-        const { status } = request.body;
+        const { status, due_date } = request.body;
         const validStatuses = ['pending', 'in_progress', 'resolved', 'closed'];
         if (!validStatuses.includes(status)) return { error: 'Trạng thái không hợp lệ' };
 
-        const updates = [`status = '${status}'`, `updated_at = '${vnNow().toISOString()}'`];
-        if (status === 'resolved') updates.push(`resolved_at = '${vnNow().toISOString()}'`);
+        const now = vnNow().toISOString();
+        const updates = [`status = '${status}'`, `updated_at = '${now}'`];
+        if (status === 'resolved') updates.push(`resolved_at = '${now}'`);
+        // Support due_date update (null to clear, or date string)
+        if (due_date !== undefined) {
+            updates.push(due_date ? `due_date = '${due_date}'` : `due_date = NULL`);
+        }
 
         await db.run(`UPDATE work_tickets SET ${updates.join(', ')} WHERE id = $1`, [id]);
 
