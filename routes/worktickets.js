@@ -43,7 +43,7 @@ async function routes(fastify) {
             ORDER BY display_order, name
         `);
         const users = await db.all(`
-            SELECT id, full_name, username, role, department_id, avatar_url
+            SELECT id, full_name, username, role, department_id
             FROM users
             WHERE status = 'active' AND role != 'hoa_hong'
             ORDER BY full_name
@@ -181,7 +181,7 @@ async function routes(fastify) {
         if (!ticket) return { error: 'Không tìm thấy phiếu' };
 
         const replies = await db.all(`
-            SELECT r.*, u.full_name AS user_name, u.avatar_url
+            SELECT r.*, u.full_name AS user_name
             FROM work_ticket_replies r
             LEFT JOIN users u ON u.id = r.user_id
             WHERE r.ticket_id = $1
