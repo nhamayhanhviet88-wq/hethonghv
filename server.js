@@ -809,6 +809,38 @@ async function start() {
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolved_by INTEGER`);
     } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
 
+    // v13: Common Errors — Lỗi Thường Gặp & Xử Lý (template table)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS error_categories (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT NOT NULL UNIQUE,
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        // Seed default categories
+        const defaultCats = ['Size Áo','Hình In','Đường May','Đường Cắt','Đường Ép','Màu Vải','Thiếu SL','Giao Hàng','Thiết Kế','Khác'];
+        for (const cat of defaultCats) {
+            await db.run(`INSERT INTO error_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, [cat]);
+        }
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS common_errors (
+            id                  SERIAL PRIMARY KEY,
+            error_name          TEXT NOT NULL,
+            error_category_id   INTEGER REFERENCES error_categories(id),
+            department          TEXT,
+            status              TEXT DEFAULT 'pending' CHECK (status IN ('pending','in_progress','resolved')),
+            fix_guide           TEXT,
+            sale_guide          TEXT,
+            commit_factory      TEXT,
+            commit_department   TEXT,
+            commit_sale         TEXT,
+            created_by          INTEGER REFERENCES users(id),
+            created_at          TIMESTAMPTZ DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_ce_category ON common_errors(error_category_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_ce_status ON common_errors(status)`);
+    } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -913,6 +945,7 @@ async function start() {
     fastify.register(require('./routes/shipping'));
     fastify.register(require('./routes/donhangthietke'));
     fastify.register(require('./routes/customerErrors'));
+    fastify.register(require('./routes/commonErrors'));
     fastify.register(require('./routes/donguiaomau'));
     fastify.register(require('./routes/tulieuxuong'));
     fastify.register(require('./routes/chuanbiqlx'));

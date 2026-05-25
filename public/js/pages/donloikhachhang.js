@@ -1,6 +1,5 @@
 // ========== ĐƠN LỖI KHÁCH & NỘI BỘ — Bộ Phận Văn Phòng ==========
-var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: null, filter: null, allUsers: [] };
-var CEO_ERR_TYPES=['Sai màu','Sai size','Sai chất liệu','Lỗi in','Lỗi may','Lỗi ép','Thiếu số lượng','Giao trễ','Sai thông tin KH','Khác'];
+var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: null, filter: null, allUsers: [], commonErrors: [] };
 
 function renderDonloikhachhangPage(content) {
     _ceo.year = null;
@@ -74,6 +73,8 @@ async function _ceoLoadData() {
         var qs = params.length ? '?' + params.join('&') : '';
         var data = await apiCall('/api/customer-errors' + qs);
         _ceo.items = data.items || [];
+        // Load common error templates for dropdown
+        try { var ce = await apiCall('/api/common-errors-tpl'); _ceo.commonErrors = ce.items || []; } catch(e) {}
         _ceoRenderTable();
     } catch(e) { console.error('[CEO] Load error:', e); }
 }
@@ -513,7 +514,7 @@ async function _ceoOpenUpdateModal(id){
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Lỗi Thường Gặp</label>';
   h+='<select id="ceoU_errtype" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px">';
   h+='<option value="">-- Chọn loại lỗi --</option>';
-  CEO_ERR_TYPES.forEach(function(t){h+='<option value="'+t+'"'+(item.common_error_type===t?' selected':'')+'>'+t+'</option>';});
+  _ceo.commonErrors.forEach(function(ce){h+='<option value="'+ce.error_name+'"'+(item.common_error_type===ce.error_name?' selected':'')+'>'+ce.error_name+'</option>';});
   h+='</select></div>';
   // Chi Phí SX + Phí Ship
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
