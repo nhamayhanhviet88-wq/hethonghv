@@ -126,26 +126,25 @@ async function routes(fastify) {
         // ★ Create audit log entry for DHT order history
         if (b.dht_order_id && result && result.id) {
             try {
-                await db.run(
+                const auditResult = await db.get(
                     `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by)
-                     VALUES ($1, $2, $3, $4, $5)`,
+                     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
                     [
                         Number(b.dht_order_id),
                         'error',
-                        '🚨 Đã báo đơn lỗi — SL lỗi: ' + (Number(b.error_quantity) || 0) + ' — NV vi phạm: ' + (b.violator_name || '—'),
+                        '🚨 Đã báo đơn lỗi — SL lỗi: ' + (Number(b.error_quantity) || 0),
                         JSON.stringify([
                             { field: 'error_quantity', label: 'Số lượng lỗi', old: null, new: String(Number(b.error_quantity) || 0) },
-                            { field: 'error_content', label: 'Nội dung lỗi', old: null, new: b.error_content || '' },
-                            { field: 'violator_name', label: 'Người vi phạm', old: null, new: b.violator_name || '' },
-                            { field: 'sale_resolution', label: 'Cách xử lý', old: null, new: b.sale_resolution || '' }
+                            { field: 'error_content', label: 'Nội dung lỗi', old: null, new: b.error_content || '' }
                         ]),
                         userId
                     ]
                 );
-            } catch(auditErr) { console.error('[AuditLog] error report:', auditErr.message); }
+                var auditLogId = auditResult ? auditResult.id : null;
+            } catch(auditErr) { console.error('[AuditLog] error report:', auditErr.message); var auditLogId = null; }
         }
 
-        return { success: true, id: result.id };
+        return { success: true, id: result.id, audit_log_id: auditLogId || null };
     });
 
     // ========== PUT /api/customer-errors/:id — Update ==========
@@ -487,6 +486,37 @@ async function routes(fastify) {
     });
 
     // ★ by-order return-status route moved to top (before /:id) to prevent route conflict
+
+    // ========== PATCH /api/customer-errors/:id/finalize-audit — Update audit log with images/video ==========
+    fastify.patch('/api/customer-errors/:id/finalize-audit', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const { audit_log_id, image_urls, video_url } = request.body || {};
+        if (!audit_log_id) return { error: 'Missing audit_log_id' };
+
+        // Fetch current audit log
+        const auditLog = await db.get('SELECT id, changes FROM dht_audit_logs WHERE id = $1', [audit_log_id]);
+        if (!auditLog) return { error: 'Audit log not found' };
+
+        // Parse existing changes and add image/video entries
+        let changes = [];
+        try { changes = typeof auditLog.changes === 'string' ? JSON.parse(auditLog.changes) : (auditLog.changes || []); } catch(e) {}
+
+        // Add images
+        if (image_urls && image_urls.length > 0) {
+            changes.push({ field: 'error_images', label: 'Hình ảnh lỗi', old: null, new: JSON.stringify(image_urls) });
+        }
+        // Add video
+        if (video_url) {
+            changes.push({ field: 'error_video', label: 'Video lỗi', old: null, new: video_url });
+        }
+
+        await db.run(
+            'UPDATE dht_audit_logs SET changes = $1 WHERE id = $2',
+            [JSON.stringify(changes), audit_log_id]
+        );
+
+        return { success: true };
+    });
 }
 
 module.exports = routes;

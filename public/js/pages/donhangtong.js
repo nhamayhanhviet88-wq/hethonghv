@@ -1314,6 +1314,24 @@ async function _dhtShowDetail(id) {
                             var _remIcon = _remVal <= 0 ? '✅' : '⏳';
                             var _remText = _remVal <= 0 ? 'ĐÃ THU ĐỦ' : 'Chưa thu đủ';
                             histHTML += `<div style="font-size:12px;color:#475569;padding:3px 0;background:${_remVal <= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(220,38,38,0.06)'};border-radius:4px;padding:4px 6px;margin-top:2px"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="font-weight:900;color:${_remColor}">${_remIcon} ${_fmtVal(c.new, c.field)} — ${_remText}</span></div>`;
+                        } else if (c.field === 'error_images') {
+                            // ★ Render error images as thumbnail gallery
+                            var _errImgs = [];
+                            try { _errImgs = typeof c.new === 'string' ? JSON.parse(c.new) : (c.new || []); } catch(e) {}
+                            if (_errImgs.length > 0) {
+                                histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong></div>`;
+                                histHTML += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;margin-left:20px">`;
+                                for (var _ei = 0; _ei < _errImgs.length; _ei++) {
+                                    histHTML += `<a href="${_errImgs[_ei]}" target="_blank" style="display:block"><img src="${_errImgs[_ei]}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:2px solid #fca5a5;cursor:pointer;transition:transform .2s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'"></a>`;
+                                }
+                                histHTML += `</div>`;
+                            }
+                        } else if (c.field === 'error_video') {
+                            // ★ Render error video as playable link
+                            if (c.new) {
+                                histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong></div>`;
+                                histHTML += `<div style="margin-top:4px;margin-left:20px"><video src="${c.new}" controls style="max-width:200px;max-height:120px;border-radius:8px;border:2px solid #fca5a5"></video></div>`;
+                            }
                         } else if (c.old && c.old !== '(trống)' && c.old !== '(cũ)') {
                             histHTML += `<div style="font-size:11px;color:#475569;padding:2px 0"><span style="color:#94a3b8">${connector}</span> <strong>${c.label}:</strong> <span style="color:#dc2626;text-decoration:line-through">${_fmtVal(c.old, c.field)}</span> → <span style="color:#059669;font-weight:700">${_fmtVal(c.new, c.field)}</span></div>`;
                         } else {
@@ -2303,6 +2321,9 @@ async function _dhtSubmitErrorReport() {
         if (result.error) { showToast(result.error, 'error'); return; }
 
         var newId = result.id;
+        var auditLogId = result.audit_log_id;
+        var uploadedImageUrls = [];
+        var uploadedVideoUrl = null;
 
         // Step 2: Upload pasted/selected images
         if (window._dhtErrorPastedFiles && window._dhtErrorPastedFiles.length > 0) {
@@ -2312,11 +2333,13 @@ async function _dhtSubmitErrorReport() {
             });
 
             try {
-                await fetch('/api/customer-errors/' + newId + '/images', {
+                var imgResult = await fetch('/api/customer-errors/' + newId + '/images', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                     body: formData
                 });
+                var imgData = await imgResult.json();
+                if (imgData.images) uploadedImageUrls = imgData.images;
             } catch(imgErr) { console.warn('[ErrorReport] Image upload failed:', imgErr); }
         }
 
@@ -2325,12 +2348,25 @@ async function _dhtSubmitErrorReport() {
             var videoData = new FormData();
             videoData.append('video', window._dhtErrorVideoFile, window._dhtErrorVideoFile.name);
             try {
-                await fetch('/api/customer-errors/' + newId + '/video', {
+                var vidResult = await fetch('/api/customer-errors/' + newId + '/video', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                     body: videoData
                 });
+                var vidData = await vidResult.json();
+                if (vidData.video) uploadedVideoUrl = vidData.video;
             } catch(vidErr) { console.warn('[ErrorReport] Video upload failed:', vidErr); }
+        }
+
+        // Step 4: Finalize audit log with images/video
+        if (auditLogId && (uploadedImageUrls.length > 0 || uploadedVideoUrl)) {
+            try {
+                await apiCall('/api/customer-errors/' + newId + '/finalize-audit', 'PATCH', {
+                    audit_log_id: auditLogId,
+                    image_urls: uploadedImageUrls,
+                    video_url: uploadedVideoUrl
+                });
+            } catch(auditErr) { console.warn('[ErrorReport] Audit finalize failed:', auditErr); }
         }
 
         // Success!
