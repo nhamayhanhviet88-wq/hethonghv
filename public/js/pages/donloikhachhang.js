@@ -593,7 +593,7 @@ async function _ceoOpenPhat(id){
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
   sxFields.forEach(function(f){
     h+='<div><div style="font-size:10px;color:#9a3412;font-weight:600;margin-bottom:2px">'+f.label+'</div>';
-    h+='<div style="position:relative"><input type="text" id="'+f.id+'" value="'+(Number(item[f.key])||'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoPhatCalcSX()" style="width:100%;padding:6px 24px 6px 8px;border:1px solid #fdba74;border-radius:6px;font-size:12px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';
+    h+='<div style="position:relative"><input type="text" id="'+f.id+'" value="'+(Number(item[f.key])?Number(item[f.key]).toLocaleString('vi-VN'):'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoPhatCalcSX()" style="width:100%;padding:6px 24px 6px 8px;border:1px solid #fdba74;border-radius:6px;font-size:12px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';
   });
   h+='</div>';
   h+='<div style="margin-top:10px;padding:8px 12px;background:#ea580c;border-radius:8px;display:flex;justify-content:space-between;align-items:center">';
@@ -611,7 +611,7 @@ async function _ceoOpenPhat(id){
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
   shipFields.forEach(function(f){
     h+='<div><div style="font-size:10px;color:#1e40af;font-weight:600;margin-bottom:2px">'+f.label+'</div>';
-    h+='<div style="position:relative"><input type="text" id="'+f.id+'" value="'+(Number(item[f.key])||'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoPhatCalcShip()" style="width:100%;padding:6px 24px 6px 8px;border:1px solid #93c5fd;border-radius:6px;font-size:12px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';
+    h+='<div style="position:relative"><input type="text" id="'+f.id+'" value="'+(Number(item[f.key])?Number(item[f.key]).toLocaleString('vi-VN'):'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoPhatCalcShip()" style="width:100%;padding:6px 24px 6px 8px;border:1px solid #93c5fd;border-radius:6px;font-size:12px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';
   });
   h+='</div>';
   h+='<div style="margin-top:10px;padding:8px 12px;background:#1d4ed8;border-radius:8px;display:flex;justify-content:space-between;align-items:center">';
@@ -642,13 +642,13 @@ async function _ceoOpenPhat(id){
 }
 function _ceoPhatCalcSX(){
   var ids=['ceoU_cut','ceoU_print','ceoU_press','ceoU_sew','ceoU_collar','ceoU_matother','ceoU_costother'];
-  var total=0;ids.forEach(function(id){var el=document.getElementById(id);if(el)total+=Number((el.value||'0').replace(/[^\d]/g,''))||0;});
-  var d=document.getElementById('ceoU_prodcost_display');if(d)d.textContent=total.toLocaleString('vi-VN')+'đ';
+  var total=0;ids.forEach(function(id){var el=document.getElementById(id);if(el){var raw=(el.value||'0').replace(/\./g,'').replace(/[^\d]/g,'');total+=Number(raw)||0;}});
+  var d=document.getElementById('ceoU_prodcost_display');if(d)d.textContent=total?total.toLocaleString('de-DE')+'đ':'0đ';
 }
 function _ceoPhatCalcShip(){
   var ids=['ceoU_shipreturn','ceoU_shipdelivery','ceoU_shipother'];
-  var total=0;ids.forEach(function(id){var el=document.getElementById(id);if(el)total+=Number((el.value||'0').replace(/[^\d]/g,''))||0;});
-  var d=document.getElementById('ceoU_shipcost_display');if(d)d.textContent=total.toLocaleString('vi-VN')+'đ';
+  var total=0;ids.forEach(function(id){var el=document.getElementById(id);if(el){var raw=(el.value||'0').replace(/\./g,'').replace(/[^\d]/g,'');total+=Number(raw)||0;}});
+  var d=document.getElementById('ceoU_shipcost_display');if(d)d.textContent=total?total.toLocaleString('de-DE')+'đ':'0đ';
 }
 
 // ===== MODAL 3: NGƯỜI VI PHẠM =====
@@ -764,6 +764,24 @@ async function _ceoSubmitNVP(id){
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('✅ Đã cập nhật NVP!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 
+// ===== FORMAT MONEY — dấu chấm hàng nghìn =====
+function _ceoFmtMoney(el){
+  var v=el.value.replace(/[^\d]/g,'');
+  el.value=v?Number(v).toLocaleString('de-DE'):'';
+}
+
+// ===== AUTO-NUMBER TEXTAREA =====
+function _ceoAutoNumber(e,ta){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    var val=ta.value;
+    var lines=val.split('\n');
+    var lastLine=lines[lines.length-1];
+    var m=lastLine.match(/^(\d+)\./);
+    var nextNum=m?parseInt(m[1])+1:lines.length+1;
+    ta.value=val+'\n'+nextNum+'. ';
+  }
+}
 
 // ===== CARD CLICK = FILTER + TOGGLE =====
 function _ceoCardClick(filterName, dropId){
