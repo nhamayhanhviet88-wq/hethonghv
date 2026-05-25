@@ -1,8 +1,8 @@
 // ========== CÔNG VIỆC QUẢN LÝ XƯỞNG — Hub Page with 3 Tabs ==========
-// Tabs: Lịch Ra Đơn Hàng | Đơn Hàng Hôm Nay QLX | Chuẩn Bị QLX
+// Tabs: Phiếu Yêu Cầu Xử Lý | Chuẩn Bị QLX | Đơn Hàng Hôm Nay QLX
 // Each tab delegates rendering to the existing page functions
 
-var _cvqlxActiveTab = sessionStorage.getItem('_cvqlxActiveTab') || 'lichradonhang';
+var _cvqlxActiveTab = sessionStorage.getItem('_cvqlxActiveTab') || 'phieuyeucau';
 
 function renderCongviecqlxPage(content) {
     // Inject tab styles
@@ -31,20 +31,26 @@ function renderCongviecqlxPage(content) {
         +'<div class="cvqlx-header">'
         +'  <div class="cvqlx-title">📋 Công Việc Quản Lý Xưởng <span class="cvqlx-title-badge">QLX Hub</span></div>'
         +'  <div class="cvqlx-tabs" id="cvqlxTabs">'
-        +'    <button class="cvqlx-tab' + (_cvqlxActiveTab === 'lichradonhang' ? ' active' : '') + '" data-tab="lichradonhang" onclick="_cvqlxSwitchTab(\'lichradonhang\')">'
-        +'      <span class="tab-dot"></span> 📅 Lịch Ra Đơn Hàng'
-        +'    </button>'
-        +'    <button class="cvqlx-tab' + (_cvqlxActiveTab === 'donhanghomnay' ? ' active' : '') + '" data-tab="donhanghomnay" onclick="_cvqlxSwitchTab(\'donhanghomnay\')">'
-        +'      <span class="tab-dot"></span> 🚀 Đơn Hàng Hôm Nay QLX'
+        +'    <button class="cvqlx-tab' + (_cvqlxActiveTab === 'phieuyeucau' ? ' active' : '') + '" data-tab="phieuyeucau" onclick="_cvqlxSwitchTab(\'phieuyeucau\')">'
+        +'      <span class="tab-dot"></span> 📝 Phiếu Yêu Cầu Xử Lý'
         +'    </button>'
         +'    <button class="cvqlx-tab' + (_cvqlxActiveTab === 'chuanbi' ? ' active' : '') + '" data-tab="chuanbi" onclick="_cvqlxSwitchTab(\'chuanbi\')">'
         +'      <span class="tab-dot"></span> 🏭 Chuẩn Bị QLX'
+        +'    </button>'
+        +'    <button class="cvqlx-tab' + (_cvqlxActiveTab === 'donhanghomnay' ? ' active' : '') + '" data-tab="donhanghomnay" onclick="_cvqlxSwitchTab(\'donhanghomnay\')">'
+        +'      <span class="tab-dot"></span> 🚀 Đơn Hàng Hôm Nay QLX'
         +'    </button>'
         +'  </div>'
         +'</div>'
         +'<div class="cvqlx-body">'
         +'  <div class="cvqlx-tab-content" id="cvqlxTabContent"></div>'
         +'</div>';
+
+    // Reset tab if it was the old 'lichradonhang' tab
+    if (_cvqlxActiveTab === 'lichradonhang') {
+        _cvqlxActiveTab = 'phieuyeucau';
+        sessionStorage.setItem('_cvqlxActiveTab', _cvqlxActiveTab);
+    }
 
     // Load the active tab
     _cvqlxRenderActiveTab();
@@ -72,22 +78,17 @@ function _cvqlxRenderActiveTab() {
 
     // Delegate to existing render functions
     switch (_cvqlxActiveTab) {
-        case 'lichradonhang':
-            // Lịch Ra Đơn Hàng — uses renderLichradonhangPage if exists
-            if (typeof renderLichradonhangPage === 'function') {
-                renderLichradonhangPage(container);
-            } else {
-                container.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📅</div><h3 style="color:#334155">Lịch Ra Đơn Hàng</h3><p>Trang đang được tải...</p></div>';
-            }
-            break;
-
-        case 'donhanghomnay':
-            // Đơn Hàng Hôm Nay QLX — uses renderDonhanghomnayqlxPage if exists
-            if (typeof renderDonhanghomnayqlxPage === 'function') {
-                renderDonhanghomnayqlxPage(container);
-            } else {
-                container.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🚀</div><h3 style="color:#334155">Đơn Hàng Hôm Nay QLX</h3><p>Trang đang được tải...</p></div>';
-            }
+        case 'phieuyeucau':
+            // Phiếu Yêu Cầu Xử Lý — placeholder (will be developed later)
+            container.innerHTML = '<div style="text-align:center;padding:80px 20px">'
+                +'<div style="font-size:56px;margin-bottom:16px">📝</div>'
+                +'<h3 style="color:#0c4a6e;font-size:20px;font-weight:800;margin:0 0 8px">Phiếu Yêu Cầu Xử Lý</h3>'
+                +'<p style="color:#64748b;font-size:13px;max-width:400px;margin:0 auto">Module đang được phát triển. Chức năng tiếp nhận và xử lý yêu cầu từ các bộ phận sẽ sớm ra mắt.</p>'
+                +'<div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);padding:10px 20px;border-radius:10px;border:1px solid #bae6fd">'
+                +'<span style="font-size:14px">🔧</span>'
+                +'<span style="font-size:12px;font-weight:700;color:#0369a1">Đang phát triển</span>'
+                +'</div>'
+                +'</div>';
             break;
 
         case 'chuanbi':
@@ -96,6 +97,23 @@ function _cvqlxRenderActiveTab() {
                 renderQuanlyxuongqlxPage(container);
             } else {
                 container.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🏭</div><h3 style="color:#334155">Chuẩn Bị QLX</h3><p>Trang đang được tải...</p></div>';
+            }
+            break;
+
+        case 'donhanghomnay':
+            // Đơn Hàng Hôm Nay QLX — uses renderDonhanghomnayqlxPage if exists
+            if (typeof renderDonhanghomnayqlxPage === 'function') {
+                renderDonhanghomnayqlxPage(container);
+            } else {
+                container.innerHTML = '<div style="text-align:center;padding:80px 20px">'
+                    +'<div style="font-size:56px;margin-bottom:16px">🚀</div>'
+                    +'<h3 style="color:#0c4a6e;font-size:20px;font-weight:800;margin:0 0 8px">Đơn Hàng Hôm Nay QLX</h3>'
+                    +'<p style="color:#64748b;font-size:13px;max-width:400px;margin:0 auto">Module đang được phát triển.</p>'
+                    +'<div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);padding:10px 20px;border-radius:10px;border:1px solid #bae6fd">'
+                    +'<span style="font-size:14px">🔧</span>'
+                    +'<span style="font-size:12px;font-weight:700;color:#0369a1">Đang phát triển</span>'
+                    +'</div>'
+                    +'</div>';
             }
             break;
 

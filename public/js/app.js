@@ -156,6 +156,7 @@ const MENU_CONFIG = [
     { id: 'vat-lieu-tem-pet', label: 'Vật Liệu PET Tem', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
 
     // ========== QUẢN LÝ XƯỞNG ==========
+    { id: 'lich-ra-don-hang', label: 'Lịch Ra Đơn Hàng', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN LÝ XƯỞNG', href: '/lichradonhang', permKey: 'lich_ra_don_hang' },
     { id: 'congviec-qlx', label: 'Công Việc QLX', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN LÝ XƯỞNG', href: '/congviecqlx', permKey: 'congviec_qlx' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
