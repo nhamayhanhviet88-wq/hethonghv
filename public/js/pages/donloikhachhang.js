@@ -105,44 +105,25 @@ function _ceoRenderTable() {
         '<button onclick="_ceoOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Đơn Lỗi</button>' +
         '</div></div>';
 
-    // === 3 STAT CARDS ===
+    // === 3 STAT CARDS (filter only) ===
     h += '<div style="padding:12px 16px;display:flex;gap:12px;background:#fff;border-bottom:1px solid #e5e7eb">';
     // Card 1: Chưa Xử Lý
-    h += '<div id="ceoCardXL" style="position:relative;flex:1">';
-    h += '<div onclick="_ceoCardClick(\'chua_xl\',\'ceoDropXL\')" style="padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_xl'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+    h += '<div onclick="_ceoSetFilter(\'chua_xl\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_xl'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_xl'?'0 4px 16px rgba(220,38,38,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🔴</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#dc2626">' + cXL + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Xử Lý</div></div>';
-    h += '<div style="margin-left:auto;font-size:18px;color:#dc2626">▼</div></div>';
-    h += '<div id="ceoDropXL" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;background:#fff;border:2px solid #fecaca;border-radius:10px;max-height:250px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12)">';
-    if(!xlOrders.length){h+='<div style="padding:16px;text-align:center;color:#16a34a;font-weight:700">✅ Tất cả đã xử lý!</div>';}
-    else{xlOrders.forEach(function(o){var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'';h+='<div onclick="event.stopPropagation();_ceoOpenUpdateModal('+o.id+')" style="padding:10px 14px;border-bottom:1px solid #fef2f2;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'">'+'<div><span style="font-weight:800;color:#ea580c;font-size:13px">'+(o.order_code||'#'+o.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span></div><span style="color:#dc2626">→</span></div>';});}
-    h += '</div></div>';
-
+    h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Xử Lý</div></div></div>';
     // Card 2: Chưa Phạt
-    h += '<div id="ceoCardPhat" style="position:relative;flex:1">';
-    h += '<div onclick="_ceoCardClick(\'chua_phat\',\'ceoDropPhat\')" style="padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid ' + (_ceo.filter==='chua_phat'?'#d97706':'#fde68a') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+    h += '<div onclick="_ceoSetFilter(\'chua_phat\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid ' + (_ceo.filter==='chua_phat'?'#d97706':'#fde68a') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_phat'?'0 4px 16px rgba(217,119,6,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🟡</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#d97706">' + cPhat + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Phạt</div></div>';
-    h += '<div style="margin-left:auto;font-size:18px;color:#d97706">▼</div></div>';
-    h += '<div id="ceoDropPhat" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;background:#fff;border:2px solid #fde68a;border-radius:10px;max-height:250px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12)">';
-    if(!phatOrders.length){h+='<div style="padding:16px;text-align:center;color:#16a34a;font-weight:700">✅ Tất cả đã phạt!</div>';}
-    else{phatOrders.forEach(function(o){var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'';h+='<div onclick="event.stopPropagation();_ceoOpenUpdateModal('+o.id+')" style="padding:10px 14px;border-bottom:1px solid #fef3c7;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'">'+'<div><span style="font-weight:800;color:#ea580c;font-size:13px">'+(o.order_code||'#'+o.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span></div><span style="color:#d97706">→</span></div>';});}
-    h += '</div></div>';
-
+    h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Phạt</div></div></div>';
     // Card 3: Hoàn Thành
-    h += '<div id="ceoCardDone" style="position:relative;flex:1">';
-    h += '<div onclick="_ceoCardClick(\'hoan_thanh\',\'ceoDropDone\')" style="padding:16px 20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid ' + (_ceo.filter==='hoan_thanh'?'#16a34a':'#bbf7d0') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(22,163,74,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+    h += '<div onclick="_ceoSetFilter(\'hoan_thanh\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid ' + (_ceo.filter==='hoan_thanh'?'#16a34a':'#bbf7d0') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(22,163,74,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='hoan_thanh'?'0 4px 16px rgba(22,163,74,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🟢</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#16a34a">' + cDone + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#166534">Hoàn Thành</div></div>';
-    h += '<div style="margin-left:auto;font-size:18px;color:#16a34a">▼</div></div>';
-    h += '<div id="ceoDropDone" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;background:#fff;border:2px solid #bbf7d0;border-radius:10px;max-height:250px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12)">';
-    if(!doneOrders.length){h+='<div style="padding:16px;text-align:center;color:#9ca3af;font-weight:700">Chưa có đơn hoàn thành</div>';}
-    else{doneOrders.forEach(function(o){var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'';h+='<div onclick="event.stopPropagation();_ceoViewDetail('+o.id+')" style="padding:10px 14px;border-bottom:1px solid #f0fdf4;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'+'<div><span style="font-weight:800;color:#16a34a;font-size:13px">'+(o.order_code||'#'+o.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span></div><span style="color:#16a34a">✓</span></div>';});}
-    h += '</div></div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#166534">Hoàn Thành</div></div></div>';
     h += '</div>';
+
 
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
