@@ -135,11 +135,8 @@ const MENU_CONFIG = [
 
     // ========== BỘ PHẬN XƯỞNG SX ==========
     { id: 'bang-mau-vai', label: 'Bảng Màu Vải', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bangmauvai', permKey: 'bang_mau_vai' },
-    { id: 'lich-ra-don-hang', label: 'Lịch Ra Đơn Hàng', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/lichradonhang', permKey: 'lich_ra_don_hang' },
     { id: 'ke-toan-gui-hang', label: 'Đơn Hàng Kế Toán Gửi', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/ketoanguihang', permKey: 'ke_toan_gui_hang' },
     { id: 'kinh-doanh-gui-hang', label: 'Đơn Hàng Kinh Doanh Gửi', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/kinhdoanhguihang', permKey: 'kinh_doanh_gui_hang' },
-    { id: 'don-hang-hom-nay-qlx', label: 'Đơn Hàng Hôm Nay QLX', icon: '📌', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/donhanghomnayqlx', permKey: 'don_hang_hom_nay_qlx' },
-    { id: 'quan-ly-xuong-qlx', label: 'Chuẩn Bị QLX', icon: '🏭', roles: ['giam_doc','quan_ly_cap_cao'], section: 'XƯỞNG SẢN XUẤT', href: '/quanlyxuongqlx', permKey: 'quan_ly_xuong_qlx' },
     { id: 'bo-phan-cat', label: 'Bộ Phận Cắt', icon: '✂️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophancathv', permKey: 'bo_phan_cat' },
     { id: 'bo-phan-in', label: 'Bộ Phận In', icon: '🖨️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophaninhv', permKey: 'bo_phan_in' },
     { id: 'bo-phan-ep', label: 'Bộ Phận Ép', icon: '🔥', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophanephv', permKey: 'bo_phan_ep' },
@@ -157,6 +154,9 @@ const MENU_CONFIG = [
     { id: 'nhap-xuat-hoan-vat-lieu', label: 'Nhập Xuất Hoàn Vật Liệu', icon: '🔃', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/nhapxuathoanvatlieu', permKey: 'nhap_xuat_hoan_vat_lieu' },
     { id: 'thong-so-ao-mau', label: 'Thông Số Mẫu Áo', icon: '📐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/thongsoaomau', permKey: 'thong_so_ao_mau' },
     { id: 'vat-lieu-tem-pet', label: 'Vật Liệu PET Tem', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
+
+    // ========== QUẢN LÝ XƯỞNG ==========
+    { id: 'congviec-qlx', label: 'Công Việc QLX', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN LÝ XƯỞNG', href: '/congviecqlx', permKey: 'congviec_qlx' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
@@ -1082,7 +1082,7 @@ var PARENT_SECTIONS = [
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
-    { name: 'BỘ PHẬN XƯỞNG SX', sections: ['XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
+    { name: 'BỘ PHẬN XƯỞNG SX', sections: ['QUẢN LÝ XƯỞNG', 'XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
     { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
 ];

@@ -90,6 +90,9 @@ const PERM_FEATURES = [
     { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET Tem', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'thong_so_ao_mau', label: 'Thông Số Mẫu Áo', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
 
+    // ===== QUẢN LÝ XƯỞNG =====
+    { key: 'congviec_qlx', label: 'Công Việc QLX', perms: ['view','create','edit'], section: 'QUẢN LÝ XƯỞNG' },
+
     // ===== NỘI QUY & TƯ LIỆU NỘI BỘ =====
     { key: 'noi_quy_cong_ty', label: 'Nội Quy & Điều Khoản', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
     { key: 'tu_lieu_xuong_vp', label: 'Tư Liệu Xưởng & VP', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
