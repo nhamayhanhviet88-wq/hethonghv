@@ -842,6 +842,19 @@ async function start() {
         // v13b: Add images and video columns
         try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS error_images JSONB DEFAULT '[]'`); } catch(e) {}
         try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS error_video TEXT`); } catch(e) {}
+
+        // v13c: Dynamic departments + multi-select
+        await db.exec(`CREATE TABLE IF NOT EXISTS error_departments (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT NOT NULL UNIQUE,
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        const defaultDepts = ['Sale/KD','Cắt','In','Ép','May','Hoàn Thiện','Kho','Thiết Kế'];
+        for (const d of defaultDepts) {
+            await db.run(`INSERT INTO error_departments (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, [d]);
+        }
+        // Migrate department TEXT → departments JSONB
+        try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS departments JSONB DEFAULT '[]'`); } catch(e) {}
     } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
 
     // Plugins

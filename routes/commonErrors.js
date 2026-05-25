@@ -43,6 +43,30 @@ async function routes(fastify) {
         return { success: true };
     });
 
+    // ========== ERROR DEPARTMENTS ==========
+
+    fastify.get('/api/error-departments', { preHandler: authenticate }, async () => {
+        const rows = await db.all('SELECT * FROM error_departments ORDER BY id ASC');
+        return { departments: rows };
+    });
+
+    fastify.post('/api/error-departments', { preHandler: authenticate }, async (request) => {
+        const { name } = request.body;
+        if (!name || !name.trim()) return { error: 'Tên bộ phận không được trống' };
+        try {
+            const row = await db.get('INSERT INTO error_departments (name) VALUES ($1) RETURNING *', [name.trim()]);
+            return { success: true, department: row };
+        } catch (e) {
+            if (e.message.includes('unique') || e.message.includes('duplicate')) return { error: 'Bộ phận đã tồn tại' };
+            throw e;
+        }
+    });
+
+    fastify.delete('/api/error-departments/:id', { preHandler: authenticate }, async (request) => {
+        await db.run('DELETE FROM error_departments WHERE id = $1', [request.params.id]);
+        return { success: true };
+    });
+
     // ========== COMMON ERRORS CRUD ==========
 
     // GET /api/common-errors-tpl — list all common error templates
@@ -57,7 +81,7 @@ async function routes(fastify) {
             else { where += ` AND ce.status = $${idx++}`; params.push(status); }
         }
         if (category_id) { where += ` AND ce.error_category_id = $${idx++}`; params.push(Number(category_id)); }
-        if (department) { where += ` AND ce.department = $${idx++}`; params.push(department); }
+        if (department) { where += ` AND ce.departments @> $${idx++}::jsonb`; params.push(JSON.stringify([department])); }
 
         const items = await db.all(`
             SELECT ce.*, ec.name AS category_name, u.full_name AS created_by_name
@@ -86,16 +110,17 @@ async function routes(fastify) {
 
     // POST /api/common-errors-tpl — create
     fastify.post('/api/common-errors-tpl', { preHandler: authenticate }, async (request) => {
-        const { error_name, error_category_id, department, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
+        const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
         if (!error_name || !error_name.trim()) return { error: 'Tên lỗi không được trống' };
 
+        const deptJson = JSON.stringify(departments || []);
         const row = await db.get(`
-            INSERT INTO common_errors (error_name, error_category_id, department, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale, created_by)
+            INSERT INTO common_errors (error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale, created_by)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *
         `, [
             error_name.trim(),
             error_category_id || null,
-            department || null,
+            deptJson,
             status || 'pending',
             fix_guide || null,
             sale_guide || null,
@@ -111,19 +136,20 @@ async function routes(fastify) {
     // PUT /api/common-errors-tpl/:id — update
     fastify.put('/api/common-errors-tpl/:id', { preHandler: authenticate }, async (request) => {
         const id = request.params.id;
-        const { error_name, error_category_id, department, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
+        const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
 
         const existing = await db.get('SELECT id FROM common_errors WHERE id = $1', [id]);
         if (!existing) return { error: 'Không tìm thấy lỗi' };
 
+        const deptJson = JSON.stringify(departments || []);
         await db.run(`
             UPDATE common_errors SET
-                error_name = $1, error_category_id = $2, department = $3, status = $4,
+                error_name = $1, error_category_id = $2, departments = $3, status = $4,
                 fix_guide = $5, sale_guide = $6, commit_factory = $7, commit_department = $8,
                 commit_sale = $9, updated_at = NOW()
             WHERE id = $10
         `, [
-            error_name || '', error_category_id || null, department || null, status || 'pending',
+            error_name || '', error_category_id || null, deptJson, status || 'pending',
             fix_guide || null, sale_guide || null, commit_factory || null, commit_department || null,
             commit_sale || null, id
         ]);

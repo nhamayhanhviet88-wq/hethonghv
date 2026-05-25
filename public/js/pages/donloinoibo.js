@@ -1,21 +1,11 @@
 // ========== LOI THUONG GAP & XU LY — Common Error Templates ==========
-var _ltg = { items: [], categories: [], stats: {}, filter: null, catFilter: null, deptFilter: null };
-var LTG_DEPTS = [
-  {k:'sale',l:'Sale/KD',c:'#3b82f6',bg:'#dbeafe'},
-  {k:'cat',l:'Cắt',c:'#7c3aed',bg:'#ede9fe'},
-  {k:'in',l:'In',c:'#ea580c',bg:'#fff7ed'},
-  {k:'ep',l:'Ép',c:'#d97706',bg:'#fef3c7'},
-  {k:'may',l:'May',c:'#16a34a',bg:'#f0fdf4'},
-  {k:'hoan_thien',l:'Hoàn Thiện',c:'#e11d48',bg:'#fff1f2'},
-  {k:'kho',l:'Kho',c:'#6b7280',bg:'#f3f4f6'},
-  {k:'thiet_ke',l:'Thiết Kế',c:'#0891b2',bg:'#ecfeff'}
-];
-function _ltgDept(k){return LTG_DEPTS.find(function(d){return d.k===k;})||{k:k,l:k||'—',c:'#6b7280',bg:'#f3f4f6'};}
+var _ltg = { items: [], categories: [], departments: [], stats: {}, filter: null, catFilter: null, deptFilter: null };
 function _ltgStatusInfo(s){
   if(s==='resolved') return {l:'Đã Xử Lý',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
   if(s==='in_progress') return {l:'Đang Xử Lý',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
   return {l:'Chưa Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
 }
+var _ltgDeptColors=['#3b82f6','#7c3aed','#ea580c','#d97706','#16a34a','#e11d48','#6b7280','#0891b2','#8b5cf6','#0d9488'];
 
 // ===== ENTRY =====
 function renderDonloinoiboPage(c){renderLoithuonggapPage(c);}
@@ -31,6 +21,10 @@ async function _ltgLoadAll(){
     var r1=await apiCall('/api/error-categories');
     _ltg.categories=r1.categories||[];
   }catch(e){console.error('[LTG] categories:',e);}
+  try{
+    var r3=await apiCall('/api/error-departments');
+    _ltg.departments=r3.departments||[];
+  }catch(e){console.error('[LTG] departments:',e);}
   try{
     var r2=await apiCall('/api/common-errors-tpl/stats');
     _ltg.stats=r2||{total:0,pending:0,in_progress:0,resolved:0};
@@ -62,6 +56,7 @@ function _ltgRender(){
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">';
   h+='<div style="font-size:18px;font-weight:900;color:#1e293b">⚠️ LỖI THƯỜNG GẶP & XỬ LÝ <span style="color:#9ca3af;font-weight:500;font-size:13px">('+items.length+' lỗi)</span></div>';
   h+='<div style="display:flex;gap:8px">';
+  h+='<button onclick="_ltgOpenDeptManager()" style="padding:8px 16px;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🏭 Quản Lý Bộ Phận</button>';
   h+='<button onclick="_ltgOpenCatManager()" style="padding:8px 16px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⚙️ Quản Lý Loại Lỗi</button>';
   h+='<button onclick="_ltgOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Lỗi Thường Gặp</button>';
   h+='</div></div>';
@@ -76,9 +71,11 @@ function _ltgRender(){
   // Dept filter chips
   h+='<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
   h+='<span onclick="_ltgSetDept(null)" style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+(!_ltg.deptFilter?'background:#1e293b;color:#fff':'background:#f1f5f9;color:#64748b')+'">Tất Cả BP</span>';
-  LTG_DEPTS.forEach(function(d){
-    var isA=_ltg.deptFilter===d.k;
-    h+='<span onclick="_ltgSetDept(\''+d.k+'\')" style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid '+(isA?d.c:'#e5e7eb')+';'+(isA?'background:'+d.bg+';color:'+d.c:'background:#fff;color:#64748b')+'">'+d.l+'</span>';
+  _ltg.departments.forEach(function(d,i){
+    var c=_ltgDeptColors[i%_ltgDeptColors.length];
+    var isA=_ltg.deptFilter===d.name;
+    var dn=d.name.replace(/'/g,'');
+    h+='<span onclick="_ltgSetDept(\''+dn+'\')" style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid '+(isA?c:'#e5e7eb')+';'+(isA?'background:'+c+'18;color:'+c:'background:#fff;color:#64748b')+'">'+d.name+'</span>';
   });
   h+='</div>';
 
@@ -94,14 +91,16 @@ function _ltgRender(){
     h+='<tr><td colspan="11" style="padding:40px;text-align:center;color:#9ca3af">Chưa có lỗi thường gặp nào</td></tr>';
   } else {
     items.forEach(function(item,idx){
-      var dp=_ltgDept(item.department);
+      var depts=[];
+      try{depts=typeof item.departments==='string'?JSON.parse(item.departments||'[]'):(item.departments||[]);}catch(e){}
       var si=_ltgStatusInfo(item.status);
       var catName=item.category_name||'—';
+      var deptBadges=depts.length?depts.map(function(dn){return '<span style="padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#e0f2fe;color:#0369a1;margin-right:2px">'+dn+'</span>';}).join(''):'<span style="color:#d1d5db">—</span>';
       h+='<tr style="border-bottom:1px solid #f1f5f9" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
       h+='<td style="padding:6px;text-align:center;color:#9ca3af;border-right:1px solid #f8fafc">'+(idx+1)+'</td>';
       h+='<td style="padding:6px;font-weight:700;color:#1e293b;border-right:1px solid #f8fafc">'+(item.error_name||'—')+'</td>';
       h+='<td style="padding:6px;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+catName+'</span></td>';
-      h+='<td style="padding:6px;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:'+dp.c+';background:'+dp.bg+';border:1px solid '+dp.c+'22">'+dp.l+'</span></td>';
+      h+='<td style="padding:6px;border-right:1px solid #f8fafc">'+deptBadges+'</td>';
       h+='<td style="padding:6px;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:'+si.c+';background:'+si.bg+'">'+si.icon+' '+si.l+'</span></td>';
       h+='<td style="padding:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="'+(item.fix_guide||'').replace(/"/g,'&quot;')+'">'+(item.fix_guide||'—')+'</td>';
       h+='<td style="padding:6px;max-width:150px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.sale_guide||'—')+'</td>';
@@ -159,8 +158,14 @@ async function _ltgOpenForm(id){
 
   var catOpts='<option value="">— Chọn loại lỗi —</option>';
   cats.forEach(function(c){catOpts+='<option value="'+c.id+'"'+(item&&item.error_category_id==c.id?' selected':'')+'>'+c.name+'</option>';});
-  var deptOpts='<option value="">— Chọn bộ phận —</option>';
-  LTG_DEPTS.forEach(function(d){deptOpts+='<option value="'+d.k+'"'+(item&&item.department===d.k?' selected':'')+'>'+d.l+'</option>';});
+  // Build dept checkboxes
+  var existDepts=[];
+  if(item){try{existDepts=typeof item.departments==='string'?JSON.parse(item.departments||'[]'):(item.departments||[]);}catch(e){}}
+  var deptChecks='';
+  _ltg.departments.forEach(function(d){
+    var chk=existDepts.indexOf(d.name)>=0?' checked':'';
+    deptChecks+='<label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;margin-bottom:4px;font-size:12px;cursor:pointer"><input type="checkbox" class="ltgF_dept_chk" value="'+d.name+'"'+chk+' style="cursor:pointer"> '+d.name+'</label>';
+  });
   var statusOpts='';
   [['pending','🔴 Chưa Xử Lý'],['in_progress','🟡 Đang Xử Lý'],['resolved','🟢 Đã Xử Lý']].forEach(function(s){
     statusOpts+='<option value="'+s[0]+'"'+(item&&item.status===s[0]?' selected':(!item&&s[0]==='pending'?' selected':''))+'>'+s[1]+'</option>';
@@ -189,8 +194,10 @@ async function _ltgOpenForm(id){
       fld('Tên Lỗi','error_name','text',item?item.error_name:'',true)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
         fld('Loại Lỗi','category','select',catOpts,true)+
-        fld('Bộ Phận Lỗi','department','select',deptOpts,false)+
       '</div>'+
+      // Department checkboxes (multi-select)
+      '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Bộ Phận Lỗi<span style="color:#dc2626"> *</span></label>'+
+      '<div id="ltgF_deptGroup" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;display:flex;flex-wrap:wrap;gap:2px">'+deptChecks+'</div></div>'+
       fld('Tình Trạng','status','select',statusOpts,false)+
       fld('Cách Khắc Phục / Xử Lý Lỗi','fix_guide','textarea',item?item.fix_guide:'',true)+
       fld('Hướng Dẫn Sale Tư Vấn','sale_guide','textarea',item?item.sale_guide:'',true)+
@@ -220,10 +227,13 @@ async function _ltgOpenForm(id){
 }
 
 async function _ltgSubmitForm(id){
+  // Collect departments from checkboxes
+  var selDepts=[];
+  document.querySelectorAll('.ltgF_dept_chk:checked').forEach(function(cb){selDepts.push(cb.value);});
   var body={
     error_name:document.getElementById('ltgF_error_name').value.trim(),
     error_category_id:document.getElementById('ltgF_category').value||null,
-    department:document.getElementById('ltgF_department').value||null,
+    departments:selDepts,
     status:document.getElementById('ltgF_status').value||'pending',
     fix_guide:document.getElementById('ltgF_fix_guide').value.trim(),
     sale_guide:document.getElementById('ltgF_sale_guide').value.trim(),
@@ -234,6 +244,7 @@ async function _ltgSubmitForm(id){
   // Validation
   if(!body.error_name){showToast('Vui lòng nhập Tên Lỗi','error');return;}
   if(!body.error_category_id){showToast('Vui lòng chọn Loại Lỗi','error');return;}
+  if(!selDepts.length){showToast('Vui lòng chọn ít nhất 1 Bộ Phận Lỗi','error');return;}
   if(!body.fix_guide||body.fix_guide==='1. '){showToast('Vui lòng nhập Cách Khắc Phục / Xử Lý Lỗi','error');return;}
   if(!body.sale_guide||body.sale_guide==='1. '){showToast('Vui lòng nhập Hướng Dẫn Sale Tư Vấn','error');return;}
   if(!body.commit_factory||body.commit_factory==='1. '){showToast('Vui lòng nhập Cam Kết Quản Lý Xưởng','error');return;}
@@ -331,5 +342,59 @@ async function _ltgDeleteCat(id){
     showToast('✅ Đã xóa');
     document.getElementById('ltgCatOv').remove();
     _ltgLoadAll().then(function(){_ltgOpenCatManager();});
+  }catch(e){showToast('Lỗi: '+e.message,'error');}
+}
+
+// ===== DEPARTMENT MANAGER =====
+function _ltgOpenDeptManager(){
+  var depts=_ltg.departments;
+  var ov=document.createElement('div');
+  ov.id='ltgDeptOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var listH='';
+  depts.forEach(function(d){
+    listH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #f1f5f9">'
+      +'<span style="font-size:13px;font-weight:600;color:#1e293b">'+d.name+'</span>'
+      +'<button onclick="_ltgDeleteDept('+d.id+')" style="padding:2px 8px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">Xóa</button>'
+      +'</div>';
+  });
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:450px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">'+
+    '<div style="padding:16px 20px;background:linear-gradient(135deg,#0891b2,#0e7490);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">'+
+      '<div style="font-size:15px;font-weight:800;color:#fff">🏭 Quản Lý Bộ Phận</div>'+
+      '<button onclick="document.getElementById(\'ltgDeptOv\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer">×</button>'+
+    '</div>'+
+    '<div style="padding:16px">'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+        '<input id="ltgDept_name" type="text" placeholder="Nhập tên bộ phận mới..." style="flex:1;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'+
+        '<button onclick="_ltgAddDept()" style="padding:8px 14px;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Thêm</button>'+
+      '</div>'+
+      '<div style="border:1px solid #e5e7eb;border-radius:8px;max-height:300px;overflow-y:auto">'+(listH||'<div style="padding:20px;text-align:center;color:#9ca3af">Chưa có bộ phận</div>')+'</div>'+
+    '</div></div>';
+  document.body.appendChild(ov);
+}
+
+async function _ltgAddDept(){
+  var input=document.getElementById('ltgDept_name');
+  if(!input)return;
+  var name=input.value.trim();
+  if(!name){showToast('Nhập tên bộ phận','error');return;}
+  try{
+    var r=await apiCall('/api/error-departments','POST',{name:name});
+    if(r.error){showToast(r.error,'error');return;}
+    showToast('✅ Đã thêm bộ phận: '+name);
+    document.getElementById('ltgDeptOv').remove();
+    _ltgLoadAll().then(function(){_ltgOpenDeptManager();});
+  }catch(e){showToast('Lỗi: '+e.message,'error');}
+}
+
+async function _ltgDeleteDept(id){
+  if(!confirm('Xóa bộ phận này?'))return;
+  try{
+    var r=await apiCall('/api/error-departments/'+id,'DELETE');
+    if(r.error){showToast(r.error,'error');return;}
+    showToast('✅ Đã xóa');
+    document.getElementById('ltgDeptOv').remove();
+    _ltgLoadAll().then(function(){_ltgOpenDeptManager();});
   }catch(e){showToast('Lỗi: '+e.message,'error');}
 }
