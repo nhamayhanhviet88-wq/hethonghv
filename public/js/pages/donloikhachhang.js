@@ -87,63 +87,63 @@ function _ceoRenderTable() {
     var items = allItems;
     if (_ceo.filter === 'chua_xl') items = allItems.filter(function(i){ return !i.violation_month; });
     else if (_ceo.filter === 'chua_phat') items = allItems.filter(function(i){ return !i.penalty_month; });
+    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.violation_month && i.penalty_month; });
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
     var cXL = allItems.filter(function(i){return !i.violation_month;}).length;
     var cPhat = allItems.filter(function(i){return !i.penalty_month;}).length;
 
-    // Build order code lists for dropdowns
+    // Build order lists
     var xlOrders = allItems.filter(function(i){return !i.violation_month;});
     var phatOrders = allItems.filter(function(i){return !i.penalty_month;});
+    var doneOrders = allItems.filter(function(i){return i.violation_month && i.penalty_month;});
 
     var h = '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;background:#fff">' +
         '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH & NỘI BỘ — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + '/' + allItems.length + ')</span></div>' +
         '<div style="display:flex;gap:8px">' +
+        '<button onclick="_ceoSetFilter(null)" style="padding:8px 14px;background:' + (!_ceo.filter ? '#1e293b' : '#f1f5f9') + ';color:' + (!_ceo.filter ? '#fff' : '#64748b') + ';border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Tất Cả</button>' +
         '<button onclick="_ceoOpenUpdatePicker()" style="padding:8px 16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cập Nhật Lỗi</button>' +
         '<button onclick="_ceoOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Đơn Lỗi</button>' +
         '</div></div>';
 
-    // === 2 BIG STAT CARDS ===
-    h += '<div style="padding:12px 16px;display:flex;gap:16px;background:#fff;border-bottom:1px solid #e5e7eb">';
+    // === 3 STAT CARDS ===
+    h += '<div style="padding:12px 16px;display:flex;gap:12px;background:#fff;border-bottom:1px solid #e5e7eb">';
     // Card 1: Chưa Xử Lý
     h += '<div id="ceoCardXL" style="position:relative;flex:1">';
-    h += '<div onclick="_ceoToggleCardDrop(\'ceoDropXL\')" style="padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fecaca;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+    h += '<div onclick="_ceoCardClick(\'chua_xl\',\'ceoDropXL\')" style="padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_xl'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
     h += '<div style="font-size:32px">🔴</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#dc2626">' + cXL + '</div>';
     h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Xử Lý</div></div>';
-    h += '<div style="margin-left:auto;font-size:18px;color:#dc2626;transition:transform .2s" id="ceoArrowXL">▼</div>';
-    h += '</div>';
-    // Dropdown
+    h += '<div style="margin-left:auto;font-size:18px;color:#dc2626">▼</div></div>';
     h += '<div id="ceoDropXL" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;background:#fff;border:2px solid #fecaca;border-radius:10px;max-height:250px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12)">';
-    if (!xlOrders.length) { h += '<div style="padding:16px;text-align:center;color:#16a34a;font-weight:700">✅ Tất cả đã xử lý!</div>'; }
-    else { xlOrders.forEach(function(o) {
-      var rd = o.report_date ? new Date(o.report_date).toLocaleDateString('vi-VN') : '';
-      h += '<div onclick="_ceoOpenUpdateModal(' + o.id + ')" style="padding:10px 14px;border-bottom:1px solid #fef2f2;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .1s" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'">';
-      h += '<div><span style="font-weight:800;color:#ea580c;font-size:13px">' + (o.order_code || '#' + o.id) + '</span>';
-      h += '<span style="color:#9ca3af;font-size:11px;margin-left:8px">' + rd + '</span></div>';
-      h += '<span style="color:#dc2626;font-size:14px">→</span></div>';
-    }); }
+    if(!xlOrders.length){h+='<div style="padding:16px;text-align:center;color:#16a34a;font-weight:700">✅ Tất cả đã xử lý!</div>';}
+    else{xlOrders.forEach(function(o){var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'';h+='<div onclick="event.stopPropagation();_ceoOpenUpdateModal('+o.id+')" style="padding:10px 14px;border-bottom:1px solid #fef2f2;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'">'+'<div><span style="font-weight:800;color:#ea580c;font-size:13px">'+(o.order_code||'#'+o.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span></div><span style="color:#dc2626">→</span></div>';});}
     h += '</div></div>';
 
     // Card 2: Chưa Phạt
     h += '<div id="ceoCardPhat" style="position:relative;flex:1">';
-    h += '<div onclick="_ceoToggleCardDrop(\'ceoDropPhat\')" style="padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #fde68a;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+    h += '<div onclick="_ceoCardClick(\'chua_phat\',\'ceoDropPhat\')" style="padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid ' + (_ceo.filter==='chua_phat'?'#d97706':'#fde68a') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
     h += '<div style="font-size:32px">🟡</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#d97706">' + cPhat + '</div>';
     h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Phạt</div></div>';
-    h += '<div style="margin-left:auto;font-size:18px;color:#d97706;transition:transform .2s" id="ceoArrowPhat">▼</div>';
-    h += '</div>';
-    // Dropdown
+    h += '<div style="margin-left:auto;font-size:18px;color:#d97706">▼</div></div>';
     h += '<div id="ceoDropPhat" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;background:#fff;border:2px solid #fde68a;border-radius:10px;max-height:250px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12)">';
-    if (!phatOrders.length) { h += '<div style="padding:16px;text-align:center;color:#16a34a;font-weight:700">✅ Tất cả đã phạt!</div>'; }
-    else { phatOrders.forEach(function(o) {
-      var rd = o.report_date ? new Date(o.report_date).toLocaleDateString('vi-VN') : '';
-      h += '<div onclick="_ceoOpenUpdateModal(' + o.id + ')" style="padding:10px 14px;border-bottom:1px solid #fef3c7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .1s" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'">';
-      h += '<div><span style="font-weight:800;color:#ea580c;font-size:13px">' + (o.order_code || '#' + o.id) + '</span>';
-      h += '<span style="color:#9ca3af;font-size:11px;margin-left:8px">' + rd + '</span></div>';
-      h += '<span style="color:#d97706;font-size:14px">→</span></div>';
-    }); }
+    if(!phatOrders.length){h+='<div style="padding:16px;text-align:center;color:#16a34a;font-weight:700">✅ Tất cả đã phạt!</div>';}
+    else{phatOrders.forEach(function(o){var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'';h+='<div onclick="event.stopPropagation();_ceoOpenUpdateModal('+o.id+')" style="padding:10px 14px;border-bottom:1px solid #fef3c7;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'">'+'<div><span style="font-weight:800;color:#ea580c;font-size:13px">'+(o.order_code||'#'+o.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span></div><span style="color:#d97706">→</span></div>';});}
+    h += '</div></div>';
+
+    // Card 3: Hoàn Thành
+    h += '<div id="ceoCardDone" style="position:relative;flex:1">';
+    h += '<div onclick="_ceoCardClick(\'hoan_thanh\',\'ceoDropDone\')" style="padding:16px 20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid ' + (_ceo.filter==='hoan_thanh'?'#16a34a':'#bbf7d0') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(22,163,74,0.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+    h += '<div style="font-size:32px">🟢</div>';
+    h += '<div><div style="font-size:20px;font-weight:900;color:#16a34a">' + cDone + '</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#166534">Hoàn Thành</div></div>';
+    h += '<div style="margin-left:auto;font-size:18px;color:#16a34a">▼</div></div>';
+    h += '<div id="ceoDropDone" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;background:#fff;border:2px solid #bbf7d0;border-radius:10px;max-height:250px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12)">';
+    if(!doneOrders.length){h+='<div style="padding:16px;text-align:center;color:#9ca3af;font-weight:700">Chưa có đơn hoàn thành</div>';}
+    else{doneOrders.forEach(function(o){var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'';h+='<div onclick="event.stopPropagation();_ceoViewDetail('+o.id+')" style="padding:10px 14px;border-bottom:1px solid #f0fdf4;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">'+'<div><span style="font-weight:800;color:#16a34a;font-size:13px">'+(o.order_code||'#'+o.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span></div><span style="color:#16a34a">✓</span></div>';});}
     h += '</div></div>';
     h += '</div>';
+
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
@@ -645,17 +645,25 @@ async function _ceoSubmitUpdate(id){
   }catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 
-// ===== TOGGLE CARD DROPDOWN =====
+
+// ===== CARD CLICK = FILTER + TOGGLE =====
+function _ceoCardClick(filterName, dropId){
+  _ceo.filter = (_ceo.filter === filterName) ? null : filterName;
+  _ceoRenderTable();
+  if (_ceo.filter === filterName) {
+    var dd = document.getElementById(dropId);
+    if (dd) dd.style.display = "block";
+  }
+}
 function _ceoToggleCardDrop(id){
   var dd=document.getElementById(id);if(!dd)return;
-  var allDrops=['ceoDropXL','ceoDropPhat'];
+  var allDrops=['ceoDropXL','ceoDropPhat','ceoDropDone'];
   allDrops.forEach(function(d){if(d!==id){var el=document.getElementById(d);if(el)el.style.display='none';}});
   dd.style.display=dd.style.display==='none'?'block':'none';
 }
-// Close dropdowns on outside click
-document.addEventListener('click',function(e){
-  if(!e.target.closest('#ceoCardXL')&&!e.target.closest('#ceoCardPhat')){
-    var d1=document.getElementById('ceoDropXL'),d2=document.getElementById('ceoDropPhat');
-    if(d1)d1.style.display='none';if(d2)d2.style.display='none';
+document.addEventListener("click",function(e){
+  if(!e.target.closest('#ceoCardXL')&&!e.target.closest('#ceoCardPhat')&&!e.target.closest('#ceoCardDone')){
+    var d1=document.getElementById('ceoDropXL'),d2=document.getElementById('ceoDropPhat'),d3=document.getElementById('ceoDropDone');
+    if(d1)d1.style.display='none';if(d2)d2.style.display='none';if(d3)d3.style.display='none';
   }
 });
