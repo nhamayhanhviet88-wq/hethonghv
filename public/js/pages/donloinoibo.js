@@ -96,7 +96,7 @@ function _ltgRender(){
       var si=_ltgStatusInfo(item.status);
       var catName=item.category_name||'—';
       var deptBadges=depts.length?depts.map(function(dn){return '<span style="padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#e0f2fe;color:#0369a1;margin-right:2px">'+dn+'</span>';}).join(''):'<span style="color:#d1d5db">—</span>';
-      h+='<tr style="border-bottom:1px solid #f1f5f9" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
+      h+='<tr onclick="_ltgViewDetail('+item.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
       h+='<td style="padding:6px;text-align:center;color:#9ca3af;border-right:1px solid #f8fafc">'+(idx+1)+'</td>';
       h+='<td style="padding:6px;font-weight:700;color:#1e293b;border-right:1px solid #f8fafc">'+(item.error_name||'—')+'</td>';
       h+='<td style="padding:6px;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+catName+'</span></td>';
@@ -108,13 +108,75 @@ function _ltgRender(){
       h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_department||'—')+'</td>';
       h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_sale||'—')+'</td>';
       h+='<td style="padding:6px;white-space:nowrap">';
-      h+='<button onclick="_ltgOpenForm('+item.id+')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
-      h+='<button onclick="_ltgDelete('+item.id+')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
+      h+='<button onclick="event.stopPropagation();_ltgOpenForm('+item.id+')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
+      h+='<button onclick="event.stopPropagation();_ltgDelete('+item.id+')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
       h+='</td></tr>';
     });
   }
   h+='</tbody></table></div>';
   main.innerHTML=h;
+}
+
+// ===== DETAIL POPUP =====
+function _ltgViewDetail(id){
+  var item=_ltg.items.find(function(x){return x.id===id;});
+  if(!item)return;
+  var si=_ltgStatusInfo(item.status);
+  var catName=item.category_name||'—';
+  var depts=[];
+  try{depts=typeof item.departments==='string'?JSON.parse(item.departments||'[]'):(item.departments||[]);}catch(e){}
+  var imgs=[];
+  try{imgs=typeof item.error_images==='string'?JSON.parse(item.error_images||'[]'):(item.error_images||[]);}catch(e){}
+
+  var deptBadges=depts.length?depts.map(function(d){return '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">'+d+'</span>';}).join(' '):'—';
+
+  var sec=function(icon,title,content){
+    var lines=(content||'—').split('\n');
+    var formatted=lines.map(function(l){return '<div style="padding:2px 0">'+l+'</div>';}).join('');
+    return '<div style="margin-bottom:16px">'+
+      '<div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:6px;display:flex;align-items:center;gap:6px">'+icon+' '+title+'</div>'+
+      '<div style="padding:10px 14px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;font-size:12px;color:#334155;line-height:1.6">'+formatted+'</div>'+
+    '</div>';
+  };
+
+  var imgH='';
+  if(imgs.length){
+    imgH='<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:6px">📷 Hình Ảnh Lỗi</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
+    imgs.forEach(function(u){imgH+='<img src="'+u+'" onclick="window.open(\''+u+'\',\'_blank\')" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;transition:transform .2s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">';});
+    imgH+='</div></div>';
+  }
+  var vidH='';
+  if(item.error_video){
+    vidH='<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:6px">🎬 Video Lỗi</div><video src="'+item.error_video+'" controls style="max-width:100%;max-height:280px;border-radius:8px;border:1px solid #e5e7eb"></video></div>';
+  }
+
+  var ov=document.createElement('div');
+  ov.id='ltgDetailOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:750px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">'+
+    '<div style="padding:16px 20px;background:linear-gradient(135deg,#1e3a5f,#0f2a3a);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">'+
+      '<div style="display:flex;align-items:center;gap:10px"><div style="font-size:16px;font-weight:800;color:#fff">📋 '+(item.error_name||'')+'</div>'+
+      '<span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;color:'+si.c+';background:'+si.bg+'">'+si.icon+' '+si.l+'</span></div>'+
+      '<button onclick="document.getElementById(\'ltgDetailOv\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer">×</button>'+
+    '</div>'+
+    '<div style="padding:20px">'+
+      '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:#9ca3af;margin-bottom:4px">LOẠI LỖI</div><span style="padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+catName+'</span></div>'+
+        '<div style="flex:2"><div style="font-size:10px;font-weight:700;color:#9ca3af;margin-bottom:4px">BỘ PHẬN LỖI</div><div style="display:flex;gap:4px;flex-wrap:wrap">'+deptBadges+'</div></div>'+
+      '</div>'+
+      sec('🔧','Cách Khắc Phục / Xử Lý Lỗi',item.fix_guide)+
+      sec('💬','Hướng Dẫn Sale Tư Vấn',item.sale_guide)+
+      sec('🏭','Cam Kết Quản Lý Xưởng',item.commit_factory)+
+      sec('⚠️','Cam Kết Bộ Phận Lỗi',item.commit_department)+
+      sec('🤝','Cam Kết Sale',item.commit_sale)+
+      imgH+vidH+
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;border-top:1px solid #f1f5f9;padding-top:12px">'+
+        '<button onclick="document.getElementById(\'ltgDetailOv\').remove();_ltgOpenForm('+item.id+')" style="padding:8px 20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Chỉnh Sửa</button>'+
+        '<button onclick="document.getElementById(\'ltgDetailOv\').remove()" style="padding:8px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Đóng</button>'+
+      '</div>'+
+    '</div></div>';
+  document.body.appendChild(ov);
 }
 
 function _ltgCard(icon,label,count,color,bg,border,status){
