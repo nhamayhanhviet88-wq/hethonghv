@@ -91,7 +91,7 @@ function _ceoRenderTable() {
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
     var cXL = allItems.filter(function(i){return !i.violation_month;}).length;
     var cPhat = allItems.filter(function(i){return !i.penalty_month;}).length;
-
+    var cDone = allItems.filter(function(i){return i.violation_month && i.penalty_month;}).length;
     // Build order lists
     var xlOrders = allItems.filter(function(i){return !i.violation_month;});
     var phatOrders = allItems.filter(function(i){return !i.penalty_month;});
