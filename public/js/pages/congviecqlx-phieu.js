@@ -29,6 +29,20 @@ function _qlxWtSI(s){
     if(s==='closed')return{l:'Đã Đóng',c:'#6b7280',bg:'#f3f4f6',icon:'⚫'};
     return{l:'Chờ Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
 }
+// Get display status for the 5-card dashboard logic
+function _qlxWtDisplayStatus(t){
+    var today=vnDateStr();
+    var created=t.created_at?new Date(t.created_at).toISOString().slice(0,10):'';
+    var resolvedAt=t.resolved_at?new Date(t.resolved_at).toISOString().slice(0,10):'';
+    if(t.status==='resolved'||t.status==='closed'){
+        if(resolvedAt===today)return{l:'Đã Xử Lý Hôm Nay',c:'#16a34a',bg:'#f0fdf4',icon:'✅'};
+        return{l:'Hoàn Thành',c:'#0891b2',bg:'#ecfeff',icon:'🏆'};
+    }
+    // pending or in_progress
+    if(created<today)return{l:'Xử Lý Trễ',c:'#d97706',bg:'#fef3c7',icon:'⏰'};
+    if(created===today)return{l:'Hôm Nay Phải Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔥'};
+    return{l:'Chờ Xử Lý',c:'#7c3aed',bg:'#f5f3ff',icon:'⏳'};
+}
 function _qlxWtRender(){
     var m=document.getElementById('_qlxWtMain');if(!m)return;
     var st=_qlxWt.stats,items=_qlxWt.tickets,h='';
@@ -50,22 +64,24 @@ function _qlxWtRender(){
     // Table
     h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e2e8f0"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     h+='<thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1)">';
-    ['STT','Ngày Tạo','Mã Phiếu','Tiêu Đề','Mã Đơn Yêu Cầu','Người Tạo','Người Nhận','Trả Lời Yêu Cầu'].forEach(function(c){
+    ['STT','Ngày Tạo','Mã Đơn','Mã Phiếu','Tiêu Đề','Nội Dung Yêu Cầu','Trạng Thái','Người Tạo','Người Nhận','Trả Lời Yêu Cầu'].forEach(function(c){
         h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">'+c+'</th>';
     });
     h+='</tr></thead><tbody>';
     if(!items.length){
-        h+='<tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af">Chưa có phiếu xử lý nào</td></tr>';
+        h+='<tr><td colspan="10" style="padding:40px;text-align:center;color:#9ca3af">Chưa có phiếu xử lý nào</td></tr>';
     }else{
         items.forEach(function(t,idx){
-            var si=_qlxWtSI(t.status);
+            var ds=_qlxWtDisplayStatus(t);
             var late=(t.status==='pending'||t.status==='in_progress')&&t.created_at&&new Date(t.created_at).toISOString().slice(0,10)<vnDateStr();
-            h+='<tr onclick="_qlxWtDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f7ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">';
+            h+='<tr onclick="_qlxWtDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f7ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">'; 
             h+='<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">'+(idx+1)+'</td>';
             h+='<td style="padding:6px;color:#64748b;font-size:11px;white-space:nowrap">'+vnFormat(t.created_at)+'</td>';
+            h+='<td style="padding:6px;color:#64748b;font-weight:600">'+(t.order_code||'—')+'</td>';
             h+='<td style="padding:6px;font-weight:800;color:#0369a1">'+(t.ticket_code||'—')+'</td>';
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
-            h+='<td style="padding:6px;color:#64748b">'+(t.order_code||'—')+'</td>';
+            h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+ds.bg+';color:'+ds.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+ds.c+'22">'+ds.icon+' '+ds.l+'</span></td>';
             h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
             h+='<td style="padding:6px;color:#d97706;font-weight:600;white-space:nowrap">'+(t.assigned_to_name||'—')+'</td>';
             h+='<td style="padding:6px;text-align:center"><span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">💬 '+(t.reply_count||0)+'</span></td>';
