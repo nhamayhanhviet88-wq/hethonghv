@@ -147,6 +147,61 @@ async function routes(fastify) {
         await db.run('DELETE FROM common_errors WHERE id = $1', [request.params.id]);
         return { success: true };
     });
+
+    // ========== IMAGE UPLOAD ==========
+    const path = require('path');
+    const fs = require('fs');
+    const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'common-errors');
+    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+    // POST /api/common-errors-tpl/:id/images — upload images
+    fastify.post('/api/common-errors-tpl/:id/images', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const existing = await db.get('SELECT id, error_images FROM common_errors WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy' };
+
+        const parts = request.parts();
+        let imgs = [];
+        try { imgs = typeof existing.error_images === 'string' ? JSON.parse(existing.error_images || '[]') : (existing.error_images || []); } catch(e) {}
+
+        for await (const part of parts) {
+            if (part.file) {
+                const ext = path.extname(part.filename || '.jpg').toLowerCase();
+                const fname = 'ce_' + id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + ext;
+                const fpath = path.join(UPLOAD_DIR, fname);
+                const buf = await part.toBuffer();
+                fs.writeFileSync(fpath, buf);
+                imgs.push('/uploads/common-errors/' + fname);
+            }
+        }
+
+        await db.run('UPDATE common_errors SET error_images = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(imgs), id]);
+        return { success: true, images: imgs };
+    });
+
+    // POST /api/common-errors-tpl/:id/video — upload video
+    fastify.post('/api/common-errors-tpl/:id/video', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const existing = await db.get('SELECT id FROM common_errors WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy' };
+
+        const parts = request.parts();
+        let videoUrl = null;
+        for await (const part of parts) {
+            if (part.file) {
+                const ext = path.extname(part.filename || '.mp4').toLowerCase();
+                const fname = 'cev_' + id + '_' + Date.now() + ext;
+                const fpath = path.join(UPLOAD_DIR, fname);
+                const buf = await part.toBuffer();
+                fs.writeFileSync(fpath, buf);
+                videoUrl = '/uploads/common-errors/' + fname;
+            }
+        }
+        if (videoUrl) {
+            await db.run('UPDATE common_errors SET error_video = $1, updated_at = NOW() WHERE id = $2', [videoUrl, id]);
+        }
+        return { success: true, video: videoUrl };
+    });
 }
 
 module.exports = routes;

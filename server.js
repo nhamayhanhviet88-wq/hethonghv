@@ -839,6 +839,9 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_ce_category ON common_errors(error_category_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_ce_status ON common_errors(status)`);
+        // v13b: Add images and video columns
+        try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS error_images JSONB DEFAULT '[]'`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS error_video TEXT`); } catch(e) {}
     } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
 
     // Plugins

@@ -130,11 +130,27 @@ function _ltgCard(icon,label,count,color,bg,border,status){
 function _ltgSetFilter(s){_ltg.filter=(_ltg.filter===s)?null:s;_ltgLoadList();}
 function _ltgSetDept(d){_ltg.deptFilter=(_ltg.deptFilter===d)?null:d;_ltgLoadList();}
 
+// ===== AUTO-NUMBER for textareas =====
+function _ltgAutoNum(el){
+  el.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){
+      e.preventDefault();
+      var v=el.value,pos=el.selectionStart;
+      var lines=v.substring(0,pos).split('\n');
+      var next=lines.length+1;
+      var insert='\n'+next+'. ';
+      el.value=v.substring(0,pos)+insert+v.substring(pos);
+      el.selectionStart=el.selectionEnd=pos+insert.length;
+    }
+  });
+  // Init with "1. " if empty
+  if(!el.value.trim())el.value='1. ';
+}
+
 // ===== FORM — Create/Edit =====
 async function _ltgOpenForm(id){
   var item=null;
   if(id){item=_ltg.items.find(function(x){return x.id===id;});}
-  // Load categories
   var cats=_ltg.categories;
   var ov=document.createElement('div');
   ov.id='ltgFormOv';
@@ -143,44 +159,64 @@ async function _ltgOpenForm(id){
 
   var catOpts='<option value="">— Chọn loại lỗi —</option>';
   cats.forEach(function(c){catOpts+='<option value="'+c.id+'"'+(item&&item.error_category_id==c.id?' selected':'')+'>'+c.name+'</option>';});
-
   var deptOpts='<option value="">— Chọn bộ phận —</option>';
   LTG_DEPTS.forEach(function(d){deptOpts+='<option value="'+d.k+'"'+(item&&item.department===d.k?' selected':'')+'>'+d.l+'</option>';});
-
   var statusOpts='';
   [['pending','🔴 Chưa Xử Lý'],['in_progress','🟡 Đang Xử Lý'],['resolved','🟢 Đã Xử Lý']].forEach(function(s){
     statusOpts+='<option value="'+s[0]+'"'+(item&&item.status===s[0]?' selected':(!item&&s[0]==='pending'?' selected':''))+'>'+s[1]+'</option>';
   });
 
-  var fld=function(label,name,type,val){
-    if(type==='select')return '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">'+label+'</label><select id="ltgF_'+name+'" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'+val+'</select></div>';
-    if(type==='textarea')return '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">'+label+'</label><textarea id="ltgF_'+name+'" rows="3" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;resize:vertical">'+(val||'')+'</textarea></div>';
-    return '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">'+label+'</label><input id="ltgF_'+name+'" type="text" value="'+(val||'')+'" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px"></div>';
+  var req='<span style="color:#dc2626"> *</span>';
+  var fld=function(label,name,type,val,required){
+    var star=required?req:'';
+    if(type==='select')return '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">'+label+star+'</label><select id="ltgF_'+name+'" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'+val+'</select></div>';
+    if(type==='textarea')return '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">'+label+star+'</label><textarea id="ltgF_'+name+'" rows="4" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;resize:vertical;font-family:inherit">'+(val||'')+'</textarea></div>';
+    return '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">'+label+star+'</label><input id="ltgF_'+name+'" type="text" value="'+(val||'')+'" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px"></div>';
   };
 
-  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">'+
+  // Existing images preview
+  var existImgs=[];
+  if(item){try{existImgs=typeof item.error_images==='string'?JSON.parse(item.error_images||'[]'):(item.error_images||[]);}catch(e){}}
+  var imgPrev='';
+  existImgs.forEach(function(u){imgPrev+='<img src="'+u+'" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb">';});
+
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:750px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">'+
     '<div style="padding:16px 20px;background:linear-gradient(135deg,#1e3a5f,#0f2a3a);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">'+
       '<div style="font-size:15px;font-weight:800;color:#fff">'+(id?'✏️ Chỉnh Sửa':'➕ Thêm')+' Lỗi Thường Gặp</div>'+
       '<button onclick="document.getElementById(\'ltgFormOv\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer">×</button>'+
     '</div>'+
     '<div style="padding:20px">'+
-      fld('Tên Lỗi *','error_name','text',item?item.error_name:'')+
+      fld('Tên Lỗi','error_name','text',item?item.error_name:'',true)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
-        fld('Loại Lỗi','category','select',catOpts)+
-        fld('Bộ Phận Lỗi','department','select',deptOpts)+
+        fld('Loại Lỗi','category','select',catOpts,true)+
+        fld('Bộ Phận Lỗi','department','select',deptOpts,false)+
       '</div>'+
-      fld('Tình Trạng','status','select',statusOpts)+
-      fld('Cách Khắc Phục / Xử Lý Lỗi','fix_guide','textarea',item?item.fix_guide:'')+
-      fld('Hướng Dẫn Sale Tư Vấn','sale_guide','textarea',item?item.sale_guide:'')+
-      fld('Cam Kết Quản Lý Xưởng','commit_factory','textarea',item?item.commit_factory:'')+
-      fld('Cam Kết Bộ Phận Lỗi','commit_department','textarea',item?item.commit_department:'')+
-      fld('Cam Kết Sale','commit_sale','textarea',item?item.commit_sale:'')+
+      fld('Tình Trạng','status','select',statusOpts,false)+
+      fld('Cách Khắc Phục / Xử Lý Lỗi','fix_guide','textarea',item?item.fix_guide:'',true)+
+      fld('Hướng Dẫn Sale Tư Vấn','sale_guide','textarea',item?item.sale_guide:'',true)+
+      fld('Cam Kết Quản Lý Xưởng','commit_factory','textarea',item?item.commit_factory:'',true)+
+      fld('Cam Kết Bộ Phận Lỗi','commit_department','textarea',item?item.commit_department:'',true)+
+      fld('Cam Kết Sale','commit_sale','textarea',item?item.commit_sale:'',true)+
+      // Image upload
+      '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📷 Hình Ảnh Lỗi</label>'+
+      '<div id="ltgF_imgPreview" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">'+imgPrev+'</div>'+
+      '<input type="file" id="ltgF_images" accept="image/*" multiple style="font-size:12px"></div>'+
+      // Video upload
+      '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">🎬 Video Lỗi</label>'+
+      (item&&item.error_video?'<video src="'+item.error_video+'" controls style="max-width:200px;max-height:120px;border-radius:8px;margin-bottom:6px"></video><br>':'')+
+      '<input type="file" id="ltgF_video" accept="video/*" style="font-size:12px"></div>'+
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'+
         '<button onclick="document.getElementById(\'ltgFormOv\').remove()" style="padding:8px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Hủy</button>'+
         '<button onclick="_ltgSubmitForm('+(id||'null')+')" style="padding:8px 20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">'+(id?'Cập Nhật':'Tạo Mới')+'</button>'+
       '</div>'+
     '</div></div>';
   document.body.appendChild(ov);
+
+  // Attach auto-numbering to 5 textareas
+  ['fix_guide','sale_guide','commit_factory','commit_department','commit_sale'].forEach(function(n){
+    var el=document.getElementById('ltgF_'+n);
+    if(el)_ltgAutoNum(el);
+  });
 }
 
 async function _ltgSubmitForm(id){
@@ -195,12 +231,37 @@ async function _ltgSubmitForm(id){
     commit_department:document.getElementById('ltgF_commit_department').value.trim(),
     commit_sale:document.getElementById('ltgF_commit_sale').value.trim()
   };
+  // Validation
   if(!body.error_name){showToast('Vui lòng nhập Tên Lỗi','error');return;}
+  if(!body.error_category_id){showToast('Vui lòng chọn Loại Lỗi','error');return;}
+  if(!body.fix_guide||body.fix_guide==='1. '){showToast('Vui lòng nhập Cách Khắc Phục / Xử Lý Lỗi','error');return;}
+  if(!body.sale_guide||body.sale_guide==='1. '){showToast('Vui lòng nhập Hướng Dẫn Sale Tư Vấn','error');return;}
+  if(!body.commit_factory||body.commit_factory==='1. '){showToast('Vui lòng nhập Cam Kết Quản Lý Xưởng','error');return;}
+  if(!body.commit_department||body.commit_department==='1. '){showToast('Vui lòng nhập Cam Kết Bộ Phận Lỗi','error');return;}
+  if(!body.commit_sale||body.commit_sale==='1. '){showToast('Vui lòng nhập Cam Kết Sale','error');return;}
+
   try{
     var r;
     if(id){r=await apiCall('/api/common-errors-tpl/'+id,'PUT',body);}
     else{r=await apiCall('/api/common-errors-tpl','POST',body);}
     if(r.error){showToast(r.error,'error');return;}
+    var targetId=id||r.item.id;
+
+    // Upload images if selected
+    var imgInput=document.getElementById('ltgF_images');
+    if(imgInput&&imgInput.files&&imgInput.files.length>0){
+      var fd=new FormData();
+      for(var i=0;i<imgInput.files.length;i++)fd.append('images',imgInput.files[i]);
+      await fetch('/api/common-errors-tpl/'+targetId+'/images',{method:'POST',body:fd,credentials:'include'});
+    }
+    // Upload video if selected
+    var vidInput=document.getElementById('ltgF_video');
+    if(vidInput&&vidInput.files&&vidInput.files.length>0){
+      var vd=new FormData();
+      vd.append('video',vidInput.files[0]);
+      await fetch('/api/common-errors-tpl/'+targetId+'/video',{method:'POST',body:vd,credentials:'include'});
+    }
+
     showToast('✅ '+(id?'Đã cập nhật':'Đã tạo')+' lỗi thường gặp!');
     document.getElementById('ltgFormOv').remove();
     _ltgLoadAll();
