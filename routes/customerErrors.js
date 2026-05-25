@@ -168,11 +168,11 @@ async function routes(fastify) {
             'error_content', 'sale_resolution', 'violator_name',
             'production_cost', 'shipping_cost', 'violation_month',
             'penalty_month', 'violator_commitment', 'fix_plan', 'common_error_type',
-            'error_department', 'resolution_status'
+            'error_department', 'resolution_status', 'penalty_total'
         ];
         if (!ALLOWED.includes(field)) return { error: 'Trường không hợp lệ' };
 
-        const numericFields = ['error_quantity', 'production_cost', 'shipping_cost'];
+        const numericFields = ['error_quantity', 'production_cost', 'shipping_cost', 'penalty_total'];
         const finalValue = numericFields.includes(field) ? (Number(value) || 0) : (value || null);
 
         await db.run(
