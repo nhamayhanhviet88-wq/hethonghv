@@ -32,15 +32,16 @@ function _qlxWtSI(s){
 // Get display status for the 5-card dashboard logic
 function _qlxWtDisplayStatus(t){
     var today=vnDateStr();
-    var created=t.created_at?new Date(t.created_at).toISOString().slice(0,10):'';
+    var dueDate=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
     var resolvedAt=t.resolved_at?new Date(t.resolved_at).toISOString().slice(0,10):'';
     if(t.status==='resolved'||t.status==='closed'){
         if(resolvedAt===today)return{l:'Đã Xử Lý Hôm Nay',c:'#16a34a',bg:'#f0fdf4',icon:'✅'};
         return{l:'Hoàn Thành',c:'#0891b2',bg:'#ecfeff',icon:'🏆'};
     }
-    // pending or in_progress
-    if(created<today)return{l:'Xử Lý Trễ',c:'#d97706',bg:'#fef3c7',icon:'⏰'};
-    if(created===today)return{l:'Hôm Nay Phải Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔥'};
+    // pending or in_progress — check due_date for overdue
+    if(dueDate&&dueDate<today)return{l:'Xử Lý Trễ',c:'#d97706',bg:'#fef3c7',icon:'⏰'};
+    if(dueDate===today)return{l:'Hôm Nay Phải Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔥'};
+    if(!dueDate){var created=t.created_at?new Date(t.created_at).toISOString().slice(0,10):'';if(created<today)return{l:'Xử Lý Trễ',c:'#d97706',bg:'#fef3c7',icon:'⏰'};if(created===today)return{l:'Hôm Nay Phải Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔥'};}
     return{l:'Chờ Xử Lý',c:'#7c3aed',bg:'#f5f3ff',icon:'⏳'};
 }
 function _qlxWtRender(){
@@ -64,7 +65,7 @@ function _qlxWtRender(){
     // Table
     h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e2e8f0"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     h+='<thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1)">';
-    ['STT','Ngày Tạo','Mã Đơn','Mã Phiếu','Tiêu Đề','Nội Dung Yêu Cầu','Trạng Thái','Người Tạo','Người Nhận','Trả Lời Yêu Cầu'].forEach(function(c){
+    ['STT','Ngày Tạo','Mã Đơn','Trạng Thái','Ngày Hẹn Xử Lý','Tiêu Đề','Nội Dung Yêu Cầu','Người Tạo','Người Nhận','Trả Lời Yêu Cầu'].forEach(function(c){
         h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">'+c+'</th>';
     });
     h+='</tr></thead><tbody>';
@@ -73,15 +74,16 @@ function _qlxWtRender(){
     }else{
         items.forEach(function(t,idx){
             var ds=_qlxWtDisplayStatus(t);
-            var late=(t.status==='pending'||t.status==='in_progress')&&t.created_at&&new Date(t.created_at).toISOString().slice(0,10)<vnDateStr();
+            var dueD=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
+            var late=ds.l==='Xử Lý Trễ';
             h+='<tr onclick="_qlxWtDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f7ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">'; 
             h+='<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">'+(idx+1)+'</td>';
             h+='<td style="padding:6px;color:#64748b;font-size:11px;white-space:nowrap">'+vnFormat(t.created_at)+'</td>';
             h+='<td style="padding:6px;color:#64748b;font-weight:600">'+(t.order_code||'—')+'</td>';
-            h+='<td style="padding:6px;font-weight:800;color:#0369a1">'+(t.ticket_code||'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+ds.bg+';color:'+ds.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+ds.c+'22">'+ds.icon+' '+ds.l+'</span></td>';
+            h+='<td style="padding:6px;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+(dueD?dueD.split('-').reverse().join('/'):'—')+'</td>';
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
             h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||'—')+'</td>';
-            h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+ds.bg+';color:'+ds.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+ds.c+'22">'+ds.icon+' '+ds.l+'</span></td>';
             h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
             h+='<td style="padding:6px;color:#d97706;font-weight:600;white-space:nowrap">'+(t.assigned_to_name||'—')+'</td>';
             h+='<td style="padding:6px;text-align:center"><span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">💬 '+(t.reply_count||0)+'</span></td>';
@@ -133,6 +135,8 @@ async function _qlxWtDetail(id){
             +'<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb"><div style="font-size:10px;color:#9ca3af;font-weight:700">NGƯỜI NHẬN</div><div style="font-size:12px;font-weight:700;color:#d97706">'+(t.assigned_to_name||'—')+'</div></div>'
             +'<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb"><div style="font-size:10px;color:#9ca3af;font-weight:700">MÃ ĐƠN YÊU CẦU</div><div style="font-size:12px;font-weight:700;color:#1e293b">'+(t.order_code||'—')+'</div></div>'
             +'<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb"><div style="font-size:10px;color:#9ca3af;font-weight:700">NGÀY TẠO</div><div style="font-size:12px;font-weight:700;color:#1e293b">'+vnFormat(t.created_at)+'</div></div>'
+            +'<div style="padding:8px 12px;background:'+(t.due_date?'#fefce8':'#f8fafc')+';border-radius:8px;border:1px solid '+(t.due_date?'#fde68a':'#e5e7eb')+'"><div style="font-size:10px;color:#9ca3af;font-weight:700">📅 NGÀY HẸN XỬ LÝ</div><div style="font-size:12px;font-weight:700;color:'+(t.due_date?'#d97706':'#9ca3af')+'">'+(t.due_date?new Date(t.due_date).toISOString().slice(0,10).split('-').reverse().join('/'):'Chưa đặt')+'</div></div>'
+            +'<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb"><div style="font-size:10px;color:#9ca3af;font-weight:700">MÃ PHIẾU</div><div style="font-size:12px;font-weight:700;color:#0369a1">'+(t.ticket_code||'—')+'</div></div>'
             +'</div>'
             +(t.description?'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px">📝 Mô tả</div><div style="padding:10px 14px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;font-size:12px;color:#334155;line-height:1.6">'+t.description.replace(/\n/g,'<br>')+'</div></div>':'')
             +'<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">💬 Trả Lời Yêu Cầu ('+rps.length+')</div>'
@@ -190,7 +194,10 @@ function _qlxWtOpenForm(){
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
         +'<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Người Nhận <span style="color:#dc2626">*</span></label><select id="_qlxF_a" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'+opts+'</select></div>'
         +'<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Mức Ưu Tiên</label><select id="_qlxF_p" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px"><option value="CHUẨN">CHUẨN</option><option value="GẤP">🔥 GẤP</option></select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
         +'<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Mã Đơn Yêu Cầu (tùy chọn)</label><input id="_qlxF_o" type="text" placeholder="VD: HV001234" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box"></div>'
+        +'<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📅 Ngày Hẹn Xử Lý</label><input id="_qlxF_due" type="date" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box"></div>'
+        +'</div>'
         +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'
         +'<button onclick="document.getElementById(\'_qlxWtFOv\').remove()" style="padding:8px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Hủy</button>'
         +'<button onclick="_qlxWtSubmit()" style="padding:8px 20px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Tạo Phiếu</button>'
@@ -203,10 +210,11 @@ async function _qlxWtSubmit(){
     var assigned=(document.getElementById('_qlxF_a')||{}).value||'';
     var priority=(document.getElementById('_qlxF_p')||{}).value||'CHUẨN';
     var orderCode=(document.getElementById('_qlxF_o')||{}).value||'';
+    var dueDate=(document.getElementById('_qlxF_due')||{}).value||'';
     title=title.trim();if(!title){showToast('Vui lòng nhập tiêu đề','error');return;}
     if(!assigned){showToast('Vui lòng chọn người nhận','error');return;}
     try{
-        var r=await apiCall('/api/work-tickets','POST',{title:title,description:desc.trim(),assigned_to:parseInt(assigned),priority:priority,order_code:orderCode.trim()||null,type:'custom'});
+        var r=await apiCall('/api/work-tickets','POST',{title:title,description:desc.trim(),assigned_to:parseInt(assigned),priority:priority,order_code:orderCode.trim()||null,due_date:dueDate||null,type:'custom'});
         if(r.error){showToast(r.error,'error');return;}
         showToast(r.message||'✅ Đã tạo phiếu');
         var ov=document.getElementById('_qlxWtFOv');if(ov)ov.remove();

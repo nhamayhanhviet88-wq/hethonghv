@@ -32,6 +32,8 @@ async function routes(fastify) {
             created_at TIMESTAMPTZ DEFAULT NOW()
         )`);
     } catch(e) { /* tables exist */ }
+    // Add due_date column if missing
+    try { await db.exec(`ALTER TABLE work_tickets ADD COLUMN IF NOT EXISTS due_date DATE`); } catch(e) {}
 
     // ========== GET /api/work-tickets/staff — All staff for sidebar ==========
     fastify.get('/api/work-tickets/staff', { preHandler: authenticate }, async (request) => {
@@ -61,9 +63,9 @@ async function routes(fastify) {
         const stats = await db.get(`
             SELECT
                 COUNT(*)::int AS total,
-                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND t.created_at::date = '${todayVN}'::date)::int AS today_due,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND COALESCE(t.due_date, t.created_at::date) = '${todayVN}'::date)::int AS today_due,
                 COUNT(*) FILTER (WHERE t.status IN ('resolved','closed') AND (t.resolved_at::date = '${todayVN}'::date OR t.updated_at::date = '${todayVN}'::date))::int AS today_resolved,
-                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND t.created_at::date < '${todayVN}'::date)::int AS overdue,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND COALESCE(t.due_date, t.created_at::date) < '${todayVN}'::date)::int AS overdue,
                 COUNT(*) FILTER (WHERE t.status = 'pending')::int AS pending,
                 COUNT(*) FILTER (WHERE t.status = 'in_progress')::int AS in_progress,
                 COUNT(*) FILTER (WHERE t.status IN ('resolved','closed'))::int AS completed,
@@ -93,13 +95,13 @@ async function routes(fastify) {
             const todayVN = vnNow().toISOString().slice(0, 10);
             if (status === 'today_due') {
                 // Phiếu pending/in_progress được tạo hôm nay
-                conditions.push(`t.status IN ('pending','in_progress') AND t.created_at::date = '${todayVN}'::date`);
+                conditions.push(`t.status IN ('pending','in_progress') AND COALESCE(t.due_date, t.created_at::date) = '${todayVN}'::date`);
             } else if (status === 'today_resolved') {
                 // Phiếu đã xử lý/đóng trong ngày hôm nay
                 conditions.push(`t.status IN ('resolved','closed') AND (t.resolved_at::date = '${todayVN}'::date OR t.updated_at::date = '${todayVN}'::date)`);
             } else if (status === 'overdue') {
                 // Phiếu pending/in_progress tạo trước hôm nay → trễ
-                conditions.push(`t.status IN ('pending','in_progress') AND t.created_at::date < '${todayVN}'::date`);
+                conditions.push(`t.status IN ('pending','in_progress') AND COALESCE(t.due_date, t.created_at::date) < '${todayVN}'::date`);
             } else if (status === 'completed') {
                 // Tổng phiếu đã resolved hoặc closed
                 conditions.push(`t.status IN ('resolved','closed')`);
@@ -141,7 +143,7 @@ async function routes(fastify) {
 
     // ========== POST /api/work-tickets — Create ticket ==========
     fastify.post('/api/work-tickets', { preHandler: authenticate }, async (request) => {
-        const { type, order_id, order_code, title, description, priority, assigned_to } = request.body;
+        const { type, order_id, order_code, title, description, priority, assigned_to, due_date } = request.body;
         const userId = request.user.id;
 
         if (!title || !title.trim()) return { error: 'Tiêu đề không được để trống' };
@@ -157,9 +159,9 @@ async function routes(fastify) {
         const ticketCode = 'PHIEUHV' + String(nextNum).padStart(4, '0');
 
         await db.run(`
-            INSERT INTO work_tickets (ticket_code, type, order_id, order_code, title, description, priority, status, created_by, assigned_to, created_at, updated_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$10)
-        `, [ticketCode, type || 'custom', order_id || null, order_code || null, title.trim(), description || '', priority || 'CHUẨN', userId, parseInt(assigned_to), vnNow()]);
+            INSERT INTO work_tickets (ticket_code, type, order_id, order_code, title, description, priority, status, created_by, assigned_to, due_date, created_at, updated_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$11)
+        `, [ticketCode, type || 'custom', order_id || null, order_code || null, title.trim(), description || '', priority || 'CHUẨN', userId, parseInt(assigned_to), due_date || null, vnNow()]);
 
         return { success: true, ticket_code: ticketCode, message: '✅ Đã tạo phiếu ' + ticketCode };
     });
