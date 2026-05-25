@@ -2402,6 +2402,44 @@ async function _dhtErrorReturnHandover(orderId) {
     var errorItems = (returnData && returnData.items) || [];
     var orderCode = o.order_code || '—';
 
+    // Load QLX managers (quan_ly_cap_cao from HỆ THỐNG XƯỞNG HV department)
+    var qlxManagers = [];
+    try {
+        var deptRes = await apiCall('/api/departments');
+        var allDepts = (deptRes && deptRes.departments) || [];
+        // Find "HỆ THỐNG XƯỞNG HV" department and all its children
+        var xuongDept = allDepts.find(function(d) { return d.name && d.name.toUpperCase().indexOf('XƯỞNG HV') !== -1; });
+        var xuongDeptIds = [];
+        if (xuongDept) {
+            xuongDeptIds.push(xuongDept.id);
+            // Collect child department IDs
+            function collectChildDepts(parentId) {
+                allDepts.forEach(function(d) {
+                    if (d.parent_id === parentId) {
+                        xuongDeptIds.push(d.id);
+                        collectChildDepts(d.id);
+                    }
+                });
+            }
+            collectChildDepts(xuongDept.id);
+        }
+        var dropRes = await apiCall('/api/users/dropdown');
+        var allUsers = (dropRes && dropRes.users) || [];
+        qlxManagers = allUsers.filter(function(u) {
+            return u.role === 'quan_ly_cap_cao' && xuongDeptIds.indexOf(u.department_id) !== -1;
+        });
+        // If no QLCC found in Xưởng, fallback to all QLCC
+        if (qlxManagers.length === 0) {
+            qlxManagers = allUsers.filter(function(u) { return u.role === 'quan_ly_cap_cao'; });
+        }
+    } catch(e) { console.error('[ErrorReturn] load QLX managers:', e); }
+
+    // Build select options for QLX managers
+    var qlxSelectOptions = '<option value="">— Chọn Quản Lý Xưởng —</option>';
+    qlxManagers.forEach(function(m) {
+        qlxSelectOptions += '<option value="' + (m.full_name || m.username) + '">' + (m.full_name || m.username) + '</option>';
+    });
+
     // Build overlay
     var ov = document.createElement('div');
     ov.id = '_dhtErrorReturnOv';
@@ -2433,7 +2471,7 @@ async function _dhtErrorReturnHandover(orderId) {
 
             h += '<div style="padding:12px;background:' + statusBg + ';border:1px solid ' + statusBorder + ';border-radius:10px;margin-bottom:8px">';
             h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
-            h += '<span style="font-size:12px;font-weight:800;color:#1e293b">Đơn lỗi #' + ei.id + ' — ' + (ei.order_code || '') + '</span>';
+            h += '<span style="font-size:12px;font-weight:800;color:#1e293b">Đơn lỗi #' + (i + 1) + ' — ' + (ei.order_code || '') + '</span>';
             h += '<span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;color:' + statusColor + ';background:' + (isHandedOver ? '#dcfce7' : '#fee2e2') + '">' + statusIcon + ' ' + statusText + '</span>';
             h += '</div>';
             if (isHandedOver) {
@@ -2450,7 +2488,7 @@ async function _dhtErrorReturnHandover(orderId) {
                 h += '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed ' + statusBorder + '">';
                 h += '<div style="margin-bottom:8px">';
                 h += '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px">🏭 Bàn Giao Cho Quản Lý Xưởng <span style="color:#dc2626">*</span></label>';
-                h += '<input id="_errReturnTo_' + ei.id + '" type="text" placeholder="Nhập tên Quản Lý Xưởng..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'">';
+                h += '<select id="_errReturnTo_' + ei.id + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border .2s;background:#fff;cursor:pointer" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'">' + qlxSelectOptions + '</select>';
                 h += '</div>';
                 h += '<div style="margin-bottom:8px">';
                 h += '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px">📝 Ghi Chú</label>';
