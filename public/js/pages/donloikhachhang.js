@@ -125,17 +125,19 @@ function _ceoRenderTable() {
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Đơn Lỗi','Lỗi Thường Gặp','Ngày','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Video','Hình Ảnh','Cách Xử Lý Lỗi QLX',
+    var cols = ['Đơn Lỗi','Lỗi Thường Gặp','Ngày','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
         'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục'];
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
+        if (c === 'Xử Lý Tháng') extraStyle = 'background:#dc2626;color:#fef08a;';
+        if (c === 'Đã Phạt Tháng') extraStyle = 'background:#fef08a;color:#dc2626;';
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1);' + extraStyle + '">' + c + '</th>';
     });
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="17" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="16" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -162,13 +164,12 @@ function _ceoRenderTable() {
             h += '<td style="padding:6px;text-align:center;font-weight:700;border-right:1px solid #f8fafc">' + (Number(item.production_quantity)||'') + '</td>';
             h += '<td style="padding:6px;text-align:center;font-weight:700;color:#dc2626;border-right:1px solid #f8fafc">' + (Number(item.error_quantity)||'') + '</td>';
             h += '<td style="padding:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc;text-align:center">' + videoHtml + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc"><div style="display:flex;gap:2px;align-items:center">' + imgHtml + '</div></td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fff7ed;color:#c2410c;font-weight:700">' + (item.sale_resolution || '') + '</td>';
             h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.production_cost) + '</td>';
             h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.shipping_cost) + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violation_month || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.penalty_month || '') + '</td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef2f2;color:#fef08a;font-weight:700;background:#dc2626">' + (item.violation_month || '') + '</td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700">' + (item.penalty_month || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.fix_plan || '') + '</td>';
