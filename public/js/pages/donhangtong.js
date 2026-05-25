@@ -2491,8 +2491,8 @@ async function _dhtErrorReturnHandover(orderId) {
                 h += '<select id="_errReturnTo_' + ei.id + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border .2s;background:#fff;cursor:pointer" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'">' + qlxSelectOptions + '</select>';
                 h += '</div>';
                 h += '<div style="margin-bottom:8px">';
-                h += '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px">📝 Ghi Chú</label>';
-                h += '<textarea id="_errReturnNotes_' + ei.id + '" rows="3" placeholder="Nhập ghi chú bàn giao..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit;transition:border .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'"></textarea>';
+                h += '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px">📝 Nội Dung Yêu Cầu <span style="color:#dc2626">*</span></label>';
+                h += '<textarea id="_errReturnNotes_' + ei.id + '" rows="3" placeholder="Nhập nội dung yêu cầu xử lý..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit;transition:border .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'"></textarea>';
                 h += '</div>';
                 h += '<button onclick="_dhtSubmitErrorReturn(' + ei.id + ',' + orderId + ')" style="width:100%;padding:10px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">📦 Xác Nhận Bàn Giao QLX</button>';
                 h += '</div>';
@@ -2523,6 +2523,13 @@ async function _dhtSubmitErrorReturn(errorId, orderId) {
     if (!handedToId) {
         showToast('⚠️ Vui lòng chọn Quản Lý Xưởng', 'error');
         if (selectEl) selectEl.style.borderColor = '#dc2626';
+        return;
+    }
+
+    if (!notes) {
+        showToast('⚠️ Vui lòng nhập Nội Dung Yêu Cầu', 'error');
+        var notesEl = document.getElementById('_errReturnNotes_' + errorId);
+        if (notesEl) { notesEl.style.borderColor = '#dc2626'; notesEl.focus(); }
         return;
     }
 
