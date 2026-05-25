@@ -80,8 +80,8 @@ async function routes(fastify) {
                 violator_name, production_cost, shipping_cost,
                 violation_month, penalty_month, violator_commitment,
                 fix_plan, common_error_type, dht_order_id,
-                customer_name, production_quantity, linh_vuc, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                customer_name, production_quantity, linh_vuc, created_by, error_department
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
             RETURNING id
         `, [
             b.order_code || null,
@@ -103,7 +103,8 @@ async function routes(fastify) {
             b.customer_name || null,
             Number(b.production_quantity) || 0,
             b.linh_vuc || null,
-            userId
+            userId,
+            b.error_department || null
         ]);
 
         return { success: true, id: result.id };
@@ -127,8 +128,8 @@ async function routes(fastify) {
                 violator_commitment = $13, fix_plan = $14,
                 common_error_type = $15, dht_order_id = $16,
                 customer_name = $17, production_quantity = $18,
-                linh_vuc = $19, updated_at = NOW()
-            WHERE id = $20
+                linh_vuc = $19, error_department = $20, updated_at = NOW()
+            WHERE id = $21
         `, [
             b.order_code || null,
             b.report_date,
@@ -149,6 +150,7 @@ async function routes(fastify) {
             b.customer_name || null,
             Number(b.production_quantity) || 0,
             b.linh_vuc || null,
+            b.error_department || null,
             id
         ]);
 
@@ -165,7 +167,8 @@ async function routes(fastify) {
             'order_code', 'report_date', 'cskh_name', 'error_quantity',
             'error_content', 'sale_resolution', 'violator_name',
             'production_cost', 'shipping_cost', 'violation_month',
-            'penalty_month', 'violator_commitment', 'fix_plan', 'common_error_type'
+            'penalty_month', 'violator_commitment', 'fix_plan', 'common_error_type',
+            'error_department', 'resolution_status'
         ];
         if (!ALLOWED.includes(field)) return { error: 'Trường không hợp lệ' };
 
@@ -300,6 +303,120 @@ async function routes(fastify) {
         }
 
         return { success: true, video: videoUrl };
+    });
+
+    // ========== COMMON ERRORS — Lỗi Thường Gặp & Xử Lý ==========
+
+    // GET /api/common-errors/tree — sidebar tree grouped by year/month
+    fastify.get('/api/common-errors/tree', { preHandler: authenticate }, async () => {
+        const rows = await db.all(`
+            SELECT
+                EXTRACT(YEAR FROM report_date)::int AS year,
+                EXTRACT(MONTH FROM report_date)::int AS month,
+                COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE resolution_status = 'pending' OR resolution_status IS NULL)::int AS pending,
+                COUNT(*) FILTER (WHERE resolution_status = 'in_progress')::int AS in_progress,
+                COUNT(*) FILTER (WHERE resolution_status = 'resolved')::int AS resolved
+            FROM customer_error_orders
+            GROUP BY EXTRACT(YEAR FROM report_date), EXTRACT(MONTH FROM report_date)
+            ORDER BY year DESC, month DESC
+        `);
+        const total = rows.reduce((s, r) => s + r.count, 0);
+        const totalPending = rows.reduce((s, r) => s + r.pending, 0);
+        const totalInProgress = rows.reduce((s, r) => s + r.in_progress, 0);
+        const totalResolved = rows.reduce((s, r) => s + r.resolved, 0);
+        return { tree: rows, total, totalPending, totalInProgress, totalResolved };
+    });
+
+    // GET /api/common-errors/list — full list with repeat_count
+    fastify.get('/api/common-errors/list', { preHandler: authenticate }, async (request) => {
+        const { year, month, department, status } = request.query;
+        let where = 'WHERE 1=1';
+        const params = [];
+        let idx = 1;
+
+        if (year) { where += ` AND EXTRACT(YEAR FROM ceo.report_date) = $${idx++}`; params.push(Number(year)); }
+        if (month) { where += ` AND EXTRACT(MONTH FROM ceo.report_date) = $${idx++}`; params.push(Number(month)); }
+        if (department) { where += ` AND ceo.error_department = $${idx++}`; params.push(department); }
+        if (status) {
+            if (status === 'pending') where += ` AND (ceo.resolution_status = 'pending' OR ceo.resolution_status IS NULL)`;
+            else { where += ` AND ceo.resolution_status = $${idx++}`; params.push(status); }
+        }
+
+        const items = await db.all(`
+            SELECT ceo.*,
+                   u.full_name AS created_by_name,
+                   u2.full_name AS resolved_by_name,
+                   COUNT(*) OVER (PARTITION BY ceo.common_error_type, ceo.error_department)::int AS repeat_count
+            FROM customer_error_orders ceo
+            LEFT JOIN users u ON u.id = ceo.created_by
+            LEFT JOIN users u2 ON u2.id = ceo.resolved_by
+            ${where}
+            ORDER BY ceo.report_date DESC, ceo.id DESC
+        `, params);
+
+        return { items };
+    });
+
+    // GET /api/common-errors/stats — aggregate stats by department
+    fastify.get('/api/common-errors/stats', { preHandler: authenticate }, async (request) => {
+        const { year, month } = request.query;
+        let where = '';
+        const params = [];
+        let idx = 1;
+        if (year) { where += ` AND EXTRACT(YEAR FROM report_date) = $${idx++}`; params.push(Number(year)); }
+        if (month) { where += ` AND EXTRACT(MONTH FROM report_date) = $${idx++}`; params.push(Number(month)); }
+
+        const rows = await db.all(`
+            SELECT
+                error_department,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE resolution_status = 'pending' OR resolution_status IS NULL)::int AS pending,
+                COUNT(*) FILTER (WHERE resolution_status = 'in_progress')::int AS in_progress,
+                COUNT(*) FILTER (WHERE resolution_status = 'resolved')::int AS resolved
+            FROM customer_error_orders
+            WHERE 1=1 ${where}
+            GROUP BY error_department
+            ORDER BY total DESC
+        `, params);
+
+        // Overall stats
+        const overall = await db.get(`
+            SELECT
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE resolution_status = 'pending' OR resolution_status IS NULL)::int AS pending,
+                COUNT(*) FILTER (WHERE resolution_status = 'in_progress')::int AS in_progress,
+                COUNT(*) FILTER (WHERE resolution_status = 'resolved')::int AS resolved
+            FROM customer_error_orders
+            WHERE 1=1 ${where}
+        `, params);
+
+        return { byDepartment: rows, overall: overall || { total: 0, pending: 0, in_progress: 0, resolved: 0 } };
+    });
+
+    // PATCH /api/common-errors/:id/status — update resolution status
+    fastify.patch('/api/common-errors/:id/status', { preHandler: authenticate }, async (request) => {
+        const { status } = request.body;
+        const id = request.params.id;
+        const validStatuses = ['pending', 'in_progress', 'resolved'];
+        if (!validStatuses.includes(status)) return { error: 'Trạng thái không hợp lệ' };
+
+        const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        if (status === 'resolved') {
+            await db.run(
+                'UPDATE customer_error_orders SET resolution_status = $1, resolved_at = NOW(), resolved_by = $2, updated_at = NOW() WHERE id = $3',
+                [status, request.user.id, id]
+            );
+        } else {
+            await db.run(
+                'UPDATE customer_error_orders SET resolution_status = $1, resolved_at = NULL, resolved_by = NULL, updated_at = NOW() WHERE id = $2',
+                [status, id]
+            );
+        }
+
+        return { success: true };
     });
 }
 

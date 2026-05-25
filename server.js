@@ -802,6 +802,11 @@ async function start() {
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS production_quantity NUMERIC DEFAULT 0`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS linh_vuc TEXT`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS error_video TEXT`);
+        // v12b: Lỗi Thường Gặp & Xử Lý — department, resolution tracking
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS error_department TEXT`);
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolution_status TEXT DEFAULT 'pending'`);
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolved_by INTEGER`);
     } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
 
     // Plugins
