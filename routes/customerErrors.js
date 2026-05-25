@@ -53,6 +53,22 @@ async function routes(fastify) {
         return { items: rows };
     });
 
+    // ========== GET /api/customer-errors/by-order/:orderId/return-status — Check return status ==========
+    // ★ MUST be registered BEFORE /:id to prevent route conflict
+    fastify.get('/api/customer-errors/by-order/:orderId/return-status', { preHandler: authenticate }, async (request) => {
+        const orderId = Number(request.params.orderId);
+        const rows = await db.all(`
+            SELECT id, order_code, error_return_handed_over, error_return_handed_to,
+                   error_return_notes, error_return_at, error_return_by,
+                   u.full_name AS error_return_by_name
+            FROM customer_error_orders ceo
+            LEFT JOIN users u ON u.id = ceo.error_return_by
+            WHERE ceo.dht_order_id = $1
+            ORDER BY ceo.id DESC
+        `, [orderId]);
+        return { items: rows };
+    });
+
     // ========== GET /api/customer-errors/:id — Detail ==========
     fastify.get('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
         const row = await db.get(`
@@ -106,6 +122,28 @@ async function routes(fastify) {
             userId,
             b.error_department || null
         ]);
+
+        // ★ Create audit log entry for DHT order history
+        if (b.dht_order_id && result && result.id) {
+            try {
+                await db.run(
+                    `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [
+                        Number(b.dht_order_id),
+                        'error',
+                        '🚨 Đã báo đơn lỗi — SL lỗi: ' + (Number(b.error_quantity) || 0) + ' — NV vi phạm: ' + (b.violator_name || '—'),
+                        JSON.stringify([
+                            { field: 'error_quantity', label: 'Số lượng lỗi', old: null, new: String(Number(b.error_quantity) || 0) },
+                            { field: 'error_content', label: 'Nội dung lỗi', old: null, new: b.error_content || '' },
+                            { field: 'violator_name', label: 'Người vi phạm', old: null, new: b.violator_name || '' },
+                            { field: 'sale_resolution', label: 'Cách xử lý', old: null, new: b.sale_resolution || '' }
+                        ]),
+                        userId
+                    ]
+                );
+            } catch(auditErr) { console.error('[AuditLog] error report:', auditErr.message); }
+        }
 
         return { success: true, id: result.id };
     });
@@ -448,20 +486,7 @@ async function routes(fastify) {
         return { success: true };
     });
 
-    // ========== GET /api/customer-errors/by-order/:orderId/return-status — Check return status ==========
-    fastify.get('/api/customer-errors/by-order/:orderId/return-status', { preHandler: authenticate }, async (request) => {
-        const orderId = Number(request.params.orderId);
-        const rows = await db.all(`
-            SELECT id, order_code, error_return_handed_over, error_return_handed_to,
-                   error_return_notes, error_return_at, error_return_by,
-                   u.full_name AS error_return_by_name
-            FROM customer_error_orders ceo
-            LEFT JOIN users u ON u.id = ceo.error_return_by
-            WHERE ceo.dht_order_id = $1
-            ORDER BY ceo.id DESC
-        `, [orderId]);
-        return { items: rows };
-    });
+    // ★ by-order return-status route moved to top (before /:id) to prevent route conflict
 }
 
 module.exports = routes;

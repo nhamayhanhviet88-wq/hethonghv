@@ -2350,8 +2350,10 @@ async function _dhtSubmitErrorReport() {
         var overlay = document.getElementById('_dhtErrorOverlay');
         if (overlay) overlay.remove();
 
-        // Reload DHT to update badge
+        // Close main detail modal and re-open to refresh audit logs + icon states
+        closeModal();
         _dhtLoadOrders();
+        setTimeout(function() { _dhtShowDetail(o.id); }, 500);
 
     } catch(e) {
         showToast('❌ Lỗi: ' + e.message, 'error');
