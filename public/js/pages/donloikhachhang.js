@@ -518,6 +518,9 @@ async function _ceoOpenUpdateModal(id){
   h+='<option value="">-- Chọn loại lỗi --</option>';
   _ceo.commonErrors.forEach(function(ce){h+='<option value="'+ce.error_name+'"'+(item.common_error_type===ce.error_name?' selected':'')+'>'+ce.error_name+'</option>';});
   h+='</select></div>';
+  // Cách Xử Lý Lỗi QLX — auto-numbered, mandatory
+  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:800;color:#c2410c;margin-bottom:4px">Cách Xử Lý Lỗi QLX <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px;font-weight:500">(Enter = thêm dòng mới có số)</span></label>';
+  h+='<textarea id="ceoU_saleRes" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:2px solid #ea580c;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6;background:#fff7ed">'+(item.sale_resolution||'1. ')+'</textarea></div>';
   // Chi Phí SX + Phí Ship
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
   h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Chi Phí SX (Cắt/In/Ép/May)</label>';
@@ -599,6 +602,7 @@ function _ceoFmtMoney(el){
 async function _ceoSubmitUpdate(id){
   var fields={
     common_error_type:document.getElementById('ceoU_errtype').value,
+    sale_resolution:document.getElementById('ceoU_saleRes').value.trim(),
     production_cost:Number((document.getElementById('ceoU_prodcost').value||'0').replace(/[^\d]/g,''))||0,
     shipping_cost:Number((document.getElementById('ceoU_shipcost').value||'0').replace(/[^\d]/g,''))||0,
     violation_month:document.getElementById('ceoU_vmonth').value,
@@ -607,6 +611,8 @@ async function _ceoSubmitUpdate(id){
     violator_commitment:document.getElementById('ceoU_commit').value.trim(),
     fix_plan:document.getElementById('ceoU_fix').value.trim()
   };
+  // Validate mandatory Cách Xử Lý Lỗi QLX
+  if(!fields.sale_resolution||fields.sale_resolution==='1. '){showToast('Vui lòng nhập Cách Xử Lý Lỗi QLX','error');return;}
   try{
     var keys=Object.keys(fields);
     for(var i=0;i<keys.length;i++){
