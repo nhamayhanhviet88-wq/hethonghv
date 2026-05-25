@@ -85,10 +85,12 @@ function _ceoRenderTable() {
     var allItems = _ceo.items;
     // Apply client-side filter
     var items = allItems;
-    if (_ceo.filter === 'chua_xl') items = allItems.filter(function(i){ return !i.violation_month; });
+    if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(function(i){ return !i.sale_resolution || i.sale_resolution.trim()==='' || i.sale_resolution.trim()==='1. '; });
+    else if (_ceo.filter === 'chua_xl') items = allItems.filter(function(i){ return !i.violation_month; });
     else if (_ceo.filter === 'chua_phat') items = allItems.filter(function(i){ return !i.penalty_month; });
     else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.violation_month && i.penalty_month; });
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
+    var cQLX = allItems.filter(function(i){return !i.sale_resolution || i.sale_resolution.trim()==='' || i.sale_resolution.trim()==='1. ';}).length;
     var cXL = allItems.filter(function(i){return !i.violation_month;}).length;
     var cPhat = allItems.filter(function(i){return !i.penalty_month;}).length;
     var cDone = allItems.filter(function(i){return i.violation_month && i.penalty_month;}).length;
@@ -104,8 +106,13 @@ function _ceoRenderTable() {
         '<button onclick="_ceoOpenUpdatePicker()" style="padding:8px 16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cập Nhật Lỗi</button>' +
         '</div></div>';
 
-    // === 3 STAT CARDS (filter only) ===
+    // === 4 STAT CARDS ===
     h += '<div style="padding:12px 16px;display:flex;gap:12px;background:#fff;border-bottom:1px solid #e5e7eb">';
+    // Card 0: QLX Chưa Xử Lý Lỗi
+    h += '<div onclick="_ceoSetFilter(\'qlx_chua_xl\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid ' + (_ceo.filter==='qlx_chua_xl'?'#ea580c':'#fed7aa') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(234,88,12,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='qlx_chua_xl'?'0 4px 16px rgba(234,88,12,0.15)':'none') + '\'">'
+    + '<div style="font-size:32px">🏭</div>'
+    + '<div><div style="font-size:20px;font-weight:900;color:#ea580c">' + cQLX + '</div>'
+    + '<div style="font-size:11px;font-weight:700;color:#9a3412">QLX Chưa XL Lỗi</div></div></div>';
     // Card 1: Chưa Xử Lý
     h += '<div onclick="_ceoSetFilter(\'chua_xl\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_xl'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_xl'?'0 4px 16px rgba(220,38,38,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🔴</div>';
