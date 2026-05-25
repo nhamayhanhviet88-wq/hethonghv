@@ -1,4 +1,4 @@
-﻿// ========== ĐƠN LỖI KHÁCH & NỘI BỘ — Bộ Phận Văn Phòng ==========
+// ========== ĐƠN LỖI KHÁCH & NỘI BỘ — Bộ Phận Văn Phòng ==========
 var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: null, filter: null, allUsers: [], commonErrors: [] };
 
 function renderDonloikhachhangPage(content) {
@@ -619,6 +619,28 @@ async function _ceoOpenNVP(id){
   h+='<div style="padding:20px">';
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Người Vi Phạm</label>';
   h+='<div style="padding:10px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1e293b">'+(item.violator_name||'<span style=\\"color:#dc2626\\">Chưa chọn — vui lòng cập nhật QLX trước</span>')+'</div></div>';
+  // === VIOLATION HISTORY ===
+  var vName=item.violator_name||'';
+  var vType=item.common_error_type||'';
+  if(vName&&vType){
+    var repeats=_ceo.items.filter(function(o){return o.id!==item.id&&o.violator_name===vName&&o.common_error_type===vType;});
+    if(repeats.length>0){
+      h+='<div style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fecaca;border-radius:10px">';
+      h+='<div style="font-size:13px;font-weight:800;color:#dc2626;margin-bottom:8px">&#9888;&#65039; '+vName+' đã vi phạm lỗi "'+vType+'" tổng cộng <span style="font-size:16px;background:#dc2626;color:#fff;padding:1px 8px;border-radius:6px">'+(repeats.length+1)+'</span> lần!</div>';
+      h+='<div style="font-size:11px;color:#991b1b;margin-bottom:6px;font-weight:600">Lịch sử các lần vi phạm trước:</div>';
+      h+='<div style="max-height:140px;overflow-y:auto">';
+      repeats.forEach(function(r,idx){
+        var rd=r.report_date?new Date(r.report_date).toLocaleDateString('vi-VN'):'--';
+        h+='<div onclick="document.getElementById(\'ceoUpdateOv\').remove();_ceoViewDetail('+r.id+')" style="padding:6px 10px;margin-bottom:4px;background:#fff;border:1px solid #fecaca;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#fef2f2\';this.style.borderColor=\'#dc2626\'" onmouseout="this.style.background=\'#fff\';this.style.borderColor=\'#fecaca\'">';
+        h+='<div><span style="font-weight:700;color:#ea580c;font-size:12px">'+(r.order_code||'#'+r.id)+'</span> <span style="color:#6b7280;font-size:11px">'+rd+'</span>';
+        h+='<div style="font-size:10px;color:#9ca3af;margin-top:1px">'+(r.error_content||'').substring(0,50)+'</div></div>';
+        h+='<span style="color:#dc2626;font-size:14px">&#8594;</span></div>';
+      });
+      h+='</div></div>';
+    } else {
+      h+='<div style="margin-bottom:14px;padding:10px 14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;font-size:12px;font-weight:700;color:#16a34a">&#9989; Lần đầu "'+vName+'" vi phạm lỗi "'+vType+'"</div>';
+    }
+  }
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Cam Kết Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
   h+='<textarea id="ceoU_commit" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6">'+(item.violator_commitment||'1. ')+'</textarea></div>';
   h+='<div style="margin-bottom:16px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Cách Khắc Phục <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
