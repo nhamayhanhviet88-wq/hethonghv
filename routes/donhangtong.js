@@ -260,7 +260,8 @@ module.exports = async function(fastify) {
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
                 COALESCE(prod_progress.done_steps, 0) AS prod_done,
                 COALESCE(prod_progress.total_steps, 0) AS prod_total,
-                prod_progress.current_step_short AS prod_current
+                prod_progress.current_step_short AS prod_current,
+                COALESCE(err_check.error_count, 0) > 0 AS has_error
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -282,6 +283,11 @@ module.exports = async function(fastify) {
                 FROM dht_order_production op
                 WHERE op.dht_order_id = o.id
             ) prod_progress ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*)::int AS error_count
+                FROM customer_error_orders ceo
+                WHERE ceo.dht_order_id = o.id
+            ) err_check ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
         `, params);
@@ -599,7 +605,8 @@ module.exports = async function(fastify) {
                 cr2.tracking_url_template AS actual_carrier_tracking_url,
                 u_shipped.full_name AS shipped_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
+                COALESCE(err_check.error_count, 0) > 0 AS has_error
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -615,6 +622,11 @@ module.exports = async function(fastify) {
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*)::int AS error_count
+                FROM customer_error_orders ceo
+                WHERE ceo.dht_order_id = o.id
+            ) err_check ON true
             WHERE o.id = $1
         `, [orderId]);
 
