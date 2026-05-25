@@ -535,8 +535,9 @@ async function _ceoOpenUpdateModal(id){
 
 // ===== MODAL 1: QLX =====
 async function _ceoOpenQLX(id){
-  var item=_ceo.items.find(function(x){return x.id===id;});
-  if(!item){try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}}
+  var item;
+  try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}
+  if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
   if(!item)return;
   if(!_ceo.allUsers.length){try{var ud=await apiCall('/api/users');_ceo.allUsers=ud.users||ud||[];}catch(e){}}
   var ov=document.createElement('div');ov.id='ceoUpdateOv';
@@ -567,8 +568,9 @@ async function _ceoOpenQLX(id){
 
 // ===== MODAL 2: PHẠT =====
 async function _ceoOpenPhat(id){
-  var item=_ceo.items.find(function(x){return x.id===id;});
-  if(!item){try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}}
+  var item;
+  try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}
+  if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
   if(!item)return;
   var ov=document.createElement('div');ov.id='ceoUpdateOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -654,8 +656,9 @@ function _ceoPhatCalcShip(){
 // ===== MODAL 3: NGƯỜI VI PHẠM =====
 // ===== MODAL 3: NGƯỜI VI PHẠM =====
 async function _ceoOpenNVP(id){
-  var item=_ceo.items.find(function(x){return x.id===id;});
-  if(!item){try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}}
+  var item;
+  try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}
+  if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
   if(!item)return;
   var ov=document.createElement('div');ov.id='ceoUpdateOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
