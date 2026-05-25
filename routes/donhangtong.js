@@ -606,7 +606,10 @@ module.exports = async function(fastify) {
                 u_shipped.full_name AS shipped_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
-                COALESCE(err_check.error_count, 0) > 0 AS has_error
+                COALESCE(err_check.error_count, 0) > 0 AS has_error,
+                CASE WHEN COALESCE(err_check.error_count, 0) > 0
+                     THEN COALESCE(err_check.error_count, 0) = COALESCE(err_handover.handed_count, 0)
+                     ELSE FALSE END AS all_errors_handed_over
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -627,6 +630,11 @@ module.exports = async function(fastify) {
                 FROM customer_error_orders ceo
                 WHERE ceo.dht_order_id = o.id
             ) err_check ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*)::int AS handed_count
+                FROM customer_error_orders ceo2
+                WHERE ceo2.dht_order_id = o.id AND ceo2.error_return_handed_over = TRUE
+            ) err_handover ON true
             WHERE o.id = $1
         `, [orderId]);
 

@@ -58,8 +58,8 @@ async function routes(fastify) {
     fastify.get('/api/customer-errors/by-order/:orderId/return-status', { preHandler: authenticate }, async (request) => {
         const orderId = Number(request.params.orderId);
         const rows = await db.all(`
-            SELECT id, order_code, error_return_handed_over, error_return_handed_to,
-                   error_return_notes, error_return_at, error_return_by,
+            SELECT ceo.id, ceo.order_code, ceo.error_return_handed_over, ceo.error_return_handed_to,
+                   ceo.error_return_notes, ceo.error_return_at, ceo.error_return_by,
                    u.full_name AS error_return_by_name
             FROM customer_error_orders ceo
             LEFT JOIN users u ON u.id = ceo.error_return_by
