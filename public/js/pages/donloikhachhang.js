@@ -539,10 +539,11 @@ async function _ceoOpenUpdateModal(id){
   h+='<select id="ceoU_pmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">-- Chọn tháng --</option>';
   for(var j=1;j<=12;j++){h+='<option value="Tháng '+String(j).padStart(2,'0')+'"'+(item.penalty_month===('Tháng '+String(j).padStart(2,'0'))?' selected':'')+'>Tháng '+String(j).padStart(2,'0')+'</option>';}
   h+='</select></div></div>';
-  // Người Vi Phạm — searchable dropdown
-  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Người Vi Phạm</label>';
-  h+='<input type="text" id="ceoU_violator_search" value="'+(item.violator_name||'')+'" placeholder="Tìm nhân viên..." oninput="_ceoFilterUsers()" onfocus="_ceoFilterUsers()" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px" autocomplete="off">';
-  h+='<div id="ceoU_userDropdown" style="display:none;max-height:150px;overflow-y:auto;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div></div>';
+  // Người Vi Phạm — select-only dropdown (bắt buộc)
+  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Người Vi Phạm <span style="color:#dc2626">*</span></label>';
+  h+='<div style="position:relative"><input type="text" id="ceoU_violator_search" value="'+(item.violator_name||'')+'" placeholder="Ấn vào để chọn..." onfocus="_ceoShowAllUsers()" oninput="_ceoFilterUsers()" readonly style="width:100%;padding:8px 12px 8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer;background:#fff" autocomplete="off">';
+  h+='<span onclick="var i=document.getElementById(\'ceoU_violator_search\');i.value=\'\';i.removeAttribute(\'readonly\');_ceoShowAllUsers()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:#9ca3af;font-size:14px">▼</span></div>';
+  h+='<div id="ceoU_userDropdown" style="display:none;max-height:200px;overflow-y:auto;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div></div>';
   // Cam Kết NV Vi Phạm — auto-numbered textarea
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Cam Kết Người Vi Phạm <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
   h+='<textarea id="ceoU_commit" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6">'+(item.violator_commitment||'1. ')+'</textarea></div>';
@@ -572,25 +573,11 @@ function _ceoAutoNumber(e,ta){
   ta.selectionStart=ta.selectionEnd=pos+insert.length;
 }
 
-// ===== SEARCHABLE USER DROPDOWN =====
-function _ceoFilterUsers(){
-  var input=document.getElementById('ceoU_violator_search');
-  var dd=document.getElementById('ceoU_userDropdown');
-  if(!input||!dd)return;
-  var q=input.value.toLowerCase().trim();
-  var filtered=_ceo.allUsers.filter(function(u){return u.full_name&&u.full_name.toLowerCase().indexOf(q)>=0;});
-  if(!filtered.length||!q){dd.style.display='none';return;}
-  dd.style.display='block';
-  var h='';
-  filtered.slice(0,10).forEach(function(u){
-    h+='<div onclick="_ceoSelectUser(\''+u.full_name.replace(/'/g,"\\'")+'\')" style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f1f5f9;transition:background .1s" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'"><span style="font-weight:700">'+u.full_name+'</span> <span style="color:#9ca3af;font-size:10px">'+(u.role||'')+'</span></div>';
-  });
-  dd.innerHTML=h;
-}
-function _ceoSelectUser(name){
-  document.getElementById('ceoU_violator_search').value=name;
-  document.getElementById('ceoU_userDropdown').style.display='none';
-}
+// ===== USER DROPDOWN =====
+function _ceoShowAllUsers(){var i=document.getElementById('ceoU_violator_search');var dd=document.getElementById('ceoU_userDropdown');if(!i||!dd)return;i.removeAttribute('readonly');i.value='';_ceoRenderUL(_ceo.allUsers);dd.style.display='block';i.focus();}
+function _ceoFilterUsers(){var i=document.getElementById('ceoU_violator_search');var dd=document.getElementById('ceoU_userDropdown');if(!i||!dd)return;var q=i.value.toLowerCase().trim();var f=_ceo.allUsers.filter(function(u){return u.full_name&&u.full_name.toLowerCase().indexOf(q)>=0;});_ceoRenderUL(f);dd.style.display='block';}
+function _ceoRenderUL(users){var dd=document.getElementById('ceoU_userDropdown');if(!dd)return;var h='<div onmousedown="_ceoSelectUser(\'Cong Ty\')" style="padding:10px 12px;cursor:pointer;font-size:12px;border-bottom:2px solid #e5e7eb;background:#f0f9ff" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#f0f9ff\'"><span style="font-weight:800;color:#1d4ed8">🏢 Công Ty</span> <span style="color:#9ca3af;font-size:10px">Lỗi từ công ty</span></div>';users.forEach(function(u){var n=(u.full_name||'').replace(/'/g,'');h+='<div onmousedown="_ceoSelectUser(\''+n+'\')" style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'"><span style="font-weight:700">'+u.full_name+'</span> <span style="color:#9ca3af;font-size:10px">'+(u.role||'')+'</span></div>';});dd.innerHTML=h;}
+function _ceoSelectUser(name){var i=document.getElementById('ceoU_violator_search');i.value=name;i.setAttribute('readonly','readonly');document.getElementById('ceoU_userDropdown').style.display='none';}
 // Hide dropdown on outside click
 document.addEventListener('click',function(e){var dd=document.getElementById('ceoU_userDropdown');if(dd&&!e.target.closest('#ceoU_violator_search')&&!e.target.closest('#ceoU_userDropdown'))dd.style.display='none';});
 
@@ -612,8 +599,9 @@ async function _ceoSubmitUpdate(id){
     violator_commitment:document.getElementById('ceoU_commit').value.trim(),
     fix_plan:document.getElementById('ceoU_fix').value.trim()
   };
-  // Validate mandatory Cách Xử Lý Lỗi QLX
+  // Validate mandatory
   if(!fields.sale_resolution||fields.sale_resolution==='1. '){showToast('Vui lòng nhập Cách Xử Lý Lỗi QLX','error');return;}
+  if(!fields.violator_name){showToast('Vui lòng chọn Người Vi Phạm','error');return;}
   try{
     var keys=Object.keys(fields);
     for(var i=0;i<keys.length;i++){
