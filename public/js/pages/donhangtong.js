@@ -881,6 +881,7 @@ async function _dhtShowDetail(id) {
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
             { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('dht_don_sua', 'view'), extraClass: o.has_error ? 'dht-don-sua-glow' : '' },
+            { icon: '📦', label: 'Hàng Lỗi Về', color: o.has_error ? '#0369a1' : '#cbd5e1', bg: o.has_error ? '#e0f2fe' : '#f1f5f9', fn: `_dhtErrorReturnHandover(${id})`, disabled: !o.has_error, perm: canDo('dht_bao_loi', 'view'), disabledTitle: 'Cần báo đơn lỗi trước', extraClass: o.has_error ? 'dht-hang-loi-ve-glow' : '' },
             { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
         ];
         for (const a of actionBtns) {
@@ -2356,5 +2357,122 @@ async function _dhtSubmitErrorReport() {
         showToast('❌ Lỗi: ' + e.message, 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = '🚨 Gửi Báo Đơn Lỗi'; btn.style.opacity = '1'; }
+    }
+}
+
+// ========== HÀNG LỖI VỀ — Error Return Handover to QLX ==========
+async function _dhtErrorReturnHandover(orderId) {
+    var o = window._dhtCurrentOrder;
+    if (!o) { showToast('Không tìm thấy dữ liệu đơn hàng', 'error'); return; }
+
+    // Load existing error records for this order
+    var returnData = null;
+    try {
+        returnData = await apiCall('/api/customer-errors/by-order/' + orderId + '/return-status');
+    } catch(e) { console.error('[ErrorReturn] load:', e); }
+
+    var errorItems = (returnData && returnData.items) || [];
+    var orderCode = o.order_code || '—';
+
+    // Build overlay
+    var ov = document.createElement('div');
+    ov.id = '_dhtErrorReturnOv';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+
+    var h = '<div style="background:#fff;border-radius:16px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.35)" onclick="event.stopPropagation()">';
+
+    // Header
+    h += '<div style="background:linear-gradient(135deg,#0369a1,#0284c7);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">';
+    h += '<h3 style="margin:0;color:#fff;font-size:16px;font-weight:900">📦 HÀNG LỖI VỀ — ' + orderCode + '</h3>';
+    h += '<span onclick="document.getElementById(\'_dhtErrorReturnOv\').remove()" style="cursor:pointer;color:#fff;font-size:22px;font-weight:700;opacity:0.8;line-height:1">✕</span></div>';
+
+    // Body
+    h += '<div style="padding:20px">';
+
+    // Show existing handover records
+    if (errorItems.length > 0) {
+        h += '<div style="margin-bottom:16px">';
+        h += '<div style="font-size:11px;font-weight:800;color:#0369a1;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📋 TRẠNG THÁI BÀN GIAO</div>';
+        for (var i = 0; i < errorItems.length; i++) {
+            var ei = errorItems[i];
+            var isHandedOver = ei.error_return_handed_over;
+            var statusBg = isHandedOver ? '#f0fdf4' : '#fef2f2';
+            var statusBorder = isHandedOver ? '#86efac' : '#fecaca';
+            var statusIcon = isHandedOver ? '✅' : '⏳';
+            var statusText = isHandedOver ? 'Đã bàn giao' : 'Chưa bàn giao';
+            var statusColor = isHandedOver ? '#059669' : '#dc2626';
+
+            h += '<div style="padding:12px;background:' + statusBg + ';border:1px solid ' + statusBorder + ';border-radius:10px;margin-bottom:8px">';
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+            h += '<span style="font-size:12px;font-weight:800;color:#1e293b">Đơn lỗi #' + ei.id + ' — ' + (ei.order_code || '') + '</span>';
+            h += '<span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;color:' + statusColor + ';background:' + (isHandedOver ? '#dcfce7' : '#fee2e2') + '">' + statusIcon + ' ' + statusText + '</span>';
+            h += '</div>';
+            if (isHandedOver) {
+                h += '<div style="font-size:11px;color:#334155;line-height:1.6">';
+                h += '<div>🏭 <strong>QLX:</strong> ' + (ei.error_return_handed_to || '—') + '</div>';
+                if (ei.error_return_notes) h += '<div>📝 <strong>Ghi chú:</strong> ' + ei.error_return_notes + '</div>';
+                h += '<div>👤 <strong>Người BG:</strong> ' + (ei.error_return_by_name || '—') + '</div>';
+                if (ei.error_return_at) h += '<div>🕐 <strong>Thời gian:</strong> ' + vnFormat(ei.error_return_at) + '</div>';
+                h += '</div>';
+            }
+
+            // Show handover form for items not yet handed over
+            if (!isHandedOver) {
+                h += '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed ' + statusBorder + '">';
+                h += '<div style="margin-bottom:8px">';
+                h += '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px">🏭 Bàn Giao Cho Quản Lý Xưởng <span style="color:#dc2626">*</span></label>';
+                h += '<input id="_errReturnTo_' + ei.id + '" type="text" placeholder="Nhập tên Quản Lý Xưởng..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'">';
+                h += '</div>';
+                h += '<div style="margin-bottom:8px">';
+                h += '<label style="display:block;font-size:11px;font-weight:800;color:#334155;margin-bottom:4px">📝 Ghi Chú</label>';
+                h += '<textarea id="_errReturnNotes_' + ei.id + '" rows="3" placeholder="Nhập ghi chú bàn giao..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit;transition:border .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'"></textarea>';
+                h += '</div>';
+                h += '<button onclick="_dhtSubmitErrorReturn(' + ei.id + ',' + orderId + ')" style="width:100%;padding:10px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">📦 Xác Nhận Bàn Giao QLX</button>';
+                h += '</div>';
+            }
+            h += '</div>';
+        }
+        h += '</div>';
+    } else {
+        h += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Chưa có đơn lỗi nào cho đơn hàng này</div>';
+    }
+
+    // Close button
+    h += '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">';
+    h += '<button onclick="document.getElementById(\'_dhtErrorReturnOv\').remove()" style="padding:8px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">Đóng</button>';
+    h += '</div>';
+
+    h += '</div></div>';
+    ov.innerHTML = h;
+    document.body.appendChild(ov);
+}
+
+async function _dhtSubmitErrorReturn(errorId, orderId) {
+    var handedTo = (document.getElementById('_errReturnTo_' + errorId).value || '').trim();
+    var notes = (document.getElementById('_errReturnNotes_' + errorId).value || '').trim();
+
+    if (!handedTo) {
+        showToast('⚠️ Vui lòng nhập tên Quản Lý Xưởng', 'error');
+        document.getElementById('_errReturnTo_' + errorId).style.borderColor = '#dc2626';
+        return;
+    }
+
+    try {
+        var result = await apiCall('/api/customer-errors/' + errorId + '/error-return', 'PATCH', {
+            handed_to: handedTo,
+            notes: notes
+        });
+        if (result.error) { showToast(result.error, 'error'); return; }
+
+        showToast('✅ Đã bàn giao hàng lỗi về cho QLX: ' + handedTo, 'success');
+
+        // Refresh the popup
+        var ov = document.getElementById('_dhtErrorReturnOv');
+        if (ov) ov.remove();
+        _dhtErrorReturnHandover(orderId);
+
+    } catch(e) {
+        showToast('❌ Lỗi: ' + e.message, 'error');
     }
 }

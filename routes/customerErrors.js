@@ -422,6 +422,46 @@ async function routes(fastify) {
 
         return { success: true };
     });
+
+    // ========== PATCH /api/customer-errors/:id/error-return — Bàn giao Hàng Lỗi Về cho QLX ==========
+    fastify.patch('/api/customer-errors/:id/error-return', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const { handed_to, notes } = request.body || {};
+
+        const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        if (!handed_to || !handed_to.trim()) return { error: 'Vui lòng nhập tên Quản Lý Xưởng' };
+
+        await db.run(
+            `UPDATE customer_error_orders SET
+                error_return_handed_over = TRUE,
+                error_return_handed_to = $1,
+                error_return_notes = $2,
+                error_return_at = NOW(),
+                error_return_by = $3,
+                updated_at = NOW()
+            WHERE id = $4`,
+            [handed_to.trim(), notes || null, request.user.id, id]
+        );
+
+        return { success: true };
+    });
+
+    // ========== GET /api/customer-errors/by-order/:orderId/return-status — Check return status ==========
+    fastify.get('/api/customer-errors/by-order/:orderId/return-status', { preHandler: authenticate }, async (request) => {
+        const orderId = Number(request.params.orderId);
+        const rows = await db.all(`
+            SELECT id, order_code, error_return_handed_over, error_return_handed_to,
+                   error_return_notes, error_return_at, error_return_by,
+                   u.full_name AS error_return_by_name
+            FROM customer_error_orders ceo
+            LEFT JOIN users u ON u.id = ceo.error_return_by
+            WHERE ceo.dht_order_id = $1
+            ORDER BY ceo.id DESC
+        `, [orderId]);
+        return { items: rows };
+    });
 }
 
 module.exports = routes;
