@@ -2174,8 +2174,6 @@ function _dhtReportError() {
         '</div>' +
         '<input type="file" id="_errVideoInput" accept="video/*" style="display:none">' +
         '</div>' +
-        inputField('Người Vi Phạm', '_errViolator', 'text', true, 'Nhập tên người vi phạm') +
-        textareaField('Cách Xử Lý Lỗi', '_errResolution', true, 'Nhập cách xử lý...') +
         '</div>' +
         // Buttons
         '<div style="display:flex;gap:8px;margin-top:16px">' +
@@ -2267,24 +2265,18 @@ async function _dhtSubmitErrorReport() {
 
     // Validate required fields
     var content = (document.getElementById('_errContent').value || '').trim();
-    var violator = (document.getElementById('_errViolator').value || '').trim();
-    var resolution = (document.getElementById('_errResolution').value || '').trim();
     var qty = document.getElementById('_errQty').value;
 
     var errors = [];
     if (!qty || Number(qty) <= 0) errors.push('Số Lượng Lỗi');
     if (!content) errors.push('Nội Dung Lỗi');
     if (!window._dhtErrorPastedFiles || window._dhtErrorPastedFiles.length === 0) errors.push('Hình Ảnh Lỗi');
-    if (!violator) errors.push('Người Vi Phạm');
-    if (!resolution) errors.push('Cách Xử Lý Lỗi');
 
     if (errors.length > 0) {
         showToast('⚠️ Vui lòng điền: ' + errors.join(', '), 'error');
         if (!qty || Number(qty) <= 0) document.getElementById('_errQty').style.borderColor = '#dc2626';
         if (!content) document.getElementById('_errContent').style.borderColor = '#dc2626';
         if (!window._dhtErrorPastedFiles || window._dhtErrorPastedFiles.length === 0) { var pz = document.getElementById('_errPasteZone'); if(pz) pz.style.borderColor = '#dc2626'; }
-        if (!violator) document.getElementById('_errViolator').style.borderColor = '#dc2626';
-        if (!resolution) document.getElementById('_errResolution').style.borderColor = '#dc2626';
         return;
     }
 
@@ -2304,8 +2296,6 @@ async function _dhtSubmitErrorReport() {
             production_quantity: Number(o.total_quantity) || 0,
             error_quantity: Number(qty) || 0,
             error_content: content,
-            violator_name: violator,
-            sale_resolution: resolution,
             error_images: []
         };
 
