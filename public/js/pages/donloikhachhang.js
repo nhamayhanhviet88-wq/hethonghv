@@ -133,12 +133,12 @@ function _ceoRenderTable() {
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
     var cols = ['Đơn Lỗi','Lỗi Thường Gặp','Ngày','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
-        'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục'];
+        'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục','Đã Phạt'];
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
-        if (c === 'Xử Lý Tháng') extraStyle = 'background:#dc2626;color:#fef08a;';
-        if (c === 'Đã Phạt Tháng') extraStyle = 'background:#fef08a;color:#dc2626;';
+        if (c === 'Xử Lý') extraStyle = 'background:#dc2626;color:#fef08a;';
+        if (c === 'Đã Phạt') extraStyle = 'background:#fef08a;color:#dc2626;';
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1);' + extraStyle + '">' + c + '</th>';
     });
     h += '</tr></thead><tbody>';
@@ -176,10 +176,10 @@ function _ceoRenderTable() {
             h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.production_cost) + '</td>';
             h += '<td style="padding:6px;text-align:right;border-right:1px solid #f8fafc">' + fmtMoney(item.shipping_cost) + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef2f2;color:#fef08a;font-weight:700;background:#dc2626">' + (item.violation_month || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700">' + (item.penalty_month || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.fix_plan || '') + '</td>';
+            h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700">' + (item.penalty_month || '') + '</td>';
             h += '</tr>';
         });
     }
@@ -290,8 +290,8 @@ function _ceoViewDetail(id) {
             '</div>' +
             // Row 7: Extra info
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;background:#f8fafc;border-radius:10px">' +
-                field('Xử Lý Tháng', item.violation_month) +
-                field('Đã Phạt Tháng', item.penalty_month) +
+                field('Xử Lý', item.violation_month) +
+                field('Đã Phạt', item.penalty_month) +
                 field('Cam Kết Người Vi Phạm', item.violator_commitment) +
                 field('Cách Khắc Phục', item.fix_plan) +
             '</div>' +
@@ -349,14 +349,14 @@ async function _ceoOpenForm(id) {
         '<div style="margin-bottom:12px">' + _ceoTextarea('Cách Xử Lý Lỗi Sale', 'ceoF_resolution', item.sale_resolution) + '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
         _ceoField('Người Vi Phạm', 'ceoF_violator', item.violator_name, 'text', false) +
-        _ceoField('Chi Phí SX (Cắt/In/Ép/May)', 'ceoF_prodcost', item.production_cost, 'number', false) +
+        _ceoField('Chi Phí SX', 'ceoF_prodcost', item.production_cost, 'number', false) +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-        _ceoField('Phí Ship (Về/Đi/Lần 3)', 'ceoF_shipcost', item.shipping_cost, 'number', false) +
-        _ceoField('Xử Lý Vi Phạm Tháng Mấy?', 'ceoF_vmonth', item.violation_month, 'text', false) +
+        _ceoField('Phí Ship', 'ceoF_shipcost', item.shipping_cost, 'number', false) +
+        _ceoField('Xử Lý', 'ceoF_vmonth', item.violation_month, 'text', false) +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
-        _ceoField('Đã Trừ Phạt Tháng Mấy?', 'ceoF_pmonth', item.penalty_month, 'text', false) +
+        _ceoField('Đã Phạt', 'ceoF_pmonth', item.penalty_month, 'text', false) +
         '<div></div></div>' +
         '<div style="margin-bottom:12px">' + _ceoTextarea('Cam Kết Người Vi Phạm', 'ceoF_commit', item.violator_commitment) + '</div>' +
         '<div style="margin-bottom:12px">' + _ceoTextarea('Cách Khắc Phục Lần Sau', 'ceoF_fix', item.fix_plan) + '</div>' +
@@ -489,8 +489,8 @@ function _ceoOpenUpdatePicker(){
       if(!item.common_error_type)missing.push('Loại Lỗi');
       if(!item.production_cost)missing.push('Chi Phí SX');
       if(!item.shipping_cost)missing.push('Phí Ship');
-      if(!item.violation_month)missing.push('XL Tháng');
-      if(!item.penalty_month)missing.push('Phạt Tháng');
+      if(!item.violation_month)missing.push('Xử Lý');
+      if(!item.penalty_month)missing.push('Đã Phạt');
       if(!item.violator_name)missing.push('Người VP');
       if(!item.violator_commitment)missing.push('Cam Kết');
       if(!item.fix_plan)missing.push('Khắc Phục');
@@ -582,7 +582,7 @@ async function _ceoOpenPhat(id){
   h+='<div style="padding:20px">';
   // === CHI PHÍ SX ===
   h+='<div style="margin-bottom:16px;padding:14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px">';
-  h+='<div style="font-size:12px;font-weight:800;color:#c2410c;margin-bottom:10px">Chi Phí SX (Cắt/In/Ép/May)</div>';
+  h+='<div style="font-size:12px;font-weight:800;color:#c2410c;margin-bottom:10px">Chi Phí SX</div>';
   var sxFields=[
     {id:'ceoU_cut',label:'Cắt',key:'cost_cut'},
     {id:'ceoU_print',label:'In',key:'cost_print'},
@@ -604,7 +604,7 @@ async function _ceoOpenPhat(id){
   h+='</div>';
   // === PHÍ SHIP ===
   h+='<div style="margin-bottom:16px;padding:14px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px">';
-  h+='<div style="font-size:12px;font-weight:800;color:#1d4ed8;margin-bottom:10px">Phí Ship (Về/Đi/Lần 3)</div>';
+  h+='<div style="font-size:12px;font-weight:800;color:#1d4ed8;margin-bottom:10px">Phí Ship</div>';
   var shipFields=[
     {id:'ceoU_shipreturn',label:'Tiền Ship Về Sửa',key:'ship_return'},
     {id:'ceoU_shipdelivery',label:'Tiền Ship Trả Hàng',key:'ship_delivery'},
@@ -622,11 +622,11 @@ async function _ceoOpenPhat(id){
   h+='</div>';
   // === XL Tháng + Phạt Tháng ===
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
-  h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Xử Lý Tháng <span style="color:#dc2626">*</span></label>';
+  h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Xử Lý <span style="color:#dc2626">*</span></label>';
   h+='<select id="ceoU_vmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">-- Chọn tháng --</option>';
   for(var i=1;i<=12;i++){h+='<option value="Tháng '+String(i).padStart(2,'0')+'">Tháng '+String(i).padStart(2,'0')+'</option>';}
   h+='</select></div>';
-  h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Đã Phạt Tháng <span style="color:#dc2626">*</span></label>';
+  h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Đã Phạt <span style="color:#dc2626">*</span></label>';
   h+='<select id="ceoU_pmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">-- Chọn tháng --</option>';
   for(var j=1;j<=12;j++){h+='<option value="Tháng '+String(j).padStart(2,'0')+'">Tháng '+String(j).padStart(2,'0')+'</option>';}
   h+='</select></div></div>';
