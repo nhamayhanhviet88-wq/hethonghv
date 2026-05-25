@@ -79,16 +79,7 @@ function _cvqlxRenderActiveTab() {
     // Delegate to existing render functions
     switch (_cvqlxActiveTab) {
         case 'phieuyeucau':
-            // Phiếu Yêu Cầu Xử Lý — placeholder (will be developed later)
-            container.innerHTML = '<div style="text-align:center;padding:80px 20px">'
-                +'<div style="font-size:56px;margin-bottom:16px">📝</div>'
-                +'<h3 style="color:#0c4a6e;font-size:20px;font-weight:800;margin:0 0 8px">Phiếu Yêu Cầu Xử Lý</h3>'
-                +'<p style="color:#64748b;font-size:13px;max-width:400px;margin:0 auto">Module đang được phát triển. Chức năng tiếp nhận và xử lý yêu cầu từ các bộ phận sẽ sớm ra mắt.</p>'
-                +'<div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);padding:10px 20px;border-radius:10px;border:1px solid #bae6fd">'
-                +'<span style="font-size:14px">🔧</span>'
-                +'<span style="font-size:12px;font-weight:700;color:#0369a1">Đang phát triển</span>'
-                +'</div>'
-                +'</div>';
+            _qlxWtInit(container);
             break;
 
         case 'chuanbi':
