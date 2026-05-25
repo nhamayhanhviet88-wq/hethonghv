@@ -2543,10 +2543,12 @@ async function _dhtSubmitErrorReturn(errorId, orderId) {
 
         showToast('✅ Đã bàn giao hàng lỗi về cho QLX: ' + handedTo, 'success');
 
-        // Refresh the popup
+        // Refresh orders data + close popup + re-open detail to update icon states
         var ov = document.getElementById('_dhtErrorReturnOv');
         if (ov) ov.remove();
-        _dhtErrorReturnHandover(orderId);
+        closeModal();
+        await _dhtLoadOrders();
+        setTimeout(function() { _dhtShowDetail(orderId); }, 400);
 
     } catch(e) {
         showToast('❌ Lỗi: ' + e.message, 'error');
