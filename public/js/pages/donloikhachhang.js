@@ -133,7 +133,7 @@ function _ceoRenderTable() {
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
     var cols = ['Ngày','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
-        'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục','Đã Phạt'];
+        'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Đã Phạt'];
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
@@ -144,7 +144,7 @@ function _ceoRenderTable() {
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="16" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="15" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -178,7 +178,6 @@ function _ceoRenderTable() {
             h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef2f2;color:#fef08a;font-weight:700;background:#dc2626">' + (item.violation_month || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
-            h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.fix_plan || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700">' + (item.penalty_month || '') + '</td>';
             h += '</tr>';
         });
@@ -293,7 +292,6 @@ function _ceoViewDetail(id) {
                 field('Xử Lý', item.violation_month) +
                 field('Đã Phạt', item.penalty_month) +
                 field('Cam Kết Người Vi Phạm', item.violator_commitment) +
-                field('Cách Khắc Phục', item.fix_plan) +
             '</div>' +
         '</div>' +
     '</div>';
@@ -468,7 +466,7 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    return !i.common_error_type||!i.violation_month||!i.penalty_month||!i.violator_name||!i.fix_plan||!i.violator_commitment||(!i.production_cost&&!i.shipping_cost);
+    return !i.common_error_type||!i.violation_month||!i.penalty_month||!i.violator_name||!i.violator_commitment||(!i.production_cost&&!i.shipping_cost);
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -493,7 +491,6 @@ function _ceoOpenUpdatePicker(){
       if(!item.penalty_month)missing.push('Đã Phạt');
       if(!item.violator_name)missing.push('Người VP');
       if(!item.violator_commitment)missing.push('Cam Kết');
-      if(!item.fix_plan)missing.push('Khắc Phục');
       h+='<div onclick="document.getElementById(\'ceoPickerOv\').remove();_ceoOpenUpdateModal('+item.id+')" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.background=\'\';this.style.borderColor=\'#e5e7eb\'">';
       h+='<div><span style="font-weight:700;color:#ea580c">'+(item.order_code||'#'+item.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span>';
       h+='<div style="font-size:10px;color:#dc2626;margin-top:2px">Thiếu: '+missing.join(', ')+'</div></div>';
@@ -726,9 +723,6 @@ async function _ceoOpenNVP(id){
   // Cam Kết
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Cam Kết Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
   h+='<textarea id="ceoU_commit" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6">'+(item.violator_commitment||'1. ')+'</textarea></div>';
-  // Cách Khắc Phục
-  h+='<div style="margin-bottom:16px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Cách Khắc Phục <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
-  h+='<textarea id="ceoU_fix" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6">'+(item.fix_plan||'1. ')+'</textarea></div>';
   // Buttons
   h+='<div style="display:flex;gap:8px"><button onclick="_ceoSubmitNVP('+item.id+')" style="padding:10px 28px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">💾 Lưu NVP</button>';
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
@@ -763,9 +757,8 @@ async function _ceoSubmitPhat(id){
 }
 async function _ceoSubmitNVP(id){
   var penaltyTotal=Number((document.getElementById('ceoU_penaltytotal').value||'0').replace(/[^\d]/g,''))||0;
-  var fields={violator_commitment:document.getElementById('ceoU_commit').value.trim(),fix_plan:document.getElementById('ceoU_fix').value.trim(),penalty_total:penaltyTotal};
+  var fields={violator_commitment:document.getElementById('ceoU_commit').value.trim(),penalty_total:penaltyTotal};
   if(!fields.violator_commitment||fields.violator_commitment==='1. '){showToast('Vui lòng nhập Cam Kết Người Vi Phạm','error');return;}
-  if(!fields.fix_plan||fields.fix_plan==='1. '){showToast('Vui lòng nhập Cách Khắc Phục','error');return;}
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('✅ Đã cập nhật NVP!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 
