@@ -463,12 +463,12 @@ async function routes(fastify) {
     // ========== PATCH /api/customer-errors/:id/error-return — Bàn giao Hàng Lỗi Về cho QLX ==========
     fastify.patch('/api/customer-errors/:id/error-return', { preHandler: authenticate }, async (request) => {
         const id = request.params.id;
-        const { handed_to, notes } = request.body || {};
+        const { handed_to, handed_to_id, notes } = request.body || {};
 
-        const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
+        const existing = await db.get('SELECT id, order_code FROM customer_error_orders WHERE id = $1', [id]);
         if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
 
-        if (!handed_to || !handed_to.trim()) return { error: 'Vui lòng nhập tên Quản Lý Xưởng' };
+        if (!handed_to || !handed_to.trim()) return { error: 'Vui lòng chọn Quản Lý Xưởng' };
 
         await db.run(
             `UPDATE customer_error_orders SET
@@ -481,6 +481,64 @@ async function routes(fastify) {
             WHERE id = $4`,
             [handed_to.trim(), notes || null, request.user.id, id]
         );
+
+        // === AUTO-CREATE/UPDATE WORK TICKET for Công Việc QLX ===
+        try {
+            const orderCode = existing.order_code;
+            if (orderCode) {
+                // Determine assigned_to: use handed_to_id if provided, else look up by name
+                let assignedTo = handed_to_id ? parseInt(handed_to_id) : null;
+                if (!assignedTo && handed_to) {
+                    const foundUser = await db.get("SELECT id FROM users WHERE full_name = $1 AND status = 'active' LIMIT 1", [handed_to.trim()]);
+                    assignedTo = foundUser ? foundUser.id : request.user.id;
+                }
+                if (!assignedTo) assignedTo = request.user.id;
+
+                const now = vnNow();
+                const todayStr = now.toISOString().slice(0, 10).split('-').reverse().join('/');
+
+                // Check: does a work ticket already exist for this order_code?
+                const existingTicket = await db.get(
+                    "SELECT id, description, status FROM work_tickets WHERE type = 'error_return' AND order_code = $1",
+                    [orderCode]
+                );
+
+                if (existingTicket) {
+                    // === MERGE: Append notes to existing ticket, re-open if resolved ===
+                    const appendNote = '\n---\n[' + todayStr + ' - Bàn giao bổ sung] ' + (notes || 'Không có ghi chú');
+                    await db.run(`UPDATE work_tickets SET
+                        description = COALESCE(description, '') || $1,
+                        status = CASE WHEN status IN ('resolved','closed') THEN 'pending' ELSE status END,
+                        due_date = CASE WHEN status IN ('resolved','closed') THEN NULL ELSE due_date END,
+                        resolved_at = CASE WHEN status IN ('resolved','closed') THEN NULL ELSE resolved_at END,
+                        assigned_to = $2,
+                        updated_at = $3
+                        WHERE id = $4`, [appendNote, assignedTo, now, existingTicket.id]);
+                } else {
+                    // === CREATE NEW work ticket ===
+                    const last = await db.get('SELECT ticket_code FROM work_tickets ORDER BY id DESC LIMIT 1');
+                    let nextNum = 1;
+                    if (last && last.ticket_code) {
+                        const match = last.ticket_code.match(/PHIEUHV(\d+)/);
+                        if (match) nextNum = parseInt(match[1]) + 1;
+                    }
+                    const ticketCode = 'PHIEUHV' + String(nextNum).padStart(4, '0');
+
+                    await db.run(`
+                        INSERT INTO work_tickets (ticket_code, type, order_code, title, description, priority, status, created_by, assigned_to, due_date, created_at, updated_at)
+                        VALUES ($1, 'error_return', $2, $3, $4, 'GẤP', 'pending', $5, $6, NULL, $7, $7)
+                    `, [
+                        ticketCode,
+                        orderCode,
+                        'HÀNG LỖI VỀ — ' + orderCode,
+                        '[' + todayStr + '] ' + (notes || 'Bàn giao hàng lỗi về cho QLX'),
+                        request.user.id,
+                        assignedTo,
+                        now
+                    ]);
+                }
+            }
+        } catch(wtErr) { console.error('[WorkTicket] auto-create from error-return:', wtErr.message); }
 
         return { success: true };
     });

@@ -2437,7 +2437,7 @@ async function _dhtErrorReturnHandover(orderId) {
     // Build select options for QLX managers
     var qlxSelectOptions = '<option value="">— Chọn Quản Lý Xưởng —</option>';
     qlxManagers.forEach(function(m) {
-        qlxSelectOptions += '<option value="' + (m.full_name || m.username) + '">' + (m.full_name || m.username) + '</option>';
+        qlxSelectOptions += '<option value="' + m.id + '">' + (m.full_name || m.username) + '</option>';
     });
 
     // Build overlay
@@ -2515,18 +2515,21 @@ async function _dhtErrorReturnHandover(orderId) {
 }
 
 async function _dhtSubmitErrorReturn(errorId, orderId) {
-    var handedTo = (document.getElementById('_errReturnTo_' + errorId).value || '').trim();
+    var selectEl = document.getElementById('_errReturnTo_' + errorId);
+    var handedToId = selectEl ? selectEl.value : '';
+    var handedTo = (selectEl && selectEl.selectedIndex > 0) ? selectEl.options[selectEl.selectedIndex].text : '';
     var notes = (document.getElementById('_errReturnNotes_' + errorId).value || '').trim();
 
-    if (!handedTo) {
-        showToast('⚠️ Vui lòng nhập tên Quản Lý Xưởng', 'error');
-        document.getElementById('_errReturnTo_' + errorId).style.borderColor = '#dc2626';
+    if (!handedToId) {
+        showToast('⚠️ Vui lòng chọn Quản Lý Xưởng', 'error');
+        if (selectEl) selectEl.style.borderColor = '#dc2626';
         return;
     }
 
     try {
         var result = await apiCall('/api/customer-errors/' + errorId + '/error-return', 'PATCH', {
             handed_to: handedTo,
+            handed_to_id: parseInt(handedToId),
             notes: notes
         });
         if (result.error) { showToast(result.error, 'error'); return; }
