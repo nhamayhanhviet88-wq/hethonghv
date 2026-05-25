@@ -355,7 +355,10 @@ async function renderDonhangtongPage(content) {
             +'.dht-sb-day:hover{background:#fffdf5}.dht-sb-day.active{background:#fef9c3;font-weight:700}'
             +'.dht-th-sort{transition:all .15s;white-space:nowrap}'
             +'.dht-th-sort:hover{filter:brightness(1.3)}'
-            +'.dht-sort-arrow{font-size:10px;margin-left:3px;opacity:0.9}';
+            +'.dht-sort-arrow{font-size:10px;margin-left:3px;opacity:0.9}'
+            +'@keyframes dhtErrorPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:0.7}}'
+            +'.dht-error-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dc2626;color:#fff;font-size:10px;font-weight:900;margin-right:4px;animation:dhtErrorPulse 1.5s ease-in-out infinite;box-shadow:0 0 6px rgba(220,38,38,0.6),0 0 12px rgba(220,38,38,0.3);vertical-align:middle;line-height:1}'
+            +'.dht-don-sua-glow{animation:dhtDonSuaGlow 2s ease-in-out infinite}@keyframes dhtDonSuaGlow{0%,100%{box-shadow:0 0 4px rgba(180,83,9,0.4)}50%{box-shadow:0 0 12px rgba(180,83,9,0.8),0 0 20px rgba(180,83,9,0.3)}}';
         document.head.appendChild(st);
     }
     const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
@@ -641,7 +644,7 @@ function _dhtRenderOrderRows(filtered) {
             <td>${tienDo}</td>
             <td style="text-align:center;">${prodBadge}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td><strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
+            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
@@ -877,7 +880,7 @@ async function _dhtShowDetail(id) {
             { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')`, perm: canDo('dht_zalo_oa', 'view') },
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
             { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
-            { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('dht_don_sua', 'view') },
+            { icon: '🔧', label: 'Lên Đơn Sửa', color: o.has_error ? '#b45309' : '#cbd5e1', bg: o.has_error ? '#fef3c7' : '#f1f5f9', fn: `alert('Chức năng Lên Đơn Sửa đang phát triển!')`, disabled: !o.has_error, perm: canDo('dht_don_sua', 'view'), extraClass: o.has_error ? 'dht-don-sua-glow' : '' },
             { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
         ];
         for (const a of actionBtns) {
@@ -889,7 +892,7 @@ async function _dhtShowDetail(id) {
                 actionsHTML += `<div style="width:42px;height:42px;border-radius:50%;background:${a.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 5px;font-size:18px">${noPerm ? '🔒' : a.icon}</div>`;
                 actionsHTML += `<div style="font-size:10px;font-weight:700;color:${a.color}">${a.label}</div></div>`;
             } else {
-                actionsHTML += `<div onclick="${a.fn}" style="text-align:center;cursor:pointer;padding:10px 14px;border-radius:12px;transition:all .15s;min-width:80px" onmouseover="this.style.background='${a.bg}'" onmouseout="this.style.background='transparent'">`;
+                actionsHTML += `<div onclick="${a.fn}" class="${a.extraClass || ''}" style="text-align:center;cursor:pointer;padding:10px 14px;border-radius:12px;transition:all .15s;min-width:80px" onmouseover="this.style.background='${a.bg}'" onmouseout="this.style.background='transparent'">`;
                 actionsHTML += `<div style="width:42px;height:42px;border-radius:50%;background:${a.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 5px;font-size:18px">${a.icon}</div>`;
                 actionsHTML += `<div style="font-size:10px;font-weight:700;color:${a.color}">${a.label}</div></div>`;
             }
