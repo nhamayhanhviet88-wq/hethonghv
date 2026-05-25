@@ -749,6 +749,8 @@ async function _ceoSubmitPhat(id){
   var ship_return=gv('ceoU_shipreturn'),ship_delivery=gv('ceoU_shipdelivery'),ship_other=gv('ceoU_shipother');
   var production_cost=cost_cut+cost_print+cost_press+cost_sew+cost_collar+cost_material_other+cost_other;
   var shipping_cost=ship_return+ship_delivery+ship_other;
+  if(!production_cost){showToast('Vui lòng nhập ít nhất 1 mục Chi Phí SX','error');return;}
+  if(!shipping_cost){showToast('Vui lòng nhập ít nhất 1 mục Phí Ship','error');return;}
   var vmonth=document.getElementById('ceoU_vmonth').value;
   var pmonth=document.getElementById('ceoU_pmonth').value;
   if(!vmonth){showToast('Vui lòng chọn Xử Lý Tháng','error');return;}
