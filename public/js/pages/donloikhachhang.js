@@ -3,9 +3,8 @@ var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: nul
 var CEO_ERR_TYPES=['Sai màu','Sai size','Sai chất liệu','Lỗi in','Lỗi may','Lỗi ép','Thiếu số lượng','Giao trễ','Sai thông tin KH','Khác'];
 
 function renderDonloikhachhangPage(content) {
-    var now = vnNow();
-    _ceo.year = now.getFullYear();
-    _ceo.month = now.getMonth() + 1;
+    _ceo.year = null;
+    _ceo.month = null;
     content.innerHTML = '<div id="ceoRoot" style="display:flex;gap:0;min-height:calc(100vh - 80px)">' +
         '<div id="ceoSidebar" style="width:200px;min-width:200px;background:#fff;border-right:1px solid #e5e7eb;padding:0;overflow-y:auto"></div>' +
         '<div id="ceoMain" style="flex:1;padding:0;overflow-x:auto;background:#fafbfc"></div></div>';
@@ -38,7 +37,7 @@ function _ceoRenderTree() {
     sortedYears.forEach(function(yr) {
         var months = years[yr].sort(function(a,b){return b.month-a.month;});
         var yrTotal = months.reduce(function(s,m){return s+m.count;},0);
-        var isOpen = _ceo.year == yr;
+        var isOpen = !_ceo.year || _ceo.year == yr;
         h += '<div style="border-bottom:1px solid #f1f5f9">';
         h += '<div onclick="_ceoToggleYear(this,' + yr + ')" style="padding:8px 14px;font-size:12px;font-weight:700;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">' +
             '<span class="ceo-arrow" style="transition:transform .2s;transform:rotate(' + (isOpen?'90':'0') + 'deg);font-size:10px">▶</span>' +
@@ -102,7 +101,6 @@ function _ceoRenderTable() {
         '<div style="display:flex;gap:8px">' +
         '<button onclick="_ceoSetFilter(null)" style="padding:8px 14px;background:' + (!_ceo.filter ? '#1e293b' : '#f1f5f9') + ';color:' + (!_ceo.filter ? '#fff' : '#64748b') + ';border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Tất Cả</button>' +
         '<button onclick="_ceoOpenUpdatePicker()" style="padding:8px 16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cập Nhật Lỗi</button>' +
-        '<button onclick="_ceoOpenForm()" style="padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Thêm Đơn Lỗi</button>' +
         '</div></div>';
 
     // === 3 STAT CARDS (filter only) ===
@@ -124,19 +122,17 @@ function _ceoRenderTable() {
     h += '<div style="font-size:13px;font-weight:700;color:#166534">Hoàn Thành</div></div></div>';
     h += '</div>';
 
-
-
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
     var cols = ['Đơn Lỗi','Lỗi Thường Gặp','Ngày','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Video','Hình Ảnh','Cách Xử Lý Lỗi',
-        'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục',''];
+        'Chi Phí SX (Cắt/In/Ép/May)','Phí Ship (Về/Đi/Lần 3)','Xử Lý Tháng','Đã Phạt Tháng','Người Vi Phạm','Cam Kết Người Vi Phạm','Cách Khắc Phục'];
     cols.forEach(function(c) {
         h += '<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">' + c + '</th>';
     });
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="18" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="17" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -173,11 +169,7 @@ function _ceoRenderTable() {
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:6px;border-right:1px solid #f8fafc">' + (item.fix_plan || '') + '</td>';
-            h += '<td style="padding:6px;white-space:nowrap"><button onclick="event.stopPropagation();_ceoOpenForm(' + item.id + ')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
-            if (currentUser && ['giam_doc','quan_ly_cap_cao','quan_ly'].includes(currentUser.role)) {
-                h += '<button onclick="event.stopPropagation();_ceoDelete(' + item.id + ')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
-            }
-            h += '</td></tr>';
+            h += '</tr>';
         });
     }
     h += '</tbody></table></div>';
