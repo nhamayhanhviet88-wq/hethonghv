@@ -128,9 +128,13 @@ async function _qlxWtDetail(id){
         if (rps.length > 0) {
             rpsHtml = '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">💬 Lịch Sử Trả Lời (' + rps.length + ')</div>';
             rps.forEach(function(rp){
+                var rpImgs='';
+                try{var att=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments;if(att&&att.length){att.forEach(function(a){if(a.type==='image'&&a.url)rpImgs+='<img src="'+a.url+'" style="max-width:200px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid #e5e7eb" onclick="window.open(this.src)">';});}}catch(e){}
                 rpsHtml += '<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:6px;border-left:3px solid #0369a1">';
                 rpsHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:#0369a1">' + (rp.user_name||'—') + '</span><span style="font-size:9px;color:#9ca3af">' + vnFormat(rp.created_at) + '</span></div>';
-                rpsHtml += '<div style="font-size:11px;color:#334155;line-height:1.4">' + (rp.message||'').replace(/\n/g,'<br>') + '</div></div>';
+                rpsHtml += '<div style="font-size:11px;color:#334155;line-height:1.4">' + (rp.message||'').replace(/\n/g,'<br>') + '</div>';
+                if(rpImgs)rpsHtml+='<div style="margin-top:4px">'+rpImgs+'</div>';
+                rpsHtml += '</div>';
             });
             rpsHtml += '</div>';
         }
@@ -168,6 +172,12 @@ async function _qlxWtDetail(id){
         h += '<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:4px">✏️ Trả Lời Yêu Cầu <span style="color:#dc2626">*</span></label>';
         h += '<textarea id="_qlxReplyMsg" rows="3" placeholder="Nhập nội dung trả lời yêu cầu..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit;transition:border .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'"></textarea></div>';
 
+        // Image paste zone
+        h += '<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">📷 Hình Ảnh (tùy chọn)</div>';
+        h += '<div id="_qlxReplyPaste" tabindex="0" style="padding:10px;border:2px dashed #d1d5db;border-radius:8px;text-align:center;cursor:pointer;background:#fff;outline:none;transition:all .2s" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'">';
+        h += '<div style="font-size:14px">📋</div><div style="font-size:10px;color:#64748b">Ctrl+V để dán ảnh</div></div>';
+        h += '<div id="_qlxReplyImgPreview" style="margin-top:4px"></div></div>';
+
         // Ngày Xử Lý toggle
         h += '<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:800;color:#374151;display:block;margin-bottom:8px">📅 Ngày Xử Lý <span style="color:#dc2626">*</span></label>';
         h += '<div style="display:flex;gap:0;border-radius:8px;overflow:hidden;border:1px solid #d1d5db">';
@@ -198,6 +208,36 @@ async function _qlxWtDetail(id){
         // Store day mode
         window._qlxReplyDayMode = 'today';
         window._qlxReplyCalInited = false;
+        window._qlxReplyImg = null;
+
+        // Setup image paste listener
+        setTimeout(function(){
+            var pz=document.getElementById('_qlxReplyPaste');if(!pz)return;
+            pz.addEventListener('paste',function(e){
+                var items=(e.clipboardData||e.originalEvent.clipboardData).items;
+                for(var i=0;i<items.length;i++){
+                    if(items[i].type.indexOf('image')!==-1){
+                        var f=items[i].getAsFile();var reader=new FileReader();
+                        reader.onload=function(ev){
+                            window._qlxReplyImg=ev.target.result;
+                            var prv=document.getElementById('_qlxReplyImgPreview');
+                            if(prv)prv.innerHTML='<div style="position:relative;display:inline-block;margin-top:4px"><img src="'+ev.target.result+'" style="max-width:200px;max-height:120px;border-radius:6px;border:1px solid #e5e7eb"><button onclick="window._qlxReplyImg=null;this.parentElement.remove()" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:10px;cursor:pointer;line-height:18px">×</button></div>';
+                        };reader.readAsDataURL(f);e.preventDefault();return;
+                    }
+                }
+            });
+            pz.addEventListener('dragover',function(e){e.preventDefault();pz.style.borderColor='#0369a1';pz.style.background='#f0f7ff';});
+            pz.addEventListener('dragleave',function(e){pz.style.borderColor='#d1d5db';pz.style.background='#fff';});
+            pz.addEventListener('drop',function(e){e.preventDefault();pz.style.borderColor='#d1d5db';pz.style.background='#fff';
+                var files=e.dataTransfer.files;if(files&&files[0]&&files[0].type.startsWith('image/')){
+                    var reader=new FileReader();reader.onload=function(ev){
+                        window._qlxReplyImg=ev.target.result;
+                        var prv=document.getElementById('_qlxReplyImgPreview');
+                        if(prv)prv.innerHTML='<div style="position:relative;display:inline-block;margin-top:4px"><img src="'+ev.target.result+'" style="max-width:200px;max-height:120px;border-radius:6px;border:1px solid #e5e7eb"><button onclick="window._qlxReplyImg=null;this.parentElement.remove()" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:10px;cursor:pointer;line-height:18px">×</button></div>';
+                    };reader.readAsDataURL(files[0]);
+                }
+            });
+        },100);
 
     }catch(e){showToast('Lỗi: '+e.message,'error');}
 }
@@ -267,7 +307,7 @@ async function _qlxWtConfirmReply(){
 
     try{
         // 1. Create reply
-        var rr = await apiCall('/api/work-tickets/'+tid+'/reply','POST',{message:msg});
+        var rr = await apiCall('/api/work-tickets/'+tid+'/reply','POST',{message:msg, image_data: window._qlxReplyImg || null});
         if(rr.error){showToast(rr.error,'error');return;}
 
         // 2. Update status + due_date
