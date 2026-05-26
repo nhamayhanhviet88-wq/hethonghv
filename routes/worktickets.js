@@ -560,8 +560,8 @@ async function routes(fastify) {
         let ticketCode = '';
         const ticketType = type || 'custom';
 
-        if (ticketType === 'order' && order_code && order_code.trim()) {
-            // ORDER TYPE: ticket_code = order_code (e.g. GCTEM0003)
+        if (order_code && order_code.trim()) {
+            // HAS ORDER CODE: ticket_code = order_code (e.g. GCTEM0003, AFF-VTTI0009)
             ticketCode = order_code.trim();
             // Check: this order already has a ticket?
             const existingOrder = await db.get(`SELECT id, ticket_code FROM work_tickets WHERE order_code = $1`, [ticketCode]);
