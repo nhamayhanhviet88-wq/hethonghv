@@ -351,7 +351,8 @@ async function routes(fastify) {
 
     // ========== GET /api/work-tickets/next-code — Preview next ticket code ==========
     fastify.get('/api/work-tickets/next-code', { preHandler: authenticate }, async (request) => {
-        const last = await db.get(`SELECT ticket_code FROM work_tickets ORDER BY id DESC LIMIT 1`);
+        // Only count custom tickets (PHIEUHV pattern), ignore order-type tickets
+        const last = await db.get(`SELECT ticket_code FROM work_tickets WHERE ticket_code LIKE 'PHIEUHV%' ORDER BY id DESC LIMIT 1`);
         let nextNum = 1;
         if (last && last.ticket_code) {
             const match = last.ticket_code.match(/PHIEUHV(\d+)/);
@@ -555,22 +556,32 @@ async function routes(fastify) {
         const pLevel = priority_level || 'low';
         const pSetting = await db.get(`SELECT * FROM priority_settings WHERE priority_key = $1`, [pLevel]);
 
-        // Validate: urgent requires image (will be uploaded separately)
-        // Image validation happens on the image upload step
-
-        // Generate ticket code with retry for uniqueness
+        // ===== TICKET CODE LOGIC =====
         let ticketCode = '';
-        for (let attempt = 0; attempt < 5; attempt++) {
-            const last = await db.get(`SELECT ticket_code FROM work_tickets ORDER BY id DESC LIMIT 1`);
-            let nextNum = 1;
-            if (last && last.ticket_code) {
-                const match = last.ticket_code.match(/PHIEUHV(\d+)/);
-                if (match) nextNum = parseInt(match[1]) + 1 + attempt;
+        const ticketType = type || 'custom';
+
+        if (ticketType === 'order' && order_code && order_code.trim()) {
+            // ORDER TYPE: ticket_code = order_code (e.g. GCTEM0003)
+            ticketCode = order_code.trim();
+            // Check: this order already has a ticket?
+            const existingOrder = await db.get(`SELECT id, ticket_code FROM work_tickets WHERE order_code = $1`, [ticketCode]);
+            if (existingOrder) return { error: 'Đơn hàng ' + ticketCode + ' đã có phiếu xử lý (' + existingOrder.ticket_code + ')! Mỗi đơn chỉ được tạo 1 phiếu.' };
+            // Check: ticket_code uniqueness
+            const existingCode = await db.get(`SELECT id FROM work_tickets WHERE ticket_code = $1`, [ticketCode]);
+            if (existingCode) return { error: 'Mã phiếu ' + ticketCode + ' đã tồn tại!' };
+        } else {
+            // CUSTOM TYPE: auto PHIEUHV#### (only count PHIEUHV tickets)
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const last = await db.get(`SELECT ticket_code FROM work_tickets WHERE ticket_code LIKE 'PHIEUHV%' ORDER BY id DESC LIMIT 1`);
+                let nextNum = 1;
+                if (last && last.ticket_code) {
+                    const match = last.ticket_code.match(/PHIEUHV(\d+)/);
+                    if (match) nextNum = parseInt(match[1]) + 1 + attempt;
+                }
+                ticketCode = 'PHIEUHV' + String(nextNum).padStart(4, '0');
+                const exists = await db.get(`SELECT id FROM work_tickets WHERE ticket_code = $1`, [ticketCode]);
+                if (!exists) break;
             }
-            ticketCode = 'PHIEUHV' + String(nextNum).padStart(4, '0');
-            // Check uniqueness
-            const exists = await db.get(`SELECT id FROM work_tickets WHERE ticket_code = $1`, [ticketCode]);
-            if (!exists) break;
         }
 
         // Calculate deadline
