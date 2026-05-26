@@ -10,6 +10,9 @@ const pool = new Pool({
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000, // ↑ 5s→10s: cho phép chờ lâu hơn khi pool bận
     allowExitOnIdle: false,
+    // Set Vietnam timezone at protocol level — no separate SET query needed
+    // This eliminates the DeprecationWarning from pool.on('connect') + client.query race
+    options: '-c timezone=Asia/Ho_Chi_Minh',
 });
 
 // ========== POOL HEALTH MONITORING ==========
@@ -36,27 +39,6 @@ pool.on('error', (err, client) => {
     // Don't crash — pg Pool handles reconnection automatically
 });
 
-// Set Vietnam timezone for every new connection
-pool.on('connect', (client) => {
-    client.query("SET timezone = 'Asia/Ho_Chi_Minh'").catch(err => {
-        console.error('⚠️ [Pool] Failed to set timezone:', err.message);
-    });
-});
-
-// ========== QUERY TIMEOUT WRAPPER ==========
-// Auto-cancel queries that take too long (prevents connection leak from hanging queries)
-const DEFAULT_QUERY_TIMEOUT_MS = 30000; // 30 seconds
-
-async function safeQuery(sql, params, timeoutMs = DEFAULT_QUERY_TIMEOUT_MS) {
-    checkPoolHealth('query');
-
-    // Use pool.query() with a statement_timeout for safety
-    const timeoutSql = `SET LOCAL statement_timeout = '${timeoutMs}'`;
-
-    // For simple queries, just use pool.query directly (it auto-releases)
-    return pool.query(sql, params);
-}
-
 // Convert SQLite-style ? placeholders to PostgreSQL $1, $2, ...
 function convertPlaceholders(sql, params) {
     if (!params || params.length === 0) return { sql, params };
@@ -69,14 +51,10 @@ const database = {
     pool,
 
     async init() {
-        // Test connection
-        const client = await pool.connect();
-        try {
-            await client.query('SELECT 1');
-            console.log('✅ PostgreSQL connected');
-        } finally {
-            client.release();
-        }
+        // Test connection using pool.query (auto-acquires & releases)
+        // This avoids race condition with pool.on('connect') async handler
+        await pool.query('SELECT 1');
+        console.log('✅ PostgreSQL connected');
     },
 
     // Run a query that modifies data (INSERT, UPDATE, DELETE)
