@@ -149,15 +149,29 @@ async function _wtViewDetail(id){
         ov.onclick=function(e){if(e.target===ov)ov.remove();};
 
         var rH='';
+        var ticketCreatorId2 = t.created_by;
         replies.forEach(function(rp){
-            var isMe=currentUser&&rp.user_id===currentUser.id;
-            rH+='<div style="padding:10px 14px;background:'+(isMe?'#eff6ff':'#f8fafc')+';border-radius:10px;margin-bottom:8px;border-left:3px solid '+(isMe?'#3b82f6':'#e5e7eb')+'">';
-            rH+='<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:'+(isMe?'#2563eb':'#374151')+'">'+(rp.user_name||'—')+'</span><span style="font-size:10px;color:#9ca3af">'+vnFormat(rp.created_at)+'</span></div>';
-            rH+='<div style="font-size:12px;color:#334155;line-height:1.5">'+(rp.message||'').replace(/\n/g,'<br>')+'</div>';
-            // Show reply image if exists
+            var isCreator2 = (rp.user_id == ticketCreatorId2);
             var rAttach=[];try{rAttach=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments||[];}catch(e){}
-            rAttach.forEach(function(a){if(a.type==='image'&&a.url)rH+='<div style="margin-top:6px"><img src="'+a.url+'" style="max-width:200px;max-height:150px;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer" onclick="window.open(this.src,\'_blank\')"></div>';});
-            rH+='</div>';
+            var rpImgs2='';
+            rAttach.forEach(function(a){if(a.type==='image'&&a.url)rpImgs2+='<img src="'+a.url+'" style="max-width:180px;max-height:110px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid '+(isCreator2?'#bfdbfe':'#bbf7d0')+'" onclick="window.open(this.src,\'_blank\')">';});
+            if(isCreator2){
+                // ── Người tạo phiếu: LEFT align, blue accent ──
+                rH+='<div style="display:flex;justify-content:flex-start;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#eff6ff;border-radius:2px 12px 12px 12px;border-left:3px solid #2563eb">';
+                rH+='<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><span style="font-size:10px;font-weight:800;color:#2563eb">🧑‍💼 '+(rp.user_name||'—')+'</span><span style="font-size:8px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:700">Người yêu cầu</span></div>';
+                rH+='<div style="font-size:11px;color:#1e3a5f;line-height:1.5">'+(rp.message||'').replace(/\n/g,'<br>')+'</div>';
+                if(rpImgs2)rH+='<div style="margin-top:4px">'+rpImgs2+'</div>';
+                rH+='<div style="text-align:right;margin-top:3px"><span style="font-size:9px;color:#93c5fd">'+vnFormat(rp.created_at)+'</span></div>';
+                rH+='</div></div>';
+            } else {
+                // ── Người trả lời: RIGHT align, green accent ──
+                rH+='<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#f0fdf4;border-radius:12px 2px 12px 12px;border-right:3px solid #16a34a">';
+                rH+='<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;justify-content:flex-end"><span style="font-size:8px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-weight:700">Trả lời</span><span style="font-size:10px;font-weight:800;color:#16a34a">🏭 '+(rp.user_name||'—')+'</span></div>';
+                rH+='<div style="font-size:11px;color:#14532d;line-height:1.5">'+(rp.message||'').replace(/\n/g,'<br>')+'</div>';
+                if(rpImgs2)rH+='<div style="margin-top:4px">'+rpImgs2+'</div>';
+                rH+='<div style="text-align:left;margin-top:3px"><span style="font-size:9px;color:#86efac">'+vnFormat(rp.created_at)+'</span></div>';
+                rH+='</div></div>';
+            }
         });
 
         // Build reply priority buttons with time sub-text

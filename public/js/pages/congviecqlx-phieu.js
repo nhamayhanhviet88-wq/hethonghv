@@ -123,19 +123,33 @@ async function _qlxWtDetail(id){
         var tieuDe = t.title || '—';
         var noiDung = (t.description || '—').replace(/\n/g,'<br>');
 
-        // Show previous replies if any
+        // Show previous replies if any — chat-style layout
         var rps = r.replies || [];
+        var ticketCreatorId = t.created_by;
         var rpsHtml = '';
         if (rps.length > 0) {
-            rpsHtml = '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">💬 Lịch Sử Trả Lời (' + rps.length + ')</div>';
+            rpsHtml = '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">💬 Lịch Sử Trả Lời (' + rps.length + ')</div>';
             rps.forEach(function(rp){
+                var isCreator = (rp.user_id == ticketCreatorId);
                 var rpImgs='';
-                try{var att=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments;if(att&&att.length){att.forEach(function(a){if(a.type==='image'&&a.url)rpImgs+='<img src="'+a.url+'" style="max-width:200px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid #e5e7eb" onclick="window.open(this.src)">';});}}catch(e){}
-                rpsHtml += '<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:6px;border-left:3px solid #0369a1">';
-                rpsHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:#0369a1">' + (rp.user_name||'—') + '</span><span style="font-size:9px;color:#9ca3af">' + vnFormat(rp.created_at) + '</span></div>';
-                rpsHtml += '<div style="font-size:11px;color:#334155;line-height:1.4">' + (rp.message||'').replace(/\n/g,'<br>') + '</div>';
-                if(rpImgs)rpsHtml+='<div style="margin-top:4px">'+rpImgs+'</div>';
-                rpsHtml += '</div>';
+                try{var att=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments;if(att&&att.length){att.forEach(function(a){if(a.type==='image'&&a.url)rpImgs+='<img src="'+a.url+'" style="max-width:180px;max-height:110px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid '+(isCreator?'#bfdbfe':'#bbf7d0')+'" onclick="window.open(this.src)">';});}}catch(e){}
+                if(isCreator){
+                    // ── Người tạo phiếu: LEFT align, blue accent ──
+                    rpsHtml += '<div style="display:flex;justify-content:flex-start;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#eff6ff;border-radius:2px 12px 12px 12px;border-left:3px solid #2563eb">';
+                    rpsHtml += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><span style="font-size:10px;font-weight:800;color:#2563eb">🧑‍💼 ' + (rp.user_name||'—') + '</span><span style="font-size:8px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:700">Người yêu cầu</span></div>';
+                    rpsHtml += '<div style="font-size:11px;color:#1e3a5f;line-height:1.5">' + (rp.message||'').replace(/\n/g,'<br>') + '</div>';
+                    if(rpImgs)rpsHtml+='<div style="margin-top:4px">'+rpImgs+'</div>';
+                    rpsHtml += '<div style="text-align:right;margin-top:3px"><span style="font-size:9px;color:#93c5fd">' + vnFormat(rp.created_at) + '</span></div>';
+                    rpsHtml += '</div></div>';
+                } else {
+                    // ── Người trả lời: RIGHT align, green accent ──
+                    rpsHtml += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#f0fdf4;border-radius:12px 2px 12px 12px;border-right:3px solid #16a34a">';
+                    rpsHtml += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;justify-content:flex-end"><span style="font-size:8px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-weight:700">Trả lời</span><span style="font-size:10px;font-weight:800;color:#16a34a">🏭 ' + (rp.user_name||'—') + '</span></div>';
+                    rpsHtml += '<div style="font-size:11px;color:#14532d;line-height:1.5">' + (rp.message||'').replace(/\n/g,'<br>') + '</div>';
+                    if(rpImgs)rpsHtml+='<div style="margin-top:4px">'+rpImgs+'</div>';
+                    rpsHtml += '<div style="text-align:left;margin-top:3px"><span style="font-size:9px;color:#86efac">' + vnFormat(rp.created_at) + '</span></div>';
+                    rpsHtml += '</div></div>';
+                }
             });
             rpsHtml += '</div>';
         }
