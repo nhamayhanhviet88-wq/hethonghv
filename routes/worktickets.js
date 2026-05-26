@@ -774,9 +774,20 @@ async function routes(fastify) {
             updates.push(`resolved_at = '${now}'`);
             updates.push(`is_overdue = false`); // Clear overdue when resolved
         }
+        // When re-activating to pending (e.g. QLX replies with future date), reset flags
+        if (status === 'pending') {
+            updates.push(`is_overdue = false`);
+            updates.push(`overdue_at = NULL`);
+            updates.push(`resolved_at = NULL`);
+        }
         // Support due_date update (null to clear, or date string)
         if (due_date !== undefined) {
             updates.push(due_date ? `due_date = '${due_date}'` : `due_date = NULL`);
+            // Sync deadline_at to end of due_date (23:59:00 VN time = 16:59:00 UTC)
+            if (due_date) {
+                const deadlineISO = new Date(due_date + 'T23:59:00+07:00').toISOString();
+                updates.push(`deadline_at = '${deadlineISO}'`);
+            }
         }
 
         await db.run(`UPDATE work_tickets SET ${updates.join(', ')} WHERE id = $1`, [id]);
