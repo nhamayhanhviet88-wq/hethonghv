@@ -450,7 +450,8 @@ async function routes(fastify) {
                 COUNT(*) FILTER (WHERE t.assigned_to = ${userId} AND t.status IN ('pending','in_progress'))::int AS my_assigned,
                 COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND (t.due_date <= '${todayVN}'::date OR t.due_date IS NULL))::int AS cho_xu_ly,
                 COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND t.due_date > '${todayVN}'::date)::int AS cho_ngay_tra_loi,
-                COUNT(*) FILTER (WHERE t.status IN ('resolved','closed'))::int AS da_tra_loi
+                COUNT(*) FILTER (WHERE t.status = 'resolved')::int AS da_tra_loi,
+                COUNT(*) FILTER (WHERE t.status = 'closed')::int AS hoan_thanh
             FROM work_tickets t
             WHERE ${where}
         `);
@@ -486,7 +487,9 @@ async function routes(fastify) {
             } else if (status === 'cho_ngay_tra_loi') {
                 conditions.push(`t.status IN ('pending','in_progress') AND t.due_date > '${todayVN}'::date`);
             } else if (status === 'da_tra_loi') {
-                conditions.push(`t.status IN ('resolved','closed')`);
+                conditions.push(`t.status = 'resolved'`);
+            } else if (status === 'hoan_thanh') {
+                conditions.push(`t.status = 'closed'`);
             } else if (status === 'today_due') {
                 conditions.push(`t.status IN ('pending','in_progress') AND COALESCE(t.due_date, t.created_at::date) = '${todayVN}'::date`);
             } else if (status === 'today_resolved') {
@@ -699,6 +702,20 @@ async function routes(fastify) {
         `, [id]);
 
         return { ticket, replies };
+    });
+
+    // ========== PUT /api/work-tickets/:id/close — Mark conversation as completed ==========
+    fastify.put('/api/work-tickets/:id/close', { preHandler: authenticate }, async (request) => {
+        const { id } = request.params;
+        const userId = request.user.id;
+        const ticket = await db.get('SELECT id, created_by, status FROM work_tickets WHERE id = $1', [id]);
+        if (!ticket) return { error: 'Không tìm thấy phiếu' };
+        if (ticket.created_by !== userId) return { error: 'Chỉ người tạo phiếu mới được đánh dấu hoàn thành' };
+        if (ticket.status !== 'resolved') return { error: 'Phiếu phải ở trạng thái "Đã Được Trả Lời" trước khi hoàn thành' };
+
+        const now = vnNow().toISOString();
+        await db.run(`UPDATE work_tickets SET status = 'closed', updated_at = $1 WHERE id = $2`, [now, id]);
+        return { success: true, message: '✅ Đã đánh dấu Hội Thoại Hoàn Thành' };
     });
 
     // ========== POST /api/work-tickets/:id/reply — Add reply ==========

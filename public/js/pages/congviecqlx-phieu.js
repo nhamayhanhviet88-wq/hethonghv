@@ -24,7 +24,8 @@ async function _qlxWtLoadList(){
     }catch(e){console.error('[QLX-WT]',e);}
 }
 function _qlxWtSI(s){
-    if(s==='resolved'||s==='closed')return{l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
+    if(s==='closed')return{l:'Hội Thoại Hoàn Thành',c:'#7c3aed',bg:'#f5f3ff',icon:'🏁'};
+    if(s==='resolved')return{l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
     if(s==='in_progress')return{l:'Chờ Ngày Trả Lời',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
     return{l:'Chờ Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
 }
@@ -32,8 +33,10 @@ function _qlxWtSI(s){
 function _qlxWtDisplayStatus(t){
     var today=vnDateStr();
     var dueDate=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
-    // Đã Được Trả Lời (resolved/closed)
-    if(t.status==='resolved'||t.status==='closed'){
+    if(t.status==='closed'){
+        return{l:'Hội Thoại Hoàn Thành',c:'#7c3aed',bg:'#f5f3ff',icon:'🏁'};
+    }
+    if(t.status==='resolved'){
         return{l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
     }
     // Chờ Ngày Trả Lời (pending/in_progress with future due_date)
@@ -54,10 +57,11 @@ function _qlxWtRender(){
     h+='</div>';
     // 3 Filter Buttons (full-width bars)
     var fCXL=st.cho_xu_ly||0, fCNTL=st.cho_ngay_tra_loi||0, fDTL=st.da_tra_loi||0;
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">';
     h+=_qlxWtFilterBtn('cho_xu_ly','🔴','Chờ Xử Lý',fCXL,'#dc2626','#fef2f2','#fecaca');
     h+=_qlxWtFilterBtn('cho_ngay_tra_loi','🟡','Chờ Ngày Trả Lời',fCNTL,'#d97706','#fefce8','#fde68a');
     h+=_qlxWtFilterBtn('da_tra_loi','🟢','Đã Được Trả Lời',fDTL,'#16a34a','#f0fdf4','#bbf7d0');
+    h+=_qlxWtFilterBtn('hoan_thanh','🏁','Hoàn Thành',st.hoan_thanh||0,'#7c3aed','#f5f3ff','#ddd6fe');
     h+='</div>';
     // Search
     h+='<div style="margin-bottom:12px"><input id="_qlxWtSrch" type="text" placeholder="🔍 Tìm mã phiếu, tiêu đề, mã đơn..." value="'+(_qlxWt.search||'')+'" onkeydown="if(event.key===\'Enter\'){_qlxWt.search=this.value;_qlxWt.page=1;_qlxWtLoadList()}" style="width:100%;padding:9px 14px;border:1.5px solid #d1d5db;border-radius:10px;font-size:12px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'"></div>';

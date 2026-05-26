@@ -3,7 +3,8 @@ var _wt={staff:[],depts:[],tickets:[],stats:{},filter:'all',search:'',page:1,pSe
 
 function _wtSI(t){
     if(typeof t==='string'){var s=t;t={status:s};} // backward compat
-    if(t.status==='resolved'||t.status==='closed') return {l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
+    if(t.status==='closed') return {l:'Hội Thoại Hoàn Thành',c:'#7c3aed',bg:'#f5f3ff',icon:'🏁'};
+    if(t.status==='resolved') return {l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
     // Date-based logic: compare due_date with today
     var today=vnDateStr();
     var dueDate=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
@@ -80,6 +81,7 @@ function _wtRender(){
     h+=_wtCard('🔴','Chờ Xử Lý',st.cho_xu_ly||0,'#dc2626','#fef2f2','#fecaca','cho_xu_ly');
     h+=_wtCard('🟡','Chờ Ngày Trả Lời',st.cho_ngay_tra_loi||0,'#d97706','#fef3c7','#fde68a','cho_ngay_tra_loi');
     h+=_wtCard('🟢','Đã Được Trả Lời',st.da_tra_loi||0,'#16a34a','#f0fdf4','#bbf7d0','da_tra_loi');
+    h+=_wtCard('🏁','Hội Thoại Hoàn Thành',st.hoan_thanh||0,'#7c3aed','#f5f3ff','#ddd6fe','hoan_thanh');
     h+='</div>';
 
     // My stats
@@ -242,7 +244,9 @@ async function _wtViewDetail(id){
             +'<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">⚡ Chọn mức độ mới (tùy chọn)</div><div style="display:flex;gap:4px;flex-wrap:wrap">'+rplyPL+'</div><div id="wtReplyDlPreview" style="margin-top:4px"></div></div>'
             // Image paste zone (dynamic show/hide)
             +'<div id="wtReplyImgZone" style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">📷 Hình ảnh <span id="wtReplyImgReq" style="display:none;color:#dc2626">* Bắt buộc</span><span id="wtReplyImgOpt">(tùy chọn)</span></div><div id="wtReplyPaste" tabindex="0" style="padding:10px;border:2px dashed #d1d5db;border-radius:8px;text-align:center;cursor:pointer;background:#fff;outline:none;transition:all .2s" onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#d1d5db\'"><div style="font-size:14px">📋</div><div style="font-size:10px;color:#64748b">Ctrl+V để dán ảnh</div></div><div id="wtReplyImgPreview" style="margin-top:4px"></div></div>'
-            +'<div style="display:flex;justify-content:flex-end"><button onclick="_wtReply('+t.id+')" style="padding:8px 20px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📤 Gửi Phản Hồi</button></div>'
+            +'<div style="display:flex;justify-content:flex-end;gap:8px">'
+            +(t.status==='resolved'&&currentUser&&currentUser.id==t.created_by?'<button onclick="_wtCloseTicket('+t.id+')" style="padding:8px 18px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(124,58,237,0.3)">🏁 Hội Thoại Hoàn Thành</button>':'')
+            +'<button onclick="_wtReply('+t.id+')" style="padding:8px 20px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📤 Gửi Phản Hồi</button></div>'
             +'</div>'
             +'</div></div>';
         document.body.appendChild(ov);
@@ -286,6 +290,17 @@ async function _wtChSt(id,status){
         var r=await apiCall('/api/work-tickets/'+id+'/status','PUT',{status:status});
         if(r.error){showToast(r.error,'error');return;}
         showToast(r.message||'✅ Đã cập nhật');
+        var ov=document.getElementById('wtDetailOv');if(ov)ov.remove();
+        _wtLoadAll();
+    }catch(e){showToast('Lỗi: '+e.message,'error');}
+}
+
+async function _wtCloseTicket(id){
+    if(!confirm('🏁 Xác nhận đánh dấu Hội Thoại Hoàn Thành?\n\nPhiếu sẽ được chuyển sang trạng thái hoàn thành. Bạn vẫn có thể phản hồi thêm nếu cần.'))return;
+    try{
+        var r=await apiCall('/api/work-tickets/'+id+'/close','PUT',{});
+        if(r.error){showToast(r.error,'error');return;}
+        showToast(r.message||'✅ Hội Thoại Hoàn Thành');
         var ov=document.getElementById('wtDetailOv');if(ov)ov.remove();
         _wtLoadAll();
     }catch(e){showToast('Lỗi: '+e.message,'error');}
