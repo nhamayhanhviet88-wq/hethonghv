@@ -735,6 +735,7 @@ async function routes(fastify) {
                 await db.run(`UPDATE work_tickets SET
                     priority_level = $1,
                     deadline_at = $2,
+                    due_date = ($2::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
                     status = $3,
                     is_overdue = false,
                     overdue_at = NULL,
