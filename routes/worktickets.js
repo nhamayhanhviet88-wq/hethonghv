@@ -523,7 +523,8 @@ async function routes(fastify) {
             SELECT t.*,
                 uc.full_name AS created_by_name,
                 ua.full_name AS assigned_to_name,
-                (SELECT COUNT(*)::int FROM work_ticket_replies r WHERE r.ticket_id = t.id) AS reply_count
+                (SELECT COUNT(*)::int FROM work_ticket_replies r WHERE r.ticket_id = t.id) AS reply_count,
+                (SELECT r2.message FROM work_ticket_replies r2 WHERE r2.ticket_id = t.id ORDER BY r2.id DESC LIMIT 1) AS latest_reply
             FROM work_tickets t
             LEFT JOIN users uc ON uc.id = t.created_by
             LEFT JOIN users ua ON ua.id = t.assigned_to

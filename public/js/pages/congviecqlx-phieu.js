@@ -82,7 +82,8 @@ function _qlxWtRender(){
             h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
             h+='<td style="padding:6px;text-align:center;color:#4f46e5;font-weight:700">'+(t.ticket_code||'—')+'</td>';
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
-            h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||'—')+'</td>';
+            var _ndyc=t.latest_reply||t.description||'—';
+            h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.latest_reply?'💬 ':'')+_ndyc+'</td>';
             h+='<td style="padding:6px;text-align:center">'+(_wtPLB?_wtPLB(t.priority_level||'low'):(t.priority||'—'))+'</td>';
             h+='<td style="padding:6px;text-align:center;white-space:nowrap">'+(_wtDeadlineBadge?_wtDeadlineBadge(t):'—')+'</td>';
             h+='<td style="padding:6px;text-align:center;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+deadlineFmt+'</td>';
@@ -160,7 +161,12 @@ async function _qlxWtDetail(id){
         h += '<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb"><div style="font-size:10px;color:#9ca3af;font-weight:700">📦 MÃ ĐƠN</div><div style="font-size:12px;font-weight:700;color:#0369a1">' + maDon + '</div></div>';
         h += '</div>';
         h += '<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:10px"><div style="font-size:10px;color:#9ca3af;font-weight:700">📋 TIÊU ĐỀ</div><div style="font-size:13px;font-weight:700;color:#1e293b">' + tieuDe + '</div></div>';
-        h += '<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:14px"><div style="font-size:10px;color:#9ca3af;font-weight:700">📝 NỘI DUNG YÊU CẦU</div><div style="font-size:12px;color:#334155;line-height:1.6;margin-top:4px">' + noiDung + '</div></div>';
+        // Show latest reply as primary content if available
+        var latestReply = rps.length > 0 ? rps[rps.length - 1] : null;
+        if(latestReply){
+            h += '<div style="padding:8px 12px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:10px"><div style="font-size:10px;color:#2563eb;font-weight:700">✉️ PHẢN HỒI MỚI NHẤT <span style="font-size:9px;color:#64748b;font-weight:500">(' + (latestReply.user_name||'') + ' - ' + vnFormat(latestReply.created_at) + ')</span></div><div style="font-size:12px;color:#1e293b;line-height:1.6;margin-top:4px;font-weight:600">' + (latestReply.message||'').replace(/\n/g,'<br>') + '</div></div>';
+        }
+        h += '<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:14px"><div style="font-size:10px;color:#9ca3af;font-weight:700">📝 YÊU CẦU BAN ĐẦU</div><div style="font-size:12px;color:#334155;line-height:1.6;margin-top:4px">' + noiDung + '</div></div>';
 
         // Previous replies
         h += rpsHtml;

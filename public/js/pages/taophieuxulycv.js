@@ -110,7 +110,8 @@ function _wtRender(){
             h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
             h+='<td style="padding:6px;text-align:center;color:#4f46e5;font-weight:700">'+(t.ticket_code||'—')+'</td>';
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
-            h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||'—')+'</td>';
+            var _ndyc2=t.latest_reply||t.description||'—';
+            h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.latest_reply?'💬 ':'')+_ndyc2+'</td>';
             h+='<td style="padding:6px;text-align:center">'+_wtPLB(t.priority_level||'low')+'</td>';
             h+='<td style="padding:6px;text-align:center;white-space:nowrap">'+_wtDeadlineBadge(t)+'</td>';
             h+='<td style="padding:6px;text-align:center;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+deadlineFmt+'</td>';
