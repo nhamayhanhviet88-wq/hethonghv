@@ -1,9 +1,14 @@
 // ========== TẠO PHIẾU XỬ LÝ CV ==========
 var _wt={staff:[],depts:[],tickets:[],stats:{},filter:'all',search:'',page:1,pSettings:[],fmgr:null,nextCode:''};
 
-function _wtSI(s){
-    if(s==='resolved'||s==='closed') return {l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
-    if(s==='in_progress') return {l:'Chờ Ngày Trả Lời',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
+function _wtSI(t){
+    if(typeof t==='string'){var s=t;t={status:s};} // backward compat
+    if(t.status==='resolved'||t.status==='closed') return {l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
+    // Date-based logic: compare due_date with today
+    var today=vnDateStr();
+    var dueDate=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
+    if(dueDate&&dueDate>today) return {l:'Chờ Ngày Trả Lời',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
+    if(dueDate&&dueDate<today) return {l:'Chờ Xử Lý (Trễ)',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
     return {l:'Chờ Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
 }
 function _wtPLB(pl){
@@ -70,11 +75,11 @@ function _wtRender(){
     // Search
     h+='<div style="margin-bottom:14px"><input id="wtSearchInput" type="text" placeholder="🔍 Tìm mã phiếu, tiêu đề, mã đơn..." value="'+(_wt.search||'')+'" onkeydown="if(event.key===\'Enter\'){_wt.search=this.value;_wt.page=1;_wtLoadList()}" style="width:100%;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:10px;font-size:13px;outline:none" onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#d1d5db\'"></div>';
 
-    // 3 Stat Cards
+    // 3 Stat Cards (date-based, matching QLX module)
     h+='<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">';
-    h+=_wtCard('🔴','Chờ Xử Lý',st.pending||0,'#dc2626','#fef2f2','#fecaca','pending');
-    h+=_wtCard('🟡','Chờ Ngày Trả Lời',st.in_progress||0,'#d97706','#fef3c7','#fde68a','in_progress');
-    h+=_wtCard('🟢','Đã Được Trả Lời',(st.resolved||0)+(st.closed||0),'#16a34a','#f0fdf4','#bbf7d0','resolved');
+    h+=_wtCard('🔴','Chờ Xử Lý',st.cho_xu_ly||0,'#dc2626','#fef2f2','#fecaca','cho_xu_ly');
+    h+=_wtCard('🟡','Chờ Ngày Trả Lời',st.cho_ngay_tra_loi||0,'#d97706','#fef3c7','#fde68a','cho_ngay_tra_loi');
+    h+=_wtCard('🟢','Đã Được Trả Lời',st.da_tra_loi||0,'#16a34a','#f0fdf4','#bbf7d0','da_tra_loi');
     h+='</div>';
 
     // My stats
@@ -96,7 +101,7 @@ function _wtRender(){
         h+='<tr><td colspan="12" style="padding:40px;text-align:center;color:#9ca3af">Chưa có phiếu xử lý nào</td></tr>';
     }else{
         items.forEach(function(t,idx){
-            var si=_wtSI(t.status);
+            var si=_wtSI(t);
             var late=t.is_overdue&&t.status!=='resolved'&&t.status!=='closed';
             var deadlineDate=t.deadline_at?new Date(t.deadline_at):null;
             var deadlineFmt=deadlineDate?String(deadlineDate.getDate()).padStart(2,'0')+'/'+String(deadlineDate.getMonth()+1).padStart(2,'0')+'/'+deadlineDate.getFullYear()+' '+String(deadlineDate.getHours()).padStart(2,'0')+':'+String(deadlineDate.getMinutes()).padStart(2,'0'):'—';
@@ -136,7 +141,7 @@ async function _wtViewDetail(id){
         var r=await apiCall('/api/work-tickets/'+id);
         var t=r.ticket;if(!t)return;
         var replies=r.replies||[];
-        var si=_wtSI(t.status);
+        var si=_wtSI(t);
         var ov=document.createElement('div');
         ov.id='wtDetailOv';
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px';
