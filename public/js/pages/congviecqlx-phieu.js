@@ -129,6 +129,34 @@ async function _qlxWtDetail(id){
         var rpsHtml = '';
         if (rps.length > 0) {
             rpsHtml = '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">💬 Lịch Sử Trả Lời (' + rps.length + ')</div>';
+            // Helper: render metadata badge for chat bubble
+            function _qlxMetaBadge(rp){
+                var md=rp.metadata;if(!md)return '';
+                try{if(typeof md==='string')md=JSON.parse(md);}catch(e){return '';}
+                var h2='';
+                if(md.priority_level){
+                    var _c=md.color||'#6b7280',_ico=md.icon||'',_lb=md.label||md.priority_level;
+                    var _sub='';
+                    if(md.is_calendar)_sub='📅 Theo lịch';
+                    else if(md.target_time)_sub='⏰ '+md.target_time;
+                    else if(md.duration_hours){var _dh=parseFloat(md.duration_hours),_hh=Math.floor(_dh),_mm=Math.round((_dh-_hh)*60);_sub=_hh>0&&_mm>0?_hh+'h'+_mm+'p':_hh>0?_hh+' tiếng':_mm+' phút';}
+                    h2+='<div style="margin-top:6px;padding:4px 8px;background:'+_c+'15;border:1px solid '+_c+'33;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
+                    h2+='<span style="font-size:9px;font-weight:800;color:'+_c+'">⚡ Mức độ: '+_ico+' '+_lb+'</span>';
+                    if(_sub)h2+='<span style="font-size:8px;color:'+_c+';opacity:0.8"> — '+_sub+'</span>';
+                    h2+='</div>';
+                }
+                if(md.action){
+                    if(md.action==='today'){
+                        h2+='<div style="margin-top:6px;padding:4px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
+                        h2+='<span style="font-size:9px;font-weight:800;color:#16a34a">✅ Xử lý hôm nay</span></div>';
+                    } else if(md.action==='schedule'&&md.scheduled_date){
+                        var _dd=md.scheduled_date.split('-');var _fmt=_dd[2]+'/'+_dd[1]+'/'+_dd[0];
+                        h2+='<div style="margin-top:6px;padding:4px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
+                        h2+='<span style="font-size:9px;font-weight:800;color:#d97706">📅 Hẹn xử lý: '+_fmt+'</span></div>';
+                    }
+                }
+                return h2;
+            }
             rps.forEach(function(rp){
                 var isCreator = (rp.user_id == ticketCreatorId);
                 var rpImgs='';
@@ -138,6 +166,7 @@ async function _qlxWtDetail(id){
                     rpsHtml += '<div style="display:flex;justify-content:flex-start;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#eff6ff;border-radius:2px 12px 12px 12px;border-left:3px solid #2563eb">';
                     rpsHtml += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><span style="font-size:10px;font-weight:800;color:#2563eb">🧑‍💼 ' + (rp.user_name||'—') + '</span><span style="font-size:8px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:700">Người yêu cầu</span></div>';
                     rpsHtml += '<div style="font-size:11px;color:#1e3a5f;line-height:1.5">' + (rp.message||'').replace(/\n/g,'<br>') + '</div>';
+                    rpsHtml += _qlxMetaBadge(rp);
                     if(rpImgs)rpsHtml+='<div style="margin-top:4px">'+rpImgs+'</div>';
                     rpsHtml += '<div style="text-align:right;margin-top:3px"><span style="font-size:9px;color:#93c5fd">' + vnFormat(rp.created_at) + '</span></div>';
                     rpsHtml += '</div></div>';
@@ -146,6 +175,7 @@ async function _qlxWtDetail(id){
                     rpsHtml += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#f0fdf4;border-radius:12px 2px 12px 12px;border-right:3px solid #16a34a">';
                     rpsHtml += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;justify-content:flex-end"><span style="font-size:8px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-weight:700">Trả lời</span><span style="font-size:10px;font-weight:800;color:#16a34a">🏭 ' + (rp.user_name||'—') + '</span></div>';
                     rpsHtml += '<div style="font-size:11px;color:#14532d;line-height:1.5">' + (rp.message||'').replace(/\n/g,'<br>') + '</div>';
+                    rpsHtml += _qlxMetaBadge(rp);
                     if(rpImgs)rpsHtml+='<div style="margin-top:4px">'+rpImgs+'</div>';
                     rpsHtml += '<div style="text-align:left;margin-top:3px"><span style="font-size:9px;color:#86efac">' + vnFormat(rp.created_at) + '</span></div>';
                     rpsHtml += '</div></div>';
@@ -327,7 +357,12 @@ async function _qlxWtConfirmReply(){
 
     try{
         // 1. Create reply
-        var rr = await apiCall('/api/work-tickets/'+tid+'/reply','POST',{message:msg, image_data: window._qlxReplyImg || null});
+        var rr = await apiCall('/api/work-tickets/'+tid+'/reply','POST',{
+            message:msg,
+            image_data: window._qlxReplyImg || null,
+            reply_action: mode,
+            reply_action_date: dueDate
+        });
         if(rr.error){showToast(rr.error,'error');return;}
 
         // 2. Update status + due_date

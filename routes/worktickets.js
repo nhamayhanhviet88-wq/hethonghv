@@ -704,7 +704,7 @@ async function routes(fastify) {
     // ========== POST /api/work-tickets/:id/reply — Add reply ==========
     fastify.post('/api/work-tickets/:id/reply', { preHandler: authenticate }, async (request) => {
         const { id } = request.params;
-        const { message, priority_level, image_data } = request.body;
+        const { message, priority_level, image_data, reply_action, reply_action_date } = request.body;
         const userId = request.user.id;
 
         if (!message || !message.trim()) return { error: 'Nội dung không được để trống' };
@@ -727,10 +727,25 @@ async function routes(fastify) {
         // Build attachments array
         const attachments = replyImageUrl ? JSON.stringify([{ type: 'image', url: replyImageUrl }]) : '[]';
 
+        // Build metadata JSONB — stores priority_level or reply_action for display in chat bubbles
+        let metadata = null;
+        if (priority_level) {
+            const pInfo = await db.get(`SELECT label, icon, color, duration_hours, is_calendar, target_time FROM priority_settings WHERE priority_key = $1`, [priority_level]);
+            metadata = { priority_level, label: pInfo?.label || priority_level, icon: pInfo?.icon || '', color: pInfo?.color || '' };
+            if (pInfo?.duration_hours) metadata.duration_hours = pInfo.duration_hours;
+            if (pInfo?.is_calendar) metadata.is_calendar = true;
+            if (pInfo?.target_time) metadata.target_time = pInfo.target_time;
+        }
+        if (reply_action) {
+            metadata = metadata || {};
+            metadata.action = reply_action; // 'today' or 'schedule'
+            if (reply_action_date) metadata.scheduled_date = reply_action_date;
+        }
+
         await db.run(`
-            INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, created_at)
-            VALUES ($1, $2, $3, $4, $5)
-        `, [id, userId, message.trim(), attachments, vnNow()]);
+            INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `, [id, userId, message.trim(), attachments, metadata ? JSON.stringify(metadata) : null, vnNow()]);
 
         // Auto update status to in_progress if still pending (only when no priority change)
         if (!priority_level) {

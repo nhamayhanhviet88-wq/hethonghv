@@ -150,6 +150,34 @@ async function _wtViewDetail(id){
 
         var rH='';
         var ticketCreatorId2 = t.created_by;
+        // Helper: render metadata badge for chat bubble
+        function _wtMetaBadge(rp){
+            var md=rp.metadata;if(!md)return '';
+            try{if(typeof md==='string')md=JSON.parse(md);}catch(e){return '';}
+            var h2='';
+            if(md.priority_level){
+                var _c=md.color||'#6b7280',_ico=md.icon||'',_lb=md.label||md.priority_level;
+                var _sub='';
+                if(md.is_calendar)_sub='📅 Theo lịch';
+                else if(md.target_time)_sub='⏰ '+md.target_time;
+                else if(md.duration_hours){var _dh=parseFloat(md.duration_hours),_hh=Math.floor(_dh),_mm=Math.round((_dh-_hh)*60);_sub=_hh>0&&_mm>0?_hh+'h'+_mm+'p':_hh>0?_hh+' tiếng':_mm+' phút';}
+                h2+='<div style="margin-top:6px;padding:4px 8px;background:'+_c+'15;border:1px solid '+_c+'33;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
+                h2+='<span style="font-size:9px;font-weight:800;color:'+_c+'">⚡ Mức độ: '+_ico+' '+_lb+'</span>';
+                if(_sub)h2+='<span style="font-size:8px;color:'+_c+';opacity:0.8"> — '+_sub+'</span>';
+                h2+='</div>';
+            }
+            if(md.action){
+                if(md.action==='today'){
+                    h2+='<div style="margin-top:6px;padding:4px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
+                    h2+='<span style="font-size:9px;font-weight:800;color:#16a34a">✅ Xử lý hôm nay</span></div>';
+                } else if(md.action==='schedule'&&md.scheduled_date){
+                    var _dd=md.scheduled_date.split('-');var _fmt=_dd[2]+'/'+_dd[1]+'/'+_dd[0];
+                    h2+='<div style="margin-top:6px;padding:4px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
+                    h2+='<span style="font-size:9px;font-weight:800;color:#d97706">📅 Hẹn xử lý: '+_fmt+'</span></div>';
+                }
+            }
+            return h2;
+        }
         replies.forEach(function(rp){
             var isCreator2 = (rp.user_id == ticketCreatorId2);
             var rAttach=[];try{rAttach=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments||[];}catch(e){}
@@ -160,6 +188,7 @@ async function _wtViewDetail(id){
                 rH+='<div style="display:flex;justify-content:flex-start;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#eff6ff;border-radius:2px 12px 12px 12px;border-left:3px solid #2563eb">';
                 rH+='<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><span style="font-size:10px;font-weight:800;color:#2563eb">🧑‍💼 '+(rp.user_name||'—')+'</span><span style="font-size:8px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:700">Người yêu cầu</span></div>';
                 rH+='<div style="font-size:11px;color:#1e3a5f;line-height:1.5">'+(rp.message||'').replace(/\n/g,'<br>')+'</div>';
+                rH+=_wtMetaBadge(rp);
                 if(rpImgs2)rH+='<div style="margin-top:4px">'+rpImgs2+'</div>';
                 rH+='<div style="text-align:right;margin-top:3px"><span style="font-size:9px;color:#93c5fd">'+vnFormat(rp.created_at)+'</span></div>';
                 rH+='</div></div>';
@@ -168,6 +197,7 @@ async function _wtViewDetail(id){
                 rH+='<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#f0fdf4;border-radius:12px 2px 12px 12px;border-right:3px solid #16a34a">';
                 rH+='<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;justify-content:flex-end"><span style="font-size:8px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-weight:700">Trả lời</span><span style="font-size:10px;font-weight:800;color:#16a34a">🏭 '+(rp.user_name||'—')+'</span></div>';
                 rH+='<div style="font-size:11px;color:#14532d;line-height:1.5">'+(rp.message||'').replace(/\n/g,'<br>')+'</div>';
+                rH+=_wtMetaBadge(rp);
                 if(rpImgs2)rH+='<div style="margin-top:4px">'+rpImgs2+'</div>';
                 rH+='<div style="text-align:left;margin-top:3px"><span style="font-size:9px;color:#86efac">'+vnFormat(rp.created_at)+'</span></div>';
                 rH+='</div></div>';

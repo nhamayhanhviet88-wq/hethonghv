@@ -60,3 +60,65 @@
 [WT Reply] RESET: nowTime= 2026-05-26T10:23:55.000Z deadline= 2026-05-26T10:53:55.000Z newStatus= pending
 [WT Reply] DB updated successfully for ticket 3
 [EmailChecker] ⏭️ Already running, skip
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1391 emails, imported 0, skipped 910 duplicates, 0 negative
+🔄 Pages dir changed (congviecqlx.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[WT Reply] Priority change detected: urgent for ticket: 2
+[WT Reply] pSetting found: urgent
+[WT Reply] RESET: nowTime= 2026-05-26T10:28:50.000Z deadline= 2026-05-26T10:58:50.000Z newStatus= pending
+[WT Reply] DB updated successfully for ticket 2
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[WT Reply] No priority_level in request body
+[WT Reply] Priority change detected: high for ticket: 2
+[WT Reply] pSetting found: high
+[WT Reply] RESET: nowTime= 2026-05-26T10:29:31.000Z deadline= 2026-05-27T04:29:00.000Z newStatus= pending
+[WT Reply] DB updated successfully for ticket 2
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[WT Reply] Priority change detected: urgent for ticket: 1
+[WT Reply] pSetting found: urgent
+[WT Reply] RESET: nowTime= 2026-05-26T10:30:07.000Z deadline= 2026-05-26T11:00:07.000Z newStatus= pending
+[WT Reply] DB updated successfully for ticket 1
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[WT Reply] No priority_level in request body
+[EmailChecker] ✅ IMAP connected
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1391 emails, imported 0, skipped 910 duplicates, 0 negative
+⏰ [VN: 2026-05-26 17:32] Đang kiểm tra deadline...
+  ⏭️ [CV Khóa/Chuỗi] Bỏ qua — chỉ check vào 23:45+ VN hoặc lúc khởi động (hiện: 17:32)
+  📒 [Ledger] Synced 7 entries for 2026-05-26
+⏰ Deadline check hoàn thành sau 497ms (0.5s
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] 💰 CK17-26-5-Y26 | 300,000đ | Sacombank | CHUYEN TIEN NHANH QUA QR CKN 332878 A2F4VPH2 - NGU
+[Telegram] ✅ Sent to -5268277044
+[AppSheet] 📤 Sending: {"Action":"Add","Rows":[{"KEY":"CK17-26-5-Y26","Ngày":"2026-05-26","Loại":"THU","PT thanh toán":"CK","Nguồn":"Khách hàng","Tiền":"300","Ngân hàng":"SACOM","Nội dung":"CHUYEN TIEN NHANH QUA QR CKN 332878 A2F4VPH2 - NGUYEN THI MINH DUNG - Ngan hang TMCP An Binh","Người ghi nhận":"Mail"}]}
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1392 emails, imported 1, skipped 910 duplicates, 0 negative
+🔄 Pages dir changed (congviecqlx-phieu.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+🔄 Pages dir changed (congviecqlx-phieu.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+🔄 Pages dir changed (congviecqlx-phieu.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip

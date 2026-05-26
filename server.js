@@ -920,6 +920,28 @@ async function start() {
         decorateReply: false
     });
 
+    // ========== HEALTH CHECK — Pool stats + Server uptime ==========
+    const _serverStartTime = Date.now();
+    fastify.get('/api/health', async (request, reply) => {
+        const stats = db.getPoolStats();
+        const uptimeMs = Date.now() - _serverStartTime;
+        const uptimeH = Math.floor(uptimeMs / 3600000);
+        const uptimeM = Math.floor((uptimeMs % 3600000) / 60000);
+        return {
+            status: stats.waiting > 0 ? 'degraded' : 'ok',
+            uptime: `${uptimeH}h ${uptimeM}m`,
+            pool: stats,
+        };
+    });
+
+    // Log pool stats every 5 minutes (catch slow leaks before they become outages)
+    setInterval(() => {
+        const s = db.getPoolStats();
+        if (s.active > 0 || s.waiting > 0) {
+            console.log(`📊 [Pool Stats] active=${s.active}, idle=${s.idle}, waiting=${s.waiting}, total=${s.total}/${s.max}`);
+        }
+    }, 5 * 60 * 1000);
+
     // API Routes
     fastify.register(require('./routes/auth'));
     fastify.register(require('./routes/users'));

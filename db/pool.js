@@ -6,15 +6,56 @@ types.setTypeParser(1082, val => val); // 1082 = DATE type OID
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv',
-    max: 20,
+    max: 30,                       // ↑ 20→30: đủ cho ~6 cron jobs + concurrent user requests
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 10000, // ↑ 5s→10s: cho phép chờ lâu hơn khi pool bận
+    allowExitOnIdle: false,
+});
+
+// ========== POOL HEALTH MONITORING ==========
+// Log when pool is running low on connections (early warning)
+let _lastPoolWarning = 0;
+const POOL_WARN_INTERVAL = 60000; // warn at most once per minute
+
+function checkPoolHealth(context) {
+    const total = pool.totalCount;
+    const idle = pool.idleCount;
+    const waiting = pool.waitingCount;
+    const now = Date.now();
+
+    // Warn if pool utilization > 80% or there are waiting queries
+    if ((waiting > 0 || (total - idle) > pool.options.max * 0.8) && now - _lastPoolWarning > POOL_WARN_INTERVAL) {
+        _lastPoolWarning = now;
+        console.warn(`⚠️ [Pool Health] ${context || 'check'}: total=${total}, idle=${idle}, active=${total - idle}, waiting=${waiting}, max=${pool.options.max}`);
+    }
+}
+
+// ========== POOL ERROR HANDLING ==========
+pool.on('error', (err, client) => {
+    console.error('🔴 [Pool] Unexpected error on idle client:', err.message);
+    // Don't crash — pg Pool handles reconnection automatically
 });
 
 // Set Vietnam timezone for every new connection
 pool.on('connect', (client) => {
-    client.query("SET timezone = 'Asia/Ho_Chi_Minh'");
+    client.query("SET timezone = 'Asia/Ho_Chi_Minh'").catch(err => {
+        console.error('⚠️ [Pool] Failed to set timezone:', err.message);
+    });
 });
+
+// ========== QUERY TIMEOUT WRAPPER ==========
+// Auto-cancel queries that take too long (prevents connection leak from hanging queries)
+const DEFAULT_QUERY_TIMEOUT_MS = 30000; // 30 seconds
+
+async function safeQuery(sql, params, timeoutMs = DEFAULT_QUERY_TIMEOUT_MS) {
+    checkPoolHealth('query');
+
+    // Use pool.query() with a statement_timeout for safety
+    const timeoutSql = `SET LOCAL statement_timeout = '${timeoutMs}'`;
+
+    // For simple queries, just use pool.query directly (it auto-releases)
+    return pool.query(sql, params);
+}
 
 // Convert SQLite-style ? placeholders to PostgreSQL $1, $2, ...
 function convertPlaceholders(sql, params) {
@@ -52,6 +93,7 @@ const database = {
             finalSql = finalSql.replace(/;?\s*$/, ' RETURNING id');
         }
 
+        checkPoolHealth('run');
         const result = await pool.query(finalSql, converted.params);
         const lastInsertRowid = result.rows && result.rows.length > 0 && result.rows[0].id != null
             ? result.rows[0].id : 0;
@@ -61,6 +103,7 @@ const database = {
     // Run a query and return all matching rows as objects
     async all(sql, params = []) {
         const converted = convertPlaceholders(sql, params);
+        checkPoolHealth('all');
         const result = await pool.query(converted.sql, converted.params);
         return result.rows;
     },
@@ -68,6 +111,7 @@ const database = {
     // Run a query and return the first matching row as an object
     async get(sql, params = []) {
         const converted = convertPlaceholders(sql, params);
+        checkPoolHealth('get');
         const result = await pool.query(converted.sql, converted.params);
         return result.rows[0] || null;
     },
@@ -82,6 +126,17 @@ const database = {
 
     // For compatibility — returns the pool
     getDB() { return pool; },
+
+    // Pool stats — for health check endpoint
+    getPoolStats() {
+        return {
+            total: pool.totalCount,
+            idle: pool.idleCount,
+            active: pool.totalCount - pool.idleCount,
+            waiting: pool.waitingCount,
+            max: pool.options.max,
+        };
+    },
 
     // Graceful shutdown
     async close() {

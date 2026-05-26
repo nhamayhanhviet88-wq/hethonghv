@@ -1,3 +1,4 @@
 ⚠️ Schema warning: there is no unique or exclusion constraint matching the ON CONFLICT specification
 (node:46456) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
+[AppSheet] ❌ CK17-26-5-Y26: Timeout 15s
