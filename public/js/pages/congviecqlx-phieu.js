@@ -4,7 +4,7 @@ var _qlxWt={stats:{},tickets:[],staff:[],depts:[],filter:'all',search:'',page:1,
 
 function _qlxWtInit(c){
     c.innerHTML='<div id="_qlxWtMain" style="padding:4px 0"><div style="text-align:center;padding:40px;color:#64748b">⏳ Đang tải...</div></div>';
-    _qlxWt.filter='all';_qlxWt.search='';_qlxWt.page=1;
+    _qlxWt.filter='cho_xu_ly';_qlxWt.search='';_qlxWt.page=1;
     _qlxWtLoadAll();
 }
 async function _qlxWtLoadAll(){
@@ -24,25 +24,25 @@ async function _qlxWtLoadList(){
     }catch(e){console.error('[QLX-WT]',e);}
 }
 function _qlxWtSI(s){
-    if(s==='resolved')return{l:'Đã Xử Lý',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
-    if(s==='in_progress')return{l:'Đang Xử Lý',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
-    if(s==='closed')return{l:'Đã Đóng',c:'#6b7280',bg:'#f3f4f6',icon:'⚫'};
+    if(s==='resolved'||s==='closed')return{l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
+    if(s==='in_progress')return{l:'Chờ Ngày Trả Lời',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
     return{l:'Chờ Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
 }
-// Get display status for the 5-card dashboard logic
+// Get display status matching the 3 filter categories
 function _qlxWtDisplayStatus(t){
     var today=vnDateStr();
     var dueDate=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
-    var resolvedAt=t.resolved_at?new Date(t.resolved_at).toISOString().slice(0,10):'';
+    // Đã Được Trả Lời (resolved/closed)
     if(t.status==='resolved'||t.status==='closed'){
-        if(resolvedAt===today)return{l:'Đã Xử Lý Hôm Nay',c:'#16a34a',bg:'#f0fdf4',icon:'✅'};
-        return{l:'Hoàn Thành',c:'#0891b2',bg:'#ecfeff',icon:'🏆'};
+        return{l:'Đã Được Trả Lời',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
     }
-    // pending or in_progress — check due_date for overdue
-    if(dueDate&&dueDate<today)return{l:'Xử Lý Trễ',c:'#d97706',bg:'#fef3c7',icon:'⏰'};
-    if(dueDate===today)return{l:'Hôm Nay Phải Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔥'};
-    if(!dueDate){var created=t.created_at?new Date(t.created_at).toISOString().slice(0,10):'';if(created<today)return{l:'Xử Lý Trễ',c:'#d97706',bg:'#fef3c7',icon:'⏰'};if(created===today)return{l:'Hôm Nay Phải Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔥'};}
-    return{l:'Chờ Xử Lý',c:'#7c3aed',bg:'#f5f3ff',icon:'⏳'};
+    // Chờ Ngày Trả Lời (pending/in_progress with future due_date)
+    if(dueDate&&dueDate>today){
+        return{l:'Chờ Ngày Trả Lời',c:'#d97706',bg:'#fefce8',icon:'🟡'};
+    }
+    // Chờ Xử Lý (today + overdue + no due_date)
+    if(dueDate&&dueDate<today)return{l:'Chờ Xử Lý (Trễ)',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
+    return{l:'Chờ Xử Lý',c:'#dc2626',bg:'#fef2f2',icon:'🔴'};
 }
 function _qlxWtRender(){
     var m=document.getElementById('_qlxWtMain');if(!m)return;
@@ -52,55 +52,60 @@ function _qlxWtRender(){
     h+='<div style="font-size:16px;font-weight:900;color:#0c4a6e">📝 PHIẾU YÊU CẦU XỬ LÝ <span style="color:#94a3b8;font-weight:500;font-size:12px">('+(st.total||0)+' phiếu)</span></div>';
     h+='<button onclick="_qlxWtOpenForm()" style="padding:8px 18px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(3,105,161,0.3)">+ Tạo Phiếu Mới</button>';
     h+='</div>';
-    // 5 Stat Cards
-    h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">';
-    h+=_qlxWtCard('🔥','Hôm Nay Phải Xử Lý',st.today_due||0,'#dc2626','#fef2f2','#fecaca','today_due');
-    h+=_qlxWtCard('✅','Đã Xử Lý Hôm Nay',st.today_resolved||0,'#16a34a','#f0fdf4','#bbf7d0','today_resolved');
-    h+=_qlxWtCard('⏰','Xử Lý Trễ',st.overdue||0,'#d97706','#fef3c7','#fde68a','overdue');
-    h+=_qlxWtCard('⏳','Chờ Xử Lý',st.pending||0,'#7c3aed','#f5f3ff','#ddd6fe','pending');
-    h+=_qlxWtCard('🏆','Hoàn Thành',st.completed||0,'#0891b2','#ecfeff','#a5f3fc','completed');
+    // 3 Filter Buttons (full-width bars)
+    var fCXL=st.cho_xu_ly||0, fCNTL=st.cho_ngay_tra_loi||0, fDTL=st.da_tra_loi||0;
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">';
+    h+=_qlxWtFilterBtn('cho_xu_ly','🔴','Chờ Xử Lý',fCXL,'#dc2626','#fef2f2','#fecaca');
+    h+=_qlxWtFilterBtn('cho_ngay_tra_loi','🟡','Chờ Ngày Trả Lời',fCNTL,'#d97706','#fefce8','#fde68a');
+    h+=_qlxWtFilterBtn('da_tra_loi','🟢','Đã Được Trả Lời',fDTL,'#16a34a','#f0fdf4','#bbf7d0');
     h+='</div>';
     // Search
     h+='<div style="margin-bottom:12px"><input id="_qlxWtSrch" type="text" placeholder="🔍 Tìm mã phiếu, tiêu đề, mã đơn..." value="'+(_qlxWt.search||'')+'" onkeydown="if(event.key===\'Enter\'){_qlxWt.search=this.value;_qlxWt.page=1;_qlxWtLoadList()}" style="width:100%;padding:9px 14px;border:1.5px solid #d1d5db;border-radius:10px;font-size:12px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor=\'#0369a1\'" onblur="this.style.borderColor=\'#d1d5db\'"></div>';
     // Table
     h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e2e8f0"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     h+='<thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1)">';
-    ['STT','Ngày Tạo','Mã Đơn','Trạng Thái','Ngày Hẹn Xử Lý','Tiêu Đề','Nội Dung Yêu Cầu','Người Tạo','Người Nhận','Trả Lời Yêu Cầu'].forEach(function(c){
-        h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">'+c+'</th>';
+    var qlxCols=[{t:'STT',a:'center'},{t:'Người Tạo',a:'left'},{t:'Mã Đơn',a:'center'},{t:'Tiêu Đề',a:'left'},{t:'Nội Dung Yêu Cầu',a:'left'},{t:'Mức Độ',a:'center'},{t:'Thời Gian',a:'center'},{t:'Ngày Hẹn Xử Lý',a:'center'},{t:'Trạng Thái',a:'center'},{t:'Người Nhận',a:'left'},{t:'Trả Lời',a:'center'},{t:'Ngày Tạo',a:'center'}];
+    qlxCols.forEach(function(c){
+        h+='<th style="padding:8px 6px;text-align:'+c.a+';font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">'+c.t+'</th>';
     });
     h+='</tr></thead><tbody>';
     if(!items.length){
-        h+='<tr><td colspan="10" style="padding:40px;text-align:center;color:#9ca3af">Chưa có phiếu xử lý nào</td></tr>';
+        h+='<tr><td colspan="12" style="padding:40px;text-align:center;color:#9ca3af">Chưa có phiếu xử lý nào</td></tr>';
     }else{
         items.forEach(function(t,idx){
             var ds=_qlxWtDisplayStatus(t);
             var dueD=t.due_date?new Date(t.due_date).toISOString().slice(0,10):'';
             var late=ds.l==='Xử Lý Trễ';
+            var deadlineDate=t.deadline_at?new Date(t.deadline_at):null;
+            var deadlineFmt=deadlineDate?String(deadlineDate.getDate()).padStart(2,'0')+'/'+String(deadlineDate.getMonth()+1).padStart(2,'0')+'/'+deadlineDate.getFullYear()+' '+String(deadlineDate.getHours()).padStart(2,'0')+':'+String(deadlineDate.getMinutes()).padStart(2,'0'):'—';
             h+='<tr onclick="_qlxWtDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f7ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">'; 
             h+='<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">'+(idx+1)+'</td>';
-            h+='<td style="padding:6px;color:#64748b;font-size:11px;white-space:nowrap">'+vnFormat(t.created_at)+'</td>';
-            h+='<td style="padding:6px;color:#64748b;font-weight:600">'+(t.order_code||'—')+'</td>';
-            h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+ds.bg+';color:'+ds.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+ds.c+'22">'+ds.icon+' '+ds.l+'</span></td>';
-            h+='<td style="padding:6px;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+(dueD?dueD.split('-').reverse().join('/'):'—')+'</td>';
+            h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center;color:#64748b;font-weight:600">'+(t.order_code||'—')+'</td>';
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
             h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||'—')+'</td>';
-            h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center">'+(_wtPLB?_wtPLB(t.priority_level||'low'):(t.priority||'—'))+'</td>';
+            h+='<td style="padding:6px;text-align:center;white-space:nowrap">'+(_wtDeadlineBadge?_wtDeadlineBadge(t):'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+(dueD?dueD.split('-').reverse().join('/'):deadlineFmt)+'</td>';
+            h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+ds.bg+';color:'+ds.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+ds.c+'22">'+ds.icon+' '+ds.l+'</span></td>';
             h+='<td style="padding:6px;color:#d97706;font-weight:600;white-space:nowrap">'+(t.assigned_to_name||'—')+'</td>';
             h+='<td style="padding:6px;text-align:center"><span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">💬 '+(t.reply_count||0)+'</span></td>';
+            h+='<td style="padding:6px;text-align:center;color:#64748b;font-size:11px;white-space:nowrap">'+vnFormat(t.created_at)+'</td>';
             h+='</tr>';
         });
     }
     h+='</tbody></table></div>';
     m.innerHTML=h;
 }
-function _qlxWtCard(icon,label,count,color,bg,border,fk){
+function _qlxWtFilterBtn(fk,icon,label,count,color,bg,border){
     var a=_qlxWt.filter===fk;
-    return '<div onclick="_qlxWtSetFilter(\''+fk+'\')" style="padding:12px 14px;background:linear-gradient(135deg,'+bg+','+border+'44);border:2px solid '+(a?color:border)+';border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;'+(a?'box-shadow:0 4px 16px '+color+'22':'')+'" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'none\'">'
-        +'<div style="font-size:22px;margin-bottom:4px">'+icon+'</div>'
-        +'<div style="font-size:20px;font-weight:900;color:'+color+'">'+count+'</div>'
-        +'<div style="font-size:10px;font-weight:700;color:'+color+';margin-top:2px;line-height:1.2">'+label+'</div></div>';
+    return '<div onclick="_qlxWtSetFilter(\''+fk+'\')" style="display:flex;align-items:center;gap:10px;padding:12px 18px;background:'+(a?bg:'#fff')+';border:2px solid '+(a?color:border)+';border-radius:12px;cursor:pointer;transition:all .25s;'+(a?'box-shadow:0 4px 16px '+color+'33':'')+'" onmouseover="if(!this.classList.contains(\'_fActive\'))this.style.background=\''+bg+'\'" onmouseout="if(!this.classList.contains(\'_fActive\'))this.style.background=\'#fff\'">'
+        +'<span style="font-size:16px">'+icon+'</span>'
+        +'<span style="background:'+color+';color:#fff;min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;font-weight:900;padding:0 4px">'+count+'</span>'
+        +'<span style="font-size:13px;font-weight:'+(a?'800':'600')+';color:'+(a?color:'#374151')+'">'+label+'</span>'
+        +'</div>';
 }
-function _qlxWtSetFilter(s){_qlxWt.filter=(_qlxWt.filter===s)?'all':s;_qlxWt.page=1;_qlxWtLoadList();}
+function _qlxWtSetFilter(s){_qlxWt.filter=s;_qlxWt.page=1;_qlxWtLoadList();}
 
 // ===== REPLY POPUP =====
 async function _qlxWtDetail(id){
