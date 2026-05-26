@@ -81,6 +81,7 @@ function _qlxWtRender(){
             var late=ds.l.indexOf('Trễ')>=0;
             var deadlineDate=t.deadline_at?new Date(t.deadline_at):null;
             var deadlineFmt=deadlineDate?String(deadlineDate.getDate()).padStart(2,'0')+'/'+String(deadlineDate.getMonth()+1).padStart(2,'0')+'/'+deadlineDate.getFullYear()+' '+String(deadlineDate.getHours()).padStart(2,'0')+':'+String(deadlineDate.getMinutes()).padStart(2,'0'):'—';
+            if(t.status==='closed') deadlineFmt='<span style="color:#7c3aed;font-weight:700">🏁 Hoàn thành</span>';
             h+='<tr onclick="_qlxWtDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f7ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">'; 
             h+='<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">'+(idx+1)+'</td>';
             h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';

@@ -1,3 +1,10 @@
 ✅ PostgreSQL connected
 📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
 [Migration] zalo_daily_tasks unique constraint updated
+🚀 Đồng Phục HV CRM đang chạy tại http://localhost:11000
+⏰ Deadline checker khởi động (mỗi 15 phút)
+[Reminder] ✅ Cron nhắc nhở đã khởi động (mỗi 1 phút) — 4 loại
+[Retry] ✅ Notification retry cron started (every 5 min)
+[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)
+[EmailChecker] ✅ Started (every 2 min)
+[Telesale Sync] Gọi Điện: 4 users, Tự Tìm Kiếm: 3 users
