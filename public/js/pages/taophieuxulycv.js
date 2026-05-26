@@ -1,5 +1,5 @@
 // ========== TẠO PHIẾU XỬ LÝ CV ==========
-var _wt={staff:[],depts:[],tickets:[],stats:{},filter:'all',search:'',page:1,pSettings:[],fmgr:null,nextCode:''};
+var _wt={staff:[],depts:[],tickets:[],stats:{},filter:'all',search:'',page:1,pSettings:[],fmgr:null,nextCode:'',dirStats:null,creatorFilter:''};
 
 function _wtSI(t){
     if(typeof t==='string'){var s=t;t={status:s};} // backward compat
@@ -33,16 +33,18 @@ function _wtDeadlineBadge(t){
 
 function renderTaophieuxulycvPage(c){
     c.innerHTML='<div id="wtMain" style="padding:20px;background:#fafbfc;min-height:calc(100vh - 80px)"><div style="text-align:center;padding:40px;color:#64748b">⏳ Đang tải...</div></div>';
-    _wt.filter='all';_wt.search='';_wt.page=1;
+    _wt.filter='all';_wt.search='';_wt.page=1;_wt.creatorFilter='';
     _wtLoadAll();
 }
 
 async function _wtLoadAll(){
+    var isAdm=currentUser&&['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
     try{var r=await apiCall('/api/work-tickets/staff');_wt.staff=r.users||[];_wt.depts=r.departments||[];}catch(e){}
-    try{var r2=await apiCall('/api/work-tickets/stats');_wt.stats=r2.stats||{};}catch(e){}
+    try{var r2=await apiCall('/api/work-tickets/stats'+(_wt.creatorFilter?'?creator_id='+_wt.creatorFilter:''));_wt.stats=r2.stats||{};}catch(e){}
     try{var r3=await apiCall('/api/work-tickets/priority-settings');_wt.pSettings=r3.settings||[];}catch(e){}
     try{var r4=await apiCall('/api/work-tickets/factory-manager');_wt.fmgr=r4.managers&&r4.managers[0]?r4.managers[0]:null;}catch(e){}
     try{var r5=await apiCall('/api/work-tickets/next-code');_wt.nextCode=r5.next_code||'';}catch(e){}
+    if(isAdm){try{var r6=await apiCall('/api/work-tickets/director-stats');_wt.dirStats=r6;}catch(e){_wt.dirStats=null;}}
     _wtLoadList();
 }
 
@@ -51,6 +53,7 @@ async function _wtLoadList(){
         var p=[];
         if(_wt.filter&&_wt.filter!=='all')p.push('status='+_wt.filter);
         if(_wt.search)p.push('search='+encodeURIComponent(_wt.search));
+        if(_wt.creatorFilter)p.push('creator_id='+_wt.creatorFilter);
         p.push('page='+_wt.page);
         var r=await apiCall('/api/work-tickets'+(p.length?'?'+p.join('&'):''));
         _wt.tickets=r.tickets||[];_wt.total=r.total||0;
@@ -62,22 +65,68 @@ function _wtRender(){
     var main=document.getElementById('wtMain');if(!main)return;
     var items=_wt.tickets,st=_wt.stats,h='';
     var isAdm=currentUser&&['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
+    var ds=_wt.dirStats;
 
     // Blink animation
-    h+='<style>@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}</style>';
+    h+='<style>@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}@keyframes _wtPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0.4)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}</style>';
 
     // Header
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">';
-    h+='<div style="font-size:18px;font-weight:900;color:#1e293b">📋 TẠO PHIẾU XỬ LÝ CÔNG VIỆC <span style="color:#9ca3af;font-weight:500;font-size:13px">('+(st.total||0)+' phiếu)</span></div>';
+    h+='<div style="font-size:18px;font-weight:900;color:#1e293b">📋 TẠO PHIẾU XỬ LÝ CÔNG VIỆC <span style="color:#9ca3af;font-weight:500;font-size:13px">'+(st.total||0)+' phiếu</span></div>';
     h+='<div style="display:flex;gap:8px">';
     if(isAdm) h+='<button onclick="_wtOpenSettings()" style="padding:10px 16px;background:linear-gradient(135deg,#64748b,#475569);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">⚙️ Cài Đặt Mức Độ</button>';
     h+='<button onclick="_wtOpenTypeChoice()" style="padding:10px 20px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,0.3)">+ Tạo Phiếu Mới</button>';
     h+='</div></div>';
 
+    // ===== DIRECTOR DASHBOARD (only for GĐ/QLX) =====
+    if(isAdm && ds && ds.overview){
+        var ov=ds.overview,bc=ds.by_creator||[];
+        var selName=_wt.creatorFilter?((bc.find(function(c){return c.user_id==_wt.creatorFilter})||{}).user_name||''):'';
+        h+='<div style="margin-bottom:16px;padding:16px 20px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:14px;border:1px solid #334155">';
+        h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="font-size:14px">👔</span><span style="font-size:13px;font-weight:800;color:#e2e8f0;letter-spacing:0.5px">TỔNG QUAN GIÁM ĐỐC</span>';
+        if(_wt.creatorFilter) h+='<span style="margin-left:auto;padding:3px 10px;background:#6366f1;color:#fff;border-radius:6px;font-size:10px;font-weight:700">🔎 '+selName+'</span>';
+        h+='</div>';
+        // 3 overview cards
+        h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">';
+        h+='<div style="padding:14px 16px;background:linear-gradient(135deg,#1e3a5f,#1e40af);border-radius:12px;text-align:center"><div style="font-size:28px;font-weight:900;color:#fff">'+(ov.total_creators||0)+'</div><div style="font-size:11px;font-weight:700;color:#93c5fd;margin-top:2px">👥 NV Tạo Phiếu</div></div>';
+        h+='<div style="padding:14px 16px;background:linear-gradient(135deg,#064e3b,#047857);border-radius:12px;text-align:center"><div style="font-size:28px;font-weight:900;color:#fff">'+(ov.total_tickets||0)+'</div><div style="font-size:11px;font-weight:700;color:#6ee7b7;margin-top:2px">📋 Tổng Phiếu</div></div>';
+        var odStyle=ov.overdue_count>0?'animation:_wtPulse 2s infinite;':'';
+        h+='<div style="padding:14px 16px;background:linear-gradient(135deg,#7f1d1d,#dc2626);border-radius:12px;text-align:center;'+odStyle+'"><div style="font-size:28px;font-weight:900;color:#fff">'+(ov.overdue_count||0)+'</div><div style="font-size:11px;font-weight:700;color:#fecaca;margin-top:2px">🚨 Quá Hạn</div></div>';
+        h+='</div>';
+        // NV filter dropdown
+        if(bc.length>0){
+            h+='<div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+            h+='<span style="font-size:11px;font-weight:700;color:#94a3b8">🔎 Lọc theo NV:</span>';
+            h+='<select id="wtCreatorSelect" onchange="_wtFilterCreator(this.value)" style="padding:6px 12px;border:1px solid #475569;border-radius:8px;font-size:12px;font-weight:600;background:#1e293b;color:#e2e8f0;outline:none;cursor:pointer;min-width:180px">';
+            h+='<option value="">👥 Tất cả nhân viên</option>';
+            bc.forEach(function(c){
+                var sel=_wt.creatorFilter==c.user_id?' selected':'';
+                var badge=c.overdue>0?' ⚠️'+c.overdue:'';
+                h+='<option value="'+c.user_id+'"'+sel+'>'+(c.user_name||c.username)+' ('+c.total+' phiếu'+badge+')</option>';
+            });
+            h+='</select>';
+            // Selected NV mini-stats
+            if(_wt.creatorFilter){
+                var sc=bc.find(function(c){return c.user_id==_wt.creatorFilter;});
+                if(sc){
+                    h+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+                    h+='<span style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#dc262622;color:#fca5a5;border:1px solid #dc262644">🔴 '+sc.cho_xu_ly+'</span>';
+                    h+='<span style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#d9770622;color:#fde68a;border:1px solid #d9770644">🟡 '+sc.cho_ngay_tra_loi+'</span>';
+                    h+='<span style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#16a34a22;color:#86efac;border:1px solid #16a34a44">🟢 '+sc.da_tra_loi+'</span>';
+                    h+='<span style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#7c3aed22;color:#c4b5fd;border:1px solid #7c3aed44">🏁 '+sc.hoan_thanh+'</span>';
+                    if(sc.dept_name) h+='<span style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;background:#334155;color:#94a3b8">🏢 '+sc.dept_name+'</span>';
+                    h+='</div>';
+                }
+            }
+            h+='</div>';
+        }
+        h+='</div>';
+    }
+
     // Search
     h+='<div style="margin-bottom:14px"><input id="wtSearchInput" type="text" placeholder="🔍 Tìm mã phiếu, tiêu đề, mã đơn..." value="'+(_wt.search||'')+'" onkeydown="if(event.key===\'Enter\'){_wt.search=this.value;_wt.page=1;_wtLoadList()}" style="width:100%;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:10px;font-size:13px;outline:none" onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#d1d5db\'"></div>';
 
-    // 3 Stat Cards (date-based, matching QLX module)
+    // 4 Stat Cards
     h+='<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">';
     h+=_wtCard('🔴','Chờ Xử Lý',st.cho_xu_ly||0,'#dc2626','#fef2f2','#fecaca','cho_xu_ly');
     h+=_wtCard('🟡','Chờ Ngày Trả Lời',st.cho_ngay_tra_loi||0,'#d97706','#fef3c7','#fde68a','cho_ngay_tra_loi');
@@ -85,11 +134,13 @@ function _wtRender(){
     h+=_wtCard('🏁','Hội Thoại Hoàn Thành',st.hoan_thanh||0,'#7c3aed','#f5f3ff','#ddd6fe','hoan_thanh');
     h+='</div>';
 
-    // My stats
-    h+='<div style="display:flex;gap:8px;margin-bottom:14px">';
-    h+='<span style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">📤 Tôi tạo: '+(st.my_created||0)+'</span>';
-    h+='<span style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a">📥 Cần xử lý: '+(st.my_assigned||0)+'</span>';
-    h+='</div>';
+    // My stats (show for NV, or show filtered label for admin)
+    if(!isAdm){
+        h+='<div style="display:flex;gap:8px;margin-bottom:14px">';
+        h+='<span style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">📤 Tôi tạo: '+(st.my_created||0)+'</span>';
+        h+='<span style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a">📥 Cần xử lý: '+(st.my_assigned||0)+'</span>';
+        h+='</div>';
+    }
 
     // Table
     h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e5e7eb"><table style="width:100%;border-collapse:collapse;font-size:12px">';
@@ -103,6 +154,8 @@ function _wtRender(){
     if(!items.length){
         h+='<tr><td colspan="12" style="padding:40px;text-align:center;color:#9ca3af">Chưa có phiếu xử lý nào</td></tr>';
     }else{
+        // Build dept map for enhanced creator column
+        var _deptMap={};if(isAdm&&ds&&ds.by_creator){ds.by_creator.forEach(function(c){_deptMap[c.user_id]=c.dept_name||'';});}
         items.forEach(function(t,idx){
             var si=_wtSI(t);
             var late=t.is_overdue&&t.status!=='resolved'&&t.status!=='closed';
@@ -111,7 +164,21 @@ function _wtRender(){
             if(t.status==='closed') deadlineFmt='<span style="color:#7c3aed;font-weight:700">🏁 Hoàn thành</span>';
             h+='<tr onclick="_wtViewDetail('+t.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer'+(late?';background:#fff5f5':'')+'" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\''+(late?'#fff5f5':'')+'\'">'; 
             h+='<td style="padding:6px;text-align:center;color:#9ca3af">'+(idx+1)+'</td>';
-            h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
+            // Enhanced creator column for admin
+            if(isAdm){
+                var cName=t.created_by_name||'—';
+                var initials=cName.split(' ').map(function(w){return w.charAt(0).toUpperCase();}).slice(0,2).join('');
+                var deptN=_deptMap[t.created_by]||'';
+                var colors=['#6366f1','#0891b2','#d946ef','#ea580c','#0d9488','#7c3aed','#dc2626','#2563eb'];
+                var avColor=colors[(t.created_by||0)%colors.length];
+                h+='<td style="padding:6px;white-space:nowrap"><div style="display:flex;align-items:center;gap:6px">';
+                h+='<div style="width:28px;height:28px;border-radius:50%;background:'+avColor+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0">'+initials+'</div>';
+                h+='<div><div style="font-size:12px;font-weight:700;color:#2563eb;cursor:pointer" onclick="event.stopPropagation();_wtFilterCreator('+t.created_by+')">'+cName+'</div>';
+                if(deptN) h+='<div style="font-size:9px;color:#94a3b8;font-weight:500;margin-top:1px">'+deptN+'</div>';
+                h+='</div></div></td>';
+            }else{
+                h+='<td style="padding:6px;color:#2563eb;font-weight:600;white-space:nowrap">'+(t.created_by_name||'—')+'</td>';
+            }
             h+='<td style="padding:6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;background:'+si.bg+';color:'+si.c+';padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid '+si.c+'22">'+si.icon+' '+si.l+'</span></td>';
             h+='<td style="padding:6px;text-align:center;color:#4f46e5;font-weight:700">'+(t.ticket_code||'—')+'</td>';
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
@@ -139,6 +206,16 @@ function _wtCard(icon,label,count,color,bg,border,status){
 }
 
 function _wtSetFilter(s){_wt.filter=(_wt.filter===s)?'all':s;_wt.page=1;_wtLoadList();}
+
+function _wtFilterCreator(uid){
+    _wt.creatorFilter=(_wt.creatorFilter==uid)?'':String(uid);
+    _wt.page=1;_wt.filter='all';
+    // Reload stats with creator filter + reload list
+    (async function(){
+        try{var r2=await apiCall('/api/work-tickets/stats'+(_wt.creatorFilter?'?creator_id='+_wt.creatorFilter:''));_wt.stats=r2.stats||{};}catch(e){}
+        _wtLoadList();
+    })();
+}
 
 // ===== DETAIL =====
 async function _wtViewDetail(id){

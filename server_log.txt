@@ -50,3 +50,55 @@
 📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
 🔄 Pages dir changed (congviecqlx-phieu.js), rebuilding dashboard HTML...
 📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1393 emails, imported 0, skipped 911 duplicates, 0 negative
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ✅ Done: checked 1393 emails, imported 0, skipped 911 duplicates, 0 negative
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1393 emails, imported 0, skipped 911 duplicates, 0 negative
+⏰ [VN: 2026-05-26 19:03] Đang kiểm tra deadline...
+  ⏭️ [CV Khóa/Chuỗi] Bỏ qua — chỉ check vào 23:45+ VN hoặc lúc khởi động (hiện: 19:03)
+  📒 [Ledger] Synced 7 entries for 2026-05-26
+⏰ Deadline check hoàn thành sau 1779ms (1.8s
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] ✅ Done: checked 1394 emails, imported 0, skipped 911 duplicates, 0 negative
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ✅ Done: checked 1394 emails, imported 0, skipped 911 duplicates, 0 negative
+[EmailChecker] ⏭️ Already running, skip

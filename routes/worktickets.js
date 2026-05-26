@@ -428,11 +428,13 @@ async function routes(fastify) {
 
     // ========== GET /api/work-tickets/stats — Dashboard stats ==========
     fastify.get('/api/work-tickets/stats', { preHandler: authenticate }, async (request) => {
+        const { creator_id } = request.query;
         const userId = request.user.id;
         const role = request.user.role;
         const isAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(role);
 
         let where = isAdmin ? '1=1' : `(t.created_by = ${userId} OR t.assigned_to = ${userId})`;
+        if (creator_id && isAdmin) where += ` AND t.created_by = ${parseInt(creator_id)}`;
         const todayVN = vnNow().toISOString().slice(0, 10);
 
         const stats = await db.get(`
@@ -470,7 +472,7 @@ async function routes(fastify) {
 
     // ========== GET /api/work-tickets — List tickets ==========
     fastify.get('/api/work-tickets', { preHandler: authenticate }, async (request) => {
-        const { status, user_id, search, page = 1 } = request.query;
+        const { status, user_id, creator_id, search, page = 1 } = request.query;
         const userId = request.user.id;
         const role = request.user.role;
         const isAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(role);
@@ -504,6 +506,9 @@ async function routes(fastify) {
         }
         if (user_id) {
             conditions.push(`(t.created_by = ${parseInt(user_id)} OR t.assigned_to = ${parseInt(user_id)})`);
+        }
+        if (creator_id && isAdmin) {
+            conditions.push(`t.created_by = ${parseInt(creator_id)}`);
         }
         if (search) {
             const q = search.replace(/'/g, "''").toLowerCase();
@@ -826,6 +831,48 @@ async function routes(fastify) {
 
         const labels = { pending: 'Chờ Xử Lý', in_progress: 'Đang Xử Lý', resolved: 'Đã Xử Lý', closed: 'Đã Đóng' };
         return { success: true, message: '✅ Đã chuyển: ' + labels[status] };
+    });
+
+    // ========== GET /api/work-tickets/director-stats — Overview for GĐ/QLX ==========
+    fastify.get('/api/work-tickets/director-stats', { preHandler: authenticate }, async (request) => {
+        const role = request.user.role;
+        if (!['giam_doc', 'quan_ly_cap_cao'].includes(role)) {
+            return { error: 'Không có quyền' };
+        }
+
+        const todayVN = vnNow().toISOString().slice(0, 10);
+
+        // Total tickets + unique creators + overdue
+        const overview = await db.get(`
+            SELECT
+                COUNT(*)::int AS total_tickets,
+                COUNT(DISTINCT t.created_by)::int AS total_creators,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND t.is_overdue = true)::int AS overdue_count,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress'))::int AS active_count
+            FROM work_tickets t
+        `);
+
+        // Tickets grouped by creator (top creators)
+        const byCreator = await db.all(`
+            SELECT
+                t.created_by AS user_id,
+                u.full_name AS user_name,
+                u.username,
+                d.name AS dept_name,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND (t.due_date <= '${todayVN}'::date OR t.due_date IS NULL))::int AS cho_xu_ly,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND t.due_date > '${todayVN}'::date)::int AS cho_ngay_tra_loi,
+                COUNT(*) FILTER (WHERE t.status = 'resolved')::int AS da_tra_loi,
+                COUNT(*) FILTER (WHERE t.status = 'closed')::int AS hoan_thanh,
+                COUNT(*) FILTER (WHERE t.status IN ('pending','in_progress') AND t.is_overdue = true)::int AS overdue
+            FROM work_tickets t
+            LEFT JOIN users u ON u.id = t.created_by
+            LEFT JOIN departments d ON d.id = u.department_id
+            GROUP BY t.created_by, u.full_name, u.username, d.name
+            ORDER BY total DESC
+        `);
+
+        return { overview, by_creator: byCreator };
     });
 
     // ========== GET /api/work-tickets/search-orders — Search orders for linking ==========
