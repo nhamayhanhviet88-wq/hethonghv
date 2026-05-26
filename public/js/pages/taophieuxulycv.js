@@ -265,10 +265,10 @@ function _wtReplySelectPL(k,reqImg){
     window._wtReplyPL=k;
     document.querySelectorAll('._wtRPBtn').forEach(function(b){b.style.background='#fff';b.style.borderColor='#e5e7eb';b.style.color='#374151';});
     event.currentTarget.style.background='#f5f3ff';event.currentTarget.style.borderColor='#4f46e5';event.currentTarget.style.color='#4f46e5';
-    window._wtReplyReqImg=reqImg;
+    // Người tạo phiếu KHÔNG cần hình ảnh bắt buộc khi chọn mức độ — chỉ QLX mới cần
+    window._wtReplyReqImg=false;
     var reqEl=document.getElementById('wtReplyImgReq'),optEl=document.getElementById('wtReplyImgOpt');
-    if(reqImg){if(reqEl)reqEl.style.display='inline';if(optEl)optEl.style.display='none';}
-    else{if(reqEl)reqEl.style.display='none';if(optEl)optEl.style.display='inline';}
+    if(reqEl)reqEl.style.display='none';if(optEl)optEl.style.display='inline';
     // Show deadline preview
     var ps=(_wt.pSettings||[]).find(function(s){return s.priority_key===k;});
     var dlEl=document.getElementById('wtReplyDlPreview');
@@ -292,7 +292,7 @@ async function _wtReply(id){
     var el=document.getElementById('wtRM');if(!el)return;
     var msg=el.value.trim();
     if(!msg){showToast('Nhập nội dung phản hồi','error');return;}
-    if(window._wtReplyReqImg&&!window._wtReplyImg){showToast('Mức độ này bắt buộc hình ảnh!','error');return;}
+    // Người tạo phiếu không bị bắt buộc ảnh — hình ảnh chỉ tùy chọn
     var body={message:msg};
     if(window._wtReplyPL)body.priority_level=window._wtReplyPL;
     if(window._wtReplyImg)body.image_data=window._wtReplyImg;

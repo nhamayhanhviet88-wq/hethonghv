@@ -1,0 +1,62 @@
+✅ PostgreSQL connected
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[Migration] zalo_daily_tasks unique constraint updated
+🚀 Đồng Phục HV CRM đang chạy tại http://localhost:11000
+⏰ Deadline checker khởi động (mỗi 15 phút)
+[Reminder] ✅ Cron nhắc nhở đã khởi động (mỗi 1 phút) — 4 loại
+[Retry] ✅ Notification retry cron started (every 5 min)
+[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)
+[EmailChecker] ✅ Started (every 2 min)
+[Telesale Sync] Gọi Điện: 4 users, Tự Tìm Kiếm: 3 users
+[Telesale Cleanup] No ghost assignments found ✅
+⏰ [VN: 2026-05-26 17:18] Đang kiểm tra deadline... (FULL CHECK - khởi động)
+  📋 [KH Xử Lý Trễ] Kiểm tra khách xử lý trễ...
+  ⚠️ [KH Xử Lý Trễ] Phạt user=9 — menu nhu_cau (3 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=47 — menu ctv_hoa_hong (2 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=47 — menu nhu_cau (3 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu ctv (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu ctv_hoa_hong (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu koc_tiktok (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu nhu_cau (2 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=52 — menu ctv (2 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=52 — menu koc_tiktok (1 KH trễ chưa xử lý) 100,000đ
+  📋 [KH Xử Lý Trễ] Tổng: 9 vi phạm
+  📒 [Ledger] Synced 7 entries for 2026-05-26
+  🔒 [Access Block] Bắt đầu khóa TK cho vi phạm ngày 2026-05-25 (hôm qua)...
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+  ⏭️ [Access Block] Skip user id=47 — đã được mở khóa hôm nay
+  ⏭️ [Access Block] Skip user id=60 — đã được mở khóa hôm nay
+  ⏭️ [Access Block] Skip user id=16 — đã được mở khóa hôm nay
+  ⏭️ [Access Block] Skip user id=9 — đã được mở khóa hôm nay
+  ⏭️ [Access Block] Skip user id=51 — đã được mở khóa hôm nay
+  ⏭️ [Access Block] Skip user id=52 — đã được mở khóa hôm nay
+  ⏭️ [Access Block] Skip user id=57 — đã được mở khóa hôm nay
+  ✅ [Access Block 00:00] Không có user nào cần chặn
+  📞 [Telesale] Chạy bơm sáng (catch-up sau restart)...
+  📞 [Telesale] Đã bơm 0 SĐT
+  ⚠️ [Telesale] Cảnh báo nguồn hết: Quà Tặng, Nhân Sự Tự Tìm, Kế Toán Tự Tìm, Quà Tặng, Nhân Sự Tự Tìm, Kế Toán Tự Tìm, Quà Tặng, Nhân Sự Tự Tìm, Kế Toán Tự Tìm
+⏰ Deadline check hoàn thành sau 1860ms (1.9s
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] ⏭️ Already running, skip
+[ADV-API] period: month | current.start: 2026-05-01 | current.end: 2026-06-01 | startDate: undefined | endDate: undefined
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ✅ Done: checked 1391 emails, imported 0, skipped 910 duplicates, 0 negative
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+🔄 Pages dir changed (taophieuxulycv.js), rebuilding dashboard HTML...
+📦 Auto-injecting 33 page scripts: baocaohoahonghv.js, billnhaphang.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+  📒 [Ledger] Synced 38 entries for 2026-05-25
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ✅ Done: checked 1391 emails, imported 0, skipped 910 duplicates, 0 negative
+[WT Reply] Priority change detected: urgent for ticket: 3
+[WT Reply] pSetting found: urgent
+[WT Reply] RESET: nowTime= 2026-05-26T10:23:55.000Z deadline= 2026-05-26T10:53:55.000Z newStatus= pending
+[WT Reply] DB updated successfully for ticket 3
+[EmailChecker] ⏭️ Already running, skip
