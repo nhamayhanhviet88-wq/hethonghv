@@ -170,7 +170,7 @@ async function _wtViewDetail(id){
                 if(md.action==='today'){
                     h2+='<div style="margin-top:6px;padding:4px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
                     h2+='<span style="font-size:9px;font-weight:800;color:#16a34a">✅ Xử lý hôm nay</span></div>';
-                } else if(md.action==='schedule'&&md.scheduled_date){
+                } else if((md.action==='schedule'||md.action==='other')&&md.scheduled_date){
                     var _dd=md.scheduled_date.split('-');var _fmt=_dd[2]+'/'+_dd[1]+'/'+_dd[0];
                     h2+='<div style="margin-top:6px;padding:4px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;display:inline-flex;align-items:center;gap:4px">';
                     h2+='<span style="font-size:9px;font-weight:800;color:#d97706">📅 Hẹn xử lý: '+_fmt+'</span></div>';
