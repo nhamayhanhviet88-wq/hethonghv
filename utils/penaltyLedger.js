@@ -211,7 +211,34 @@ async function syncLedgerForDate(dateStr) {
     } catch (e) { console.error('  ❌ [Ledger] Gửi Hàng Trễ:', e.message); }
     } // end if (!isDateOff) Source 9
 
-    if (count > 0) console.log(`  📒 [Ledger] Synced ${count} entries for ${dateStr}`);
+    // Source 10: Phiếu QLX Quá Hạn — QLX không xử lý phiếu yêu cầu kịp deadline
+    // Phạt chồng hàng ngày: nếu ticket vẫn pending/in_progress + is_overdue → phạt tiếp
+    // ★ Skip ngày nghỉ
+    if (!isDateOff) {
+    try {
+        const PENALTY_WT = GPC.phieu_qlx_qua_han || 50000;
+        const overdueTickets = await db.all(`
+            SELECT t.id, t.ticket_code, t.assigned_to, t.deadline_at
+            FROM work_tickets t
+            JOIN users u ON u.id = t.assigned_to
+            WHERE t.status IN ('pending','in_progress')
+              AND t.is_overdue = true
+              AND t.deadline_at IS NOT NULL
+              AND t.deadline_at::date <= $1::date
+              AND u.role != 'giam_doc' AND u.status = 'active'
+        `, [dateStr]);
+        for (const t of overdueTickets) {
+            await writeLedger(
+                t.assigned_to, dateStr, 'phieu_qlx_qua_han', 'wt_' + t.id,
+                'Phiếu QLX Quá Hạn: ' + t.ticket_code,
+                PENALTY_WT, 'Không xử lý phiếu yêu cầu kịp hạn'
+            );
+            count++;
+        }
+    } catch (e) { console.error('  ❌ [Ledger] Phiếu QLX:', e.message); }
+    } // end if (!isDateOff) Source 10
+
+
     return count;
 }
 

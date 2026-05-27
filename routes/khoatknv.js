@@ -196,7 +196,8 @@ async function khoaTKNVRoutes(fastify, options) {
             'ho_tro_nv': 'support', 'ho_tro_chong': 'support',
             'cv_diem': 'diem', 'cap_cuu': 'emergency',
             'kh_chua_xl': 'customer_unhandled', 'kh_tre': 'customer_overdue',
-            'gui_hang_tre': 'gui_hang_tre'
+            'gui_hang_tre': 'gui_hang_tre',
+            'phieu_qlx_qua_han': 'phieu_qlx_qua_han'
         };
 
         const testAccountIds = await getTestAccountIds();
@@ -246,7 +247,8 @@ async function khoaTKNVRoutes(fastify, options) {
             'ho_tro_nv': 'support', 'ho_tro_chong': 'support',
             'cv_diem': 'diem', 'cap_cuu': 'emergency',
             'kh_chua_xl': 'customer_unhandled', 'kh_tre': 'customer_overdue',
-            'gui_hang_tre': 'gui_hang_tre'
+            'gui_hang_tre': 'gui_hang_tre',
+            'phieu_qlx_qua_han': 'phieu_qlx_qua_han'
         };
         const items = rows.map(r => ({
             task_name: r.task_name, task_date: r.penalty_date,

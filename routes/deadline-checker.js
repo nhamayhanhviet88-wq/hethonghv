@@ -171,6 +171,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     if (!GPC.cap_cuu_ql_khong_xu_ly) GPC.cap_cuu_ql_khong_xu_ly = 50000;
     if (!GPC.kh_chua_xu_ly_hom_nay) GPC.kh_chua_xu_ly_hom_nay = 100000;
     if (!GPC.kh_chua_xu_ly_tre) GPC.kh_chua_xu_ly_tre = 100000;
+    if (!GPC.phieu_qlx_qua_han) GPC.phieu_qlx_qua_han = 50000;
 
     // ========== 1. CHECK SUPPORT REQUESTS ==========
     const pendingSupport = await db.all(

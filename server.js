@@ -641,6 +641,7 @@ async function start() {
     } catch(e) { console.error('[Shipping v8] Reschedules:', e.message); }
     // Penalty config for shipping delays
     try { await db.exec(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('gui_hang_tre', 'Gửi hàng trễ — KT chưa gửi đơn hôm nay', 100000) ON CONFLICT (key) DO NOTHING`); } catch(e) {}
+    try { await db.exec(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('phieu_qlx_qua_han', 'Phiếu QLX quá hạn — QLX không xử lý', 50000) ON CONFLICT (key) DO NOTHING`); } catch(e) {}
 
     // v9: Shipping Modal — Phí gửi hàng + NVC thực tế fields
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0`); } catch(e) {}
