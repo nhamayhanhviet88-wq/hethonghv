@@ -206,17 +206,22 @@ module.exports = async function(fastify) {
         if (!b.actual_carrier_id) return reply.code(400).send({ error: 'Vui lòng chọn Nhà Vận Chuyển' });
 
         // Validate shipping fee
-        if (b.shipping_fee === undefined || b.shipping_fee === null || b.shipping_fee === '') {
-            return reply.code(400).send({ error: 'Vui lòng nhập phí gửi hàng' });
+        const isNoFeeCarrier = !!b.no_fee_carrier;
+        if (!isNoFeeCarrier) {
+            if (b.shipping_fee === undefined || b.shipping_fee === null || b.shipping_fee === '') {
+                return reply.code(400).send({ error: 'Vui lòng nhập phí gửi hàng' });
+            }
         }
-        const shipFee = Number(b.shipping_fee);
+        const shipFee = isNoFeeCarrier ? 0 : Number(b.shipping_fee);
         if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
 
-        if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
-            return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
-        }
-        if (!b.shipping_fee_method || !['ck', 'tm'].includes(b.shipping_fee_method)) {
-            return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
+        if (!isNoFeeCarrier) {
+            if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
+                return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
+            }
+            if (!b.shipping_fee_method || !['ck', 'tm'].includes(b.shipping_fee_method)) {
+                return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
+            }
         }
 
         // ★ Block HV+CK when remaining_amount <= 0 (nothing to deduct from)

@@ -261,6 +261,12 @@ const _SH_CARRIER_RULES = {
     bill_and_phone: ['Nhà Xe'],
     receiver_name: ['Khách Đến Lấy','Nhân Viên HV','Người Nhận Hàng Hộ']
 };
+// NVC thu phí ship riêng (không cần nhập phí ship khi gửi)
+const _SH_NO_FEE_CARRIERS = ['Vận Chuyển J&T', 'Viettel Post', 'Hoả Tốc Máy Bay Nasco', 'Hoả Tốc Máy Bay ViettelPost', 'Khách Đến Lấy'];
+function _shIsNoFeeCarrier(name) {
+    if (!name) return false;
+    return _SH_NO_FEE_CARRIERS.some(n => name.toLowerCase().includes(n.toLowerCase()));
+}
 function _shGetCarrierGroup(name) {
     if (!name) return null;
     for (const [g, list] of Object.entries(_SH_CARRIER_RULES)) { if (list.some(n => name.toLowerCase().includes(n.toLowerCase()))) return g; }
@@ -348,8 +354,8 @@ function _shShipOrder(id, code) {
     + '<select id="shCarrierSel" onchange="_shOnCarrierChange()" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:600;">' + carrierOpts + '</select>'
     + '</div>'
     + '<div id="shDynFields" style="margin-bottom:16px;"></div>'
-    // P3: Ph\u00ed Ship
-    + '<div style="border-top:1px solid #e2e8f0;padding-top:14px;">'
+    // P3: Ph\u00ed Ship (wrapped in shFeeSection for show/hide)
+    + '<div id="shFeeSection" style="border-top:1px solid #e2e8f0;padding-top:14px;">'
     + '<label style="font-size:12px;font-weight:700;color:#374151;">\ud83d\udcb0 Ph\u00ed G\u1eedi H\u00e0ng <span style="color:#dc2626">*</span></label>'
     + '<div style="position:relative;margin-top:4px;margin-bottom:12px;"><input type="text" id="shFeeInput" placeholder="0" oninput="_shFmtFee()" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;font-weight:600;">\u0111</span></div>'
     + '<div style="display:flex;gap:12px;margin-bottom:10px;">'
@@ -358,6 +364,7 @@ function _shShipOrder(id, code) {
     + '</div>'
     + '<div id="shFeeNote" style="font-size:11px;color:#6b7280;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:12px;display:none;"></div>'
     + '</div>'
+    + '<div id="shNoFeeNote" style="display:none;border-top:1px solid #e2e8f0;padding-top:14px;"><div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:22px;">\ud83d\udce6</span><div><div style="font-weight:800;font-size:12px;color:#059669;">NVC thu ph\u00ed ship ri\u00eang</div><div style="font-size:11px;color:#065f46;margin-top:2px;">Kh\u00f4ng c\u1ea7n nh\u1eadp ph\u00ed g\u1eedi h\u00e0ng \u2014 NVC s\u1ebd quy\u1ebft to\u00e1n sau</div></div></div></div>'
     + '<div id="shPaymentSection" style="margin-top:4px;"></div>'
     + '</div>'
     // Footer
@@ -392,6 +399,38 @@ function _shOnCarrierChange() {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">${lbl} <span style="color:#dc2626">*</span></label><input id="shReceiverName" style="${fStyle}" placeholder="${ph}">`;
     }
     el.innerHTML = h;
+    // ★ Toggle fee section visibility based on carrier type
+    const noFee = _shIsNoFeeCarrier(name);
+    const feeSection = document.getElementById('shFeeSection');
+    const noFeeNote = document.getElementById('shNoFeeNote');
+    if (feeSection) feeSection.style.display = noFee ? 'none' : '';
+    if (noFeeNote) noFeeNote.style.display = noFee ? '' : 'none';
+    // Update state
+    var s = window._shModalState;
+    if (s) {
+        s.noFeeCarrier = noFee;
+        if (noFee) {
+            // Clear fee/payer/method
+            s.payer = null;
+            s.method = null;
+            // Reset fee input
+            var feeInp = document.getElementById('shFeeInput');
+            if (feeInp) feeInp.value = '0';
+            // Hide fee note
+            var feeNote = document.getElementById('shFeeNote');
+            if (feeNote) feeNote.style.display = 'none';
+            // Trigger payment section (target = remaining, no ship deduction)
+            _shLoadMatchingPayments();
+        } else {
+            // Reset payment section (needs payer+method to trigger)
+            var payEl = document.getElementById('shPaymentSection');
+            if (payEl) payEl.innerHTML = '';
+            s.selectedPaymentId = null;
+            s.skipPayment = false;
+            s.paymentLoaded = false;
+            s.matchingPayments = [];
+        }
+    }
 }
 
 function _shToggle(type, val) {
@@ -478,14 +517,18 @@ async function _shDoShip(id) {
         if (!bill) return alert('Vui lòng nhập Bill Gửi Hàng');
     }
     if (g === 'receiver_name' && !receiver) return alert('Vui lòng nhập Tên Người Nhận');
-    // Validate fee
-    const feeRaw = (document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'');
-    if (!feeRaw) return alert('Vui lòng nhập Phí Gửi Hàng');
-    if (!s.payer) return alert('Vui l\u00f2ng ch\u1ecdn Ng\u01b0\u1eddi tr\u1ea3');
-    if (!s.method) return alert('Vui l\u00f2ng ch\u1ecdn H\u00ecnh th\u1ee9c tr\u1ea3');
-    // ★ Block HV+CK when remaining <= 0
-    if (s.payer === 'hv' && s.method === 'ck' && s.remaining <= 0) {
-        return alert('⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.');
+    // ★ Fee validation: skip for no-fee carriers
+    const isNoFee = s.noFeeCarrier || false;
+    let feeRaw = '0';
+    if (!isNoFee) {
+        feeRaw = (document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'');
+        if (!feeRaw) return alert('Vui lòng nhập Phí Gửi Hàng');
+        if (!s.payer) return alert('Vui lòng chọn Người trả');
+        if (!s.method) return alert('Vui lòng chọn Hình thức trả');
+        // ★ Block HV+CK when remaining <= 0
+        if (s.payer === 'hv' && s.method === 'ck' && s.remaining <= 0) {
+            return alert('⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.');
+        }
     }
     // ★ Payment validation: if loaded with results, must select or skip
     if (s.paymentLoaded && s.matchingPayments && s.matchingPayments.length > 0) {
@@ -497,9 +540,10 @@ async function _shDoShip(id) {
     try {
         const body = {
             actual_carrier_id: Number(carrierId),
-            shipping_fee: Number(feeRaw),
-            shipping_fee_payer: s.payer,
-            shipping_fee_method: s.method
+            shipping_fee: isNoFee ? 0 : Number(feeRaw),
+            shipping_fee_payer: isNoFee ? null : s.payer,
+            shipping_fee_method: isNoFee ? null : s.method,
+            no_fee_carrier: isNoFee
         };
         if (s.selectedPaymentId) body.selected_payment_id = s.selectedPaymentId;
         if (tracking) body.tracking_code = tracking;
