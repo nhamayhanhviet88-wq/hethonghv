@@ -729,9 +729,10 @@ async function _ceoOpenNVP(id){
   h+='<div><div style="font-size:10px;color:#9ca3af;font-weight:600">Người Vi Phạm</div><div style="font-size:13px;font-weight:700;color:#1e293b">'+(item.violator_name?(item.violator_name.split(',').map(function(n){return n.trim();}).filter(Boolean).join('<br>')):'<span style=\"color:#dc2626\">Chưa chọn</span>')+'</div></div>';
   h+='<div><div style="font-size:10px;color:#9ca3af;font-weight:600">Mã Đơn</div><div style="font-size:13px;font-weight:700;color:#ea580c">'+(item.order_code||'--')+'</div></div>';
   h+='</div>';
-  // Lỗi Thường Gặp + SL Lỗi
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
+  // Lỗi Thường Gặp + SL Sản Phẩm + SL Lỗi
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
   h+='<div><div style="font-size:10px;color:#9ca3af;font-weight:600">Lỗi Thường Gặp</div><div style="font-size:13px;font-weight:700;color:#334155">'+(item.common_error_type||'--')+'</div></div>';
+  h+='<div><div style="font-size:10px;color:#9ca3af;font-weight:600">SL Sản Phẩm</div><div style="font-size:13px;font-weight:700;color:#166534">'+(item.production_quantity||'--')+'</div></div>';
   h+='<div><div style="font-size:10px;color:#9ca3af;font-weight:600">SL Lỗi</div><div style="font-size:13px;font-weight:700;color:#dc2626">'+(item.error_quantity||'--')+'</div></div>';
   h+='</div>';
   // Nội Dung Lỗi
@@ -754,11 +755,14 @@ async function _ceoOpenNVP(id){
   var vName=item.violator_name||'';
   var vType=item.common_error_type||'';
   if(vName&&vType){
+    var _vNamesHist=vName.split(',').map(function(n){return n.trim();}).filter(Boolean);
     var repeats=_ceo.items.filter(function(o){return o.id!==item.id&&o.violator_name===vName&&o.common_error_type===vType;});
     if(repeats.length>0){
       h+='<div style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fecaca;border-radius:10px">';
-      h+='<div style="font-size:13px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ '+vName+' đã vi phạm lỗi "'+vType+'" tổng cộng <span style="font-size:16px;background:#dc2626;color:#fff;padding:1px 8px;border-radius:6px">'+(repeats.length+1)+'</span> lần!</div>';
-      h+='<div style="font-size:11px;color:#991b1b;margin-bottom:6px;font-weight:600">Lịch sử các lần vi phạm trước:</div>';
+      h+='<div style="font-size:13px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ đã vi phạm lỗi "'+vType+'" tổng cộng <span style="font-size:16px;background:#dc2626;color:#fff;padding:1px 8px;border-radius:6px">'+(repeats.length+1)+'</span> lần!</div>';
+      h+='<div style="font-size:11px;color:#991b1b;margin-bottom:4px;font-weight:600">Người vi phạm:</div>';
+      _vNamesHist.forEach(function(pn){h+='<div style="font-size:12px;color:#dc2626;font-weight:600;padding:2px 0">• '+pn+'</div>';});
+      h+='<div style="font-size:11px;color:#991b1b;margin-bottom:6px;margin-top:8px;font-weight:600">Lịch sử các lần vi phạm trước:</div>';
       h+='<div style="max-height:140px;overflow-y:auto">';
       repeats.forEach(function(r){
         var rd=r.report_date?new Date(r.report_date).toLocaleDateString('vi-VN'):'--';
@@ -769,16 +773,20 @@ async function _ceoOpenNVP(id){
       });
       h+='</div></div>';
     } else {
-      h+='<div style="margin-bottom:14px;padding:10px 14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;font-size:12px;font-weight:700;color:#16a34a">✅ Lần đầu "'+vName+'" vi phạm lỗi "'+vType+'"</div>';
+      h+='<div style="margin-bottom:14px;padding:10px 14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px">';
+      h+='<div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:4px">✅ Lần đầu vi phạm lỗi "'+vType+'"</div>';
+      _vNamesHist.forEach(function(pn){h+='<div style="font-size:12px;color:#16a34a;font-weight:600;padding:2px 0">• '+pn+'</div>';});
+      h+='</div>';
     }
   }
   // --- Editable section ---
   // Tổng Tiền Phạt
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Tổng Tiền Phạt</label>';
-  h+='<div style="position:relative"><input type="text" id="ceoU_penaltytotal" value="'+(Number(item.penalty_total)||'')+'" placeholder="0" style="width:100%;padding:8px 30px 8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px" oninput="_ceoFmtMoney(this)"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:12px;font-weight:700">đ</span></div></div>';
-  // Cam Kết — per-person
+  h+='<div style="position:relative"><input type="text" id="ceoU_penaltytotal" value="'+(Number(item.penalty_total)?Number(item.penalty_total).toLocaleString('de-DE'):'')+'" placeholder="0" style="width:100%;padding:8px 30px 8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px" oninput="_ceoFmtMoney(this);_ceoCalcNVPTotal()" readonly><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:12px;font-weight:700">đ</span></div></div>';
+  // Cam Kết + Tiền Phạt — per-person
   var _nvpNames=(item.violator_name||'').split(',').map(function(n){return n.trim();}).filter(Boolean);
   var _nvpCommitMap={};
+  var _nvpPenaltyMap={};
   // Parse existing commitment "[Name]: content" format
   if(item.violator_commitment){
     var _cLines=item.violator_commitment.split('\n');
@@ -790,28 +798,33 @@ async function _ceoOpenNVP(id){
       else if(!_nvpNames.length||_nvpNames.length===1){_nvpCommitMap[_nvpNames[0]||'_default']=((_nvpCommitMap[_nvpNames[0]||'_default']||'')+((_nvpCommitMap[_nvpNames[0]||'_default'])?'\n':'')+line);}
     });
   }
-  if(_nvpNames.length>1){
-    h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">Cam Kết Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
-    _nvpNames.forEach(function(name,idx){
-      var val=_nvpCommitMap[name]||'1. ';
-      h+='<div style="margin-bottom:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">';
-      h+='<div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:4px">📌 '+name+'</div>';
-      h+='<textarea id="ceoU_commit_'+idx+'" rows="2" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:6px;font-size:12px;resize:vertical;line-height:1.5">'+val+'</textarea>';
-      h+='</div>';
-    });
-    h+='</div>';
-  } else {
-    h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Cam Kết Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
-    h+='<textarea id="ceoU_commit_0" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6">'+(item.violator_commitment||'1. ')+'</textarea></div>';
+  // Parse existing per-person penalty amounts from penalty_per_person JSON
+  if(item.penalty_per_person){
+    try{_nvpPenaltyMap=typeof item.penalty_per_person==='string'?JSON.parse(item.penalty_per_person):item.penalty_per_person;}catch(e){}
   }
+  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">Cam Kết Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px">(Enter = thêm dòng mới có số)</span></label>';
+  _nvpNames.forEach(function(name,idx){
+    var val=_nvpCommitMap[name]||'1. ';
+    var pVal=_nvpPenaltyMap[name]||'';
+    h+='<div style="margin-bottom:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+    h+='<div style="font-size:11px;font-weight:700;color:#7c3aed">📌 '+name+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;font-weight:600;color:#dc2626">💰 Tiền phạt:</span><div style="position:relative"><input type="text" id="ceoU_penalty_'+idx+'" value="'+(Number(pVal)?Number(pVal).toLocaleString('de-DE'):'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoCalcNVPTotal()" style="width:120px;padding:4px 24px 4px 8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;font-weight:700;background:#fef2f2;color:#dc2626"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';
+    h+='</div>';
+    h+='<textarea id="ceoU_commit_'+idx+'" rows="2" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:6px 10px;border:1.5px solid #d1d5db;border-radius:6px;font-size:12px;resize:vertical;line-height:1.5">'+val+'</textarea>';
+    h+='</div>';
+  });
+  if(!_nvpNames.length){
+    h+='<textarea id="ceoU_commit_0" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6">'+(item.violator_commitment||'1. ')+'</textarea>';
+  }
+  h+='</div>';
   h+='<input type="hidden" id="ceoU_nvpCount" value="'+_nvpNames.length+'">';
   h+='<input type="hidden" id="ceoU_nvpNames" value="'+_nvpNames.join('|||')+'">';
   // Đã Phạt — chọn tháng
-  var _curMonth=new Date().getMonth()+1;
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Đã Phạt <span style="color:#9ca3af;font-size:10px">(chọn tháng)</span></label>';
   h+='<select id="ceoU_nvp_pmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#fff">';
   h+='<option value="">-- Chưa phạt --</option>';
-  for(var _m=1;_m<=12;_m++){h+='<option value="Tháng '+_m+'"'+(item.penalty_month==='Tháng '+_m?' selected':(_m===_curMonth&&!item.penalty_month?' selected':''))+'>Tháng '+_m+'</option>';}
+  for(var _m=1;_m<=12;_m++){h+='<option value="Tháng '+_m+'"'+(item.penalty_month==='Tháng '+_m?' selected':'')+'>Tháng '+_m+'</option>';}
   h+='</select></div>';
   // Buttons
   h+='<div style="display:flex;gap:8px"><button onclick="_ceoSubmitNVP('+item.id+')" style="padding:10px 28px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">💾 Lưu NVP</button>';
@@ -890,10 +903,18 @@ async function _ceoSubmitPhat(id){
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('Đã cập nhật Phạt!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 async function _ceoSubmitNVP(id){
-  var penaltyTotal=Number((document.getElementById('ceoU_penaltytotal').value||'0').replace(/[^\d]/g,''))||0;
-  // Collect per-person commitments
+  // Collect per-person penalty amounts
   var nvpNamesStr=document.getElementById('ceoU_nvpNames')?document.getElementById('ceoU_nvpNames').value:'';
   var nvpNames=nvpNamesStr?nvpNamesStr.split('|||'):[];
+  var penaltyPerPerson={};
+  var penaltyTotal=0;
+  for(var pi=0;pi<nvpNames.length;pi++){
+    var pEl=document.getElementById('ceoU_penalty_'+pi);
+    var pAmt=pEl?Number((pEl.value||'0').replace(/[^\d]/g,'')):0;
+    penaltyPerPerson[nvpNames[pi]]=pAmt;
+    penaltyTotal+=pAmt;
+  }
+  // Collect per-person commitments
   var commitment='';
   if(nvpNames.length>1){
     var allEmpty=true;
@@ -904,22 +925,35 @@ async function _ceoSubmitNVP(id){
       commitment+='['+nvpNames[ci]+']: '+val+'\n';
     }
     commitment=commitment.trim();
-    if(allEmpty){showToast('Vui lòng nhập Cam Kết cho ít nhất 1 người vi phạm','error');return;}
+    if(allEmpty){showToast('Vui l\u00f2ng nh\u1eadp Cam K\u1ebft cho \u00edt nh\u1ea5t 1 ng\u01b0\u1eddi vi ph\u1ea1m','error');return;}
   } else {
     var ta0=document.getElementById('ceoU_commit_0');
     commitment=ta0?ta0.value.trim():'';
-    if(!commitment||commitment==='1. '){showToast('Vui lòng nhập Cam Kết Người Vi Phạm','error');return;}
+    if(!commitment||commitment==='1. '){showToast('Vui l\u00f2ng nh\u1eadp Cam K\u1ebft Ng\u01b0\u1eddi Vi Ph\u1ea1m','error');return;}
   }
   var pmonth=document.getElementById('ceoU_nvp_pmonth')?document.getElementById('ceoU_nvp_pmonth').value:'';
-  var fields={violator_commitment:commitment,penalty_total:penaltyTotal};
+  var fields={violator_commitment:commitment,penalty_total:penaltyTotal,penalty_per_person:JSON.stringify(penaltyPerPerson)};
   if(pmonth)fields.penalty_month=pmonth;
-  try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('✅ Đã cập nhật NVP!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
+  try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('\u2705 \u0110\u00e3 c\u1eadp nh\u1eadt NVP!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('L\u1ed7i: '+e.message,'error');}
 }
 
 // ===== FORMAT MONEY — dấu chấm hàng nghìn =====
 function _ceoFmtMoney(el){
   var v=el.value.replace(/[^\d]/g,'');
   el.value=v?Number(v).toLocaleString('de-DE'):'';
+}
+
+// ===== CALC NVP TOTAL from per-person penalties =====
+function _ceoCalcNVPTotal(){
+  var nvpNamesStr=document.getElementById('ceoU_nvpNames')?document.getElementById('ceoU_nvpNames').value:'';
+  var nvpNames=nvpNamesStr?nvpNamesStr.split('|||'):[];
+  var total=0;
+  for(var i=0;i<nvpNames.length;i++){
+    var el=document.getElementById('ceoU_penalty_'+i);
+    if(el){var raw=(el.value||'0').replace(/\./g,'').replace(/[^\d]/g,'');total+=Number(raw)||0;}
+  }
+  var d=document.getElementById('ceoU_penaltytotal');
+  if(d)d.value=total?total.toLocaleString('de-DE'):'';
 }
 
 // ===== AUTO-NUMBER TEXTAREA =====
