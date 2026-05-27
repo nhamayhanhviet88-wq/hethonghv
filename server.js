@@ -897,9 +897,18 @@ async function start() {
         return fs.createReadStream(filePath);
     });
 
-    // Prevent browser/CDN caching of JS, CSS, HTML files
+    // ★ Smart caching: JS/CSS files use ?v= cache-busting (auto-inject uses Date.now()),
+    // so browser can cache them safely. HTML must always be fresh.
     fastify.addHook('onSend', (request, reply, payload, done) => {
-        if (request.url.match(/\.(js|css|html)(\?|$)/) || request.url === '/' || !request.url.startsWith('/api/')) {
+        const url = request.url;
+        if (url.match(/\.(js|css)(\?|$)/)) {
+            // JS/CSS: cache for 7 days — ?v= parameter forces reload on deploy/restart
+            reply.header('Cache-Control', 'public, max-age=604800, immutable');
+        } else if (url.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)(\?|$)/)) {
+            // Static assets: cache for 30 days
+            reply.header('Cache-Control', 'public, max-age=2592000');
+        } else if (!url.startsWith('/api/')) {
+            // HTML pages: always fresh (ensures dashboard picks up new scripts)
             reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
             reply.header('Pragma', 'no-cache');
             reply.header('Expires', '0');
@@ -1162,20 +1171,27 @@ async function start() {
     }
     // Build once at startup
     buildDashboardHtml();
-    // Rebuild when files change in pages dir (dev mode)
-    try {
-        const pagesDir = path.join(__dirname, 'public', 'js', 'pages');
-        let _fsWatchDebounce = null;
-        fs.watch(pagesDir, (eventType, filename) => {
-            if (filename && filename.endsWith('.js')) {
-                clearTimeout(_fsWatchDebounce);
-                _fsWatchDebounce = setTimeout(() => {
-                    console.log(`🔄 Pages dir changed (${filename}), rebuilding dashboard HTML...`);
-                    buildDashboardHtml();
-                }, 500);
-            }
-        });
-    } catch(e) { /* fs.watch not supported, cache stays static */ }
+    // Rebuild when files change in pages dir (DEV MODE ONLY)
+    // ★ Disabled in production — fs.watch was triggering continuous rebuilds
+    // from editor auto-save and file sync tools (e.g. taophieuxulycv.js).
+    // On deploy: restart PM2 → buildDashboardHtml() runs at startup.
+    if (process.env.NODE_ENV !== 'production') {
+        try {
+            const pagesDir = path.join(__dirname, 'public', 'js', 'pages');
+            let _fsWatchDebounce = null;
+            fs.watch(pagesDir, (eventType, filename) => {
+                if (filename && filename.endsWith('.js')) {
+                    clearTimeout(_fsWatchDebounce);
+                    _fsWatchDebounce = setTimeout(() => {
+                        console.log(`🔄 Pages dir changed (${filename}), rebuilding dashboard HTML...`);
+                        buildDashboardHtml();
+                    }, 500);
+                }
+            });
+        } catch(e) { /* fs.watch not supported, cache stays static */ }
+    } else {
+        console.log('[Dashboard] ✅ Production mode — fs.watch disabled, HTML cached at startup');
+    }
 
     // SPA fallback — serve dashboard.html for all app routes
     fastify.setNotFoundHandler((request, reply) => {
