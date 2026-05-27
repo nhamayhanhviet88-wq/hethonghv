@@ -811,6 +811,12 @@ async function start() {
         // v12c: QLX update tracking — auto-timestamp when QLX saves
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS qlx_updated_at TIMESTAMPTZ`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS qlx_updated_by INTEGER`);
+        // v12d: External violators (bên gia công / bên ngoài)
+        await db.exec(`CREATE TABLE IF NOT EXISTS ceo_external_violators (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
     } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
 
     // v13: Common Errors — Lỗi Thường Gặp & Xử Lý (template table)

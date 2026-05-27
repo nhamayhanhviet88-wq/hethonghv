@@ -254,6 +254,31 @@ async function routes(fastify) {
         return { success: true };
     });
 
+    // ========== EXTERNAL VIOLATORS (Bên Gia Công) ==========
+    fastify.get('/api/customer-errors/external-violators', { preHandler: authenticate }, async () => {
+        const { rows } = await db.query('SELECT id, name, created_at FROM ceo_external_violators ORDER BY name ASC');
+        return { items: rows };
+    });
+
+    fastify.post('/api/customer-errors/external-violators', { preHandler: authenticate }, async (request) => {
+        if (request.user.role !== 'giam_doc') return { error: 'Chỉ Giám Đốc mới được thêm' };
+        const { name } = request.body || {};
+        if (!name || !name.trim()) return { error: 'Tên không được trống' };
+        try {
+            const result = await db.get('INSERT INTO ceo_external_violators (name) VALUES ($1) RETURNING id, name', [name.trim()]);
+            return { success: true, item: result };
+        } catch(e) {
+            if (e.message && e.message.includes('unique')) return { error: 'Tên này đã tồn tại' };
+            throw e;
+        }
+    });
+
+    fastify.delete('/api/customer-errors/external-violators/:id', { preHandler: authenticate }, async (request) => {
+        if (request.user.role !== 'giam_doc') return { error: 'Chỉ Giám Đốc mới được xóa' };
+        await db.exec('DELETE FROM ceo_external_violators WHERE id = $1', [request.params.id]);
+        return { success: true };
+    });
+
     // ========== DELETE /api/customer-errors/:id — Delete ==========
     fastify.delete('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
         // Only GĐ/QL can delete
