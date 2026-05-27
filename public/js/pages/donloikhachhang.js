@@ -562,6 +562,30 @@ async function _ceoOpenQLX(id){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
 }
 
+// ===== USER DROPDOWN for Người Vi Phạm =====
+function _ceoShowAllUsers(){
+  var dd=document.getElementById('ceoU_userDropdown');if(!dd)return;
+  var search=(document.getElementById('ceoU_violator_search').value||'').toLowerCase().trim();
+  var users=_ceo.allUsers.filter(function(u){
+    if(!search)return true;
+    return (u.full_name||'').toLowerCase().indexOf(search)!==-1;
+  });
+  if(!users.length){dd.innerHTML='<div style="padding:10px;color:#9ca3af;font-size:12px;text-align:center">Không tìm thấy</div>';dd.style.display='block';return;}
+  var h='';
+  users.forEach(function(u){
+    h+='<div onclick="_ceoSelectUser(\''+((u.full_name||'').replace(/'/g,"\\'"))+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f9;transition:background .1s" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'">'+
+    '<span style="font-weight:600;color:#1e293b">'+(u.full_name||'')+'</span>'+
+    (u.department?' <span style="font-size:10px;color:#9ca3af">· '+u.department+'</span>':'')+
+    '</div>';
+  });
+  dd.innerHTML=h;dd.style.display='block';
+}
+function _ceoFilterUsers(){_ceoShowAllUsers();}
+function _ceoSelectUser(name){
+  var inp=document.getElementById('ceoU_violator_search');if(inp){inp.value=name;inp.setAttribute('readonly','readonly');}
+  var dd=document.getElementById('ceoU_userDropdown');if(dd)dd.style.display='none';
+}
+
 // ===== MODAL 2: PHẠT =====
 async function _ceoOpenPhat(id){
   var item;
