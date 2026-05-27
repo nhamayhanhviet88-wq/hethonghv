@@ -76,11 +76,29 @@ async function khoaTKNVRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Thiếu dữ liệu' });
         }
 
+        // Label map cho các key đã biết (dùng khi INSERT mới)
+        const LABELS = {
+            cv_diem_ql_khong_duyet: 'CV Điểm — QL không duyệt',
+            cv_diem_ql_khong_ho_tro: 'CV Điểm — QL không hỗ trợ',
+            cv_khoa_khong_nop: 'CV Khóa — NV không nộp',
+            cv_khoa_ql_khong_duyet: 'CV Khóa — QL không duyệt',
+            cv_khoa_ql_khong_ho_tro: 'CV Khóa — QL không hỗ trợ',
+            cv_chuoi_khong_nop: 'CV Chuỗi — NV không nộp',
+            cv_chuoi_ql_khong_duyet: 'CV Chuỗi — QL không duyệt',
+            cap_cuu_ql_khong_xu_ly: 'Cấp cứu — QL không xử lý',
+            kh_chua_xu_ly_hom_nay: 'KH chưa xử lý hôm nay',
+            kh_chua_xu_ly_tre: 'KH chưa xử lý trễ',
+            gui_hang_tre: 'Gửi hàng trễ — KT chưa gửi đơn hôm nay',
+            phieu_qlx_qua_han: 'Phiếu QLX quá hạn — QLX không xử lý'
+        };
+
         for (const cfg of configs) {
             if (!cfg.key) continue;
+            const label = LABELS[cfg.key] || cfg.key;
             await db.run(
-                `UPDATE global_penalty_config SET amount = $1, updated_at = NOW() WHERE key = $2`,
-                [Number(cfg.amount) || 0, cfg.key]
+                `INSERT INTO global_penalty_config (key, label, amount) VALUES ($1, $2, $3)
+                 ON CONFLICT (key) DO UPDATE SET amount = $3, updated_at = NOW()`,
+                [cfg.key, label, Number(cfg.amount) || 0]
             );
         }
 

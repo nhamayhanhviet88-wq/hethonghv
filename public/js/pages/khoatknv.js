@@ -112,13 +112,19 @@ async function _penaltyLoadConfig() {
 
             g.keys.forEach(key => {
                 const cfg = configMap[key];
-                if (!cfg) return;
+                // Default labels cho keys chưa có trong DB
+                const DEFAULT_LABELS = {
+                    phieu_qlx_qua_han: 'QLX không xử lý',
+                    gui_hang_tre: 'KT chưa gửi đơn hôm nay'
+                };
+                const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : 0);
+                const rawLabel = cfg ? cfg.label : (DEFAULT_LABELS[key] || key);
                 // Short label (remove category prefix)
-                const shortLabel = cfg.label.replace(/^[^—]+—\s*/, '');
+                const shortLabel = rawLabel.replace(/^[^—]+—\s*/, '');
                 html += `<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:white;gap:12px;">
-                    <div style="flex:1;font-size:13px;color:#334155;font-weight:600;">${shortLabel}</div>
+                    <div style="flex:1;font-size:13px;color:#334155;font-weight:600;">${shortLabel}${!cfg ? ' <span style="color:#f59e0b;font-size:10px;">(mới)</span>' : ''}</div>
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <input type="number" class="gpc-input" data-key="${key}" value="${cfg.amount}" min="0" step="10000"
+                        <input type="number" class="gpc-input" data-key="${key}" value="${amount}" min="0" step="10000"
                                style="width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#dc2626;"
                                onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'"
                                onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
