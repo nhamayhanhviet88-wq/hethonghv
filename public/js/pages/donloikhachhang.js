@@ -551,26 +551,50 @@ async function _ceoOpenQLX(id){
   h+='</select></div>';
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:800;color:#c2410c;margin-bottom:4px">Cách Xử Lý Lỗi QLX <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px;font-weight:500">(Enter = thêm dòng mới có số)</span></label>';
   h+='<textarea id="ceoU_saleRes" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:2px solid #ea580c;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6;background:#fff7ed">'+(item.sale_resolution||'1. ')+'</textarea></div>';
-  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Người Vi Phạm <span style="color:#dc2626">*</span></label>';
-  h+='<div style="position:relative"><input type="text" id="ceoU_violator_search" value="'+(item.violator_name||'')+'" placeholder="Ấn vào để chọn..." onfocus="this.removeAttribute(\'readonly\');_ceoShowAllUsers()" oninput="_ceoFilterUsers()" readonly style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer;background:#fff" autocomplete="off">';
-  h+='<span onclick="var i=document.getElementById(\'ceoU_violator_search\');i.value=\'\';i.removeAttribute(\'readonly\');_ceoShowAllUsers()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:#9ca3af;font-size:14px">\u25bc</span></div>';
+  // === Người Vi Phạm — Multi-select chips ===
+  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px;font-weight:400">(chọn nhiều hoặc gõ tên mới + Enter)</span></label>';
+  h+='<div id="ceoU_violatorChips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px"></div>';
+  h+='<div style="position:relative"><input type="text" id="ceoU_violator_search" value="" placeholder="Tìm hoặc thêm mới..." onfocus="_ceoShowAllUsers()" oninput="_ceoFilterUsers()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();_ceoAddCustomViolator()}" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#fff" autocomplete="off">';
+  h+='<span onclick="_ceoShowAllUsers()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:#9ca3af;font-size:14px">\u25bc</span></div>';
   h+='<div id="ceoU_userDropdown" style="display:none;max-height:200px;overflow-y:auto;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div></div>';
   h+='<div style="display:flex;gap:8px"><button onclick="_ceoSubmitQLX('+item.id+')" style="padding:10px 28px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">\u{1F4BE} Lưu QLX</button>';
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
   h+='</div></div>';
   ov.innerHTML=h;document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  // Init selected violators from existing data
+  _ceo._selectedViolators=[];
+  if(item.violator_name){
+    item.violator_name.split(',').forEach(function(n){var t=n.trim();if(t)_ceo._selectedViolators.push(t);});
+  }
+  _ceoRenderViolatorChips();
 }
 
-// ===== USER DROPDOWN for Người Vi Phạm =====
+// ===== MULTI-SELECT VIOLATOR — Chips + Dropdown =====
+function _ceoRenderViolatorChips(){
+  var c=document.getElementById('ceoU_violatorChips');if(!c)return;
+  if(!_ceo._selectedViolators.length){c.innerHTML='';return;}
+  var h='';_ceo._selectedViolators.forEach(function(name,idx){
+    h+='<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fb923c;border-radius:20px;font-size:12px;font-weight:600;color:#c2410c">';
+    h+=name;
+    h+='<span onclick="_ceoRemoveViolator('+idx+')" style="cursor:pointer;font-size:14px;color:#dc2626;margin-left:2px;line-height:1" title="Xóa">&times;</span></span>';
+  });
+  c.innerHTML=h;
+}
+function _ceoRemoveViolator(idx){
+  _ceo._selectedViolators.splice(idx,1);
+  _ceoRenderViolatorChips();
+}
 function _ceoShowAllUsers(){
   var dd=document.getElementById('ceoU_userDropdown');if(!dd)return;
   var search=(document.getElementById('ceoU_violator_search').value||'').toLowerCase().trim();
+  var selected=_ceo._selectedViolators||[];
   var users=_ceo.allUsers.filter(function(u){
+    var n=(u.full_name||'').trim();
+    if(selected.indexOf(n)!==-1)return false;
     if(!search)return true;
-    return (u.full_name||'').toLowerCase().indexOf(search)!==-1;
+    return n.toLowerCase().indexOf(search)!==-1;
   });
-  if(!users.length){dd.innerHTML='<div style="padding:10px;color:#9ca3af;font-size:12px;text-align:center">Không tìm thấy</div>';dd.style.display='block';return;}
   var h='';
   users.forEach(function(u){
     h+='<div onclick="_ceoSelectUser(\''+((u.full_name||'').replace(/'/g,"\\'"))+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f9;transition:background .1s" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'">'+
@@ -578,11 +602,33 @@ function _ceoShowAllUsers(){
     (u.department?' <span style="font-size:10px;color:#9ca3af">· '+u.department+'</span>':'')+
     '</div>';
   });
+  // Option to add custom name
+  if(search && selected.indexOf(search)===-1){
+    var exactMatch=_ceo.allUsers.some(function(u){return (u.full_name||'').toLowerCase()===search;});
+    if(!exactMatch){
+      var dispName=document.getElementById('ceoU_violator_search').value.trim();
+      h+='<div onclick="_ceoAddCustomViolator()" style="padding:8px 12px;cursor:pointer;font-size:13px;border-top:1.5px solid #e5e7eb;background:#f0fdf4;transition:background .1s" onmouseover="this.style.background=\'#dcfce7\'" onmouseout="this.style.background=\'#f0fdf4\'">'+
+      '<span style="color:#16a34a;font-weight:700">+ Thêm "'+dispName+'"</span> <span style="font-size:10px;color:#9ca3af">(bên gia công / khác)</span></div>';
+    }
+  }
+  if(!h){h='<div style="padding:10px;color:#9ca3af;font-size:12px;text-align:center">Đã chọn hết</div>';}
   dd.innerHTML=h;dd.style.display='block';
 }
 function _ceoFilterUsers(){_ceoShowAllUsers();}
 function _ceoSelectUser(name){
-  var inp=document.getElementById('ceoU_violator_search');if(inp){inp.value=name;inp.setAttribute('readonly','readonly');}
+  if(!_ceo._selectedViolators)_ceo._selectedViolators=[];
+  if(_ceo._selectedViolators.indexOf(name)===-1)_ceo._selectedViolators.push(name);
+  _ceoRenderViolatorChips();
+  var inp=document.getElementById('ceoU_violator_search');if(inp)inp.value='';
+  _ceoShowAllUsers();
+}
+function _ceoAddCustomViolator(){
+  var inp=document.getElementById('ceoU_violator_search');if(!inp)return;
+  var name=inp.value.trim();if(!name)return;
+  if(!_ceo._selectedViolators)_ceo._selectedViolators=[];
+  if(_ceo._selectedViolators.indexOf(name)===-1)_ceo._selectedViolators.push(name);
+  _ceoRenderViolatorChips();
+  inp.value='';
   var dd=document.getElementById('ceoU_userDropdown');if(dd)dd.style.display='none';
 }
 
@@ -751,7 +797,8 @@ async function _ceoOpenNVP(id){
 
 // ===== SUBMIT FUNCTIONS =====
 async function _ceoSubmitQLX(id){
-  var fields={common_error_type:document.getElementById('ceoU_errtype').value,sale_resolution:document.getElementById('ceoU_saleRes').value.trim(),violator_name:document.getElementById('ceoU_violator_search').value.trim()};
+  var violatorNames=(_ceo._selectedViolators||[]).join(', ');
+  var fields={common_error_type:document.getElementById('ceoU_errtype').value,sale_resolution:document.getElementById('ceoU_saleRes').value.trim(),violator_name:violatorNames};
   if(!fields.common_error_type){showToast('Vui lòng chọn Lỗi Thường Gặp','error');return;}
   if(!fields.sale_resolution||fields.sale_resolution==='1. '){showToast('Vui lòng nhập Cách Xử Lý Lỗi QLX','error');return;}
   if(!fields.violator_name){showToast('Vui lòng chọn Người Vi Phạm','error');return;}
