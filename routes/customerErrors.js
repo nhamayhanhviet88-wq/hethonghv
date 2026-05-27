@@ -71,6 +71,12 @@ async function routes(fastify) {
         return { items: rows };
     });
 
+    // ========== EXTERNAL VIOLATORS (Bên Gia Công) — MUST be before /:id ==========
+    fastify.get('/api/customer-errors/external-violators', { preHandler: authenticate }, async () => {
+        const rows = await db.all('SELECT id, name, created_at FROM ceo_external_violators ORDER BY name ASC');
+        return { items: rows };
+    });
+
     // ========== GET /api/customer-errors/:id — Detail ==========
     fastify.get('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
         const row = await db.get(`
@@ -254,11 +260,6 @@ async function routes(fastify) {
         return { success: true };
     });
 
-    // ========== EXTERNAL VIOLATORS (Bên Gia Công) ==========
-    fastify.get('/api/customer-errors/external-violators', { preHandler: authenticate }, async () => {
-        const { rows } = await db.query('SELECT id, name, created_at FROM ceo_external_violators ORDER BY name ASC');
-        return { items: rows };
-    });
 
     fastify.post('/api/customer-errors/external-violators', { preHandler: authenticate }, async (request) => {
         if (request.user.role !== 'giam_doc') return { error: 'Chỉ Giám Đốc mới được thêm' };
