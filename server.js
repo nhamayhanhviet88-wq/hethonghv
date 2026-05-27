@@ -1157,7 +1157,7 @@ async function start() {
         const buildVer = Date.now(); // Cache-bust: mỗi lần server restart = version mới
         const missingScripts = pageFiles
             .filter(f => !alreadyIncluded.has(f))
-            .map(f => `    <script src="/js/pages/${f}?v=${buildVer}"></script>`)
+            .map(f => `    <script defer src="/js/pages/${f}?v=${buildVer}"></script>`)
             .join('\n');
 
         if (missingScripts) {
