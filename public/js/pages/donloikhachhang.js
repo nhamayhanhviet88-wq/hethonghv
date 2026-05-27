@@ -180,7 +180,7 @@ function _ceoRenderTable() {
             h += '<td style="padding:4px;text-align:right;border-right:1px solid #f8fafc;font-size:11px">' + fmtMoney(item.shipping_cost) + '</td>';
             var _xlDisp='';if(item.qlx_updated_at){var _xd=new Date(item.qlx_updated_at);_xlDisp=_xd.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',timeZone:'Asia/Ho_Chi_Minh'})+' '+_xd.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Ho_Chi_Minh'});if(item.qlx_updated_by_name)_xlDisp+='<br><span style="font-size:8px;opacity:0.9">'+item.qlx_updated_by_name+'</span>';}
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:'+(item.qlx_updated_at?'#16a34a':'#dc2626')+';color:#fef08a;font-weight:700;font-size:10px;white-space:nowrap">' + _xlDisp + '</td>';
-            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.violator_name || '') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px">' + (item.violator_name||'').split(',').map(function(n){return n.trim();}).filter(Boolean).join('<br>') + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700;font-size:10px;white-space:nowrap">' + (item.penalty_month || '') + '</td>';
             h += '</tr>';
