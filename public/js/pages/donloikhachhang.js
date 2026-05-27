@@ -683,12 +683,7 @@ async function _ceoOpenPhat(id){
   h+='<span style="color:#fff;font-size:12px;font-weight:700">Tổng Phí Ship</span>';
   h+='<span id="ceoU_shipcost_display" style="color:#fff;font-size:14px;font-weight:900">0đ</span></div>';
   h+='</div>';
-  // === Phạt Tháng ===
-  h+='<div style="margin-bottom:14px">';
-  h+='<label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Đã Phạt <span style="color:#dc2626">*</span></label>';
-  h+='<select id="ceoU_pmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">-- Chọn tháng --</option>';
-  for(var j=1;j<=12;j++){h+='<option value="Tháng '+String(j).padStart(2,'0')+'">Tháng '+String(j).padStart(2,'0')+'</option>';}
-  h+='</select></div>';
+
   // Buttons
   h+='<div style="display:flex;gap:8px"><button onclick="_ceoSubmitPhat('+item.id+')" style="padding:10px 28px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">💾 Lưu Phạt</button>';
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
@@ -696,7 +691,7 @@ async function _ceoOpenPhat(id){
   ov.innerHTML=h;document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   setTimeout(function(){
-    var pm=document.getElementById('ceoU_pmonth');if(pm&&item.penalty_month)pm.value=item.penalty_month;
+
     _ceoPhatCalcSX();_ceoPhatCalcShip();
   },50);
 }
@@ -891,9 +886,7 @@ async function _ceoSubmitPhat(id){
   var shipping_cost=ship_return+ship_delivery+ship_other;
   if(!production_cost){showToast('Vui lòng nhập ít nhất 1 mục Chi Phí SX','error');return;}
   if(!shipping_cost){showToast('Vui lòng nhập ít nhất 1 mục Phí Ship','error');return;}
-  var pmonth=document.getElementById('ceoU_pmonth').value;
-  if(!pmonth){showToast('Vui lòng chọn Đã Phạt Tháng','error');return;}
-  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,penalty_month:pmonth};
+  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('Đã cập nhật Phạt!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 async function _ceoSubmitNVP(id){
