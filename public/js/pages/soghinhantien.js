@@ -1,5 +1,5 @@
 // ========== SỔ GHI NHẬN TIỀN — Bộ Phận Văn Phòng ==========
-var _pr = { tree: [], records: [], staff: [], filter: {}, editing: null };
+var _pr = { tree: [], records: [], staff: [], filter: {}, editing: null, filterHandover: false };
 
 function _prFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 function _prFmtShort(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
@@ -142,7 +142,10 @@ function _prRenderToolbar() {
     var asIcon = _pr.appsheetEnabled ? '🟢' : '🔴';
     var asBtn = isGD ? '<button class="pr-settings-btn" onclick="_prToggleAppSheet()" style="background:'+asColor+';color:#fff">📊 AppSheet '+asIcon+'</button>' : '';
     var bankBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowBankManager()" style="background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff">🏦 Quản Lý NH</button>' : '';
-    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
+    var pendingCount = _pr.records.filter(function(r){return r.handover_status !== 'thu_quy_nhan';}).length;
+    var handoverActive = _pr.filterHandover;
+    var handoverBtn = '<button class="pr-settings-btn" onclick="_prToggleFilterHandover()" style="background:' + (handoverActive ? 'linear-gradient(135deg,#dc2626,#ef4444)' : 'linear-gradient(135deg,#f59e0b,#d97706)') + ';color:#fff;position:relative">' + (handoverActive ? '✅ Tất Cả' : '⏳ Chưa BG') + (pendingCount > 0 ? ' <span style="background:#fff;color:#dc2626;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:900;margin-left:4px">' + pendingCount + '</span>' : '') + '</button>';
+    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+handoverBtn+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
 }
 
 function _prRenderTable() {
@@ -169,6 +172,8 @@ function _prRenderTable() {
     var srcLabels = {khach_hang:'KH',khach_hang_sll:'KH SLL',nha_van_chuyen:'NVC'};
 
     _pr.records.forEach(function(r) {
+        // Filter by handover status if active
+        if (_pr.filterHandover && r.handover_status === 'thu_quy_nhan') return;
         var methodBadge = r.payment_method === 'TM' ? '<span class="pr-badge pr-tm">💵'+r.payment_code+'</span>' : '<span class="pr-badge pr-ck">🏦'+r.payment_code+'</span>';
         var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
         var typeBadge = '<span class="pr-badge '+(typeClass[r.payment_type]||'pr-tt')+'">'+(typeLabels[r.payment_type]||'TT')+'</span>';
@@ -207,6 +212,12 @@ function _prRenderTable() {
     });
     h += '</tbody></table>';
     wrap.innerHTML = h;
+}
+
+function _prToggleFilterHandover() {
+    _pr.filterHandover = !_pr.filterHandover;
+    _prRenderToolbar();
+    _prRenderTable();
 }
 
 async function _prToggleHandover(id, newStatus) {

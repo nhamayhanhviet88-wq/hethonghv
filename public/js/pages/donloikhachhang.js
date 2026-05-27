@@ -86,18 +86,18 @@ function _ceoRenderTable() {
     // Apply client-side filter
     var items = allItems;
     if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(function(i){ return !i.sale_resolution || i.sale_resolution.trim()==='' || i.sale_resolution.trim()==='1. '; });
-    else if (_ceo.filter === 'chua_xl') items = allItems.filter(function(i){ return !i.violation_month; });
+    else if (_ceo.filter === 'chua_xl') items = allItems.filter(function(i){ return !i.qlx_updated_at; });
     else if (_ceo.filter === 'chua_phat') items = allItems.filter(function(i){ return !i.penalty_month; });
-    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.violation_month && i.penalty_month; });
+    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.qlx_updated_at && i.penalty_month; });
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
     var cQLX = allItems.filter(function(i){return !i.sale_resolution || i.sale_resolution.trim()==='' || i.sale_resolution.trim()==='1. ';}).length;
-    var cXL = allItems.filter(function(i){return !i.violation_month;}).length;
+    var cXL = allItems.filter(function(i){return !i.qlx_updated_at;}).length;
     var cPhat = allItems.filter(function(i){return !i.penalty_month;}).length;
-    var cDone = allItems.filter(function(i){return i.violation_month && i.penalty_month;}).length;
+    var cDone = allItems.filter(function(i){return i.qlx_updated_at && i.penalty_month;}).length;
     // Build order lists
-    var xlOrders = allItems.filter(function(i){return !i.violation_month;});
+    var xlOrders = allItems.filter(function(i){return !i.qlx_updated_at;});
     var phatOrders = allItems.filter(function(i){return !i.penalty_month;});
-    var doneOrders = allItems.filter(function(i){return i.violation_month && i.penalty_month;});
+    var doneOrders = allItems.filter(function(i){return i.qlx_updated_at && i.penalty_month;});
 
     var h = '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;background:#fff">' +
         '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH & NỘI BỘ — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + '/' + allItems.length + ')</span></div>' +
@@ -176,7 +176,8 @@ function _ceoRenderTable() {
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#fff7ed;color:#c2410c;font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.sale_resolution || '') + '</td>';
             h += '<td style="padding:4px;text-align:right;border-right:1px solid #f8fafc;font-size:11px">' + fmtMoney(item.production_cost) + '</td>';
             h += '<td style="padding:4px;text-align:right;border-right:1px solid #f8fafc;font-size:11px">' + fmtMoney(item.shipping_cost) + '</td>';
-            h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#dc2626;color:#fef08a;font-weight:700;font-size:10px;white-space:nowrap">' + (item.violation_month || '') + '</td>';
+            var _xlDisp='';if(item.qlx_updated_at){var _xd=new Date(item.qlx_updated_at);_xlDisp=_xd.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',timeZone:'Asia/Ho_Chi_Minh'})+' '+_xd.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Ho_Chi_Minh'});if(item.qlx_updated_by_name)_xlDisp+='<br><span style="font-size:8px;opacity:0.9">'+item.qlx_updated_by_name+'</span>';}
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:'+(item.qlx_updated_at?'#16a34a':'#dc2626')+';color:#fef08a;font-weight:700;font-size:10px;white-space:nowrap">' + _xlDisp + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.violator_name || '') + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis">' + (item.violator_commitment || '') + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;background:#fef08a;color:#dc2626;font-weight:700;font-size:10px;white-space:nowrap">' + (item.penalty_month || '') + '</td>';
@@ -290,7 +291,7 @@ function _ceoViewDetail(id) {
             '</div>' +
             // Row 7: Extra info
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;background:#f8fafc;border-radius:10px">' +
-                field('Xử Lý', item.violation_month) +
+                field('Xử Lý', item.qlx_updated_at ? new Date(item.qlx_updated_at).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Ho_Chi_Minh'}) + (item.qlx_updated_by_name ? ' — ' + item.qlx_updated_by_name : '') : null) +
                 field('Đã Phạt', item.penalty_month) +
                 field('Cam Kết Người Vi Phạm', item.violator_commitment) +
             '</div>' +
@@ -352,11 +353,8 @@ async function _ceoOpenForm(id) {
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
         _ceoField('Phí Ship', 'ceoF_shipcost', item.shipping_cost, 'number', false) +
-        _ceoField('Xử Lý', 'ceoF_vmonth', item.violation_month, 'text', false) +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
         _ceoField('Đã Phạt', 'ceoF_pmonth', item.penalty_month, 'text', false) +
-        '<div></div></div>' +
+        '</div>' +
         '<div style="margin-bottom:12px">' + _ceoTextarea('Cam Kết Người Vi Phạm', 'ceoF_commit', item.violator_commitment) + '</div>' +
         '<div style="margin-bottom:12px">' + _ceoTextarea('Cách Khắc Phục Lần Sau', 'ceoF_fix', item.fix_plan) + '</div>' +
         // Image upload section
@@ -404,7 +402,7 @@ async function _ceoSubmitForm(e) {
         violator_name: document.getElementById('ceoF_violator').value.trim(),
         production_cost: document.getElementById('ceoF_prodcost').value,
         shipping_cost: document.getElementById('ceoF_shipcost').value,
-        violation_month: document.getElementById('ceoF_vmonth').value.trim(),
+
         penalty_month: document.getElementById('ceoF_pmonth').value.trim(),
         violator_commitment: document.getElementById('ceoF_commit').value.trim(),
         fix_plan: document.getElementById('ceoF_fix').value.trim(),
@@ -467,7 +465,7 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    return !i.common_error_type||!i.violation_month||!i.penalty_month||!i.violator_name||!i.violator_commitment||(!i.production_cost&&!i.shipping_cost);
+    return !i.common_error_type||!i.qlx_updated_at||!i.penalty_month||!i.violator_name||!i.violator_commitment||(!i.production_cost&&!i.shipping_cost);
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -488,7 +486,7 @@ function _ceoOpenUpdatePicker(){
       if(!item.common_error_type)missing.push('Loại Lỗi');
       if(!item.production_cost)missing.push('Chi Phí SX');
       if(!item.shipping_cost)missing.push('Phí Ship');
-      if(!item.violation_month)missing.push('Xử Lý');
+      if(!item.qlx_updated_at)missing.push('Xử Lý');
       if(!item.penalty_month)missing.push('Đã Phạt');
       if(!item.violator_name)missing.push('Người VP');
       if(!item.violator_commitment)missing.push('Cam Kết');
@@ -618,16 +616,12 @@ async function _ceoOpenPhat(id){
   h+='<span style="color:#fff;font-size:12px;font-weight:700">Tổng Phí Ship</span>';
   h+='<span id="ceoU_shipcost_display" style="color:#fff;font-size:14px;font-weight:900">0đ</span></div>';
   h+='</div>';
-  // === XL Tháng + Phạt Tháng ===
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
-  h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Xử Lý <span style="color:#dc2626">*</span></label>';
-  h+='<select id="ceoU_vmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">-- Chọn tháng --</option>';
-  for(var i=1;i<=12;i++){h+='<option value="Tháng '+String(i).padStart(2,'0')+'">Tháng '+String(i).padStart(2,'0')+'</option>';}
-  h+='</select></div>';
-  h+='<div><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Đã Phạt <span style="color:#dc2626">*</span></label>';
+  // === Phạt Tháng ===
+  h+='<div style="margin-bottom:14px">';
+  h+='<label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Đã Phạt <span style="color:#dc2626">*</span></label>';
   h+='<select id="ceoU_pmonth" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">-- Chọn tháng --</option>';
   for(var j=1;j<=12;j++){h+='<option value="Tháng '+String(j).padStart(2,'0')+'">Tháng '+String(j).padStart(2,'0')+'</option>';}
-  h+='</select></div></div>';
+  h+='</select></div>';
   // Buttons
   h+='<div style="display:flex;gap:8px"><button onclick="_ceoSubmitPhat('+item.id+')" style="padding:10px 28px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">💾 Lưu Phạt</button>';
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
@@ -635,7 +629,6 @@ async function _ceoOpenPhat(id){
   ov.innerHTML=h;document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   setTimeout(function(){
-    var vm=document.getElementById('ceoU_vmonth');if(vm&&item.violation_month)vm.value=item.violation_month;
     var pm=document.getElementById('ceoU_pmonth');if(pm&&item.penalty_month)pm.value=item.penalty_month;
     _ceoPhatCalcSX();_ceoPhatCalcShip();
   },50);
@@ -738,7 +731,7 @@ async function _ceoSubmitQLX(id){
   if(!fields.common_error_type){showToast('Vui lòng chọn Lỗi Thường Gặp','error');return;}
   if(!fields.sale_resolution||fields.sale_resolution==='1. '){showToast('Vui lòng nhập Cách Xử Lý Lỗi QLX','error');return;}
   if(!fields.violator_name){showToast('Vui lòng chọn Người Vi Phạm','error');return;}
-  try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==0&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('Đã cập nhật QLX!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
+  try{await apiCall('/api/customer-errors/'+id+'/qlx-update','PATCH',fields);showToast('✅ Đã cập nhật QLX!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 async function _ceoSubmitPhat(id){
   var gv=function(eid){return Number((document.getElementById(eid).value||'0').replace(/[^\d]/g,''))||0;};
@@ -749,11 +742,9 @@ async function _ceoSubmitPhat(id){
   var shipping_cost=ship_return+ship_delivery+ship_other;
   if(!production_cost){showToast('Vui lòng nhập ít nhất 1 mục Chi Phí SX','error');return;}
   if(!shipping_cost){showToast('Vui lòng nhập ít nhất 1 mục Phí Ship','error');return;}
-  var vmonth=document.getElementById('ceoU_vmonth').value;
   var pmonth=document.getElementById('ceoU_pmonth').value;
-  if(!vmonth){showToast('Vui lòng chọn Xử Lý Tháng','error');return;}
   if(!pmonth){showToast('Vui lòng chọn Đã Phạt Tháng','error');return;}
-  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,violation_month:vmonth,penalty_month:pmonth};
+  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,penalty_month:pmonth};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('Đã cập nhật Phạt!');document.getElementById('ceoUpdateOv').remove();_ceoLoadTree();_ceoLoadData();}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 async function _ceoSubmitNVP(id){

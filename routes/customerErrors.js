@@ -43,9 +43,11 @@ async function routes(fastify) {
 
         const rows = await db.all(`
             SELECT ceo.*,
-                   u.full_name AS created_by_name
+                   u.full_name AS created_by_name,
+                   u_qlx.full_name AS qlx_updated_by_name
             FROM customer_error_orders ceo
             LEFT JOIN users u ON u.id = ceo.created_by
+            LEFT JOIN users u_qlx ON u_qlx.id = ceo.qlx_updated_by
             WHERE 1=1 ${where}
             ORDER BY ceo.report_date DESC, ceo.id DESC
         `, params);
@@ -73,9 +75,11 @@ async function routes(fastify) {
     fastify.get('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
         const row = await db.get(`
             SELECT ceo.*,
-                   u.full_name AS created_by_name
+                   u.full_name AS created_by_name,
+                   u_qlx.full_name AS qlx_updated_by_name
             FROM customer_error_orders ceo
             LEFT JOIN users u ON u.id = ceo.created_by
+            LEFT JOIN users u_qlx ON u_qlx.id = ceo.qlx_updated_by
             WHERE ceo.id = $1
         `, [request.params.id]);
         if (!row) return { error: 'Không tìm thấy' };
@@ -220,6 +224,32 @@ async function routes(fastify) {
             `UPDATE customer_error_orders SET ${field} = $1, updated_at = NOW() WHERE id = $2`,
             [finalValue, id]
         );
+
+        return { success: true };
+    });
+
+    // ========== PATCH /api/customer-errors/:id/qlx-update — Atomic QLX update ==========
+    fastify.patch('/api/customer-errors/:id/qlx-update', { preHandler: authenticate }, async (request) => {
+        const id = request.params.id;
+        const { common_error_type, sale_resolution, violator_name } = request.body;
+
+        if (!common_error_type) return { error: 'Vui lòng chọn Lỗi Thường Gặp' };
+        if (!sale_resolution || sale_resolution.trim() === '' || sale_resolution.trim() === '1. ') return { error: 'Vui lòng nhập Cách Xử Lý Lỗi QLX' };
+        if (!violator_name || violator_name.trim() === '') return { error: 'Vui lòng chọn Người Vi Phạm' };
+
+        const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
+        if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
+
+        await db.run(`
+            UPDATE customer_error_orders SET
+                common_error_type = $1,
+                sale_resolution = $2,
+                violator_name = $3,
+                qlx_updated_at = NOW(),
+                qlx_updated_by = $4,
+                updated_at = NOW()
+            WHERE id = $5
+        `, [common_error_type, sale_resolution.trim(), violator_name.trim(), request.user.id, id]);
 
         return { success: true };
     });

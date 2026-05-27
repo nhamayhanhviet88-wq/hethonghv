@@ -334,7 +334,7 @@ module.exports = async function(fastify) {
             try {
                 // Atomic: only link if not already linked (prevents race condition)
                 const linked = await db.get(
-                    `UPDATE payment_records SET order_tt_coc = $1, payment_type = 'thanh_toan', updated_at = NOW()
+                    `UPDATE payment_records SET order_tt_coc = $1, payment_type = 'thanh_toan', handover_status = 'chua_bangiao', updated_at = NOW()
                      WHERE id = $2 AND (order_tt_coc IS NULL OR order_tt_coc = '')
                      RETURNING id, payment_code, amount`,
                     [order.order_code, prId]

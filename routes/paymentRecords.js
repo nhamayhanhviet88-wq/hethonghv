@@ -18,6 +18,16 @@ async function _checkPrPerm(userRole, action) {
     } catch { return (DEFAULT_PR_PERMS[action] || []).includes(userRole); }
 }
 
+// ========== CENTRALIZED HANDOVER STATUS LOGIC ==========
+// Chỉ "thanh_toan" và "tt_sll" cần thủ quỹ kiểm tra → chua_bangiao
+// Mọi trường hợp khác (pending, dat_coc, tra_lai_coc) → thu_quy_nhan
+function computeHandoverStatus(paymentType) {
+    if (paymentType === 'thanh_toan' || paymentType === 'tt_sll') {
+        return 'chua_bangiao';
+    }
+    return 'thu_quy_nhan';
+}
+
 module.exports = async function(fastify) {
 
     // ========== TREE: Năm → Tháng → Ngày + tổng tiền ==========
@@ -172,8 +182,8 @@ module.exports = async function(fastify) {
         const code = `${b.payment_method}${seq}-${dd}-${mm}-Y${yy}`;
 
         try {
-            // CK = money already in bank → thu_quy_nhan; TM = cash needs handover → chua_bangiao
-            const autoHandover = b.payment_method === 'CK' ? 'thu_quy_nhan' : 'chua_bangiao';
+            // Handover logic: chỉ thanh_toan/tt_sll → chua_bangiao, còn lại → thu_quy_nhan
+            const autoHandover = computeHandoverStatus(b.payment_type || 'pending');
             const result = await db.get(`
                 INSERT INTO payment_records (
                     payment_code, payment_method, daily_seq,
@@ -264,19 +274,11 @@ module.exports = async function(fastify) {
         const { id } = request.params;
         const b = request.body;
 
-        // Auto handover logic: CK+thanh_toan→chua_bangiao, CK+dat_coc→thu_quy_nhan, TM→always chua_bangiao
-        const record = await db.get('SELECT payment_method FROM payment_records WHERE id = $1', [id]);
+        // Auto handover logic: chỉ thanh_toan/tt_sll → chua_bangiao, còn lại → thu_quy_nhan
         let handoverUpdate = '';
-        if (record) {
-            const method = record.payment_method;
-            const newType = b.payment_type;
-            if (method === 'TM') {
-                handoverUpdate = ", handover_status = 'chua_bangiao'";
-            } else if (method === 'CK' && newType === 'thanh_toan') {
-                handoverUpdate = ", handover_status = 'chua_bangiao'";
-            } else if (method === 'CK' && newType === 'dat_coc') {
-                handoverUpdate = ", handover_status = 'thu_quy_nhan'";
-            }
+        if (b.payment_type) {
+            const newHandover = computeHandoverStatus(b.payment_type);
+            handoverUpdate = `, handover_status = '${newHandover}'`;
         }
 
         await db.run(`

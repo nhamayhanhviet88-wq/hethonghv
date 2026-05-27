@@ -808,6 +808,9 @@ async function start() {
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolution_status TEXT DEFAULT 'pending'`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ`);
         await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS resolved_by INTEGER`);
+        // v12c: QLX update tracking — auto-timestamp when QLX saves
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS qlx_updated_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE customer_error_orders ADD COLUMN IF NOT EXISTS qlx_updated_by INTEGER`);
     } catch(e) { console.error('[Migration v12] Customer Errors:', e.message); }
 
     // v13: Common Errors — Lỗi Thường Gặp & Xử Lý (template table)
@@ -857,6 +860,13 @@ async function start() {
         // Migrate department TEXT → departments JSONB
         try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS departments JSONB DEFAULT '[]'`); } catch(e) {}
     } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
+
+    // Migration: Fix handover_status — centralized logic (thanh_toan/tt_sll → chua_bangiao, rest → thu_quy_nhan)
+    try {
+        const fixTT = await db.run(`UPDATE payment_records SET handover_status = 'chua_bangiao' WHERE payment_type IN ('thanh_toan', 'tt_sll') AND handover_status = 'thu_quy_nhan'`);
+        const fixOther = await db.run(`UPDATE payment_records SET handover_status = 'thu_quy_nhan' WHERE (payment_type IS NULL OR payment_type NOT IN ('thanh_toan', 'tt_sll')) AND handover_status = 'chua_bangiao'`);
+        if ((fixTT?.changes || 0) + (fixOther?.changes || 0) > 0) console.log(`[Migration] Fixed handover_status: ${fixTT?.changes || 0} → chua_bangiao, ${fixOther?.changes || 0} → thu_quy_nhan`);
+    } catch(e) { /* already done */ }
 
     // Plugins
     fastify.register(require('@fastify/cookie'));
