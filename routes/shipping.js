@@ -254,6 +254,9 @@ module.exports = async function(fastify) {
         sets.push(`shipping_date = $${idx++}`); params.push(todayStr);
         sets.push(`actual_ship_datetime = $${idx++}`); params.push(now.toISOString());
         sets.push(`actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
+        // ★ Clear reschedule data — no longer relevant after shipping
+        sets.push(`rescheduled_ship_date = NULL`);
+        sets.push(`reschedule_reason = NULL`);
 
         // Tracking fields (conditional, from modal)
         if (b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
