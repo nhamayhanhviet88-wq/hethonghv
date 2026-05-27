@@ -319,9 +319,34 @@ module.exports = async function(fastify) {
         params.push(orderId);
         await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
 
-        const resultMsg = cashflowResult
-            ? `✅ Đã gửi đơn ${order.order_code} — Phiếu chi ship: ${cashflowResult.cashflow_code}`
-            : `✅ Đã gửi đơn ${order.order_code}`;
+        // ★ Link payment record for order settlement (if selected)
+        let paymentLinkResult = null;
+        if (b.selected_payment_id) {
+            const prId = Number(b.selected_payment_id);
+            try {
+                // Atomic: only link if not already linked (prevents race condition)
+                const linked = await db.get(
+                    `UPDATE payment_records SET order_tt_coc = $1, payment_type = 'thanh_toan', updated_at = NOW()
+                     WHERE id = $2 AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                     RETURNING id, payment_code, amount`,
+                    [order.order_code, prId]
+                );
+                if (linked) {
+                    paymentLinkResult = linked;
+                } else {
+                    console.warn(`[Ship Payment] PR #${prId} already linked, skipping`);
+                }
+            } catch (prErr) {
+                console.error('[Ship Payment] Link error:', prErr.message);
+                // Don't fail shipment — payment linking is best-effort
+            }
+        }
+
+        // Build result message
+        let resultMsgParts = [`✅ Đã gửi đơn ${order.order_code}`];
+        if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
+        if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
+        const resultMsg = resultMsgParts.join(' — ');
 
         // ★ Audit log: Gửi hàng
         try {
@@ -355,9 +380,34 @@ module.exports = async function(fastify) {
                     orderId, 'payment', chiSummary, JSON.stringify(chiChanges), request.user.id
                 ]);
             }
+
+            // ★ Audit log: Payment linked during shipment
+            if (paymentLinkResult) {
+                const prAmt = Number(paymentLinkResult.amount) || 0;
+                const prChanges = [
+                    { field: 'payment_code', label: 'Mã tiền', old: null, new: paymentLinkResult.payment_code },
+                    { field: 'payment_amount', label: 'Số tiền', old: null, new: String(prAmt) },
+                    { field: 'transfer_note', label: 'Nội dung', old: null, new: 'Liên kết thanh toán khi gửi hàng' }
+                ];
+                // Calculate remaining after this payment
+                const depRow2 = await db.get(
+                    `SELECT COALESCE(SUM(amount), 0) AS dep FROM payment_records WHERE total_order_codes ILIKE '%' || $1 || '%' OR order_tt_coc = $1`,
+                    [order.order_code]
+                );
+                const depTotal2 = Number(depRow2?.dep) || 0;
+                const totalAmt = Number(order.total_amount) || 0;
+                const discAmt = Number(order.discount_amount) || 0;
+                const shipCk2 = (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck') ? shipFee : 0;
+                const rem2 = totalAmt - discAmt - Math.max(depTotal2, Number(order.deposit_amount_cache) || 0) - shipCk2;
+                prChanges.push({ field: 'remaining', label: 'Còn lại sau GD', old: null, new: String(rem2) });
+                const prSummary = `💰 Thanh toán khi gửi hàng: ${prAmt.toLocaleString('vi-VN')}đ — Mã tiền: ${paymentLinkResult.payment_code}`;
+                await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
+                    orderId, 'payment', prSummary, JSON.stringify(prChanges), request.user.id
+                ]);
+            }
         } catch(auditErr) { console.error('[AuditLog] ship:', auditErr.message); }
 
-        return { success: true, message: resultMsg, cashflow_code: cashflowResult?.cashflow_code || null };
+        return { success: true, message: resultMsg, cashflow_code: cashflowResult?.cashflow_code || null, payment_linked: paymentLinkResult?.payment_code || null };
     });
 
     // ========== RESCHEDULE — Hẹn lại ngày gửi ==========
@@ -462,6 +512,41 @@ module.exports = async function(fastify) {
             ORDER BY sr.created_at DESC
         `, [orderId]);
         return { history: rows };
+    });
+
+    // ========== MATCHING PAYMENTS — Tìm mã tiền phù hợp để thanh toán khi gửi hàng ==========
+    fastify.get('/api/shipping/matching-payments', { preHandler: [authenticate] }, async (request, reply) => {
+        const { order_code, target_amount } = request.query;
+        if (!order_code || !target_amount) return reply.code(400).send({ error: 'Missing order_code or target_amount' });
+
+        const target = Number(target_amount);
+        if (isNaN(target) || target <= 0) return { payments: [], target_amount: 0 };
+
+        const payments = await db.all(`
+            SELECT pr.id, pr.payment_code, pr.amount, pr.payment_date,
+                   pr.payment_method, pr.bank_name, pr.transfer_note,
+                   pr.customer_name, pr.customer_phone,
+                   ABS(pr.amount - $1) AS diff
+            FROM payment_records pr
+            WHERE (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
+              AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
+              AND pr.payment_type IN ('pending', 'thanh_toan', 'dat_coc')
+              AND COALESCE(pr.source, '') != 'cashflow_chi'
+              AND pr.amount > 0
+            ORDER BY ABS(pr.amount - $1) ASC
+            LIMIT 15
+        `, [target]);
+
+        // Add match_level for UI styling
+        for (const p of payments) {
+            const d = Number(p.diff);
+            if (d === 0) p.match_level = 'exact';
+            else if (d <= 50000) p.match_level = 'close';
+            else if (d <= 500000) p.match_level = 'approximate';
+            else p.match_level = 'far';
+        }
+
+        return { payments, target_amount: target };
     });
 
     // ========== CARRIERS — Lấy danh sách NVC ==========

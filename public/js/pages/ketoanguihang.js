@@ -357,7 +357,9 @@ function _shShipOrder(id, code) {
     + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">H\u00ecnh th\u1ee9c <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shMethodBtns"><button type="button" onclick="_shToggle(\'method\',\'ck\')" data-val="ck" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">CK</button><button type="button" onclick="_shToggle(\'method\',\'tm\')" data-val="tm" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">TM</button></div></div>'
     + '</div>'
     + '<div id="shFeeNote" style="font-size:11px;color:#6b7280;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:12px;display:none;"></div>'
-    + '</div></div>'
+    + '</div>'
+    + '<div id="shPaymentSection" style="margin-top:4px;"></div>'
+    + '</div>'
     // Footer
     + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
     + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">H\u1ee7y b\u1ecf</button>'
@@ -365,7 +367,7 @@ function _shShipOrder(id, code) {
     + '</div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    window._shModalState = { payer: null, method: null, orderId: id, remaining };
+    window._shModalState = { payer: null, method: null, orderId: id, remaining, orderCode: code, selectedPaymentId: null, skipPayment: false, matchingPayments: [], paymentLoaded: false };
 }
 
 
@@ -444,6 +446,10 @@ function _shUpdateFeeNote() {
         el.style.display = 'block';
         el.innerHTML = '💡 Sẽ tự tạo <b>phiếu CHI tiền mặt</b> trong Sổ Thu Chi';
     } else { el.style.display = 'none'; }
+    // ★ Trigger payment search when both payer + method selected
+    if (s.payer && s.method) {
+        _shLoadMatchingPayments();
+    }
 }
 function _shFmtFee() {
     const inp = document.getElementById('shFeeInput'); if (!inp) return;
@@ -475,11 +481,17 @@ async function _shDoShip(id) {
     // Validate fee
     const feeRaw = (document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'');
     if (!feeRaw) return alert('Vui lòng nhập Phí Gửi Hàng');
-    if (!s.payer) return alert('Vui lòng chọn Người trả');
-    if (!s.method) return alert('Vui lòng chọn Hình thức trả');
+    if (!s.payer) return alert('Vui l\u00f2ng ch\u1ecdn Ng\u01b0\u1eddi tr\u1ea3');
+    if (!s.method) return alert('Vui l\u00f2ng ch\u1ecdn H\u00ecnh th\u1ee9c tr\u1ea3');
     // ★ Block HV+CK when remaining <= 0
     if (s.payer === 'hv' && s.method === 'ck' && s.remaining <= 0) {
         return alert('⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.');
+    }
+    // ★ Payment validation: if loaded with results, must select or skip
+    if (s.paymentLoaded && s.matchingPayments && s.matchingPayments.length > 0) {
+        if (!s.selectedPaymentId && !s.skipPayment) {
+            return alert('Vui lòng chọn mã tiền thanh toán hoặc đánh dấu "Không thanh toán lần này"');
+        }
     }
     // Submit
     try {
@@ -489,6 +501,7 @@ async function _shDoShip(id) {
             shipping_fee_payer: s.payer,
             shipping_fee_method: s.method
         };
+        if (s.selectedPaymentId) body.selected_payment_id = s.selectedPaymentId;
         if (tracking) body.tracking_code = tracking;
         if (bill) body.shipping_bill_link = bill;
         if (phone) body.carrier_phone = phone;
@@ -499,6 +512,139 @@ async function _shDoShip(id) {
         document.getElementById('shShipModal')?.remove();
         _shLoadOrders();
     } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+// ===== PAYMENT MATCHING =====
+var _shPaymentSearchTimer = null;
+
+async function _shLoadMatchingPayments() {
+    var s = window._shModalState; if (!s) return;
+    var el = document.getElementById('shPaymentSection'); if (!el) return;
+    // Reset selection when params change
+    s.selectedPaymentId = null;
+    s.skipPayment = false;
+    s.paymentLoaded = false;
+    // Calculate target amount
+    var fee = Number((document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'')) || 0;
+    var target = s.remaining;
+    if (s.payer === 'hv' && s.method === 'ck') target = s.remaining - fee;
+    if (target <= 0) {
+        // Nothing to pay
+        s.paymentLoaded = true;
+        s.skipPayment = true;
+        el.innerHTML = '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:12px;padding:14px 16px;">'
+            + '<div style="font-weight:800;font-size:13px;color:#059669;margin-bottom:4px;">✅ Đơn hàng đã thanh toán đủ</div>'
+            + '<div style="font-size:12px;color:#065f46;">Số tiền còn lại = 0đ — Không cần thanh toán thêm.</div>'
+            + '</div>';
+        return;
+    }
+    // Show loading
+    el.innerHTML = '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #93c5fd;border-radius:12px;padding:14px 16px;">'
+        + '<div style="font-weight:800;font-size:13px;color:#1e40af;margin-bottom:4px;">💳 Thanh Toán Đơn Hàng</div>'
+        + '<div style="text-align:center;padding:12px;color:#3b82f6;font-size:12px;">\u23f3 Đang tìm mã tiền phù hợp...</div>'
+        + '</div>';
+    // Debounce
+    if (_shPaymentSearchTimer) clearTimeout(_shPaymentSearchTimer);
+    _shPaymentSearchTimer = setTimeout(async function() {
+        try {
+            var data = await apiCall('/api/shipping/matching-payments?order_code=' + encodeURIComponent(s.orderCode) + '&target_amount=' + target);
+            s.matchingPayments = data.payments || [];
+            s.paymentLoaded = true;
+            _shRenderPayments(target);
+        } catch(e) {
+            s.paymentLoaded = true;
+            s.matchingPayments = [];
+            _shRenderPayments(target);
+        }
+    }, 300);
+}
+
+function _shRenderPayments(target) {
+    var s = window._shModalState; if (!s) return;
+    var el = document.getElementById('shPaymentSection'); if (!el) return;
+    var payments = s.matchingPayments || [];
+    var fmtM = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    var fmtD = function(d) { if(!d) return '\u2014'; var dt = new Date(d); return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+dt.getFullYear(); };
+    var h = '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #93c5fd;border-radius:12px;padding:14px 16px;">';
+    h += '<div style="font-weight:800;font-size:13px;color:#1e40af;margin-bottom:2px;">💳 Thanh Toán Đơn Hàng</div>';
+    h += '<div style="font-size:12px;color:#3b82f6;font-weight:700;margin-bottom:10px;">Số tiền cần thanh toán: <b style="font-size:15px;color:#dc2626;">' + fmtM(target) + 'đ</b></div>';
+    if (payments.length === 0) {
+        // No matching payments
+        s.skipPayment = true;
+        h += '<div style="text-align:center;padding:12px;background:rgba(255,255,255,.7);border-radius:8px;">';
+        h += '<div style="font-size:12px;color:#6b7280;font-weight:600;">📭 Không tìm thấy mã tiền phù hợp</div>';
+        h += '<div style="font-size:11px;color:#9ca3af;margin-top:4px;">Gửi hàng mà không liên kết thanh toán</div>';
+        h += '</div>';
+    } else {
+        // Payment list
+        h += '<div style="max-height:220px;overflow-y:auto;margin-bottom:8px;">';
+        for (var i = 0; i < payments.length; i++) {
+            var p = payments[i];
+            var diff = Number(p.diff) || 0;
+            var isSelected = s.selectedPaymentId === p.id;
+            var mlColors = { exact:'#059669', close:'#d97706', approximate:'#6b7280', far:'#9ca3af' };
+            var mlLabels = { exact:'✅ Khớp chính xác', close:'🟡 Gần giống', approximate:'⚪ Chênh lệch', far:'⚪ Xa' };
+            var mlBgs = { exact:'#f0fdf4', close:'#fffbeb', approximate:'#f8fafc', far:'#f8fafc' };
+            var ml = p.match_level || 'far';
+            var border = isSelected ? '2px solid #2563eb' : '1.5px solid #e2e8f0';
+            var bg = isSelected ? '#eff6ff' : mlBgs[ml];
+            var shadow = isSelected ? 'box-shadow:0 0 0 3px rgba(37,99,235,0.15);' : '';
+            var methodIcon = p.payment_method === 'TM' ? '💰' : '🏦';
+            h += '<div onclick="_shSelectPayment(' + p.id + ')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:' + border + ';border-radius:10px;margin-bottom:6px;cursor:pointer;background:' + bg + ';transition:all .15s;' + shadow + '" onmouseover="if(' + (!isSelected) + ')this.style.borderColor=\'#93c5fd\'" onmouseout="if(' + (!isSelected) + ')this.style.borderColor=\'#e2e8f0\'">';
+            // Radio circle
+            h += '<div style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isSelected ? '#2563eb' : '#cbd5e1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+            if (isSelected) h += '<div style="width:10px;height:10px;border-radius:50%;background:#2563eb;"></div>';
+            h += '</div>';
+            // Info
+            h += '<div style="flex:1;min-width:0;">';
+            h += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+            h += '<span style="font-weight:800;font-size:12px;color:#1e40af;">' + (p.payment_code||'\u2014') + '</span>';
+            h += '<span style="font-weight:900;font-size:13px;color:#dc2626;">' + fmtM(p.amount) + 'đ</span>';
+            h += '<span style="font-size:10px;font-weight:700;color:' + mlColors[ml] + ';">' + mlLabels[ml] + '</span>';
+            h += '</div>';
+            h += '<div style="font-size:10px;color:#64748b;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">';
+            h += '<span>' + methodIcon + ' ' + (p.payment_method||'') + '</span>';
+            if (p.bank_name) h += '<span>🏦 ' + p.bank_name + '</span>';
+            h += '<span>📅 ' + fmtD(p.payment_date) + '</span>';
+            if (diff > 0) h += '<span style="color:' + (diff <= 50000 ? '#d97706' : '#dc2626') + ';">Chênh: ' + (diff>0?'+':'') + fmtM(diff) + 'đ</span>';
+            h += '</div>';
+            if (p.transfer_note) {
+                h += '<div style="font-size:10px;color:#9ca3af;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.transfer_note||'').replace(/"/g,'&quot;') + '">📝 ' + p.transfer_note + '</div>';
+            }
+            h += '</div></div>';
+        }
+        h += '</div>';
+        // Skip button
+        var skipActive = s.skipPayment;
+        h += '<div onclick="_shToggleSkipPayment()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ' + (skipActive ? '#f59e0b' : '#e2e8f0') + ';border-radius:8px;cursor:pointer;background:' + (skipActive ? '#fffbeb' : 'white') + ';transition:all .15s;" onmouseover="this.style.borderColor=\'#f59e0b\'" onmouseout="if(!' + skipActive + ')this.style.borderColor=\'#e2e8f0\'">';
+        h += '<div style="width:18px;height:18px;border-radius:4px;border:2px solid ' + (skipActive ? '#f59e0b' : '#cbd5e1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (skipActive ? '#f59e0b' : 'white') + ';">';
+        if (skipActive) h += '<span style="color:white;font-size:11px;font-weight:900;">✓</span>';
+        h += '</div>';
+        h += '<span style="font-size:12px;font-weight:600;color:' + (skipActive ? '#d97706' : '#6b7280') + ';">\u23ed\ufe0f Không thanh toán lần này</span>';
+        h += '</div>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+}
+
+function _shSelectPayment(id) {
+    var s = window._shModalState; if (!s) return;
+    s.selectedPaymentId = (s.selectedPaymentId === id) ? null : id;
+    s.skipPayment = false;
+    var fee = Number((document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'')) || 0;
+    var target = s.remaining;
+    if (s.payer === 'hv' && s.method === 'ck') target = s.remaining - fee;
+    _shRenderPayments(target);
+}
+
+function _shToggleSkipPayment() {
+    var s = window._shModalState; if (!s) return;
+    s.skipPayment = !s.skipPayment;
+    if (s.skipPayment) s.selectedPaymentId = null;
+    var fee = Number((document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'')) || 0;
+    var target = s.remaining;
+    if (s.payer === 'hv' && s.method === 'ck') target = s.remaining - fee;
+    _shRenderPayments(target);
 }
 
 function _shShowReschedule(id, code) {
