@@ -747,7 +747,24 @@ async function start() {
         // v11b: Add page_link column for department navigation
         try { await db.exec(`ALTER TABLE dht_process_steps ADD COLUMN IF NOT EXISTS page_link TEXT`); } catch(e) {}
 
-        // Seed 7 default steps (Đóng Gói removed)
+        // v11b Migration: MUST run BEFORE seed to avoid unique constraint conflicts
+        // Rename "Hoàn Thiện" → "Cắt Chỉ & Hoàn Thiện", reorder, soft-delete "Đóng Gói"
+        try {
+            // If seed already created "Cắt Chỉ & Hoàn Thiện" AND old "Hoàn Thiện" still exists → delete the seed duplicate
+            const oldHT = await db.get(`SELECT id FROM dht_process_steps WHERE name = 'Hoàn Thiện'`);
+            const newCCHT = await db.get(`SELECT id FROM dht_process_steps WHERE name = 'Cắt Chỉ & Hoàn Thiện'`);
+            if (oldHT && newCCHT) {
+                // Move any production records from new duplicate to old (keep original ID for data integrity)
+                await db.run(`UPDATE dht_order_production SET step_id = $1 WHERE step_id = $2`, [oldHT.id, newCCHT.id]);
+                await db.run(`UPDATE dht_product_process SET step_id = $1 WHERE step_id = $2`, [oldHT.id, newCCHT.id]);
+                await db.run(`DELETE FROM dht_process_steps WHERE id = $1`, [newCCHT.id]);
+            }
+            await db.run(`UPDATE dht_process_steps SET name = 'Cắt Chỉ & Hoàn Thiện', short_name = 'CCHT', display_order = 7, page_link = '/bophanhoanthienhv' WHERE name = 'Hoàn Thiện'`);
+            await db.run(`UPDATE dht_process_steps SET display_order = 6, page_link = '/kiemtrachatluong' WHERE name = 'Kiểm Tra Chất Lượng'`);
+            await db.run(`UPDATE dht_process_steps SET is_active = false WHERE name = 'Đóng Gói'`);
+        } catch(e) { console.error('[Migration v11b] Rename/reorder:', e.message); }
+
+        // Seed 7 default steps (Đóng Gói removed) — runs AFTER rename to avoid conflicts
         const _steps = [
             { name: 'Chuẩn Bị QLX', short: 'CBQLX', order: 1, link: '/congviecqlx' },
             { name: 'Cắt', short: 'CẮT', order: 2, link: '/bophancathv' },
@@ -758,21 +775,8 @@ async function start() {
             { name: 'Cắt Chỉ & Hoàn Thiện', short: 'CCHT', order: 7, link: '/bophanhoanthienhv' }
         ];
         for (const s of _steps) {
-            await db.run(`INSERT INTO dht_process_steps (name, short_name, display_order, page_link) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET page_link = EXCLUDED.page_link`, [s.name, s.short, s.order, s.link]);
+            await db.run(`INSERT INTO dht_process_steps (name, short_name, display_order, page_link) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET page_link = EXCLUDED.page_link, short_name = EXCLUDED.short_name, display_order = EXCLUDED.display_order`, [s.name, s.short, s.order, s.link]);
         }
-
-        // v11b Migration: Rename "Hoàn Thiện" → "Cắt Chỉ & Hoàn Thiện", reorder, soft-delete "Đóng Gói"
-        try {
-            await db.run(`UPDATE dht_process_steps SET name = 'Cắt Chỉ & Hoàn Thiện', short_name = 'CCHT', display_order = 7, page_link = '/bophanhoanthienhv' WHERE name = 'Hoàn Thiện'`);
-            await db.run(`UPDATE dht_process_steps SET display_order = 6, page_link = '/kiemtrachatluong' WHERE name = 'Kiểm Tra Chất Lượng'`);
-            await db.run(`UPDATE dht_process_steps SET is_active = false WHERE name = 'Đóng Gói'`);
-            // Ensure page_link is set for all active steps
-            await db.run(`UPDATE dht_process_steps SET page_link = '/congviecqlx' WHERE name = 'Chuẩn Bị QLX' AND page_link IS NULL`);
-            await db.run(`UPDATE dht_process_steps SET page_link = '/bophancathv' WHERE name = 'Cắt' AND page_link IS NULL`);
-            await db.run(`UPDATE dht_process_steps SET page_link = '/bophaninhv' WHERE name = 'In' AND page_link IS NULL`);
-            await db.run(`UPDATE dht_process_steps SET page_link = '/bophanephv' WHERE name = 'Ép' AND page_link IS NULL`);
-            await db.run(`UPDATE dht_process_steps SET page_link = '/bophanmayhv' WHERE name = 'May' AND page_link IS NULL`);
-        } catch(e) { console.error('[Migration v11b] Rename/reorder:', e.message); }
 
         // Order production tracking — which step each order has completed
         await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_production (
