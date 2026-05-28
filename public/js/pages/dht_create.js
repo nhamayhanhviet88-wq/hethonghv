@@ -2153,11 +2153,276 @@ async function _dhtEditOrderFull(id) {
             originalSurchargeCount: surchargeItems.length
         };
 
-        // Open the same form as create
-        await _dhtGoStep2();
+        // ★ Detect PET/TEM orders → use free form instead of Đồng Phục form
+        var catName = (o.category_name || '').toUpperCase().trim();
+        var isPetTem = (catName === 'PET' || catName === 'TEM');
+
+        if (isPetTem) {
+            // Open the PET/TEM free form in edit mode
+            await _dhtEditOrderFree(o);
+        } else {
+            // Open the normal Đồng Phục form
+            await _dhtGoStep2();
+        }
     } catch(e) {
         console.error('Edit order full error:', e);
         showToast('Lỗi tải dữ liệu: ' + (e.message || ''), 'error');
+    }
+}
+
+// ========== ★ EDIT PET/TEM ORDER — Free Form Edit Mode ==========
+async function _dhtEditOrderFree(o) {
+    _dhtFreeMode = true;
+
+    var [infoRes, designRes, carrierRes, holidayRes, phieuRes, petSrcRes, temSrcRes, depRes] = await Promise.all([
+        apiCall('/api/dht/my-info'),
+        apiCall('/api/dht/designers'),
+        apiCall('/api/dht/carriers'),
+        apiCall('/api/holidays'),
+        apiCall('/api/dht/phieu-options'),
+        apiCall('/api/dht/pet-sources'),
+        apiCall('/api/dht/tem-sources'),
+        apiCall('/api/dht/available-deposits')
+    ]);
+
+    _dhtCreate.phieuOpts = phieuRes || {};
+    _dhtCreate.holidays = {};
+    (holidayRes.holidays || []).forEach(function(h) {
+        var d = h.holiday_date;
+        if (typeof d === 'string') d = d.split('T')[0];
+        _dhtCreate.holidays[d] = h.holiday_name;
+    });
+    _dhtCreate.myInfo = infoRes.user || {};
+    var mi = _dhtCreate.myInfo;
+
+    // Only PET & TEM categories
+    var freeCats = (_dht.categories || []).filter(function(c) { return c.name === 'PET' || c.name === 'TEM'; });
+    var catOpts = freeCats.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+
+    var designers = designRes.designers || [];
+    var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
+        + designers.map(function(d){ return '<option value="'+d.id+'">'+d.full_name+'</option>'; }).join('');
+    var carriers = carrierRes.carriers || [];
+    var carOpts = carriers.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+
+    var petSrcOpts = (petSrcRes.items || []).map(function(s) { return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
+    var temSrcOpts = (temSrcRes.items || []).map(function(s) { return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
+
+    var _dis = 'background:#f1f5f9;color:#64748b;cursor:not-allowed';
+    var _teamName = mi.parent_department_name ? (mi.department_name || 'Không có') : (mi.team_name || 'Không có');
+
+    // Reuse the same free form body from _dhtShowCreateFree
+    var body = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0">'
+        +'<div class="form-group"><label>Tên Nhân Viên</label><input class="form-control" value="'+(mi.full_name||'')+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.phong_ban||mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Team</label><input class="form-control" value="'+_teamName+'" disabled style="'+_dis+'"></div>'
+        +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
+        +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control" onchange="_dhtOnFreeCatSwitch()"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
+        +'<div style="grid-column:span 2"><div class="form-group"><label>Mã Đơn <span style="color:red">*</span></label>'
+        +'<input id="_co_codeFreeLabel" class="form-control" disabled value="" style="'+_dis+';font-weight:800;font-size:14px;color:#b8860b;border:2px solid #b8860b;background:#fffbeb"></div></div>'
+        +'</div>'
+        +'<div id="_co_freeFormFields">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="form-group" style="position:relative;grid-column:span 2"><label style="font-weight:800;color:#166534">① Tên Khách Hàng <span style="color:red">*</span> ✏️ <span style="font-size:10px;font-weight:600;color:#64748b">— Gõ tên để tìm KH cũ hoặc nhập mới</span></label>'
+        +'<input id="_co_name" class="form-control" placeholder="🔍 Gõ tên khách hàng..." autocomplete="off" oninput="_dhtNameAutocomplete()" onfocus="_dhtNameAutocomplete()" style="font-size:14px;border:2px solid #059669">'
+        +'<div id="_co_nameList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div class="form-group" style="position:relative"><label style="font-weight:800;color:#1e40af">② SĐT Khách Hàng <span style="color:red">*</span> ✏️</label>'
+        +'<input id="_co_phone" class="form-control" placeholder="Nhập SĐT khách hàng" autocomplete="off" oninput="_dhtPhoneAutocomplete();_dhtCheckPhoneChange()" style="font-size:13px">'
+        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>'
+        +'<div id="_co_phoneAction" style="display:none;margin-top:6px;background:#fffbeb;border:2px solid #f59e0b;border-radius:8px;padding:10px 12px">'
+        +'<div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:8px">⚠️ SĐT đã thay đổi! Chọn hành động: <span style="color:red">*</span></div>'
+        +'<div style="display:flex;gap:8px">'
+        +'<label style="flex:1;cursor:pointer;padding:8px 10px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-size:11px;font-weight:700;transition:all .2s" id="_co_phoneAction_update" onclick="_dhtSetPhoneAction(\'update\')">🔄 Đổi SĐT cho KH cũ</label>'
+        +'<label style="flex:1;cursor:pointer;padding:8px 10px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-size:11px;font-weight:700;transition:all .2s" id="_co_phoneAction_new" onclick="_dhtSetPhoneAction(\'create_new\')">➕ Tạo KH mới</label>'
+        +'</div></div></div>'
+        +'<div class="form-group"><label>③ Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
+        +'<div class="form-group" style="position:relative"><label>③ Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
+        +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
+        +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
+        +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
+        +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
+        +'</div>'
+        +'<div style="margin:10px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:11px;font-weight:800;color:#92400e">🔔 Nhắc Nhở</label><button type="button" onclick="_ppAddNN()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:20px"></div></div>'
+        +'<div style="margin:12px 0;border-top:1px solid #e2e8f0;padding-top:12px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        +'<span style="font-weight:800;font-size:13px;color:var(--navy)">📋 Phiếu Đơn Hàng</span>'
+        +'<button onclick="_dhtAddItemFree()" style="background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm Phiếu</button></div>'
+        +'<div id="_co_items"></div></div>'
+        +'<div style="margin:10px 0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #86efac;border-radius:10px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#166534;margin-bottom:6px;display:block">💰 Chọn Mã Cọc (tùy chọn) <span style="font-size:10px;color:#64748b;font-weight:600">— từ Sổ Ghi Nhận Tiền</span></label>'
+        +'<div style="position:relative"><input id="_co_depSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." autocomplete="off" oninput="_dhtSearchDeposit()" onfocus="_dhtSearchDeposit()" style="font-size:12px;border:2px solid #059669">'
+        +'<div id="_co_depSearchList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
+        +'</div>'
+        +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+        +'<span style="font-weight:800;font-size:12px;color:#92400e">Thêm Phụ Phí</span>'
+        +'<button type="button" onclick="_dhtAddSurcharge()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">➕ Thêm Phụ Phí</button></div>'
+        +'<div id="_co_surcharges"></div></div>'
+        +'<div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #e2e8f0">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
+        +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
+        +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
+        +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
+        +'<div class="form-group"><label>Tiêu Chuẩn Gửi</label><select id="_co_pri" class="form-control"><option selected>GẤP</option><option>GỬI</option></select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
+        +'<div class="form-group"><label>Nhà Vận Chuyển <span style="color:red">*</span></label><select id="_co_carrier" class="form-control" onchange="_dhtOnCarrierChange()"><option value="">-- Chọn --</option>'+carOpts+'</select></div>'
+        +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div></div>'
+        +'<div id="_co_carrierExtra" style="display:none;margin-top:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px"></div>'
+        +'<div class="form-group" style="margin-top:10px"><label style="font-weight:700;color:#1e293b">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:red">*</span></label>'
+        +'<textarea id="_co_saleNote" class="form-control" rows="2" placeholder="Nhập nội dung dặn kế toán gửi hàng..." style="font-size:12px;resize:vertical;border:2px solid #f59e0b"></textarea></div>'
+        +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Không cọc</div>'
+        +'</div>';
+
+    var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
+        +'<button class="btn" onclick="_dhtSubmitEditV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Cập Nhật Đơn</button>';
+
+    openModal('✏️ Sửa Đơn ' + _dhtCreate.orderCode, body, footer);
+
+    _dhtCreate._allDeposits = depRes.deposits || depRes || [];
+
+    // Init NN tags from order-level reminders
+    window._ppNNTags = (_dhtCreate.reminders || []).slice();
+    _ppRenderNNTags();
+
+    // ★ Pre-fill all fields from edit data
+    // Category
+    var catSel = document.getElementById('_co_cat');
+    if (catSel && o.category_id) catSel.value = o.category_id;
+
+    // Trigger cat switch to load correct sources
+    await _dhtOnFreeCatSwitch();
+
+    // Code label
+    var codeLbl = document.getElementById('_co_codeFreeLabel');
+    if (codeLbl) {
+        codeLbl.value = '📋 ' + o.order_code;
+        codeLbl.style.color = '#b8860b';
+        codeLbl.style.borderColor = '#b8860b';
+        codeLbl.style.background = '#fffbeb';
+    }
+
+    // Show form fields immediately (already showing since we set display directly)
+    var formFields = document.getElementById('_co_freeFormFields');
+    if (formFields) formFields.style.display = '';
+
+    // Customer info
+    var nameEl = document.getElementById('_co_name');
+    var phoneEl = document.getElementById('_co_phone');
+    var addrEl = document.getElementById('_co_addr');
+    var provEl = document.getElementById('_co_prov');
+    if (nameEl) nameEl.value = o.customer_name || '';
+    if (phoneEl) { phoneEl.value = o.customer_phone || ''; phoneEl.disabled = false; phoneEl.style.background = '#fff'; phoneEl.style.cursor = 'text'; phoneEl.placeholder = 'Nhập SĐT khách hàng'; }
+    if (addrEl) addrEl.value = o.address || '';
+    if (provEl) provEl.value = o.province || '';
+
+    // Source — set after cat switch loaded sources
+    var srcSelect = document.getElementById('_co_srcFreeSelect');
+    if (srcSelect && o.source) {
+        // Wait a tick for source dropdown to be populated by _dhtOnFreeCatSwitch
+        setTimeout(function() {
+            var srcSelect2 = document.getElementById('_co_srcFreeSelect');
+            if (srcSelect2) {
+                // Check if option exists, if not add it
+                var srcFound = false;
+                for (var j = 0; j < srcSelect2.options.length; j++) {
+                    if (srcSelect2.options[j].value === o.source) { srcFound = true; break; }
+                }
+                if (!srcFound) {
+                    var srcOpt = document.createElement('option');
+                    srcOpt.value = o.source;
+                    srcOpt.text = o.source;
+                    srcSelect2.appendChild(srcOpt);
+                }
+                srcSelect2.value = o.source;
+            }
+        }, 300);
+    }
+
+    // Designer
+    var desSel = document.getElementById('_co_designer');
+    if (desSel) {
+        if (o.designer_type === 'old_design' || o.designer_type === 'old') desSel.value = 'old_design';
+        else if (o.designer_user_id) desSel.value = o.designer_user_id;
+    }
+
+    // Shipping priority
+    var priSel = document.getElementById('_co_pri');
+    if (priSel && o.shipping_priority) priSel.value = o.shipping_priority;
+
+    // Ship date
+    var shipInp = document.getElementById('_co_shipDate');
+    if (shipInp && o.expected_ship_date) shipInp.value = o.expected_ship_date.split('T')[0];
+
+    // Carrier
+    var carSel = document.getElementById('_co_carrier');
+    if (carSel && o.carrier_id) carSel.value = o.carrier_id;
+    _dhtOnCarrierChange();
+    if (o.carrier_extra) {
+        var ce = typeof o.carrier_extra === 'string' ? JSON.parse(o.carrier_extra) : o.carrier_extra;
+        if (ce.type === 'nha_xe') {
+            var bn = document.getElementById('_co_busName'); if(bn) bn.value = ce.bus_name || '';
+            var bp = document.getElementById('_co_busPhone'); if(bp) bp.value = ce.bus_phone || '';
+            var bl = document.getElementById('_co_busLocation'); if(bl) bl.value = ce.bus_location || '';
+            var bd = document.getElementById('_co_busDestination'); if(bd) bd.value = ce.bus_destination || '';
+            var btParts = (ce.bus_departure_time || '').split(':');
+            var btH = document.getElementById('_co_busHour'); if(btH && btParts[0]) btH.value = btParts[0];
+            var btM = document.getElementById('_co_busMin'); if(btM && btParts[1]) btM.value = btParts[1];
+        } else if (ce.type === 'nguoi_nhan_ho') {
+            var pn = document.getElementById('_co_proxyName'); if(pn) pn.value = ce.proxy_name || '';
+            var pa = document.getElementById('_co_proxyAddr'); if(pa) pa.value = ce.proxy_address || '';
+            var pp2 = document.getElementById('_co_proxyPhone'); if(pp2) pp2.value = ce.proxy_phone || '';
+        }
+    }
+
+    // Zalo
+    var zaloSel = document.getElementById('_co_zalo');
+    if (zaloSel) zaloSel.value = o.zalo_oa_sent ? '1' : '0';
+
+    // Sale note
+    var noteEl = document.getElementById('_co_saleNote');
+    if (noteEl && o.sale_note_for_accountant) noteEl.value = o.sale_note_for_accountant;
+
+    // Deposit info
+    var depInfo = document.getElementById('_co_depositInfo');
+    if (depInfo) {
+        var depDisplay = _dhtCreate.depositId
+            ? _dhtCreate.depositCode + ' — ' + Number(_dhtCreate.depositAmount).toLocaleString('vi-VN') + 'đ'
+            : 'Không cọc';
+        depInfo.innerHTML = '💰 Mã Cọc: ' + depDisplay;
+    }
+
+    // Render existing phieus and surcharges
+    _dhtRenderPhieuRows();
+    _dhtRenderSurcharges();
+    _dhtCalcTotal();
+
+    // ★ EDIT RESTRICTIONS for non-GĐ users
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
+        var catEl2 = document.getElementById('_co_cat');
+        if (catEl2) { catEl2.disabled = true; catEl2.style.background = '#f1f5f9'; catEl2.style.color = '#64748b'; catEl2.style.cursor = 'not-allowed'; catEl2.title = '🔒 Chỉ GĐ mới đổi được Lĩnh Vực'; }
+
+        var shipEl2 = document.getElementById('_co_shipDate');
+        if (shipEl2) { shipEl2.disabled = true; shipEl2.style.background = '#f1f5f9'; shipEl2.style.color = '#64748b'; shipEl2.style.cursor = 'not-allowed'; shipEl2.title = '🔒 Chỉ GĐ mới đổi được Ngày Gửi'; }
+
+        var priEl2 = document.getElementById('_co_pri');
+        if (priEl2) { priEl2.disabled = true; priEl2.style.background = '#f1f5f9'; priEl2.style.color = '#64748b'; priEl2.style.cursor = 'not-allowed'; priEl2.title = '🔒 Chỉ GĐ mới đổi được Tiêu Chuẩn Gửi'; }
+
+        window._dhtEditRestricted = true;
+        _dhtRenderPhieuRows();
+        _dhtRenderSurcharges();
+        _ppRenderNNTags();
+    } else {
+        window._dhtEditRestricted = false;
     }
 }
 
