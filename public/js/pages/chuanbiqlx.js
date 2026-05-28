@@ -2,6 +2,7 @@
 var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', page: 1, pageSize: 100 };
 var _qlxOpen = { inc: true };
 function _qlxFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
+function _qlxFmtDate(v) { if (!v) return '—'; try { var d = new Date(v); if (isNaN(d.getTime())) return '—'; return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch(e) { return '—'; } }
 
 function renderQuanlyxuongqlxPage(content) {
     if (!document.getElementById('_qlxStyles')) {
