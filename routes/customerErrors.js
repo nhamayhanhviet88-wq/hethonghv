@@ -154,7 +154,205 @@ async function routes(fastify) {
             } catch(auditErr) { console.error('[AuditLog] error report:', auditErr.message); var auditLogId = null; }
         }
 
-        return { success: true, id: result.id, audit_log_id: auditLogId || null };
+        // ★★★ AUTO-LINK: Đơn Lỗi → Phiếu Xử Lý CV ★★★
+        let linkedTicketId = null;
+        if (b.order_code && b.order_code.trim()) {
+            try {
+                const orderCode = b.order_code.trim();
+                const errorImages = b.error_images || [];
+                const errorQty = Number(b.error_quantity) || 0;
+                const errorContent = b.error_content || '(không có nội dung)';
+
+                // Build reply message
+                let replyMsg = '🚨 ĐƠN LỖI MỚI — SL lỗi: ' + errorQty;
+                replyMsg += '\n→ Nội dung: ' + errorContent;
+                if (errorImages.length) replyMsg += '\n→ Hình ảnh lỗi: ' + errorImages.length + ' ảnh';
+
+                // Build attachments from error images
+                const attachments = errorImages.map(url => ({ type: 'image', url }));
+
+                // Check if work ticket exists for this order_code
+                const existingTicket = await db.get(
+                    `SELECT id, status, priority_level FROM work_tickets WHERE order_code = $1`,
+                    [orderCode]
+                );
+
+                if (existingTicket) {
+                    // === CASE B: Ticket EXISTS → Add reply + escalate ===
+                    linkedTicketId = existingTicket.id;
+
+                    // B1: Add reply
+                    await db.run(
+                        `INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            existingTicket.id,
+                            userId,
+                            replyMsg,
+                            JSON.stringify(attachments),
+                            JSON.stringify({ auto_error: true, error_order_id: result.id }),
+                            vnNow()
+                        ]
+                    );
+
+                    // B2: Escalate to urgent + recalculate deadline
+                    const urgentSetting = await db.get(`SELECT * FROM priority_settings WHERE priority_key = 'urgent'`);
+                    let newDeadline = null;
+                    if (urgentSetting && urgentSetting.duration_hours) {
+                        // Simple deadline: now + duration_hours (in business hours via work_schedules)
+                        const durationMin = Math.round(parseFloat(urgentSetting.duration_hours) * 60);
+                        const nowTime = vnNow();
+                        // Load work sessions
+                        const sessions = (await db.all(`SELECT start_time, end_time FROM work_schedules WHERE role_type = 'qlx' ORDER BY display_order`))
+                            .map(r => {
+                                const [sh, sm] = r.start_time.split(':').map(Number);
+                                const [eh, em] = r.end_time.split(':').map(Number);
+                                return { start: sh * 60 + (sm || 0), end: eh * 60 + (em || 0) };
+                            });
+                        const holidays = (await db.all(`SELECT holiday_date FROM holidays`)).map(r => {
+                            const d = r.holiday_date;
+                            return typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().slice(0, 10);
+                        });
+
+                        // Calculate business deadline
+                        let cursor = new Date(nowTime);
+                        let remaining = durationMin;
+                        const isHolSun = (dt) => dt.getDay() === 0 || holidays.includes(dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0'));
+                        const getMin = (dt) => dt.getHours() * 60 + dt.getMinutes();
+
+                        let safety = 0;
+                        while (remaining > 0 && safety < 500) {
+                            safety++;
+                            if (isHolSun(cursor)) {
+                                cursor.setDate(cursor.getDate() + 1);
+                                cursor.setHours(Math.floor(sessions[0].start / 60), sessions[0].start % 60, 0, 0);
+                                while (isHolSun(cursor)) cursor.setDate(cursor.getDate() + 1);
+                                continue;
+                            }
+                            const m = getMin(cursor);
+                            let inSession = false;
+                            for (const sess of sessions) {
+                                if (m >= sess.start && m < sess.end) {
+                                    const avail = sess.end - m;
+                                    if (remaining <= avail) { cursor.setMinutes(cursor.getMinutes() + remaining); remaining = 0; }
+                                    else { remaining -= avail; cursor.setHours(Math.floor(sess.end / 60), sess.end % 60, 0, 0); }
+                                    inSession = true; break;
+                                }
+                            }
+                            if (!inSession) {
+                                let found = false;
+                                for (const sess of sessions) {
+                                    if (m < sess.start) { cursor.setHours(Math.floor(sess.start / 60), sess.start % 60, 0, 0); found = true; break; }
+                                }
+                                if (!found) {
+                                    cursor.setDate(cursor.getDate() + 1);
+                                    cursor.setHours(Math.floor(sessions[0].start / 60), sessions[0].start % 60, 0, 0);
+                                    while (isHolSun(cursor)) cursor.setDate(cursor.getDate() + 1);
+                                }
+                            }
+                        }
+                        newDeadline = cursor;
+                    }
+
+                    // B3: Update ticket — re-open if closed/resolved + set urgent
+                    await db.run(
+                        `UPDATE work_tickets SET
+                            priority_level = 'urgent',
+                            priority = 'GẤP',
+                            status = 'pending',
+                            is_overdue = false,
+                            overdue_at = NULL,
+                            resolved_at = NULL,
+                            deadline_at = $1,
+                            due_date = ($1::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
+                            updated_at = $2
+                        WHERE id = $3`,
+                        [newDeadline ? newDeadline.toISOString() : null, vnNow(), existingTicket.id]
+                    );
+
+                    console.log(`[ErrorAutoLink] ✅ Linked error to existing ticket #${existingTicket.id} (${orderCode}) — escalated to urgent`);
+
+                } else {
+                    // === CASE C: No ticket → Auto-create ===
+                    // C1: Find QLX manager
+                    const allDepts = await db.all(`SELECT id, name, parent_id FROM departments ORDER BY name`);
+                    const xuongDept = allDepts.find(d => d.name && d.name.toUpperCase().indexOf('XƯỞNG HV') !== -1);
+                    let xuongDeptIds = [];
+                    if (xuongDept) {
+                        xuongDeptIds.push(xuongDept.id);
+                        function collectChildren(pid) { allDepts.forEach(d => { if (d.parent_id === pid) { xuongDeptIds.push(d.id); collectChildren(d.id); } }); }
+                        collectChildren(xuongDept.id);
+                    }
+                    let qlxId = null;
+                    if (xuongDeptIds.length > 0) {
+                        const ph = xuongDeptIds.map((_, i) => `$${i + 1}`).join(',');
+                        const mgr = await db.get(`SELECT id FROM users WHERE role = 'quan_ly_cap_cao' AND department_id IN (${ph}) AND status = 'active' ORDER BY id LIMIT 1`, xuongDeptIds);
+                        if (mgr) qlxId = mgr.id;
+                    }
+                    if (!qlxId) {
+                        const fallback = await db.get(`SELECT id FROM users WHERE role = 'quan_ly_cap_cao' AND status = 'active' ORDER BY id LIMIT 1`);
+                        if (fallback) qlxId = fallback.id;
+                    }
+
+                    if (qlxId) {
+                        // C2: Create ticket
+                        const ticketCode = orderCode;
+                        const ticketTitle = '🚨 ĐƠN LỖI — ' + orderCode;
+                        const ticketDesc = 'SL lỗi: ' + errorQty + '\nNội dung: ' + errorContent;
+
+                        // Check ticket_code doesn't conflict
+                        const codeExists = await db.get(`SELECT id FROM work_tickets WHERE ticket_code = $1`, [ticketCode]);
+                        if (!codeExists) {
+                            // Calculate urgent deadline
+                            const urgentSetting = await db.get(`SELECT * FROM priority_settings WHERE priority_key = 'urgent'`);
+                            let deadlineAt = null;
+                            if (urgentSetting && urgentSetting.duration_hours) {
+                                const ms = parseFloat(urgentSetting.duration_hours) * 60 * 60 * 1000;
+                                deadlineAt = new Date(vnNow().getTime() + ms); // simplified for new ticket
+                            }
+
+                            const nowISO = vnNow().toISOString();
+                            await db.run(
+                                `INSERT INTO work_tickets (ticket_code, type, order_id, order_code, title, description, priority, priority_level, status, created_by, assigned_to, due_date, deadline_at, created_at, updated_at)
+                                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)`,
+                                [
+                                    ticketCode, 'order', b.dht_order_id ? Number(b.dht_order_id) : null, orderCode,
+                                    ticketTitle, ticketDesc, 'GẤP', 'urgent', 'pending',
+                                    userId, qlxId,
+                                    deadlineAt ? deadlineAt.toISOString().slice(0, 10) : null,
+                                    deadlineAt ? deadlineAt.toISOString() : null,
+                                    nowISO
+                                ]
+                            );
+
+                            const newTicket = await db.get(`SELECT id FROM work_tickets WHERE ticket_code = $1`, [ticketCode]);
+                            if (newTicket) {
+                                linkedTicketId = newTicket.id;
+                                // C3: Add error images as first reply
+                                if (errorImages.length > 0) {
+                                    await db.run(
+                                        `INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at)
+                                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                                        [newTicket.id, userId, replyMsg, JSON.stringify(attachments),
+                                         JSON.stringify({ auto_error: true, error_order_id: result.id }), vnNow()]
+                                    );
+                                }
+                            }
+                            console.log(`[ErrorAutoLink] ✅ Created NEW ticket ${ticketCode} for error → assigned to QLX #${qlxId}`);
+                        } else {
+                            console.log(`[ErrorAutoLink] ⚠️ Ticket code ${ticketCode} already exists but order_code mismatch — skipped`);
+                        }
+                    } else {
+                        console.log(`[ErrorAutoLink] ⚠️ No QLX manager found — skipped auto-create ticket`);
+                    }
+                }
+            } catch (linkErr) {
+                console.error('[ErrorAutoLink] ❌ Error:', linkErr.message);
+                // Non-blocking — error order was already created successfully
+            }
+        }
+
+        return { success: true, id: result.id, audit_log_id: auditLogId || null, linked_ticket_id: linkedTicketId };
     });
 
     // ========== PUT /api/customer-errors/:id — Update ==========
