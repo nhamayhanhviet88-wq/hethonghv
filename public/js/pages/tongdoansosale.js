@@ -52,6 +52,30 @@ return `<style>
 .tds-emp-row{grid-template-columns:30px 30px 1fr 90px 90px}
 .tds-cards{grid-template-columns:repeat(2,1fr)}
 }
+/* === ORDER DETAIL POPUP === */
+.tds-od-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.tds-od-modal{background:#1e293b;border-radius:20px;width:850px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);animation:tdsOdSlide .3s ease;display:flex;flex-direction:column}
+@keyframes tdsOdSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.tds-od-head{padding:18px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1)}
+.tds-od-head h3{font-size:16px;font-weight:800;color:#fff;margin:0}
+.tds-od-close{background:rgba(255,255,255,.1);border:none;color:#94a3b8;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tds-od-close:hover{background:rgba(255,255,255,.2);color:#fff}
+.tds-od-tabs{display:flex;gap:8px;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.06)}
+.tds-od-tab{padding:6px 16px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.tds-od-tab.t-all{background:#3b82f6;color:#fff}
+.tds-od-tab.t-new{background:rgba(16,185,129,.15);color:#10b981}
+.tds-od-tab.t-old{background:rgba(168,85,247,.15);color:#a855f7}
+.tds-od-tab.active-all{background:#3b82f6;color:#fff}
+.tds-od-tab.active-new{background:#10b981;color:#fff}
+.tds-od-tab.active-old{background:#a855f7;color:#fff}
+.tds-od-tab:not([class*='active']){opacity:.6}.tds-od-tab:hover{opacity:1}
+.tds-od-body{overflow-y:auto;flex:1;padding:0}
+.tds-od-table{width:100%;border-collapse:collapse;font-size:12px}
+.tds-od-table th{padding:10px 12px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;background:#1e293b;z-index:1}
+.tds-od-table td{padding:10px 12px;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,.04)}
+.tds-od-table tr:hover td{background:rgba(255,255,255,.03)}
+.tds-od-empty{padding:40px;text-align:center;color:#64748b;font-size:13px}
+@media(max-width:768px){.tds-od-modal{width:100%;max-width:100%;max-height:100%;border-radius:0}}
 </style>`;
 }
 
@@ -97,9 +121,9 @@ var h = '';
 
 // === SUMMARY CARDS ===
 h += '<div class="tds-cards">';
-h += _tdsCard('💰','TỔNG DOANH SỐ',_tdsFmtMoney(cur.total_revenue),s.trend_pct,'linear-gradient(135deg,#134e4a,#0f766e)');
-h += _tdsCard('📦','TỔNG ĐƠN HÀNG',cur.total_orders+' đơn',s.trend_orders > 0 ? s.trend_orders : s.trend_orders,'linear-gradient(135deg,#1e1b4b,#4338ca)');
-h += _tdsCard('📈','KỲ TRƯỚC',_tdsFmtMoney(prev.total_revenue),null,'linear-gradient(135deg,#78350f,#d97706)');
+h += _tdsCard('💰','TỔNG DOANH SỐ',_tdsFmtMoney(cur.total_revenue),s.trend_pct,'linear-gradient(135deg,#134e4a,#0f766e)','onclick="tdsShowOrders({})"');
+h += _tdsCard('📦','TỔNG ĐƠN HÀNG',cur.total_orders+' đơn',s.trend_orders > 0 ? s.trend_orders : s.trend_orders,'linear-gradient(135deg,#1e1b4b,#4338ca)','onclick="tdsShowOrders({})"');
+h += _tdsCard('📈','KỲ TRƯỚC',_tdsFmtMoney(prev.total_revenue),null,'linear-gradient(135deg,#78350f,#d97706)','onclick="tdsShowOrders({})"');
 h += _tdsCard('👥','NHÂN VIÊN',d.employees.length+' người',null,'linear-gradient(135deg,#4c1d95,#7c3aed)');
 h += '</div>';
 
@@ -111,7 +135,7 @@ if(cur.by_category && Object.keys(cur.by_category).length > 0){
     for(var catId in cur.by_category){
         var cd = cur.by_category[catId];
         var col = catColors[ci % catColors.length];
-        h += '<div class="tds-chip" style="background:'+col+'11;color:'+col+';border:1.5px solid '+col+'33">';
+        h += '<div class="tds-chip" style="background:'+col+'11;color:'+col+';border:1.5px solid '+col+'33;cursor:pointer" onclick="tdsShowOrders({categoryId:'+catId+',title:\''+cd.name.replace(/'/g,"\\'")+'\'})">';
         h += '<span style="font-size:16px">'+(['🏷️','👔','🎯','📋','🧵','⚡','🔥','💎'][ci%8])+'</span>';
         h += '<span>'+cd.name+': <strong>'+_tdsFmtMoney(cd.revenue)+'</strong> ('+cd.orders+' đơn)</span></div>';
         ci++;
@@ -132,8 +156,8 @@ content.innerHTML = h;
 _tdsDrawChart(d);
 }
 
-function _tdsCard(icon,label,value,trend,bg){
-var h = '<div class="tds-card" style="background:'+bg+';color:#fff">';
+function _tdsCard(icon,label,value,trend,bg,extra){
+var h = '<div class="tds-card" style="background:'+bg+';color:#fff;'+(extra?'cursor:pointer':'')+';" '+(extra||'')+'>';
 h += '<div style="font-size:28px;margin-bottom:6px">'+icon+'</div>';
 h += '<div class="tds-card-val">'+value+'</div>';
 h += '<div class="tds-card-lbl">'+label+'</div>';
@@ -177,9 +201,11 @@ d.teams.forEach(function(team, ti){
     var isExp = _tds.expandedTeams.has(team.dept_id);
     var pct = Math.round(team.current.total_revenue / maxRev * 100);
     // Team row
+    var teamEscName = team.dept_name.replace(/'/g,"\\'");
     h += '<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9;background:'+(isExp?'#ecfdf5':'#fff')+';transition:background .2s" onclick="_tdsToggleTeam('+team.dept_id+')" onmouseover="this.style.background=\'#f0fdfa\'" onmouseout="this.style.background=\''+(isExp?'#ecfdf5':'#fff')+'\'">';
     h += '<td style="padding:12px 16px"><div class="tds-rank" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff">'+(ti+1)+'</div></td>';
-    h += '<td style="padding:12px 16px"><div style="font-weight:800;color:#134e4a;font-size:14px">'+(isExp?'▼':'▶')+' '+team.dept_name+'</div>';
+    h += '<td style="padding:12px 16px"><div style="font-weight:800;color:#134e4a;font-size:14px;display:flex;align-items:center;gap:8px">'+(isExp?'▼':'▶')+' '+team.dept_name;
+    h += ' <span onclick="event.stopPropagation();tdsShowOrders({deptId:'+team.dept_id+',title:\''+teamEscName+'\'})" style="cursor:pointer;font-size:14px;opacity:.7;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7" title="Xem chi tiết đơn team">📋</span></div>';
     h += '<div style="font-size:11px;color:#6b7280;margin-top:2px">'+team.member_count+' thành viên'+(team.leader_name?' • TP: '+team.leader_name:'')+'</div>';
     h += '<div class="tds-bar" style="width:80%;margin-top:4px"><div class="tds-bar-fill" style="width:'+pct+'%;background:linear-gradient(90deg,#14b8a6,#0f766e)"></div></div></td>';
     catIds.forEach(function(cid){
@@ -194,12 +220,13 @@ d.teams.forEach(function(team, ti){
     // Employee rows (if expanded)
     if(isExp && team.employees){
         team.employees.forEach(function(emp, ei){
-            h += '<tr style="background:#fafffe;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#f0fdfa\'" onmouseout="this.style.background=\'#fafffe\'">';
+            var empEscName = emp.name.replace(/'/g,"\\'");
+            h += '<tr style="background:#fafffe;border-bottom:1px solid #f8fafc;cursor:pointer" onclick="tdsShowOrders({userId:'+emp.user_id+',title:\''+empEscName+'\'})">';
             h += '<td style="padding:10px 16px"></td>';
             h += '<td style="padding:10px 16px;padding-left:44px"><span style="font-weight:600;color:#475569">'+emp.name+'</span><span style="font-size:11px;color:#94a3b8;margin-left:6px">'+(emp.role==='truong_phong'?'TP':'NV')+'</span></td>';
             catIds.forEach(function(cid){
                 var cv = emp.current.by_category[cid];
-                h += '<td style="padding:10px 10px;text-align:right;font-size:12px;color:#475569">'+(cv?_tdsFmtMoney(cv.revenue):'—')+'</td>';
+                h += '<td style="padding:10px 10px;text-align:right;font-size:12px;color:#475569;cursor:pointer" onclick="event.stopPropagation();tdsShowOrders({userId:'+emp.user_id+',categoryId:'+cid+',title:\''+empEscName+'\'})"><span style="border-bottom:1px dashed #94a3b8">'+(cv?_tdsFmtMoney(cv.revenue):'—')+'</span></td>';
             });
             h += '<td style="padding:10px 16px;text-align:right;font-weight:800;color:#0f766e">'+_tdsFmtMoney(emp.current.total_revenue)+'</td>';
             h += '<td style="padding:10px 16px;text-align:right;font-weight:600;color:#4338ca">'+emp.current.total_orders+'</td>';
@@ -336,4 +363,128 @@ keys.forEach(function(k, idx){
     ctx.fillStyle='#94a3b8'; ctx.font='10px sans-serif';
     ctx.fillText(cats[k].orders+' đơn', x+barW/2, baseY+30);
 });
+}
+
+// ========== ORDER DETAIL POPUP ==========
+var _tdsOd = { orders: [], filter: 'all' };
+
+window.tdsShowOrders = async function(opts) {
+    opts = opts || {};
+    var d = _tds.data;
+    if (!d || !d.period) return;
+
+    // Remove existing
+    var ex = document.getElementById('tdsOdOverlay');
+    if (ex) ex.remove();
+
+    var titleText = opts.title || 'Tất cả';
+    var overlay = document.createElement('div');
+    overlay.id = 'tdsOdOverlay';
+    overlay.className = 'tds-od-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = '<div class="tds-od-modal">'
+        + '<div class="tds-od-head"><h3>📊 Chi tiết đơn — ' + titleText + '</h3>'
+        + '<button class="tds-od-close" onclick="document.getElementById(\'tdsOdOverlay\').remove()">✕</button></div>'
+        + '<div class="tds-od-tabs" id="tdsOdTabs"><span style="color:#94a3b8;font-size:13px">⏳ Đang tải...</span></div>'
+        + '<div class="tds-od-body" id="tdsOdBody"><div style="text-align:center;padding:40px;color:#94a3b8">⏳ Đang tải dữ liệu...</div></div>'
+        + '</div>';
+    document.body.appendChild(overlay);
+
+    // Build API params
+    var params = 'start_date=' + d.period.start + '&end_date=' + d.period.end;
+    if (opts.userId) params += '&user_id=' + opts.userId;
+    if (opts.deptId) params += '&dept_id=' + opts.deptId;
+    if (opts.categoryId) params += '&category_id=' + opts.categoryId;
+
+    try {
+        var data = await apiCall('/api/reports/total-sales/orders?' + params);
+        if (data.error) {
+            document.getElementById('tdsOdBody').innerHTML = '<div class="tds-od-empty">❌ ' + data.error + '</div>';
+            return;
+        }
+        _tdsOd.orders = data.orders || [];
+        _tdsOd.filter = 'all';
+
+        // Render tabs
+        var sm = data.summary || {};
+        document.getElementById('tdsOdTabs').innerHTML = ''
+            + '<button class="tds-od-tab t-all active-all" onclick="_tdsOdFilter(\'all\')" id="tdsOdTabAll">Tất cả (' + sm.total + ')</button>'
+            + '<button class="tds-od-tab t-new" onclick="_tdsOdFilter(\'moi\')" id="tdsOdTabNew">Đ.Mới (' + sm.new_orders + ')</button>'
+            + '<button class="tds-od-tab t-old" onclick="_tdsOdFilter(\'cu\')" id="tdsOdTabOld">Đ.Cũ (' + sm.old_orders + ')</button>'
+            + '<span style="margin-left:auto;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:6px">📅 ' + (data.periodLabel || '') + '</span>';
+
+        _tdsOdRender(_tdsOd.orders);
+    } catch (err) {
+        document.getElementById('tdsOdBody').innerHTML = '<div class="tds-od-empty">❌ Lỗi: ' + err.message + '</div>';
+    }
+};
+
+function _tdsOdFilter(f) {
+    _tdsOd.filter = f;
+    // Update active tabs
+    var tabs = { all: 'tdsOdTabAll', moi: 'tdsOdTabNew', cu: 'tdsOdTabOld' };
+    var activeClass = { all: 'active-all', moi: 'active-new', cu: 'active-old' };
+    for (var k in tabs) {
+        var el = document.getElementById(tabs[k]);
+        if (el) { el.className = 'tds-od-tab t-' + (k === 'all' ? 'all' : k === 'moi' ? 'new' : 'old') + (k === f ? ' ' + activeClass[k] : ''); }
+    }
+    var filtered = f === 'all' ? _tdsOd.orders : _tdsOd.orders.filter(function(o) { return o.customer_type === f; });
+    _tdsOdRender(filtered);
+}
+
+function _tdsOdFmtFull(v) {
+    if (!v || v === 0) return '0đ';
+    return Number(parseFloat(v)).toLocaleString('vi-VN') + 'đ';
+}
+
+function _tdsOdRender(orders) {
+    var body = document.getElementById('tdsOdBody');
+    if (!body) return;
+    if (!orders || orders.length === 0) {
+        body.innerHTML = '<div class="tds-od-empty">📭 Không có đơn nào</div>';
+        return;
+    }
+    var h = '<table class="tds-od-table"><thead><tr>'
+        + '<th style="width:36px">#</th>'
+        + '<th>Loại</th>'
+        + '<th>Mã Đơn</th>'
+        + '<th>Khách Hàng</th>'
+        + '<th>SĐT</th>'
+        + '<th>Doanh Số</th>'
+        + '<th>Lĩnh Vực</th>'
+        + '<th>Ngày</th>'
+        + '<th>NV</th>'
+        + '<th>Affiliate</th>'
+        + '<th style="width:36px">Lần</th>'
+        + '</tr></thead><tbody>';
+
+    orders.forEach(function(o, i) {
+        var typeHtml = o.customer_type === 'moi'
+            ? '<span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:rgba(16,185,129,.15);color:#34d399">🆕 Mới</span>'
+            : '<span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:rgba(168,85,247,.15);color:#c084fc">🔄 Cũ</span>';
+        var dateStr = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
+        var affHtml = o.referrer_name
+            ? '<span style="color:#8b5cf6;font-weight:600;font-size:11px">🤝 ' + o.referrer_name + '</span>'
+            : '<span style="color:#64748b;font-size:10px">—</span>';
+        var catHtml = o.category_name
+            ? '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(15,118,110,.12);color:#14b8a6">' + o.category_name + '</span>'
+            : '<span style="color:#64748b">—</span>';
+
+        h += '<tr>'
+            + '<td style="color:#94a3b8;font-weight:600">' + (i + 1) + '</td>'
+            + '<td>' + typeHtml + '</td>'
+            + '<td style="color:#60a5fa;font-weight:700;font-size:12px">' + (o.order_code || '—') + '</td>'
+            + '<td style="font-weight:600">' + (o.customer_name || '—') + '</td>'
+            + '<td style="font-family:monospace;font-size:12px">' + (o.customer_phone || '—') + '</td>'
+            + '<td style="font-weight:800;color:#fbbf24;white-space:nowrap">' + _tdsOdFmtFull(o.revenue) + '</td>'
+            + '<td>' + catHtml + '</td>'
+            + '<td style="font-size:12px">' + dateStr + '</td>'
+            + '<td style="font-size:11px;color:#94a3b8">' + (o.employee_name || '—') + '</td>'
+            + '<td>' + affHtml + '</td>'
+            + '<td style="text-align:center;font-weight:700;color:' + (o.order_count <= 1 ? '#34d399' : '#c084fc') + '">' + (o.order_count || 1) + '</td>'
+            + '</tr>';
+    });
+
+    h += '</tbody></table>';
+    body.innerHTML = h;
 }

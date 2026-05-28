@@ -399,4 +399,172 @@ module.exports = async function(fastify) {
             teams
         };
     });
+
+    // ===== ORDER DETAIL: GET /api/reports/total-sales/orders =====
+    // Returns individual order rows from dht_orders for popup detail view
+    fastify.get('/api/reports/total-sales/orders', { preHandler: [authenticate] }, async (request, reply) => {
+        const { start_date, end_date, user_id, dept_id, category_id } = request.query;
+        if (!start_date || !end_date) return reply.code(400).send({ error: 'Thiếu start_date/end_date' });
+
+        // 1. Get KD department tree
+        const allDepts = await db.all(
+            "SELECT id, name, parent_id, head_user_id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+        );
+        if (allDepts.length === 0) return { orders: [], summary: {} };
+        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
+        const childDepts = allDepts.filter(d => d.parent_id === rootDept.id);
+        const allDeptIds = allDepts.map(d => d.id);
+
+        // 2. Get all active users in KD
+        const kdPh = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
+        const users = await db.all(
+            `SELECT u.id, u.full_name, u.role, u.department_id
+             FROM users u WHERE u.department_id IN (${kdPh}) AND u.status = 'active' AND u.role != 'giam_doc'`,
+            allDeptIds
+        );
+        const allUserIds = users.map(u => u.id);
+
+        // 3. Role-based visibility
+        const isDirector = ['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role);
+        const isManager = ['quan_ly'].includes(request.user.role);
+        const isLeader = ['truong_phong'].includes(request.user.role);
+
+        let visibleUserIds;
+        if (isDirector) {
+            visibleUserIds = new Set(allUserIds);
+        } else if (isManager || isLeader) {
+            const myDept = request.user.department_id;
+            const myDeptIds = [myDept, ...childDepts.filter(d => d.head_user_id === request.user.id).map(d => d.id)];
+            visibleUserIds = new Set(users.filter(u => myDeptIds.includes(u.department_id)).map(u => u.id));
+            visibleUserIds.add(request.user.id);
+        } else {
+            visibleUserIds = new Set([request.user.id]);
+        }
+
+        // 4. Determine which user IDs to query
+        let targetUserIds = Array.from(visibleUserIds);
+
+        if (user_id) {
+            const uid = parseInt(user_id);
+            if (!visibleUserIds.has(uid)) return reply.code(403).send({ error: 'Không có quyền xem' });
+            targetUserIds = [uid];
+        }
+        if (dept_id) {
+            const did = parseInt(dept_id);
+            const deptUserIds = users.filter(u => u.department_id === did).map(u => u.id);
+            targetUserIds = deptUserIds.filter(id => visibleUserIds.has(id));
+            if (targetUserIds.length === 0) return { orders: [], summary: { total: 0, new_orders: 0, old_orders: 0 } };
+        }
+
+        if (targetUserIds.length === 0) return { orders: [], summary: { total: 0, new_orders: 0, old_orders: 0 } };
+
+        // 5. Identify repair category to exclude
+        const repairCat = await db.get("SELECT id FROM dht_categories WHERE name = 'ĐƠN SỬA'");
+        const repairCatId = repairCat ? repairCat.id : null;
+
+        // 6. Build query
+        const userPh = targetUserIds.map((_, i) => `$${i + 1}`).join(',');
+        let paramIdx = targetUserIds.length + 1;
+        const params = [...targetUserIds, start_date, end_date];
+        let extraWhere = '';
+
+        if (category_id) {
+            extraWhere += ` AND o.category_id = $${paramIdx + 2}`;
+            params.push(parseInt(category_id));
+        }
+
+        const orders = await db.all(`
+            SELECT
+                o.id,
+                o.order_code,
+                o.customer_name,
+                o.customer_phone,
+                COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0) AS revenue,
+                o.order_date,
+                o.created_by AS employee_id,
+                u.full_name AS employee_name,
+                cat.name AS category_name,
+                -- Determine new/old: check if same phone has prior orders
+                CASE
+                    WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND EXISTS (
+                        SELECT 1 FROM dht_orders prev
+                        WHERE prev.customer_phone = o.customer_phone
+                          AND prev.id != o.id
+                          AND prev.order_date < o.order_date
+                          AND prev.parent_order_id IS NULL
+                    ) THEN 'cu'
+                    ELSE 'moi'
+                END AS customer_type,
+                -- Order number for this customer phone
+                (SELECT COUNT(*) FROM dht_orders prev2
+                 WHERE prev2.customer_phone = o.customer_phone
+                   AND prev2.customer_phone IS NOT NULL AND prev2.customer_phone != ''
+                   AND prev2.order_date <= o.order_date
+                   AND prev2.parent_order_id IS NULL
+                ) AS order_count,
+                -- Affiliate: check if linked via order_codes → customers → referrer
+                ref_u.full_name AS referrer_name
+            FROM dht_orders o
+            LEFT JOIN dht_categories cat ON o.category_id = cat.id
+            LEFT JOIN users u ON o.created_by = u.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(di.item_total), 0) AS item_total
+                FROM dht_order_items di WHERE di.dht_order_id = o.id
+            ) oi_sum ON true
+            LEFT JOIN LATERAL (
+                SELECT c.referrer_id
+                FROM order_codes oc
+                JOIN customers c ON oc.customer_id = c.id
+                WHERE oc.order_code = o.order_code
+                LIMIT 1
+            ) ref_link ON true
+            LEFT JOIN users ref_u ON ref_u.id = ref_link.referrer_id AND ref_u.role = 'tkaffiliate'
+            WHERE o.created_by IN (${userPh})
+              AND o.parent_order_id IS NULL
+              ${repairCatId ? `AND (o.category_id IS NULL OR o.category_id != ${repairCatId})` : ''}
+              AND o.order_date >= $${paramIdx}::date
+              AND o.order_date < $${paramIdx + 1}::date
+              ${extraWhere}
+            ORDER BY o.order_date DESC, o.id DESC
+        `, params);
+
+        // 7. Phone masking
+        const { maskPhone } = require('../utils/dataMasking');
+        const isOwner = (eid) => request.user.id === eid;
+        const maskedOrders = orders.map(o => {
+            if (isDirector || isOwner(o.employee_id) || request.user.role === 'quan_ly_cap_cao') {
+                return o;
+            }
+            return { ...o, customer_phone: maskPhone(o.customer_phone) };
+        });
+
+        // 8. Build summary
+        const totalNew = maskedOrders.filter(o => o.customer_type === 'moi').length;
+        const totalOld = maskedOrders.filter(o => o.customer_type === 'cu').length;
+
+        // Period label
+        const periodLabel = start_date + ' → ' + end_date;
+
+        // Title context
+        let title = 'Tất cả';
+        if (user_id) {
+            const emp = users.find(u => u.id === parseInt(user_id));
+            title = emp ? emp.full_name : 'NV #' + user_id;
+        } else if (dept_id) {
+            const dept = allDepts.find(d => d.id === parseInt(dept_id));
+            title = dept ? dept.name : 'Team #' + dept_id;
+        }
+
+        return {
+            title,
+            periodLabel,
+            orders: maskedOrders,
+            summary: {
+                total: maskedOrders.length,
+                new_orders: totalNew,
+                old_orders: totalOld,
+                total_revenue: maskedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
+            }
+        };
+    });
 };
