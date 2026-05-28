@@ -900,15 +900,7 @@ async function kpiSaveTargets(periodLabel) {
 var _kpiDashSort = 'revenue'; // default sort
 function kpiDashFmtVND(n) {
     if (!n) return '0';
-    if (n >= 1e6) {
-        var tr = n / 1e6;
-        var formatted = tr.toFixed(1).replace(/\.0$/, '');
-        var parts = formatted.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return parts.join('.') + ' tr';
-    }
-    if (n >= 1e3) return Math.round(n / 1e3) + 'k';
-    return n.toLocaleString('vi-VN');
+    return Number(n).toLocaleString('vi-VN');
 }
 
 async function kpiLoadDashboard() {
@@ -2876,7 +2868,7 @@ function odRenderTable() {
         var typeClass = o.customer_type === 'moi' ? 'kpi-od-type-moi' : 'kpi-od-type-cu';
         var typeLabel = o.customer_type === 'moi' ? '🆕 Mới' : '🔄 Cũ';
         var rev = parseFloat(o.revenue || 0);
-        var revStr = rev >= 1e6 ? (rev / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr' : rev.toLocaleString('vi-VN');
+        var revStr = Number(rev).toLocaleString('vi-VN');
         var affName = o.referrer_name ? '<span style="color:#8b5cf6;font-weight:600;font-size:11px" title="' + o.referrer_name + '">🤝 ' + o.referrer_name + '</span>' : '<span style="color:#94a3b8;font-size:10px">—</span>';
 
         h += '<tr><td>' + (start + i + 1) + '</td>'
@@ -2980,14 +2972,7 @@ function kpiRenderAchievement(el) {
     var year = data.year;
 
     function fmtMoney(v) {
-        if (Math.abs(v) >= 1e6) {
-            var tr = v / 1e6;
-            var formatted = tr.toFixed(1).replace(/\.0$/, '');
-            var parts = formatted.split('.');
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            return parts.join('.') + ' tr';
-        }
-        return Math.round(v).toLocaleString('vi-VN');
+        return Number(v).toLocaleString('vi-VN');
     }
     function rateColor(rate) {
         if (rate >= 100) return '#059669';
