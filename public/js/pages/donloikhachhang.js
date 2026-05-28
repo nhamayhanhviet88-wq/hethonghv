@@ -908,9 +908,9 @@ function _ceoBuildRepairHTML(repairOrders) {
         if (ro.items && ro.items.length) {
             h += '<div style="padding:12px 14px">';
             h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-            h += '<thead><tr style="background:#f5f3ff;border-bottom:2px solid #e9d5ff">';
+            h += '<thead><tr style="background:#1e293b;border-bottom:2px solid #334155">';
             ['Loại','Sản Phẩm','Chất Liệu','Màu','SL','Đơn Giá','Thành Tiền'].forEach(function(c) {
-                h += '<th style="padding:6px 4px;text-align:left;font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap">' + c + '</th>';
+                h += '<th style="padding:6px 4px;text-align:left;font-size:10px;font-weight:700;color:#fff;white-space:nowrap">' + c + '</th>';
             });
             h += '</tr></thead><tbody>';
             ro.items.forEach(function(it) {
