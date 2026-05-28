@@ -219,28 +219,14 @@ function kpiPickMonth(v) { if(!v)return; _kpi.month=v; kpiLoadData(); }
 
 function kpiFmt(n) {
     if (n == null || isNaN(n)) return '-';
-    if (Math.abs(n) >= 1e6) {
-        var tr = n / 1e6;
-        var formatted = tr.toFixed(1).replace(/\.0$/, '');
-        var parts = formatted.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return parts.join('.') + ' tr';
-    }
-    return n.toLocaleString('vi-VN');
+    return Number(n).toLocaleString('vi-VN');
 }
-function kpiFmtFull(n) { return n != null ? n.toLocaleString('vi-VN') : '-'; }
+function kpiFmtFull(n) { return n != null ? Number(n).toLocaleString('vi-VN') : '-'; }
 // Format "còn thiếu" with +/- sign: positive missing = còn thiếu (-), negative = đã vượt (+)
 function kpiSignFmt(n) {
     if (n == null || isNaN(n) || n === 0) return '0';
     var abs = Math.abs(n);
-    var str;
-    if (abs >= 1e6) {
-        var tr = abs / 1e6;
-        var formatted = tr.toFixed(1).replace(/\.0$/, '');
-        var parts = formatted.split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        str = parts.join('.') + ' tr';
-    } else str = abs.toLocaleString('vi-VN');
+    var str = abs.toLocaleString('vi-VN');
     return n > 0 ? '-' + str : '+' + str; // missing > 0 = còn thiếu (-)  |  missing < 0 = đã vượt (+)
 }
 function kpiSignFmtFull(n) {
