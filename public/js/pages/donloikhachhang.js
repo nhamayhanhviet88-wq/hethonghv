@@ -87,7 +87,7 @@ function _ceoRenderTable() {
     // Apply client-side filter
     var items = allItems;
     // SEQUENTIAL: Step 1 → 2 → 3 → 4 (use Number() because DB returns string "0")
-    var _phatDone=function(i){return Number(i.production_cost)>0||Number(i.shipping_cost)>0;};
+    var _phatDone=function(i){return !!i.phat_updated_at;};
     var _nvpDone=function(i){return i.violator_commitment&&i.violator_commitment.trim()!==''&&i.violator_commitment.trim()!=='1. '&&!!i.penalty_month;};
     var _isStep1=function(i){return !i.qlx_updated_at;};
     var _isStep2=function(i){return i.qlx_updated_at&&!_phatDone(i);};
@@ -210,7 +210,7 @@ async function _ceoViewDetail(id) {
     var videoHtml=item.error_video?'<video controls style="max-width:100%;max-height:250px;border-radius:8px;border:2px solid #e5e7eb"><source src="'+item.error_video+'"></video>':'<span style="color:#9ca3af;font-style:italic">Không có video</span>';
     var field=function(label,value,color){return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">'+label+'</div><div style="font-size:13px;font-weight:600;color:'+(color||'#1e293b')+'">'+(value||'—')+'</div></div>';};
     var _hasQLX=!!item.qlx_updated_at;
-    var _hasPhat=Number(item.production_cost)>0||Number(item.shipping_cost)>0;
+    var _hasPhat=!!item.phat_updated_at;
     var _hasNVP=!!(item.violator_commitment&&item.violator_commitment.trim()!==''&&item.violator_commitment.trim()!=='1. '&&item.penalty_month);
     var _badge=function(done){return done?'<span style="color:#16a34a;font-size:13px">✅</span>':'<span style="color:#d97706;font-size:13px">⏳</span>';};
     var old=document.getElementById('ceoDetailModal');if(old)old.remove();
@@ -483,7 +483,7 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    var _done=i.qlx_updated_at && (Number(i.production_cost)>0||Number(i.shipping_cost)>0) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ' && !!i.penalty_month;
+    var _done=i.qlx_updated_at && !!i.phat_updated_at && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ' && !!i.penalty_month;
     return !_done;
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
@@ -503,7 +503,7 @@ function _ceoOpenUpdatePicker(){
       var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'';
       var missing='';
       if(!item.qlx_updated_at)missing='QLX Chưa Cập Nhật Lỗi';
-      else if(Number(item.production_cost)<=0&&Number(item.shipping_cost)<=0)missing='Chưa Cập Nhật Tiền Phạt';
+      else if(!item.phat_updated_at)missing='Chưa Cập Nhật Tiền Phạt';
       else missing='Chưa Phạt Tiền Người Vi Phạm';
       h+='<div onclick="document.getElementById(\'ceoPickerOv\').remove();_ceoViewDetail('+item.id+')" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.background=\'\';this.style.borderColor=\'#e5e7eb\'">';
       h+='<div><span style="font-weight:700;color:#ea580c">'+(item.order_code||'#'+item.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span>';
@@ -780,9 +780,8 @@ async function _ceoSubmitPhat(id){
   var ship_return=gv('ceoU_shipreturn'),ship_delivery=gv('ceoU_shipdelivery'),ship_other=gv('ceoU_shipother');
   var production_cost=cost_cut+cost_print+cost_press+cost_sew+cost_collar+cost_material_other+cost_other;
   var shipping_cost=ship_return+ship_delivery+ship_other;
-  if(!production_cost){showToast('Vui lòng nhập ít nhất 1 mục Chi Phí SX','error');return;}
-  if(!shipping_cost){showToast('Vui lòng nhập ít nhất 1 mục Phí Ship','error');return;}
-  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost};
+  // Validation removed: 0 is acceptable
+  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,phat_updated_at:new Date().toISOString()};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('✅ Đã cập nhật Phạt!');var _ov=document.getElementById('ceoUpdateOv');if(_ov)_ov.remove();var _dm=document.getElementById('ceoDetailModal');if(_dm)_dm.remove();_ceoLoadData().then(function(){_ceoViewDetail(id);});}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 async function _ceoSubmitNVP(id){

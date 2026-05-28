@@ -215,7 +215,7 @@ async function routes(fastify) {
             'error_content', 'sale_resolution', 'violator_name',
             'production_cost', 'shipping_cost', 'violation_month',
             'penalty_month', 'violator_commitment', 'fix_plan', 'common_error_type',
-            'error_department', 'resolution_status', 'penalty_total', 'penalty_per_person',
+            'error_department', 'resolution_status', 'penalty_total', 'penalty_per_person', 'phat_updated_at',
             'cost_cut', 'cost_print', 'cost_press', 'cost_sew', 'cost_collar',
             'cost_material_other', 'cost_other', 'ship_return', 'ship_delivery', 'ship_other'
         ];
