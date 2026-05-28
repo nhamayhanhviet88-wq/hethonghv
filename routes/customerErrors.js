@@ -216,7 +216,7 @@ async function routes(fastify) {
             'production_cost', 'shipping_cost', 'violation_month',
             'penalty_month', 'violator_commitment', 'fix_plan', 'common_error_type',
             'error_department', 'resolution_status', 'penalty_total', 'penalty_per_person', 'phat_updated_at',
-            'cost_cut', 'cost_print', 'cost_press', 'cost_sew', 'cost_collar',
+            'cost_cut', 'cost_print', 'cost_press', 'cost_sew', 'cost_collar', 'cost_discount', 'cost_discount',
             'cost_material_other', 'cost_other', 'ship_return', 'ship_delivery', 'ship_other'
         ];
         if (!ALLOWED.includes(field)) return { error: 'Trường không hợp lệ' };

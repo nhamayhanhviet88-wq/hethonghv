@@ -268,7 +268,7 @@ async function _ceoViewDetail(id) {
     h+='<div style="padding:10px 14px;background:'+(_hasPhat?'linear-gradient(135deg,#dc2626,#991b1b)':'#f1f5f9')+';display:flex;justify-content:space-between;align-items:center"><div style="font-size:12px;font-weight:800;color:'+(_hasPhat?'#fff':'#6b7280')+'">💰 Phạt</div>'+_badge(_hasPhat)+'</div>';
     if(_hasPhat){
       h+='<div style="padding:12px 14px;font-size:12px">';
-      var sxItems=[{l:'Cắt',k:'cost_cut'},{l:'In',k:'cost_print'},{l:'Ép',k:'cost_press'},{l:'May',k:'cost_sew'},{l:'Cổ Dệt',k:'cost_collar'},{l:'Vật Liệu Khác',k:'cost_material_other'},{l:'Chi Phí Khác',k:'cost_other'}];
+      var sxItems=[{l:'Cắt',k:'cost_cut'},{l:'In',k:'cost_print'},{l:'Ép',k:'cost_press'},{l:'May',k:'cost_sew'},{l:'Cổ Dệt',k:'cost_collar'},{l:'Vật Liệu Khác',k:'cost_material_other'},{l:'Chi Phí Khác',k:'cost_other'},{l:'Bù Giảm Giá KH',k:'cost_discount'}];
       h+='<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:#c2410c;margin-bottom:4px">Chi Phí SX</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
       sxItems.forEach(function(f){var v=Number(item[f.k])||0;if(v){h+='<span style="padding:2px 8px;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;font-size:11px"><b>'+f.l+':</b> '+v.toLocaleString('vi-VN')+'đ</span>';}});
       h+='</div><div style="margin-top:4px;padding:6px 10px;background:#ea580c;border-radius:6px;display:inline-flex;gap:6px;align-items:center"><span style="color:#fff;font-size:11px;font-weight:700">Tổng SX:</span><span style="color:#fff;font-size:13px;font-weight:900">'+(Number(item.production_cost||0)>0?Number(item.production_cost).toLocaleString('vi-VN')+'đ':'0đ')+'</span></div></div>';
@@ -566,8 +566,8 @@ async function _ceoOpenPhat(id){
   h+='<div style="color:#fecaca;font-size:11px;margin-top:2px">Nội dung: '+(item.error_content||'').substring(0,60)+'</div></div>';
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">✕</span></div>';
   h+='<div style="padding:20px">';
-  var sxFields=[{id:'ceoU_cut',label:'Cắt',key:'cost_cut'},{id:'ceoU_print',label:'In',key:'cost_print'},{id:'ceoU_press',label:'Ép',key:'cost_press'},{id:'ceoU_sew',label:'May',key:'cost_sew'},{id:'ceoU_collar',label:'Cổ Dệt',key:'cost_collar'},{id:'ceoU_matother',label:'Vật Liệu Khác',key:'cost_material_other'},{id:'ceoU_costother',label:'Chi Phí Khác',key:'cost_other'}];
-  h+='<div style="margin-bottom:16px;padding:14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px"><div style="font-size:12px;font-weight:800;color:#c2410c;margin-bottom:10px">Chi Phí SX</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+  var sxFields=[{id:'ceoU_cut',label:'Cắt',key:'cost_cut'},{id:'ceoU_print',label:'In',key:'cost_print'},{id:'ceoU_press',label:'Ép',key:'cost_press'},{id:'ceoU_sew',label:'May',key:'cost_sew'},{id:'ceoU_collar',label:'Cổ Dệt',key:'cost_collar'},{id:'ceoU_matother',label:'Vật Liệu Khác',key:'cost_material_other'},{id:'ceoU_costother',label:'Chi Phí Khác',key:'cost_other'},{id:'ceoU_discount',label:'Bù Tiền Giảm Giá KH',key:'cost_discount'}];
+  h+='<div style="margin-bottom:16px;padding:14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px"><div style="font-size:12px;font-weight:800;color:#c2410c;margin-bottom:10px">Chi Phí SX</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">';
   sxFields.forEach(function(f){h+='<div><div style="font-size:10px;color:#9a3412;font-weight:600;margin-bottom:2px">'+f.label+'</div><div style="position:relative"><input type="text" id="'+f.id+'" value="'+(Number(item[f.key])?Number(item[f.key]).toLocaleString('vi-VN'):'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoPhatCalcSX()" style="width:100%;padding:6px 24px 6px 8px;border:1px solid #fdba74;border-radius:6px;font-size:12px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';});
   h+='</div><div style="margin-top:10px;padding:8px 12px;background:#ea580c;border-radius:8px;display:flex;justify-content:space-between;align-items:center"><span style="color:#fff;font-size:12px;font-weight:700">Tổng Chi Phí SX</span><span id="ceoU_prodcost_display" style="color:#fff;font-size:14px;font-weight:900">0đ</span></div></div>';
   var shipFields=[{id:'ceoU_shipreturn',label:'Tiền Ship Về Sửa',key:'ship_return'},{id:'ceoU_shipdelivery',label:'Tiền Ship Trả Hàng',key:'ship_delivery'},{id:'ceoU_shipother',label:'Tiền Ship Khác',key:'ship_other'}];
@@ -754,7 +754,7 @@ function _ceoSelectUser(name){
 
 // ===== CALC FUNCTIONS =====
 function _ceoPhatCalcSX(){
-  var ids=['ceoU_cut','ceoU_print','ceoU_press','ceoU_sew','ceoU_collar','ceoU_matother','ceoU_costother'];
+  var ids=['ceoU_cut','ceoU_print','ceoU_press','ceoU_sew','ceoU_collar','ceoU_matother','ceoU_costother','ceoU_discount'];
   var total=0;ids.forEach(function(id){var el=document.getElementById(id);if(el){var raw=(el.value||'0').replace(/\./g,'').replace(/[^\d]/g,'');total+=Number(raw)||0;}});
   var d=document.getElementById('ceoU_prodcost_display');if(d)d.textContent=total?total.toLocaleString('de-DE')+'đ':'0đ';
 }
@@ -776,12 +776,12 @@ async function _ceoSubmitQLX(id){
 async function _ceoSubmitPhat(id){
   var gv=function(eid){return Number((document.getElementById(eid).value||'0').replace(/[^\d]/g,''))||0;};
   var cost_cut=gv('ceoU_cut'),cost_print=gv('ceoU_print'),cost_press=gv('ceoU_press'),cost_sew=gv('ceoU_sew');
-  var cost_collar=gv('ceoU_collar'),cost_material_other=gv('ceoU_matother'),cost_other=gv('ceoU_costother');
+  var cost_collar=gv('ceoU_collar'),cost_material_other=gv('ceoU_matother'),cost_other=gv('ceoU_costother'),cost_discount=gv('ceoU_discount');
   var ship_return=gv('ceoU_shipreturn'),ship_delivery=gv('ceoU_shipdelivery'),ship_other=gv('ceoU_shipother');
-  var production_cost=cost_cut+cost_print+cost_press+cost_sew+cost_collar+cost_material_other+cost_other;
+  var production_cost=cost_cut+cost_print+cost_press+cost_sew+cost_collar+cost_material_other+cost_other+cost_discount;
   var shipping_cost=ship_return+ship_delivery+ship_other;
-  if(!production_cost&&!shipping_cost){showToast('Vui lòng nhập ít nhất 1 mục Chi Phí SX hoặc Phí Ship','error');return;}
-  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,phat_updated_at:new Date().toISOString()};
+  // Both SX and Ship can be 0 — phat_updated_at tracks save
+  var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,cost_discount:cost_discount,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,phat_updated_at:new Date().toISOString()};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('✅ Đã cập nhật Phạt!');var _ov=document.getElementById('ceoUpdateOv');if(_ov)_ov.remove();var _dm=document.getElementById('ceoDetailModal');if(_dm)_dm.remove();_ceoLoadData().then(function(){_ceoViewDetail(id);});}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
 async function _ceoSubmitNVP(id){
