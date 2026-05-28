@@ -226,6 +226,8 @@ async function routes(fastify) {
             'cost_material_other', 'cost_other', 'ship_return', 'ship_delivery', 'ship_other'];
         const finalValue = numericFields.includes(field) ? (Number(value) || 0) : (value || null);
 
+        console.log(`[CEO PATCH] id=${id} field=${field} value=${typeof value === 'string' ? value.substring(0, 80) : value} finalValue=${typeof finalValue === 'string' ? finalValue.substring(0, 80) : finalValue}`);
+
         await db.run(
             `UPDATE customer_error_orders SET ${field} = $1, updated_at = NOW() WHERE id = $2`,
             [finalValue, id]

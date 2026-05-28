@@ -86,15 +86,20 @@ function _ceoRenderTable() {
     var allItems = _ceo.items;
     // Apply client-side filter
     var items = allItems;
-    if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(function(i){ return !i.qlx_updated_at; });
-    else if (_ceo.filter === 'chua_phat') items = allItems.filter(function(i){ return !i.production_cost && !i.shipping_cost; });
-    else if (_ceo.filter === 'chua_nvp') items = allItems.filter(function(i){ return !i.violator_commitment || i.violator_commitment.trim()==='' || i.violator_commitment.trim()==='1. '; });
-    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. '; });
+    // SEQUENTIAL: Step 1 → 2 → 3 → 4
+    var _isStep1=function(i){return !i.qlx_updated_at;};
+    var _isStep2=function(i){return i.qlx_updated_at && !i.production_cost && !i.shipping_cost;};
+    var _isStep3=function(i){return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && (!i.violator_commitment || i.violator_commitment.trim()==='' || i.violator_commitment.trim()==='1. ');};
+    var _isStep4=function(i){return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';};
+    if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(_isStep1);
+    else if (_ceo.filter === 'chua_phat') items = allItems.filter(_isStep2);
+    else if (_ceo.filter === 'chua_nvp') items = allItems.filter(_isStep3);
+    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(_isStep4);
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
-    var cQLX = allItems.filter(function(i){return !i.qlx_updated_at;}).length;
-    var cPhat = allItems.filter(function(i){return !i.production_cost && !i.shipping_cost;}).length;
-    var cNVP = allItems.filter(function(i){return !i.violator_commitment || i.violator_commitment.trim()==='' || i.violator_commitment.trim()==='1. ';}).length;
-    var cDone = allItems.filter(function(i){return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';}).length;
+    var cQLX = allItems.filter(_isStep1).length;
+    var cPhat = allItems.filter(_isStep2).length;
+    var cNVP = allItems.filter(_isStep3).length;
+    var cDone = allItems.filter(_isStep4).length;
 
     var h = '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;background:#fff">' +
         '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH & NỘI BỘ — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + '/' + allItems.length + ')</span></div>' +
@@ -476,7 +481,8 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    return !i.qlx_updated_at||(!i.production_cost&&!i.shipping_cost)||!i.violator_commitment||i.violator_commitment.trim()===''||i.violator_commitment.trim()==='1. ';
+    var _done=i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';
+    return !_done;
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -493,13 +499,13 @@ function _ceoOpenUpdatePicker(){
     h+='<div style="display:flex;flex-direction:column;gap:6px">';
     incomplete.forEach(function(item){
       var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'';
-      var missing=[];
-      if(!item.qlx_updated_at)missing.push('QLX Chưa Cập Nhật');
-      if(!item.production_cost && !item.shipping_cost)missing.push('Chưa Cập Nhật Tiền Phạt');
-      if(!item.violator_commitment || item.violator_commitment.trim()==='' || item.violator_commitment.trim()==='1. ')missing.push('Chưa Phạt Tiền Người Vi Phạm');
+      var missing='';
+      if(!item.qlx_updated_at)missing='QLX Chưa Cập Nhật Lỗi';
+      else if(!item.production_cost && !item.shipping_cost)missing='Chưa Cập Nhật Tiền Phạt';
+      else missing='Chưa Phạt Tiền Người Vi Phạm';
       h+='<div onclick="document.getElementById(\'ceoPickerOv\').remove();_ceoViewDetail('+item.id+')" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.background=\'\';this.style.borderColor=\'#e5e7eb\'">';
       h+='<div><span style="font-weight:700;color:#ea580c">'+(item.order_code||'#'+item.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span>';
-      h+='<div style="font-size:10px;color:#dc2626;margin-top:2px">Thiếu: '+missing.join(', ')+'</div></div>';
+      h+='<div style="font-size:10px;color:#dc2626;margin-top:2px">Thiếu: '+missing+'</div></div>';
       h+='<span style="font-size:16px">→</span></div>';
     });
     h+='</div>';
