@@ -234,7 +234,7 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-size:10px;color:#475569">' + matName + '</td>';
         h += '<td style="font-size:10px">' + (colorName ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:3px;vertical-align:middle"></span>' + colorName : '') + '</td>';
         h += '<td style="text-align:center;font-weight:700;color:#0369a1">' + (isNew ? (o.total_quantity || '') : '') + '</td>';
-        h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.shipping_date) : '') + '</td>';
+        h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.expected_ship_date) : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? '<span class="qlx-priority" style="' + priColor + '">' + (o.shipping_priority || 'CHUẨN') + '</span>' : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? statusHtml : '') + '</td>';
         h += '<td style="font-size:10px;color:#059669;font-weight:600">' + (isNew ? (o.nguoi_cat || '—') : '') + '</td>';

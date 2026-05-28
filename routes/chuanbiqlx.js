@@ -174,7 +174,7 @@ module.exports = async function(fastify) {
 
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.order_date, o.customer_name, o.customer_phone,
-                o.total_quantity, o.shipping_date, o.shipping_priority,
+                o.total_quantity, o.expected_ship_date, o.shipping_priority,
                 o.category_id, c.name AS category_name,
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
                 u_cskh.full_name AS cskh_name,
