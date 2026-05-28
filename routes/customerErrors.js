@@ -96,11 +96,12 @@ async function routes(fastify) {
         // For each repair order, get its items
         for (const ro of repairOrders) {
             ro.items = await db.all(`
-                SELECT di.id, di.phieu_index, di.phieu_type, di.product_name, di.material,
-                       di.color, di.quantity, di.unit_price, di.vat_percent, di.item_total
+                SELECT di.id, di.product_name, di.material_name,
+                       di.color_name, di.quantity, di.unit_price, di.item_total,
+                       di.sale_type, di.description
                 FROM dht_order_items di
                 WHERE di.dht_order_id = $1
-                ORDER BY di.phieu_index, di.id
+                ORDER BY di.id
             `, [ro.id]);
         }
 

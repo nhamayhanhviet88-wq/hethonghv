@@ -909,20 +909,18 @@ function _ceoBuildRepairHTML(repairOrders) {
             h += '<div style="padding:12px 14px">';
             h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
             h += '<thead><tr style="background:#f5f3ff;border-bottom:2px solid #e9d5ff">';
-            ['Phi\u1EBFu','S\u1EA3n Ph\u1EA9m','Ch\u1EA5t Li\u1EC7u','M\u00E0u','SL','\u0110\u01A1n Gi\u00E1','VAT','Th\u00E0nh Ti\u1EC1n'].forEach(function(c) {
+            ['Loại','Sản Phẩm','Chất Liệu','Màu','SL','Đơn Giá','Thành Tiền'].forEach(function(c) {
                 h += '<th style="padding:6px 4px;text-align:left;font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap">' + c + '</th>';
             });
             h += '</tr></thead><tbody>';
             ro.items.forEach(function(it) {
                 h += '<tr style="border-bottom:1px solid #f1f5f9">';
-                h += '<td style="padding:5px 4px;font-size:11px"><span style="padding:2px 6px;background:#ede9fe;border-radius:4px;font-weight:600;color:#6d28d9;font-size:10px">Phi\u1EBFu ' + (it.phieu_index || 1) + '</span>' +
-                     (it.phieu_type ? ' <span style="font-size:9px;color:#9ca3af">' + it.phieu_type + '</span>' : '') + '</td>';
+                h += '<td style="padding:5px 4px;font-size:11px"><span style="padding:2px 6px;background:#ede9fe;border-radius:4px;font-weight:600;color:#6d28d9;font-size:10px">' + (it.sale_type || 'Bản') + '</span></td>';
                 h += '<td style="padding:5px 4px;font-weight:600;color:#1e293b">' + (it.product_name || '\u2014') + '</td>';
-                h += '<td style="padding:5px 4px;color:#64748b">' + (it.material || '\u2014') + '</td>';
-                h += '<td style="padding:5px 4px;color:#64748b">' + (it.color || '\u2014') + '</td>';
+                h += '<td style="padding:5px 4px;color:#64748b">' + (it.material_name || '\u2014') + '</td>';
+                h += '<td style="padding:5px 4px;color:#64748b">' + (it.color_name || '\u2014') + '</td>';
                 h += '<td style="padding:5px 4px;font-weight:700;color:#1e293b;text-align:center">' + (it.quantity || 0) + '</td>';
                 h += '<td style="padding:5px 4px;color:#1e293b">' + fmtM(it.unit_price) + '</td>';
-                h += '<td style="padding:5px 4px;color:#64748b">' + (it.vat_percent || 0) + '%</td>';
                 h += '<td style="padding:5px 4px;font-weight:700;color:#6d28d9">' + fmtM(it.item_total) + '</td>';
                 h += '</tr>';
             });
