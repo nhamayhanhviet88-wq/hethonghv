@@ -172,6 +172,10 @@ function _qlxRenderRows(paged) {
         });
     });
 
+    // Count rows per order to decide phối display
+    var rowCountPerOrder = {};
+    rows.forEach(function(r) { rowCountPerOrder[r.order.id] = (rowCountPerOrder[r.order.id] || 0) + 1; });
+
     var lastId = null, stt = 0;
     tbody.innerHTML = rows.map(function(r) {
         var o = r.order, p = r.phoi, it = r.item;
@@ -186,8 +190,15 @@ function _qlxRenderRows(paged) {
         var fabAct = o.fabric_arrived ? 'reset_arrive' : o.fabric_called ? 'arrive' : 'call';
         var matAct = o.material_arrived ? 'reset_arrive' : o.material_called ? 'arrive' : 'call';
 
-        var spName = it ? (it.description || o.order_code || '') : (o.order_code || '');
-        var phoiTag = (p && p.position_name) ? '<span class="qlx-phoi-tag">' + p.position_name + '</span>' : '';
+        var itemDesc = it ? (it.description || '') : '';
+        var totalRows = rowCountPerOrder[o.id] || 1;
+        var spName;
+        if (totalRows > 1 && p && p.position_name) {
+            spName = o.order_code + ' - ' + p.position_name + (itemDesc ? ' - ' + itemDesc : '');
+        } else {
+            spName = o.order_code + (itemDesc ? ' - ' + itemDesc : '');
+        }
+        var phoiTag = '';
         var matName = p ? (p.material_name || '') : (it ? (it.material_name || '') : '');
         var colorName = p ? (p.color_name || '') : (it ? (it.color_name || '') : '');
 
