@@ -805,8 +805,7 @@ async function _ceoSubmitNVP(id){
     if(!commitment||commitment==='1. '){showToast('Vui l\u00f2ng nh\u1eadp Cam K\u1ebft Ng\u01b0\u1eddi Vi Ph\u1ea1m','error');return;}
   }
   var pmonth=document.getElementById('ceoU_nvp_pmonth')?document.getElementById('ceoU_nvp_pmonth').value:'';
-  var fields={violator_commitment:commitment,penalty_total:penaltyTotal,penalty_per_person:JSON.stringify(penaltyPerPerson)};
-  if(pmonth)fields.penalty_month=pmonth;
+  var fields={violator_commitment:commitment,penalty_total:penaltyTotal,penalty_per_person:JSON.stringify(penaltyPerPerson),penalty_month:pmonth||null};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('\u2705 \u0110\u00e3 c\u1eadp nh\u1eadt NVP!');var _ov=document.getElementById('ceoUpdateOv');if(_ov)_ov.remove();var _dm=document.getElementById('ceoDetailModal');if(_dm)_dm.remove();_ceoLoadData().then(function(){_ceoViewDetail(id);});}catch(e){showToast('L\u1ed7i: '+e.message,'error');}
 }
 
