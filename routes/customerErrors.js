@@ -223,7 +223,7 @@ async function routes(fastify) {
 
         const numericFields = ['error_quantity', 'production_cost', 'shipping_cost', 'penalty_total',
             'cost_cut', 'cost_print', 'cost_press', 'cost_sew', 'cost_collar',
-            'cost_material_other', 'cost_other', 'ship_return', 'ship_delivery', 'ship_other'];
+            'cost_material_other', 'cost_other', 'cost_discount', 'ship_return', 'ship_delivery', 'ship_other'];
         const finalValue = numericFields.includes(field) ? (Number(value) || 0) : (value || null);
 
         console.log(`[CEO PATCH] id=${id} field=${field} value=${typeof value === 'string' ? value.substring(0, 80) : value} finalValue=${typeof finalValue === 'string' ? finalValue.substring(0, 80) : finalValue}`);
