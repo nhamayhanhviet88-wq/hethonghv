@@ -267,6 +267,12 @@ function _shIsNoFeeCarrier(name) {
     if (!name) return false;
     return _SH_NO_FEE_CARRIERS.some(n => name.toLowerCase().includes(n.toLowerCase()));
 }
+// NVC thu tiền COD sau — ẩn phần Thanh Toán Đơn Hàng khi gửi
+const _SH_PAY_LATER_CARRIERS = ['Vận Chuyển J&T', 'Viettel Post', 'Hoả Tốc Máy Bay Nasco', 'Hoả Tốc Máy Bay ViettelPost'];
+function _shIsPayLaterCarrier(name) {
+    if (!name) return false;
+    return _SH_PAY_LATER_CARRIERS.some(n => name.toLowerCase().includes(n.toLowerCase()));
+}
 function _shGetCarrierGroup(name) {
     if (!name) return null;
     for (const [g, list] of Object.entries(_SH_CARRIER_RULES)) { if (list.some(n => name.toLowerCase().includes(n.toLowerCase()))) return g; }
@@ -374,7 +380,7 @@ function _shShipOrder(id, code) {
     + '</div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    window._shModalState = { payer: null, method: null, orderId: id, remaining, orderCode: code, selectedPaymentId: null, skipPayment: false, matchingPayments: [], paymentLoaded: false };
+    window._shModalState = { payer: null, method: null, orderId: id, remaining, orderCode: code, selectedPaymentId: null, skipPayment: false, matchingPayments: [], paymentLoaded: false, payLaterCarrier: false };
 }
 
 
@@ -407,8 +413,10 @@ function _shOnCarrierChange() {
     if (noFeeNote) noFeeNote.style.display = noFee ? '' : 'none';
     // Update state
     var s = window._shModalState;
+    var isPayLater = _shIsPayLaterCarrier(name);
     if (s) {
         s.noFeeCarrier = noFee;
+        s.payLaterCarrier = isPayLater;
         if (noFee) {
             // Clear fee/payer/method
             s.payer = null;
@@ -419,8 +427,35 @@ function _shOnCarrierChange() {
             // Hide fee note
             var feeNote = document.getElementById('shFeeNote');
             if (feeNote) feeNote.style.display = 'none';
-            // Trigger payment section (target = remaining, no ship deduction)
-            _shLoadMatchingPayments();
+            if (isPayLater) {
+                // ★ Pay-later NVC (J&T, Viettel Post, Nasco...): ẩn phần thanh toán, hiện note COD
+                s.paymentLoaded = true;
+                s.selectedPaymentId = null;
+                s.matchingPayments = [];
+                var payEl = document.getElementById('shPaymentSection');
+                if (payEl) {
+                    if (s.remaining <= 0) {
+                        // Đã thanh toán đủ — hiện thông báo bất kể NVC nào
+                        s.skipPayment = true;
+                        payEl.innerHTML = '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:12px;padding:14px 16px;">'
+                            + '<div style="font-weight:800;font-size:13px;color:#059669;margin-bottom:4px;">✅ Đơn hàng đã thanh toán đủ</div>'
+                            + '<div style="font-size:12px;color:#065f46;">Số tiền còn lại = 0đ — Không cần thanh toán thêm.</div>'
+                            + '</div>';
+                    } else {
+                        // Còn tiền → NVC sẽ thu COD từ khách
+                        s.skipPayment = true;
+                        payEl.innerHTML = '<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid #fdba74;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;">'
+                            + '<span style="font-size:26px;">📦</span>'
+                            + '<div>'
+                            + '<div style="font-weight:800;font-size:13px;color:#c2410c;">NVC sẽ thu tiền COD từ khách</div>'
+                            + '<div style="font-size:12px;color:#9a3412;margin-top:3px;">Số tiền cần thu: <b style="color:#dc2626;">' + (s.remaining > 0 ? s.remaining.toLocaleString('vi-VN') : '0') + 'đ</b> — Không cần chọn mã thanh toán lúc gửi hàng.</div>'
+                            + '</div></div>';
+                    }
+                }
+            } else {
+                // No-fee nhưng KHÔNG phải pay-later (VD: Khách Đến Lấy): vẫn load payment
+                _shLoadMatchingPayments();
+            }
         } else {
             // Reset payment section (needs payer+method to trigger)
             var payEl = document.getElementById('shPaymentSection');
@@ -531,7 +566,7 @@ async function _shDoShip(id) {
         }
     }
     // ★ Payment validation: if loaded with results, must select or skip
-    if (s.paymentLoaded && s.matchingPayments && s.matchingPayments.length > 0) {
+    if (s.paymentLoaded && s.matchingPayments && s.matchingPayments.length > 0 && !s.payLaterCarrier) {
         if (!s.selectedPaymentId && !s.skipPayment) {
             return alert('Vui lòng chọn mã tiền thanh toán hoặc đánh dấu "Không thanh toán lần này"');
         }
