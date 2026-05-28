@@ -507,8 +507,14 @@ async function _qlxChecklistSetup() {
             });
             html += '</tbody></table>';
         } else { html += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Ch\u01b0a c\u00f3 checklist n\u00e0o</div>'; }
+        html += '<div style="padding:16px 20px;border-top:1px solid #e2e8f0;text-align:right"><button onclick="document.getElementById(\'_qlxSetupOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button></div>';
         html += '</div>';
-        showModal('\u2699\ufe0f Setup Checklist', html, { width: '700px' });
+        var old = document.getElementById('_qlxSetupOverlay'); if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.className = 'qlx-cl-overlay'; ov.id = '_qlxSetupOverlay';
+        ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="qlx-cl-popup" style="width:700px"><div class="qlx-cl-header"><h3>⚙️ Setup Checklist Chuẩn Bị QLX</h3><p>Quản lý câu hỏi & ghi chú kiểm tra</p></div>' + html + '</div>';
+        document.body.appendChild(ov);
     } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
 }
 
