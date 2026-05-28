@@ -111,16 +111,16 @@ function _ceoRenderTable() {
     + '<div style="font-size:32px">🏭</div>'
     + '<div><div style="font-size:20px;font-weight:900;color:#ea580c">' + cQLX + '</div>'
     + '<div style="font-size:11px;font-weight:700;color:#9a3412">QLX Chưa Cập Nhật Lỗi</div></div></div>';
-    // Card 1: Chưa Cập Nhật Phạt
+    // Card 1: Chưa Cập Nhật Tiền Phạt
     h += '<div onclick="_ceoSetFilter(\'chua_phat\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_phat'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_phat'?'0 4px 16px rgba(220,38,38,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🔴</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#dc2626">' + cPhat + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Cập Nhật Phạt</div></div></div>';
-    // Card 2: Chưa Cập Nhật NVP
+    h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Cập Nhật Tiền Phạt</div></div></div>';
+    // Card 2: Chưa Phạt Tiền Người Vi Phạm
     h += '<div onclick="_ceoSetFilter(\'chua_nvp\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid ' + (_ceo.filter==='chua_nvp'?'#d97706':'#fde68a') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_nvp'?'0 4px 16px rgba(217,119,6,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🟡</div>';
     h += '<div><div style="font-size:20px;font-weight:900;color:#d97706">' + cNVP + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Cập Nhật NVP</div></div></div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Phạt Tiền Người Vi Phạm</div></div></div>';
     // Card 3: Hoàn Thành
     h += '<div onclick="_ceoSetFilter(\'hoan_thanh\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid ' + (_ceo.filter==='hoan_thanh'?'#16a34a':'#bbf7d0') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(22,163,74,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='hoan_thanh'?'0 4px 16px rgba(22,163,74,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🟢</div>';
@@ -482,8 +482,8 @@ function _ceoOpenUpdatePicker(){
       var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'';
       var missing=[];
       if(!item.qlx_updated_at)missing.push('QLX Chưa Cập Nhật');
-      if(!item.production_cost && !item.shipping_cost)missing.push('Chưa Cập Nhật Phạt');
-      if(!item.violator_commitment || item.violator_commitment.trim()==='' || item.violator_commitment.trim()==='1. ')missing.push('Chưa Cập Nhật NVP');
+      if(!item.production_cost && !item.shipping_cost)missing.push('Chưa Cập Nhật Tiền Phạt');
+      if(!item.violator_commitment || item.violator_commitment.trim()==='' || item.violator_commitment.trim()==='1. ')missing.push('Chưa Phạt Tiền Người Vi Phạm');
       h+='<div onclick="document.getElementById(\'ceoPickerOv\').remove();_ceoOpenUpdateModal('+item.id+')" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.background=\'\';this.style.borderColor=\'#e5e7eb\'">';
       h+='<div><span style="font-weight:700;color:#ea580c">'+(item.order_code||'#'+item.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span>';
       h+='<div style="font-size:10px;color:#dc2626;margin-top:2px">Thiếu: '+missing.join(', ')+'</div></div>';
