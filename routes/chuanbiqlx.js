@@ -87,7 +87,8 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
             WHERE COALESCE(p.is_completed, false) = false
-              AND o.shipping_status != 'shipped'
+              AND COALESCE(o.shipping_status, '') != 'shipped'
+              AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
             GROUP BY year, month, o.category_id, c.name
             ORDER BY year DESC, month DESC
         `);
@@ -95,9 +96,11 @@ module.exports = async function(fastify) {
         // Count orders pending KT confirmation (sx_print_confirmed = false)
         const pendingKT = await db.get(`
             SELECT COUNT(*)::int AS cnt FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
             WHERE COALESCE(p.is_completed, false) = false
-              AND o.shipping_status != 'shipped'
+              AND COALESCE(o.shipping_status, '') != 'shipped'
+              AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND COALESCE(o.sx_print_confirmed, false) = false
         `);
 
@@ -146,7 +149,7 @@ module.exports = async function(fastify) {
 
         const { status, year, month, category_id, search } = request.query;
 
-        let where = 'WHERE 1=1';
+        let where = `WHERE 1=1 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')`;
         const params = [];
         let idx = 1;
 
@@ -154,7 +157,7 @@ module.exports = async function(fastify) {
         if (status === 'complete') {
             where += ` AND COALESCE(p.is_completed, false) = true`;
         } else if (status === 'incomplete' || !status) {
-            where += ` AND COALESCE(p.is_completed, false) = false AND o.shipping_status != 'shipped'`;
+            where += ` AND COALESCE(p.is_completed, false) = false AND COALESCE(o.shipping_status, '') != 'shipped'`;
         }
         // else status === 'all' → no filter
 
