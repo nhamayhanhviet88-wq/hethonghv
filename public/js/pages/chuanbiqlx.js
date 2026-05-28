@@ -206,7 +206,7 @@ function _qlxRenderRows(paged) {
         items.forEach(function(it) {
             var pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
-            if (pairs.length > 0) { pairs.forEach(function(p) { phoiCounter[o.id]++; rows.push({ order: o, phoi: p, item: it, phoiIdx: phoiCounter[o.id] }); }); }
+            if (pairs.length > 0) { pairs.forEach(function(p, pIdx) { phoiCounter[o.id]++; rows.push({ order: o, phoi: p, item: it, phoiIdx: phoiCounter[o.id], pairIndex: pIdx }); }); }
             else { phoiCounter[o.id]++; rows.push({ order: o, phoi: null, item: it, phoiIdx: phoiCounter[o.id] }); }
         });
     });
@@ -257,7 +257,7 @@ function _qlxRenderRows(paged) {
             h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + '</td>';
             if (o.sx_print_confirmed) {
                 if (o.qlx_reviewed) {
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabric(' + o.id + ',\'' + fabAct + '\')" title="Vải">' + fabIcon + '</button></td>';
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải">' + fabIcon + '</button></td>';
                     h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
                     h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
                     h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">✂️</button></td>';
@@ -267,7 +267,7 @@ function _qlxRenderRows(paged) {
             } else {
                 h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;color:#92400e;white-space:nowrap">⚠️ Chưa In Phiếu SX</div></td>';
             }
-        } else { h += '<td></td><td></td><td></td><td></td><td></td>'; }
+        } else { h += '<td></td><td style="text-align:center"><button class="qlx-icon-btn" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải" style="font-size:10px;opacity:0.7">🧵</button></td><td></td><td></td><td></td>'; }
         h += '<td style="font-weight:600;color:#1e293b;font-size:11px">' + (isNew ? (o.customer_name || '') : '') + '</td>';
         h += '<td style="font-size:10px;color:#6b7280">' + (isNew ? (o.cskh_name || o.created_by_name || '') : '') + '</td>';
         h += '<td style="font-weight:600">' + phoiTag + '<span style="color:#1e293b;font-size:11px">' + spName + '</span></td>';
@@ -351,6 +351,163 @@ function _qlxRenderStats(count, arr) {
 
 async function _qlxFabric(orderId, action) {
     try { await apiCall('/api/qlx/fabric/' + orderId, 'POST', { action: action }); showToast('✅ Cập nhật vải'); await _qlxLoadAll(); } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _qlxFabricPopup(orderId, itemId, pairIndex) {
+    try {
+        var data = await apiCall('/api/qlx/fabric-lookup/' + orderId + '/' + itemId + '/' + pairIndex);
+        var o = data.order, it = data.item, ph = data.phoi, wh = data.warehouse, rolls = data.rolls || [], existing = data.existing || [];
+        var unit = wh ? wh.unit : 'kg';
+        var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
+
+        var html = '<div style="padding:0">';
+        // Header info
+        html += '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:16px 20px;border-radius:12px 12px 0 0">';
+        html += '<div style="font-size:16px;font-weight:800;margin-bottom:4px">🧵 GỌI VẢI</div>';
+        html += '<div style="font-size:11px;opacity:0.8">📋 Đơn: ' + (o.order_code||'') + ' — Phối ' + ((pairIndex||0)+1) + (it.description ? ' — ' + it.description : '') + '</div>';
+        if (ph) {
+            html += '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px">';
+            html += '<div>Chất Liệu: <b>' + (ph.material_name||'—') + '</b></div>';
+            html += '<div>Màu: <b>' + (ph.color_name||'—') + '</b></div>';
+            html += '<div>Định Lượng: <b>' + unitLabel + '</b></div>';
+            html += '</div>';
+        }
+        html += '</div>';
+
+        if (!ph || !ph.material_name) {
+            html += '<div style="padding:30px;text-align:center;color:#94a3b8">⚠️ Phối này chưa có thông tin chất liệu/màu</div>';
+        } else if (!wh) {
+            // No match in kho
+            html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
+            html += _qlxFabCallSection(ph, unit, unitLabel);
+        } else {
+            // Show existing reservations
+            if (existing.length) {
+                html += '<div style="padding:12px 20px 0"><div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:6px">✅ ĐÃ ĐÁNH DẤU:</div>';
+                existing.forEach(function(ex) {
+                    if (ex.status !== 'reserved') return;
+                    var lbl = ex.reservation_type === 'from_stock' ? '📦 Cây ' + (ex.roll_code||'') + ': ' + ex.kg_reserved + unitLabel : '📞 Gọi: ' + (ex.call_content||'');
+                    html += '<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:11px">';
+                    html += '<span style="flex:1">' + lbl + '</span>';
+                    html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:2px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;font-size:9px;cursor:pointer;color:#dc2626">🔓 Giải phóng</button>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Rolls from stock
+            html += '<div style="padding:12px 20px 0"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ')</div>';
+            if (rolls.length) {
+                rolls.forEach(function(rl, idx) {
+                    var avail = rl.available;
+                    var resInfo = '';
+                    if (rl.reservations && rl.reservations.length) {
+                        rl.reservations.forEach(function(rv) {
+                            resInfo += '<div style="font-size:9px;color:#d97706;margin-top:2px">⚠️ Tạm giữ: ' + rv.kg_reserved + unitLabel + ' → ' + rv.order_code + ' (Phối ' + (rv.phoi_index+1) + ')</div>';
+                        });
+                    }
+                    html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:6px">';
+                    html += '<div style="display:flex;align-items:center;gap:8px">';
+                    html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
+                    if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
+                    html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
+                    html += '</div>';
+                    html += resInfo;
+                    if (avail > 0) {
+                        html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
+                        html += '<span style="font-size:10px;color:#475569">Sử dụng:</span>';
+                        html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="0" style="width:80px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
+                        html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
+                        html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu</button>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+            } else {
+                html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Kho chưa có cây vải nào</div>';
+            }
+            html += '</div>';
+
+            // Call new section
+            html += _qlxFabCallSection(ph, unit, unitLabel);
+        }
+
+        html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
+        html += '<button onclick="document.getElementById(\'_qlxFabOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
+        html += '</div></div>';
+
+        var old = document.getElementById('_qlxFabOverlay'); if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.className = 'qlx-cl-overlay'; ov.id = '_qlxFabOverlay';
+        ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="qlx-cl-popup" style="width:700px;max-height:90vh;overflow-y:auto">' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function _qlxFabCallSection(ph, unit, unitLabel) {
+    var html = '<div style="padding:12px 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📞 GỌI VẢI MỚI</div>';
+    html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px">';
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
+    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số cây</label><input id="_qlxFabCallTrees" type="number" min="0" value="0" style="display:block;width:70px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px"></div>';
+    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số ' + unitLabel + '</label><input id="_qlxFabCallAmount" type="number" min="0" step="0.1" value="0" style="display:block;width:80px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px"></div>';
+    html += '<div style="flex:1;min-width:150px"><label style="font-size:10px;font-weight:600;color:#475569">Ghi chú</label><input id="_qlxFabCallNote" placeholder="..." style="display:block;width:100%;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px"></div>';
+    html += '</div>';
+    html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px"></div>';
+    html += '<button onclick="_qlxFabCallNew(\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:8px 16px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;width:100%">📞 Tạo Nội Dung Gọi Vải</button>';
+    html += '<div id="_qlxFabCallResult" style="margin-top:8px"></div>';
+    html += '</div></div>';
+    return html;
+}
+
+function _qlxFabCallNew(mat, color, unit) {
+    var trees = parseInt(document.getElementById('_qlxFabCallTrees').value) || 0;
+    var amount = parseFloat(document.getElementById('_qlxFabCallAmount').value) || 0;
+    if (!trees && !amount) { showToast('Nhập số cây hoặc số lượng', 'error'); return; }
+    var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
+    var parts = [mat + ' - ' + color];
+    if (trees > 0) parts.push(trees + ' cây');
+    if (amount > 0) parts.push(amount + unitLabel);
+    var content = parts.join(' - ');
+    var el = document.getElementById('_qlxFabCallResult');
+    if (el) {
+        el.innerHTML = '<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:10px;display:flex;align-items:center;gap:8px">'
+            + '<span style="flex:1;font-weight:700;font-size:13px;color:#1e40af" id="_qlxFabCallContent">' + content + '</span>'
+            + '<button onclick="_qlxFabCopyContent()" style="padding:6px 14px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">📋 Copy</button>'
+            + '</div>';
+    }
+    window._qlxFabCallData = { content: content, trees: trees, amount: amount, unit: unit };
+}
+
+function _qlxFabCopyContent() {
+    var el = document.getElementById('_qlxFabCallContent');
+    if (el) { navigator.clipboard.writeText(el.textContent); showToast('📋 Đã copy!'); }
+}
+
+async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, idx, mat, color, unit) {
+    var inp = document.getElementById('_qlxFabKg_' + idx);
+    var kg = inp ? parseFloat(inp.value) : 0;
+    if (!kg || kg <= 0) { showToast('Nhập số ' + (unit==='kg'?'kg':unit==='met'?'mét':'cái'), 'error'); return; }
+    try {
+        await apiCall('/api/qlx/fabric-reserve', 'POST', {
+            dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
+            material_name: mat, color_name: color, unit: unit,
+            reservation_type: 'from_stock', roll_id: rollId, roll_code: rollCode, kg_reserved: kg
+        });
+        showToast('✅ Đã đánh dấu cây ' + rollCode);
+        _qlxFabricPopup(orderId, itemId, pairIndex);
+        _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _qlxFabRelease(resId, orderId, itemId, pairIndex) {
+    if (!confirm('Giải phóng đánh dấu này?')) return;
+    try {
+        await apiCall('/api/qlx/fabric-reserve/' + resId, 'DELETE');
+        showToast('🔓 Đã giải phóng');
+        _qlxFabricPopup(orderId, itemId, pairIndex);
+        _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
 }
 async function _qlxMaterial(orderId, action) {
     try { await apiCall('/api/qlx/material/' + orderId, 'POST', { action: action }); showToast('✅ Cập nhật vật liệu'); await _qlxLoadAll(); } catch(e) { showToast(e.message, 'error'); }

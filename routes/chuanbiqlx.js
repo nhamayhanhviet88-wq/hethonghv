@@ -86,6 +86,35 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_reviewed_by INTEGER REFERENCES users(id)`);
     } catch(e) { console.error('[QLX] qlx_reviewed columns:', e.message); }
 
+    // Fabric reservations table
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_fabric_reservations (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL,
+            item_id INTEGER NOT NULL,
+            phoi_index INTEGER DEFAULT 0,
+            material_name TEXT,
+            color_name TEXT,
+            unit TEXT DEFAULT 'kg',
+            roll_id INTEGER,
+            roll_code TEXT,
+            kg_reserved NUMERIC(10,2) DEFAULT 0,
+            roll_note TEXT,
+            call_trees INTEGER DEFAULT 0,
+            call_amount NUMERIC(10,2) DEFAULT 0,
+            call_note TEXT,
+            call_date DATE,
+            call_content TEXT,
+            reservation_type VARCHAR(20) DEFAULT 'from_stock',
+            status VARCHAR(20) DEFAULT 'reserved',
+            created_by INTEGER,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_fab_res_order ON qlx_fabric_reservations(dht_order_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_fab_res_roll ON qlx_fabric_reservations(roll_id)`);
+    } catch(e) { console.error('[QLX] fabric reservations:', e.message); }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -545,6 +574,211 @@ module.exports = async function(fastify) {
 
         await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
             [orderId, 'checklist_reset', 'Giám Đốc reset checklist', request.user.id, now]);
+
+        return { success: true };
+    });
+
+    // ========== FABRIC RESERVATION: Smart Gọi Vải ==========
+
+    // GET lookup: find matching rolls for a phoi
+    fastify.get('/api/qlx/fabric-lookup/:orderId/:itemId/:phoiIndex', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const { orderId, itemId, phoiIndex } = request.params;
+        const pi = parseInt(phoiIndex) || 0;
+
+        // Get order + item
+        const order = await db.get('SELECT id, order_code, customer_name FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
+
+        const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
+
+        let pairs = [];
+        try { pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
+        const phoi = pairs[pi] || null;
+        if (!phoi || !phoi.material_name) return { order, item: { id: item.id, description: item.description }, phoi: null, rolls: [], warehouse: null, existing: [] };
+
+        // Fuzzy match: find kv_fabric_colors matching material + color
+        const matches = await db.all(`
+            SELECT fc.id AS fabric_color_id, fc.color_name, fc.material_id,
+                   m.name AS material_name, m.warehouse_id,
+                   w.name AS warehouse_name, w.unit
+            FROM kv_fabric_colors fc
+            JOIN kv_materials m ON m.id = fc.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
+            WHERE fc.is_active = true AND m.is_active = true AND w.is_active = true
+              AND UPPER(m.name) = UPPER($1)
+              AND UPPER(fc.color_name) = UPPER($2)
+            LIMIT 5
+        `, [phoi.material_name.trim(), phoi.color_name.trim()]);
+
+        if (!matches.length) {
+            // Try ILIKE fuzzy
+            const fuzzy = await db.all(`
+                SELECT fc.id AS fabric_color_id, fc.color_name, fc.material_id,
+                       m.name AS material_name, m.warehouse_id,
+                       w.name AS warehouse_name, w.unit
+                FROM kv_fabric_colors fc
+                JOIN kv_materials m ON m.id = fc.material_id
+                JOIN kv_warehouses w ON w.id = m.warehouse_id
+                WHERE fc.is_active = true AND m.is_active = true AND w.is_active = true
+                  AND m.name ILIKE $1
+                  AND fc.color_name ILIKE $2
+                LIMIT 5
+            `, ['%' + phoi.material_name.trim() + '%', '%' + phoi.color_name.trim() + '%']);
+            if (fuzzy.length) matches.push(...fuzzy);
+        }
+
+        let rolls = [];
+        let warehouse = null;
+        if (matches.length > 0) {
+            const fc = matches[0];
+            warehouse = { unit: fc.unit, warehouse_name: fc.warehouse_name, fabric_color_id: fc.fabric_color_id };
+
+            // Get all rolls for this fabric_color
+            rolls = await db.all(`
+                SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note,
+                       COALESCE((
+                           SELECT SUM(res.kg_reserved)
+                           FROM qlx_fabric_reservations res
+                           WHERE res.roll_id = r.id AND res.status = 'reserved'
+                       ), 0) AS reserved_total
+                FROM kv_rolls r
+                WHERE r.fabric_color_id = $1 AND r.is_returned = false
+                ORDER BY r.weight DESC
+            `, [fc.fabric_color_id]);
+
+            // Add reservation details for each roll
+            for (const roll of rolls) {
+                roll.reserved_total = Number(roll.reserved_total);
+                roll.available = Number(roll.weight) - roll.reserved_total;
+                roll.reservations = await db.all(`
+                    SELECT res.id, res.kg_reserved, res.dht_order_id,
+                           o.order_code, res.phoi_index, res.item_id,
+                           it.description AS product_name
+                    FROM qlx_fabric_reservations res
+                    LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+                    LEFT JOIN dht_order_items it ON it.id = res.item_id
+                    WHERE res.roll_id = $1 AND res.status = 'reserved'
+                    ORDER BY res.created_at
+                `, [roll.id]);
+            }
+        }
+
+        // Get existing reservations for this order+item+phoi
+        const existing = await db.all(`
+            SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code
+            FROM qlx_fabric_reservations res
+            LEFT JOIN kv_rolls r ON r.id = res.roll_id
+            WHERE res.dht_order_id = $1 AND res.item_id = $2 AND res.phoi_index = $3
+            ORDER BY res.reservation_type, res.created_at
+        `, [orderId, itemId, pi]);
+
+        return {
+            order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
+            item: { id: item.id, description: item.description, quantity: item.quantity },
+            phoi: { material_name: phoi.material_name, color_name: phoi.color_name, phoi_index: pi },
+            warehouse,
+            rolls,
+            existing
+        };
+    });
+
+    // POST reserve: save fabric reservation (from_stock or new_call)
+    fastify.post('/api/qlx/fabric-reserve', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const { dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                reservation_type, roll_id, roll_code, kg_reserved, roll_note,
+                call_trees, call_amount, call_note, call_date, call_content } = request.body || {};
+
+        if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        if (reservation_type === 'from_stock') {
+            if (!roll_id || !kg_reserved || Number(kg_reserved) <= 0) return reply.code(400).send({ error: 'Chọn cây vải và nhập số kg' });
+
+            // Validate: check available
+            const roll = await db.get('SELECT weight FROM kv_rolls WHERE id = $1 AND is_returned = false', [roll_id]);
+            if (!roll) return reply.code(400).send({ error: 'Cây vải không tồn tại hoặc đã trả NCC' });
+
+            const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status = $2', [roll_id, 'reserved']);
+            const available = Number(roll.weight) - Number(reservedSum.total);
+            if (Number(kg_reserved) > available) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng` });
+
+            await db.run(`
+                INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                    reservation_type, roll_id, roll_code, kg_reserved, roll_note, status, created_by)
+                VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,$10,'reserved',$11)
+            `, [dht_order_id, item_id, phoi_index||0, material_name, color_name, unit||'kg',
+                roll_id, roll_code, Number(kg_reserved), roll_note||null, request.user.id]);
+
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                VALUES ($1, 'fabric_reserve', $2, $3, $4)`,
+                [dht_order_id, `Đánh dấu cây ${roll_code}: ${kg_reserved}${unit||'kg'} cho Phối ${(phoi_index||0)+1}`, request.user.id, now]);
+
+        } else if (reservation_type === 'new_call') {
+            if ((!call_trees || call_trees <= 0) && (!call_amount || Number(call_amount) <= 0))
+                return reply.code(400).send({ error: 'Nhập số cây hoặc số lượng gọi vải' });
+
+            await db.run(`
+                INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                    reservation_type, call_trees, call_amount, call_note, call_date, call_content, status, created_by)
+                VALUES ($1,$2,$3,$4,$5,$6,'new_call',$7,$8,$9,$10,$11,'reserved',$12)
+            `, [dht_order_id, item_id, phoi_index||0, material_name, color_name, unit||'kg',
+                call_trees||0, Number(call_amount)||0, call_note||null, call_date||null, call_content||null, request.user.id]);
+
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                VALUES ($1, 'fabric_call', $2, $3, $4)`,
+                [dht_order_id, `Gọi vải: ${call_content || (material_name+' - '+color_name)}`, request.user.id, now]);
+        }
+
+        // Update fabric_called status
+        await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_called, fabric_called_at, fabric_called_by)
+            VALUES ($1, true, $2, $3)
+            ON CONFLICT (dht_order_id) DO UPDATE SET fabric_called = true, fabric_called_at = $2, fabric_called_by = $3, updated_at = $2`,
+            [dht_order_id, now, request.user.id]);
+
+        return { success: true };
+    });
+
+    // GET all reservations for an order
+    fastify.get('/api/qlx/fabric-reservations/:orderId', { preHandler: [authenticate] }, async (request) => {
+        const orderId = Number(request.params.orderId);
+        const rows = await db.all(`
+            SELECT res.*, r.weight AS roll_weight, u.full_name AS created_by_name,
+                   it.description AS product_name
+            FROM qlx_fabric_reservations res
+            LEFT JOIN kv_rolls r ON r.id = res.roll_id
+            LEFT JOIN users u ON u.id = res.created_by
+            LEFT JOIN dht_order_items it ON it.id = res.item_id
+            WHERE res.dht_order_id = $1
+            ORDER BY res.phoi_index, res.reservation_type, res.created_at
+        `, [orderId]);
+        return { reservations: rows };
+    });
+
+    // DELETE (release) a reservation
+    fastify.delete('/api/qlx/fabric-reserve/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = request.user;
+        const isGD = user.role === 'giam_doc';
+        const isQLX = await isQLXUser(request);
+        if (!isGD && !isQLX) return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc QLX' });
+
+        const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [request.params.id]);
+        if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = NOW() WHERE id = $2', ['released', request.params.id]);
+
+        const { vnNow } = require('../utils/timezone');
+        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+            VALUES ($1, 'fabric_release', $2, $3, $4)`,
+            [res.dht_order_id, `Giải phóng: ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount}${res.unit})`, user.id, vnNow()]);
 
         return { success: true };
     });
