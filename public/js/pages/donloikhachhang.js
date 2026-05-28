@@ -86,11 +86,13 @@ function _ceoRenderTable() {
     var allItems = _ceo.items;
     // Apply client-side filter
     var items = allItems;
-    // SEQUENTIAL: Step 1 → 2 → 3 → 4
+    // SEQUENTIAL: Step 1 → 2 → 3 → 4 (use Number() because DB returns string "0")
+    var _phatDone=function(i){return Number(i.production_cost)>0||Number(i.shipping_cost)>0;};
+    var _nvpDone=function(i){return i.violator_commitment&&i.violator_commitment.trim()!==''&&i.violator_commitment.trim()!=='1. ';};
     var _isStep1=function(i){return !i.qlx_updated_at;};
-    var _isStep2=function(i){return i.qlx_updated_at && !i.production_cost && !i.shipping_cost;};
-    var _isStep3=function(i){return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && (!i.violator_commitment || i.violator_commitment.trim()==='' || i.violator_commitment.trim()==='1. ');};
-    var _isStep4=function(i){return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';};
+    var _isStep2=function(i){return i.qlx_updated_at&&!_phatDone(i);};
+    var _isStep3=function(i){return i.qlx_updated_at&&_phatDone(i)&&!_nvpDone(i);};
+    var _isStep4=function(i){return i.qlx_updated_at&&_phatDone(i)&&_nvpDone(i);};
     if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(_isStep1);
     else if (_ceo.filter === 'chua_phat') items = allItems.filter(_isStep2);
     else if (_ceo.filter === 'chua_nvp') items = allItems.filter(_isStep3);
@@ -208,8 +210,8 @@ async function _ceoViewDetail(id) {
     var videoHtml=item.error_video?'<video controls style="max-width:100%;max-height:250px;border-radius:8px;border:2px solid #e5e7eb"><source src="'+item.error_video+'"></video>':'<span style="color:#9ca3af;font-style:italic">Không có video</span>';
     var field=function(label,value,color){return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">'+label+'</div><div style="font-size:13px;font-weight:600;color:'+(color||'#1e293b')+'">'+(value||'—')+'</div></div>';};
     var _hasQLX=!!item.qlx_updated_at;
-    var _hasPhat=!!(item.production_cost||item.shipping_cost);
-    var _hasNVP=!!(item.violator_commitment&&item.violator_commitment.trim()&&item.violator_commitment.trim()!=='1. ');
+    var _hasPhat=Number(item.production_cost)>0||Number(item.shipping_cost)>0;
+    var _hasNVP=!!(item.violator_commitment&&item.violator_commitment.trim()!==''&&item.violator_commitment.trim()!=='1. ');
     var _badge=function(done){return done?'<span style="color:#16a34a;font-size:13px">✅</span>':'<span style="color:#d97706;font-size:13px">⏳</span>';};
     var old=document.getElementById('ceoDetailModal');if(old)old.remove();
     var ov=document.createElement('div');ov.id='ceoDetailModal';
@@ -481,7 +483,7 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    var _done=i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';
+    var _done=i.qlx_updated_at && (Number(i.production_cost)>0||Number(i.shipping_cost)>0) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';
     return !_done;
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
@@ -501,7 +503,7 @@ function _ceoOpenUpdatePicker(){
       var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'';
       var missing='';
       if(!item.qlx_updated_at)missing='QLX Chưa Cập Nhật Lỗi';
-      else if(!item.production_cost && !item.shipping_cost)missing='Chưa Cập Nhật Tiền Phạt';
+      else if(Number(item.production_cost)<=0&&Number(item.shipping_cost)<=0)missing='Chưa Cập Nhật Tiền Phạt';
       else missing='Chưa Phạt Tiền Người Vi Phạm';
       h+='<div onclick="document.getElementById(\'ceoPickerOv\').remove();_ceoViewDetail('+item.id+')" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.background=\'\';this.style.borderColor=\'#e5e7eb\'">';
       h+='<div><span style="font-weight:700;color:#ea580c">'+(item.order_code||'#'+item.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span>';
