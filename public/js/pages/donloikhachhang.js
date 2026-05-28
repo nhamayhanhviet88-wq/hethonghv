@@ -97,6 +97,7 @@ function _ceoRenderTable() {
     else if (_ceo.filter === 'chua_phat') items = allItems.filter(_isStep2);
     else if (_ceo.filter === 'chua_nvp') items = allItems.filter(_isStep3);
     else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(_isStep4);
+    else items = allItems.filter(function(i){return !_isStep4(i);});
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
     var cQLX = allItems.filter(_isStep1).length;
     var cPhat = allItems.filter(_isStep2).length;
