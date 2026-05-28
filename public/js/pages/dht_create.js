@@ -16,6 +16,7 @@ async function _dhtCancelCreate() {
     _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
     window._dhtEditRestricted = false;
     _dhtFreeMode = false;
+    _dhtRepairData = null;
     closeModal();
 }
 
@@ -1680,11 +1681,14 @@ async function _dhtSubmitCreateV2() {
     // ★ Determine free vs normal mode
     var catSel = document.getElementById('_co_cat');
     var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
-    var isFree = _dhtFreeMode || (catName === 'PET' || catName === 'TEM');
+    var isFree = _dhtFreeMode || (catName === 'PET' || catName === 'TEM') || !!_dhtRepairData;
 
-    // ★ Source: different for free vs normal
+    // ★ Source: different for free vs normal vs repair
     var src;
-    if (isFree) {
+    if (_dhtRepairData) {
+        // Repair: try free select first, fallback to normal src field
+        src = document.getElementById('_co_srcFreeSelect')?.value || document.getElementById('_co_src')?.value || _dhtRepairData.order.source;
+    } else if (isFree) {
         src = document.getElementById('_co_srcFreeSelect')?.value;
         if (!src) { showToast('Chọn Nguồn ' + catName, 'error'); return; }
     } else {
@@ -1786,6 +1790,13 @@ async function _dhtSubmitCreateV2() {
         payload.order_code = _dhtCreate.orderCode;
         payload.customer_id = custId;
     }
+    // ★ Repair: send repair fields
+    if (_dhtRepairData) {
+        payload.is_repair = true;
+        payload.parent_order_id = _dhtRepairData.parentId;
+        payload.repair_source_code = _dhtRepairData.parentCode;
+        payload.category_id = _dhtRepairData.catId;
+    }
 
     var data = await apiCall('/api/dht/orders', 'POST', payload);
 
@@ -1794,9 +1805,10 @@ async function _dhtSubmitCreateV2() {
             await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
         }
         var generatedCode = data.order?.order_code || '';
-        showToast('✅ Đã tạo đơn thành công!' + (isFree ? ' Mã: ' + generatedCode : ''));
+        showToast('✅ ' + (_dhtRepairData ? 'Đã tạo đơn sửa! Mã: ' + generatedCode : 'Đã tạo đơn thành công!' + (isFree ? ' Mã: ' + generatedCode : '')));
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         _dhtFreeMode = false;
+        _dhtRepairData = null;
         closeModal();
         await _dhtLoadTree();
         await _dhtLoadOrders();
@@ -2212,4 +2224,150 @@ async function _dhtSubmitEditV2() {
     } else {
         showToast(data.error || 'Lỗi cập nhật', 'error');
     }
+}
+
+// ========== ★ REPAIR ORDER — Lên Đơn Sửa ==========
+var _dhtRepairData = null; // { parentId, parentCode, categoryName, order }
+
+async function _dhtCreateRepairOrder(orderId) {
+    // 1. Fetch parent order detail
+    var data = await apiCall('/api/dht/orders/' + orderId + '/detail');
+    if (!data.order) { showToast('Không tìm thấy đơn gốc', 'error'); return; }
+    var o = data.order;
+    var catName = (o.category_name || '').toUpperCase().trim();
+    var DONG_PHUC = ['CÔNG TY', 'ÁO LỚP', 'MẦM NON'];
+    var isPetTem = (catName === 'PET' || catName === 'TEM');
+    var isDongPhuc = DONG_PHUC.some(function(n) { return catName === n; });
+
+    if (!isPetTem && !isDongPhuc) {
+        showToast('Lĩnh vực "' + catName + '" chưa hỗ trợ Lên Đơn Sửa', 'error');
+        return;
+    }
+
+    // 2. Find "ĐƠN SỬA" category ID
+    var cats = _dht.categories || [];
+    var donSuaCat = cats.find(function(c) { return c.name === 'ĐƠN SỬA'; });
+    if (!donSuaCat) {
+        // Reload categories and try again
+        var catRes = await apiCall('/api/dht/categories');
+        _dht.categories = catRes.categories || [];
+        donSuaCat = _dht.categories.find(function(c) { return c.name === 'ĐƠN SỬA'; });
+    }
+    if (!donSuaCat) { showToast('Chưa có lĩnh vực "ĐƠN SỬA". Liên hệ GĐ tạo lĩnh vực.', 'error'); return; }
+
+    // 3. Store repair context
+    _dhtRepairData = { parentId: o.id, parentCode: o.order_code, categoryName: catName, catId: donSuaCat.id, order: o, isPetTem: isPetTem };
+
+    closeModal();
+
+    // 4. Open appropriate form
+    if (isPetTem) {
+        await _dhtShowCreateFree();
+    } else {
+        _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
+        await _dhtGoStep2();
+    }
+
+    // 5. After modal opens — override fields
+    setTimeout(function() { _dhtApplyRepairOverrides(); }, 200);
+}
+
+function _dhtApplyRepairOverrides() {
+    if (!_dhtRepairData) return;
+    var rd = _dhtRepairData;
+    var o = rd.order;
+
+    // A. Set category to "ĐƠN SỬA" and lock
+    var catSel = document.getElementById('_co_cat');
+    if (catSel) {
+        // Add option if not present
+        var found = false;
+        for (var i = 0; i < catSel.options.length; i++) {
+            if (catSel.options[i].value == rd.catId) { found = true; break; }
+        }
+        if (!found) {
+            var opt = document.createElement('option');
+            opt.value = rd.catId;
+            opt.text = 'ĐƠN SỬA';
+            catSel.appendChild(opt);
+        }
+        catSel.value = rd.catId;
+        catSel.disabled = true;
+        catSel.style.background = '#ede9fe';
+        catSel.style.color = '#6d28d9';
+        catSel.style.fontWeight = '800';
+        catSel.style.cursor = 'not-allowed';
+    }
+
+    // B. Set order code (readonly badge style)
+    var repairCode = 'SUA' + rd.parentCode;
+    if (rd.isPetTem) {
+        // Free form: update code label
+        var freeLabel = document.getElementById('_co_codeFreeLabel');
+        if (freeLabel) {
+            freeLabel.value = '🔧 ' + repairCode + ' — Đơn Sửa từ ' + rd.parentCode;
+            freeLabel.style.color = '#6d28d9';
+            freeLabel.style.borderColor = '#7c3aed';
+            freeLabel.style.background = '#f5f3ff';
+        }
+        // Show form fields immediately
+        var formFields = document.getElementById('_co_freeFormFields');
+        if (formFields) formFields.style.display = '';
+    } else {
+        // Normal form: hide code search, show repair badge
+        var codeNormal = document.getElementById('_co_codeNormal');
+        var codeFree = document.getElementById('_co_codeFree');
+        if (codeNormal) codeNormal.style.display = 'none';
+        if (codeFree) {
+            codeFree.style.display = 'block';
+            var freeLabel2 = document.getElementById('_co_codeFreeLabel');
+            if (freeLabel2) {
+                freeLabel2.value = '🔧 ' + repairCode + ' — Đơn Sửa từ ' + rd.parentCode;
+                freeLabel2.style.color = '#6d28d9';
+                freeLabel2.style.borderColor = '#7c3aed';
+                freeLabel2.style.background = '#f5f3ff';
+            }
+        }
+        // Show deposit picker for đồng phục repair orders
+        var freeDepWrap = document.getElementById('_co_freeDepositWrap');
+        if (freeDepWrap) freeDepWrap.style.display = 'block';
+    }
+
+    // C. Pre-fill customer info
+    var nameEl = document.getElementById('_co_name');
+    var phoneEl = document.getElementById('_co_phone');
+    var addrEl = document.getElementById('_co_addr');
+    var provEl = document.getElementById('_co_prov');
+    if (nameEl) { nameEl.value = o.customer_name || ''; nameEl.disabled = false; nameEl.style.background = '#fff'; nameEl.style.cursor = 'text'; }
+    if (phoneEl) { phoneEl.value = o.customer_phone || ''; phoneEl.disabled = false; phoneEl.style.background = '#fff'; phoneEl.style.cursor = 'text'; phoneEl.placeholder = 'SĐT khách hàng'; }
+    if (addrEl) addrEl.value = o.address || '';
+    if (provEl) provEl.value = o.province || '';
+
+    // D. Pre-fill source
+    var srcEl = document.getElementById('_co_src');
+    if (srcEl) srcEl.value = o.source || '';
+    // For free form, try to set source dropdown
+    var srcFreeSelect = document.getElementById('_co_srcFreeSelect');
+    if (srcFreeSelect && o.source) {
+        for (var j = 0; j < srcFreeSelect.options.length; j++) {
+            if (srcFreeSelect.options[j].value === o.source) { srcFreeSelect.value = o.source; break; }
+        }
+    }
+
+    // E. Unlock phone/name labels for repair
+    var phoneLbl = document.getElementById('_co_phoneLabel');
+    var nameLbl = document.getElementById('_co_nameLabel');
+    if (phoneLbl) phoneLbl.innerHTML = 'SĐT Khách Hàng <span style="color:red">*</span> ✏️';
+    if (nameLbl) nameLbl.innerHTML = 'Tên Khách Hàng <span style="color:red">*</span> ✏️';
+
+    // F. Update modal title
+    var modalTitle = document.querySelector('.modal-header h3, .modal-title');
+    if (modalTitle) modalTitle.textContent = '🔧 Lên Đơn Sửa — ' + rd.parentCode;
+    // Try the openModal title element
+    var titleEls = document.querySelectorAll('[class*="modal"] h3, [class*="modal"] .modal-title');
+    titleEls.forEach(function(el) {
+        if (el.textContent.includes('Tạo Đơn') || el.textContent.includes('Tạo đơn')) {
+            el.innerHTML = '🔧 Lên Đơn Sửa — <span style="color:#6d28d9">' + rd.parentCode + '</span>';
+        }
+    });
 }

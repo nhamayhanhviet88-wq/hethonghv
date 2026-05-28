@@ -1,5 +1,5 @@
 // ========== LOI THUONG GAP & XU LY — Common Error Templates ==========
-var _ltg = { items: [], categories: [], departments: [], stats: {}, filter: null, catFilter: null, deptFilter: null };
+var _ltg = { items: [], categories: [], departments: [], stats: {}, filter: null, catFilter: null, deptFilter: null, catFilterId: null };
 function _ltgStatusInfo(s){
   if(s==='resolved') return {l:'Đã Xử Lý',c:'#16a34a',bg:'#f0fdf4',icon:'🟢'};
   if(s==='in_progress') return {l:'Đang Xử Lý',c:'#d97706',bg:'#fef3c7',icon:'🟡'};
@@ -10,7 +10,7 @@ var _ltgDeptColors=['#3b82f6','#7c3aed','#ea580c','#d97706','#16a34a','#e11d48',
 // ===== ENTRY =====
 function renderDonloinoiboPage(c){renderLoithuonggapPage(c);}
 function renderLoithuonggapPage(content){
-  _ltg.filter=null;_ltg.catFilter=null;_ltg.deptFilter=null;
+  _ltg.filter=null;_ltg.catFilter=null;_ltg.deptFilter=null;_ltg.catFilterId=null;
   content.innerHTML='<div id="ltgMain" style="padding:20px;background:#fafbfc;min-height:calc(100vh - 80px)"></div>';
   _ltgLoadAll();
 }
@@ -85,16 +85,28 @@ function _ltgRender(){
   });
   h+='</div>';
 
+  // Category (Loại Lỗi) filter chips
+  h+='<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
+  h+='<span onclick="_ltgSetCatFilter(null)" style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+(!_ltg.catFilterId?'background:#6366f1;color:#fff':'background:#f1f5f9;color:#64748b')+'">Tất Cả Loại Lỗi</span>';
+  _ltg.categories.forEach(function(cat){
+    var isA=_ltg.catFilterId==cat.id;
+    h+='<span onclick="_ltgSetCatFilter('+cat.id+')" style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid '+(isA?'#6366f1':'#e5e7eb')+';'+(isA?'background:#eef2ff;color:#4f46e5':'background:#fff;color:#64748b')+'">'+cat.name+'</span>';
+  });
+  h+='</div>';
+
   // Table
   h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e5e7eb"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   h+='<thead><tr style="background:#1e3a4f">';
-  ['STT','Tên Lỗi','Loại Lỗi','Bộ Phận Lỗi','Tình Trạng','Cách Khắc Phục','HD Sale Tư Vấn','CK QL Xưởng','CK BP Lỗi','CK Sale',''].forEach(function(c){
-    h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1)">'+c+'</th>';
+  ['STT','Tên Lỗi','Loại Lỗi','Bộ Phận Lỗi','Tình Trạng','Mã Đơn Lỗi','Số Đơn Lỗi','Cách Khắc Phục','HD Sale Tư Vấn','Cam Kết Quản Lý Xưởng','Cam Kết Bộ Phận Lỗi',''].forEach(function(c){
+    var extra='';
+    if(c==='Mã Đơn Lỗi')extra='background:#7c3aed;';
+    if(c==='Số Đơn Lỗi')extra='background:#dc2626;text-align:center;';
+    h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1);'+extra+'">'+c+'</th>';
   });
   h+='</tr></thead><tbody>';
 
   if(!items.length){
-    h+='<tr><td colspan="11" style="padding:40px;text-align:center;color:#9ca3af">Chưa có lỗi thường gặp nào</td></tr>';
+    h+='<tr><td colspan="12" style="padding:40px;text-align:center;color:#9ca3af">Chưa có lỗi thường gặp nào</td></tr>';
   } else {
     items.forEach(function(item,idx){
       var depts=[];
@@ -102,17 +114,36 @@ function _ltgRender(){
       var si=_ltgStatusInfo(item.status);
       var catName=item.category_name||'—';
       var deptBadges=depts.length?depts.map(function(dn){return '<span style="padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#e0f2fe;color:#0369a1;margin-right:2px">'+dn+'</span>';}).join(''):'<span style="color:#d1d5db">—</span>';
+      // Linked orders
+      var linkedOrders=[];
+      try{linkedOrders=typeof item.linked_orders==='string'?JSON.parse(item.linked_orders||'[]'):(item.linked_orders||[]);}catch(e){}
+      var loCount=item.linked_order_count||0;
+      var loBadges='';
+      if(loCount===0){loBadges='<span style="color:#d1d5db;font-size:10px">—</span>';}
+      else{
+        var shown=linkedOrders.slice(0,3);
+        shown.forEach(function(o){loBadges+='<span onclick="event.stopPropagation();_ltgViewOrderDetail('+o.id+')" style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;background:#f5f3ff;color:#7c3aed;border:1px solid #c4b5fd;margin:1px;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#7c3aed\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'#f5f3ff\';this.style.color=\'#7c3aed\'">'+(o.order_code||'#'+o.id)+'</span>';});
+        if(loCount>3){loBadges+='<span style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;background:#ede9fe;color:#6d28d9;margin:1px">+'+(loCount-3)+' đơn</span>';}
+      }
+      // Severity badge for Số Lỗi
+      var sevColor,sevBg,sevIcon;
+      if(loCount===0){sevColor='#9ca3af';sevBg='#f9fafb';sevIcon='';}
+      else if(loCount<=2){sevColor='#16a34a';sevBg='#f0fdf4';sevIcon='✅';}
+      else if(loCount<=5){sevColor='#d97706';sevBg='#fffbeb';sevIcon='⚠️';}
+      else{sevColor='#dc2626';sevBg='linear-gradient(135deg,#fef2f2,#fee2e2)';sevIcon='🔴';}
+
       h+='<tr onclick="_ltgViewDetail('+item.id+')" style="border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
       h+='<td style="padding:6px;text-align:center;color:#9ca3af;border-right:1px solid #f8fafc">'+(idx+1)+'</td>';
       h+='<td style="padding:6px;font-weight:700;color:#1e293b;border-right:1px solid #f8fafc">'+(item.error_name||'—')+'</td>';
       h+='<td style="padding:6px;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+catName+'</span></td>';
       h+='<td style="padding:6px;border-right:1px solid #f8fafc">'+deptBadges+'</td>';
       h+='<td style="padding:6px;border-right:1px solid #f8fafc"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:'+si.c+';background:'+si.bg+'">'+si.icon+' '+si.l+'</span></td>';
+      h+='<td style="padding:6px;max-width:160px;border-right:1px solid #f8fafc">'+loBadges+'</td>';
+      h+='<td style="padding:6px;text-align:center;border-right:1px solid #f8fafc">'+(loCount>0?'<span style="display:inline-block;min-width:28px;padding:4px 8px;border-radius:8px;font-size:13px;font-weight:900;color:#fff;background:'+sevColor+';text-align:center">'+loCount+'</span>':'<span style="color:#d1d5db;font-size:11px">0</span>')+'</td>';
       h+='<td style="padding:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc" title="'+(item.fix_guide||'').replace(/"/g,'&quot;')+'">'+(item.fix_guide||'—')+'</td>';
       h+='<td style="padding:6px;max-width:150px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.sale_guide||'—')+'</td>';
       h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_factory||'—')+'</td>';
       h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_department||'—')+'</td>';
-      h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_sale||'—')+'</td>';
       h+='<td style="padding:6px;white-space:nowrap">';
       h+='<button onclick="event.stopPropagation();_ltgOpenForm('+item.id+')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
       h+='<button onclick="event.stopPropagation();_ltgDelete('+item.id+')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
@@ -156,6 +187,32 @@ function _ltgViewDetail(id){
     vidH='<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:6px">🎬 Video Lỗi</div><video src="'+item.error_video+'" controls style="max-width:100%;max-height:280px;border-radius:8px;border:1px solid #e5e7eb"></video></div>';
   }
 
+  // Linked orders section
+  var loCount=item.linked_order_count||0;
+  var linkedOrders=[];
+  try{linkedOrders=typeof item.linked_orders==='string'?JSON.parse(item.linked_orders||'[]'):(item.linked_orders||[]);}catch(e){}
+  var sevColor,sevBg,sevIcon;
+  if(loCount===0){sevColor='#9ca3af';sevBg='#f9fafb';sevIcon='';}
+  else if(loCount<=2){sevColor='#16a34a';sevBg='#f0fdf4';sevIcon='✅';}
+  else if(loCount<=5){sevColor='#d97706';sevBg='#fffbeb';sevIcon='⚠️';}
+  else{sevColor='#dc2626';sevBg='#fef2f2';sevIcon='🔴';}
+
+  var linkedH='<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:8px;display:flex;align-items:center;gap:8px">📋 Đơn Lỗi Liên Kết <span style="padding:2px 10px;border-radius:6px;font-size:11px;font-weight:800;color:'+sevColor+';background:'+sevBg+';border:1px solid '+sevColor+'33">'+sevIcon+' '+loCount+' đơn</span></div>';
+  if(loCount===0){
+    linkedH+='<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb">Chưa có đơn lỗi nào liên kết</div>';
+  } else {
+    linkedH+='<div style="max-height:200px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px">';
+    linkedH+='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#1e3a4f;position:sticky;top:0"><th style="padding:6px 8px;text-align:left;font-weight:700;color:#fff;border-bottom:1px solid #2d4f63">Mã Đơn</th><th style="padding:6px 8px;text-align:left;font-weight:700;color:#fff;border-bottom:1px solid #2d4f63">Ngày</th></tr></thead><tbody>';
+    linkedOrders.forEach(function(o){
+      var rd=o.report_date?new Date(o.report_date).toLocaleDateString('vi-VN'):'—';
+      linkedH+='<tr onclick="event.stopPropagation();_ltgViewOrderDetail('+o.id+')" style="cursor:pointer;transition:background .1s" onmouseover="this.style.background=\'#f5f3ff\'" onmouseout="this.style.background=\'\'">';
+      linkedH+='<td style="padding:5px 8px;border-bottom:1px solid #f1f5f9"><span style="font-weight:700;color:#7c3aed">'+(o.order_code||'#'+o.id)+'</span></td>';
+      linkedH+='<td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#6b7280">'+rd+'</td></tr>';
+    });
+    linkedH+='</tbody></table></div>';
+  }
+  linkedH+='</div>';
+
   var ov=document.createElement('div');
   ov.id='ltgDetailOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -175,8 +232,7 @@ function _ltgViewDetail(id){
       sec('💬','Hướng Dẫn Sale Tư Vấn',item.sale_guide)+
       sec('🏭','Cam Kết Quản Lý Xưởng',item.commit_factory)+
       sec('⚠️','Cam Kết Bộ Phận Lỗi',item.commit_department)+
-      sec('🤝','Cam Kết Sale',item.commit_sale)+
-      imgH+vidH+
+      imgH+vidH+linkedH+
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;border-top:1px solid #f1f5f9;padding-top:12px">'+
         '<button onclick="document.getElementById(\'ltgDetailOv\').remove();_ltgOpenForm('+item.id+')" style="padding:8px 20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Chỉnh Sửa</button>'+
         '<button onclick="document.getElementById(\'ltgDetailOv\').remove()" style="padding:8px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Đóng</button>'+
@@ -196,6 +252,7 @@ function _ltgCard(icon,label,count,color,bg,border,status){
 // ===== FILTERS =====
 function _ltgSetFilter(s){_ltg.filter=(_ltg.filter===s)?null:s;_ltgLoadList();}
 function _ltgSetDept(d){_ltg.deptFilter=(_ltg.deptFilter===d)?null:d;_ltgLoadList();}
+function _ltgSetCatFilter(id){_ltg.catFilterId=(_ltg.catFilterId==id)?null:id;_ltg.catFilter=id||null;_ltgLoadList();}
 
 // ===== SEARCH =====
 function _ltgSearch(q){
@@ -308,10 +365,11 @@ async function _ltgOpenForm(id){
       fld('Hướng Dẫn Sale Tư Vấn','sale_guide','textarea',item?item.sale_guide:'',true)+
       fld('Cam Kết Quản Lý Xưởng','commit_factory','textarea',item?item.commit_factory:'',true)+
       fld('Cam Kết Bộ Phận Lỗi','commit_department','textarea',item?item.commit_department:'',true)+
-      fld('Cam Kết Sale','commit_sale','textarea',item?item.commit_sale:'',true)+
-      // Image upload
+      // Image upload with paste zone
       '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📷 Hình Ảnh Lỗi</label>'+
       '<div id="ltgF_imgPreview" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">'+imgPrev+'</div>'+
+      '<div id="ltgF_pasteZone" tabindex="0" style="padding:14px;border:2px dashed #c4b5fd;border-radius:8px;text-align:center;color:#7c3aed;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:6px;background:#faf5ff;transition:all .2s" onmouseover="this.style.borderColor=\'#7c3aed\';this.style.background=\'#ede9fe\'" onmouseout="this.style.borderColor=\'#c4b5fd\';this.style.background=\'#faf5ff\'">📋 Ctrl+V để dán ảnh từ clipboard</div>'+
+      '<div id="ltgF_pastedPreview" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"></div>'+
       '<input type="file" id="ltgF_images" accept="image/*" multiple style="font-size:12px"></div>'+
       // Video upload
       '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">🎬 Video Lỗi</label>'+
@@ -324,11 +382,42 @@ async function _ltgOpenForm(id){
     '</div></div>';
   document.body.appendChild(ov);
 
-  // Attach auto-numbering to 5 textareas
-  ['fix_guide','sale_guide','commit_factory','commit_department','commit_sale'].forEach(function(n){
+  // Attach auto-numbering to textareas
+  ['fix_guide','sale_guide','commit_factory','commit_department'].forEach(function(n){
     var el=document.getElementById('ltgF_'+n);
     if(el)_ltgAutoNum(el);
   });
+
+  // Ctrl+V paste image support
+  window._ltgPastedFiles=[];
+  var formEl=document.querySelector('#ltgFormOv');
+  if(formEl){
+    formEl.addEventListener('paste',function(e){
+      var items=e.clipboardData&&e.clipboardData.items;
+      if(!items)return;
+      for(var i=0;i<items.length;i++){
+        if(items[i].type.indexOf('image')===0){
+          e.preventDefault();
+          var file=items[i].getAsFile();
+          if(!file)continue;
+          if(file.size>5*1024*1024){showToast('Ảnh quá lớn (max 5MB)','error');continue;}
+          if(window._ltgPastedFiles.length>=5){showToast('Tối đa 5 ảnh paste','error');continue;}
+          window._ltgPastedFiles.push(file);
+          var reader=new FileReader();
+          reader.onload=function(ev){
+            var prev=document.getElementById('ltgF_pastedPreview');
+            if(prev){
+              var idx=window._ltgPastedFiles.length-1;
+              prev.innerHTML+='<div style="position:relative;display:inline-block" data-paste-idx="'+idx+'"><img src="'+ev.target.result+'" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:2px solid #7c3aed"><span onclick="_ltgRemovePasted('+idx+')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;width:14px;height:14px;border-radius:50%;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700">×</span></div>';
+            }
+          };
+          reader.readAsDataURL(file);
+          showToast('📋 Đã dán ảnh từ clipboard!');
+          break;
+        }
+      }
+    });
+  }
 }
 
 async function _ltgSubmitForm(id){
@@ -343,8 +432,7 @@ async function _ltgSubmitForm(id){
     fix_guide:document.getElementById('ltgF_fix_guide').value.trim(),
     sale_guide:document.getElementById('ltgF_sale_guide').value.trim(),
     commit_factory:document.getElementById('ltgF_commit_factory').value.trim(),
-    commit_department:document.getElementById('ltgF_commit_department').value.trim(),
-    commit_sale:document.getElementById('ltgF_commit_sale').value.trim()
+    commit_department:document.getElementById('ltgF_commit_department').value.trim()
   };
   // Validation
   if(!body.error_name){showToast('Vui lòng nhập Tên Lỗi','error');return;}
@@ -354,7 +442,6 @@ async function _ltgSubmitForm(id){
   if(!body.sale_guide||body.sale_guide==='1. '){showToast('Vui lòng nhập Hướng Dẫn Sale Tư Vấn','error');return;}
   if(!body.commit_factory||body.commit_factory==='1. '){showToast('Vui lòng nhập Cam Kết Quản Lý Xưởng','error');return;}
   if(!body.commit_department||body.commit_department==='1. '){showToast('Vui lòng nhập Cam Kết Bộ Phận Lỗi','error');return;}
-  if(!body.commit_sale||body.commit_sale==='1. '){showToast('Vui lòng nhập Cam Kết Sale','error');return;}
 
   try{
     var r;
@@ -363,12 +450,16 @@ async function _ltgSubmitForm(id){
     if(r.error){showToast(r.error,'error');return;}
     var targetId=id||r.item.id;
 
-    // Upload images if selected
+    // Upload images (file input + pasted)
     var imgInput=document.getElementById('ltgF_images');
-    if(imgInput&&imgInput.files&&imgInput.files.length>0){
+    var hasPasted=window._ltgPastedFiles&&window._ltgPastedFiles.length>0;
+    var hasFiles=imgInput&&imgInput.files&&imgInput.files.length>0;
+    if(hasFiles||hasPasted){
       var fd=new FormData();
-      for(var i=0;i<imgInput.files.length;i++)fd.append('images',imgInput.files[i]);
+      if(hasFiles){for(var i=0;i<imgInput.files.length;i++)fd.append('images',imgInput.files[i]);}
+      if(hasPasted){window._ltgPastedFiles.forEach(function(f){fd.append('images',f);});}
       await fetch('/api/common-errors-tpl/'+targetId+'/images',{method:'POST',body:fd,credentials:'include'});
+      window._ltgPastedFiles=[];
     }
     // Upload video if selected
     var vidInput=document.getElementById('ltgF_video');
@@ -501,5 +592,50 @@ async function _ltgDeleteDept(id){
     showToast('✅ Đã xóa');
     document.getElementById('ltgDeptOv').remove();
     _ltgLoadAll().then(function(){_ltgOpenDeptManager();});
+  }catch(e){showToast('Lỗi: '+e.message,'error');}
+}
+
+// ===== REMOVE PASTED IMAGE =====
+function _ltgRemovePasted(idx){
+  if(window._ltgPastedFiles)window._ltgPastedFiles.splice(idx,1);
+  var prev=document.getElementById('ltgF_pastedPreview');
+  if(prev){var el=prev.querySelector('[data-paste-idx="'+idx+'"]');if(el)el.remove();}
+}
+
+// ===== DRILL-DOWN: View Customer Error Order Detail =====
+async function _ltgViewOrderDetail(id){
+  if(typeof _ceoViewDetail==='function'){_ceoViewDetail(id);return;}
+  try{
+    var d=await apiCall('/api/customer-errors/'+id);
+    var item=d.item;
+    if(!item){showToast('Không tìm thấy đơn lỗi','error');return;}
+    var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'—';
+    var fmtM=function(v){return Number(v||0)>0?Number(v).toLocaleString('vi-VN')+'đ':'—';};
+    var imgs=[];try{imgs=typeof item.error_images==='string'?JSON.parse(item.error_images||'[]'):(item.error_images||[]);}catch(e){}
+    var imgH=imgs.length?imgs.map(function(u){return '<img src="'+u+'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer" onclick="window.open(\''+u+'\',\'_blank\')">';}).join(''):'<span style="color:#9ca3af">Không có hình ảnh</span>';
+    var old=document.getElementById('ltgOrderDetailOv');if(old)old.remove();
+    var ov=document.createElement('div');ov.id='ltgOrderDetailOv';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    var field=function(l,v,c){return '<div><div style="font-size:10px;font-weight:700;color:#9ca3af;margin-bottom:2px">'+l+'</div><div style="font-size:13px;font-weight:700;color:'+(c||'#1e293b')+'">'+(v||'—')+'</div></div>';};
+    var h='<div style="background:#fff;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">';
+    h+='<div style="padding:16px 20px;background:linear-gradient(135deg,#7c3aed,#5b21b6);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">';
+    h+='<div style="color:#fff;font-size:15px;font-weight:800">📝 Đơn Lỗi — '+(item.order_code||'N/A')+'</div>';
+    h+='<button onclick="document.getElementById(\'ltgOrderDetailOv\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:16px;cursor:pointer">×</button></div>';
+    h+='<div style="padding:20px">';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;padding:12px;background:#f8fafc;border-radius:8px">';
+    h+=field('Mã Đơn',item.order_code,'#ea580c')+field('Ngày',rd)+field('Lỗi Thường Gặp',item.common_error_type,'#7c3aed');
+    h+=field('Người Vi Phạm',item.violator_name,'#dc2626')+field('SL Lỗi',item.error_quantity)+field('CSKH',item.cskh_name);
+    h+='</div>';
+    h+='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:4px">📌 Nội Dung Lỗi</div><div style="padding:8px 12px;background:#fff7ed;border-radius:6px;border:1px solid #fed7aa;font-size:12px;color:#9a3412;line-height:1.5">'+(item.error_content||'—')+'</div></div>';
+    h+='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:4px">✅ Cách Xử Lý</div><div style="padding:8px 12px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;font-size:12px;color:#166534;line-height:1.5;white-space:pre-line">'+(item.sale_resolution||'—')+'</div></div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+    h+='<div style="padding:8px 12px;background:#eff6ff;border-radius:6px;border:1px solid #bfdbfe"><div style="font-size:10px;font-weight:700;color:#1e40af">Chi Phí SX</div><div style="font-size:14px;font-weight:800;color:#1e40af">'+fmtM(item.production_cost)+'</div></div>';
+    h+='<div style="padding:8px 12px;background:#fefce8;border-radius:6px;border:1px solid #fde68a"><div style="font-size:10px;font-weight:700;color:#92400e">Phí Ship</div><div style="font-size:14px;font-weight:800;color:#92400e">'+fmtM(item.shipping_cost)+'</div></div></div>';
+    h+='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:4px">📷 Hình Ảnh</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+imgH+'</div></div>';
+    if(item.violator_commitment){h+='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:4px">📝 Cam Kết NVP</div><div style="padding:8px 12px;background:#f5f3ff;border-radius:6px;border:1px solid #c4b5fd;font-size:12px;color:#5b21b6;white-space:pre-line">'+item.violator_commitment+'</div></div>';}
+    if(item.penalty_month){h+='<div style="padding:6px 10px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:11px;font-weight:700;color:#92400e">📅 Đã Phạt: '+item.penalty_month+'</div>';}
+    h+='</div></div>';
+    ov.innerHTML=h;document.body.appendChild(ov);
   }catch(e){showToast('Lỗi: '+e.message,'error');}
 }

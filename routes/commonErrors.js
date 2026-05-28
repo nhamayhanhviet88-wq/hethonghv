@@ -84,7 +84,10 @@ async function routes(fastify) {
         if (department) { where += ` AND ce.departments @> $${idx++}::jsonb`; params.push(JSON.stringify([department])); }
 
         const items = await db.all(`
-            SELECT ce.*, ec.name AS category_name, u.full_name AS created_by_name
+            SELECT ce.*, ec.name AS category_name, u.full_name AS created_by_name,
+                COALESCE((SELECT COUNT(*) FROM customer_error_orders ceo WHERE ceo.common_error_type = ce.error_name), 0)::int AS linked_order_count,
+                COALESCE((SELECT json_agg(json_build_object('id', ceo2.id, 'order_code', ceo2.order_code, 'report_date', ceo2.report_date) ORDER BY ceo2.report_date DESC)
+                    FROM customer_error_orders ceo2 WHERE ceo2.common_error_type = ce.error_name), '[]'::json) AS linked_orders
             FROM common_errors ce
             LEFT JOIN error_categories ec ON ec.id = ce.error_category_id
             LEFT JOIN users u ON u.id = ce.created_by
@@ -138,8 +141,11 @@ async function routes(fastify) {
         const id = request.params.id;
         const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
 
-        const existing = await db.get('SELECT id FROM common_errors WHERE id = $1', [id]);
+        const existing = await db.get('SELECT id, error_name FROM common_errors WHERE id = $1', [id]);
         if (!existing) return { error: 'Không tìm thấy lỗi' };
+
+        const oldName = existing.error_name;
+        const newName = (error_name || '').trim();
 
         const deptJson = JSON.stringify(departments || []);
         await db.run(`
@@ -149,10 +155,19 @@ async function routes(fastify) {
                 commit_sale = $9, updated_at = NOW()
             WHERE id = $10
         `, [
-            error_name || '', error_category_id || null, deptJson, status || 'pending',
+            newName || '', error_category_id || null, deptJson, status || 'pending',
             fix_guide || null, sale_guide || null, commit_factory || null, commit_department || null,
             commit_sale || null, id
         ]);
+
+        // ★ Auto-sync: If error_name changed, update all linked customer_error_orders
+        if (oldName && newName && oldName !== newName) {
+            const updated = await db.run(
+                'UPDATE customer_error_orders SET common_error_type = $1 WHERE common_error_type = $2',
+                [newName, oldName]
+            );
+            console.log(`[CommonErrors] ✅ Renamed "${oldName}" → "${newName}" — synced customer_error_orders`);
+        }
 
         return { success: true };
     });
@@ -172,6 +187,22 @@ async function routes(fastify) {
     fastify.delete('/api/common-errors-tpl/:id', { preHandler: authenticate }, async (request) => {
         await db.run('DELETE FROM common_errors WHERE id = $1', [request.params.id]);
         return { success: true };
+    });
+
+    // ========== GET /:id/linked-orders — detailed linked orders for drill-down ==========
+    fastify.get('/api/common-errors-tpl/:id/linked-orders', { preHandler: authenticate }, async (request) => {
+        const ce = await db.get('SELECT error_name FROM common_errors WHERE id = $1', [request.params.id]);
+        if (!ce) return { error: 'Không tìm thấy lỗi', items: [] };
+
+        const items = await db.all(`
+            SELECT ceo.*, u.full_name AS created_by_name
+            FROM customer_error_orders ceo
+            LEFT JOIN users u ON u.id = ceo.created_by
+            WHERE ceo.common_error_type = $1
+            ORDER BY ceo.report_date DESC, ceo.id DESC
+        `, [ce.error_name]);
+
+        return { items, error_name: ce.error_name };
     });
 
     // ========== IMAGE UPLOAD ==========

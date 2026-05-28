@@ -18,6 +18,11 @@ module.exports = async function(fastify) {
     // Smart Customer: link orders to free customer record
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS free_customer_id INTEGER DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_carriers ADD COLUMN IF NOT EXISTS tracking_url_template TEXT DEFAULT NULL`); } catch(e) {}
+    // ★ Repair Order: link repair order back to parent order
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS parent_order_id INTEGER DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS repair_source_code TEXT DEFAULT NULL`); } catch(e) {}
+    // Auto-seed "ĐƠN SỬA" category if not exists
+    try { await db.run(`INSERT INTO dht_categories (name, display_order) SELECT 'ĐƠN SỬA', COALESCE(MAX(display_order),0)+1 FROM dht_categories WHERE NOT EXISTS (SELECT 1 FROM dht_categories WHERE name = 'ĐƠN SỬA')`); } catch(e) {}
     // Auto-seed J&T tracking URL if not set
     try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://jtexpress.vn/vi/tracking?type=track&billcode={code}' WHERE name ILIKE '%J&T%' AND tracking_url_template IS NULL`); } catch(e) {}
     try { await db.run(`UPDATE dht_carriers SET tracking_url_template = 'https://nascoexpress.com/tra-cuu-van-don.html?s={code}' WHERE name ILIKE '%Nasco%' AND tracking_url_template IS NULL`); } catch(e) {}
@@ -261,7 +266,8 @@ module.exports = async function(fastify) {
                 COALESCE(prod_progress.done_steps, 0) AS prod_done,
                 COALESCE(prod_progress.total_steps, 0) AS prod_total,
                 prod_progress.current_step_short AS prod_current,
-                COALESCE(err_check.error_count, 0) > 0 AS has_error
+                COALESCE(err_check.error_count, 0) > 0 AS has_error,
+                COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -288,6 +294,11 @@ module.exports = async function(fastify) {
                 FROM customer_error_orders ceo
                 WHERE ceo.dht_order_id = o.id
             ) err_check ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*)::int AS repair_count
+                FROM dht_orders ro
+                WHERE ro.parent_order_id = o.id
+            ) repair_check ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
         `, params);
@@ -303,9 +314,16 @@ module.exports = async function(fastify) {
         const b = request.body || {};
         const catId = b.category_id ? Number(b.category_id) : null;
         const isFreeOrder = !!FREE_CAT_MAP[catId];
+        const isRepairOrder = b.is_repair === true;
+
+        // ★ REPAIR orders: auto-generate code, skip prefix check
+        if (isRepairOrder) {
+            if (!b.parent_order_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn gốc' });
+            if (!b.repair_source_code) return reply.code(400).send({ error: 'Thiếu mã đơn gốc' });
+        }
 
         // ★ NORMAL orders: require order_code_prefix
-        if (!isFreeOrder) {
+        if (!isFreeOrder && !isRepairOrder) {
             const userPrefixCheck = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
             if (!userPrefixCheck?.order_code_prefix) {
                 return reply.code(403).send({ error: 'Tài khoản chưa được cấp Mã Đơn KD. Không thể tạo đơn hàng.' });
@@ -321,9 +339,9 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Tỉnh/Thành phố không hợp lệ' });
         }
 
-        // ★ Customer validation: different for free vs normal
-        if (isFreeOrder) {
-            // PET/TEM: customer entered manually, no CRM customer required
+        // ★ Customer validation: different for free vs normal vs repair
+        if (isRepairOrder || isFreeOrder) {
+            // Repair/PET/TEM: customer entered manually, no CRM customer required
             if (!b.customer_name || !b.customer_name.trim()) {
                 return reply.code(400).send({ error: 'Vui lòng nhập Tên Khách Hàng' });
             }
@@ -358,9 +376,25 @@ module.exports = async function(fastify) {
             }
         }
 
-        // ★ Generate order code for PET/TEM via sequence (atomic)
+        // ★ Generate order code for PET/TEM via sequence (atomic), or repair order
         let orderCode;
-        if (isFreeOrder) {
+        if (isRepairOrder) {
+            // Repair: SUA + original code. If already exists, try SUA2, SUA3, etc.
+            const srcCode = b.repair_source_code.trim();
+            let repairCode = 'SUA' + srcCode;
+            let existCheck = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [repairCode]);
+            if (existCheck) {
+                // Find next available SUA number
+                let n = 2;
+                while (n <= 99) {
+                    repairCode = 'SUA' + n + srcCode;
+                    existCheck = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [repairCode]);
+                    if (!existCheck) break;
+                    n++;
+                }
+            }
+            orderCode = repairCode;
+        } else if (isFreeOrder) {
             const cfg = FREE_CAT_MAP[catId];
             const seqRow = await db.get(`SELECT nextval('${cfg.seq}') as seq`);
             orderCode = cfg.prefix + String(seqRow.seq).padStart(4, '0');
@@ -368,9 +402,9 @@ module.exports = async function(fastify) {
             orderCode = b.order_code.trim();
         }
 
-        // Validate proof image for CHUẨN priority (skip for free orders)
+        // Validate proof image for CHUẨN priority (skip for free/repair orders)
         let proofPath = null;
-        if (!isFreeOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
+        if (!isFreeOrder && !isRepairOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
             if (!b.standard_proof_image) {
                 return reply.code(400).send({ error: 'Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN' });
             }
@@ -402,8 +436,10 @@ module.exports = async function(fastify) {
                 has_vat, vat_amount, deposit_payment_id, deposit_amount_cache,
                 designer_user_id, designer_type, carrier_id, carrier_extra,
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
-                sale_note_for_accountant, department_id, notes, surcharges, free_customer_id, created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$31)
+                sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
+                parent_order_id, repair_source_code,
+                created_by, last_updated_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$33)
             RETURNING *
         `, [
             orderCode,
@@ -414,7 +450,7 @@ module.exports = async function(fastify) {
             b.source || null,
             b.province || null,
             b.address || null,
-            isFreeOrder ? request.user.id : (b.cskh_user_id ? Number(b.cskh_user_id) : null),
+            (isFreeOrder || isRepairOrder) ? request.user.id : (b.cskh_user_id ? Number(b.cskh_user_id) : null),
             Number(b.total_quantity) || 0,
             Number(b.total_amount) || 0,
             Number(b.discount_amount) || 0,
@@ -427,7 +463,7 @@ module.exports = async function(fastify) {
             b.carrier_id ? Number(b.carrier_id) : null,
             b.carrier_extra ? JSON.stringify(b.carrier_extra) : null,
             b.expected_ship_date || null,
-            isFreeOrder ? (b.shipping_priority || 'GẤP') : (b.shipping_priority || 'CHUẨN'),
+            (isFreeOrder || isRepairOrder) ? (b.shipping_priority || 'GẤP') : (b.shipping_priority || 'CHUẨN'),
             proofPath,
             b.standard_delivery_time || null,
             b.zalo_oa_sent === true || b.zalo_oa_sent === 'true',
@@ -436,6 +472,8 @@ module.exports = async function(fastify) {
             b.notes || null,
             JSON.stringify(b.surcharges || []),
             b.free_customer_id ? parseInt(b.free_customer_id) : null,
+            isRepairOrder ? Number(b.parent_order_id) : null,
+            isRepairOrder ? b.repair_source_code : null,
             request.user.id
         ]);
 

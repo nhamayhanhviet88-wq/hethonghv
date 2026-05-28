@@ -754,36 +754,109 @@ async function routes(fastify) {
                 const now = vnNow();
                 const todayStr = now.toISOString().slice(0, 10).split('-').reverse().join('/');
 
-                // Check: does a work ticket already exist for this order_code?
+                // Load priority setting for 'high'
+                const pSetting = await db.get("SELECT * FROM priority_settings WHERE priority_key = 'high'");
+
+                // === Calculate business deadline inline ===
+                let deadlineAt = null;
+                let initialStatus = 'pending';
+                if (pSetting && pSetting.duration_hours) {
+                    // Load work schedules & holidays
+                    const wsSessions = (await db.all("SELECT start_time, end_time FROM work_schedules WHERE role_type = 'qlx' ORDER BY display_order")).map(r => {
+                        const [sh, sm] = r.start_time.split(':').map(Number);
+                        const [eh, em] = r.end_time.split(':').map(Number);
+                        return { start: sh * 60 + (sm || 0), end: eh * 60 + (em || 0) };
+                    });
+                    const holidays = (await db.all("SELECT holiday_date FROM holidays").catch(() => [])).map(r => {
+                        const d = r.holiday_date;
+                        return typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().slice(0, 10);
+                    });
+
+                    const _isHoliday = (d) => d.getDay() === 0 || holidays.includes(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+                    const _minOfDay = (d) => d.getHours() * 60 + d.getMinutes();
+                    const _nextWD = (d) => { const n = new Date(d); n.setDate(n.getDate() + 1); n.setHours(0, 0, 0, 0); while (_isHoliday(n)) n.setDate(n.getDate() + 1); return n; };
+
+                    if (wsSessions.length) {
+                        let remainingMin = Math.round(parseFloat(pSetting.duration_hours) * 60);
+                        let cursor = new Date(now);
+
+                        // Snap to work hours if outside
+                        const cm = _minOfDay(cursor);
+                        let inWork = !_isHoliday(cursor) && wsSessions.some(s => cm >= s.start && cm < s.end);
+                        if (!inWork) {
+                            if (!_isHoliday(cursor)) {
+                                let found = false;
+                                for (const sess of wsSessions) {
+                                    if (cm < sess.start) { cursor.setHours(Math.floor(sess.start / 60), sess.start % 60, 0, 0); found = true; break; }
+                                }
+                                if (!found) { cursor = _nextWD(cursor); cursor.setHours(Math.floor(wsSessions[0].start / 60), wsSessions[0].start % 60, 0, 0); }
+                            } else {
+                                cursor = _nextWD(cursor); cursor.setHours(Math.floor(wsSessions[0].start / 60), wsSessions[0].start % 60, 0, 0);
+                            }
+                        }
+
+                        let safety = 0;
+                        while (remainingMin > 0 && safety < 500) {
+                            safety++;
+                            if (_isHoliday(cursor)) { cursor = _nextWD(cursor); cursor.setHours(Math.floor(wsSessions[0].start / 60), wsSessions[0].start % 60, 0, 0); continue; }
+                            const m = _minOfDay(cursor);
+                            let inSess = false;
+                            for (const sess of wsSessions) {
+                                if (m >= sess.start && m < sess.end) {
+                                    const avail = sess.end - m;
+                                    if (remainingMin <= avail) { cursor.setMinutes(cursor.getMinutes() + remainingMin); remainingMin = 0; }
+                                    else { remainingMin -= avail; cursor.setHours(Math.floor(sess.end / 60), sess.end % 60, 0, 0); }
+                                    inSess = true; break;
+                                }
+                            }
+                            if (!inSess) {
+                                let found = false;
+                                for (const sess of wsSessions) { if (m < sess.start) { cursor.setHours(Math.floor(sess.start / 60), sess.start % 60, 0, 0); found = true; break; } }
+                                if (!found) { cursor = _nextWD(cursor); cursor.setHours(Math.floor(wsSessions[0].start / 60), wsSessions[0].start % 60, 0, 0); }
+                            }
+                        }
+                        deadlineAt = cursor;
+
+                        // Determine initial status
+                        const cutoff = Math.max(...wsSessions.map(s => s.end));
+                        if (!_isHoliday(now) && _minOfDay(now) < cutoff) initialStatus = 'pending';
+                        else initialStatus = 'in_progress';
+                    }
+                }
+
+                // Check: does a work ticket already exist for this order_code (any type)?
                 const existingTicket = await db.get(
-                    "SELECT id, description, status FROM work_tickets WHERE type = 'error_return' AND order_code = $1",
+                    "SELECT id, description, status, type FROM work_tickets WHERE order_code = $1 OR ticket_code = $1 ORDER BY id ASC LIMIT 1",
                     [orderCode]
                 );
 
+                let ticketId = null;
+
                 if (existingTicket) {
-                    // === MERGE: Append notes to existing ticket, re-open if resolved ===
-                    const appendNote = '\n---\n[' + todayStr + ' - Bàn giao bổ sung] ' + (notes || 'Không có ghi chú');
+                    ticketId = existingTicket.id;
+                    // === MERGE: Append error return notes, upgrade priority to high, recalculate deadline ===
+                    const appendNote = '\n---\n[' + todayStr + ' - 📦 HÀNG LỖI VỀ] ' + (notes || 'Bàn giao hàng lỗi về cho QLX');
+                    const computedDueDate = deadlineAt ? deadlineAt.toISOString().slice(0, 10) : null;
                     await db.run(`UPDATE work_tickets SET
                         description = COALESCE(description, '') || $1,
-                        status = CASE WHEN status IN ('resolved','closed') THEN 'pending' ELSE status END,
-                        due_date = CASE WHEN status IN ('resolved','closed') THEN NULL ELSE due_date END,
-                        resolved_at = CASE WHEN status IN ('resolved','closed') THEN NULL ELSE resolved_at END,
+                        priority = 'CAO',
+                        priority_level = 'high',
+                        deadline_at = $5::timestamptz,
+                        due_date = COALESCE($7::date, due_date),
+                        status = $6,
+                        is_overdue = false,
+                        overdue_at = NULL,
+                        resolved_at = NULL,
                         assigned_to = $2,
                         updated_at = $3
-                        WHERE id = $4`, [appendNote, assignedTo, now, existingTicket.id]);
+                        WHERE id = $4`, [appendNote, assignedTo, now, existingTicket.id, deadlineAt ? deadlineAt.toISOString() : null, initialStatus, computedDueDate]);
                 } else {
-                    // === CREATE NEW work ticket ===
-                    const last = await db.get('SELECT ticket_code FROM work_tickets ORDER BY id DESC LIMIT 1');
-                    let nextNum = 1;
-                    if (last && last.ticket_code) {
-                        const match = last.ticket_code.match(/PHIEUHV(\d+)/);
-                        if (match) nextNum = parseInt(match[1]) + 1;
-                    }
-                    const ticketCode = 'PHIEUHV' + String(nextNum).padStart(4, '0');
+                    // === CREATE NEW work ticket — use order_code as ticket_code ===
+                    const ticketCode = orderCode;
 
                     await db.run(`
-                        INSERT INTO work_tickets (ticket_code, type, order_code, title, description, priority, status, created_by, assigned_to, due_date, created_at, updated_at)
-                        VALUES ($1, 'error_return', $2, $3, $4, 'GẤP', 'pending', $5, $6, NULL, $7, $7)
+                        INSERT INTO work_tickets (ticket_code, type, order_code, title, description, priority, priority_level, status, created_by, assigned_to, due_date, deadline_at, created_at, updated_at)
+                        VALUES ($1, 'error_return', $2, $3, $4, 'CAO', 'high', $8, $5, $6, $9, $10, $7, $7)
                     `, [
                         ticketCode,
                         orderCode,
@@ -791,8 +864,24 @@ async function routes(fastify) {
                         '[' + todayStr + '] ' + (notes || 'Bàn giao hàng lỗi về cho QLX'),
                         request.user.id,
                         assignedTo,
-                        now
+                        now,
+                        initialStatus,
+                        deadlineAt ? deadlineAt.toISOString().slice(0, 10) : null,
+                        deadlineAt ? deadlineAt.toISOString() : null
                     ]);
+                    // Get new ticket ID
+                    const newTicket = await db.get("SELECT id FROM work_tickets WHERE ticket_code = $1", [ticketCode]);
+                    if (newTicket) ticketId = newTicket.id;
+                }
+
+                // === CREATE REPLY in work_ticket_replies so it shows in conversation history ===
+                if (ticketId) {
+                    const replyMsg = '📦 HÀNG LỖI VỀ — ' + orderCode + '\n' + (notes || 'Bàn giao hàng lỗi về cho QLX') + '\n👤 Bàn giao cho: ' + handed_to.trim();
+                    const replyMeta = JSON.stringify({ priority_level: 'high', label: 'Cao', icon: '🟠', color: '#ea580c', action: 'error_return' });
+                    await db.run(
+                        "INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at) VALUES ($1, $2, $3, '[]', $4, $5)",
+                        [ticketId, request.user.id, replyMsg, replyMeta, now]
+                    );
                 }
             }
         } catch(wtErr) { console.error('[WorkTicket] auto-create from error-return:', wtErr.message); }
