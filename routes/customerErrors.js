@@ -833,8 +833,8 @@ async function routes(fastify) {
         // ★ Update linked work_ticket_reply attachments with uploaded images/video
         try {
             const linkedReply = await db.get(
-                `SELECT id FROM work_ticket_replies WHERE metadata::text LIKE $1 AND metadata::text LIKE '%"auto_error":true%' ORDER BY id DESC LIMIT 1`,
-                ['%"error_order_id":' + id + '%']
+                `SELECT id FROM work_ticket_replies WHERE (metadata->>'auto_error')::text = 'true' AND (metadata->>'error_order_id')::int = $1 ORDER BY id DESC LIMIT 1`,
+                [parseInt(id)]
             );
             if (linkedReply) {
                 const replyAttach = [];
