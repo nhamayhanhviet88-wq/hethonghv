@@ -1686,8 +1686,8 @@ async function _dhtSubmitCreateV2() {
     // ★ Source: different for free vs normal vs repair
     var src;
     if (_dhtRepairData) {
-        // Repair: try free select first, fallback to normal src field
-        src = document.getElementById('_co_srcFreeSelect')?.value || document.getElementById('_co_src')?.value || _dhtRepairData.order.source;
+        // Repair: parent order's source (disabled selects may return empty)
+        src = _dhtRepairData.order.source || document.getElementById('_co_srcFreeSelect')?.value || document.getElementById('_co_src')?.value;
     } else if (isFree) {
         src = document.getElementById('_co_srcFreeSelect')?.value;
         if (!src) { showToast('Chọn Nguồn ' + catName, 'error'); return; }
@@ -2352,14 +2352,27 @@ function _dhtApplyRepairOverrides() {
     if (addrEl) addrEl.value = o.address || '';
     if (provEl) provEl.value = o.province || '';
 
-    // D. Pre-fill source
+    // D. Pre-fill source from parent order
     var srcEl = document.getElementById('_co_src');
     if (srcEl) srcEl.value = o.source || '';
     var srcFreeSelect = document.getElementById('_co_srcFreeSelect');
     if (srcFreeSelect && o.source) {
+        // Check if option exists, if not add it
+        var srcFound = false;
         for (var j = 0; j < srcFreeSelect.options.length; j++) {
-            if (srcFreeSelect.options[j].value === o.source) { srcFreeSelect.value = o.source; break; }
+            if (srcFreeSelect.options[j].value === o.source) { srcFound = true; srcFreeSelect.value = o.source; break; }
         }
+        if (!srcFound) {
+            var srcOpt = document.createElement('option');
+            srcOpt.value = o.source;
+            srcOpt.text = o.source;
+            srcFreeSelect.appendChild(srcOpt);
+            srcFreeSelect.value = o.source;
+        }
+        // Lock source — repair uses parent's source
+        srcFreeSelect.disabled = true;
+        srcFreeSelect.style.background = '#f5f3ff';
+        srcFreeSelect.style.cursor = 'not-allowed';
     }
 
     // E. Unlock phone/name labels for repair

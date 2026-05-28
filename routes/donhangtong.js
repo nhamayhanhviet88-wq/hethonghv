@@ -146,7 +146,7 @@ module.exports = async function(fastify) {
                 COUNT(*)::int AS order_count
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            ${treeWhere}
+            ${treeWhere ? treeWhere + ' AND o.parent_order_id IS NULL' : 'WHERE o.parent_order_id IS NULL'}
             GROUP BY year, month, day, o.category_id, c.name
             ORDER BY year DESC, month DESC, day DESC
         `, treeParams);
