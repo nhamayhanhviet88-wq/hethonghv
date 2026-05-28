@@ -106,11 +106,14 @@ async function _spqtSelectProduct(pid) {
 
     _spqt.steps.forEach(function(s) {
         var checked = assignedSteps.indexOf(s.id) >= 0;
+        var linkBtn = s.page_link
+            ? '<span onclick="event.preventDefault();event.stopPropagation();window.open(\''+s.page_link+'\',\'_blank\')" style="cursor:pointer;font-size:10px;margin-left:2px;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Mở trang '+s.name+'">🔗</span>'
+            : '';
         h += '<label style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:'+(checked?'#dbeafe':'#f8fafc')+';border:1px solid '+(checked?'#93c5fd':'#e2e8f0')+';transition:all 0.15s" '
             + 'onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 2px 6px rgba(0,0,0,0.1)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">'
             + '<input type="checkbox" class="_spqtStepCb" value="' + s.id + '"' + (checked ? ' checked' : '') + '> '
             + '<span style="background:'+(checked?'#3b82f6':'#94a3b8')+';color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800">' + (s.short_name||'') + '</span> '
-            + s.name + '</label>';
+            + s.name + linkBtn + '</label>';
     });
     h += '</div>'
         + '<button onclick="_spqtSaveSteps(' + pid + ')" style="margin-top:8px;background:#2563eb;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Lưu Quy Trình</button></div>';

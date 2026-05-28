@@ -1698,14 +1698,14 @@ module.exports = async function(fastify) {
 
     // GET all process steps
     fastify.get('/api/dht/process-steps', { preHandler: [authenticate] }, async (request, reply) => {
-        const rows = await db.all('SELECT id, name, short_name, display_order FROM dht_process_steps WHERE is_active = true ORDER BY display_order ASC');
+        const rows = await db.all('SELECT id, name, short_name, display_order, page_link FROM dht_process_steps WHERE is_active = true ORDER BY display_order ASC');
         return { steps: rows };
     });
 
     // GET process steps assigned to a product
     fastify.get('/api/dht/product-process/:productId', { preHandler: [authenticate] }, async (request, reply) => {
         const pid = Number(request.params.productId);
-        const rows = await db.all(`SELECT pp.step_id, s.name, s.short_name
+        const rows = await db.all(`SELECT pp.step_id, s.name, s.short_name, s.page_link
             FROM dht_product_process pp JOIN dht_process_steps s ON s.id = pp.step_id
             WHERE pp.product_id = $1 AND pp.is_active = true ORDER BY s.display_order ASC`, [pid]);
         return { steps: rows };
@@ -1731,7 +1731,7 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.orderId);
         // Get all steps with their completion status for this order
         const steps = await db.all(`
-            SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order,
+            SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order, ps.page_link,
                    COALESCE(op.is_completed, false) AS is_completed,
                    op.completed_at, op.completed_by, op.notes,
                    u.full_name AS completed_by_name
@@ -1770,7 +1770,7 @@ module.exports = async function(fastify) {
 
         // Return updated steps
         const steps = await db.all(`
-            SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order,
+            SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order, ps.page_link,
                    COALESCE(op.is_completed, false) AS is_completed,
                    op.completed_at, op.completed_by, op.notes,
                    u.full_name AS completed_by_name

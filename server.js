@@ -744,20 +744,36 @@ async function start() {
             display_order INTEGER DEFAULT 0,
             is_active BOOLEAN DEFAULT true
         )`);
-        // Seed 8 default steps
+        // v11b: Add page_link column for department navigation
+        try { await db.exec(`ALTER TABLE dht_process_steps ADD COLUMN IF NOT EXISTS page_link TEXT`); } catch(e) {}
+
+        // Seed 7 default steps (Đóng Gói removed)
         const _steps = [
-            { name: 'Chuẩn Bị QLX', short: 'CBQLX', order: 1 },
-            { name: 'Cắt', short: 'CẮT', order: 2 },
-            { name: 'In', short: 'IN', order: 3 },
-            { name: 'Ép', short: 'ÉP', order: 4 },
-            { name: 'May', short: 'MAY', order: 5 },
-            { name: 'Hoàn Thiện', short: 'HT', order: 6 },
-            { name: 'Kiểm Tra Chất Lượng', short: 'KTCL', order: 7 },
-            { name: 'Đóng Gói', short: 'ĐG', order: 8 }
+            { name: 'Chuẩn Bị QLX', short: 'CBQLX', order: 1, link: '/congviecqlx' },
+            { name: 'Cắt', short: 'CẮT', order: 2, link: '/bophancathv' },
+            { name: 'In', short: 'IN', order: 3, link: '/bophaninhv' },
+            { name: 'Ép', short: 'ÉP', order: 4, link: '/bophanephv' },
+            { name: 'May', short: 'MAY', order: 5, link: '/bophanmayhv' },
+            { name: 'Kiểm Tra Chất Lượng', short: 'KTCL', order: 6, link: '/kiemtrachatluong' },
+            { name: 'Cắt Chỉ & Hoàn Thiện', short: 'CCHT', order: 7, link: '/bophanhoanthienhv' }
         ];
         for (const s of _steps) {
-            await db.run(`INSERT INTO dht_process_steps (name, short_name, display_order) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`, [s.name, s.short, s.order]);
+            await db.run(`INSERT INTO dht_process_steps (name, short_name, display_order, page_link) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET page_link = EXCLUDED.page_link`, [s.name, s.short, s.order, s.link]);
         }
+
+        // v11b Migration: Rename "Hoàn Thiện" → "Cắt Chỉ & Hoàn Thiện", reorder, soft-delete "Đóng Gói"
+        try {
+            await db.run(`UPDATE dht_process_steps SET name = 'Cắt Chỉ & Hoàn Thiện', short_name = 'CCHT', display_order = 7, page_link = '/bophanhoanthienhv' WHERE name = 'Hoàn Thiện'`);
+            await db.run(`UPDATE dht_process_steps SET display_order = 6, page_link = '/kiemtrachatluong' WHERE name = 'Kiểm Tra Chất Lượng'`);
+            await db.run(`UPDATE dht_process_steps SET is_active = false WHERE name = 'Đóng Gói'`);
+            // Ensure page_link is set for all active steps
+            await db.run(`UPDATE dht_process_steps SET page_link = '/congviecqlx' WHERE name = 'Chuẩn Bị QLX' AND page_link IS NULL`);
+            await db.run(`UPDATE dht_process_steps SET page_link = '/bophancathv' WHERE name = 'Cắt' AND page_link IS NULL`);
+            await db.run(`UPDATE dht_process_steps SET page_link = '/bophaninhv' WHERE name = 'In' AND page_link IS NULL`);
+            await db.run(`UPDATE dht_process_steps SET page_link = '/bophanephv' WHERE name = 'Ép' AND page_link IS NULL`);
+            await db.run(`UPDATE dht_process_steps SET page_link = '/bophanmayhv' WHERE name = 'May' AND page_link IS NULL`);
+        } catch(e) { console.error('[Migration v11b] Rename/reorder:', e.message); }
+
         // Order production tracking — which step each order has completed
         await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_production (
             id SERIAL PRIMARY KEY,

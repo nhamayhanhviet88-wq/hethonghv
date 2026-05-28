@@ -1366,7 +1366,9 @@ async function _dhtProductChange() {
                 var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
                 stepsEl.innerHTML=steps.map(function(s,i){
                     var bg=colors[i%colors.length];
-                    return '<span style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
+                    var clickAttr = s.page_link ? 'onclick="window.open(\''+s.page_link+'\',\'_blank\')" style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseover="this.style.transform=\'scale(1.05)\';this.style.boxShadow=\'0 2px 6px rgba(0,0,0,0.2)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'" title="Click để mở '+s.name+'"'
+                        : 'style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700"';
+                    return '<span '+clickAttr+'>'
                         +'<span style="background:rgba(255,255,255,0.3);padding:1px 3px;border-radius:2px;font-size:8px;font-weight:800">'+(s.short_name||'')+'</span> '
                         +s.name+'</span>';
                 }).join('');
