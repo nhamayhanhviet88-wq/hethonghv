@@ -547,7 +547,7 @@ async function _ceoOpenQLX(id){
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">\u2715</span></div>';
   h+='<div style="padding:20px">';
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Lỗi Thường Gặp <span style="color:#dc2626">*</span></label>';
-  h+='<select id="ceoU_errtype" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px">';
+  h+='<select id="ceoU_errtype" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#f8fafc">';
   h+='<option value="">-- Chọn loại lỗi --</option>';
   _ceo.commonErrors.forEach(function(ce){h+='<option value="'+ce.error_name+'"'+(item.common_error_type===ce.error_name?' selected':'')+'>'+ce.error_name+'</option>';});
   h+='</select></div>';
@@ -780,9 +780,13 @@ async function _ceoOpenNVP(id){
     }
   }
   // --- Editable section ---
-  // Tổng Tiền Phạt
-  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Tổng Tiền Phạt</label>';
-  h+='<div style="position:relative"><input type="text" id="ceoU_penaltytotal" value="'+(Number(item.penalty_total)?Number(item.penalty_total).toLocaleString('de-DE'):'')+'" placeholder="0" style="width:100%;padding:8px 30px 8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px" oninput="_ceoFmtMoney(this);_ceoCalcNVPTotal()" readonly><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:12px;font-weight:700">đ</span></div></div>';
+  // Tổng Tiền Chi Phí SX và Ship Lại
+  var _totalCostShip=(Number(item.production_cost)||0)+(Number(item.shipping_cost)||0);
+  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:4px">Tổng Tiền Chi Phí SX và Ship Lại</label>';
+  h+='<div style="position:relative"><input type="text" value="'+(_totalCostShip?_totalCostShip.toLocaleString('de-DE'):'')+'" placeholder="0" style="width:100%;padding:8px 30px 8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-size:13px;font-weight:700;color:#1d4ed8;background:#eff6ff" readonly><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#1d4ed8;font-size:12px;font-weight:700">đ</span></div></div>';
+  // Tổng Tiền Phạt Người Vi Phạm
+  h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Tổng Tiền Phạt Người Vi Phạm</label>';
+  h+='<div style="position:relative"><input type="text" id="ceoU_penaltytotal" value="'+(Number(item.penalty_total)?Number(item.penalty_total).toLocaleString('de-DE'):'')+'" placeholder="0" style="width:100%;padding:8px 30px 8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#f8fafc" readonly><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:12px;font-weight:700">đ</span></div></div>';
   // Cam Kết + Tiền Phạt — per-person
   var _nvpNames=(item.violator_name||'').split(',').map(function(n){return n.trim();}).filter(Boolean);
   var _nvpCommitMap={};
