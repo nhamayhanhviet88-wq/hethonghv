@@ -241,6 +241,8 @@ async function _ceoViewDetail(id) {
     // Images + Video
     h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">📷 Hình Ảnh Lỗi</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+imgHtml+'</div></div>';
     h+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">🎬 Video Lỗi</div>'+videoHtml+'</div>';
+    // ★ Repair order placeholder
+    h+='<div id="ceoRepairDetail"><div style="padding:10px;text-align:center;color:#c4b5fd;font-size:11px">⏳ Đang tải đơn sửa...</div></div>';
     // === 3 NAV BUTTONS (only for authorized users) ===
     if(_canEdit){
       h+='<div style="display:flex;gap:8px;margin-bottom:16px">';
@@ -317,6 +319,8 @@ async function _ceoViewDetail(id) {
     h+='</div>';
     h+='</div></div>';
     ov.innerHTML=h;document.body.appendChild(ov);
+    // ★ Load repair orders async
+    if(item.order_code) _ceoLoadRepairOrders(item.order_code, 'ceoRepairDetail');
 }
 
 
@@ -567,6 +571,8 @@ async function _ceoOpenPhat(id){
   h+='<div style="color:#fecaca;font-size:11px;margin-top:2px">Nội dung: '+(item.error_content||'').substring(0,60)+'</div></div>';
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">✕</span></div>';
   h+='<div style="padding:20px">';
+  // ★ Repair order placeholder for Phat modal
+  h+='<div id="ceoRepairPhat"><div style="padding:8px;text-align:center;color:#c4b5fd;font-size:11px">⏳ Đang tải đơn sửa...</div></div>';
   var sxFields=[{id:'ceoU_cut',label:'Cắt',key:'cost_cut'},{id:'ceoU_print',label:'In',key:'cost_print'},{id:'ceoU_press',label:'Ép',key:'cost_press'},{id:'ceoU_sew',label:'May',key:'cost_sew'},{id:'ceoU_collar',label:'Cổ Dệt',key:'cost_collar'},{id:'ceoU_matother',label:'Vật Liệu Khác',key:'cost_material_other'},{id:'ceoU_costother',label:'Chi Phí Khác',key:'cost_other'},{id:'ceoU_discount',label:'Bù Tiền Giảm Giá KH',key:'cost_discount'}];
   h+='<div style="margin-bottom:16px;padding:14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px"><div style="font-size:12px;font-weight:800;color:#c2410c;margin-bottom:10px">Chi Phí SX</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">';
   sxFields.forEach(function(f){h+='<div><div style="font-size:10px;color:#9a3412;font-weight:600;margin-bottom:2px">'+f.label+'</div><div style="position:relative"><input type="text" id="'+f.id+'" value="'+(Number(item[f.key])?Number(item[f.key]).toLocaleString('vi-VN'):'')+'" placeholder="0" oninput="_ceoFmtMoney(this);_ceoPhatCalcSX()" style="width:100%;padding:6px 24px 6px 8px;border:1px solid #fdba74;border-radius:6px;font-size:12px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:10px">đ</span></div></div>';});
@@ -581,6 +587,8 @@ async function _ceoOpenPhat(id){
   ov.innerHTML=h;document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   setTimeout(function(){_ceoPhatCalcSX();_ceoPhatCalcShip();},50);
+  // ★ Load repair orders async
+  if(item.order_code) _ceoLoadRepairOrders(item.order_code, 'ceoRepairPhat');
 }
 
 // ===== MODAL 3: NVP =====
@@ -596,6 +604,8 @@ async function _ceoOpenNVP(id){
   h+='<div style="color:#c4b5fd;font-size:11px;margin-top:2px">Nội dung: '+(item.error_content||'').substring(0,60)+'</div></div>';
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">✕</span></div>';
   h+='<div style="padding:20px">';
+  // ★ Repair order placeholder for NVP modal
+  h+='<div id="ceoRepairNVP"><div style="padding:8px;text-align:center;color:#c4b5fd;font-size:11px">⏳ Đang tải đơn sửa...</div></div>';
   // Info section
   h+='<div style="margin-bottom:16px;padding:14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px">';
   h+='<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:10px">Thông tin đơn lỗi</div>';
@@ -650,6 +660,8 @@ async function _ceoOpenNVP(id){
   h+='</div></div>';
   ov.innerHTML=h;document.body.appendChild(ov);
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  // ★ Load repair orders async
+  if(item.order_code) _ceoLoadRepairOrders(item.order_code, 'ceoRepairNVP');
 }
 
 
@@ -874,3 +886,66 @@ document.addEventListener("click",function(e){
     if(d1)d1.style.display='none';if(d2)d2.style.display='none';if(d3)d3.style.display='none';
   }
 });
+
+// ===== REPAIR ORDER DETAILS — Shared builder =====
+function _ceoBuildRepairHTML(repairOrders) {
+    if (!repairOrders || !repairOrders.length) {
+        return '<div style="margin-bottom:14px;padding:14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px">' +
+            '<div style="font-size:12px;font-weight:800;color:#6d28d9;margin-bottom:4px">\u{1F527} \u0110\u01A1n S\u1EEDa</div>' +
+            '<div style="text-align:center;padding:8px;color:#9ca3af;font-size:12px;font-style:italic">Ch\u01B0a c\u00F3 \u0111\u01A1n s\u1EEDa</div></div>';
+    }
+    var h = '';
+    repairOrders.forEach(function(ro) {
+        var fmtM = function(v) { return Number(v||0) > 0 ? Number(v).toLocaleString('vi-VN') + '\u0111' : '0\u0111'; };
+        var totalItems = (ro.items || []).reduce(function(s, i) { return s + Number(i.item_total || 0); }, 0);
+        var totalQty = (ro.items || []).reduce(function(s, i) { return s + Number(i.quantity || 0); }, 0);
+        h += '<div style="margin-bottom:14px;border:2px solid #7c3aed;border-radius:12px;overflow:hidden">';
+        h += '<div style="padding:10px 14px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;justify-content:space-between;align-items:center">';
+        h += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">\u{1F527}</span>';
+        h += '<div><div style="font-size:13px;font-weight:800;color:#fff">\u0110\u01A0N S\u1EECA \u2014 ' + (ro.order_code || '\u2014') + '</div>';
+        h += '<div style="font-size:10px;color:#c4b5fd">' + (ro.category_name || '') + (ro.order_date ? ' \u00B7 ' + new Date(ro.order_date).toLocaleDateString('vi-VN') : '') + '</div></div></div>';
+        h += '<div style="padding:4px 12px;background:rgba(255,255,255,0.2);border-radius:8px;font-size:14px;font-weight:900;color:#fff">' + fmtM(ro.total_amount) + '</div></div>';
+        if (ro.items && ro.items.length) {
+            h += '<div style="padding:12px 14px">';
+            h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+            h += '<thead><tr style="background:#f5f3ff;border-bottom:2px solid #e9d5ff">';
+            ['Phi\u1EBFu','S\u1EA3n Ph\u1EA9m','Ch\u1EA5t Li\u1EC7u','M\u00E0u','SL','\u0110\u01A1n Gi\u00E1','VAT','Th\u00E0nh Ti\u1EC1n'].forEach(function(c) {
+                h += '<th style="padding:6px 4px;text-align:left;font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap">' + c + '</th>';
+            });
+            h += '</tr></thead><tbody>';
+            ro.items.forEach(function(it) {
+                h += '<tr style="border-bottom:1px solid #f1f5f9">';
+                h += '<td style="padding:5px 4px;font-size:11px"><span style="padding:2px 6px;background:#ede9fe;border-radius:4px;font-weight:600;color:#6d28d9;font-size:10px">Phi\u1EBFu ' + (it.phieu_index || 1) + '</span>' +
+                     (it.phieu_type ? ' <span style="font-size:9px;color:#9ca3af">' + it.phieu_type + '</span>' : '') + '</td>';
+                h += '<td style="padding:5px 4px;font-weight:600;color:#1e293b">' + (it.product_name || '\u2014') + '</td>';
+                h += '<td style="padding:5px 4px;color:#64748b">' + (it.material || '\u2014') + '</td>';
+                h += '<td style="padding:5px 4px;color:#64748b">' + (it.color || '\u2014') + '</td>';
+                h += '<td style="padding:5px 4px;font-weight:700;color:#1e293b;text-align:center">' + (it.quantity || 0) + '</td>';
+                h += '<td style="padding:5px 4px;color:#1e293b">' + fmtM(it.unit_price) + '</td>';
+                h += '<td style="padding:5px 4px;color:#64748b">' + (it.vat_percent || 0) + '%</td>';
+                h += '<td style="padding:5px 4px;font-weight:700;color:#6d28d9">' + fmtM(it.item_total) + '</td>';
+                h += '</tr>';
+            });
+            h += '</tbody></table>';
+            h += '<div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">';
+            h += '<div style="padding:6px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:11px"><b style="color:#166534">T\u1ED5ng SL:</b> <span style="font-weight:800;color:#166534">' + totalQty + '</span></div>';
+            h += '<div style="padding:6px 12px;background:#f5f3ff;border:1px solid #e9d5ff;border-radius:6px;font-size:11px"><b style="color:#6d28d9">T\u1ED5ng ti\u1EC1n:</b> <span style="font-weight:800;color:#6d28d9">' + fmtM(totalItems) + '</span></div>';
+            if (Number(ro.vat_amount)) h += '<div style="padding:6px 12px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:11px"><b style="color:#92400e">VAT:</b> <span style="font-weight:800;color:#92400e">' + fmtM(ro.vat_amount) + '</span></div>';
+            if (Number(ro.deposit_amount)) h += '<div style="padding:6px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:11px"><b style="color:#1d4ed8">\u0110\u00E3 c\u1ECDc:</b> <span style="font-weight:800;color:#1d4ed8">' + fmtM(ro.deposit_amount) + '</span></div>';
+            h += '</div></div>';
+        } else {
+            h += '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px">Ch\u01B0a c\u00F3 phi\u1EBFu</div>';
+        }
+        h += '</div>';
+    });
+    return h;
+}
+
+async function _ceoLoadRepairOrders(orderCode, containerId) {
+    if (!orderCode) return;
+    try {
+        var data = await apiCall('/api/customer-errors/repair-orders/' + encodeURIComponent(orderCode));
+        var container = document.getElementById(containerId);
+        if (container) container.innerHTML = _ceoBuildRepairHTML(data.orders || []);
+    } catch(e) { console.error('[CEO] Repair orders load error:', e); }
+}
