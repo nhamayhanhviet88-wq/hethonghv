@@ -74,7 +74,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'<div id="qlxFilterInfo" style="font-size:12px"></div>'
         +'<div id="qlxStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'<input id="qlxSearch" placeholder="🔍 Tìm mã đơn, tên KH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
-        +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_qlxChecklistSetup()" style="padding:6px 14px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Setup Checklist</button>' : '')
+        +(currentUser && currentUser.role === 'giam_doc' ? '<button onclick="_qlxChecklistSetup()" style="padding:6px 14px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Setup Checklist</button>' : '')
         +'</div>'
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="qlxTable"><thead><tr style="background:var(--gray-800)">'
@@ -422,7 +422,7 @@ async function _qlxChecklist(orderId, orderCode, customerName) {
             }
             html += '</div><div class="qlx-cl-footer">';
             html += '<button class="qlx-cl-btn close" onclick="document.getElementById(\'_qlxClOverlay\').remove()">\u0110\u00f3ng</button>';
-            if (window._currentUser && window._currentUser.role === 'giam_doc') {
+            if (currentUser && currentUser.role === 'giam_doc') {
                 html += '<button class="qlx-cl-btn reset" onclick="_qlxClReset(' + orderId + ')">\ud83d\udd04 Reset Checklist</button>';
             }
             html += '</div>';
