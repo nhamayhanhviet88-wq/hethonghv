@@ -77,6 +77,36 @@ async function routes(fastify) {
         return { items: rows };
     });
 
+    // ========== GET /api/customer-errors/repair-orders/:orderCode — MUST be before /:id ==========
+    fastify.get('/api/customer-errors/repair-orders/:orderCode', { preHandler: authenticate }, async (request) => {
+        const orderCode = request.params.orderCode;
+        if (!orderCode) return { orders: [] };
+
+        // Find all repair orders linked to this original order code
+        const repairOrders = await db.all(`
+            SELECT o.id, o.order_code, o.total_amount, o.vat_amount, o.discount_amount,
+                   o.extra_fee, o.deposit_amount, o.order_date, o.created_at,
+                   c.name AS category_name
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            WHERE o.repair_source_code = $1
+            ORDER BY o.created_at DESC
+        `, [orderCode]);
+
+        // For each repair order, get its items
+        for (const ro of repairOrders) {
+            ro.items = await db.all(`
+                SELECT di.id, di.phieu_index, di.phieu_type, di.product_name, di.material,
+                       di.color, di.quantity, di.unit_price, di.vat_percent, di.item_total
+                FROM dht_order_items di
+                WHERE di.dht_order_id = $1
+                ORDER BY di.phieu_index, di.id
+            `, [ro.id]);
+        }
+
+        return { orders: repairOrders };
+    });
+
     // ========== GET /api/customer-errors/:id — Detail ==========
     fastify.get('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
         const row = await db.get(`
@@ -947,36 +977,6 @@ async function routes(fastify) {
 
         return { success: true };
     });
-    // ========== GET /api/customer-errors/repair-orders/:orderCode — Get repair orders for an error order ==========
-    fastify.get('/api/customer-errors/repair-orders/:orderCode', { preHandler: authenticate }, async (request) => {
-        const orderCode = request.params.orderCode;
-        if (!orderCode) return { orders: [] };
-
-        // Find all repair orders linked to this original order code
-        const repairOrders = await db.all(`
-            SELECT o.id, o.order_code, o.total_amount, o.vat_amount, o.discount_amount,
-                   o.extra_fee, o.deposit_amount, o.order_date, o.created_at,
-                   c.name AS category_name
-            FROM dht_orders o
-            LEFT JOIN dht_categories c ON o.category_id = c.id
-            WHERE o.repair_source_code = $1
-            ORDER BY o.created_at DESC
-        `, [orderCode]);
-
-        // For each repair order, get its items
-        for (const ro of repairOrders) {
-            ro.items = await db.all(`
-                SELECT di.id, di.phieu_index, di.phieu_type, di.product_name, di.material,
-                       di.color, di.quantity, di.unit_price, di.vat_percent, di.item_total
-                FROM dht_order_items di
-                WHERE di.dht_order_id = $1
-                ORDER BY di.phieu_index, di.id
-            `, [ro.id]);
-        }
-
-        return { orders: repairOrders };
-    });
-
 }
 
 module.exports = routes;
