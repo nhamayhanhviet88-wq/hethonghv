@@ -75,6 +75,15 @@ function _qlxRenderSidebar() {
     var h = '<div class="qlx-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#0369a1;font-weight:900">🏭 Chuẩn Bị QLX</span> <span style="color:var(--navy)">───</span></div>';
     h += '<div class="qlx-sb-total" onclick="_qlxFilter(\'all\')"><span>📦 Tổng đơn</span><span style="font-size:16px">' + grandTotal + '</span></div>';
 
+    // Pending KT badge
+    var pendingKT = (t.pending_kt_count || 0);
+    if (pendingKT > 0) {
+        h += '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;cursor:default;border-bottom:1px solid #fbbf24">';
+        h += '<span style="font-size:11px;font-weight:800;color:#92400e">⚠️ Chờ KT In Phiếu</span>';
+        h += '<span style="background:#f59e0b;color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:800">' + pendingKT + '</span>';
+        h += '</div>';
+    }
+
     // Chưa Hoàn Thành
     var incOpen = !!_qlxOpen.inc;
     h += '<div class="qlx-sb-grp" onclick="_qlxToggle(\'inc\')"><span>' + (incOpen ? '▼' : '▶') + ' ⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
@@ -194,10 +203,14 @@ function _qlxRenderRows(paged) {
         var h = '<tr style="' + bg + '">';
         if (isNew) {
             h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + '</td>';
-            h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabric(' + o.id + ',\'' + fabAct + '\')" title="Vải">' + fabIcon + '</button></td>';
-            h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
-            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
-            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">✂️</button></td>';
+            if (o.sx_print_confirmed) {
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabric(' + o.id + ',\'' + fabAct + '\')" title="Vải">' + fabIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">✂️</button></td>';
+            } else {
+                h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;color:#92400e;white-space:nowrap">⚠️ Chưa In Phiếu SX</div></td>';
+            }
         } else { h += '<td></td><td></td><td></td><td></td><td></td>'; }
         h += '<td style="font-weight:600">' + phoiTag + '<span style="color:#1e293b;font-size:11px">' + spName + '</span></td>';
         h += '<td style="font-size:10px;color:#475569">' + matName + '</td>';

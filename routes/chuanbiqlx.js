@@ -92,6 +92,15 @@ module.exports = async function(fastify) {
             ORDER BY year DESC, month DESC
         `);
 
+        // Count orders pending KT confirmation (sx_print_confirmed = false)
+        const pendingKT = await db.get(`
+            SELECT COUNT(*)::int AS cnt FROM dht_orders o
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            WHERE COALESCE(p.is_completed, false) = false
+              AND o.shipping_status != 'shipped'
+              AND COALESCE(o.sx_print_confirmed, false) = false
+        `);
+
         const complete = await db.all(`
             SELECT
                 EXTRACT(YEAR FROM COALESCE(o.shipping_date, o.order_date))::int AS year,
@@ -125,7 +134,8 @@ module.exports = async function(fastify) {
             complete: {
                 total: completeTotal,
                 months: complete.map(r => ({ year: r.year, month: r.month, count: r.order_count }))
-            }
+            },
+            pending_kt_count: pendingKT ? pendingKT.cnt : 0
         };
     });
 
@@ -161,6 +171,7 @@ module.exports = async function(fastify) {
             SELECT o.id, o.order_code, o.order_date, o.customer_name, o.customer_phone,
                 o.total_quantity, o.shipping_date, o.shipping_priority,
                 o.category_id, c.name AS category_name,
+                COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 -- Preparation status
