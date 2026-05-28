@@ -1790,12 +1790,13 @@ async function _dhtSubmitCreateV2() {
         payload.order_code = _dhtCreate.orderCode;
         payload.customer_id = custId;
     }
-    // ★ Repair: send repair fields
+    // ★ Repair: send repair fields + order_code
     if (_dhtRepairData) {
         payload.is_repair = true;
         payload.parent_order_id = _dhtRepairData.parentId;
         payload.repair_source_code = _dhtRepairData.parentCode;
         payload.category_id = _dhtRepairData.catId;
+        payload.order_code = _dhtCreate.orderCode;
     }
 
     var data = await apiCall('/api/dht/orders', 'POST', payload);
@@ -2386,8 +2387,9 @@ function _dhtApplyRepairOverrides() {
         }
     });
 
-    // H. Init deposit state for repair
+    // H. Init deposit state + set orderCode for repair
     _dhtCreate.depositId = null;
     _dhtCreate.depositAmount = 0;
     _dhtCreate.depositCode = '';
+    _dhtCreate.orderCode = repairCode;
 }
