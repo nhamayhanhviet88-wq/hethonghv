@@ -2319,11 +2319,7 @@ function _dhtApplyRepairOverrides() {
         // Show form fields immediately
         var formFields = document.getElementById('_co_freeFormFields');
         if (formFields) formFields.style.display = '';
-        // Inject deposit picker after code label (for PET/TEM)
-        var codeFreeEl = document.getElementById('_co_codeFree');
-        if (codeFreeEl && !document.getElementById('_co_repairDepWrap')) {
-            codeFreeEl.insertAdjacentHTML('afterend', _repairDepositHTML);
-        }
+        // PET/TEM free form already has built-in deposit picker — no injection needed
     } else {
         // Normal form: hide code search, show repair badge
         var codeNormal = document.getElementById('_co_codeNormal');
