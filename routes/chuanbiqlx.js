@@ -53,6 +53,39 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_hist_order ON qlx_history(dht_order_id)`);
     } catch(e) { console.error('[QLX] history table:', e.message); }
 
+    // Checklist templates
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_checklist_templates (
+            id SERIAL PRIMARY KEY,
+            type VARCHAR(20) DEFAULT 'question',
+            content TEXT NOT NULL,
+            sort_order INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+    } catch(e) { console.error('[QLX] checklist templates:', e.message); }
+
+    // Checklist responses per order
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_checklist_responses (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            template_id INTEGER NOT NULL REFERENCES qlx_checklist_templates(id) ON DELETE CASCADE,
+            is_checked BOOLEAN DEFAULT FALSE,
+            checked_at TIMESTAMPTZ,
+            checked_by INTEGER REFERENCES users(id),
+            UNIQUE(dht_order_id, template_id)
+        )`);
+    } catch(e) { console.error('[QLX] checklist responses:', e.message); }
+
+    // Add qlx_reviewed columns to qlx_preparation
+    try {
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_reviewed BOOLEAN DEFAULT FALSE`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_reviewed_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_reviewed_by INTEGER REFERENCES users(id)`);
+    } catch(e) { console.error('[QLX] qlx_reviewed columns:', e.message); }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -177,6 +210,7 @@ module.exports = async function(fastify) {
                 o.total_quantity, o.expected_ship_date, o.shipping_priority,
                 o.category_id, c.name AS category_name,
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
+                COALESCE(p.qlx_reviewed, false) AS qlx_reviewed,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 -- Preparation status
@@ -416,5 +450,102 @@ module.exports = async function(fastify) {
             [orderId, newVal ? 'complete' : 'reopen', label, request.user.id, now]);
 
         return { success: true, is_completed: newVal };
+    });
+
+    // ========== CHECKLIST TEMPLATES CRUD ==========
+    // GET all active templates
+    fastify.get('/api/qlx/checklist/templates', { preHandler: [authenticate] }, async (request, reply) => {
+        const templates = await db.all(`SELECT * FROM qlx_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        return { templates };
+    });
+
+    // GET all templates (including inactive) for admin
+    fastify.get('/api/qlx/checklist/templates/all', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const templates = await db.all(`SELECT t.*, u.full_name AS created_by_name FROM qlx_checklist_templates t LEFT JOIN users u ON t.created_by = u.id ORDER BY t.sort_order, t.id`);
+        return { templates };
+    });
+
+    // POST create template
+    fastify.post('/api/qlx/checklist/templates', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const { type, content, sort_order } = request.body;
+        if (!content || !content.trim()) return reply.code(400).send({ error: 'Nội dung không được trống' });
+        const row = await db.get(`INSERT INTO qlx_checklist_templates (type, content, sort_order, created_by) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [type || 'question', content.trim(), sort_order || 0, request.user.id]);
+        return { success: true, template: row };
+    });
+
+    // PUT update template
+    fastify.put('/api/qlx/checklist/templates/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const { content, sort_order, is_active, type } = request.body;
+        await db.run(`UPDATE qlx_checklist_templates SET content = COALESCE($1, content), sort_order = COALESCE($2, sort_order), is_active = COALESCE($3, is_active), type = COALESCE($4, type) WHERE id = $5`,
+            [content, sort_order, is_active, type, request.params.id]);
+        return { success: true };
+    });
+
+    // DELETE template
+    fastify.delete('/api/qlx/checklist/templates/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        await db.run(`DELETE FROM qlx_checklist_responses WHERE template_id = $1`, [request.params.id]);
+        await db.run(`DELETE FROM qlx_checklist_templates WHERE id = $1`, [request.params.id]);
+        return { success: true };
+    });
+
+    // ========== CHECKLIST PER ORDER ==========
+    // GET checklist status for an order
+    fastify.get('/api/qlx/checklist/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = parseInt(request.params.orderId);
+        const templates = await db.all(`SELECT * FROM qlx_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        const responses = await db.all(`SELECT r.*, u.full_name AS checked_by_name FROM qlx_checklist_responses r LEFT JOIN users u ON r.checked_by = u.id WHERE r.dht_order_id = $1`, [orderId]);
+        const prep = await db.get(`SELECT qlx_reviewed, qlx_reviewed_at, qlx_reviewed_by FROM qlx_preparation WHERE dht_order_id = $1`, [orderId]);
+        const reviewer = prep && prep.qlx_reviewed_by ? await db.get(`SELECT full_name FROM users WHERE id = $1`, [prep.qlx_reviewed_by]) : null;
+        return { templates, responses, reviewed: prep ? prep.qlx_reviewed : false, reviewed_at: prep ? prep.qlx_reviewed_at : null, reviewed_by: reviewer ? reviewer.full_name : null };
+    });
+
+    // POST confirm checklist for an order
+    fastify.post('/api/qlx/checklist/:orderId/confirm', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = parseInt(request.params.orderId);
+        const { checks } = request.body; // [{template_id, is_checked}]
+        const now = new Date().toISOString();
+
+        // Ensure prep row exists
+        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+
+        // Save individual checks
+        if (checks && checks.length) {
+            for (const c of checks) {
+                await db.run(`INSERT INTO qlx_checklist_responses (dht_order_id, template_id, is_checked, checked_at, checked_by)
+                    VALUES ($1, $2, $3, $4, $5) ON CONFLICT (dht_order_id, template_id)
+                    DO UPDATE SET is_checked = $3, checked_at = $4, checked_by = $5`,
+                    [orderId, c.template_id, true, now, request.user.id]);
+            }
+        }
+
+        // Mark as reviewed
+        await db.run(`UPDATE qlx_preparation SET qlx_reviewed = true, qlx_reviewed_at = $1, qlx_reviewed_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+            [now, request.user.id, orderId]);
+
+        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+            [orderId, 'checklist_confirmed', 'QLX xác nhận đã kiểm tra checklist', request.user.id, now]);
+
+        return { success: true };
+    });
+
+    // POST reset checklist for an order (Giám Đốc only)
+    fastify.post('/api/qlx/checklist/:orderId/reset', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const orderId = parseInt(request.params.orderId);
+        const now = new Date().toISOString();
+
+        await db.run(`DELETE FROM qlx_checklist_responses WHERE dht_order_id = $1`, [orderId]);
+        await db.run(`UPDATE qlx_preparation SET qlx_reviewed = false, qlx_reviewed_at = NULL, qlx_reviewed_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+            [now, orderId]);
+
+        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+            [orderId, 'checklist_reset', 'Giám Đốc reset checklist', request.user.id, now]);
+
+        return { success: true };
     });
 };

@@ -31,6 +31,41 @@ function renderQuanlyxuongqlxPage(content) {
 +'.qlx-priority{padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;display:inline-block}'
 +'.qlx-status-bar{display:flex;gap:2px;align-items:center}'
 +'.qlx-status-dot{width:8px;height:8px;border-radius:50%}'
++'.qlx-cl-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:qlxFadeIn .2s}'
++'@keyframes qlxFadeIn{from{opacity:0}to{opacity:1}}'
++'.qlx-cl-popup{background:#fff;border-radius:16px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s}'
++'@keyframes qlxSlideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}'
++'.qlx-cl-header{background:linear-gradient(135deg,#0f172a,#1e3a5f,#0369a1);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0}'
++'.qlx-cl-header h3{margin:0;font-size:16px;font-weight:800;letter-spacing:0.5px}'
++'.qlx-cl-header p{margin:4px 0 0;font-size:11px;opacity:0.8}'
++'.qlx-cl-body{padding:20px 24px}'
++'.qlx-cl-note{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fbbf24;border-radius:10px;padding:12px 16px;margin-bottom:16px}'
++'.qlx-cl-note-title{font-size:11px;font-weight:800;color:#92400e;margin-bottom:6px}'
++'.qlx-cl-note-item{font-size:11px;color:#78350f;padding:3px 0;line-height:1.4}'
++'.qlx-cl-section{margin-bottom:16px}'
++'.qlx-cl-section-title{font-size:12px;font-weight:800;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px}'
++'.qlx-cl-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .15s}'
++'.qlx-cl-item:hover{border-color:#0ea5e9;background:#f0f9ff}'
++'.qlx-cl-item.checked{border-color:#22c55e;background:#f0fdf4}'
++'.qlx-cl-check{width:22px;height:22px;border-radius:6px;border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-size:13px}'
++'.qlx-cl-item.checked .qlx-cl-check{background:#22c55e;border-color:#22c55e;color:#fff}'
++'.qlx-cl-label{font-size:12px;color:#334155;font-weight:600;line-height:1.5}'
++'.qlx-cl-progress{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:16px}'
++'.qlx-cl-progress-bar{height:100%;background:linear-gradient(90deg,#0ea5e9,#22c55e);border-radius:3px;transition:width .3s}'
++'.qlx-cl-footer{padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}'
++'.qlx-cl-btn{padding:10px 24px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;border:none;transition:all .2s}'
++'.qlx-cl-btn.confirm{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,0.3)}'
++'.qlx-cl-btn.confirm:disabled{background:#94a3b8;box-shadow:none;cursor:not-allowed}'
++'.qlx-cl-btn.confirm:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(16,185,129,0.4)}'
++'.qlx-cl-btn.close{background:#f1f5f9;color:#475569}'
++'.qlx-cl-btn.close:hover{background:#e2e8f0}'
++'.qlx-cl-btn.reset{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;font-size:10px;padding:6px 14px}'
++'.qlx-cl-reviewed{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #22c55e;border-radius:10px;padding:16px;text-align:center}'
++'.qlx-cl-reviewed h4{color:#059669;font-size:14px;margin:0 0 4px}'
++'.qlx-cl-reviewed p{color:#6b7280;font-size:11px;margin:0}'
++'.qlx-cl-icon-btn{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:80px;height:26px;border-radius:8px;border:1.5px solid #0ea5e9;background:linear-gradient(135deg,#e0f2fe,#bae6fd);font-size:10px;font-weight:700;color:#0369a1;gap:4px;transition:all .2s;animation:qlxPulse 2s infinite}'
++'@keyframes qlxPulse{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0.4)}50%{box-shadow:0 0 0 6px rgba(14,165,233,0)}}'
++'.qlx-cl-icon-btn:hover{transform:scale(1.05);background:linear-gradient(135deg,#bae6fd,#7dd3fc)}'
 +'@media(max-width:768px){.qlx-sidebar{display:none}}';
         document.head.appendChild(st);
     }
@@ -220,10 +255,14 @@ function _qlxRenderRows(paged) {
         if (isNew) {
             h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + '</td>';
             if (o.sx_print_confirmed) {
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabric(' + o.id + ',\'' + fabAct + '\')" title="Vải">' + fabIcon + '</button></td>';
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">✂️</button></td>';
+                if (o.qlx_reviewed) {
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabric(' + o.id + ',\'' + fabAct + '\')" title="Vải">' + fabIcon + '</button></td>';
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">✂️</button></td>';
+                } else {
+                    h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div class="qlx-cl-icon-btn" onclick="_qlxChecklist(' + o.id + ',\'' + (o.order_code||'') + '\',\'' + (o.customer_name||'').replace(/'/g,'') + '\')">📋 Kiểm tra</div></td>';
+                }
             } else {
                 h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;color:#92400e;white-space:nowrap">⚠️ Chưa In Phiếu SX</div></td>';
             }
@@ -342,3 +381,145 @@ async function _qlxDoAssign(orderId, type) {
     } catch(e) { showToast(e.message, 'error'); }
 }
 
+// ========== CHECKLIST POPUP ==========
+async function _qlxChecklist(orderId, orderCode, customerName) {
+    try {
+        var data = await apiCall('/api/qlx/checklist/' + orderId);
+        var templates = data.templates || [];
+        var responses = data.responses || [];
+        var reviewed = data.reviewed;
+        var questions = templates.filter(function(t) { return t.type === 'question'; });
+        if (questions.length === 0 && !reviewed) {
+            await apiCall('/api/qlx/checklist/' + orderId + '/confirm', 'POST', { checks: [] });
+            showToast('✅ Không có checklist, đã xác nhận tự động');
+            await _qlxLoadAll(); return;
+        }
+        var respMap = {};
+        responses.forEach(function(r) { respMap[r.template_id] = r; });
+        var notes = templates.filter(function(t) { return t.type === 'note'; });
+
+        var overlay = document.createElement('div');
+        overlay.className = 'qlx-cl-overlay';
+        overlay.id = '_qlxClOverlay';
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+        var html = '<div class="qlx-cl-popup">';
+        html += '<div class="qlx-cl-header"><h3>\ud83d\udccb KI\u1ec2M TRA TR\u01af\u1edaC KHI CHU\u1ea8N B\u1eca</h3>';
+        html += '<p>\u0110\u01a1n: <strong>' + orderCode + '</strong> \u2014 ' + customerName + '</p></div>';
+        html += '<div class="qlx-cl-body">';
+
+        if (reviewed) {
+            html += '<div class="qlx-cl-reviewed"><h4>\u2705 \u0110\u00e3 Ki\u1ec3m Tra & X\u00e1c Nh\u1eadn</h4>';
+            html += '<p>B\u1edfi: <strong>' + (data.reviewed_by || '\u2014') + '</strong></p>';
+            html += '<p>L\u00fac: ' + _qlxFmtDate(data.reviewed_at) + '</p></div>';
+            if (questions.length) {
+                html += '<div class="qlx-cl-section" style="margin-top:16px"><div class="qlx-cl-section-title">\ud83d\udcdd Chi ti\u1ebft \u0111\u00e3 ki\u1ec3m tra</div>';
+                questions.forEach(function(q) {
+                    html += '<div class="qlx-cl-item checked" style="cursor:default"><div class="qlx-cl-check">\u2713</div><div class="qlx-cl-label">' + q.content + '</div></div>';
+                });
+                html += '</div>';
+            }
+            html += '</div><div class="qlx-cl-footer">';
+            html += '<button class="qlx-cl-btn close" onclick="document.getElementById(\'_qlxClOverlay\').remove()">\u0110\u00f3ng</button>';
+            if (window._currentUser && window._currentUser.role === 'giam_doc') {
+                html += '<button class="qlx-cl-btn reset" onclick="_qlxClReset(' + orderId + ')">\ud83d\udd04 Reset Checklist</button>';
+            }
+            html += '</div>';
+        } else {
+            if (notes.length) {
+                html += '<div class="qlx-cl-note"><div class="qlx-cl-note-title">\ud83d\udccc GHI CH\u00da L\u01afU \u00dd</div>';
+                notes.forEach(function(n) { html += '<div class="qlx-cl-note-item">\u26a0\ufe0f ' + n.content + '</div>'; });
+                html += '</div>';
+            }
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+            html += '<div class="qlx-cl-section-title">\u2705 CHECKLIST</div>';
+            html += '<span id="_qlxClCount" style="font-size:11px;font-weight:700;color:#64748b">0/' + questions.length + '</span></div>';
+            html += '<div class="qlx-cl-progress"><div class="qlx-cl-progress-bar" id="_qlxClBar" style="width:0%"></div></div>';
+            html += '<div class="qlx-cl-section">';
+            questions.forEach(function(q) {
+                html += '<div class="qlx-cl-item" data-tid="' + q.id + '" onclick="_qlxClToggle(this)"><div class="qlx-cl-check"></div><div class="qlx-cl-label">' + q.content + '</div></div>';
+            });
+            html += '</div></div>';
+            html += '<div class="qlx-cl-footer"><button class="qlx-cl-btn close" onclick="document.getElementById(\'_qlxClOverlay\').remove()">\u274c \u0110\u00f3ng</button>';
+            html += '<button class="qlx-cl-btn confirm" id="_qlxClConfirmBtn" disabled onclick="_qlxClConfirm(' + orderId + ')">\u2705 X\u00e1c Nh\u1eadn \u0110\u00e3 Ki\u1ec3m Tra</button></div>';
+        }
+        html += '</div>';
+        overlay.innerHTML = html;
+        document.body.appendChild(overlay);
+    } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
+}
+
+function _qlxClToggle(el) {
+    el.classList.toggle('checked');
+    el.querySelector('.qlx-cl-check').innerHTML = el.classList.contains('checked') ? '\u2713' : '';
+    var total = document.querySelectorAll('.qlx-cl-item[data-tid]').length;
+    var checked = document.querySelectorAll('.qlx-cl-item.checked[data-tid]').length;
+    var c = document.getElementById('_qlxClCount'), b = document.getElementById('_qlxClBar'), btn = document.getElementById('_qlxClConfirmBtn');
+    if (c) c.textContent = checked + '/' + total;
+    if (b) b.style.width = (total ? (checked / total * 100) : 0) + '%';
+    if (btn) btn.disabled = checked < total;
+}
+
+async function _qlxClConfirm(orderId) {
+    var checks = [];
+    document.querySelectorAll('.qlx-cl-item.checked[data-tid]').forEach(function(el) {
+        checks.push({ template_id: parseInt(el.getAttribute('data-tid')) });
+    });
+    try {
+        await apiCall('/api/qlx/checklist/' + orderId + '/confirm', 'POST', { checks: checks });
+        var ov = document.getElementById('_qlxClOverlay'); if (ov) ov.remove();
+        showToast('\u2705 \u0110\u00e3 x\u00e1c nh\u1eadn ki\u1ec3m tra \u0111\u01a1n h\u00e0ng'); await _qlxLoadAll();
+    } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
+}
+
+async function _qlxClReset(orderId) {
+    if (!confirm('Reset checklist \u0111\u01a1n n\u00e0y?')) return;
+    try {
+        await apiCall('/api/qlx/checklist/' + orderId + '/reset', 'POST');
+        var ov = document.getElementById('_qlxClOverlay'); if (ov) ov.remove();
+        showToast('\ud83d\udd04 \u0110\u00e3 reset checklist'); await _qlxLoadAll();
+    } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
+}
+
+// ========== CHECKLIST SETUP (Gi\u00e1m \u0110\u1ed1c) ==========
+async function _qlxChecklistSetup() {
+    try {
+        var data = await apiCall('/api/qlx/checklist/templates/all');
+        var templates = data.templates || [];
+        var html = '<div style="padding:20px"><h3 style="margin:0 0 16px;color:#0f172a">\u2699\ufe0f Qu\u1ea3n L\u00fd Checklist Chu\u1ea9n B\u1ecb QLX</h3>';
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0">';
+        html += '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">\u2795 Th\u00eam M\u1edbi</div>';
+        html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+        html += '<select id="_qlxClNewType" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px"><option value="question">\u2705 C\u00e2u h\u1ecfi</option><option value="note">\ud83d\udccc Ghi ch\u00fa</option></select>';
+        html += '<input id="_qlxClNewContent" placeholder="N\u1ed9i dung..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
+        html += '<input id="_qlxClNewOrder" type="number" value="0" placeholder="TT" style="width:60px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;text-align:center">';
+        html += '<button onclick="_qlxClAdd()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Th\u00eam</button>';
+        html += '</div></div>';
+        if (templates.length) {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left">Lo\u1ea1i</th><th style="padding:8px;text-align:left">N\u1ed9i dung</th><th style="padding:8px;text-align:center">TT</th><th style="padding:8px;text-align:center">Tr\u1ea1ng th\u00e1i</th><th style="padding:8px;text-align:center">Thao t\u00e1c</th></tr></thead><tbody>';
+            templates.forEach(function(t) {
+                var tp = t.type === 'question' ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">\u2705 C\u00e2u h\u1ecfi</span>' : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">\ud83d\udccc Ghi ch\u00fa</span>';
+                var st = t.is_active ? '<span style="color:#059669;font-weight:700">B\u1eadt</span>' : '<span style="color:#dc2626;font-weight:700">T\u1eaft</span>';
+                html += '<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">' + tp + '</td><td style="padding:8px;font-weight:600">' + t.content + '</td><td style="padding:8px;text-align:center">' + t.sort_order + '</td><td style="padding:8px;text-align:center">' + st + '</td>';
+                html += '<td style="padding:8px;text-align:center"><button onclick="_qlxClToggleActive(' + t.id + ',' + !t.is_active + ')" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;cursor:pointer;background:#fff;margin-right:4px">' + (t.is_active ? '\ud83d\udd07 T\u1eaft' : '\ud83d\udd14 B\u1eadt') + '</button>';
+                html += '<button onclick="_qlxClDelete(' + t.id + ')" style="padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626">\ud83d\uddd1\ufe0f X\u00f3a</button></td></tr>';
+            });
+            html += '</tbody></table>';
+        } else { html += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Ch\u01b0a c\u00f3 checklist n\u00e0o</div>'; }
+        html += '</div>';
+        showModal('\u2699\ufe0f Setup Checklist', html, { width: '700px' });
+    } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
+}
+
+async function _qlxClAdd() {
+    var t = document.getElementById('_qlxClNewType').value, c = document.getElementById('_qlxClNewContent').value, s = parseInt(document.getElementById('_qlxClNewOrder').value) || 0;
+    if (!c.trim()) return showToast('Nh\u1eadp n\u1ed9i dung', 'error');
+    try { await apiCall('/api/qlx/checklist/templates', 'POST', { type: t, content: c, sort_order: s }); showToast('\u2705 \u0110\u00e3 th\u00eam'); _qlxChecklistSetup(); } catch(e) { showToast(e.message, 'error'); }
+}
+async function _qlxClToggleActive(id, val) {
+    try { await apiCall('/api/qlx/checklist/templates/' + id, 'PUT', { is_active: val }); showToast('\u2705 C\u1eadp nh\u1eadt'); _qlxChecklistSetup(); } catch(e) { showToast(e.message, 'error'); }
+}
+async function _qlxClDelete(id) {
+    if (!confirm('X\u00f3a m\u1ee5c n\u00e0y?')) return;
+    try { await apiCall('/api/qlx/checklist/templates/' + id, 'DELETE'); showToast('\u2705 \u0110\u00e3 x\u00f3a'); _qlxChecklistSetup(); } catch(e) { showToast(e.message, 'error'); }
+}
