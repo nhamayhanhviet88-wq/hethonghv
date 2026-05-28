@@ -86,19 +86,15 @@ function _ceoRenderTable() {
     var allItems = _ceo.items;
     // Apply client-side filter
     var items = allItems;
-    if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(function(i){ return !i.sale_resolution || i.sale_resolution.trim()==='' || i.sale_resolution.trim()==='1. '; });
-    else if (_ceo.filter === 'chua_xl') items = allItems.filter(function(i){ return !i.qlx_updated_at; });
-    else if (_ceo.filter === 'chua_phat') items = allItems.filter(function(i){ return !i.penalty_month; });
-    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.qlx_updated_at && i.penalty_month; });
+    if (_ceo.filter === 'qlx_chua_xl') items = allItems.filter(function(i){ return !i.qlx_updated_at; });
+    else if (_ceo.filter === 'chua_phat') items = allItems.filter(function(i){ return !i.production_cost && !i.shipping_cost; });
+    else if (_ceo.filter === 'chua_nvp') items = allItems.filter(function(i){ return !i.violator_commitment || i.violator_commitment.trim()==='' || i.violator_commitment.trim()==='1. '; });
+    else if (_ceo.filter === 'hoan_thanh') items = allItems.filter(function(i){ return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. '; });
     var title = _ceo.year && _ceo.month ? 'Tháng ' + _ceo.month + '/' + _ceo.year : _ceo.year ? 'Năm ' + _ceo.year : 'Tất Cả';
-    var cQLX = allItems.filter(function(i){return !i.sale_resolution || i.sale_resolution.trim()==='' || i.sale_resolution.trim()==='1. ';}).length;
-    var cXL = allItems.filter(function(i){return !i.qlx_updated_at;}).length;
-    var cPhat = allItems.filter(function(i){return !i.penalty_month;}).length;
-    var cDone = allItems.filter(function(i){return i.qlx_updated_at && i.penalty_month;}).length;
-    // Build order lists
-    var xlOrders = allItems.filter(function(i){return !i.qlx_updated_at;});
-    var phatOrders = allItems.filter(function(i){return !i.penalty_month;});
-    var doneOrders = allItems.filter(function(i){return i.qlx_updated_at && i.penalty_month;});
+    var cQLX = allItems.filter(function(i){return !i.qlx_updated_at;}).length;
+    var cPhat = allItems.filter(function(i){return !i.production_cost && !i.shipping_cost;}).length;
+    var cNVP = allItems.filter(function(i){return !i.violator_commitment || i.violator_commitment.trim()==='' || i.violator_commitment.trim()==='1. ';}).length;
+    var cDone = allItems.filter(function(i){return i.qlx_updated_at && (i.production_cost || i.shipping_cost) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';}).length;
 
     var h = '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;background:#fff">' +
         '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH & NỘI BỘ — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + '/' + allItems.length + ')</span></div>' +
@@ -114,17 +110,17 @@ function _ceoRenderTable() {
     h += '<div onclick="_ceoSetFilter(\'qlx_chua_xl\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid ' + (_ceo.filter==='qlx_chua_xl'?'#ea580c':'#fed7aa') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(234,88,12,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='qlx_chua_xl'?'0 4px 16px rgba(234,88,12,0.15)':'none') + '\'">'
     + '<div style="font-size:32px">🏭</div>'
     + '<div><div style="font-size:20px;font-weight:900;color:#ea580c">' + cQLX + '</div>'
-    + '<div style="font-size:11px;font-weight:700;color:#9a3412">QLX Chưa XL Lỗi</div></div></div>';
-    // Card 1: Chưa Xử Lý
-    h += '<div onclick="_ceoSetFilter(\'chua_xl\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_xl'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_xl'?'0 4px 16px rgba(220,38,38,0.15)':'none') + '\'">';
+    + '<div style="font-size:11px;font-weight:700;color:#9a3412">QLX Chưa Cập Nhật Lỗi</div></div></div>';
+    // Card 1: Chưa Cập Nhật Phạt
+    h += '<div onclick="_ceoSetFilter(\'chua_phat\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid ' + (_ceo.filter==='chua_phat'?'#dc2626':'#fecaca') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(220,38,38,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_phat'?'0 4px 16px rgba(220,38,38,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🔴</div>';
-    h += '<div><div style="font-size:20px;font-weight:900;color:#dc2626">' + cXL + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Xử Lý</div></div></div>';
-    // Card 2: Chưa Phạt
-    h += '<div onclick="_ceoSetFilter(\'chua_phat\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid ' + (_ceo.filter==='chua_phat'?'#d97706':'#fde68a') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_phat'?'0 4px 16px rgba(217,119,6,0.15)':'none') + '\'">';
+    h += '<div><div style="font-size:20px;font-weight:900;color:#dc2626">' + cPhat + '</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#991b1b">Chưa Cập Nhật Phạt</div></div></div>';
+    // Card 2: Chưa Cập Nhật NVP
+    h += '<div onclick="_ceoSetFilter(\'chua_nvp\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid ' + (_ceo.filter==='chua_nvp'?'#d97706':'#fde68a') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(217,119,6,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='chua_nvp'?'0 4px 16px rgba(217,119,6,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🟡</div>';
-    h += '<div><div style="font-size:20px;font-weight:900;color:#d97706">' + cPhat + '</div>';
-    h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Phạt</div></div></div>';
+    h += '<div><div style="font-size:20px;font-weight:900;color:#d97706">' + cNVP + '</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#92400e">Chưa Cập Nhật NVP</div></div></div>';
     // Card 3: Hoàn Thành
     h += '<div onclick="_ceoSetFilter(\'hoan_thanh\')" style="flex:1;padding:16px 20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid ' + (_ceo.filter==='hoan_thanh'?'#16a34a':'#bbf7d0') + ';border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .2s;user-select:none" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(22,163,74,0.2)\'" onmouseout="this.style.boxShadow=\'' + (_ceo.filter==='hoan_thanh'?'0 4px 16px rgba(22,163,74,0.15)':'none') + '\'">';
     h += '<div style="font-size:32px">🟢</div>';
@@ -467,7 +463,7 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    return !i.common_error_type||!i.qlx_updated_at||!i.penalty_month||!i.violator_name||!i.violator_commitment||(!i.production_cost&&!i.shipping_cost);
+    return !i.qlx_updated_at||(!i.production_cost&&!i.shipping_cost)||!i.violator_commitment||i.violator_commitment.trim()===''||i.violator_commitment.trim()==='1. ';
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -485,13 +481,9 @@ function _ceoOpenUpdatePicker(){
     incomplete.forEach(function(item){
       var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'';
       var missing=[];
-      if(!item.common_error_type)missing.push('Loại Lỗi');
-      if(!item.production_cost)missing.push('Chi Phí SX');
-      if(!item.shipping_cost)missing.push('Phí Ship');
-      if(!item.qlx_updated_at)missing.push('Xử Lý');
-      if(!item.penalty_month)missing.push('Đã Phạt');
-      if(!item.violator_name)missing.push('Người VP');
-      if(!item.violator_commitment)missing.push('Cam Kết');
+      if(!item.qlx_updated_at)missing.push('QLX Chưa Cập Nhật');
+      if(!item.production_cost && !item.shipping_cost)missing.push('Chưa Cập Nhật Phạt');
+      if(!item.violator_commitment || item.violator_commitment.trim()==='' || item.violator_commitment.trim()==='1. ')missing.push('Chưa Cập Nhật NVP');
       h+='<div onclick="document.getElementById(\'ceoPickerOv\').remove();_ceoOpenUpdateModal('+item.id+')" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.background=\'\';this.style.borderColor=\'#e5e7eb\'">';
       h+='<div><span style="font-weight:700;color:#ea580c">'+(item.order_code||'#'+item.id)+'</span> <span style="color:#9ca3af;font-size:11px">'+rd+'</span>';
       h+='<div style="font-size:10px;color:#dc2626;margin-top:2px">Thiếu: '+missing.join(', ')+'</div></div>';
