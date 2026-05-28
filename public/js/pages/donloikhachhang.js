@@ -188,8 +188,9 @@ function _ceoRenderTable() {
 
 // ===== DETAIL VIEWER — READ-ONLY =====
 async function _ceoViewDetail(id) {
-    var item=_ceo.items.find(function(x){return x.id===id;});
-    if(!item){try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}}
+    var item=null;
+    try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}
+    if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
     if(!item)return;
     var _canEdit=currentUser&&(currentUser.role==='giam_doc'||currentUser.role==='quan_ly_cap_cao');
     var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'—';
@@ -791,15 +792,13 @@ async function _ceoSubmitNVP(id){
   // Collect per-person commitments
   var commitment='';
   if(nvpNames.length>1){
-    var allEmpty=true;
     for(var ci=0;ci<nvpNames.length;ci++){
       var ta=document.getElementById('ceoU_commit_'+ci);
       var val=ta?ta.value.trim():'';
-      if(val&&val!=='1. ')allEmpty=false;
+      if(!val||val==='1.'||val==='1. '){showToast('Vui l\u00f2ng nh\u1eadp Cam K\u1ebft cho "'+nvpNames[ci]+'"','error');if(ta){ta.style.border='2px solid #dc2626';ta.focus();}return;}
       commitment+='['+nvpNames[ci]+']: '+val+'\n';
     }
     commitment=commitment.trim();
-    if(allEmpty){showToast('Vui l\u00f2ng nh\u1eadp Cam K\u1ebft cho \u00edt nh\u1ea5t 1 ng\u01b0\u1eddi vi ph\u1ea1m','error');return;}
   } else {
     var ta0=document.getElementById('ceoU_commit_0');
     commitment=ta0?ta0.value.trim():'';
