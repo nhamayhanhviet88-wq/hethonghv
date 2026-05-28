@@ -89,6 +89,7 @@ module.exports = async function(fastify) {
             WHERE COALESCE(p.is_completed, false) = false
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
+              AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
             GROUP BY year, month, o.category_id, c.name
             ORDER BY year DESC, month DESC
         `);
@@ -101,6 +102,7 @@ module.exports = async function(fastify) {
             WHERE COALESCE(p.is_completed, false) = false
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
+              AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.sx_print_confirmed, false) = false
         `);
 
@@ -149,7 +151,7 @@ module.exports = async function(fastify) {
 
         const { status, year, month, category_id, search } = request.query;
 
-        let where = `WHERE 1=1 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')`;
+        let where = `WHERE 1=1 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM') AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'`;
         const params = [];
         let idx = 1;
 
