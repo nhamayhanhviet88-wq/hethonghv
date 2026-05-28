@@ -1669,7 +1669,7 @@ function _dhtRenderSurcharges() {
 
 // === Submit Order ===
 async function _dhtSubmitCreateV2() {
-    var cat = document.getElementById('_co_cat')?.value;
+    var cat = _dhtRepairData ? String(_dhtRepairData.catId) : (document.getElementById('_co_cat')?.value);
     var phone = document.getElementById('_co_phone')?.value?.trim();
     var name = document.getElementById('_co_name')?.value?.trim();
     var addr = document.getElementById('_co_addr')?.value?.trim();
@@ -1709,7 +1709,7 @@ async function _dhtSubmitCreateV2() {
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
     if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
     if (!isFree && !src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
-    var desVal = document.getElementById('_co_designer')?.value;
+    var desVal = _dhtRepairData ? 'old_design' : (document.getElementById('_co_designer')?.value);
     if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
@@ -1742,7 +1742,7 @@ async function _dhtSubmitCreateV2() {
     items.forEach(function(p) { totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var hasVat = totalVatAmt > 0;
     var vatAmt = totalVatAmt;
-    var desVal2 = document.getElementById('_co_designer')?.value;
+    var desVal2 = _dhtRepairData ? 'old_design' : (document.getElementById('_co_designer')?.value);
     var desType = desVal2 === 'old_design' ? 'old_design' : 'staff';
     var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
 
@@ -2280,7 +2280,6 @@ function _dhtApplyRepairOverrides() {
     // A. Set category to "ĐƠN SỬA" and lock
     var catSel = document.getElementById('_co_cat');
     if (catSel) {
-        // Add option if not present
         var found = false;
         for (var i = 0; i < catSel.options.length; i++) {
             if (catSel.options[i].value == rd.catId) { found = true; break; }
@@ -2301,6 +2300,13 @@ function _dhtApplyRepairOverrides() {
 
     // B. Set order code (readonly badge style)
     var repairCode = 'SUA' + rd.parentCode;
+    var _repairDepositHTML = '<div id="_co_repairDepWrap" style="margin:10px 0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #86efac;border-radius:10px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#166534;margin-bottom:6px;display:block">💰 Chọn Mã Cọc (tùy chọn) <span style="font-size:10px;color:#64748b;font-weight:600">— từ Sổ Ghi Nhận Tiền</span></label>'
+        +'<div style="position:relative"><input id="_co_depSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." autocomplete="off" oninput="_dhtSearchDeposit()" onfocus="_dhtSearchDeposit()" style="font-size:12px;border:2px solid #059669">'
+        +'<div id="_co_depSearchList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
+        +'</div>';
+
     if (rd.isPetTem) {
         // Free form: update code label
         var freeLabel = document.getElementById('_co_codeFreeLabel');
@@ -2313,6 +2319,11 @@ function _dhtApplyRepairOverrides() {
         // Show form fields immediately
         var formFields = document.getElementById('_co_freeFormFields');
         if (formFields) formFields.style.display = '';
+        // Inject deposit picker after code label (for PET/TEM)
+        var codeFreeEl = document.getElementById('_co_codeFree');
+        if (codeFreeEl && !document.getElementById('_co_repairDepWrap')) {
+            codeFreeEl.insertAdjacentHTML('afterend', _repairDepositHTML);
+        }
     } else {
         // Normal form: hide code search, show repair badge
         var codeNormal = document.getElementById('_co_codeNormal');
@@ -2327,10 +2338,11 @@ function _dhtApplyRepairOverrides() {
                 freeLabel2.style.borderColor = '#7c3aed';
                 freeLabel2.style.background = '#f5f3ff';
             }
+            // Inject deposit picker after code section (for Đồng Phục)
+            if (!document.getElementById('_co_repairDepWrap')) {
+                codeFree.insertAdjacentHTML('afterend', _repairDepositHTML);
+            }
         }
-        // Show deposit picker for đồng phục repair orders
-        var freeDepWrap = document.getElementById('_co_freeDepositWrap');
-        if (freeDepWrap) freeDepWrap.style.display = 'block';
     }
 
     // C. Pre-fill customer info
@@ -2346,7 +2358,6 @@ function _dhtApplyRepairOverrides() {
     // D. Pre-fill source
     var srcEl = document.getElementById('_co_src');
     if (srcEl) srcEl.value = o.source || '';
-    // For free form, try to set source dropdown
     var srcFreeSelect = document.getElementById('_co_srcFreeSelect');
     if (srcFreeSelect && o.source) {
         for (var j = 0; j < srcFreeSelect.options.length; j++) {
@@ -2360,14 +2371,27 @@ function _dhtApplyRepairOverrides() {
     if (phoneLbl) phoneLbl.innerHTML = 'SĐT Khách Hàng <span style="color:red">*</span> ✏️';
     if (nameLbl) nameLbl.innerHTML = 'Tên Khách Hàng <span style="color:red">*</span> ✏️';
 
-    // F. Update modal title
-    var modalTitle = document.querySelector('.modal-header h3, .modal-title');
-    if (modalTitle) modalTitle.textContent = '🔧 Lên Đơn Sửa — ' + rd.parentCode;
-    // Try the openModal title element
+    // F. ★ Auto-set designer = "Thiết Kế Cũ" and LOCK
+    var desSel = document.getElementById('_co_designer');
+    if (desSel) {
+        desSel.value = 'old_design';
+        desSel.disabled = true;
+        desSel.style.background = '#f5f3ff';
+        desSel.style.color = '#6d28d9';
+        desSel.style.fontWeight = '700';
+        desSel.style.cursor = 'not-allowed';
+    }
+
+    // G. Update modal title
     var titleEls = document.querySelectorAll('[class*="modal"] h3, [class*="modal"] .modal-title');
     titleEls.forEach(function(el) {
-        if (el.textContent.includes('Tạo Đơn') || el.textContent.includes('Tạo đơn')) {
+        if (el.textContent.includes('Tạo Đơn') || el.textContent.includes('Tạo đơn') || el.textContent.includes('PET') || el.textContent.includes('TEM')) {
             el.innerHTML = '🔧 Lên Đơn Sửa — <span style="color:#6d28d9">' + rd.parentCode + '</span>';
         }
     });
+
+    // H. Init deposit state for repair
+    _dhtCreate.depositId = null;
+    _dhtCreate.depositAmount = 0;
+    _dhtCreate.depositCode = '';
 }
