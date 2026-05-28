@@ -780,7 +780,10 @@ async function _ceoSubmitPhat(id){
   var ship_return=gv('ceoU_shipreturn'),ship_delivery=gv('ceoU_shipdelivery'),ship_other=gv('ceoU_shipother');
   var production_cost=cost_cut+cost_print+cost_press+cost_sew+cost_collar+cost_material_other+cost_other+cost_discount;
   var shipping_cost=ship_return+ship_delivery+ship_other;
-  // Both SX and Ship can be 0 — phat_updated_at tracks save
+  // Validate: must fill at least 1 SX field AND 1 Ship field
+  var _hasVal=function(ids){for(var i=0;i<ids.length;i++){var el=document.getElementById(ids[i]);if(el&&el.value.trim()!=='')return true;}return false;};
+  if(!_hasVal(['ceoU_cut','ceoU_print','ceoU_press','ceoU_sew','ceoU_collar','ceoU_matother','ceoU_costother','ceoU_discount'])){showToast('⚠️ Vui lòng nhập ít nhất 1 mục Chi Phí SX (dù là 0)','error');return;}
+  if(!_hasVal(['ceoU_shipreturn','ceoU_shipdelivery','ceoU_shipother'])){showToast('⚠️ Vui lòng nhập ít nhất 1 mục Phí Ship (dù là 0)','error');return;}
   var fields={cost_cut:cost_cut,cost_print:cost_print,cost_press:cost_press,cost_sew:cost_sew,cost_collar:cost_collar,cost_material_other:cost_material_other,cost_other:cost_other,cost_discount:cost_discount,ship_return:ship_return,ship_delivery:ship_delivery,ship_other:ship_other,production_cost:production_cost,shipping_cost:shipping_cost,phat_updated_at:new Date().toISOString()};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('✅ Đã cập nhật Phạt!');var _ov=document.getElementById('ceoUpdateOv');if(_ov)_ov.remove();var _dm=document.getElementById('ceoDetailModal');if(_dm)_dm.remove();_ceoLoadData().then(function(){_ceoViewDetail(id);});}catch(e){showToast('Lỗi: '+e.message,'error');}
 }
