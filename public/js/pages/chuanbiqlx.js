@@ -161,14 +161,16 @@ function _qlxRenderRows(paged) {
     if (!paged.length) { tbody.innerHTML = '<tr><td colspan="20"><div class="empty-state"><div class="icon">🏭</div><h3>Chưa có đơn hàng nào</h3><p>Chọn bộ lọc ở sidebar</p></div></td></tr>'; return; }
 
     var rows = [];
+    var phoiCounter = {};
     paged.forEach(function(o) {
         var items = o.items || [];
-        if (!items.length) { rows.push({ order: o, phoi: null, item: null }); return; }
+        if (!items.length) { rows.push({ order: o, phoi: null, item: null, phoiIdx: 0 }); return; }
+        if (!phoiCounter[o.id]) phoiCounter[o.id] = 0;
         items.forEach(function(it) {
             var pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
-            if (pairs.length > 0) { pairs.forEach(function(p) { rows.push({ order: o, phoi: p, item: it }); }); }
-            else { rows.push({ order: o, phoi: null, item: it }); }
+            if (pairs.length > 0) { pairs.forEach(function(p) { phoiCounter[o.id]++; rows.push({ order: o, phoi: p, item: it, phoiIdx: phoiCounter[o.id] }); }); }
+            else { phoiCounter[o.id]++; rows.push({ order: o, phoi: null, item: it, phoiIdx: phoiCounter[o.id] }); }
         });
     });
 
@@ -193,8 +195,8 @@ function _qlxRenderRows(paged) {
         var itemDesc = it ? (it.description || '') : '';
         var totalRows = rowCountPerOrder[o.id] || 1;
         var spName;
-        if (totalRows > 1 && p && p.position_name) {
-            spName = o.order_code + ' - ' + p.position_name + (itemDesc ? ' - ' + itemDesc : '');
+        if (totalRows > 1) {
+            spName = o.order_code + ' - PH\u1ED0I ' + r.phoiIdx + (itemDesc ? ' - ' + itemDesc : '');
         } else {
             spName = o.order_code + (itemDesc ? ' - ' + itemDesc : '');
         }
