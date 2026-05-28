@@ -88,7 +88,7 @@ function _ceoRenderTable() {
     var items = allItems;
     // SEQUENTIAL: Step 1 → 2 → 3 → 4 (use Number() because DB returns string "0")
     var _phatDone=function(i){return Number(i.production_cost)>0||Number(i.shipping_cost)>0;};
-    var _nvpDone=function(i){return i.violator_commitment&&i.violator_commitment.trim()!==''&&i.violator_commitment.trim()!=='1. ';};
+    var _nvpDone=function(i){return i.violator_commitment&&i.violator_commitment.trim()!==''&&i.violator_commitment.trim()!=='1. '&&!!i.penalty_month;};
     var _isStep1=function(i){return !i.qlx_updated_at;};
     var _isStep2=function(i){return i.qlx_updated_at&&!_phatDone(i);};
     var _isStep3=function(i){return i.qlx_updated_at&&_phatDone(i)&&!_nvpDone(i);};
@@ -211,7 +211,7 @@ async function _ceoViewDetail(id) {
     var field=function(label,value,color){return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">'+label+'</div><div style="font-size:13px;font-weight:600;color:'+(color||'#1e293b')+'">'+(value||'—')+'</div></div>';};
     var _hasQLX=!!item.qlx_updated_at;
     var _hasPhat=Number(item.production_cost)>0||Number(item.shipping_cost)>0;
-    var _hasNVP=!!(item.violator_commitment&&item.violator_commitment.trim()!==''&&item.violator_commitment.trim()!=='1. ');
+    var _hasNVP=!!(item.violator_commitment&&item.violator_commitment.trim()!==''&&item.violator_commitment.trim()!=='1. '&&item.penalty_month);
     var _badge=function(done){return done?'<span style="color:#16a34a;font-size:13px">✅</span>':'<span style="color:#d97706;font-size:13px">⏳</span>';};
     var old=document.getElementById('ceoDetailModal');if(old)old.remove();
     var ov=document.createElement('div');ov.id='ceoDetailModal';
@@ -483,7 +483,7 @@ function _ceoSetFilter(f){_ceo.filter=(_ceo.filter===f)?null:f;_ceoRenderTable()
 // ===== UPDATE PICKER — chọn đơn chưa đầy đủ =====
 function _ceoOpenUpdatePicker(){
   var incomplete=_ceo.items.filter(function(i){
-    var _done=i.qlx_updated_at && (Number(i.production_cost)>0||Number(i.shipping_cost)>0) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ';
+    var _done=i.qlx_updated_at && (Number(i.production_cost)>0||Number(i.shipping_cost)>0) && i.violator_commitment && i.violator_commitment.trim()!=='' && i.violator_commitment.trim()!=='1. ' && !!i.penalty_month;
     return !_done;
   });
   var ov=document.createElement('div');ov.id='ceoPickerOv';
@@ -813,7 +813,8 @@ async function _ceoSubmitNVP(id){
     if(!commitment||commitment==='1. '){showToast('Vui l\u00f2ng nh\u1eadp Cam K\u1ebft Ng\u01b0\u1eddi Vi Ph\u1ea1m','error');return;}
   }
   var pmonth=document.getElementById('ceoU_nvp_pmonth')?document.getElementById('ceoU_nvp_pmonth').value:'';
-  var fields={violator_commitment:commitment,penalty_total:penaltyTotal,penalty_per_person:JSON.stringify(penaltyPerPerson),penalty_month:pmonth||null};
+  if(!pmonth){showToast('Vui lòng chọn Đã Phạt tháng mấy','error');return;}
+  var fields={violator_commitment:commitment,penalty_total:penaltyTotal,penalty_per_person:JSON.stringify(penaltyPerPerson),penalty_month:pmonth};
   try{var keys=Object.keys(fields);for(var i=0;i<keys.length;i++){var k=keys[i],v=fields[k];if(v!==''&&v!==null)await apiCall('/api/customer-errors/'+id+'/field','PATCH',{field:k,value:v});}showToast('\u2705 \u0110\u00e3 c\u1eadp nh\u1eadt NVP!');var _ov=document.getElementById('ceoUpdateOv');if(_ov)_ov.remove();var _dm=document.getElementById('ceoDetailModal');if(_dm)_dm.remove();_ceoLoadData().then(function(){_ceoViewDetail(id);});}catch(e){showToast('L\u1ed7i: '+e.message,'error');}
 }
 
