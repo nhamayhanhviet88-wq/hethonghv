@@ -42,12 +42,14 @@ function renderQuanlyxuongqlxPage(content) {
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="qlxTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>🧵</th><th>📦</th><th>🖨️</th><th>✂️</th>'
+        +'<th>Tên KH</th><th>CSKH</th>'
         +'<th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu</th>'
-        +'<th>Tên KH</th><th>CSKH</th><th>SL</th><th>Ngày GH DK</th>'
-        +'<th>TC</th><th>Trạng Thái</th>'
-        +'<th>Ng.Cắt</th><th>Ng.In</th><th>Ng.Ép</th><th>Ng.May</th>'
+        +'<th>SL</th><th>Ngày Ra Dự Kiến</th>'
+        +'<th>Tiêu Chuẩn</th><th>Trạng Thái</th>'
+        +'<th>NV Cắt</th><th>NV In</th><th>NV Ép</th><th>NV May</th>'
+        +'<th>KTCL</th><th>Hoàn Thiện</th>'
         +'<th>Lĩnh Vực</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="20" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="22" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="qlxPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     var _st; document.getElementById('qlxSearch').addEventListener('input', function() {
@@ -212,11 +214,11 @@ function _qlxRenderRows(paged) {
                 h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;color:#92400e;white-space:nowrap">⚠️ Chưa In Phiếu SX</div></td>';
             }
         } else { h += '<td></td><td></td><td></td><td></td><td></td>'; }
+        h += '<td style="font-weight:600;color:#1e293b;font-size:11px">' + (isNew ? (o.customer_name || '') : '') + '</td>';
+        h += '<td style="font-size:10px;color:#6b7280">' + (isNew ? (o.cskh_name || o.created_by_name || '') : '') + '</td>';
         h += '<td style="font-weight:600">' + phoiTag + '<span style="color:#1e293b;font-size:11px">' + spName + '</span></td>';
         h += '<td style="font-size:10px;color:#475569">' + matName + '</td>';
         h += '<td style="font-size:10px">' + (colorName ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:3px;vertical-align:middle"></span>' + colorName : '') + '</td>';
-        h += '<td style="font-weight:600;color:#1e293b;font-size:11px">' + (isNew ? (o.customer_name || '') : '') + '</td>';
-        h += '<td style="font-size:10px;color:#6b7280">' + (isNew ? (o.cskh_name || o.created_by_name || '') : '') + '</td>';
         h += '<td style="text-align:center;font-weight:700;color:#0369a1">' + (isNew ? (o.total_quantity || '') : '') + '</td>';
         h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.shipping_date) : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? '<span class="qlx-priority" style="' + priColor + '">' + (o.shipping_priority || 'CHUẨN') + '</span>' : '') + '</td>';
@@ -225,6 +227,8 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (isNew ? (o.nguoi_in || '—') : '') + '</td>';
         h += '<td style="font-size:10px;color:#d97706;font-weight:600">' + (isNew ? (o.nguoi_ep || '—') : '') + '</td>';
         h += '<td style="font-size:10px;color:#dc2626;font-weight:600">' + (isNew ? (o.nguoi_may || '—') : '') + '</td>';
+        h += '<td style="text-align:center;font-size:10px;color:#6b7280">' + (isNew ? '—' : '') + '</td>';
+        h += '<td style="text-align:center;font-size:10px;color:#6b7280">' + (isNew ? '—' : '') + '</td>';
         h += '<td><span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700">' + (isNew ? (o.category_name || '') : '') + '</span></td>';
         h += '<td style="font-size:9px;color:#6b7280">' + (isNew ? updateStr : '') + '</td>';
         return h + '</tr>';
