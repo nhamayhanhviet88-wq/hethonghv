@@ -85,7 +85,7 @@ async function routes(fastify) {
         // Find all repair orders linked to this original order code
         const repairOrders = await db.all(`
             SELECT o.id, o.order_code, o.total_amount, o.vat_amount, o.discount_amount,
-                   o.deposit_amount, o.order_date, o.created_at,
+                   o.deposit_amount_cache AS deposit_amount, o.order_date, o.created_at,
                    c.name AS category_name
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
