@@ -217,16 +217,22 @@ function kpiNavMonth(dir) {
 function kpiOpenPicker() { const p = document.getElementById('kpiMonthInput'); if(p){p.style.pointerEvents='auto';p.showPicker?p.showPicker():p.click();} }
 function kpiPickMonth(v) { if(!v)return; _kpi.month=v; kpiLoadData(); }
 
+function _kpiCompact(v) {
+    var n = Math.abs(Number(v));
+    var sign = v < 0 ? '-' : '';
+    if (n >= 1e9) { var ty=Math.floor(n/1e9); var r=Math.floor((n%1e9)/1e6); return sign+ty+'tỷ'+(r>0?String(r).padStart(3,'0').replace(/0+$/,''):''); }
+    if (n >= 1e6) { var tr=Math.floor(n/1e6); var r=Math.floor((n%1e6)/1e3); return sign+tr+'tr'+(r>0?String(r).padStart(3,'0'):''); }
+    return sign+n.toLocaleString('vi-VN');
+}
 function kpiFmt(n) {
     if (n == null || isNaN(n)) return '-';
-    return Number(n).toLocaleString('vi-VN');
+    return _kpiCompact(n);
 }
 function kpiFmtFull(n) { return n != null ? Number(n).toLocaleString('vi-VN') : '-'; }
 // Format "còn thiếu" with +/- sign: positive missing = còn thiếu (-), negative = đã vượt (+)
 function kpiSignFmt(n) {
     if (n == null || isNaN(n) || n === 0) return '0';
-    var abs = Math.abs(n);
-    var str = abs.toLocaleString('vi-VN');
+    var str = _kpiCompact(Math.abs(n));
     return n > 0 ? '-' + str : '+' + str; // missing > 0 = còn thiếu (-)  |  missing < 0 = đã vượt (+)
 }
 function kpiSignFmtFull(n) {
@@ -900,7 +906,7 @@ async function kpiSaveTargets(periodLabel) {
 var _kpiDashSort = 'revenue'; // default sort
 function kpiDashFmtVND(n) {
     if (!n) return '0';
-    return Number(n).toLocaleString('vi-VN');
+    return _kpiCompact(n);
 }
 
 async function kpiLoadDashboard() {
@@ -2972,7 +2978,7 @@ function kpiRenderAchievement(el) {
     var year = data.year;
 
     function fmtMoney(v) {
-        return Number(v).toLocaleString('vi-VN');
+        return _kpiCompact(v);
     }
     function rateColor(rate) {
         if (rate >= 100) return '#059669';

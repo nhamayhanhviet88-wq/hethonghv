@@ -248,7 +248,11 @@ return '<span class="tds-card-trend '+cls+'" style="font-size:11px">'+arrow+(pct
 
 function _tdsFmtMoney(v){
 if(!v || v===0) return '0đ';
-return Number(parseFloat(v)).toLocaleString('vi-VN')+'đ';
+var n = Math.abs(Number(v));
+var sign = v < 0 ? '-' : '';
+if(n >= 1e9){ var ty=Math.floor(n/1e9); var r=Math.floor((n%1e9)/1e6); return sign+ty+'tỷ'+(r>0?String(r).padStart(3,'0').replace(/0+$/,''):''); }
+if(n >= 1e6){ var tr=Math.floor(n/1e6); var r=Math.floor((n%1e6)/1e3); return sign+tr+'tr'+(r>0?String(r).padStart(3,'0'):''); }
+return sign+n.toLocaleString('vi-VN')+'đ';
 }
 
 function _tdsToggleTeam(deptId){

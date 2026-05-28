@@ -617,7 +617,11 @@ function crProgressColor(rate) {
 
 function crFormatVND(num) {
     if (!num) return '0';
-    return Number(num).toLocaleString('vi-VN');
+    var n = Math.abs(Number(num));
+    var sign = num < 0 ? '-' : '';
+    if (n >= 1e9) { var ty=Math.floor(n/1e9); var r=Math.floor((n%1e9)/1e6); return sign+ty+'tỷ'+(r>0?String(r).padStart(3,'0').replace(/0+$/,''):''); }
+    if (n >= 1e6) { var tr=Math.floor(n/1e6); var r=Math.floor((n%1e6)/1e3); return sign+tr+'tr'+(r>0?String(r).padStart(3,'0'):''); }
+    return sign+n.toLocaleString('vi-VN');
 }
 
 function crRenderCards(data) {
