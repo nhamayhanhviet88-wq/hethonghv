@@ -263,7 +263,7 @@ async function _wtViewDetail(id){
             var isCreator2 = (rp.user_id == ticketCreatorId2);
             var rAttach=[];try{rAttach=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments||[];}catch(e){}
             var rpImgs2='';
-            rAttach.forEach(function(a){if(a.type==='image'&&a.url)rpImgs2+='<img src="'+a.url+'" style="max-width:180px;max-height:110px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid '+(isCreator2?'#bfdbfe':'#bbf7d0')+'" onclick="window.open(this.src,\'_blank\')">';});
+            rAttach.forEach(function(a){if(a.type==='image'&&a.url)rpImgs2+='<img src="'+a.url+'" style="max-width:180px;max-height:110px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid '+(isCreator2?'#bfdbfe':'#bbf7d0')+'" onclick="window.open(this.src,\'_blank\')">';if(a.type==='video'&&a.url)rpImgs2+='<div style="margin-top:4px"><video src="'+a.url+'" controls style="max-width:240px;max-height:140px;border-radius:6px;border:1px solid '+(isCreator2?'#bfdbfe':'#bbf7d0')+'"></video></div>';});
             if(isCreator2){
                 // ── Người tạo phiếu: LEFT align, blue accent ──
                 rH+='<div style="display:flex;justify-content:flex-start;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#eff6ff;border-radius:2px 12px 12px 12px;border-left:3px solid #2563eb">';

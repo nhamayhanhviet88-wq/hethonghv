@@ -156,6 +156,7 @@ async function routes(fastify) {
 
         // ★★★ AUTO-LINK: Đơn Lỗi → Phiếu Xử Lý CV ★★★
         let linkedTicketId = null;
+        let linkedReplyId = null;
         if (b.order_code && b.order_code.trim()) {
             try {
                 const orderCode = b.order_code.trim();
@@ -181,19 +182,20 @@ async function routes(fastify) {
                     // === CASE B: Ticket EXISTS → Add reply + escalate ===
                     linkedTicketId = existingTicket.id;
 
-                    // B1: Add reply
-                    await db.run(
+                    // B1: Add reply (images empty now — will be updated in finalize-audit)
+                    const replyRow = await db.get(
                         `INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at)
-                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
                         [
                             existingTicket.id,
                             userId,
                             replyMsg,
-                            JSON.stringify(attachments),
+                            '[]',
                             JSON.stringify({ auto_error: true, error_order_id: result.id }),
                             vnNow()
                         ]
                     );
+                    if (replyRow) linkedReplyId = replyRow.id;
 
                     // B2: Escalate to urgent + recalculate deadline
                     const urgentSetting = await db.get(`SELECT * FROM priority_settings WHERE priority_key = 'urgent'`);
@@ -328,15 +330,14 @@ async function routes(fastify) {
                             const newTicket = await db.get(`SELECT id FROM work_tickets WHERE ticket_code = $1`, [ticketCode]);
                             if (newTicket) {
                                 linkedTicketId = newTicket.id;
-                                // C3: Add error images as first reply
-                                if (errorImages.length > 0) {
-                                    await db.run(
-                                        `INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at)
-                                         VALUES ($1, $2, $3, $4, $5, $6)`,
-                                        [newTicket.id, userId, replyMsg, JSON.stringify(attachments),
-                                         JSON.stringify({ auto_error: true, error_order_id: result.id }), vnNow()]
-                                    );
-                                }
+                                // C3: Add auto-error reply (attachments updated in finalize-audit)
+                                const newReplyRow = await db.get(
+                                    `INSERT INTO work_ticket_replies (ticket_id, user_id, message, attachments, metadata, created_at)
+                                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+                                    [newTicket.id, userId, replyMsg, '[]',
+                                     JSON.stringify({ auto_error: true, error_order_id: result.id }), vnNow()]
+                                );
+                                if (newReplyRow) linkedReplyId = newReplyRow.id;
                             }
                             console.log(`[ErrorAutoLink] ✅ Created NEW ticket ${ticketCode} for error → assigned to QLX #${qlxId}`);
                         } else {
@@ -352,7 +353,7 @@ async function routes(fastify) {
             }
         }
 
-        return { success: true, id: result.id, audit_log_id: auditLogId || null, linked_ticket_id: linkedTicketId };
+        return { success: true, id: result.id, audit_log_id: auditLogId || null, linked_ticket_id: linkedTicketId, linked_reply_id: linkedReplyId };
     });
 
     // ========== PUT /api/customer-errors/:id — Update ==========
@@ -828,6 +829,32 @@ async function routes(fastify) {
             'UPDATE dht_audit_logs SET changes = $1 WHERE id = $2',
             [JSON.stringify(changes), audit_log_id]
         );
+
+        // ★ Update linked work_ticket_reply attachments with uploaded images/video
+        try {
+            const linkedReply = await db.get(
+                `SELECT id FROM work_ticket_replies WHERE metadata::text LIKE $1 AND metadata::text LIKE '%"auto_error":true%' ORDER BY id DESC LIMIT 1`,
+                ['%"error_order_id":' + id + '%']
+            );
+            if (linkedReply) {
+                const replyAttach = [];
+                if (image_urls && image_urls.length > 0) {
+                    image_urls.forEach(url => replyAttach.push({ type: 'image', url }));
+                }
+                if (video_url) {
+                    replyAttach.push({ type: 'video', url: video_url });
+                }
+                if (replyAttach.length > 0) {
+                    await db.run(
+                        'UPDATE work_ticket_replies SET attachments = $1 WHERE id = $2',
+                        [JSON.stringify(replyAttach), linkedReply.id]
+                    );
+                    console.log(`[ErrorAutoLink] ✅ Updated reply #${linkedReply.id} with ${replyAttach.length} attachments`);
+                }
+            }
+        } catch(linkErr) {
+            console.error('[ErrorAutoLink] ❌ Finalize attach error:', linkErr.message);
+        }
 
         return { success: true };
     });

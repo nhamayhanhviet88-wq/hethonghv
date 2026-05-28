@@ -165,7 +165,7 @@ async function _qlxWtDetail(id){
             rps.forEach(function(rp){
                 var isCreator = (rp.user_id == ticketCreatorId);
                 var rpImgs='';
-                try{var att=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments;if(att&&att.length){att.forEach(function(a){if(a.type==='image'&&a.url)rpImgs+='<img src="'+a.url+'" style="max-width:180px;max-height:110px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid '+(isCreator?'#bfdbfe':'#bbf7d0')+'" onclick="window.open(this.src)">';});}}catch(e){}
+                try{var att=typeof rp.attachments==='string'?JSON.parse(rp.attachments):rp.attachments;if(att&&att.length){att.forEach(function(a){if(a.type==='image'&&a.url)rpImgs+='<img src="'+a.url+'" style="max-width:180px;max-height:110px;border-radius:6px;margin-top:4px;cursor:pointer;border:1px solid '+(isCreator?'#bfdbfe':'#bbf7d0')+'" onclick="window.open(this.src)">';if(a.type==='video'&&a.url)rpImgs+='<div style="margin-top:4px"><video src="'+a.url+'" controls style="max-width:240px;max-height:140px;border-radius:6px;border:1px solid '+(isCreator?'#bfdbfe':'#bbf7d0')+'"></video></div>';});}}catch(e){}
                 if(isCreator){
                     // ── Người tạo phiếu: LEFT align, blue accent ──
                     rpsHtml += '<div style="display:flex;justify-content:flex-start;margin-bottom:8px"><div style="max-width:85%;padding:8px 12px;background:#eff6ff;border-radius:2px 12px 12px 12px;border-left:3px solid #2563eb">';
