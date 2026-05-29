@@ -236,6 +236,8 @@ async function _ceoViewDetail(id) {
     h+='<div style="background:#eff6ff;padding:10px;border-radius:8px;text-align:center;border:1px solid #bfdbfe"><div style="font-size:9px;font-weight:700;color:#1e40af;text-transform:uppercase">Chi Phí SX</div><div style="font-size:14px;font-weight:800;color:#1e40af;margin-top:2px">'+(item.phat_updated_at?(Number(item.production_cost||0).toLocaleString('vi-VN')+'đ'):'—')+'</div></div>';
     h+='<div style="background:#fefce8;padding:10px;border-radius:8px;text-align:center;border:1px solid #fde68a"><div style="font-size:9px;font-weight:700;color:#92400e;text-transform:uppercase">Phí Ship</div><div style="font-size:14px;font-weight:800;color:#92400e;margin-top:2px">'+(item.phat_updated_at?(Number(item.shipping_cost||0).toLocaleString('vi-VN')+'đ'):'—')+'</div></div></div>';
     // Error content
+    // 👤 Chịu Trách Nhiệm (from common error template)
+    h+=_ceoRespSection(item);
     h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">📌 Nội Dung Lỗi</div><div style="padding:10px;background:#fff7ed;border-radius:8px;border:1px solid #fed7aa;font-size:13px;color:#9a3412;line-height:1.5">'+(item.error_content||'—')+'</div></div>';
     h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">✅ Cách Xử Lý Lỗi</div><div style="padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;font-size:13px;color:#166534;line-height:1.5;white-space:pre-line">'+(item.sale_resolution||'—')+'</div></div>';
     // Images + Video
@@ -536,6 +538,8 @@ async function _ceoOpenQLX(id){
   h+='<div style="color:#fed7aa;font-size:11px;margin-top:2px">Nội dung: '+(item.error_content||'').substring(0,60)+'</div></div>';
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">\u2715</span></div>';
   h+='<div style="padding:20px">';
+  // 👤 Chịu Trách Nhiệm (read-only from template)
+  h+=_ceoRespSection(item);
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Lỗi Thường Gặp <span style="color:#dc2626">*</span></label>';
   h+='<select id="ceoU_errtype" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#f8fafc">';
   h+='<option value="">-- Chọn loại lỗi --</option>';
@@ -571,6 +575,8 @@ async function _ceoOpenPhat(id){
   h+='<div style="color:#fecaca;font-size:11px;margin-top:2px">Nội dung: '+(item.error_content||'').substring(0,60)+'</div></div>';
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">✕</span></div>';
   h+='<div style="padding:20px">';
+  // 👤 Chịu Trách Nhiệm (read-only from template)
+  h+=_ceoRespSection(item);
   // ★ Repair order placeholder for Phat modal
   h+='<div id="ceoRepairPhat"><div style="padding:8px;text-align:center;color:#c4b5fd;font-size:11px">⏳ Đang tải đơn sửa...</div></div>';
   var sxFields=[{id:'ceoU_cut',label:'Cắt',key:'cost_cut'},{id:'ceoU_print',label:'In',key:'cost_print'},{id:'ceoU_press',label:'Ép',key:'cost_press'},{id:'ceoU_sew',label:'May',key:'cost_sew'},{id:'ceoU_collar',label:'Cổ Dệt',key:'cost_collar'},{id:'ceoU_matother',label:'Vật Liệu Khác',key:'cost_material_other'},{id:'ceoU_costother',label:'Chi Phí Khác',key:'cost_other'},{id:'ceoU_discount',label:'Bù Tiền Giảm Giá KH',key:'cost_discount'}];
@@ -604,6 +610,8 @@ async function _ceoOpenNVP(id){
   h+='<div style="color:#c4b5fd;font-size:11px;margin-top:2px">Nội dung: '+(item.error_content||'').substring(0,60)+'</div></div>';
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">✕</span></div>';
   h+='<div style="padding:20px">';
+  // 👤 Chịu Trách Nhiệm (read-only from template)
+  h+=_ceoRespSection(item);
   // ★ Repair order placeholder for NVP modal
   h+='<div id="ceoRepairNVP"><div style="padding:8px;text-align:center;color:#c4b5fd;font-size:11px">⏳ Đang tải đơn sửa...</div></div>';
   // Info section
@@ -947,3 +955,30 @@ async function _ceoLoadRepairOrders(orderCode, containerId) {
         if (container) container.innerHTML = _ceoBuildRepairHTML(data.orders || []);
     } catch(e) { console.error('[CEO] Repair orders load error:', e); }
 }
+
+// ===== CHỊU TRÁCH NHIỆM — Read-only from common error template =====
+function _ceoRespSection(item){
+  if(!item||!item.common_error_type)return '';
+  var tpl=null;
+  for(var i=0;i<(_ceo.commonErrors||[]).length;i++){
+    if(_ceo.commonErrors[i].error_name===item.common_error_type){tpl=_ceo.commonErrors[i];break;}
+  }
+  if(!tpl)return '';
+  var resp=[];
+  try{resp=typeof tpl.responsibility==='string'?JSON.parse(tpl.responsibility||'[]'):(tpl.responsibility||[]);}catch(e){}
+  if(!resp.length)return '';
+  var h='<div style="margin-bottom:14px">';
+  h+='<div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:6px;display:flex;align-items:center;gap:6px">👤 Chịu Trách Nhiệm</div>';
+  h+='<div style="padding:10px 14px;background:#f0fdfa;border-radius:8px;border:1px solid #99f6e4">';
+  resp.forEach(function(r){
+    var barW=Math.min(r.percent,100);
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(204,251,241,0.2)">';
+    h+='<div style="min-width:100px;font-size:12px;font-weight:700;color:#0e7490">'+(r.name||'—')+'</div>';
+    h+='<div style="flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden"><div style="height:100%;width:'+barW+'%;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:3px"></div></div>';
+    h+='<div style="min-width:50px;text-align:right;font-size:12px;font-weight:800;color:#0891b2">'+r.percent+'%</div>';
+    h+='</div>';
+  });
+  h+='</div></div>';
+  return h;
+}
+
