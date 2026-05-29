@@ -885,6 +885,8 @@ async function start() {
         }
         // Migrate department TEXT → departments JSONB
         try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS departments JSONB DEFAULT '[]'`); } catch(e) {}
+        // v13d: Chịu Trách Nhiệm — who is responsible + penalty %
+        try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS responsibility JSONB DEFAULT '[]'`); } catch(e) {}
     } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
 
     // Migration: Fix handover_status — centralized logic (thanh_toan/tt_sll → chua_bangiao, rest → thu_quy_nhan)

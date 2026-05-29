@@ -113,13 +113,14 @@ async function routes(fastify) {
 
     // POST /api/common-errors-tpl — create
     fastify.post('/api/common-errors-tpl', { preHandler: authenticate }, async (request) => {
-        const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
+        const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale, responsibility } = request.body;
         if (!error_name || !error_name.trim()) return { error: 'Tên lỗi không được trống' };
 
         const deptJson = JSON.stringify(departments || []);
+        const respJson = JSON.stringify(responsibility || []);
         const row = await db.get(`
-            INSERT INTO common_errors (error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale, created_by)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *
+            INSERT INTO common_errors (error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale, responsibility, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *
         `, [
             error_name.trim(),
             error_category_id || null,
@@ -130,6 +131,7 @@ async function routes(fastify) {
             commit_factory || null,
             commit_department || null,
             commit_sale || null,
+            respJson,
             request.user.id
         ]);
 
@@ -139,7 +141,7 @@ async function routes(fastify) {
     // PUT /api/common-errors-tpl/:id — update
     fastify.put('/api/common-errors-tpl/:id', { preHandler: authenticate }, async (request) => {
         const id = request.params.id;
-        const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale } = request.body;
+        const { error_name, error_category_id, departments, status, fix_guide, sale_guide, commit_factory, commit_department, commit_sale, responsibility } = request.body;
 
         const existing = await db.get('SELECT id, error_name FROM common_errors WHERE id = $1', [id]);
         if (!existing) return { error: 'Không tìm thấy lỗi' };
@@ -148,16 +150,17 @@ async function routes(fastify) {
         const newName = (error_name || '').trim();
 
         const deptJson = JSON.stringify(departments || []);
+        const respJson = JSON.stringify(responsibility || []);
         await db.run(`
             UPDATE common_errors SET
                 error_name = $1, error_category_id = $2, departments = $3, status = $4,
                 fix_guide = $5, sale_guide = $6, commit_factory = $7, commit_department = $8,
-                commit_sale = $9, updated_at = NOW()
-            WHERE id = $10
+                commit_sale = $9, responsibility = $10, updated_at = NOW()
+            WHERE id = $11
         `, [
             newName || '', error_category_id || null, deptJson, status || 'pending',
             fix_guide || null, sale_guide || null, commit_factory || null, commit_department || null,
-            commit_sale || null, id
+            commit_sale || null, respJson, id
         ]);
 
         // ★ Auto-sync: If error_name changed, update all linked customer_error_orders

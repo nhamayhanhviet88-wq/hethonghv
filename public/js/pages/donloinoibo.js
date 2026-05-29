@@ -97,16 +97,17 @@ function _ltgRender(){
   // Table
   h+='<div style="overflow-x:auto;border-radius:10px;border:1px solid #e5e7eb"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   h+='<thead><tr style="background:#1e3a4f">';
-  ['STT','Tên Lỗi','Loại Lỗi','Bộ Phận Lỗi','Tình Trạng','Mã Đơn Lỗi','Số Đơn Lỗi','Cách Khắc Phục','HD Sale Tư Vấn','Cam Kết Quản Lý Xưởng','Cam Kết Bộ Phận Lỗi',''].forEach(function(c){
+  ['STT','Tên Lỗi','Loại Lỗi','Bộ Phận Lỗi','Tình Trạng','Mã Đơn Lỗi','Số Đơn Lỗi','Cách Khắc Phục','HD Sale Tư Vấn','Cam Kết Quản Lý Xưởng','Cam Kết Bộ Phận Lỗi','Chịu Trách Nhiệm',''].forEach(function(c){
     var extra='';
     if(c==='Mã Đơn Lỗi')extra='background:#7c3aed;';
     if(c==='Số Đơn Lỗi')extra='background:#dc2626;text-align:center;';
+    if(c==='Chịu Trách Nhiệm')extra='background:#0891b2;';
     h+='<th style="padding:8px 6px;text-align:left;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.1);'+extra+'">'+c+'</th>';
   });
   h+='</tr></thead><tbody>';
 
   if(!items.length){
-    h+='<tr><td colspan="12" style="padding:40px;text-align:center;color:#9ca3af">Chưa có lỗi thường gặp nào</td></tr>';
+    h+='<tr><td colspan="13" style="padding:40px;text-align:center;color:#9ca3af">Chưa có lỗi thường gặp nào</td></tr>';
   } else {
     items.forEach(function(item,idx){
       var depts=[];
@@ -144,6 +145,10 @@ function _ltgRender(){
       h+='<td style="padding:6px;max-width:150px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.sale_guide||'—')+'</td>';
       h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_factory||'—')+'</td>';
       h+='<td style="padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid #f8fafc">'+(item.commit_department||'—')+'</td>';
+      // Chịu Trách Nhiệm column
+      var resp=[];try{resp=typeof item.responsibility==='string'?JSON.parse(item.responsibility||'[]'):(item.responsibility||[]);}catch(e){}
+      var respHtml=resp.length?resp.map(function(r){return '<div style="white-space:nowrap;font-size:10px;line-height:1.6"><span style="font-weight:700;color:#0e7490">'+((r.name||'—'))+'</span> <span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;background:#ecfeff;color:#0891b2;border:1px solid #a5f3fc">'+r.percent+'%</span></div>';}).join(''):'<span style="color:#d1d5db">—</span>';
+      h+='<td style="padding:6px;max-width:150px;border-right:1px solid #f8fafc">'+respHtml+'</td>';
       h+='<td style="padding:6px;white-space:nowrap">';
       h+='<button onclick="event.stopPropagation();_ltgOpenForm('+item.id+')" style="padding:3px 8px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:2px">✏️</button>';
       h+='<button onclick="event.stopPropagation();_ltgDelete('+item.id+')" style="padding:3px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>';
@@ -232,6 +237,7 @@ function _ltgViewDetail(id){
       sec('💬','Hướng Dẫn Sale Tư Vấn',item.sale_guide)+
       sec('🏭','Cam Kết Quản Lý Xưởng',item.commit_factory)+
       sec('⚠️','Cam Kết Bộ Phận Lỗi',item.commit_department)+
+      _ltgRespDetailSection(item)+
       imgH+vidH+linkedH+
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;border-top:1px solid #f1f5f9;padding-top:12px">'+
         '<button onclick="document.getElementById(\'ltgDetailOv\').remove();_ltgOpenForm('+item.id+')" style="padding:8px 20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Chỉnh Sửa</button>'+
@@ -365,6 +371,8 @@ async function _ltgOpenForm(id){
       fld('Hướng Dẫn Sale Tư Vấn','sale_guide','textarea',item?item.sale_guide:'',true)+
       fld('Cam Kết Quản Lý Xưởng','commit_factory','textarea',item?item.commit_factory:'',true)+
       fld('Cam Kết Bộ Phận Lỗi','commit_department','textarea',item?item.commit_department:'',true)+
+      // Chịu Trách Nhiệm dynamic rows
+      _ltgBuildRespFormSection(item)+
       // Image upload with paste zone
       '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📷 Hình Ảnh Lỗi</label>'+
       '<div id="ltgF_imgPreview" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">'+imgPrev+'</div>'+
@@ -387,6 +395,9 @@ async function _ltgOpenForm(id){
     var el=document.getElementById('ltgF_'+n);
     if(el)_ltgAutoNum(el);
   });
+
+  // Init responsibility progress bar
+  _ltgUpdateRespTotal();
 
   // Ctrl+V paste image support
   window._ltgPastedFiles=[];
@@ -424,6 +435,21 @@ async function _ltgSubmitForm(id){
   // Collect departments from checkboxes
   var selDepts=[];
   document.querySelectorAll('.ltgF_dept_chk:checked').forEach(function(cb){selDepts.push(cb.value);});
+  // Collect responsibility rows
+  var respRows=[];
+  var respContainer=document.getElementById('ltgF_respRows');
+  if(respContainer){
+    var rows=respContainer.querySelectorAll('.ltgF_respRow');
+    rows.forEach(function(row){
+      var nameEl=row.querySelector('.ltgF_respName');
+      var pctEl=row.querySelector('.ltgF_respPct');
+      if(nameEl&&pctEl){
+        var n=nameEl.value.trim();
+        var p=parseInt(pctEl.value)||0;
+        if(n&&p>0)respRows.push({name:n,percent:p});
+      }
+    });
+  }
   var body={
     error_name:document.getElementById('ltgF_error_name').value.trim(),
     error_category_id:document.getElementById('ltgF_category').value||null,
@@ -432,7 +458,8 @@ async function _ltgSubmitForm(id){
     fix_guide:document.getElementById('ltgF_fix_guide').value.trim(),
     sale_guide:document.getElementById('ltgF_sale_guide').value.trim(),
     commit_factory:document.getElementById('ltgF_commit_factory').value.trim(),
-    commit_department:document.getElementById('ltgF_commit_department').value.trim()
+    commit_department:document.getElementById('ltgF_commit_department').value.trim(),
+    responsibility:respRows
   };
   // Validation
   if(!body.error_name){showToast('Vui lòng nhập Tên Lỗi','error');return;}
@@ -442,6 +469,13 @@ async function _ltgSubmitForm(id){
   if(!body.sale_guide||body.sale_guide==='1. '){showToast('Vui lòng nhập Hướng Dẫn Sale Tư Vấn','error');return;}
   if(!body.commit_factory||body.commit_factory==='1. '){showToast('Vui lòng nhập Cam Kết Quản Lý Xưởng','error');return;}
   if(!body.commit_department||body.commit_department==='1. '){showToast('Vui lòng nhập Cam Kết Bộ Phận Lỗi','error');return;}
+  // Validate responsibility — must have ≥1 row and total = 100%
+  if(!respRows.length){showToast('Vui lòng thêm ít nhất 1 người Chịu Trách Nhiệm','error');return;}
+  var totalPct=respRows.reduce(function(s,r){return s+r.percent;},0);
+  if(totalPct!==100){showToast('Tổng % Chịu Trách Nhiệm phải = 100% (hiện tại: '+totalPct+'%)','error');return;}
+  // Check for empty names
+  var hasEmpty=respRows.some(function(r){return !r.name;});
+  if(hasEmpty){showToast('Vui lòng nhập tên cho tất cả người Chịu Trách Nhiệm','error');return;}
 
   try{
     var r;
@@ -638,4 +672,120 @@ async function _ltgViewOrderDetail(id){
     h+='</div></div>';
     ov.innerHTML=h;document.body.appendChild(ov);
   }catch(e){showToast('Lỗi: '+e.message,'error');}
+}
+
+// ===== RESPONSIBILITY HELPERS — Chịu Trách Nhiệm =====
+
+// Build the form section HTML for responsibility rows
+function _ltgBuildRespFormSection(item){
+  var resp=[];
+  if(item){try{resp=typeof item.responsibility==='string'?JSON.parse(item.responsibility||'[]'):(item.responsibility||[]);}catch(e){}}
+  // If no existing data, start with 1 empty row
+  if(!resp.length)resp=[{name:'',percent:100}];
+
+  var h='<div style="margin-bottom:12px">';
+  h+='<label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:6px">👤 Chịu Trách Nhiệm<span style="color:#dc2626"> *</span></label>';
+  h+='<div id="ltgF_respRows" style="border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#f8fafc">';
+  resp.forEach(function(r,i){
+    h+=_ltgRespRowHtml(i,r.name,r.percent);
+  });
+  h+='</div>';
+  // Add button + progress bar
+  h+='<div style="display:flex;align-items:center;gap:10px;margin-top:8px">';
+  h+='<button type="button" onclick="_ltgAddRespRow()" style="padding:5px 14px;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Thêm Người</button>';
+  h+='<div style="flex:1;display:flex;align-items:center;gap:8px">';
+  h+='<div style="flex:1;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden"><div id="ltgF_respBar" style="height:100%;width:0%;background:#16a34a;border-radius:4px;transition:all .3s"></div></div>';
+  h+='<span id="ltgF_respTotal" style="font-size:12px;font-weight:800;color:#6b7280;min-width:60px;text-align:right">0/100%</span>';
+  h+='</div></div>';
+  h+='</div>';
+  return h;
+}
+
+// Generate HTML for a single responsibility row
+function _ltgRespRowHtml(idx,name,pct){
+  return '<div class="ltgF_respRow" style="display:flex;align-items:center;gap:8px;margin-bottom:6px" data-idx="'+idx+'">'
+    +'<input type="text" class="ltgF_respName" value="'+(name||'').replace(/"/g,'&quot;')+'" placeholder="Nhập tên người / bộ phận..." style="flex:1;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
+    +'<div style="display:flex;align-items:center;gap:2px"><input type="number" class="ltgF_respPct" value="'+(pct||0)+'" min="1" max="100" step="1" oninput="_ltgUpdateRespTotal()" style="width:65px;padding:7px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:center;font-weight:700"><span style="font-size:12px;font-weight:700;color:#6b7280">%</span></div>'
+    +'<button type="button" onclick="_ltgRemoveRespRow(this)" style="padding:4px 8px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer" title="Xóa">✕</button>'
+    +'</div>';
+}
+
+// Add a new responsibility row
+function _ltgAddRespRow(){
+  var container=document.getElementById('ltgF_respRows');
+  if(!container)return;
+  var rows=container.querySelectorAll('.ltgF_respRow');
+  var idx=rows.length;
+  // Calculate remaining %
+  var used=0;
+  rows.forEach(function(row){
+    var pctEl=row.querySelector('.ltgF_respPct');
+    used+=parseInt(pctEl.value)||0;
+  });
+  var remaining=Math.max(0,100-used);
+  var div=document.createElement('div');
+  div.innerHTML=_ltgRespRowHtml(idx,'',remaining);
+  container.appendChild(div.firstChild);
+  _ltgUpdateRespTotal();
+  // Focus the new name input
+  var newRow=container.querySelectorAll('.ltgF_respRow');
+  var last=newRow[newRow.length-1];
+  if(last){var inp=last.querySelector('.ltgF_respName');if(inp)inp.focus();}
+}
+
+// Remove a responsibility row
+function _ltgRemoveRespRow(btn){
+  var container=document.getElementById('ltgF_respRows');
+  if(!container)return;
+  var rows=container.querySelectorAll('.ltgF_respRow');
+  if(rows.length<=1){showToast('Phải có ít nhất 1 người Chịu Trách Nhiệm','error');return;}
+  var row=btn.closest('.ltgF_respRow');
+  if(row)row.remove();
+  _ltgUpdateRespTotal();
+}
+
+// Update the total % display + progress bar in realtime
+function _ltgUpdateRespTotal(){
+  var container=document.getElementById('ltgF_respRows');
+  var bar=document.getElementById('ltgF_respBar');
+  var totalEl=document.getElementById('ltgF_respTotal');
+  if(!container||!bar||!totalEl)return;
+  var total=0;
+  container.querySelectorAll('.ltgF_respPct').forEach(function(el){total+=parseInt(el.value)||0;});
+  var pct=Math.min(total,100);
+  bar.style.width=pct+'%';
+  if(total===100){
+    bar.style.background='linear-gradient(90deg,#16a34a,#22c55e)';
+    totalEl.style.color='#16a34a';
+    totalEl.innerHTML='<span style="font-size:14px">✅</span> '+total+'/100%';
+  } else if(total>100){
+    bar.style.background='linear-gradient(90deg,#dc2626,#ef4444)';
+    bar.style.width='100%';
+    totalEl.style.color='#dc2626';
+    totalEl.innerHTML='<span style="font-size:14px">⚠️</span> '+total+'/100%';
+  } else {
+    bar.style.background='linear-gradient(90deg,#d97706,#f59e0b)';
+    totalEl.style.color='#d97706';
+    totalEl.innerHTML=total+'/100%';
+  }
+}
+
+// Build responsibility section for detail popup
+function _ltgRespDetailSection(item){
+  var resp=[];
+  try{resp=typeof item.responsibility==='string'?JSON.parse(item.responsibility||'[]'):(item.responsibility||[]);}catch(e){}
+  if(!resp.length)return '';
+  var h='<div style="margin-bottom:16px">';
+  h+='<div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:6px;display:flex;align-items:center;gap:6px">👤 Chịu Trách Nhiệm</div>';
+  h+='<div style="padding:10px 14px;background:#f0fdfa;border-radius:8px;border:1px solid #99f6e4">';
+  resp.forEach(function(r){
+    var barW=Math.min(r.percent,100);
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #ccfbf133">';
+    h+='<div style="min-width:120px;font-size:12px;font-weight:700;color:#0e7490">'+(r.name||'—')+'</div>';
+    h+='<div style="flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden"><div style="height:100%;width:'+barW+'%;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:3px"></div></div>';
+    h+='<div style="min-width:50px;text-align:right;font-size:12px;font-weight:800;color:#0891b2">'+r.percent+'%</div>';
+    h+='</div>';
+  });
+  h+='</div></div>';
+  return h;
 }
