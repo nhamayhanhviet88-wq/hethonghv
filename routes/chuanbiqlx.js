@@ -589,8 +589,13 @@ module.exports = async function(fastify) {
         const pi = parseInt(phoiIndex) || 0;
 
         // Get order + item
-        const order = await db.get('SELECT id, order_code, customer_name FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT id, order_code, customer_name, COALESCE(sx_print_confirmed, false) AS sx_print_confirmed FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
+
+        // Block if production ticket not printed
+        if (!order.sx_print_confirmed) {
+            return reply.code(400).send({ error: 'Đơn chưa In Phiếu Sản Xuất. Không thể gọi vải.' });
+        }
 
         const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
         if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
@@ -696,6 +701,12 @@ module.exports = async function(fastify) {
                 call_trees, call_amount, call_note, call_date, call_content } = request.body || {};
 
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
+
+        // Block if production ticket not printed
+        const orderCheck = await db.get('SELECT COALESCE(sx_print_confirmed, false) AS sx_print_confirmed FROM dht_orders WHERE id = $1', [dht_order_id]);
+        if (!orderCheck || !orderCheck.sx_print_confirmed) {
+            return reply.code(400).send({ error: 'Đơn chưa In Phiếu Sản Xuất. Không thể gọi vải.' });
+        }
 
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();

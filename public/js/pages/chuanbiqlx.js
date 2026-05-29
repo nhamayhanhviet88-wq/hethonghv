@@ -267,7 +267,13 @@ function _qlxRenderRows(paged) {
             } else {
                 h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;color:#92400e;white-space:nowrap">⚠️ Chưa In Phiếu SX</div></td>';
             }
-        } else { h += '<td></td><td style="text-align:center"><button class="qlx-icon-btn" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải" style="font-size:10px;opacity:0.7">🧵</button></td><td></td><td></td><td></td>'; }
+        } else {
+            if (o.sx_print_confirmed && o.qlx_reviewed) {
+                h += '<td></td><td style="text-align:center"><button class="qlx-icon-btn" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải" style="font-size:10px;opacity:0.7">🧵</button></td><td></td><td></td><td></td>';
+            } else {
+                h += '<td></td><td colspan="4"></td>';
+            }
+        }
         h += '<td style="font-weight:600;color:#1e293b;font-size:11px">' + (isNew ? (o.customer_name || '') : '') + '</td>';
         h += '<td style="font-size:10px;color:#6b7280">' + (isNew ? (o.cskh_name || o.created_by_name || '') : '') + '</td>';
         h += '<td style="font-weight:600">' + phoiTag + '<span style="color:#1e293b;font-size:11px">' + spName + '</span></td>';
