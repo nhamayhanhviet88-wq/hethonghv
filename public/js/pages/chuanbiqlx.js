@@ -473,18 +473,41 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 }
 
 function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex) {
+    var mat = (ph.material_name||'').replace(/'/g, "\\'");
+    var col = (ph.color_name||'').replace(/'/g, "\\'");
+    var oninput = 'oninput="_qlxFabPreview(\'' + mat + '\',\'' + col + '\',\'' + unit + '\')"';
     var html = '<div style="padding:12px 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📞 GỌI VẢI MỚI</div>';
     html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px">';
     html += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
-    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số cây</label><input id="_qlxFabCallTrees" type="number" min="0" value="0" style="display:block;width:70px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px"></div>';
-    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số ' + unitLabel + '</label><input id="_qlxFabCallAmount" type="number" min="0" step="0.1" value="0" style="display:block;width:80px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px"></div>';
-    html += '<div style="flex:1;min-width:150px"><label style="font-size:10px;font-weight:600;color:#475569">Ghi chú</label><input id="_qlxFabCallNote" placeholder="..." style="display:block;width:100%;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px"></div>';
+    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số cây</label><input id="_qlxFabCallTrees" type="number" min="0" value="0" ' + oninput + ' style="display:block;width:70px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px"></div>';
+    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số ' + unitLabel + '</label><input id="_qlxFabCallAmount" type="number" min="0" step="0.1" value="0" ' + oninput + ' style="display:block;width:80px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px"></div>';
+    html += '<div style="flex:1;min-width:150px"><label style="font-size:10px;font-weight:600;color:#475569">Ghi chú</label><input id="_qlxFabCallNote" placeholder="..." ' + oninput + ' style="display:block;width:100%;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px"></div>';
     html += '</div>';
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px"></div>';
-    html += '<button onclick="_qlxFabCallSubmit(\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;width:100%">📞 Xác Nhận Gọi Vải</button>';
+    html += '<div id="_qlxFabCallPreview" style="margin-bottom:8px"></div>';
+    html += '<button onclick="_qlxFabCallSubmit(\'' + mat + '\',\'' + col + '\',\'' + unit + '\',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;width:100%">💾 Xác Nhận Gọi Vải</button>';
     html += '<div id="_qlxFabCallResult" style="margin-top:8px"></div>';
     html += '</div></div>';
     return html;
+}
+
+function _qlxFabPreview(mat, color, unit) {
+    var trees = parseInt(document.getElementById('_qlxFabCallTrees').value) || 0;
+    var amount = parseFloat(document.getElementById('_qlxFabCallAmount').value) || 0;
+    var note = (document.getElementById('_qlxFabCallNote') ? document.getElementById('_qlxFabCallNote').value : '').trim();
+    var el = document.getElementById('_qlxFabCallPreview');
+    if (!el) return;
+    if (!trees && !amount) { el.innerHTML = ''; return; }
+    var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
+    var parts = [mat + ' - ' + color];
+    if (trees > 0) parts.push(trees + ' cây');
+    if (amount > 0) parts.push(amount + unitLabel);
+    if (note) parts.push(note);
+    var content = parts.join(' - ');
+    el.innerHTML = '<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:10px;display:flex;align-items:center;gap:8px">'
+        + '<span style="flex:1;font-weight:700;font-size:13px;color:#1e40af" id="_qlxFabPreviewText">' + content + '</span>'
+        + '<button onclick="navigator.clipboard.writeText(document.getElementById(\'_qlxFabPreviewText\').textContent);showToast(\'📋 Đã copy!\')" style="padding:6px 14px;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Copy</button>'
+        + '</div>';
 }
 
 async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
