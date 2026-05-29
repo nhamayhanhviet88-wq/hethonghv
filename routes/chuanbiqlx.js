@@ -115,6 +115,12 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_fab_res_roll ON qlx_fabric_reservations(roll_id)`);
     } catch(e) { console.error('[QLX] fabric reservations:', e.message); }
 
+    // Fabric reservation arrival tracking
+    try {
+        await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS arrived_by INTEGER`);
+    } catch(e) { console.error('[QLX] fabric arrival columns:', e.message); }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -674,10 +680,15 @@ module.exports = async function(fastify) {
 
         // Get existing reservations for this order+item+phoi
         const existing = await db.all(`
-            SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code
+            SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code,
+                   u_create.full_name AS created_by_name,
+                   u_arrive.full_name AS arrived_by_name
             FROM qlx_fabric_reservations res
             LEFT JOIN kv_rolls r ON r.id = res.roll_id
+            LEFT JOIN users u_create ON u_create.id = res.created_by
+            LEFT JOIN users u_arrive ON u_arrive.id = res.arrived_by
             WHERE res.dht_order_id = $1 AND res.item_id = $2 AND res.phoi_index = $3
+              AND res.status != 'released'
             ORDER BY res.reservation_type, res.created_at
         `, [orderId, itemId, pi]);
 
@@ -772,6 +783,39 @@ module.exports = async function(fastify) {
             ORDER BY res.phoi_index, res.reservation_type, res.created_at
         `, [orderId]);
         return { reservations: rows };
+    });
+
+    // PUT: Mark fabric reservation as arrived
+    fastify.put('/api/qlx/fabric-reserve/:id/arrive', { preHandler: [authenticate] }, async (request, reply) => {
+        const isQLX = await isQLXUser(request);
+        if (!isQLX) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [request.params.id]);
+        if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (res.status === 'arrived') return reply.code(400).send({ error: 'Đã xác nhận rồi' });
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        await db.run('UPDATE qlx_fabric_reservations SET status = $1, arrived_at = $2, arrived_by = $3, updated_at = $2 WHERE id = $4',
+            ['arrived', now, request.user.id, request.params.id]);
+
+        const label = res.reservation_type === 'from_stock'
+            ? `Vải đã về: Cây ${res.roll_code || ''} (${res.kg_reserved}${res.unit})`
+            : `Vải đã về: ${res.call_content || res.material_name + ' - ' + res.color_name}`;
+        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_item_arrived', $2, $3, $4)`,
+            [res.dht_order_id, label, request.user.id, now]);
+
+        // Auto-update order-level fabric_arrived if ALL reservations for this order are arrived
+        const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [res.dht_order_id]);
+        if (pending && pending.cnt === 0) {
+            await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
+                VALUES ($1, true, $2, $3)
+                ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = $2, fabric_arrived_by = $3, updated_at = $2`,
+                [res.dht_order_id, now, request.user.id]);
+        }
+
+        return { success: true };
     });
 
     // DELETE (release) a reservation
