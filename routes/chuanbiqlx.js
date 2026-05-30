@@ -86,6 +86,13 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_reviewed_by INTEGER REFERENCES users(id)`);
     } catch(e) { console.error('[QLX] qlx_reviewed columns:', e.message); }
 
+    // Add qlx_received_phieu columns (QLX confirms received printed production ticket)
+    try {
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_received_phieu BOOLEAN DEFAULT FALSE`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_received_phieu_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_received_phieu_by INTEGER REFERENCES users(id)`);
+    } catch(e) { console.error('[QLX] qlx_received_phieu columns:', e.message); }
+
     // Fabric reservations table
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS qlx_fabric_reservations (
@@ -246,6 +253,7 @@ module.exports = async function(fastify) {
                 o.category_id, c.name AS category_name,
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
                 COALESCE(p.qlx_reviewed, false) AS qlx_reviewed,
+                COALESCE(p.qlx_received_phieu, false) AS qlx_received_phieu,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 -- Preparation status
@@ -399,6 +407,22 @@ module.exports = async function(fastify) {
         const { type, user_id } = request.body || {};
         const validTypes = ['cat', 'in', 'ep', 'may'];
         if (!validTypes.includes(type)) return reply.code(400).send({ error: 'Loại phân công không hợp lệ' });
+
+        // Block PC In/May if production ticket not printed or not received by QLX
+        if (type === 'in' || type === 'may') {
+            const orderStatus = await db.get(`
+                SELECT COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
+                       COALESCE(p.qlx_received_phieu, false) AS qlx_received_phieu
+                FROM dht_orders o LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+                WHERE o.id = $1
+            `, [orderId]);
+            if (!orderStatus || !orderStatus.sx_print_confirmed) {
+                return reply.code(400).send({ error: 'Chưa In Phiếu SX. Không thể phân công In/May.' });
+            }
+            if (!orderStatus.qlx_received_phieu) {
+                return reply.code(400).send({ error: 'QLX chưa xác nhận nhận Phiếu SX.' });
+            }
+        }
 
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
@@ -598,11 +622,6 @@ module.exports = async function(fastify) {
         const order = await db.get('SELECT id, order_code, customer_name, COALESCE(sx_print_confirmed, false) AS sx_print_confirmed FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
 
-        // Block if production ticket not printed
-        if (!order.sx_print_confirmed) {
-            return reply.code(400).send({ error: 'Đơn chưa In Phiếu Sản Xuất. Không thể gọi vải.' });
-        }
-
         const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
         if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
 
@@ -713,11 +732,7 @@ module.exports = async function(fastify) {
 
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
-        // Block if production ticket not printed
-        const orderCheck = await db.get('SELECT COALESCE(sx_print_confirmed, false) AS sx_print_confirmed FROM dht_orders WHERE id = $1', [dht_order_id]);
-        if (!orderCheck || !orderCheck.sx_print_confirmed) {
-            return reply.code(400).send({ error: 'Đơn chưa In Phiếu Sản Xuất. Không thể gọi vải.' });
-        }
+        // Fabric reservation no longer blocked by sx_print_confirmed (QLX can prepare fabric early)
 
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
@@ -858,6 +873,30 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                 [now, res.dht_order_id]);
         }
+
+        return { success: true };
+    });
+
+    // ========== RECEIVE PHIEU SX: QLX xác nhận đã nhận phiếu ==========
+    fastify.post('/api/qlx/receive-phieu/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const orderId = Number(request.params.orderId);
+        const order = await db.get('SELECT COALESCE(sx_print_confirmed, false) AS sx_print_confirmed FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order || !order.sx_print_confirmed) {
+            return reply.code(400).send({ error: 'Phiếu SX chưa được in. Không thể xác nhận nhận phiếu.' });
+        }
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+        await db.run(`UPDATE qlx_preparation SET qlx_received_phieu = true, qlx_received_phieu_at = $1, qlx_received_phieu_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+            [now, request.user.id, orderId]);
+
+        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+            [orderId, 'receive_phieu', 'QLX xác nhận đã nhận Phiếu Sản Xuất', request.user.id, now]);
 
         return { success: true };
     });

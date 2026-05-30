@@ -255,20 +255,31 @@ function _qlxRenderRows(paged) {
         var h = '<tr style="' + bg + '">';
         if (isNew) {
             h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + '</td>';
-            if (o.sx_print_confirmed) {
-                if (o.qlx_reviewed) {
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải">' + fabIcon + '</button></td>';
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">🪡</button></td>';
+            if (o.qlx_reviewed) {
+                // Gọi Vải - LUÔN HIỆN sau checklist
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải">' + fabIcon + '</button></td>';
+                // Gọi VL - LUÔN HIỆN sau checklist
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
+                if (o.sx_print_confirmed) {
+                    if (o.qlx_received_phieu) {
+                        // Đã nhận phiếu → PC In + PC May hoạt động bình thường
+                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
+                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">🪡</button></td>';
+                    } else {
+                        // Đã in nhưng QLX chưa nhận phiếu → nút xác nhận nhận phiếu
+                        h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" onclick="_qlxReceivePhieu(' + o.id + ')" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6;font-size:9px;font-weight:700;color:#1e40af;white-space:nowrap;animation:qlxPulse 2s infinite" title="Xác nhận đã nhận Phiếu SX từ KT">📋 Nhận Phiếu SX</button></td>';
+                    }
                 } else {
-                    h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div class="qlx-cl-icon-btn" onclick="_qlxChecklist(' + o.id + ',\'' + (o.order_code||'') + '\',\'' + (o.customer_name||'').replace(/'/g,'') + '\')">📋 Kiểm tra</div></td>';
+                    // Chưa in phiếu → PC In + PC May mờ + cảnh báo
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn" onclick="showToast(\'⚠️ Chưa In Phiếu SX. Vui lòng chờ KT in phiếu trước khi phân công.\', \'error\')" style="opacity:0.4;border-color:#fca5a5" title="Chưa In Phiếu SX">🖨️</button></td>';
+                    h += '<td style="text-align:center"><button class="qlx-icon-btn" onclick="showToast(\'⚠️ Chưa In Phiếu SX. Vui lòng chờ KT in phiếu trước khi phân công.\', \'error\')" style="opacity:0.4;border-color:#fca5a5" title="Chưa In Phiếu SX">🪡</button></td>';
                 }
             } else {
-                h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;color:#92400e;white-space:nowrap">⚠️ Chưa In Phiếu SX</div></td>';
+                // Chưa kiểm tra checklist → hiện nút Kiểm tra
+                h += '<td colspan="4" style="text-align:center;padding:4px 6px"><div class="qlx-cl-icon-btn" onclick="_qlxChecklist(' + o.id + ',\'' + (o.order_code||'') + '\',\'' + (o.customer_name||'').replace(/'/g,'') + '\')">📋 Kiểm tra</div></td>';
             }
         } else {
-            if (o.sx_print_confirmed && o.qlx_reviewed) {
+            if (o.qlx_reviewed) {
                 h += '<td></td><td style="text-align:center"><button class="qlx-icon-btn" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải" style="font-size:10px;opacity:0.7">🧵</button></td><td></td><td></td><td></td>';
             } else {
                 h += '<td></td><td colspan="4"></td>';
@@ -634,6 +645,15 @@ async function _qlxDoAssign(orderId, type) {
     try {
         await apiCall('/api/qlx/assign/' + orderId, 'POST', { type: type, user_id: userId || null });
         closeModal(); showToast('✅ Đã phân công'); await _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _qlxReceivePhieu(orderId) {
+    if (!confirm('Xác nhận QLX đã nhận Phiếu Sản Xuất cho đơn này?')) return;
+    try {
+        await apiCall('/api/qlx/receive-phieu/' + orderId, 'POST');
+        showToast('✅ Đã xác nhận nhận Phiếu SX');
+        await _qlxLoadAll();
     } catch(e) { showToast(e.message, 'error'); }
 }
 
