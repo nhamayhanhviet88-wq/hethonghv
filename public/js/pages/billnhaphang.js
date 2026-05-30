@@ -18,10 +18,13 @@ function renderBillnhaphangPage(content){
     +'.bnh-debt.red{background:#fee2e2;color:#dc2626}.bnh-debt.green{background:#d1fae5;color:#059669}.bnh-debt.blue{background:#dbeafe;color:#2563eb}'
     +'.bnh-add-src{padding:8px 16px;font-size:11px;font-weight:600;cursor:pointer;color:#4f46e5;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:6px}'
     +'.bnh-add-src:hover{background:#eef2ff}'
+    +'.bnh-fab-btn{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;transition:all .2s;box-shadow:0 2px 8px #7c3aed30}'
+    +'.bnh-fab-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px #7c3aed50}'
+    +'.bnh-fab-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:800;background:#ede9fe;color:#7c3aed;margin-left:4px}'
     +'@media(max-width:768px){.bnh-sb{display:none}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bnh-wrap"><div class="bnh-sb" id="bnhSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bnh-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / vật liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><button id="bnhFabBtn" class="bnh-fab-btn" style="display:none" onclick="_bnhOpenFabric()">🧵 Nhập Vải</button><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / vật liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bnhTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th>✅</th><th>Ngày Nhập</th><th>Nguồn</th><th>NV Nhập</th><th>Chất Liệu - Màu Vải</th><th>SL Vải</th><th>Tên VL</th><th>SL VL</th><th>Chi Phí</th><th>Hoàn</th><th>Thành Tiền</th><th>Thanh Toán</th><th>Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bnhTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -29,7 +32,13 @@ function renderBillnhaphangPage(content){
     _bnhLoadAll();
 }
 
-async function _bnhLoadAll(){try{var[tR,sR]=await Promise.all([apiCall('/api/import/tree'),apiCall('/api/import/sources')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnhRenderSb();await _bnhLoadRecs();}catch(e){console.error('[BNH]',e);}}
+async function _bnhLoadAll(){
+    // Load fabric module if not yet loaded
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/billnhaphang_fabric.js';document.head.appendChild(s);}
+    try{var[tR,sR]=await Promise.all([apiCall('/api/import/tree'),apiCall('/api/import/sources')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnhRenderSb();await _bnhLoadRecs();
+    // Check fabric permission
+    setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
+    }catch(e){console.error('[BNH]',e);}}
 
 function _bnhFM(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
 function _bnhFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
@@ -38,7 +47,7 @@ function _bnhRenderSb(){var sb=document.getElementById('bnhSb');if(!sb)return;va
 var h='<div class="bnh-sb-title"><span>────── 🧾 Bill Nhập Hàng ──────</span></div>';
 if(t&&t.totals){var tt=t.totals;
 h+='<div class="bnh-sb-total" onclick="_bnhFilter()"><div style="display:flex;justify-content:space-between;align-items:center"><span>📦 Tất cả</span><span class="tv">'+(tt.total||0)+'</span></div><div class="ts">💰 '+_bnhFM(tt.sum_total)+' ₫'+(Number(tt.sum_debt)>0?' &nbsp;|&nbsp; 🔴 Nợ: '+_bnhFM(tt.sum_debt)+' ₫':'')+'</div></div>';}
-h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
+var u=window._currentUser||{};if(u.role==='giam_doc'||u.role==='quan_ly_cap_cao')h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
 if(t&&t.sources)t.sources.forEach(function(s){var active=f.source_id==s.id;
 h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')"><span class="sn">🏪 '+s.name+'</span><span class="sc">['+s.count+']</span><span class="sm">'+_bnhFM(s.sum_total)+'₫</span></div>';});
 sb.innerHTML=h;}
@@ -62,12 +71,12 @@ function _bnhRender(){
     tb.innerHTML=all.map(function(r,i){
         var cI=r.is_checked?'✅':'⬜',cC=r.is_checked?' on':'',cA=r.is_checked?'uncheck':'check';
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
-        return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+        return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'\" onclick=\"'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'\"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="bnh-ib'+cC+'" onclick="_bnhTog('+r.id+',\''+cA+'\')" title="Duyệt">'+cI+'</button></td>'
         +'<td style="font-size:10px">'+_bnhFD(r.import_date)+'</td>'
         +'<td style="font-size:10px;color:#4f46e5;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.importer_name||'—')+'</td>'
-        +'<td style="font-weight:600;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis">'+(r.fabric_material||'—')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis">'+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#4f46e5">'+_bnhFM(r.fabric_quantity)+'</td>'
         +'<td style="font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis">'+(r.material_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700">'+_bnhFM(r.material_quantity)+'</td>'

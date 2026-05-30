@@ -2,6 +2,9 @@
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const { vnNow } = require('../utils/timezone');
+const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 
 module.exports = async function(fastify) {
 
@@ -30,6 +33,29 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ir_importer ON import_records(importer_id)`);
     } catch(e) { console.error('[BNH] records:', e.message); }
 
+    // ===== Fabric import columns =====
+    try {
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS record_type VARCHAR(10) DEFAULT 'general'`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS fabric_import_code VARCHAR(13)`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS fabric_items JSONB DEFAULT '[]'`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS extra_costs JSONB DEFAULT '[]'`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_cost NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_image_url TEXT`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_image_path TEXT`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_cashflow_id INTEGER`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_cashflow_code TEXT`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS bill_image_url TEXT`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS bill_image_path TEXT`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ir_fabric_code ON import_records(fabric_import_code) WHERE fabric_import_code IS NOT NULL`);
+    } catch(e) { console.error('[BNH] fabric cols:', e.message); }
+
+    // ===== qlx_preparation fabric_arrived columns =====
+    try {
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS fabric_arrived BOOLEAN DEFAULT FALSE`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS fabric_arrived_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS fabric_arrived_by INTEGER`);
+    } catch(e) { console.error('[BNH] qlx_prep fabric_arrived:', e.message); }
+
     try { await db.exec(`CREATE TABLE IF NOT EXISTS import_history (
         id SERIAL PRIMARY KEY, import_id INTEGER NOT NULL REFERENCES import_records(id) ON DELETE CASCADE,
         action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
@@ -46,10 +72,23 @@ module.exports = async function(fastify) {
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('kế toán') || n.includes('ke toan') || n.includes('quản lý xưởng')) return true; }
         return false;
     }
+    async function isAccountant(req) {
+        if (MGMT.includes(req.user.role)) return true;
+        const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
+        if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('kế toán') || n.includes('ke toan')) return true; }
+        return false;
+    }
     function calcFinance(cost, refund, paid) {
         const c = Number(cost)||0, r = Number(refund)||0, p = Number(paid)||0;
         const total = c - r, debt = total - p;
         return { total_amount: total, debt };
+    }
+    function genFabricCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        const bytes = crypto.randomBytes(13);
+        let code = '';
+        for (let i = 0; i < 13; i++) code += chars[bytes[i] % chars.length];
+        return code;
     }
 
     // ========== SOURCES CRUD ==========
@@ -59,7 +98,7 @@ module.exports = async function(fastify) {
             WHERE s.is_active=true GROUP BY s.id ORDER BY s.display_order, s.name`) };
     });
     fastify.post('/api/import/sources', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isImportManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        if (!MGMT.includes(req.user.role)) return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo nguồn NCC' });
         const { name, phone, notes } = req.body || {};
         if (!name) return reply.code(400).send({ error: 'Tên nguồn bắt buộc' });
         const r = await db.get(`INSERT INTO import_sources (name,phone,notes,created_by) VALUES ($1,$2,$3,$4) RETURNING id`, [name, phone||null, notes||null, req.user.id]);
@@ -100,7 +139,7 @@ module.exports = async function(fastify) {
         else if (status === 'unchecked') where += ` AND ir.is_checked=false`;
         else if (status === 'debt') where += ` AND ir.debt > 0`;
         else if (status === 'paid') where += ` AND ir.debt <= 0`;
-        if (search) { where += ` AND (ir.fabric_material ILIKE $${idx} OR ir.material_name ILIKE $${idx} OR s.name ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+        if (search) { where += ` AND (ir.fabric_material ILIKE $${idx} OR ir.material_name ILIKE $${idx} OR s.name ILIKE $${idx} OR ir.fabric_import_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT ir.*, s.name AS source_name, u.full_name AS importer_name, u_ck.full_name AS checked_by_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
@@ -186,11 +225,60 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // ========== DELETE ==========
+    // ========== DELETE (with fabric rollback) ==========
     fastify.delete('/api/import/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isImportManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
-        await db.run('DELETE FROM import_records WHERE id=$1', [Number(req.params.id)]);
+        if (!MGMT.includes(req.user.role)) return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa' });
+        const id = Number(req.params.id);
+        const rec = await db.get('SELECT * FROM import_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        // If fabric bill → atomic rollback
+        if (rec.record_type === 'fabric') {
+            const pool = db.getDB();
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                // 1. Rollback kv_rolls + kv_transactions
+                const items = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
+                for (const fi of items) {
+                    if (fi.roll_ids_created && fi.roll_ids_created.length) {
+                        await client.query('DELETE FROM kv_transactions WHERE fabric_color_id = $1 AND description LIKE $2',
+                            [fi.fabric_color_id, `%bill ${rec.fabric_import_code}%`]);
+                        await client.query('DELETE FROM kv_rolls WHERE id = ANY($1)', [fi.roll_ids_created]);
+                    }
+                    // 2. Revert QLX reservation status
+                    if (fi.reservation_id) {
+                        await client.query('UPDATE qlx_fabric_reservations SET status=$1, arrived_at=NULL, arrived_by=NULL, updated_at=NOW() WHERE id=$2',
+                            ['reserved', fi.reservation_id]);
+                    }
+                }
+                // 3. Delete cashflow + payment if ship
+                if (rec.ship_cashflow_id) {
+                    await client.query('DELETE FROM cashflow_records WHERE id=$1', [rec.ship_cashflow_id]);
+                }
+                if (rec.ship_cashflow_code) {
+                    await client.query('DELETE FROM payment_records WHERE payment_code=$1', [rec.ship_cashflow_code]);
+                }
+                // 4. Delete the record + history
+                await client.query('DELETE FROM import_history WHERE import_id=$1', [id]);
+                await client.query('DELETE FROM import_records WHERE id=$1', [id]);
+                await client.query('COMMIT');
+            } catch(err) {
+                await client.query('ROLLBACK');
+                console.error('[BNH Del Fabric]', err.message);
+                return reply.code(500).send({ error: 'Lỗi rollback: ' + err.message });
+            } finally { client.release(); }
+        } else {
+            await db.run('DELETE FROM import_records WHERE id=$1', [id]);
+        }
         return { success: true };
+    });
+
+    // ========== FABRIC DETAIL ==========
+    fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const rec = await db.get('SELECT ir.*, s.name AS source_name, u.full_name AS importer_name FROM import_records ir LEFT JOIN import_sources s ON ir.source_id=s.id LEFT JOIN users u ON ir.importer_id=u.id WHERE ir.id=$1', [Number(req.params.id)]);
+        if (!rec || rec.record_type !== 'fabric') return reply.code(404).send({ error: 'Không tìm thấy bill vải' });
+        return { record: rec };
     });
 
     // ========== HISTORY ==========
@@ -201,5 +289,301 @@ module.exports = async function(fastify) {
     // ========== STAFF ==========
     fastify.get('/api/import/staff', { preHandler: [authenticate] }, async () => {
         return { staff: await db.all(`SELECT u.id, u.full_name, u.username FROM users u WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
+    });
+
+    // ========== FABRIC IMPORT: Pending calls from QLX ==========
+    fastify.get('/api/import/fabric-pending-calls', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
+        const calls = await db.all(`
+            SELECT res.id, res.dht_order_id, res.item_id, res.phoi_index,
+                   res.material_name, res.color_name, res.unit,
+                   res.call_trees, res.call_amount, res.call_note, res.call_date,
+                   o.order_code, it.description AS item_description,
+                   u.full_name AS called_by_name
+            FROM qlx_fabric_reservations res
+            LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+            LEFT JOIN dht_order_items it ON it.id = res.item_id
+            LEFT JOIN users u ON u.id = res.created_by
+            WHERE res.reservation_type = 'new_call' AND res.status = 'reserved'
+            ORDER BY res.created_at DESC
+        `);
+        // Try matching fabric_color_id for each call
+        for (const c of calls) {
+            if (c.material_name && c.color_name) {
+                const match = await db.get(`
+                    SELECT fc.id AS fabric_color_id, m.warehouse_id, w.unit AS wh_unit
+                    FROM kv_fabric_colors fc
+                    JOIN kv_materials m ON m.id = fc.material_id
+                    JOIN kv_warehouses w ON w.id = m.warehouse_id
+                    WHERE fc.is_active = true AND m.is_active = true
+                      AND UPPER(m.name) = UPPER($1) AND UPPER(fc.color_name) = UPPER($2)
+                    LIMIT 1
+                `, [c.material_name.trim(), c.color_name.trim()]);
+                c.fabric_color_id = match ? match.fabric_color_id : null;
+                c.wh_unit = match ? match.wh_unit : c.unit;
+            }
+        }
+        return { calls };
+    });
+
+    // ========== FABRIC IMPORT: Check accountant permission ==========
+    fastify.get('/api/import/fabric-check-perm', { preHandler: [authenticate] }, async (req) => {
+        return { allowed: await isAccountant(req) };
+    });
+
+    // ========== FABRIC IMPORT: Upload image ==========
+    fastify.post('/api/import/upload-image', { preHandler: [authenticate] }, async (req, reply) => {
+        const data = await req.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'import');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        // Validate MIME type
+        if (!data.mimetype || !data.mimetype.startsWith('image/')) {
+            return reply.code(400).send({ error: 'Chỉ chấp nhận file ảnh' });
+        }
+        const buf = await data.toBuffer();
+        // Compress if available
+        let fileName, filePath;
+        try {
+            const { compressAndSave } = require('../utils/imageCompressor');
+            const result = await compressAndSave(buf, uploadDir, 'imp_');
+            fileName = result.fileName; filePath = result.filePath;
+        } catch(e) {
+            fileName = `imp_${Date.now()}.jpg`;
+            filePath = path.join(uploadDir, fileName);
+            fs.writeFileSync(filePath, buf);
+        }
+        return { success: true, url: `/uploads/import/${fileName}`, path: filePath };
+    });
+
+    // ========== FABRIC IMPORT: Submit (Atomic Transaction) ==========
+    fastify.post('/api/import/fabric-submit', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
+        const b = req.body || {};
+        // Validate
+        if (!b.source_id) return reply.code(400).send({ error: 'Chọn nguồn NCC' });
+        if (!b.fabric_items || !b.fabric_items.length) return reply.code(400).send({ error: 'Chọn ít nhất 1 loại vải' });
+        if (!b.bill_image_url) return reply.code(400).send({ error: 'Ảnh bill bắt buộc' });
+        if (Number(b.ship_cost) > 0 && !b.ship_image_url) return reply.code(400).send({ error: 'Có phí ship thì phải có ảnh ship' });
+        // Validate each fabric item
+        for (const fi of b.fabric_items) {
+            if (!fi.trees || !fi.trees.length) return reply.code(400).send({ error: `${fi.material_name} - ${fi.color_name}: nhập ít nhất 1 cây` });
+            for (let t = 0; t < fi.trees.length; t++) {
+                if (!fi.trees[t].weight || Number(fi.trees[t].weight) <= 0) {
+                    return reply.code(400).send({ error: `${fi.material_name}: Cây ${t+1} phải có trọng lượng > 0` });
+                }
+            }
+        }
+        // Validate extra_costs
+        const extraCosts = b.extra_costs || [];
+        for (const ec of extraCosts) {
+            if (!ec.content || !ec.content.trim()) return reply.code(400).send({ error: 'Nội dung chi phí không được trống' });
+            if (!ec.amount || Number(ec.amount) <= 0) return reply.code(400).send({ error: 'Số tiền chi phí phải > 0' });
+        }
+
+        const now = vnNow();
+        const pool = db.getDB();
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            // 1. Generate unique fabric_import_code
+            let fabricCode;
+            for (let attempt = 0; attempt < 5; attempt++) {
+                fabricCode = genFabricCode();
+                const exists = await client.query('SELECT 1 FROM import_records WHERE fabric_import_code=$1', [fabricCode]);
+                if (exists.rows.length === 0) break;
+                if (attempt === 4) throw new Error('Không thể tạo mã nhập vải duy nhất');
+            }
+
+            // 2. Lock and validate reservations
+            const reservationIds = b.fabric_items.map(fi => fi.reservation_id).filter(Boolean);
+            if (reservationIds.length > 0) {
+                const locked = await client.query(
+                    `SELECT id, status FROM qlx_fabric_reservations WHERE id = ANY($1) FOR UPDATE`,
+                    [reservationIds]
+                );
+                for (const row of locked.rows) {
+                    if (row.status !== 'reserved') {
+                        throw new Error(`Yêu cầu gọi vải #${row.id} đã được xử lý bởi người khác`);
+                    }
+                }
+            }
+
+            // 3. Create kv_rolls for each fabric item + tree
+            const fabricItemsResult = [];
+            let totalFabricQty = 0;
+            const fabricMaterialNames = [];
+
+            for (const fi of b.fabric_items) {
+                const rollIds = [];
+                let itemTotalWeight = 0;
+                for (const tree of fi.trees) {
+                    const w = Number(tree.weight);
+                    itemTotalWeight += w;
+                    if (fi.fabric_color_id) {
+                        const rollCode = 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
+                        const rollResult = await client.query(
+                            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by)
+                             VALUES ($1, $2, $3, $3, 'nhap_vai', $4, $5) RETURNING id`,
+                            [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id]
+                        );
+                        rollIds.push(rollResult.rows[0].id);
+                        // kv_transaction NHAP
+                        await client.query(
+                            `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
+                             VALUES ($1, 'NHAP', $2, $3, $4)`,
+                            [fi.fabric_color_id, w, `Nhập vải: ${fi.material_name} - ${fi.color_name} (${w}${fi.unit || 'kg'}) bill ${fabricCode}`, req.user.id]
+                        );
+                    }
+                }
+                totalFabricQty += itemTotalWeight;
+                fabricMaterialNames.push(`${fi.material_name} - ${fi.color_name}`);
+
+                fabricItemsResult.push({
+                    reservation_id: fi.reservation_id || null,
+                    material_name: fi.material_name,
+                    color_name: fi.color_name,
+                    unit: fi.unit || 'kg',
+                    suggested_trees: fi.suggested_trees || 0,
+                    suggested_amount: fi.suggested_amount || 0,
+                    trees: fi.trees,
+                    actual_total: itemTotalWeight,
+                    order_code: fi.order_code || null,
+                    phoi_index: fi.phoi_index,
+                    fabric_color_id: fi.fabric_color_id || null,
+                    roll_ids_created: rollIds
+                });
+
+                // 4. Update QLX reservation status → arrived
+                if (fi.reservation_id) {
+                    await client.query(
+                        `UPDATE qlx_fabric_reservations SET status='arrived', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=$3`,
+                        [now, req.user.id, fi.reservation_id]
+                    );
+                    // Auto-check order-level fabric_arrived
+                    if (fi.dht_order_id) {
+                        const pending = await client.query(
+                            `SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND status='reserved'`,
+                            [fi.dht_order_id]
+                        );
+                        if (pending.rows[0].cnt === 0) {
+                            await client.query(
+                                `INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
+                                 VALUES ($1, true, $2, $3)
+                                 ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived=true, fabric_arrived_at=$2, fabric_arrived_by=$3, updated_at=$2`,
+                                [fi.dht_order_id, now, req.user.id]
+                            );
+                        }
+                    }
+                }
+            }
+
+            // 5. Calculate financials
+            const fabricCost = Number(b.cost) || 0;
+            const extraCostTotal = extraCosts.reduce((s, ec) => s + (Number(ec.amount) || 0), 0);
+            const totalCost = fabricCost + extraCostTotal;
+            const paid = Number(b.paid) || 0;
+            const totalDebt = totalCost - paid;
+
+            // 6. Handle ship cost → create cashflow CHI
+            let shipCfId = null, shipCfCode = null;
+            const shipCost = Number(b.ship_cost) || 0;
+            if (shipCost > 0) {
+                // Get source name for description
+                const src = await client.query('SELECT name FROM import_sources WHERE id=$1', [b.source_id]);
+                const srcName = src.rows[0]?.name || 'N/A';
+                const dd = String(now.getDate()).padStart(2, '0');
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const yyyy = now.getFullYear();
+                const cfDate = `${yyyy}-${mm}-${dd}`;
+                const cfDesc = `Chi ship vận chuyển vải + ${srcName} + ${dd}/${mm}/${yyyy}`;
+
+                // Get next TM seq
+                const prRow = await client.query(
+                    `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM payment_records WHERE payment_date = $1 AND payment_method = 'TM'`,
+                    [cfDate]
+                );
+                const cfRow = await client.query(
+                    `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1 AND cashflow_code LIKE 'TM%'`,
+                    [cfDate]
+                );
+                const seq = Math.max(Number(prRow.rows[0].max_seq), Number(cfRow.rows[0].max_seq)) + 1;
+                const yy = String(yyyy).slice(-2);
+                const cfCode = `TM${seq}-${now.getDate()}-${now.getMonth() + 1}-Y${yy}`;
+
+                // Reserve TM code in payment_records
+                await client.query(
+                    `INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                     VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'fabric_ship', $5, $6)`,
+                    [cfCode, seq, shipCost, cfDesc, cfDate, req.user.id]
+                );
+                // Create cashflow CHI
+                const cfResult = await client.query(
+                    `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, image_url, money_source, created_by)
+                     VALUES ($1, 'CHI', $2, $3, $4, $5, $6, 'congty', $7) RETURNING id, cashflow_code`,
+                    [cfCode, seq, cfDate, cfDesc, shipCost, b.ship_image_url || null, req.user.id]
+                );
+                shipCfId = cfResult.rows[0].id;
+                shipCfCode = cfResult.rows[0].cashflow_code;
+            }
+
+            // 7. Insert import_records
+            const importResult = await client.query(
+                `INSERT INTO import_records (record_type, fabric_import_code, import_date, source_id, importer_id,
+                    fabric_material, fabric_quantity, fabric_items, extra_costs,
+                    cost, total_amount, paid, debt,
+                    ship_cost, ship_image_url, ship_image_path, ship_cashflow_id, ship_cashflow_code,
+                    bill_image_url, bill_image_path, cost_notes,
+                    created_by, created_at)
+                 VALUES ('fabric', $1, $2, $3, $4,
+                    $5, $6, $7::jsonb, $8::jsonb,
+                    $9, $10, $11, $12,
+                    $13, $14, $15, $16, $17,
+                    $18, $19, $20,
+                    $21, $22) RETURNING id`,
+                [fabricCode, now, b.source_id, req.user.id,
+                 fabricMaterialNames.join(', '), totalFabricQty, JSON.stringify(fabricItemsResult), JSON.stringify(extraCosts),
+                 totalCost, totalCost, paid, totalDebt,
+                 shipCost, b.ship_image_url || null, b.ship_image_path || null, shipCfId, shipCfCode,
+                 b.bill_image_url, b.bill_image_path || null, b.cost_notes || null,
+                 req.user.id, now]
+            );
+            const importId = importResult.rows[0].id;
+
+            // 8. History
+            await client.query(
+                `INSERT INTO import_history (import_id, action, details, performed_by, performed_at)
+                 VALUES ($1, 'create_fabric', $2, $3, $4)`,
+                [importId, `🧵 Nhập vải: ${fabricMaterialNames.join(', ')} | Mã: ${fabricCode}`, req.user.id, now]
+            );
+
+            await client.query('COMMIT');
+
+            // Send Telegram for ship (outside transaction)
+            if (shipCost > 0 && shipCfCode) {
+                try {
+                    const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
+                    if (tgRow && tgRow.value) {
+                        const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
+                        const amtStr = shipCost.toLocaleString('vi-VN');
+                        const src = await db.get('SELECT name FROM import_sources WHERE id=$1', [b.source_id]);
+                        const caption = `🔴CHI TM <b>CÔNG TY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship vận chuyển vải + ${src?.name || ''} 👤 ${req.user.full_name || req.user.username}\n\n🧵 Bill nhập vải: ${fabricCode}`;
+                        if (b.ship_image_path) await sendTelegramPhoto(tgRow.value, b.ship_image_path, caption);
+                        else await sendTelegramMessage(tgRow.value, caption);
+                    }
+                } catch(tgErr) { console.error('[BNH TG]', tgErr.message); }
+            }
+
+            return { success: true, id: importId, fabric_import_code: fabricCode, ship_cashflow_code: shipCfCode };
+
+        } catch(err) {
+            await client.query('ROLLBACK');
+            console.error('[BNH Fabric]', err.message);
+            return reply.code(400).send({ error: err.message || 'Lỗi khi nhập vải' });
+        } finally {
+            client.release();
+        }
     });
 };
