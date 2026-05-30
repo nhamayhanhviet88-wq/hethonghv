@@ -431,57 +431,47 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                 html += '</div>';
             }
 
-            // Tab selector (only when no existing reservations)
-            if (!hasStock && !hasCall) {
-                html += '<div style="padding:12px 20px 0"><div style="background:#f1f5f9;border-radius:10px;padding:4px;display:flex;gap:4px;margin-bottom:12px">';
-                html += '<button id="_qlxTabStock" onclick="_qlxFabTab(\'stock\')" style="flex:1;padding:8px 12px;border-radius:8px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;transition:all .2s">📦 Lấy Vải Từ Kho</button>';
-                html += '<button id="_qlxTabCall" onclick="_qlxFabTab(\'call\')" style="flex:1;padding:8px 12px;border-radius:8px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:all .2s">📞 Gọi Vải Mới</button>';
-                html += '</div></div>';
-            }
-
-            // Stock section (show if: has stock reservations OR no reservations yet)
-            if (!hasCall) {
-                html += '<div id="_qlxSecStock" style="' + (hasCall ? 'display:none' : '') + '">';
-                html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ')</div>';
-                if (rolls.length) {
-                    rolls.forEach(function(rl, idx) {
-                        var avail = rl.available;
-                        var resInfo = '';
-                        if (rl.reservations && rl.reservations.length) {
-                            rl.reservations.forEach(function(rv) {
-                                resInfo += '<div style="font-size:9px;color:#d97706;margin-top:2px">⚠️ Tạm giữ: ' + rv.kg_reserved + unitLabel + ' → ' + rv.order_code + ' (Phối ' + (rv.phoi_index+1) + ')</div>';
-                            });
-                        }
-                        html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:6px">';
-                        html += '<div style="display:flex;align-items:center;gap:8px">';
-                        html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
-                        if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
-                        html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
+            // === Stock section (always visible when warehouse has data) ===
+            html += '<div id="_qlxSecStock">';
+            html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ')</div>';
+            if (rolls.length) {
+                rolls.forEach(function(rl, idx) {
+                    var avail = rl.available;
+                    var resInfo = '';
+                    if (rl.reservations && rl.reservations.length) {
+                        rl.reservations.forEach(function(rv) {
+                            resInfo += '<div style="font-size:9px;color:#d97706;margin-top:2px">⚠️ Tạm giữ: ' + rv.kg_reserved + unitLabel + ' → ' + rv.order_code + ' (Phối ' + (rv.phoi_index+1) + ')</div>';
+                        });
+                    }
+                    html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:6px">';
+                    html += '<div style="display:flex;align-items:center;gap:8px">';
+                    html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
+                    if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
+                    html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
+                    html += '</div>';
+                    html += resInfo;
+                    if (avail > 0) {
+                        html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
+                        html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
+                        html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Nhập số..." required style="width:80px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
+                        html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
+                        html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu</button>';
                         html += '</div>';
-                        html += resInfo;
-                        if (avail > 0) {
-                            html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
-                            html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
-                            html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Nhập số..." required style="width:80px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
-                            html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
-                            html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu</button>';
-                            html += '</div>';
-                        }
-                        html += '</div>';
-                    });
-                } else {
-                    html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Kho chưa có cây vải nào</div>';
-                }
-                html += '</div></div>';
+                    }
+                    html += '</div>';
+                });
+            } else {
+                html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Kho chưa có cây vải nào</div>';
             }
+            html += '</div></div>';
 
-            // Call new section (show if: has call reservations OR no reservations yet)
-            if (!hasStock) {
-                var callDisplay = (!hasStock && !hasCall) ? 'display:none' : '';
-                html += '<div id="_qlxSecCall" style="' + callDisplay + '">';
-                html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex);
-                html += '</div>';
-            }
+            // === Divider ===
+            html += '<div style="padding:0 20px;margin:12px 0"><div style="border-top:1.5px dashed #cbd5e1"></div></div>';
+
+            // === Call new section (always visible) ===
+            html += '<div id="_qlxSecCall">';
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex);
+            html += '</div>';
         }
 
         html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
@@ -516,23 +506,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex) {
     return html;
 }
 
-function _qlxFabTab(tab) {
-    var stockSec = document.getElementById('_qlxSecStock');
-    var callSec = document.getElementById('_qlxSecCall');
-    var tabStock = document.getElementById('_qlxTabStock');
-    var tabCall = document.getElementById('_qlxTabCall');
-    if (tab === 'stock') {
-        if (stockSec) stockSec.style.display = '';
-        if (callSec) callSec.style.display = 'none';
-        if (tabStock) { tabStock.style.background = 'linear-gradient(135deg,#0369a1,#0284c7)'; tabStock.style.color = '#fff'; }
-        if (tabCall) { tabCall.style.background = 'transparent'; tabCall.style.color = '#64748b'; }
-    } else {
-        if (stockSec) stockSec.style.display = 'none';
-        if (callSec) callSec.style.display = '';
-        if (tabCall) { tabCall.style.background = 'linear-gradient(135deg,#0369a1,#0284c7)'; tabCall.style.color = '#fff'; }
-        if (tabStock) { tabStock.style.background = 'transparent'; tabStock.style.color = '#64748b'; }
-    }
-}
+
 
 function _qlxFabPreview(mat, color, unit) {
     var trees = parseInt(document.getElementById('_qlxFabCallTrees').value) || 0;
