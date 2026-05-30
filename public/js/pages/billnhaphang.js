@@ -26,8 +26,8 @@ function renderBillnhaphangPage(content){
     content.innerHTML='<div class="bnh-wrap"><div class="bnh-sb" id="bnhSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bnh-main">'
     +'<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:6px;flex:1;justify-content:center;flex-wrap:nowrap;overflow-x:auto"></div><button id="bnhFabBtn" class="bnh-fab-btn" style="display:none" onclick="_bnhOpenFabric()">🧵 Nhập Vải</button><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bnhTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center;min-width:70px">Duyệt / TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>NV Nhập</th><th>Chất Liệu - Màu Vải</th><th style="text-align:center">Số Cây Vải</th><th style="text-align:center">SL Nhập</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
-    +'</tr></thead><tbody id="bnhTb"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th style="text-align:center">STT</th><th style="text-align:center">Duyệt</th><th style="text-align:center">TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>NV Nhập</th><th>Chất Liệu - Màu Vải</th><th style="text-align:center">Số Cây Vải</th><th style="text-align:center">SL Nhập</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
+    +'</tr></thead><tbody id="bnhTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bnhSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bnh.search=document.getElementById('bnhSearch').value||'';_bnhRender();},300);});
     _bnhLoadAll();
 }
@@ -93,7 +93,7 @@ function _bnhRender(){
     var totalQtyStr=qtyParts.join(' + ')||'0';
 
     var tb=document.getElementById('bnhTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="15"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
     // Compute running cumulative debt (oldest → newest, bottom → top)
     var runDebt=new Array(all.length);var cumDebt=0;
     for(var ri=all.length-1;ri>=0;ri--){cumDebt+=Number(all[ri].debt)||0;runDebt[ri]=cumDebt;}
@@ -106,7 +106,8 @@ function _bnhRender(){
         if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+r.total_amount+')" title="Thanh toán">💳</button>';}
         else{payHtml='<span style="font-size:11px" title="Đã thanh toán đủ">✅</span>';}
         return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><div style="display:flex;gap:4px;justify-content:center">'+duyetHtml+payHtml+'</div></td>'
+        +'<td style="text-align:center">'+duyetHtml+'</td>'
+        +'<td style="text-align:center">'+payHtml+'</td>'
         +'<td style="font-size:10px">'+_bnhFD(r.import_date)+'</td>'
         +'<td style="font-size:10px;color:#4f46e5;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.importer_name||'—')+'</td>'
