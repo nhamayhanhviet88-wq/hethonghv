@@ -97,7 +97,12 @@ function _bnhFabRenderBody() {
                 if (trees.length > 1) h += '<button onclick="_bnhFabDelTree('+idx+','+ti+')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer">🗑</button>';
                 h += '</div>';
             });
-            h += '<button onclick="_bnhFabAddTree('+idx+')" style="margin-top:4px;padding:3px 10px;border-radius:5px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer">➕ Thêm cây</button>';
+            var _totalImpCheck = (it.imported_trees||0) + trees.length;
+            if (it.needed_trees > 0 && _totalImpCheck >= it.needed_trees) {
+                h += '<span style="margin-top:4px;display:inline-block;padding:3px 10px;border-radius:5px;border:1px solid #86efac;background:#dcfce7;color:#059669;font-size:10px;font-weight:700">✅ Đã đủ ' + it.needed_trees + ' cây — không thêm được</span>';
+            } else {
+                h += '<button onclick="_bnhFabAddTree('+idx+')" style="margin-top:4px;padding:3px 10px;border-radius:5px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer">➕ Thêm cây</button>';
+            }
             var totalW = trees.reduce(function(s,t){return s+(Number(t.weight)||0);},0);
             var totalC = trees.reduce(function(s,t){return s+Math.round((Number(t.weight)||0)*up);},0);
             totalFabCost += totalC;
@@ -254,7 +259,7 @@ function _bnhFabPickGroup(gi) {
 }
 
 function _bnhFabRemoveItem(idx) { _bnhFab.items.splice(idx, 1); _bnhFabRenderBody(); }
-function _bnhFabAddTree(idx) { var it = _bnhFab.items[idx]; if(it){it.trees.push({weight:''});_bnhFabRenderBody();} }
+function _bnhFabAddTree(idx) { var it = _bnhFab.items[idx]; if(!it) return; var totalImp = (it.imported_trees||0) + it.trees.length; if(it.needed_trees > 0 && totalImp >= it.needed_trees){ showToast('Đã đủ '+it.needed_trees+' cây, không thêm được nữa','warning'); return; } it.trees.push({weight:''});_bnhFabRenderBody(); }
 function _bnhFabDelTree(idx,ti) { var it = _bnhFab.items[idx]; if(it&&it.trees.length>1){it.trees.splice(ti,1);_bnhFabRenderBody();} }
 function _bnhFabTreeW(idx, ti, val) {
     var it = _bnhFab.items[idx]; if (!it || !it.trees[ti]) return;
