@@ -97,11 +97,16 @@ function _bnhFabRenderBody() {
                 if (trees.length > 1) h += '<button onclick="_bnhFabDelTree('+idx+','+ti+')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer">🗑</button>';
                 h += '</div>';
             });
-            var _totalImpCheck = (it.imported_trees||0) + trees.length;
-            if (it.needed_trees > 0 && _totalImpCheck >= it.needed_trees) {
-                h += '<span style="margin-top:4px;display:inline-block;padding:3px 10px;border-radius:5px;border:1px solid #86efac;background:#dcfce7;color:#059669;font-size:10px;font-weight:700">✅ Đã đủ ' + it.needed_trees + ' cây — không thêm được</span>';
+            var _treeCount = trees.length;
+            var _prevImported = Number(it.imported_trees) || 0;
+            var _maxAllowed = Number(it.needed_trees) || 0;
+            var _totalNow = _prevImported + _treeCount;
+            var _isFull = (_maxAllowed > 0 && _totalNow >= _maxAllowed);
+            console.log('[FAB-GUARD] trees='+_treeCount+' imported='+_prevImported+' max='+_maxAllowed+' total='+_totalNow+' full='+_isFull);
+            if (_isFull) {
+                h += '<div style="margin-top:4px;padding:4px 12px;border-radius:6px;background:#dcfce7;border:1.5px solid #22c55e;color:#15803d;font-size:11px;font-weight:800;text-align:center">DA DU ' + _maxAllowed + ' CAY</div>';
             } else {
-                h += '<button onclick="_bnhFabAddTree('+idx+')" style="margin-top:4px;padding:3px 10px;border-radius:5px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer">➕ Thêm cây</button>';
+                h += '<button onclick="_bnhFabAddTree('+idx+')" style="margin-top:4px;padding:3px 10px;border-radius:5px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer">+ Them cay</button>';
             }
             var totalW = trees.reduce(function(s,t){return s+(Number(t.weight)||0);},0);
             var totalC = trees.reduce(function(s,t){return s+Math.round((Number(t.weight)||0)*up);},0);
