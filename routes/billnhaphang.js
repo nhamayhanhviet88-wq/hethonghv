@@ -291,9 +291,11 @@ module.exports = async function(fastify) {
         return { staff: await db.all(`SELECT u.id, u.full_name, u.username FROM users u WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
     });
 
-    // ========== FABRIC IMPORT: Pending calls from QLX ==========
+    // ========== FABRIC IMPORT: Pending calls from QLX (GROUPED) ==========
     fastify.get('/api/import/fabric-pending-calls', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
+
+        // 1. Get all pending reservations
         const calls = await db.all(`
             SELECT res.id, res.dht_order_id, res.item_id, res.phoi_index,
                    res.material_name, res.color_name, res.unit,
@@ -307,23 +309,81 @@ module.exports = async function(fastify) {
             WHERE res.reservation_type = 'new_call' AND res.status = 'reserved'
             ORDER BY res.created_at DESC
         `);
-        // Try matching fabric_color_id for each call
+
+        // 2. Group by material_name + color_name + unit
+        const groupMap = {};
         for (const c of calls) {
-            if (c.material_name && c.color_name) {
-                const match = await db.get(`
-                    SELECT fc.id AS fabric_color_id, m.warehouse_id, w.unit AS wh_unit
-                    FROM kv_fabric_colors fc
-                    JOIN kv_materials m ON m.id = fc.material_id
-                    JOIN kv_warehouses w ON w.id = m.warehouse_id
-                    WHERE fc.is_active = true AND m.is_active = true
-                      AND UPPER(m.name) = UPPER($1) AND UPPER(fc.color_name) = UPPER($2)
-                    LIMIT 1
-                `, [c.material_name.trim(), c.color_name.trim()]);
-                c.fabric_color_id = match ? match.fabric_color_id : null;
-                c.wh_unit = match ? match.wh_unit : c.unit;
+            const key = `${(c.material_name||'').trim().toUpperCase()}|${(c.color_name||'').trim().toUpperCase()}|${(c.unit||'kg')}`;
+            if (!groupMap[key]) {
+                groupMap[key] = {
+                    material_name: (c.material_name||'').trim(),
+                    color_name: (c.color_name||'').trim(),
+                    unit: c.unit || 'kg',
+                    fabric_color_id: null,
+                    total_called_trees: 0,
+                    total_called_amount: 0,
+                    needed_trees: 0,
+                    reservations: []
+                };
+            }
+            const g = groupMap[key];
+            const ct = Number(c.call_trees) || 0;
+            const ca = Number(c.call_amount) || 0;
+            g.total_called_trees += ct;
+            g.total_called_amount += ca;
+            // Each reservation needs: call_trees + (call_amount > 0 ? 1 : 0)
+            g.needed_trees += ct + (ca > 0 ? 1 : 0);
+            g.reservations.push({
+                id: c.id, dht_order_id: c.dht_order_id, order_code: c.order_code,
+                item_id: c.item_id, phoi_index: c.phoi_index,
+                item_description: c.item_description,
+                call_trees: ct, call_amount: ca, call_note: c.call_note,
+                called_by_name: c.called_by_name
+            });
+        }
+
+        // 3. Match fabric_color_id for each group
+        for (const key of Object.keys(groupMap)) {
+            const g = groupMap[key];
+            const match = await db.get(`
+                SELECT fc.id AS fabric_color_id, m.warehouse_id, w.unit AS wh_unit
+                FROM kv_fabric_colors fc
+                JOIN kv_materials m ON m.id = fc.material_id
+                JOIN kv_warehouses w ON w.id = m.warehouse_id
+                WHERE fc.is_active = true AND m.is_active = true
+                  AND UPPER(m.name) = UPPER($1) AND UPPER(fc.color_name) = UPPER($2)
+                LIMIT 1
+            `, [g.material_name, g.color_name]);
+            g.fabric_color_id = match ? match.fabric_color_id : null;
+            if (match && match.wh_unit) g.unit = match.wh_unit;
+        }
+
+        // 4. Count already imported trees for each group from import_records
+        const allImports = await db.all(`
+            SELECT fabric_items FROM import_records WHERE record_type = 'fabric'
+        `);
+        // Parse JSONB and count trees per material+color
+        const importedMap = {}; // key → imported_tree_count
+        for (const ir of allImports) {
+            let items = [];
+            try { items = typeof ir.fabric_items === 'string' ? JSON.parse(ir.fabric_items) : (ir.fabric_items || []); } catch(e) {}
+            for (const fi of items) {
+                const ik = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}|${(fi.unit||'kg')}`;
+                if (!importedMap[ik]) importedMap[ik] = 0;
+                importedMap[ik] += (fi.trees || []).length;
             }
         }
-        return { calls };
+
+        // 5. Calculate remaining and filter fulfilled groups
+        const groups = [];
+        for (const key of Object.keys(groupMap)) {
+            const g = groupMap[key];
+            g.imported_trees = importedMap[key] || 0;
+            g.remaining_trees = Math.max(0, g.needed_trees - g.imported_trees);
+            if (g.remaining_trees > 0) groups.push(g);
+        }
+
+        return { groups };
     });
 
     // ========== FABRIC IMPORT: Check accountant permission ==========
@@ -397,8 +457,8 @@ module.exports = async function(fastify) {
                 if (attempt === 4) throw new Error('Không thể tạo mã nhập vải duy nhất');
             }
 
-            // 2. Lock and validate reservations
-            const reservationIds = b.fabric_items.map(fi => fi.reservation_id).filter(Boolean);
+            // 2. Lock and validate reservations (now supports multiple IDs per item)
+            const reservationIds = b.fabric_items.flatMap(fi => fi.reservation_ids || (fi.reservation_id ? [fi.reservation_id] : [])).filter(Boolean);
             if (reservationIds.length > 0) {
                 const locked = await client.query(
                     `SELECT id, status FROM qlx_fabric_reservations WHERE id = ANY($1) FOR UPDATE`,
@@ -419,9 +479,13 @@ module.exports = async function(fastify) {
             for (const fi of b.fabric_items) {
                 const rollIds = [];
                 let itemTotalWeight = 0;
+                const unitPrice = Number(fi.unit_price) || 0;
+                const treesWithCost = [];
                 for (const tree of fi.trees) {
                     const w = Number(tree.weight);
+                    const treeCost = Math.round(w * unitPrice);
                     itemTotalWeight += w;
+                    treesWithCost.push({ weight: w, cost: treeCost });
                     if (fi.fabric_color_id) {
                         const rollCode = 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
                         const rollResult = await client.query(
@@ -430,7 +494,6 @@ module.exports = async function(fastify) {
                             [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id]
                         );
                         rollIds.push(rollResult.rows[0].id);
-                        // kv_transaction NHAP
                         await client.query(
                             `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
                              VALUES ($1, 'NHAP', $2, $3, $4)`,
@@ -438,54 +501,97 @@ module.exports = async function(fastify) {
                         );
                     }
                 }
+                const itemCost = treesWithCost.reduce((s, t) => s + t.cost, 0);
                 totalFabricQty += itemTotalWeight;
                 fabricMaterialNames.push(`${fi.material_name} - ${fi.color_name}`);
 
                 fabricItemsResult.push({
-                    reservation_id: fi.reservation_id || null,
+                    reservation_ids: fi.reservation_ids || [],
                     material_name: fi.material_name,
                     color_name: fi.color_name,
                     unit: fi.unit || 'kg',
-                    suggested_trees: fi.suggested_trees || 0,
-                    suggested_amount: fi.suggested_amount || 0,
-                    trees: fi.trees,
+                    unit_price: unitPrice,
+                    trees: treesWithCost,
                     actual_total: itemTotalWeight,
-                    order_code: fi.order_code || null,
-                    phoi_index: fi.phoi_index,
+                    item_cost: itemCost,
                     fabric_color_id: fi.fabric_color_id || null,
                     roll_ids_created: rollIds
                 });
+            }
 
-                // 4. Update QLX reservation status → arrived
-                if (fi.reservation_id) {
+            // 4. Smart fulfillment check per material+color group
+            // Count ALL imported trees (including this bill) per material+color
+            const allImportRows = await client.query(`SELECT fabric_items FROM import_records WHERE record_type='fabric'`);
+            const impTreeMap = {};
+            for (const row of allImportRows.rows) {
+                let items = []; try { items = typeof row.fabric_items === 'string' ? JSON.parse(row.fabric_items) : (row.fabric_items || []); } catch(e) {}
+                for (const fi of items) {
+                    const ik = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}`;
+                    impTreeMap[ik] = (impTreeMap[ik] || 0) + (fi.trees || []).length;
+                }
+            }
+            // Also count trees from THIS bill (not yet in DB)
+            for (const fi of fabricItemsResult) {
+                const ik = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}`;
+                impTreeMap[ik] = (impTreeMap[ik] || 0) + (fi.trees || []).length;
+            }
+
+            // For each unique material+color in this bill, check if fulfilled
+            const checkedGroups = new Set();
+            for (const fi of fabricItemsResult) {
+                const gk = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}`;
+                if (checkedGroups.has(gk)) continue;
+                checkedGroups.add(gk);
+
+                // Get all reservations for this material+color
+                const groupRes = await client.query(
+                    `SELECT id, dht_order_id, call_trees, call_amount FROM qlx_fabric_reservations
+                     WHERE reservation_type='new_call' AND status='reserved'
+                       AND UPPER(TRIM(material_name))=$1 AND UPPER(TRIM(color_name))=$2
+                     FOR UPDATE`,
+                    [fi.material_name.trim().toUpperCase(), fi.color_name.trim().toUpperCase()]
+                );
+                if (groupRes.rows.length === 0) continue;
+
+                // Calculate needed trees for this group
+                let neededTrees = 0;
+                for (const r of groupRes.rows) {
+                    neededTrees += (Number(r.call_trees) || 0) + (Number(r.call_amount) > 0 ? 1 : 0);
+                }
+                const importedTrees = impTreeMap[gk] || 0;
+
+                if (importedTrees >= neededTrees) {
+                    // FULFILLED → mark all reservations as arrived
+                    const resIds = groupRes.rows.map(r => r.id);
                     await client.query(
-                        `UPDATE qlx_fabric_reservations SET status='arrived', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=$3`,
-                        [now, req.user.id, fi.reservation_id]
+                        `UPDATE qlx_fabric_reservations SET status='arrived', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=ANY($3)`,
+                        [now, req.user.id, resIds]
                     );
-                    // Auto-check order-level fabric_arrived
-                    if (fi.dht_order_id) {
+                    // Auto-check order-level fabric_arrived for each affected order
+                    const affectedOrders = [...new Set(groupRes.rows.map(r => r.dht_order_id))];
+                    for (const ordId of affectedOrders) {
                         const pending = await client.query(
                             `SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND status='reserved'`,
-                            [fi.dht_order_id]
+                            [ordId]
                         );
                         if (pending.rows[0].cnt === 0) {
                             await client.query(
                                 `INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
                                  VALUES ($1, true, $2, $3)
                                  ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived=true, fabric_arrived_at=$2, fabric_arrived_by=$3, updated_at=$2`,
-                                [fi.dht_order_id, now, req.user.id]
+                                [ordId, now, req.user.id]
                             );
                         }
                     }
                 }
             }
 
-            // 5. Calculate financials
-            const fabricCost = Number(b.cost) || 0;
+            // 5. Calculate financials (auto from unit_price × weight)
+            const fabricCost = fabricItemsResult.reduce((s, fi) => s + (fi.item_cost || 0), 0);
             const extraCostTotal = extraCosts.reduce((s, ec) => s + (Number(ec.amount) || 0), 0);
             const totalCost = fabricCost + extraCostTotal;
-            const paid = Number(b.paid) || 0;
-            const totalDebt = totalCost - paid;
+            const paid = 0; // Payment handled in separate module
+            const totalDebt = totalCost;
 
             // 6. Handle ship cost → create cashflow CHI
             let shipCfId = null, shipCfCode = null;

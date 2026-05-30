@@ -1,5 +1,5 @@
 // ========== NHẬP VẢI — Fabric Import Module ==========
-var _bnhFab = { calls: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false };
+var _bnhFab = { groups: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false };
 
 async function _bnhCheckFabPerm() {
     try { var r = await apiCall('/api/import/fabric-check-perm'); if (r.allowed) { var b = document.getElementById('bnhFabBtn'); if (b) b.style.display = ''; } } catch (e) { }
@@ -10,7 +10,7 @@ async function _bnhOpenFabric() {
     // Load pending calls + sources
     try {
         var [cr, sr] = await Promise.all([apiCall('/api/import/fabric-pending-calls'), apiCall('/api/import/sources')]);
-        _bnhFab.calls = cr.calls || [];
+        _bnhFab.groups = cr.groups || [];
         _bnhFab.availSources = sr.sources || [];
     } catch (e) { showToast(e.message || 'Lỗi tải dữ liệu', 'error'); return; }
 
@@ -44,67 +44,85 @@ function _bnhFabClose() { var o = document.getElementById('_fabOv'); if (o) o.re
 function _escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _bnhFabRenderBody() {
-    // Save Cost/Paid state before re-render
-    var costEl = document.getElementById('_fabCost'), paidEl = document.getElementById('_fabPaid'), notesEl = document.getElementById('_fabNotes');
-    if (costEl) _bnhFab.cost = costEl.value;
-    if (paidEl) _bnhFab.paid = paidEl.value;
+    var notesEl = document.getElementById('_fabNotes');
     if (notesEl) _bnhFab.notes = notesEl.value;
+    var srcEl = document.getElementById('_fabSrc');
+    if (srcEl) _bnhFab.selectedSrc = srcEl.value;
     var f = _bnhFab, h = '';
-    // ID + Date + Staff
     var deptBadge = f.userDept ? '<div style="font-size:9px;color:#7c3aed;font-weight:700;margin-top:2px;background:#ede9fe;display:inline-block;padding:1px 6px;border-radius:4px">' + _escAttr(f.userDept) + '</div>' : '';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">'
         + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">ID MÃ NHẬP VẢI</label><div style="padding:8px 12px;background:#f1f5f9;border-radius:8px;font-size:13px;font-weight:800;color:#7c3aed;letter-spacing:1px">' + f.code + '</div></div>'
         + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">NGÀY NHẬP</label><div style="padding:8px 12px;background:#f1f5f9;border-radius:8px;font-size:12px;font-weight:600">' + f.dateStr + '</div></div>'
         + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">NHÂN VIÊN</label><div style="padding:8px 12px;background:#f1f5f9;border-radius:8px;font-size:12px;font-weight:600">' + f.userName + deptBadge + '</div></div></div>';
-
-    // Source
     h += '<div style="margin-bottom:16px"><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">NGUỒN NCC *</label>'
         + '<select id="_fabSrc" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"><option value="">— Chọn nguồn —</option>';
-    (f.availSources || []).forEach(function (s) { h += '<option value="' + s.id + '">' + s.name + '</option>'; });
+    (f.availSources || []).forEach(function (s) { h += '<option value="' + s.id + '"' + (f.selectedSrc == s.id ? ' selected' : '') + '>' + s.name + '</option>'; });
     h += '</select></div>';
-
-    // Fabric items section
+    // Fabric items
     h += '<div style="border:1.5px solid #ede9fe;border-radius:12px;padding:12px;margin-bottom:16px;background:#faf5ff">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#7c3aed">🧵 CHẤT LIỆU & MÀU VẢI</span>'
         + '<button onclick="_bnhFabAddItem()" style="padding:4px 12px;border-radius:6px;border:1.5px solid #7c3aed;background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm</button></div>';
-
     if (!f.items.length) {
-        h += '<div style="text-align:center;padding:20px;color:#a78bfa;font-size:12px">Chưa có vải nào. Ấn ➕ để chọn từ yêu cầu Gọi Vải QLX</div>';
+        h += '<div style="text-align:center;padding:20px;color:#a78bfa;font-size:12px">Chưa có vải nào. Ấn ➕ để chọn từ yêu cầu QLX</div>';
     } else {
+        var totalFabCost = 0;
         f.items.forEach(function (it, idx) {
+            var up = Number(it.unit_price) || 0;
             h += '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:10px;padding:12px;margin-bottom:8px">'
                 + '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">'
                 + '<div><div style="font-size:12px;font-weight:800;color:#1e293b">' + it.material_name + ' - ' + it.color_name + '</div>';
-            if (it.order_code) h += '<div style="font-size:10px;color:#6b7280">📦 ' + it.order_code + (it.phoi_index !== undefined ? ' | Phối ' + (it.phoi_index + 1) : '') + '</div>';
-            if (it.suggested_trees || it.suggested_amount) h += '<div style="font-size:10px;color:#a78bfa">📏 QLX gọi: ' + (it.suggested_trees || 0) + ' cây, ' + (it.suggested_amount || 0) + (it.unit || 'kg') + '</div>';
+            // Show QLX detail per order
+            if (it.reservations && it.reservations.length) {
+                h += '<div style="font-size:10px;color:#6b7280;margin-top:2px">📏 QLX cần: ' + it.needed_trees + ' cây (từ ' + it.reservations.length + ' đơn)</div>';
+                it.reservations.forEach(function(r) {
+                    h += '<div style="font-size:9px;color:#a78bfa;margin-left:12px">📦 ' + (r.order_code||'') + ' Phối ' + ((r.phoi_index||0)+1) + ': ' + (r.call_trees||0) + ' cây, ' + (r.call_amount||0) + (it.unit||'kg') + '</div>';
+                });
+                if (it.imported_trees > 0) h += '<div style="font-size:9px;color:#059669;margin-left:12px">✅ Đã nhập trước: ' + it.imported_trees + ' cây</div>';
+            }
             h += '</div><button onclick="_bnhFabRemoveItem(' + idx + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:2px 8px;font-size:10px;cursor:pointer;font-weight:700">✕</button></div>';
-            // Per-tree weight inputs
-            h += '<div style="margin-top:6px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
-                + '<label style="font-size:10px;font-weight:700;color:#374151">Số cây:</label>'
-                + '<input type="number" min="1" max="50" value="' + (it.trees ? it.trees.length : 1) + '" onchange="_bnhFabSetTrees(' + idx + ',this.value)" style="width:60px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:center">'
-                + '<span style="font-size:10px;color:#6b7280">(' + (it.unit || 'kg') + ')</span></div>';
-            var trees = it.trees || [{ weight: '' }];
+            // Unit price
+            h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:6px 8px;background:#f0fdf4;border-radius:6px">'
+                + '<span style="font-size:10px;font-weight:700;color:#059669">💰 Đơn giá:</span>'
+                + '<input type="number" step="1000" min="0" value="' + (it.unit_price||'') + '" placeholder="0" onchange="_bnhFab.items['+idx+'].unit_price=Number(this.value)||0;_bnhFabRenderBody()" style="width:130px;padding:4px 8px;border:1px solid #86efac;border-radius:6px;font-size:12px;font-weight:700">'
+                + '<span style="font-size:10px;color:#6b7280">đ/' + (it.unit||'kg') + '</span></div>';
+            // Trees
+            var trees = it.trees || [];
             trees.forEach(function (tr, ti) {
+                var tc = Math.round((Number(tr.weight)||0) * up);
                 h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
-                    + '<span style="font-size:10px;color:#9ca3af;width:50px">Cây ' + (ti + 1) + ':</span>'
-                    + '<input type="number" step="0.1" min="0.1" value="' + (tr.weight || '') + '" placeholder="0" onchange="_bnhFabTreeW(' + idx + ',' + ti + ',this.value)" style="width:100px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
-                    + '</div>';
+                    + '<span style="font-size:10px;color:#9ca3af;width:45px">Cây '+(ti+1)+':</span>'
+                    + '<input type="number" step="0.1" min="0.1" value="'+(tr.weight||'')+'" placeholder="0" onchange="_bnhFabTreeW('+idx+','+ti+',this.value)" style="width:90px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
+                    + '<span style="font-size:10px;color:#6b7280">'+(it.unit||'kg')+'</span>'
+                    + (up > 0 ? '<span style="font-size:10px;color:#059669;font-weight:600">→ '+tc.toLocaleString('vi-VN')+'đ</span>' : '');
+                if (trees.length > 1) h += '<button onclick="_bnhFabDelTree('+idx+','+ti+')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer">🗑</button>';
+                h += '</div>';
             });
-            // Show total
-            var total = trees.reduce(function (s, t) { return s + (Number(t.weight) || 0); }, 0);
-            h += '<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:4px">Tổng: ' + total + ' ' + (it.unit || 'kg') + '</div>';
-            if (!it.fabric_color_id) h += '<div style="font-size:9px;color:#f59e0b;margin-top:2px">⚠️ Loại vải chưa có trong Kho Vải — sẽ không tạo cây vải tự động</div>';
+            h += '<button onclick="_bnhFabAddTree('+idx+')" style="margin-top:4px;padding:3px 10px;border-radius:5px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer">➕ Thêm cây</button>';
+            var totalW = trees.reduce(function(s,t){return s+(Number(t.weight)||0);},0);
+            var totalC = trees.reduce(function(s,t){return s+Math.round((Number(t.weight)||0)*up);},0);
+            totalFabCost += totalC;
+            h += '<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:6px">📊 '+trees.length+' cây | '+totalW+' '+(it.unit||'kg')+(up>0?' | '+totalC.toLocaleString('vi-VN')+'đ':'')+'</div>';
+            // Fulfillment status
+            var totalImp = (it.imported_trees||0) + trees.length;
+            if (it.needed_trees > 0) {
+                if (totalImp >= it.needed_trees) h += '<div style="font-size:9px;color:#059669;font-weight:700;margin-top:2px">✅ ĐỦ ('+totalImp+'/'+it.needed_trees+' cây) — lần sau sẽ ẨN</div>';
+                else h += '<div style="font-size:9px;color:#f59e0b;font-weight:700;margin-top:2px">⚠️ Thiếu '+(it.needed_trees-totalImp)+' cây ('+totalImp+'/'+it.needed_trees+')</div>';
+            }
+            if (!it.fabric_color_id) h += '<div style="font-size:9px;color:#f59e0b;margin-top:2px">⚠️ Chưa có trong Kho Vải</div>';
             h += '</div>';
         });
+        // Auto total summary
+        var extraTotal = f.extraCosts.reduce(function(s,ec){return s+(Number(ec.amount)||0);},0);
+        var shipVal = Number(f.shipCost||0);
+        var grandTotal = totalFabCost + extraTotal + shipVal;
+        h += '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;margin-top:8px">'
+            + '<div style="font-size:10px;font-weight:800;color:#059669;margin-bottom:4px">📊 TỔNG KẾT BILL</div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b>'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
+        if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b>'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
+        if (shipVal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🚚 Phí ship:</span><b>'+shipVal.toLocaleString('vi-VN')+'đ</b></div>';
+        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span>'+grandTotal.toLocaleString('vi-VN')+'đ</span></div></div>';
     }
     h += '</div>';
-
-    // Cost + Paid
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'
-        + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">💰 CHI PHÍ VẢI (Thành Tiền)</label>'
-        + '<input type="number" id="_fabCost" placeholder="0" value="' + (f.cost || '') + '" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"></div>'
-        + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">✅ ĐÃ THANH TOÁN</label>'
-        + '<input type="number" id="_fabPaid" placeholder="0" value="' + (f.paid || '') + '" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"></div></div>';
 
     // Extra costs
     h += '<div style="border:1.5px solid #fde68a;border-radius:12px;padding:12px;margin-bottom:16px;background:#fffbeb">'
@@ -192,62 +210,56 @@ function _bnhFabAttachPaste(elId, type) {
 }
 
 function _bnhFabAddItem() {
-    var calls = _bnhFab.calls.filter(function (c) {
-        return !_bnhFab.items.some(function (it) { return it.reservation_id === c.id; });
+    // Filter groups not already added
+    var groups = _bnhFab.groups.filter(function(g) {
+        var gk = (g.material_name+'|'+g.color_name).toUpperCase();
+        return !_bnhFab.items.some(function(it) { return (it.material_name+'|'+it.color_name).toUpperCase() === gk; });
     });
-    if (!calls.length) { showToast('Không còn yêu cầu Gọi Vải nào chưa nhập', 'warning'); return; }
+    if (!groups.length) { showToast('Không còn yêu cầu Gọi Vải nào chưa nhập', 'warning'); return; }
     var html = '<div style="max-height:400px;overflow-y:auto">';
-    calls.forEach(function (c) {
-        html += '<div onclick="_bnhFabPickCall(' + c.id + ')" style="padding:10px 14px;border:1px solid #e9d5ff;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#fff\'">'
-            + '<div style="font-size:12px;font-weight:700;color:#1e293b">' + c.material_name + ' - ' + c.color_name + '</div>'
-            + '<div style="font-size:10px;color:#6b7280">' + (c.order_code || '') + (c.phoi_index !== undefined ? ' | Phối ' + (c.phoi_index + 1) : '') + ' | ' + (c.item_description || '') + '</div>'
-            + '<div style="font-size:10px;color:#7c3aed">📏 ' + (c.call_trees || 0) + ' cây, ' + (c.call_amount || 0) + ' ' + (c.unit || 'kg') + (c.fabric_color_id ? ' ✅ Có trong kho' : ' ⚠️ Chưa có trong kho') + '</div>'
+    groups.forEach(function(g, gi) {
+        html += '<div onclick="_bnhFabPickGroup('+gi+')" style="padding:10px 14px;border:1px solid #e9d5ff;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#fff\'">'
+            + '<div style="font-size:12px;font-weight:700;color:#1e293b">🧵 '+g.material_name+' - '+g.color_name+'</div>'
+            + '<div style="font-size:10px;color:#7c3aed">📏 Cần: '+g.needed_trees+' cây | Đã nhập: '+g.imported_trees+' | Còn: '+g.remaining_trees+' cây</div>';
+        (g.reservations||[]).forEach(function(r) {
+            html += '<div style="font-size:9px;color:#6b7280;margin-left:12px">📦 '+(r.order_code||'')+' Phối '+((r.phoi_index||0)+1)+': '+(r.call_trees||0)+' cây, '+(r.call_amount||0)+g.unit+'</div>';
+        });
+        html += (g.fabric_color_id ? '<div style="font-size:9px;color:#059669">✅ Có trong kho</div>' : '<div style="font-size:9px;color:#f59e0b">⚠️ Chưa có trong kho</div>')
             + '</div>';
     });
     html += '</div>';
-    // Show in a sub-modal
     var m = document.createElement('div');
     m.id = '_fabPick';
     m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
-    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:100%;max-width:500px;padding:20px;box-shadow:0 15px 40px rgba(0,0,0,.2)">'
-        + '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:800;color:#7c3aed">Chọn yêu cầu Gọi Vải</span><button onclick="document.getElementById(\'_fabPick\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>'
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:100%;max-width:550px;padding:20px;box-shadow:0 15px 40px rgba(0,0,0,.2)">'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:800;color:#7c3aed">Chọn Chất Liệu + Màu Vải</span><button onclick="document.getElementById(\'_fabPick\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>'
         + html + '</div>';
+    // Store filtered groups for picking
+    window._fabPickGroups = groups;
     document.body.appendChild(m);
 }
 
-function _bnhFabPickCall(resId) {
-    var c = _bnhFab.calls.find(function (x) { return x.id === resId; });
-    if (!c) return;
-    var trees = [];
-    var n = c.call_trees || 1;
-    for (var i = 0; i < n; i++) trees.push({ weight: n > 0 && c.call_amount ? Math.round((c.call_amount / n) * 10) / 10 : '' });
+function _bnhFabPickGroup(gi) {
+    var g = (window._fabPickGroups||[])[gi]; if (!g) return;
     _bnhFab.items.push({
-        reservation_id: c.id, dht_order_id: c.dht_order_id,
-        material_name: c.material_name, color_name: c.color_name, unit: c.unit || 'kg',
-        suggested_trees: c.call_trees || 0, suggested_amount: c.call_amount || 0,
-        order_code: c.order_code, phoi_index: c.phoi_index,
-        fabric_color_id: c.fabric_color_id || null, trees: trees
+        reservation_ids: g.reservations.map(function(r){return r.id;}),
+        material_name: g.material_name, color_name: g.color_name, unit: g.unit || 'kg',
+        needed_trees: g.needed_trees, imported_trees: g.imported_trees,
+        remaining_trees: g.remaining_trees, reservations: g.reservations,
+        fabric_color_id: g.fabric_color_id || null, unit_price: 0,
+        trees: [{ weight: '' }]
     });
     var p = document.getElementById('_fabPick'); if (p) p.remove();
     _bnhFabRenderBody();
 }
 
 function _bnhFabRemoveItem(idx) { _bnhFab.items.splice(idx, 1); _bnhFabRenderBody(); }
-
-function _bnhFabSetTrees(idx, val) {
-    var n = Math.max(1, Math.min(50, parseInt(val) || 1));
-    var it = _bnhFab.items[idx]; if (!it) return;
-    var old = it.trees || [];
-    var trees = [];
-    for (var i = 0; i < n; i++) trees.push({ weight: old[i] ? old[i].weight : '' });
-    it.trees = trees;
-    _bnhFabRenderBody();
-}
-
+function _bnhFabAddTree(idx) { var it = _bnhFab.items[idx]; if(it){it.trees.push({weight:''});_bnhFabRenderBody();} }
+function _bnhFabDelTree(idx,ti) { var it = _bnhFab.items[idx]; if(it&&it.trees.length>1){it.trees.splice(ti,1);_bnhFabRenderBody();} }
 function _bnhFabTreeW(idx, ti, val) {
     var it = _bnhFab.items[idx]; if (!it || !it.trees[ti]) return;
     it.trees[ti].weight = Number(val) || 0;
-    _bnhFabRenderBody();
+    // Don't re-render whole form, just update display inline
 }
 
 function _bnhFabAddCost() { _bnhFab.extraCosts.push({ content: '', amount: '' }); _bnhFabRenderBody(); }
@@ -262,31 +274,32 @@ async function _bnhFabSubmit() {
     if (!f.items.length) { showToast('Chọn ít nhất 1 loại vải', 'error'); return; }
     for (var i = 0; i < f.items.length; i++) {
         var it = f.items[i];
-        if (!it.trees || !it.trees.length) { showToast(it.material_name + ': nhập số cây', 'error'); return; }
+        if (!it.trees || !it.trees.length) { showToast(it.material_name+': thêm ít nhất 1 cây', 'error'); return; }
+        if (!it.unit_price || Number(it.unit_price) <= 0) { showToast(it.material_name+': nhập đơn giá', 'error'); return; }
         for (var t = 0; t < it.trees.length; t++) {
-            if (!it.trees[t].weight || Number(it.trees[t].weight) <= 0) { showToast(it.material_name + ': Cây ' + (t + 1) + ' phải > 0', 'error'); return; }
+            if (!it.trees[t].weight || Number(it.trees[t].weight) <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); return; }
         }
     }
     for (var j = 0; j < f.extraCosts.length; j++) {
         var ec = f.extraCosts[j];
-        if (!ec.content || !ec.content.trim()) { showToast('Chi phí khác ' + (j + 1) + ': nhập nội dung', 'error'); return; }
-        if (!ec.amount || Number(ec.amount) <= 0) { showToast('Chi phí khác ' + (j + 1) + ': nhập số tiền', 'error'); return; }
+        if (!ec.content || !ec.content.trim()) { showToast('Chi phí khác '+(j+1)+': nhập nội dung', 'error'); return; }
+        if (!ec.amount || Number(ec.amount) <= 0) { showToast('Chi phí khác '+(j+1)+': nhập số tiền', 'error'); return; }
     }
     var shipCost = Number(document.getElementById('_fabShip')?.value) || 0;
     if (shipCost > 0 && !f.shipImg) { showToast('Có phí ship thì phải dán ảnh ship (Ctrl+V)', 'error'); return; }
     if (!f.billImg) { showToast('Ảnh bill bắt buộc (Ctrl+V)', 'error'); return; }
-
     _bnhFab.submitting = true;
     var btn = document.getElementById('_fabSubmit');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
-
     try {
         var body = {
             source_id: Number(srcId),
-            fabric_items: f.items,
+            fabric_items: f.items.map(function(it){
+                return { reservation_ids: it.reservation_ids||[], material_name: it.material_name, color_name: it.color_name,
+                    unit: it.unit||'kg', unit_price: Number(it.unit_price)||0, fabric_color_id: it.fabric_color_id,
+                    trees: it.trees.map(function(t){return {weight:Number(t.weight)||0};}) };
+            }),
             extra_costs: f.extraCosts,
-            cost: Number(document.getElementById('_fabCost')?.value) || 0,
-            paid: Number(document.getElementById('_fabPaid')?.value) || 0,
             ship_cost: shipCost,
             ship_image_url: f.shipImg ? f.shipImg.url : null,
             ship_image_path: f.shipImg ? f.shipImg.path : null,
@@ -319,8 +332,8 @@ window.addEventListener('beforeunload', function(e) {
 // Hook into state changes
 var _origAddItem = _bnhFabAddCost;
 _bnhFabAddCost = function() { _origAddItem(); _bnhFabWarnUnsaved(); };
-var _origPickCall = _bnhFabPickCall;
-_bnhFabPickCall = function(id) { _origPickCall(id); _bnhFabWarnUnsaved(); };
+var _origPickGroup = _bnhFabPickGroup;
+_bnhFabPickGroup = function(gi) { _origPickGroup(gi); _bnhFabWarnUnsaved(); };
 
 // Override close/submit to clear unsaved flag
 var _origClose = _bnhFabClose;
