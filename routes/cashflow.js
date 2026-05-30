@@ -228,8 +228,9 @@ module.exports = async function (fastify) {
         const balMap = {};
         sorted.forEach(r => {
             if (!r.is_closed) {
-                if (r.cashflow_type === 'THU') runBal += Number(r.amount);
-                else runBal -= Number(r.amount);
+                const amt = Number(r.amount) || 0;
+                if (r.cashflow_type === 'THU') runBal += amt;
+                else runBal -= amt;
             }
             balMap[r.id] = runBal;
         });
@@ -548,12 +549,16 @@ module.exports = async function (fastify) {
         if (pr.payment_method !== 'TM') return reply.code(400).send({ error: 'Chỉ sync tiền mặt (TM)' });
 
         const cfDate = pr.payment_date;
+        const syncAmount = Number(pr.amount);
+        if (!syncAmount || isNaN(syncAmount) || syncAmount <= 0) {
+            return reply.code(400).send({ error: 'Số tiền không hợp lệ: ' + pr.amount });
+        }
         // Use original payment_code as cashflow_code (TM5-15-5-Y26)
         const result = await db.get(`
             INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, source_record_id, created_by)
             VALUES ($1, 'THU', $2, $3, $4, $5, $6, $7)
             RETURNING id, cashflow_code
-        `, [pr.payment_code, pr.daily_seq || 0, cfDate, pr.transfer_note || pr.payment_code, Number(pr.amount), pr.id, pr.created_by || user.id]);
+        `, [pr.payment_code, pr.daily_seq || 0, cfDate, pr.transfer_note || pr.payment_code, syncAmount, pr.id, pr.created_by || user.id]);
 
         // Send Telegram for THU
         try {
