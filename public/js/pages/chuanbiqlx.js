@@ -78,7 +78,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'</div>'
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="qlxTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🧵</th><th>📦</th><th>🖨️</th><th>🪡</th>'
+        +'<th>STT</th><th>🧵</th><th>🔩</th><th>🖨️</th><th>🪡</th>'
         +'<th>Tên KH</th><th>CSKH</th>'
         +'<th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu</th>'
         +'<th>SL</th><th>Ngày Ra Dự Kiến</th>'
@@ -224,7 +224,7 @@ function _qlxRenderRows(paged) {
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
         if (o.fabric_arrived) { fabIcon = '✅'; fabCls = ' on-fab'; } else if (o.fabric_called) { fabIcon = '📦'; fabCls = ' on-mat'; } else { fabIcon = '🧵'; }
-        if (o.material_arrived) { matIcon = '✅'; matCls = ' on-fab'; } else if (o.material_called) { matIcon = '📦'; matCls = ' on-mat'; } else { matIcon = '📦'; }
+        if (o.material_arrived) { matIcon = '✅'; matCls = ' on-fab'; } else if (o.material_called) { matIcon = '📥'; matCls = ' on-mat'; } else { matIcon = '🔩'; }
 
         var fabAct = o.fabric_arrived ? 'reset_arrive' : o.fabric_called ? 'arrive' : 'call';
         var matAct = o.material_arrived ? 'reset_arrive' : o.material_called ? 'arrive' : 'call';
