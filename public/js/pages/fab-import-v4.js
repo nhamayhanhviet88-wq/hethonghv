@@ -123,31 +123,44 @@ function _bnhFabRenderBody() {
         });
         // Auto total summary
         var extraTotal = f.extraCosts.reduce(function(s,ec){return s+(Number(ec.amount)||0);},0);
-        var shipVal = Number(f.shipCost||0);
-        var grandTotal = totalFabCost + extraTotal + shipVal;
+        var grandTotal = totalFabCost + extraTotal;
         h += '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;margin-top:8px">'
             + '<div style="font-size:10px;font-weight:800;color:#059669;margin-bottom:4px">📊 TỔNG KẾT BILL</div>'
             + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b>'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
         if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b>'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
-        if (shipVal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🚚 Phí ship:</span><b>'+shipVal.toLocaleString('vi-VN')+'đ</b></div>';
-        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span>'+grandTotal.toLocaleString('vi-VN')+'đ</span></div></div>';
+        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span>'+grandTotal.toLocaleString('vi-VN')+'đ</span></div>';
+
+        // --- CHI PHÍ KHÁC (inside TỔNG THÀNH TIỀN section) ---
+        h += '<div style="border-top:1.5px dashed #fde68a;margin-top:10px;padding-top:10px">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#d97706">📋 CHI PHÍ KHÁC</span>'
+            + '<button onclick="_bnhFabAddCost()" style="padding:4px 12px;border-radius:6px;border:1.5px solid #d97706;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm</button></div>';
+        f.extraCosts.forEach(function (ec, ei) {
+            h += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">'
+                + '<input placeholder="Nội dung..." value="' + _escAttr(ec.content) + '" onchange="_bnhFabEC(' + ei + ',\'c\',this.value)" style="flex:1;padding:6px 10px;border:1px solid #fcd34d;border-radius:6px;font-size:11px">'
+                + '<input type="number" placeholder="Số tiền" value="' + (ec.amount || '') + '" onchange="_bnhFabEC(' + ei + ',\'a\',this.value)" style="width:120px;padding:6px 10px;border:1px solid #fcd34d;border-radius:6px;font-size:11px">'
+                + '<button onclick="_bnhFabRemCost(' + ei + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer">✕</button></div>';
+        });
+        if (!f.extraCosts.length) h += '<div style="text-align:center;padding:8px;color:#d97706;font-size:11px;opacity:.6">Không có chi phí khác</div>';
+        h += '</div>';
+
+        // --- HÌNH ẢNH BILL (inside TỔNG THÀNH TIỀN section) ---
+        h += '<div style="border-top:1.5px dashed #fca5a5;margin-top:10px;padding-top:10px">'
+            + '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">📸 HÌNH ẢNH BILL * (Ctrl+V)</div>'
+            + '<div id="_fabBillPaste" style="min-height:80px;border:2px dashed #fca5a5;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fff;position:relative" tabindex="0">';
+        if (f.billImg) h += '<img src="' + f.billImg.url + '" style="max-height:100px;border-radius:6px">';
+        else h += '<span style="font-size:11px;color:#fca5a5">Ctrl+V dán ảnh bill nhập vải</span>';
+        h += '</div></div>';
+
+        // --- GHI CHÚ (inside TỔNG THÀNH TIỀN section) ---
+        h += '<div style="border-top:1.5px dashed #e2e8f0;margin-top:10px;padding-top:10px">'
+            + '<label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">📝 GHI CHÚ</label>'
+            + '<textarea id="_fabNotes" rows="2" placeholder="Ghi chú thêm..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;resize:vertical">' + _escAttr(f.notes || '') + '</textarea></div>';
+
+        h += '</div>'; // close TỔNG KẾT BILL box
     }
-    h += '</div>';
+    h += '</div>'; // close Fabric items container
 
-    // Extra costs
-    h += '<div style="border:1.5px solid #fde68a;border-radius:12px;padding:12px;margin-bottom:16px;background:#fffbeb">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#d97706">📋 CHI PHÍ KHÁC</span>'
-        + '<button onclick="_bnhFabAddCost()" style="padding:4px 12px;border-radius:6px;border:1.5px solid #d97706;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm</button></div>';
-    f.extraCosts.forEach(function (ec, ei) {
-        h += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">'
-            + '<input placeholder="Nội dung..." value="' + _escAttr(ec.content) + '" onchange="_bnhFabEC(' + ei + ',\'c\',this.value)" style="flex:1;padding:6px 10px;border:1px solid #fcd34d;border-radius:6px;font-size:11px">'
-            + '<input type="number" placeholder="Số tiền" value="' + (ec.amount || '') + '" onchange="_bnhFabEC(' + ei + ',\'a\',this.value)" style="width:120px;padding:6px 10px;border:1px solid #fcd34d;border-radius:6px;font-size:11px">'
-            + '<button onclick="_bnhFabRemCost(' + ei + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer">✕</button></div>';
-    });
-    if (!f.extraCosts.length) h += '<div style="text-align:center;padding:8px;color:#d97706;font-size:11px;opacity:.6">Không có chi phí khác</div>';
-    h += '</div>';
-
-    // Ship cost
+    // --- CÔNG TY MẤT PHÍ SHIP (separate — NOT in bill total) ---
     var hasShipCost = Number(f.shipCost || 0) > 0 || f.shipImg;
     h += '<div style="border:1.5px solid #bae6fd;border-radius:12px;padding:12px;margin-bottom:16px;background:#f0f9ff">'
         + '<div style="font-size:11px;font-weight:800;color:#0284c7;margin-bottom:8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
@@ -159,18 +172,6 @@ function _bnhFabRenderBody() {
     if (f.shipImg) h += '<img src="' + f.shipImg.url + '" style="max-height:80px;border-radius:6px">';
     else h += '<span style="font-size:11px;color:#7dd3fc">Ctrl+V dán ảnh ship</span>';
     h += '</div></div></div>';
-
-    // Bill image
-    h += '<div style="border:1.5px solid #fca5a5;border-radius:12px;padding:12px;background:#fef2f2">'
-        + '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">📸 HÌNH ẢNH BILL * (Ctrl+V)</div>'
-        + '<div id="_fabBillPaste" style="min-height:80px;border:2px dashed #fca5a5;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fff;position:relative" tabindex="0">';
-    if (f.billImg) h += '<img src="' + f.billImg.url + '" style="max-height:100px;border-radius:6px">';
-    else h += '<span style="font-size:11px;color:#fca5a5">Ctrl+V dán ảnh bill nhập vải</span>';
-    h += '</div></div>';
-
-    // Notes
-    h += '<div style="margin-top:12px"><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">📝 GHI CHÚ</label>'
-        + '<textarea id="_fabNotes" rows="2" placeholder="Ghi chú thêm..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;resize:vertical">' + _escAttr(f.notes || '') + '</textarea></div>';
 
     // Action buttons (Hủy bỏ + Lưu) at bottom
     h += '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0">'
