@@ -670,6 +670,7 @@ module.exports = async function(fastify) {
             // Get all rolls for this fabric_color
             rolls = await db.all(`
                 SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note,
+                       r.called_for_orders,
                        COALESCE((
                            SELECT SUM(res.kg_reserved)
                            FROM qlx_fabric_reservations res

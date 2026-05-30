@@ -442,7 +442,19 @@ module.exports = async function(fastify) {
         return { staff: await db.all(`SELECT u.id, u.full_name, u.username FROM users u WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
     });
 
-    // ========== FABRIC IMPORT: Pending calls from QLX (GROUPED) ==========
+    // ========== RESERVATION ORDERS: Get order codes for reservation IDs ==========
+    fastify.get('/api/import/reservation-orders', { preHandler: [authenticate] }, async (req) => {
+        const idsStr = req.query.ids || '';
+        const ids = idsStr.split(',').map(Number).filter(n => n > 0);
+        if (!ids.length) return { orders: [] };
+        const rows = await db.all(
+            `SELECT DISTINCT o.order_code FROM qlx_fabric_reservations r
+             LEFT JOIN dht_orders o ON o.id = r.dht_order_id
+             WHERE r.id = ANY($1) AND o.order_code IS NOT NULL`, [ids]
+        );
+        return { orders: rows.map(r => r.order_code) };
+    });
+
     fastify.get('/api/import/fabric-pending-calls', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
 
@@ -644,7 +656,48 @@ module.exports = async function(fastify) {
                              VALUES ($1, $2, $3, $3, 'nhap_vai', $4, $5) RETURNING id`,
                             [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id]
                         );
-                        rollIds.push(rollResult.rows[0].id);
+                        const newRollId = rollResult.rows[0].id;
+                        rollIds.push(newRollId);
+
+                        // Collect order codes from linked reservations for tagging
+                        const resIds = fi.reservation_ids || [];
+                        const calledOrders = [];
+                        const autoReserveTargets = [];
+                        if (resIds.length > 0) {
+                            const resRows = await client.query(
+                                `SELECT r.id, r.dht_order_id, r.item_id, r.phoi_index, r.material_name, r.color_name, r.unit,
+                                        o.order_code
+                                 FROM qlx_fabric_reservations r
+                                 LEFT JOIN dht_orders o ON o.id = r.dht_order_id
+                                 WHERE r.id = ANY($1)`, [resIds]
+                            );
+                            for (const rr of resRows.rows) {
+                                if (rr.order_code && !calledOrders.includes(rr.order_code)) calledOrders.push(rr.order_code);
+                                autoReserveTargets.push(rr);
+                            }
+                        }
+
+                        // Tag roll with source info
+                        if (calledOrders.length > 0) {
+                            // source_import_id will be updated after import_records INSERT (we don't have the ID yet)
+                            await client.query(
+                                `UPDATE kv_rolls SET called_for_orders = $1::jsonb WHERE id = $2`,
+                                [JSON.stringify(calledOrders), newRollId]
+                            );
+                        }
+
+                        // Auto-create from_stock reservations for each linked order
+                        for (const target of autoReserveTargets) {
+                            await client.query(
+                                `INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                                    reservation_type, roll_id, roll_code, kg_reserved, status, arrived_at, arrived_by, created_by)
+                                 VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,'arrived',$10,$11,$12)`,
+                                [target.dht_order_id, target.item_id, target.phoi_index,
+                                 target.material_name, target.color_name, target.unit || 'kg',
+                                 newRollId, rollCode, w, now, req.user.id, req.user.id]
+                            );
+                        }
+
                         await client.query(
                             `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
                              VALUES ($1, 'NHAP', $2, $3, $4)`,
@@ -808,6 +861,15 @@ module.exports = async function(fastify) {
                  req.user.id, now]
             );
             const importId = importResult.rows[0].id;
+
+            // 7b. Backfill source_import_id on created rolls
+            const allCreatedRollIds = fabricItemsResult.reduce((arr, fi) => arr.concat(fi.roll_ids_created || []), []);
+            if (allCreatedRollIds.length > 0) {
+                await client.query(
+                    `UPDATE kv_rolls SET source_import_id = $1 WHERE id = ANY($2)`,
+                    [importId, allCreatedRollIds]
+                );
+            }
 
             // 8. History
             await client.query(

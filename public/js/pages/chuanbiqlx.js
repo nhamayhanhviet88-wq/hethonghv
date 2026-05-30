@@ -447,6 +447,17 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
             html += '<div id="_qlxSecStock">';
             html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ')</div>';
             if (rolls.length) {
+                // Sort: rolls called for THIS order first
+                var orderCode = o.order_code || '';
+                rolls.sort(function(a, b) {
+                    var aOrders = a.called_for_orders || [];
+                    var bOrders = b.called_for_orders || [];
+                    if (typeof aOrders === 'string') try { aOrders = JSON.parse(aOrders); } catch(e) { aOrders = []; }
+                    if (typeof bOrders === 'string') try { bOrders = JSON.parse(bOrders); } catch(e) { bOrders = []; }
+                    var aMatch = aOrders.indexOf(orderCode) >= 0 ? 1 : 0;
+                    var bMatch = bOrders.indexOf(orderCode) >= 0 ? 1 : 0;
+                    return bMatch - aMatch; // this-order first
+                });
                 rolls.forEach(function(rl, idx) {
                     var avail = rl.available;
                     var resInfo = '';
@@ -455,10 +466,23 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                             resInfo += '<div style="font-size:9px;color:#d97706;margin-top:2px">⚠️ Tạm giữ: ' + rv.kg_reserved + unitLabel + ' → ' + rv.order_code + ' (Phối ' + (rv.phoi_index+1) + ')</div>';
                         });
                     }
-                    html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:6px">';
-                    html += '<div style="display:flex;align-items:center;gap:8px">';
+                    // Determine tag
+                    var calledOrders = rl.called_for_orders || [];
+                    if (typeof calledOrders === 'string') try { calledOrders = JSON.parse(calledOrders); } catch(e) { calledOrders = []; }
+                    var tagHtml = '';
+                    if (calledOrders.indexOf(orderCode) >= 0) {
+                        tagHtml = '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🏷️ Gọi cho đơn này</span>';
+                    } else if (calledOrders.length > 0) {
+                        tagHtml = '<span style="background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔖 ' + calledOrders[0] + '</span>';
+                    }
+
+                    var borderColor = calledOrders.indexOf(orderCode) >= 0 ? '#86efac' : '#e2e8f0';
+                    var bgColor = calledOrders.indexOf(orderCode) >= 0 ? '#f0fdf4' : '#f8fafc';
+                    html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:10px;margin-bottom:6px">';
+                    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
+                    if (tagHtml) html += tagHtml;
                     html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
                     html += '</div>';
                     html += resInfo;

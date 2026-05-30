@@ -410,6 +410,19 @@ async function _bnhFabDetail(id) {
             });
             h += '</div>';
             if (it.roll_ids_created && it.roll_ids_created.length) h += '<div style="font-size:9px;color:#059669;margin-top:2px">✅ Đã tạo ' + it.roll_ids_created.length + ' cây vải trong kho</div>';
+            // Show linked order codes
+            if (it.reservation_ids && it.reservation_ids.length) {
+                h += '<div style="font-size:9px;color:#0369a1;margin-top:2px">📋 Gán cho đơn: <span id="_bnhFabResOrders_' + idx + '">...</span></div>';
+                // Async load order codes (will be filled after modal renders)
+                (function(resIds, elId) {
+                    apiCall('/api/import/reservation-orders?ids=' + resIds.join(',')).then(function(data) {
+                        var el = document.getElementById(elId);
+                        if (el && data.orders) el.innerHTML = data.orders.map(function(o) {
+                            return '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-weight:700">' + o + '</span>';
+                        }).join(' ');
+                    }).catch(function() {});
+                })(it.reservation_ids, '_bnhFabResOrders_' + idx);
+            }
             h += '</td></tr>';
         }
     });
