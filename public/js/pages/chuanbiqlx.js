@@ -261,7 +261,8 @@ function _qlxRenderRows(paged) {
                 // Gọi VL - LUÔN HIỆN sau checklist
                 h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\')" title="VL">' + matIcon + '</button></td>';
                 if (o.sx_print_confirmed) {
-                    if (o.qlx_received_phieu) {
+                    var receivedPhieu = o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1';
+                    if (receivedPhieu) {
                         // Đã nhận phiếu → PC In + PC May hoạt động bình thường
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_in ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\')" title="PC In">🖨️</button></td>';
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + (o.nguoi_may ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\')" title="PC May">🪡</button></td>';
