@@ -970,6 +970,7 @@ async function checkAuth(retryCount) {
             return;
         }
         currentUser = data.user;
+        window._currentUser = currentUser; // ★ Alias for page scripts that use window._currentUser
         userPermissions = data.user.permissions || {};
 
         // ★ ACCESS BLOCK CHECK — chỉ GĐ được miễn
