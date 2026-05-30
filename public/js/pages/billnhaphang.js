@@ -94,6 +94,9 @@ function _bnhRender(){
 
     var tb=document.getElementById('bnhTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="15"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
+    // Compute running cumulative debt (oldest → newest, bottom → top)
+    var runDebt=new Array(all.length);var cumDebt=0;
+    for(var ri=all.length-1;ri>=0;ri--){cumDebt+=Number(all[ri].debt)||0;runDebt[ri]=cumDebt;}
     tb.innerHTML=all.map(function(r,i){
         var cI=r.is_checked?'✅':'⬜',cC=r.is_checked?' on':'',cA=r.is_checked?'uncheck':'check';
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
@@ -110,7 +113,7 @@ function _bnhRender(){
         +'<td style="text-align:right;color:#f59e0b;font-weight:600">'+_bnhFM(r.refund)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_bnhFM(r.total_amount)+'</td>'
         +'<td style="text-align:right;color:#059669;font-weight:700">'+_bnhFM(r.paid)+'</td>'
-        +'<td style="text-align:center">'+_bnhDebt(r.debt)+'</td>'
+        +'<td style="text-align:center">'+_bnhDebt(runDebt[i])+'</td>'
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.cost_notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bnhInfo');if(el){var src=_bnh.filter.source_id?(_bnh.sources.find(function(s){return s.id==_bnh.filter.source_id;})||{}).name||'':'Tất cả';
