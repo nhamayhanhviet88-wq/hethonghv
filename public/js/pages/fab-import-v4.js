@@ -372,15 +372,16 @@ async function _bnhFabDetail(id) {
     h += '<div style="border:1.5px solid #ede9fe;border-radius:10px;padding:10px;margin-bottom:12px;background:#faf5ff">'
         + '<div style="font-size:11px;font-weight:800;color:#7c3aed;margin-bottom:8px">🧵 DANH SÁCH VẢI (' + items.length + ' loại)</div>'
         + '<table style="width:100%;border-collapse:collapse;font-size:11px">'
-        + '<thead><tr style="background:#ede9fe">'
-        + '<th style="padding:6px 8px;text-align:left;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Chất Liệu</th>'
-        + '<th style="padding:6px 8px;text-align:left;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Màu</th>'
-        + '<th style="padding:6px 8px;text-align:center;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Tổng SL</th>'
-        + '<th style="padding:6px 8px;text-align:right;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Giá</th>'
-        + '<th style="padding:6px 8px;text-align:right;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Thành Tiền</th>'
+        + '<thead><tr style="background:var(--gray-800,#1e293b)">'
+        + '<th style="padding:6px 8px;text-align:left;font-weight:800;color:#fff;border-bottom:2px solid #475569">Chất Liệu</th>'
+        + '<th style="padding:6px 8px;text-align:left;font-weight:800;color:#fff;border-bottom:2px solid #475569">Màu</th>'
+        + '<th style="padding:6px 8px;text-align:center;font-weight:800;color:#fff;border-bottom:2px solid #475569">Số Cây</th>'
+        + '<th style="padding:6px 8px;text-align:center;font-weight:800;color:#fff;border-bottom:2px solid #475569">Tổng SL</th>'
+        + '<th style="padding:6px 8px;text-align:right;font-weight:800;color:#fff;border-bottom:2px solid #475569">Giá</th>'
+        + '<th style="padding:6px 8px;text-align:right;font-weight:800;color:#fff;border-bottom:2px solid #475569">Thành Tiền</th>'
         + '</tr></thead><tbody>';
 
-    var grandTotalQty = {}, grandTotalCost = 0;
+    var grandTotalQty = {}, grandTotalCost = 0, grandTotalTrees = 0;
     items.forEach(function(it, idx) {
         var trees = it.trees || [];
         var qty = Number(it.actual_total) || 0;
@@ -388,11 +389,13 @@ async function _bnhFabDetail(id) {
         var price = Number(it.unit_price) || (qty > 0 ? Math.round(Number(it.item_cost||0) / qty) : 0);
         var cost = Number(it.item_cost) || (qty * price);
         grandTotalCost += cost;
+        grandTotalTrees += trees.length;
         grandTotalQty[unit] = (grandTotalQty[unit] || 0) + qty;
 
         h += '<tr style="border-bottom:1px solid #e9d5ff">'
             + '<td style="padding:6px 8px;font-weight:700;color:#1e293b">' + (it.material_name||'—') + '</td>'
             + '<td style="padding:6px 8px;font-weight:600;color:#6b7280">' + (it.color_name||'—') + '</td>'
+            + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#4f46e5">' + trees.length + '</td>'
             + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#7c3aed">' + _bnhFM(qty) + ' ' + unit + '</td>'
             + '<td style="padding:6px 8px;text-align:right;font-weight:600">' + _bnhFM(price) + '</td>'
             + '<td style="padding:6px 8px;text-align:right;font-weight:800;color:#059669">' + _bnhFM(cost) + '</td>'
@@ -400,7 +403,7 @@ async function _bnhFabDetail(id) {
 
         // Tree details (sub-row)
         if (trees.length > 0) {
-            h += '<tr><td colspan="5" style="padding:2px 8px 6px 20px">'
+            h += '<tr><td colspan="6" style="padding:2px 8px 6px 20px">'
                 + '<div style="display:flex;gap:4px;flex-wrap:wrap">';
             trees.forEach(function(t, ti) {
                 h += '<span style="background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600">Cây ' + (ti+1) + ': ' + (t.weight||0) + unit + '</span>';
@@ -414,11 +417,12 @@ async function _bnhFabDetail(id) {
     // TỔNG row
     var qtyParts = [];
     Object.keys(grandTotalQty).forEach(function(u) { if (grandTotalQty[u] > 0) qtyParts.push(_bnhFM(grandTotalQty[u]) + ' ' + u); });
-    h += '<tr style="background:#ede9fe;border-top:2px solid #c4b5fd">'
-        + '<td colspan="2" style="padding:6px 8px;font-weight:900;color:#5b21b6;text-align:right">TỔNG</td>'
-        + '<td style="padding:6px 8px;text-align:center;font-weight:900;color:#5b21b6">' + (qtyParts.join(' + ') || '0') + '</td>'
+    h += '<tr style="background:var(--gray-800,#1e293b);border-top:2px solid #475569">'
+        + '<td colspan="2" style="padding:6px 8px;font-weight:900;color:#fff;text-align:right">TỔNG</td>'
+        + '<td style="padding:6px 8px;text-align:center;font-weight:900;color:#fbbf24">' + grandTotalTrees + '</td>'
+        + '<td style="padding:6px 8px;text-align:center;font-weight:900;color:#fbbf24">' + (qtyParts.join(' + ') || '0') + '</td>'
         + '<td style="padding:6px 8px"></td>'
-        + '<td style="padding:6px 8px;text-align:right;font-weight:900;color:#059669;font-size:13px">' + _bnhFM(grandTotalCost) + '</td>'
+        + '<td style="padding:6px 8px;text-align:right;font-weight:900;color:#34d399;font-size:13px">' + _bnhFM(grandTotalCost) + '</td>'
         + '</tr>';
 
     h += '</tbody></table></div>';
