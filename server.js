@@ -924,8 +924,8 @@ async function start() {
     fastify.addHook('onSend', (request, reply, payload, done) => {
         const url = request.url;
         if (url.match(/\.(js|css)(\?|$)/)) {
-            // JS/CSS: cache for 7 days — ?v= parameter forces reload on deploy/restart
-            reply.header('Cache-Control', 'public, max-age=604800, immutable');
+            // JS/CSS: cache 5 phút — đủ nhanh, đủ ngắn để deploy mới lên ngay
+            reply.header('Cache-Control', 'public, max-age=300, must-revalidate');
         } else if (url.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)(\?|$)/)) {
             // Static assets: cache for 30 days
             reply.header('Cache-Control', 'public, max-age=2592000');
