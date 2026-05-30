@@ -66,6 +66,7 @@ async function _cfLoadRecords() {
     if (_cf.filter.month) p += (p?'&':'?')+'month='+_cf.filter.month;
     var data = await apiCall('/api/cashflow/records'+p);
     _cf.records = data.records || [];
+    _cf.carryForward = data.carry_forward || 0;
     _cf.selected = [];
     _cfRenderToolbar(); _cfRenderBatchBar(); _cfRenderTable();
 }
@@ -75,14 +76,29 @@ function _cfRenderToolbar() {
     var ft = 'Tất cả';
     if (_cf.filter.year && _cf.filter.month) ft = 'Tháng '+_cf.filter.month+'/'+_cf.filter.year;
     else if (_cf.filter.year) ft = 'Năm '+_cf.filter.year;
-    var tThu=0, tChi=0;
-    _cf.records.forEach(function(r){ if(r.cashflow_type==='THU') tThu+=Number(r.amount); else tChi+=Number(r.amount); });
+    // Only count UNCLOSED records for SỐ DƯ (consistent with "Chưa Chốt Sổ" column)
+    var tThu=0, tChi=0, tThuAll=0, tChiAll=0;
+    _cf.records.forEach(function(r){
+        if(r.cashflow_type==='THU') { tThuAll+=Number(r.amount); if(!r.is_closed) tThu+=Number(r.amount); }
+        else { tChiAll+=Number(r.amount); if(!r.is_closed) tChi+=Number(r.amount); }
+    });
     var canChi = _cf.userPerms.cf_create_chi;
     var chiBtn = canChi ? '<button class="cf-add-btn" onclick="_cfShowAddChi()">➕ Tạo Phiếu Chi</button>' : '';
 
-    var soDu = tThu - tChi;
+    var carry = _cf.carryForward || 0;
+    var soDu = carry + tThu - tChi;
+    var hasFilter = _cf.filter.year || _cf.filter.month;
+
+    var carryCard = '';
+    if (hasFilter && carry !== 0) {
+        carryCard = '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+            + '<div style="font-size:9px;font-weight:700;color:#7c3aed;letter-spacing:1px;margin-bottom:2px">SỐ DƯ KỲ TRƯỚC</div>'
+            + '<div style="font-size:13px;font-weight:900;color:'+(carry>=0?'#7c3aed':'#dc2626')+'">'+_cfFmt(carry)+'</div></div>';
+    }
+
     tb.innerHTML = '<span style="font-weight:800;font-size:13px">📅 '+ft+'</span><span style="flex:1"></span>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        + carryCard
         + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
         + '<div style="font-size:9px;font-weight:700;color:#1a5276;letter-spacing:1px;margin-bottom:2px">SỐ TIỀN THU</div>'
         + '<div style="font-size:13px;font-weight:900;color:#059669">'+_cfFmt(tThu)+'</div></div>'

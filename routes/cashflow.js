@@ -178,8 +178,10 @@ module.exports = async function (fastify) {
         const params = [];
         let paramIdx = 1;
 
-        if (money_source) { where += ` AND cf.money_source = $${paramIdx++}`; params.push(money_source); }
-        else { where += ` AND NOT (cf.money_source = 'cophanmay' AND cf.cashflow_type = 'THU' AND cf.cashflow_code LIKE 'CPMAY-%')`; }
+        // Source filter
+        let srcFilterSQL = '';
+        if (money_source) { where += ` AND cf.money_source = $${paramIdx++}`; params.push(money_source); srcFilterSQL = `AND money_source = '${money_source}'`; }
+        else { where += ` AND NOT (cf.money_source = 'cophanmay' AND cf.cashflow_type = 'THU' AND cf.cashflow_code LIKE 'CPMAY-%')`; srcFilterSQL = `AND NOT (money_source = 'cophanmay' AND cashflow_type = 'THU' AND cashflow_code LIKE 'CPMAY-%')`; }
         if (year) { where += ` AND EXTRACT(YEAR FROM cf.cashflow_date) = $${paramIdx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM cf.cashflow_date) = $${paramIdx++}`; params.push(Number(month)); }
         if (day) { where += ` AND EXTRACT(DAY FROM cf.cashflow_date) = $${paramIdx++}`; params.push(Number(day)); }
@@ -195,9 +197,34 @@ module.exports = async function (fastify) {
             ORDER BY cf.cashflow_date DESC, cf.id DESC
         `, params);
 
+        // Calculate carry-forward balance from ALL unclosed records BEFORE the filter window
+        let carryForward = 0;
+        if (year || month || day) {
+            // Build a date condition for "before the filter period"
+            let beforeWhere = `WHERE is_closed = false ${srcFilterSQL}`;
+            const beforeParams = [];
+            let bIdx = 1;
+            if (year && month) {
+                // Before this specific month
+                beforeWhere += ` AND (cashflow_date < make_date($${bIdx++}::int, $${bIdx++}::int, 1))`;
+                beforeParams.push(Number(year), Number(month));
+            } else if (year && !month) {
+                // Before this year
+                beforeWhere += ` AND (cashflow_date < make_date($${bIdx++}::int, 1, 1))`;
+                beforeParams.push(Number(year));
+            }
+            if (beforeParams.length > 0) {
+                const cfRow = await db.get(`
+                    SELECT COALESCE(SUM(CASE WHEN cashflow_type = 'THU' THEN amount ELSE -amount END), 0) AS bal
+                    FROM cashflow_records ${beforeWhere}
+                `, beforeParams);
+                carryForward = Number(cfRow.bal);
+            }
+        }
+
         // Calculate running balance (oldest to newest for correct cumulation)
         const sorted = [...rows].reverse();
-        let runBal = 0;
+        let runBal = carryForward;
         const balMap = {};
         sorted.forEach(r => {
             if (!r.is_closed) {
@@ -209,7 +236,7 @@ module.exports = async function (fastify) {
 
         rows.forEach(r => { r.running_balance = balMap[r.id] || 0; });
 
-        return { records: rows };
+        return { records: rows, carry_forward: carryForward };
     });
 
     // ========== GET TREE (sidebar) ==========
