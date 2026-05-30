@@ -423,7 +423,13 @@ module.exports = async function(fastify) {
     fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const rec = await db.get('SELECT ir.*, s.name AS source_name, u.full_name AS importer_name FROM import_records ir LEFT JOIN import_sources s ON ir.source_id=s.id LEFT JOIN users u ON ir.importer_id=u.id WHERE ir.id=$1', [Number(req.params.id)]);
         if (!rec || rec.record_type !== 'fabric') return reply.code(404).send({ error: 'Không tìm thấy bill vải' });
-        return { record: rec };
+        // Calculate total source debt for displaying Tổng Công Nợ
+        let total_source_debt = Number(rec.debt) || 0;
+        if (rec.source_id) {
+            const sd = await db.get('SELECT COALESCE(SUM(debt), 0)::numeric AS total_debt FROM import_records WHERE source_id=$1 AND debt > 0', [rec.source_id]);
+            total_source_debt = Number(sd?.total_debt) || 0;
+        }
+        return { record: rec, total_source_debt };
     });
 
     // ========== HISTORY ==========

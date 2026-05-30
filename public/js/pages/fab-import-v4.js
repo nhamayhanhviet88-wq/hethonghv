@@ -359,6 +359,7 @@ async function _bnhFabDetail(id) {
 
     var items = typeof r.fabric_items === 'string' ? JSON.parse(r.fabric_items) : (r.fabric_items || []);
     var extras = typeof r.extra_costs === 'string' ? JSON.parse(r.extra_costs) : (r.extra_costs || []);
+    var totalSourceDebt = Number(res.total_source_debt) || 0;
 
     var h = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">MÃ NHẬP VẢI</div><div style="font-size:14px;font-weight:900;color:#7c3aed;letter-spacing:1px">' + (r.fabric_import_code||'—') + '</div></div>'
@@ -367,32 +368,67 @@ async function _bnhFabDetail(id) {
 
     h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC</div><div style="font-size:12px;font-weight:700;color:#4f46e5">' + (r.source_name||'—') + '</div></div>';
 
-    // Fabric items
+    // ===== Fabric items TABLE =====
     h += '<div style="border:1.5px solid #ede9fe;border-radius:10px;padding:10px;margin-bottom:12px;background:#faf5ff">'
-        + '<div style="font-size:11px;font-weight:800;color:#7c3aed;margin-bottom:6px">🧵 DANH SÁCH VẢI (' + items.length + ' loại)</div>';
-    items.forEach(function(it) {
+        + '<div style="font-size:11px;font-weight:800;color:#7c3aed;margin-bottom:8px">🧵 DANH SÁCH VẢI (' + items.length + ' loại)</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:11px">'
+        + '<thead><tr style="background:#ede9fe">'
+        + '<th style="padding:6px 8px;text-align:left;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Chất Liệu</th>'
+        + '<th style="padding:6px 8px;text-align:left;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Màu</th>'
+        + '<th style="padding:6px 8px;text-align:center;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Tổng SL</th>'
+        + '<th style="padding:6px 8px;text-align:right;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Giá</th>'
+        + '<th style="padding:6px 8px;text-align:right;font-weight:800;color:#5b21b6;border-bottom:2px solid #c4b5fd">Thành Tiền</th>'
+        + '</tr></thead><tbody>';
+
+    var grandTotalQty = {}, grandTotalCost = 0;
+    items.forEach(function(it, idx) {
         var trees = it.trees || [];
-        h += '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:8px;padding:8px;margin-bottom:6px">'
-            + '<div style="font-size:12px;font-weight:700;color:#1e293b">' + it.material_name + ' - ' + it.color_name + '</div>';
-        if (it.order_code) h += '<div style="font-size:10px;color:#6b7280">📦 ' + it.order_code + '</div>';
-        h += '<div style="font-size:10px;color:#7c3aed;margin-top:4px">📏 Tổng: <b>' + (it.actual_total||0) + ' ' + (it.unit||'kg') + '</b> (' + trees.length + ' cây)</div>';
-        if (trees.length) {
-            h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">';
-            trees.forEach(function(t,ti) {
-                h += '<span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Cây ' + (ti+1) + ': ' + (t.weight||0) + (it.unit||'kg') + '</span>';
+        var qty = Number(it.actual_total) || 0;
+        var unit = it.unit || 'kg';
+        var price = Number(it.unit_price) || (qty > 0 ? Math.round(Number(it.item_cost||0) / qty) : 0);
+        var cost = Number(it.item_cost) || (qty * price);
+        grandTotalCost += cost;
+        grandTotalQty[unit] = (grandTotalQty[unit] || 0) + qty;
+
+        h += '<tr style="border-bottom:1px solid #e9d5ff">'
+            + '<td style="padding:6px 8px;font-weight:700;color:#1e293b">' + (it.material_name||'—') + '</td>'
+            + '<td style="padding:6px 8px;font-weight:600;color:#6b7280">' + (it.color_name||'—') + '</td>'
+            + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#7c3aed">' + _bnhFM(qty) + ' ' + unit + '</td>'
+            + '<td style="padding:6px 8px;text-align:right;font-weight:600">' + _bnhFM(price) + '</td>'
+            + '<td style="padding:6px 8px;text-align:right;font-weight:800;color:#059669">' + _bnhFM(cost) + '</td>'
+            + '</tr>';
+
+        // Tree details (sub-row)
+        if (trees.length > 0) {
+            h += '<tr><td colspan="5" style="padding:2px 8px 6px 20px">'
+                + '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+            trees.forEach(function(t, ti) {
+                h += '<span style="background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600">Cây ' + (ti+1) + ': ' + (t.weight||0) + unit + '</span>';
             });
             h += '</div>';
+            if (it.roll_ids_created && it.roll_ids_created.length) h += '<div style="font-size:9px;color:#059669;margin-top:2px">✅ Đã tạo ' + it.roll_ids_created.length + ' cây vải trong kho</div>';
+            h += '</td></tr>';
         }
-        if (it.roll_ids_created && it.roll_ids_created.length) h += '<div style="font-size:9px;color:#059669;margin-top:2px">✅ Đã tạo ' + it.roll_ids_created.length + ' cây vải trong kho</div>';
-        h += '</div>';
     });
-    h += '</div>';
 
-    // Financials
+    // TỔNG row
+    var qtyParts = [];
+    Object.keys(grandTotalQty).forEach(function(u) { if (grandTotalQty[u] > 0) qtyParts.push(_bnhFM(grandTotalQty[u]) + ' ' + u); });
+    h += '<tr style="background:#ede9fe;border-top:2px solid #c4b5fd">'
+        + '<td colspan="2" style="padding:6px 8px;font-weight:900;color:#5b21b6;text-align:right">TỔNG</td>'
+        + '<td style="padding:6px 8px;text-align:center;font-weight:900;color:#5b21b6">' + (qtyParts.join(' + ') || '0') + '</td>'
+        + '<td style="padding:6px 8px"></td>'
+        + '<td style="padding:6px 8px;text-align:right;font-weight:900;color:#059669;font-size:13px">' + _bnhFM(grandTotalCost) + '</td>'
+        + '</tr>';
+
+    h += '</tbody></table></div>';
+
+    // Financials — use totalSourceDebt for CÔNG NỢ
+    var hasSourceDebt = totalSourceDebt > 0;
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
         + '<div style="background:#f1f5f9;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#6b7280;font-weight:700">💰 CHI PHÍ</div><div style="font-size:14px;font-weight:900">' + _bnhFM(r.cost) + '</div></div>'
         + '<div style="background:#d1fae5;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#059669;font-weight:700">✅ ĐÃ TT</div><div style="font-size:14px;font-weight:900;color:#059669">' + _bnhFM(r.paid) + '</div></div>'
-        + '<div style="background:' + (Number(r.debt)>0?'#fee2e2':'#d1fae5') + ';padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:' + (Number(r.debt)>0?'#dc2626':'#059669') + ';font-weight:700">📊 CÔNG NỢ</div><div style="font-size:14px;font-weight:900;color:' + (Number(r.debt)>0?'#dc2626':'#059669') + '">' + _bnhFM(r.debt) + '</div></div></div>';
+        + '<div style="background:' + (hasSourceDebt?'#fee2e2':'#d1fae5') + ';padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:' + (hasSourceDebt?'#dc2626':'#059669') + ';font-weight:700">📊 TỔNG CÔNG NỢ</div><div style="font-size:14px;font-weight:900;color:' + (hasSourceDebt?'#dc2626':'#059669') + '">' + _bnhFM(totalSourceDebt) + '</div></div></div>';
 
     // Extra costs
     if (extras.length) {
