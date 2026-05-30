@@ -110,7 +110,7 @@ function _bnhRender(){
         +'<td style="text-align:right;color:#f59e0b;font-weight:600">'+_bnhFM(r.refund)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_bnhFM(r.total_amount)+'</td>'
         +'<td style="text-align:right;color:#059669;font-weight:700">'+_bnhFM(r.paid)+'</td>'
-        +'<td>'+_bnhDebt(r.debt)+'</td>'
+        +'<td style="text-align:center">'+_bnhDebt(r.debt)+'</td>'
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.cost_notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bnhInfo');if(el){var src=_bnh.filter.source_id?(_bnh.sources.find(function(s){return s.id==_bnh.filter.source_id;})||{}).name||'':'Tất cả';
@@ -121,7 +121,7 @@ function _bnhRender(){
     +'<div style="background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;padding:6px 12px;border-radius:8px;min-width:80px;text-align:center;box-shadow:0 3px 10px #6d28d920;flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">📏 SL NHẬP</div><div style="font-size:12px;font-weight:900">'+totalQtyStr+'</div></div>'
     +'<div style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:6px 12px;border-radius:8px;min-width:80px;text-align:center;box-shadow:0 3px 10px #1e293b20;flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">💰 THÀNH TIỀN</div><div style="font-size:12px;font-weight:900">'+_bnhFM(sumTotal)+'</div></div>'
     +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:6px 12px;border-radius:8px;min-width:70px;text-align:center;box-shadow:0 3px 10px #05966920;flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">✅ ĐÃ TT</div><div style="font-size:12px;font-weight:900">'+_bnhFM(sumPaid)+'</div></div>'
-    +'<div style="background:linear-gradient(135deg,'+(sumDebt>0?'#ef4444,#dc2626':'#059669,#10b981')+');color:#fff;padding:6px 12px;border-radius:8px;min-width:70px;text-align:center;box-shadow:0 3px 10px '+(sumDebt>0?'#ef444420':'#05966920')+';flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">📊 CÔNG NỢ</div><div style="font-size:12px;font-weight:900">'+_bnhFM(sumDebt)+'</div></div>';}
+    +'<div style="background:linear-gradient(135deg,'+(sumDebt>0?'#ef4444,#dc2626':'#059669,#10b981')+');color:#fff;padding:6px 12px;border-radius:8px;min-width:80px;text-align:center;box-shadow:0 3px 10px '+(sumDebt>0?'#ef444420':'#05966920')+';flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">📊 TỔNG CÔNG NỢ</div><div style="font-size:12px;font-weight:900">'+_bnhFM(sumDebt)+'</div></div>';}
 }
 
 async function _bnhTog(id,action){try{await apiCall('/api/import/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bnhLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
