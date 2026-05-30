@@ -259,7 +259,7 @@ function _bnhFabDelTree(idx,ti) { var it = _bnhFab.items[idx]; if(it&&it.trees.l
 function _bnhFabTreeW(idx, ti, val) {
     var it = _bnhFab.items[idx]; if (!it || !it.trees[ti]) return;
     it.trees[ti].weight = Number(val) || 0;
-    // Don't re-render whole form, just update display inline
+    _bnhFabRenderBody();
 }
 
 function _bnhFabAddCost() { _bnhFab.extraCosts.push({ content: '', amount: '' }); _bnhFabRenderBody(); }
