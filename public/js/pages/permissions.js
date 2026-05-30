@@ -81,7 +81,7 @@ const PERM_FEATURES = [
     { key: 'bo_phan_hoan_thien', label: 'Bộ Phận Hoàn Thiện', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'luong_san_xuat', label: 'Lương Sản Xuất', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
     { key: 'bang_gia_may', label: 'Bảng Giá May', perms: ['view','create','edit','delete'], section: 'MẪU & GIÁ SẢN XUẤT' },
-    { key: 'bill_nhap_hang', label: 'Bill Nhập Hàng', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'bill_nhap_hang', label: 'Bill Nhập Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kiem_kho', label: 'Kiểm Kho', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kho_vai', label: 'Kho Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kho_vat_lieu', label: 'Kho Vật Liệu', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },

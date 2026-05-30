@@ -125,7 +125,18 @@ module.exports = async function(fastify) {
         const totals = await db.get(`SELECT COUNT(*)::int AS total, COALESCE(SUM(total_amount),0)::numeric AS sum_total,
             COALESCE(SUM(debt),0)::numeric AS sum_debt, COALESCE(SUM(paid),0)::numeric AS sum_paid
             FROM import_records`);
-        return { sources, totals: totals || { total: 0, sum_total: 0, sum_debt: 0, sum_paid: 0 } };
+        // Count total fabric trees from JSONB
+        let total_trees = 0;
+        try {
+            const tc = await db.get(`SELECT COALESCE(SUM(sub.cnt), 0)::int AS total_trees FROM (
+                SELECT (SELECT COALESCE(SUM(jsonb_array_length(fi->'trees')), 0) FROM jsonb_array_elements(ir.fabric_items) fi) AS cnt
+                FROM import_records ir WHERE ir.record_type = 'fabric' AND ir.fabric_items IS NOT NULL AND ir.fabric_items::text != '[]'
+            ) sub`);
+            total_trees = tc?.total_trees || 0;
+        } catch(e) { /* fallback for old data */ }
+        const t = totals || { total: 0, sum_total: 0, sum_debt: 0, sum_paid: 0 };
+        t.total_trees = total_trees;
+        return { sources, totals: t };
     });
 
     // ========== LIST ==========
@@ -139,7 +150,7 @@ module.exports = async function(fastify) {
         else if (status === 'unchecked') where += ` AND ir.is_checked=false`;
         else if (status === 'debt') where += ` AND ir.debt > 0`;
         else if (status === 'paid') where += ` AND ir.debt <= 0`;
-        if (search) { where += ` AND (ir.fabric_material ILIKE $${idx} OR ir.material_name ILIKE $${idx} OR s.name ILIKE $${idx} OR ir.fabric_import_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+        if (search) { where += ` AND (ir.fabric_material ILIKE $${idx} OR s.name ILIKE $${idx} OR ir.fabric_import_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT ir.*, s.name AS source_name, u.full_name AS importer_name, u_ck.full_name AS checked_by_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🧾 Bill Nhập Hàng — Đồng Phục HV</title>
+    <title>🧾 Bill Nhập Vải — Đồng Phục HV</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
     <style>
@@ -44,7 +44,7 @@
     </style>
 </head>
 <body>
-    <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>🧾 BILL NHẬP HÀNG</h1><span class="mu" id="mU">...</span></div>
+    <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>🧾 BILL NHẬP VẢI</h1><span class="mu" id="mU">...</span></div>
     <div class="tc" id="mTC"></div>
     <div id="mFB" class="mf" style="display:none">
         <select id="mFSrc" onchange="mLoad()"><option value="">Tất cả nguồn</option></select>
@@ -52,9 +52,11 @@
     </div>
     <div id="mSB" class="ms" style="display:none">
         <div style="background:linear-gradient(135deg,#4f46e5,#6366f1)"><div class="mv" id="sT">0</div><div class="ml">TỔNG BILL</div></div>
+        <div style="background:linear-gradient(135deg,#7c3aed,#a855f7)"><div class="mv" id="sTR">0</div><div class="ml">TỔNG CÂY VẢI</div></div>
         <div style="background:linear-gradient(135deg,#1e293b,#334155)"><div class="mv" id="sM">0₫</div><div class="ml">THÀNH TIỀN</div></div>
         <div style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mv" id="sP">0₫</div><div class="ml">ĐÃ TT</div></div>
-        <div style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="mv" id="sD">0₫</div><div class="ml">CÔNG NỢ</div></div>
+        <div style="background:linear-gradient(135deg,#ef4444,#dc2626)" id="sDW"><div class="mv" id="sD">0₫</div><div class="ml">CÔNG NỢ</div></div>
+        <div style="background:linear-gradient(135deg,#6d28d9,#8b5cf6)"><div class="mv" id="sQ" style="font-size:12px">—</div><div class="ml">TỔNG SL NHẬP</div></div>
     </div>
     <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
     <a href="/billnhaphang" class="mb">← Về trang Desktop</a>
@@ -67,23 +69,34 @@ function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
 function fns(n){const v=Number(n)||0;if(v>=1e9)return(v/1e9).toFixed(1)+'tỷ';if(v>=1e6)return(v/1e6).toFixed(1)+'tr';if(v>=1e3)return(v/1e3).toFixed(0)+'k';return v.toString()}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
 function debt(d){const n=Number(d)||0;if(n>0)return'<span class="bd red">🔴 '+fn(n)+'₫</span>';if(n===0)return'<span class="bd green">✅ Đã TT</span>';return'<span class="bd blue">🔵 Dư '+fn(Math.abs(n))+'₫</span>';}
+function mTreeInfo(r){
+    if(r.record_type!=='fabric'||!r.fabric_items)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
+    let items;try{items=typeof r.fabric_items==='string'?JSON.parse(r.fabric_items):(r.fabric_items||[]);}catch(e){return{trees:Number(r.fabric_quantity)||0,qty:'—'};}
+    if(!items.length)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
+    let tc=0,byUnit={};
+    items.forEach(it=>{const trees=it.trees||[];tc+=trees.length;const u=it.unit||'kg';const total=trees.reduce((s,t)=>s+(Number(t.weight)||0),0);byUnit[u]=(byUnit[u]||0)+total;});
+    const parts=[];Object.keys(byUnit).forEach(u=>{if(byUnit[u]>0)parts.push(fn(byUnit[u])+' '+u);});
+    return{trees:tc,qty:parts.join(' + ')||'—',byUnit};
+}
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;
 const sR=await api('/api/import/sources');srcs=sR.sources||[];const sel=document.getElementById('mFSrc');srcs.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent='🏪 '+s.name;sel.appendChild(o);});
 document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',src=document.getElementById('mFSrc')?.value||'';let q='?_=1';if(st)q+='&status='+st;if(src)q+='&source_id='+src;
 try{const r=await api('/api/import/records'+q);mr=r.records||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
-function mStats(){const t=mr.length;let sm=0,sp=0,sd=0;mr.forEach(r=>{sm+=Number(r.total_amount)||0;sp+=Number(r.paid)||0;sd+=Number(r.debt)||0;});
-document.getElementById('sT').textContent=t;document.getElementById('sM').textContent=fns(sm);document.getElementById('sP').textContent=fns(sp);document.getElementById('sD').textContent=fns(sd)}
-function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🧾</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có bill nhập hàng</div></div>';return}
+function mStats(){const t=mr.length;let sm=0,sp=0,sd=0,strees=0,sqU={};mr.forEach(r=>{sm+=Number(r.total_amount)||0;sp+=Number(r.paid)||0;sd+=Number(r.debt)||0;const info=mTreeInfo(r);strees+=info.trees;if(info.byUnit)Object.keys(info.byUnit).forEach(u=>{sqU[u]=(sqU[u]||0)+info.byUnit[u];});});
+const qP=[];Object.keys(sqU).forEach(u=>{if(sqU[u]>0)qP.push(fn(sqU[u])+' '+u);});
+document.getElementById('sT').textContent=t;document.getElementById('sTR').textContent=strees;document.getElementById('sM').textContent=fns(sm);document.getElementById('sP').textContent=fns(sp);document.getElementById('sD').textContent=fns(sd);document.getElementById('sQ').textContent=qP.join(' + ')||'—'}
+function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🧾</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có bill nhập vải</div></div>';return}
 c.innerHTML=mr.map(r=>{
 const ic=r.is_checked?'✅':'🧾';const cA=r.is_checked?'uncheck':'check';
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
+const info=mTreeInfo(r);
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.source_name||'Nguồn')+'</div><div class="cc">'+fd(r.import_date)+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">👤 NV Nhập</span><span class="cv" style="color:#a5b4fc">'+(r.importer_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">🧵 Chất liệu</span><span class="cv" style="font-size:11px">'+(r.fabric_material||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">📦 SL Vải</span><span class="cv" style="color:#a5b4fc">'+fn(r.fabric_quantity)+'</span></div>'
-+(r.material_name?'<div class="cr"><span class="cl">📦 Vật liệu</span><span class="cv" style="font-size:11px">'+r.material_name+' ('+fn(r.material_quantity)+')</span></div>':'')
++'<div class="cr"><span class="cl">🌲 Số Cây Vải</span><span class="cv" style="color:#a5b4fc">'+fn(info.trees)+'</span></div>'
++'<div class="cr"><span class="cl">📏 SL Nhập</span><span class="cv" style="color:#c4b5fd;font-size:11px">'+info.qty+'</span></div>'
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">💵 Chi phí</span><span class="cv">'+fn(r.cost)+'₫</span></div>'
 +(Number(r.refund)?'<div class="cr"><span class="cl">↩️ Hoàn</span><span class="cv" style="color:#fbbf24">'+fn(r.refund)+'₫</span></div>':'')

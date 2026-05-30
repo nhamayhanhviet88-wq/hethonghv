@@ -1,4 +1,4 @@
-// ========== BILL NHẬP HÀNG — Desktop SPA ==========
+// ========== BILL NHẬP VẢI — Desktop SPA ==========
 var _bnh={records:[],tree:null,filter:{source_id:null},search:'',sources:[]};
 
 function renderBillnhaphangPage(content){
@@ -24,17 +24,17 @@ function renderBillnhaphangPage(content){
     +'@media(max-width:768px){.bnh-sb{display:none}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bnh-wrap"><div class="bnh-sb" id="bnhSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bnh-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><button id="bnhFabBtn" class="bnh-fab-btn" style="display:none" onclick="_bnhOpenFabric()">🧵 Nhập Vải</button><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / vật liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><button id="bnhFabBtn" class="bnh-fab-btn" style="display:none" onclick="_bnhOpenFabric()">🧵 Nhập Vải</button><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bnhTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>✅</th><th>Ngày Nhập</th><th>Nguồn</th><th>NV Nhập</th><th>Chất Liệu - Màu Vải</th><th>SL Vải</th><th>Tên VL</th><th>SL VL</th><th>Chi Phí</th><th>Hoàn</th><th>Thành Tiền</th><th>Thanh Toán</th><th>Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
-    +'</tr></thead><tbody id="bnhTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th>STT</th><th>✅</th><th>Ngày Nhập</th><th>Nguồn</th><th>NV Nhập</th><th>Chất Liệu - Màu Vải</th><th>Số Cây Vải</th><th>SL Nhập</th><th>Chi Phí</th><th>Hoàn</th><th>Thành Tiền</th><th>Thanh Toán</th><th>Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
+    +'</tr></thead><tbody id="bnhTb"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bnhSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bnh.search=document.getElementById('bnhSearch').value||'';_bnhRender();},300);});
     _bnhLoadAll();
 }
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/billnhaphang-fab.js?v=20260530d';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260531a';document.head.appendChild(s);}
     try{var[tR,sR]=await Promise.all([apiCall('/api/import/tree'),apiCall('/api/import/sources')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnhRenderSb();await _bnhLoadRecs();
     // Check fabric permission
     setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
@@ -43,10 +43,28 @@ async function _bnhLoadAll(){
 function _bnhFM(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
 function _bnhFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 
+// Parse fabric_items JSONB to compute tree count and import quantity by unit
+function _bnhTreeInfo(r){
+    if(r.record_type!=='fabric'||!r.fabric_items)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
+    var items;
+    try{items=typeof r.fabric_items==='string'?JSON.parse(r.fabric_items):(r.fabric_items||[]);}catch(e){return{trees:Number(r.fabric_quantity)||0,qty:'—'};}
+    if(!items.length)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
+    var tc=0,byUnit={};
+    items.forEach(function(it){
+        var trees=it.trees||[];tc+=trees.length;
+        var u=it.unit||'kg';
+        var total=trees.reduce(function(s,t){return s+(Number(t.weight)||0);},0);
+        byUnit[u]=(byUnit[u]||0)+total;
+    });
+    var parts=[];
+    Object.keys(byUnit).forEach(function(u){if(byUnit[u]>0)parts.push(_bnhFM(byUnit[u])+' '+u);});
+    return{trees:tc,qty:parts.join(' + ')||'—',byUnit:byUnit};
+}
+
 function _bnhRenderSb(){var sb=document.getElementById('bnhSb');if(!sb)return;var t=_bnh.tree,f=_bnh.filter;
-var h='<div class="bnh-sb-title"><span>────── 🧾 Bill Nhập Hàng ──────</span></div>';
+var h='<div class="bnh-sb-title"><span>────── 🧾 Bill Nhập Vải ──────</span></div>';
 if(t&&t.totals){var tt=t.totals;
-h+='<div class="bnh-sb-total" onclick="_bnhFilter()"><div style="display:flex;justify-content:space-between;align-items:center"><span>📦 Tất cả</span><span class="tv">'+(tt.total||0)+'</span></div><div class="ts">💰 '+_bnhFM(tt.sum_total)+' ₫'+(Number(tt.sum_debt)>0?' &nbsp;|&nbsp; 🔴 Nợ: '+_bnhFM(tt.sum_debt)+' ₫':'')+'</div></div>';}
+h+='<div class="bnh-sb-total" onclick="_bnhFilter()"><div style="display:flex;justify-content:space-between;align-items:center"><span>📦 Tất cả</span><span class="tv">'+(tt.total||0)+'</span></div><div class="ts">🌲 Cây vải: '+(tt.total_trees||0)+' &nbsp;|&nbsp; 💰 '+_bnhFM(tt.sum_total)+' ₫'+(Number(tt.sum_debt)>0?' &nbsp;|&nbsp; 🔴 Nợ: '+_bnhFM(tt.sum_debt)+' ₫':'')+'</div></div>';}
 var u=window._currentUser||{};if(u.role==='giam_doc'||u.role==='quan_ly_cap_cao')h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
 if(t&&t.sources)t.sources.forEach(function(s){var active=f.source_id==s.id;
 h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')"><span class="sn">🏪 '+s.name+'</span><span class="sc">['+s.count+']</span><span class="sm">'+_bnhFM(s.sum_total)+'₫</span></div>';});
@@ -62,24 +80,32 @@ function _bnhDebt(d){var n=Number(d)||0;if(n>0)return'<span class="bnh-debt red"
 
 function _bnhRender(){
     var all=_bnh.records.slice();
-    if(_bnh.search){var q=_bnh.search.toLowerCase();all=all.filter(function(r){return(r.fabric_material||'').toLowerCase().indexOf(q)>=0||(r.material_name||'').toLowerCase().indexOf(q)>=0||(r.source_name||'').toLowerCase().indexOf(q)>=0;});}
+    if(_bnh.search){var q=_bnh.search.toLowerCase();all=all.filter(function(r){return(r.fabric_material||'').toLowerCase().indexOf(q)>=0||(r.source_name||'').toLowerCase().indexOf(q)>=0||(r.fabric_import_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
-    var sumCost=0,sumTotal=0,sumPaid=0,sumDebt=0;
-    all.forEach(function(r){sumCost+=Number(r.cost)||0;sumTotal+=Number(r.total_amount)||0;sumPaid+=Number(r.paid)||0;sumDebt+=Number(r.debt)||0;});
+    var sumCost=0,sumTotal=0,sumPaid=0,sumDebt=0,sumTrees=0,sumQtyByUnit={};
+    all.forEach(function(r){
+        sumCost+=Number(r.cost)||0;sumTotal+=Number(r.total_amount)||0;sumPaid+=Number(r.paid)||0;sumDebt+=Number(r.debt)||0;
+        var info=_bnhTreeInfo(r);sumTrees+=info.trees;
+        if(info.byUnit){Object.keys(info.byUnit).forEach(function(u){sumQtyByUnit[u]=(sumQtyByUnit[u]||0)+info.byUnit[u];});}
+    });
+    // Build total import qty string
+    var qtyParts=[];Object.keys(sumQtyByUnit).forEach(function(u){if(sumQtyByUnit[u]>0)qtyParts.push(_bnhFM(sumQtyByUnit[u])+' '+u);});
+    var totalQtyStr=qtyParts.join(' + ')||'0';
+
     var tb=document.getElementById('bnhTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập hàng</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="15"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var cI=r.is_checked?'✅':'⬜',cC=r.is_checked?' on':'',cA=r.is_checked?'uncheck':'check';
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
-        return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'\" onclick=\"'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'\"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+        var info=_bnhTreeInfo(r);
+        return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="bnh-ib'+cC+'" onclick="_bnhTog('+r.id+',\''+cA+'\')" title="Duyệt">'+cI+'</button></td>'
         +'<td style="font-size:10px">'+_bnhFD(r.import_date)+'</td>'
         +'<td style="font-size:10px;color:#4f46e5;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.importer_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis">'+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#4f46e5">'+_bnhFM(r.fabric_quantity)+'</td>'
-        +'<td style="font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis">'+(r.material_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700">'+_bnhFM(r.material_quantity)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#4f46e5">'+_bnhFM(info.trees)+'</td>'
+        +'<td style="text-align:center;font-weight:600;color:#7c3aed;font-size:10px">'+info.qty+'</td>'
         +'<td style="text-align:right;font-weight:600">'+_bnhFM(r.cost)+'</td>'
         +'<td style="text-align:right;color:#f59e0b;font-weight:600">'+_bnhFM(r.refund)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_bnhFM(r.total_amount)+'</td>'
@@ -91,6 +117,8 @@ function _bnhRender(){
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">🧾 '+src+' — <span style="color:#c7d2fe;font-weight:900">'+tot+'</span> bill</div>';}
     var sc=document.getElementById('bnhStats');if(sc){
     sc.innerHTML='<div style="background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #4f46e530"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG BILL</div><div style="font-size:15px;font-weight:900">'+tot+'</div></div>'
+    +'<div style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #7c3aed30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🌲 TỔNG CÂY VẢI</div><div style="font-size:15px;font-weight:900">'+sumTrees+'</div></div>'
+    +'<div style="background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #6d28d930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📏 TỔNG SL NHẬP</div><div style="font-size:13px;font-weight:900">'+totalQtyStr+'</div></div>'
     +'<div style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #1e293b30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">💰 THÀNH TIỀN</div><div style="font-size:13px;font-weight:900">'+_bnhFM(sumTotal)+'</div></div>'
     +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ ĐÃ TT</div><div style="font-size:13px;font-weight:900">'+_bnhFM(sumPaid)+'</div></div>'
     +'<div style="background:linear-gradient(135deg,'+(sumDebt>0?'#ef4444,#dc2626':'#059669,#10b981')+');color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px '+(sumDebt>0?'#ef444430':'#05966930')+'"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📊 CÔNG NỢ</div><div style="font-size:13px;font-weight:900">'+_bnhFM(sumDebt)+'</div></div>';}
