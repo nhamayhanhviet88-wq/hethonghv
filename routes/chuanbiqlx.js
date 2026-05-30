@@ -729,20 +729,22 @@ module.exports = async function(fastify) {
             const roll = await db.get('SELECT weight FROM kv_rolls WHERE id = $1 AND is_returned = false', [roll_id]);
             if (!roll) return reply.code(400).send({ error: 'Cây vải không tồn tại hoặc đã trả NCC' });
 
-            const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status = $2', [roll_id, 'reserved']);
+            // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
+            const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
             const available = Number(roll.weight) - Number(reservedSum.total);
             if (Number(kg_reserved) > available) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng` });
 
+            // from_stock = vải đã ở xưởng → auto status='arrived'
             await db.run(`
                 INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
-                    reservation_type, roll_id, roll_code, kg_reserved, roll_note, status, created_by)
-                VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,$10,'reserved',$11)
+                    reservation_type, roll_id, roll_code, kg_reserved, roll_note, status, arrived_at, arrived_by, created_by)
+                VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,$10,'arrived',$11,$12,$13)
             `, [dht_order_id, item_id, phoi_index||0, material_name, color_name, unit||'kg',
-                roll_id, roll_code, Number(kg_reserved), roll_note||null, request.user.id]);
+                roll_id, roll_code, Number(kg_reserved), roll_note||null, now, request.user.id, request.user.id]);
 
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
                 VALUES ($1, 'fabric_reserve', $2, $3, $4)`,
-                [dht_order_id, `Đánh dấu cây ${roll_code}: ${kg_reserved}${unit||'kg'} cho Phối ${(phoi_index||0)+1}`, request.user.id, now]);
+                [dht_order_id, `Lấy từ kho cây ${roll_code}: ${kg_reserved}${unit||'kg'} cho Phối ${(phoi_index||0)+1} (auto vải về)`, request.user.id, now]);
 
         } else if (reservation_type === 'new_call') {
             if ((!call_trees || call_trees <= 0) && (!call_amount || Number(call_amount) <= 0))
@@ -765,6 +767,15 @@ module.exports = async function(fastify) {
             VALUES ($1, true, $2, $3)
             ON CONFLICT (dht_order_id) DO UPDATE SET fabric_called = true, fabric_called_at = $2, fabric_called_by = $3, updated_at = $2`,
             [dht_order_id, now, request.user.id]);
+
+        // Auto-check: if ALL reservations for this order are 'arrived' → set fabric_arrived = true
+        const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [dht_order_id]);
+        if (pending && pending.cnt === 0) {
+            await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
+                VALUES ($1, true, $2, $3)
+                ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = $2, fabric_arrived_by = $3, updated_at = $2`,
+                [dht_order_id, now, request.user.id]);
+        }
 
         return { success: true };
     });
@@ -831,9 +842,22 @@ module.exports = async function(fastify) {
         await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = NOW() WHERE id = $2', ['released', request.params.id]);
 
         const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
         await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
             VALUES ($1, 'fabric_release', $2, $3, $4)`,
-            [res.dht_order_id, `Giải phóng: ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount}${res.unit})`, user.id, vnNow()]);
+            [res.dht_order_id, `Giải phóng: ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount}${res.unit})`, user.id, now]);
+
+        // Recheck order-level fabric_arrived after releasing a reservation
+        const remaining = await db.get(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status != 'released'`, [res.dht_order_id]);
+        if (remaining && remaining.total > 0 && remaining.pending === 0) {
+            // All remaining are 'arrived' → fabric_arrived = true
+            await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                [now, user.id, res.dht_order_id]);
+        } else {
+            // Still has pending or no reservations left → fabric_arrived = false
+            await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                [now, res.dht_order_id]);
+        }
 
         return { success: true };
     });
