@@ -64,6 +64,19 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ih_iid ON import_history(import_id)`);
     } catch(e) { console.error('[BNH] history:', e.message); }
 
+    // ===== Payment records table =====
+    try { await db.exec(`CREATE TABLE IF NOT EXISTS import_payments (
+        id SERIAL PRIMARY KEY,
+        import_id INTEGER NOT NULL REFERENCES import_records(id) ON DELETE CASCADE,
+        amount NUMERIC NOT NULL,
+        image_url TEXT, image_path TEXT,
+        note TEXT,
+        paid_by INTEGER REFERENCES users(id),
+        paid_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_ip_iid ON import_payments(import_id)`);
+    } catch(e) { console.error('[BNH] payments:', e.message); }
+
     // ========== HELPERS ==========
     const MGMT = ['giam_doc', 'quan_ly_cap_cao'];
     async function isImportManager(req) {
@@ -78,6 +91,10 @@ module.exports = async function(fastify) {
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('kế toán') || n.includes('ke toan')) return true; }
         return false;
     }
+    async function isDuyetUser(req) {
+        const u = await db.get('SELECT full_name FROM users WHERE id=$1', [req.user.id]);
+        return u && u.full_name && (u.full_name.includes('Lê Việt Trinh') || u.full_name.includes('Le Viet Trinh'));
+    }
     function calcFinance(cost, refund, paid) {
         const c = Number(cost)||0, r = Number(refund)||0, p = Number(paid)||0;
         const total = c - r, debt = total - p;
@@ -90,6 +107,12 @@ module.exports = async function(fastify) {
         for (let i = 0; i < 13; i++) code += chars[bytes[i] % chars.length];
         return code;
     }
+
+
+    // ========== DUYET PERMISSION CHECK ==========
+    fastify.get('/api/import/check-duyet-perm', { preHandler: [authenticate] }, async (req) => {
+        return { allowed: await isDuyetUser(req) };
+    });
 
     // ========== SOURCES CRUD ==========
     fastify.get('/api/import/sources', { preHandler: [authenticate] }, async () => {
@@ -182,14 +205,73 @@ module.exports = async function(fastify) {
     fastify.post('/api/import/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
         if (action === 'check') {
-            if (!(await isImportManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
+            if (!(await isDuyetUser(req))) return reply.code(403).send({ error: 'Chỉ người duyệt được phép' });
             await db.run(`UPDATE import_records SET is_checked=true, checked_at=$1, checked_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
             await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'check', '✅ Duyệt kiểm tra', req.user.id, now]);
         } else if (action === 'uncheck') {
-            if (!(await isImportManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+            if (!(await isDuyetUser(req))) return reply.code(403).send({ error: 'Không có quyền' });
             await db.run(`UPDATE import_records SET is_checked=false, checked_at=NULL, checked_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'uncheck', '↩️ Hoàn tác duyệt', req.user.id, now]);
         } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
+        return { success: true };
+    });
+
+    // ========== PAYMENTS ==========
+    fastify.get('/api/import/payments/:importId', { preHandler: [authenticate] }, async (req) => {
+        const payments = await db.all(`SELECT p.*, u.full_name AS paid_by_name FROM import_payments p LEFT JOIN users u ON p.paid_by=u.id WHERE p.import_id=$1 ORDER BY p.paid_at DESC`, [Number(req.params.importId)]);
+        return { payments };
+    });
+
+    fastify.post('/api/import/payments/:importId', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ / QLCC mới được thanh toán' });
+        const importId = Number(req.params.importId);
+        const { amount, image_data, note } = req.body || {};
+        const payAmt = Number(amount) || 0;
+        if (payAmt <= 0) return reply.code(400).send({ error: 'Số tiền không hợp lệ' });
+        if (!image_data) return reply.code(400).send({ error: 'Hình ảnh thanh toán bắt buộc (Ctrl+V)' });
+
+        const rec = await db.get('SELECT total_amount, paid FROM import_records WHERE id=$1', [importId]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bill' });
+        const remaining = Number(rec.total_amount) - Number(rec.paid);
+        if (payAmt > remaining) return reply.code(400).send({ error: 'Số tiền vượt công nợ còn lại (' + Number(remaining).toLocaleString('vi-VN') + '₫). Vui lòng kiểm tra lại!' });
+
+        // Save image
+        const dir = path.join(__dirname, '../uploads/bill-nhap-hang/payments');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const fname = `pay_${importId}_${Date.now()}.png`;
+        const fpath = path.join(dir, fname);
+        const base64 = image_data.replace(/^data:image\/\w+;base64,/, '');
+        fs.writeFileSync(fpath, Buffer.from(base64, 'base64'));
+        const imageUrl = `/uploads/bill-nhap-hang/payments/${fname}`;
+
+        const now = vnNow();
+        const p = await db.get(`INSERT INTO import_payments (import_id,amount,image_url,image_path,note,paid_by,paid_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+            [importId, payAmt, imageUrl, fpath, note||null, req.user.id, now]);
+
+        const newPaid = Number(rec.paid) + payAmt;
+        const newDebt = Number(rec.total_amount) - newPaid;
+        await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, importId]);
+        await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [importId, 'payment', '💳 Thanh toán ' + payAmt.toLocaleString('vi-VN') + '₫', req.user.id, now]);
+        return { success: true, id: p.id, new_paid: newPaid, new_debt: newDebt };
+    });
+
+    fastify.delete('/api/import/payments/:paymentId', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa thanh toán' });
+        const paymentId = Number(req.params.paymentId);
+        const p = await db.get('SELECT * FROM import_payments WHERE id=$1', [paymentId]);
+        if (!p) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const rec = await db.get('SELECT total_amount, paid FROM import_records WHERE id=$1', [p.import_id]);
+        if (rec) {
+            const newPaid = Math.max(0, Number(rec.paid) - Number(p.amount));
+            const newDebt = Number(rec.total_amount) - newPaid;
+            const now = vnNow();
+            await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, p.import_id]);
+            await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [p.import_id, 'delete_payment', '🗑 Xóa thanh toán ' + Number(p.amount).toLocaleString('vi-VN') + '₫', req.user.id, now]);
+        }
+        if (p.image_path && fs.existsSync(p.image_path)) { try { fs.unlinkSync(p.image_path); } catch(e) {} }
+        await db.run('DELETE FROM import_payments WHERE id=$1', [paymentId]);
         return { success: true };
     });
 

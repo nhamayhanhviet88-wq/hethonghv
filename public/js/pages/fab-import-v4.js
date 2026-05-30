@@ -426,6 +426,29 @@ async function _bnhFabDetail(id) {
         h += '<div style="margin-top:12px;background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">📝 GHI CHÚ</div><div style="font-size:12px">' + _escAttr(r.cost_notes) + '</div></div>';
     }
 
+    // Payment history
+    try {
+        var payRes = await apiCall('/api/import/payments/' + id);
+        var payments = payRes.payments || [];
+        if (payments.length) {
+            h += '<div style="border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;margin-top:12px;background:#ecfdf5">'
+                + '<div style="font-size:11px;font-weight:800;color:#059669;margin-bottom:8px">💳 LỊCH SỬ THANH TOÁN (' + payments.length + ' lần)</div>';
+            payments.forEach(function(p, pi) {
+                var pDate = _bnhFD(p.paid_at);
+                h += '<div style="background:#fff;border:1px solid #d1fae5;border-radius:8px;padding:10px;margin-bottom:6px">'
+                    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+                    + '<div><span style="font-size:11px;font-weight:700;color:#374151">Lần ' + (payments.length - pi) + '</span>'
+                    + '<span style="font-size:10px;color:#6b7280;margin-left:8px">' + pDate + '</span>'
+                    + '<span style="font-size:10px;color:#4f46e5;margin-left:8px;font-weight:600">' + (p.paid_by_name||'') + '</span></div>'
+                    + '<div style="font-size:14px;font-weight:900;color:#059669">' + _bnhFM(p.amount) + '₫</div></div>';
+                if (p.note) h += '<div style="font-size:10px;color:#6b7280;margin-bottom:4px">📝 ' + _escAttr(p.note) + '</div>';
+                if (p.image_url) h += '<div><img src="' + p.image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)"></div>';
+                h += '</div>';
+            });
+            h += '</div>';
+        }
+    } catch(e) { console.error('[BNH] payments:', e); }
+
     // Show modal
     var ov = document.createElement('div');
     ov.id = '_fabDetailOv';

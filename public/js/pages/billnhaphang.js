@@ -1,5 +1,5 @@
 // ========== BILL NHẬP VẢI — Desktop SPA ==========
-var _bnh={records:[],tree:null,filter:{source_id:null},search:'',sources:[]};
+var _bnh={records:[],tree:null,filter:{source_id:null},search:'',sources:[],isDuyet:false};
 
 function renderBillnhaphangPage(content){
     if(!document.getElementById('_bnhS')){var st=document.createElement('style');st.id='_bnhS';
@@ -34,8 +34,8 @@ function renderBillnhaphangPage(content){
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260531a';document.head.appendChild(s);}
-    try{var[tR,sR]=await Promise.all([apiCall('/api/import/tree'),apiCall('/api/import/sources')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnhRenderSb();await _bnhLoadRecs();
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260531b';document.head.appendChild(s);}
+    try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree'),apiCall('/api/import/sources'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
     // Check fabric permission
     setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
     }catch(e){console.error('[BNH]',e);}}
@@ -98,11 +98,15 @@ function _bnhRender(){
     var runDebt=new Array(all.length);var cumDebt=0;
     for(var ri=all.length-1;ri>=0;ri--){cumDebt+=Number(all[ri].debt)||0;runDebt[ri]=cumDebt;}
     tb.innerHTML=all.map(function(r,i){
-        var cI=r.is_checked?'✅':'⬜',cC=r.is_checked?' on':'',cA=r.is_checked?'uncheck':'check';
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
         var info=_bnhTreeInfo(r);
+        var duyetHtml='',payHtml='';
+        if(!r.is_checked&&_bnh.isDuyet){duyetHtml='<button class="bnh-ib" onclick="event.stopPropagation();_bnhTog('+r.id+',\'check\')" title="Duyệt kiểm tra">⬜</button>';}
+        else if(r.is_checked){duyetHtml='<span style="font-size:11px" title="Đã duyệt: '+(r.checked_by_name||'')+'">✅</span>';}
+        if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+r.total_amount+')" title="Thanh toán">💳</button>';}
+        else{payHtml='<span style="font-size:11px" title="Đã thanh toán đủ">✅</span>';}
         return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="bnh-ib'+cC+'" onclick="_bnhTog('+r.id+',\''+cA+'\')" title="Duyệt">'+cI+'</button></td>'
+        +'<td style="text-align:center"><div style="display:flex;gap:4px;justify-content:center">'+duyetHtml+payHtml+'</div></td>'
         +'<td style="font-size:10px">'+_bnhFD(r.import_date)+'</td>'
         +'<td style="font-size:10px;color:#4f46e5;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.importer_name||'—')+'</td>'
@@ -127,7 +131,54 @@ function _bnhRender(){
     +'<div style="background:linear-gradient(135deg,'+(sumDebt>0?'#ef4444,#dc2626':'#059669,#10b981')+');color:#fff;padding:6px 12px;border-radius:8px;min-width:80px;text-align:center;box-shadow:0 3px 10px '+(sumDebt>0?'#ef444420':'#05966920')+';flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">📊 TỔNG CÔNG NỢ</div><div style="font-size:12px;font-weight:900">'+_bnhFM(sumDebt)+'</div></div>';}
 }
 
-async function _bnhTog(id,action){try{await apiCall('/api/import/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bnhLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
+async function _bnhTog(id,action){if(action==='check'&&!confirm('Xác nhận duyệt bill này?'))return;try{await apiCall('/api/import/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bnhLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
 
 function _bnhAddSrc(){var name=prompt('Nhập tên nguồn cung cấp:');if(!name)return;
 apiCall('/api/import/sources','POST',{name}).then(function(){showToast('✅ Đã thêm nguồn: '+name);_bnhLoadAll();}).catch(function(e){showToast(e.message||'Lỗi','error');});}
+
+// ========== PAYMENT MODAL ==========
+var _bnhPay={importId:null,imageData:null};
+function _bnhPayModal(importId,debt,total){
+    _bnhPay={importId:importId,imageData:null};
+    var remaining=Number(debt)||0;
+    var ov=document.createElement('div');ov.id='_bnhPayOv';
+    ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick=function(){ov.remove();};
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
+    +'<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#059669,#10b981);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
+    +'<div style="font-size:15px;font-weight:800">💳 Thanh Toán Bill</div>'
+    +'<button onclick="document.getElementById(\'_bnhPayOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
+    +'<div style="padding:20px">'
+    +'<div style="background:#f1f5f9;padding:10px 14px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between"><span style="font-size:12px;color:#6b7280;font-weight:600">Công nợ còn lại</span><span style="font-size:16px;font-weight:900;color:#dc2626">'+_bnhFM(remaining)+'₫</span></div>'
+    +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">💵 Số tiền thanh toán <span style="color:#dc2626">*</span></label>'
+    +'<input id="_bnhPayAmt" type="number" placeholder="Nhập số tiền..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none" max="'+remaining+'"></div>'
+    +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📸 Hình ảnh thanh toán <span style="color:#dc2626">* (Ctrl+V)</span></label>'
+    +'<div id="_bnhPayImg" style="border:2px dashed #d1d5db;border-radius:10px;padding:30px;text-align:center;color:#9ca3af;cursor:pointer;min-height:80px;font-size:12px" tabindex="0">📋 Click vào đây rồi Ctrl+V dán hình ảnh</div></div>'
+    +'<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📝 Ghi chú (tùy chọn)</label>'
+    +'<textarea id="_bnhPayNote" rows="2" placeholder="Ghi chú thanh toán..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;resize:none;outline:none"></textarea></div>'
+    +'<button id="_bnhPayBtn" onclick="_bnhPaySubmit()" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">💳 XÁC NHẬN THANH TOÁN</button>'
+    +'</div></div>';
+    document.body.appendChild(ov);
+    // Attach paste handler
+    var imgArea=document.getElementById('_bnhPayImg');
+    imgArea.addEventListener('paste',function(e){
+        var items=(e.clipboardData||e.originalEvent.clipboardData).items;
+        for(var i=0;i<items.length;i++){if(items[i].type.indexOf('image')!==-1){var blob=items[i].getAsFile();var reader=new FileReader();
+        reader.onload=function(ev){_bnhPay.imageData=ev.target.result;imgArea.innerHTML='<img src="'+ev.target.result+'" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#059669;margin-top:4px;font-weight:600">✅ Đã dán hình ảnh</div>';imgArea.style.borderColor='#059669';};
+        reader.readAsDataURL(blob);break;}}
+        e.preventDefault();
+    });
+}
+async function _bnhPaySubmit(){
+    var amt=Number(document.getElementById('_bnhPayAmt').value)||0;
+    if(amt<=0){showToast('Vui lòng nhập số tiền','error');return;}
+    if(!_bnhPay.imageData){showToast('Vui lòng dán hình ảnh thanh toán (Ctrl+V)','error');return;}
+    var note=document.getElementById('_bnhPayNote').value||'';
+    var btn=document.getElementById('_bnhPayBtn');btn.disabled=true;btn.textContent='⏳ Đang xử lý...';
+    try{
+        await apiCall('/api/import/payments/'+_bnhPay.importId,'POST',{amount:amt,image_data:_bnhPay.imageData,note:note});
+        showToast('✅ Thanh toán thành công: '+_bnhFM(amt)+'₫');
+        var ov=document.getElementById('_bnhPayOv');if(ov)ov.remove();
+        await _bnhLoadAll();
+    }catch(e){showToast(e.message||'Lỗi','error');btn.disabled=false;btn.textContent='💳 XÁC NHẬN THANH TOÁN';}
+}
