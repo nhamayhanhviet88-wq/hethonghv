@@ -71,11 +71,14 @@ module.exports = async function(fastify) {
         amount NUMERIC NOT NULL,
         image_url TEXT, image_path TEXT,
         note TEXT,
+        allocations JSONB DEFAULT '[]',
         paid_by INTEGER REFERENCES users(id),
         paid_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ip_iid ON import_payments(import_id)`);
     } catch(e) { console.error('[BNH] payments:', e.message); }
+    // Migration: add allocations column
+    try { await db.exec(`ALTER TABLE import_payments ADD COLUMN IF NOT EXISTS allocations JSONB DEFAULT '[]'`); } catch(e) {}
 
     // ========== HELPERS ==========
     const MGMT = ['giam_doc', 'quan_ly_cap_cao'];
@@ -231,10 +234,16 @@ module.exports = async function(fastify) {
         if (payAmt <= 0) return reply.code(400).send({ error: 'Số tiền không hợp lệ' });
         if (!image_data) return reply.code(400).send({ error: 'Hình ảnh thanh toán bắt buộc (Ctrl+V)' });
 
-        const rec = await db.get('SELECT total_amount, paid FROM import_records WHERE id=$1', [importId]);
+        // Get the primary bill and its source
+        const rec = await db.get('SELECT id, source_id, total_amount, paid, debt FROM import_records WHERE id=$1', [importId]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bill' });
-        const remaining = Number(rec.total_amount) - Number(rec.paid);
-        if (payAmt > remaining) return reply.code(400).send({ error: 'Số tiền vượt công nợ còn lại (' + Number(remaining).toLocaleString('vi-VN') + '₫). Vui lòng kiểm tra lại!' });
+
+        // Calculate total source debt (all bills same source)
+        const sourceDebtRow = await db.get('SELECT COALESCE(SUM(debt), 0)::numeric AS total_debt FROM import_records WHERE source_id=$1 AND debt > 0', [rec.source_id]);
+        const totalSourceDebt = Number(sourceDebtRow?.total_debt) || 0;
+        if (payAmt > totalSourceDebt) {
+            return reply.code(400).send({ error: 'Số tiền vượt Tổng Công Nợ còn lại (' + totalSourceDebt.toLocaleString('vi-VN') + '₫). Vui lòng kiểm tra lại!' });
+        }
 
         // Save image
         const dir = path.join(__dirname, '../uploads/bill-nhap-hang/payments');
@@ -246,15 +255,40 @@ module.exports = async function(fastify) {
         const imageUrl = `/uploads/bill-nhap-hang/payments/${fname}`;
 
         const now = vnNow();
-        const p = await db.get(`INSERT INTO import_payments (import_id,amount,image_url,image_path,note,paid_by,paid_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-            [importId, payAmt, imageUrl, fpath, note||null, req.user.id, now]);
 
-        const newPaid = Number(rec.paid) + payAmt;
-        const newDebt = Number(rec.total_amount) - newPaid;
-        await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, importId]);
-        await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [importId, 'payment', '💳 Thanh toán ' + payAmt.toLocaleString('vi-VN') + '₫', req.user.id, now]);
-        return { success: true, id: p.id, new_paid: newPaid, new_debt: newDebt };
+        // Get all bills with debt > 0 for this source, oldest first (FIFO)
+        const billsWithDebt = await db.all(
+            'SELECT id, total_amount, paid, debt FROM import_records WHERE source_id=$1 AND debt > 0 ORDER BY import_date ASC NULLS LAST, created_at ASC',
+            [rec.source_id]
+        );
+
+        // Distribute payment across bills FIFO
+        let remaining = payAmt;
+        const allocations = [];
+        for (const bill of billsWithDebt) {
+            if (remaining <= 0) break;
+            const billDebt = Number(bill.debt) || 0;
+            const allocated = Math.min(remaining, billDebt);
+            remaining -= allocated;
+            allocations.push({ bill_id: bill.id, amount: allocated });
+
+            const newPaid = Number(bill.paid) + allocated;
+            const newDebt = Number(bill.total_amount) - newPaid;
+            await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, bill.id]);
+
+            // Log history for each affected bill
+            const histDetail = bill.id === importId
+                ? '💳 Thanh toán ' + allocated.toLocaleString('vi-VN') + '₫' + (allocations.length > 1 || payAmt > allocated ? ' (phân bổ từ TT tổng ' + payAmt.toLocaleString('vi-VN') + '₫)' : '')
+                : '💳 Phân bổ ' + allocated.toLocaleString('vi-VN') + '₫ từ TT nguồn (tổng ' + payAmt.toLocaleString('vi-VN') + '₫)';
+            await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [bill.id, 'payment', histDetail, req.user.id, now]);
+        }
+
+        // Create payment record with allocations
+        const p = await db.get(`INSERT INTO import_payments (import_id,amount,image_url,image_path,note,allocations,paid_by,paid_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+            [importId, payAmt, imageUrl, fpath, note||null, JSON.stringify(allocations), req.user.id, now]);
+
+        return { success: true, id: p.id, allocations };
     });
 
     fastify.delete('/api/import/payments/:paymentId', { preHandler: [authenticate] }, async (req, reply) => {
@@ -262,14 +296,31 @@ module.exports = async function(fastify) {
         const paymentId = Number(req.params.paymentId);
         const p = await db.get('SELECT * FROM import_payments WHERE id=$1', [paymentId]);
         if (!p) return reply.code(404).send({ error: 'Không tìm thấy' });
-        const rec = await db.get('SELECT total_amount, paid FROM import_records WHERE id=$1', [p.import_id]);
-        if (rec) {
-            const newPaid = Math.max(0, Number(rec.paid) - Number(p.amount));
-            const newDebt = Number(rec.total_amount) - newPaid;
-            const now = vnNow();
-            await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, p.import_id]);
-            await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [p.import_id, 'delete_payment', '🗑 Xóa thanh toán ' + Number(p.amount).toLocaleString('vi-VN') + '₫', req.user.id, now]);
+
+        const now = vnNow();
+        // Reverse allocations from JSONB
+        const allocs = Array.isArray(p.allocations) ? p.allocations : (typeof p.allocations === 'string' ? JSON.parse(p.allocations || '[]') : []);
+        if (allocs.length > 0) {
+            for (const alloc of allocs) {
+                const bill = await db.get('SELECT total_amount, paid FROM import_records WHERE id=$1', [alloc.bill_id]);
+                if (bill) {
+                    const newPaid = Math.max(0, Number(bill.paid) - Number(alloc.amount));
+                    const newDebt = Number(bill.total_amount) - newPaid;
+                    await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, alloc.bill_id]);
+                    await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                        [alloc.bill_id, 'delete_payment', '🗑 Xóa phân bổ ' + Number(alloc.amount).toLocaleString('vi-VN') + '₫ (TT #' + paymentId + ')', req.user.id, now]);
+                }
+            }
+        } else {
+            // Fallback for old payments without allocations
+            const rec = await db.get('SELECT total_amount, paid FROM import_records WHERE id=$1', [p.import_id]);
+            if (rec) {
+                const newPaid = Math.max(0, Number(rec.paid) - Number(p.amount));
+                const newDebt = Number(rec.total_amount) - newPaid;
+                await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, p.import_id]);
+                await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                    [p.import_id, 'delete_payment', '🗑 Xóa thanh toán ' + Number(p.amount).toLocaleString('vi-VN') + '₫', req.user.id, now]);
+            }
         }
         if (p.image_path && fs.existsSync(p.image_path)) { try { fs.unlinkSync(p.image_path); } catch(e) {} }
         await db.run('DELETE FROM import_payments WHERE id=$1', [paymentId]);

@@ -98,13 +98,16 @@ function _bnhRender(){
     // Compute running cumulative debt (oldest → newest, bottom → top)
     var runDebt=new Array(all.length);var cumDebt=0;
     for(var ri=all.length-1;ri>=0;ri--){cumDebt+=Number(all[ri].debt)||0;runDebt[ri]=cumDebt;}
+    // Compute per-source debt map
+    var srcDebtMap={};all.forEach(function(r){var sid=r.source_id||0;if(!srcDebtMap[sid])srcDebtMap[sid]=0;srcDebtMap[sid]+=Number(r.debt)||0;});
     tb.innerHTML=all.map(function(r,i){
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
         var info=_bnhTreeInfo(r);
+        var srcDebt=srcDebtMap[r.source_id||0]||0;
         var duyetHtml='',payHtml='';
         if(!r.is_checked&&_bnh.isDuyet){duyetHtml='<button class="bnh-ib" onclick="event.stopPropagation();_bnhTog('+r.id+',\'check\')" title="Duyệt kiểm tra">⬜</button>';}
         else if(r.is_checked){duyetHtml='<span style="font-size:11px" title="Đã duyệt: '+(r.checked_by_name||'')+'">✅</span>';}
-        if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+r.total_amount+')" title="Thanh toán">💳</button>';}
+        if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+srcDebt+')" title="Thanh toán">💳</button>';}
         else{payHtml='<span style="font-size:11px" title="Đã thanh toán đủ">✅</span>';}
         return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center">'+duyetHtml+'</td>'
@@ -140,21 +143,22 @@ apiCall('/api/import/sources','POST',{name}).then(function(){showToast('✅ Đã
 
 // ========== PAYMENT MODAL ==========
 var _bnhPay={importId:null,imageData:null};
-function _bnhPayModal(importId,debt,total){
+function _bnhPayModal(importId,billDebt,sourceDebt){
     _bnhPay={importId:importId,imageData:null};
-    var remaining=Number(debt)||0;
+    var remaining=Number(billDebt)||0;
+    var srcTotal=Number(sourceDebt)||0;
     var ov=document.createElement('div');ov.id='_bnhPayOv';
     ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
     ov.onclick=function(){ov.remove();};
     ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
     +'<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#059669,#10b981);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
-    +'<div style="font-size:15px;font-weight:800">💳 Thanh Toán Bill</div>'
+    +'<div style="font-size:15px;font-weight:800">💳 Thanh Toán Nguồn</div>'
     +'<button onclick="document.getElementById(\'_bnhPayOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
     +'<div style="padding:20px">'
-    +'<div style="background:#fee2e2;padding:10px 14px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between"><span style="font-size:12px;color:#dc2626;font-weight:700">📊 Tổng Công Nợ còn lại</span><span style="font-size:16px;font-weight:900;color:#dc2626">'+_bnhFM(_bnh.sumDebt||0)+'₫</span></div>'
+    +'<div style="background:#fee2e2;padding:10px 14px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between"><span style="font-size:12px;color:#dc2626;font-weight:700">📊 Tổng Công Nợ còn lại</span><span style="font-size:16px;font-weight:900;color:#dc2626">'+_bnhFM(srcTotal)+'₫</span></div>'
     +'<div style="background:#f1f5f9;padding:8px 14px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between"><span style="font-size:11px;color:#6b7280;font-weight:600">Nợ bill này</span><span style="font-size:14px;font-weight:800;color:#f59e0b">'+_bnhFM(remaining)+'₫</span></div>'
-    +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">💵 Số tiền thanh toán <span style="color:#dc2626">*</span></label>'
-    +'<input id="_bnhPayAmt" type="number" placeholder="Nhập số tiền..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none" max="'+remaining+'"></div>'
+    +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">💵 Số tiền thanh toán <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-weight:400">(tối đa '+_bnhFM(srcTotal)+'₫)</span></label>'
+    +'<input id="_bnhPayAmt" type="number" placeholder="Nhập số tiền..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none" max="'+srcTotal+'"></div>'
     +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📸 Hình ảnh thanh toán <span style="color:#dc2626">* (Ctrl+V)</span></label>'
     +'<div id="_bnhPayImg" style="border:2px dashed #d1d5db;border-radius:10px;padding:30px;text-align:center;color:#9ca3af;cursor:pointer;min-height:80px;font-size:12px" tabindex="0">📋 Click vào đây rồi Ctrl+V dán hình ảnh</div></div>'
     +'<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📝 Ghi chú (tùy chọn)</label>'
