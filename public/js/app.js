@@ -981,45 +981,56 @@ async function checkAuth(retryCount) {
 
         // ★ DOITAC PORTAL — skip heavy config loading for speed
         if (!_isDoitacDomain) {
-            // Load dynamic roles for menu items (in parallel)
-            const dynamicItems = MENU_CONFIG.filter(item => item.dynamicRoles);
-            if (dynamicItems.length > 0) {
-                const configResults = await Promise.all(
-                    dynamicItems.map(item =>
-                        fetch('/api/app-config/' + item.dynamicRoles).then(r => r.json()).catch(() => ({}))
-                    )
-                );
-                dynamicItems.forEach((item, i) => {
-                    if (configResults[i]?.value) {
-                        item.roles = JSON.parse(configResults[i].value);
-                        _configCache[item.dynamicRoles] = configResults[i].value;
-                    }
-                });
+            // ★ TIMEOUT 8s — tất cả config loading phải xong trong 8s, nếu không thì bỏ qua
+            // Tránh treo mãi "Đang xác thực..." khi server/config endpoint chậm
+            try {
+                await Promise.race([
+                    (async function _loadConfigs() {
+                        // Load dynamic roles for menu items (in parallel)
+                        var dynamicItems = MENU_CONFIG.filter(function(item) { return item.dynamicRoles; });
+                        if (dynamicItems.length > 0) {
+                            var configResults = await Promise.all(
+                                dynamicItems.map(function(item) {
+                                    return fetch('/api/app-config/' + item.dynamicRoles).then(function(r) { return r.json(); }).catch(function() { return {}; });
+                                })
+                            );
+                            dynamicItems.forEach(function(item, i) {
+                                if (configResults[i] && configResults[i].value) {
+                                    item.roles = JSON.parse(configResults[i].value);
+                                    _configCache[item.dynamicRoles] = configResults[i].value;
+                                }
+                            });
+                        }
+
+                        // Nhân Sự Toàn Quyền (HR) — cho thấy menu mở khóa dù role là nhan_vien
+                        try {
+                            var hrCfg = await fetch('/api/app-config/access_unblock_managers').then(function(r) { return r.json(); }).catch(function() { return {}; });
+                            if (hrCfg && hrCfg.value) {
+                                var hrIds = JSON.parse(hrCfg.value);
+                                if (hrIds.includes(data.user.id)) {
+                                    var mkItem = MENU_CONFIG.find(function(m) { return m.id === 'mo-khoa-tk-phat'; });
+                                    if (mkItem && !mkItem.roles.includes(data.user.role)) mkItem.roles.push(data.user.role);
+                                }
+                            }
+                        } catch(e) {}
+
+                        // CTV Approver — cho người được chỉ định thấy menu Chấp Nhận CTV
+                        try {
+                            var ctvCfg = await fetch('/api/app-config/crm_conversion_approver_ids').then(function(r) { return r.json(); }).catch(function() { return {}; });
+                            if (ctvCfg && ctvCfg.value) {
+                                var ctvIds = JSON.parse(ctvCfg.value);
+                                if (ctvIds.includes(data.user.id)) {
+                                    var ctvItem = MENU_CONFIG.find(function(m) { return m.id === 'chap-nhan-ctv-affiliate'; });
+                                    if (ctvItem && !ctvItem.roles.includes(data.user.role)) ctvItem.roles.push(data.user.role);
+                                }
+                            }
+                        } catch(e) {}
+                    })(),
+                    new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Config loading timeout')); }, 8000); })
+                ]);
+            } catch(cfgErr) {
+                console.warn('[Auth] Config loading bị timeout/lỗi — tiếp tục với menu mặc định:', cfgErr.message);
             }
-
-            // Nhân Sự Toàn Quyền (HR) — cho thấy menu mở khóa dù role là nhan_vien
-            try {
-                const hrCfg = await fetch('/api/app-config/access_unblock_managers').then(r => r.json()).catch(() => ({}));
-                if (hrCfg?.value) {
-                    const hrIds = JSON.parse(hrCfg.value);
-                    if (hrIds.includes(data.user.id)) {
-                        const mkItem = MENU_CONFIG.find(m => m.id === 'mo-khoa-tk-phat');
-                        if (mkItem && !mkItem.roles.includes(data.user.role)) mkItem.roles.push(data.user.role);
-                    }
-                }
-            } catch(e) {}
-
-            // CTV Approver — cho người được chỉ định thấy menu Chấp Nhận CTV
-            try {
-                const ctvCfg = await fetch('/api/app-config/crm_conversion_approver_ids').then(r => r.json()).catch(() => ({}));
-                if (ctvCfg?.value) {
-                    const ctvIds = JSON.parse(ctvCfg.value);
-                    if (ctvIds.includes(data.user.id)) {
-                        const ctvItem = MENU_CONFIG.find(m => m.id === 'chap-nhan-ctv-affiliate');
-                        if (ctvItem && !ctvItem.roles.includes(data.user.role)) ctvItem.roles.push(data.user.role);
-                    }
-                }
-            } catch(e) {}
         }
 
         renderSidebar();
