@@ -461,8 +461,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         html += resInfo;
                         if (avail > 0) {
                             html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
-                            html += '<span style="font-size:10px;color:#475569">Sử dụng:</span>';
-                            html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="0" style="width:80px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
+                            html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
+                            html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Nhập số..." required style="width:80px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
                             html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
                             html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu</button>';
                             html += '</div>';
@@ -607,7 +607,11 @@ async function _qlxFabArrived(resId, orderId, itemId, pairIndex) {
 async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, idx, mat, color, unit) {
     var inp = document.getElementById('_qlxFabKg_' + idx);
     var kg = inp ? parseFloat(inp.value) : 0;
-    if (!kg || kg <= 0) { showToast('Nhập số ' + (unit==='kg'?'kg':unit==='met'?'mét':'cái'), 'error'); return; }
+    if (!kg || kg <= 0) {
+        if(inp){inp.style.border='2px solid #dc2626';inp.style.background='#fef2f2';inp.focus();inp.style.animation='none';inp.offsetHeight;inp.style.animation='shake .4s';setTimeout(function(){inp.style.animation='';},400);}
+        showToast('⚠️ Bắt buộc nhập số ' + (unit==='kg'?'kg':unit==='met'?'mét':'cái') + ' sử dụng!', 'error');
+        return;
+    }
     try {
         await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
