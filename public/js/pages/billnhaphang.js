@@ -179,7 +179,8 @@ async function _bnhPaySubmit(){
     var note=document.getElementById('_bnhPayNote').value||'';
     var btn=document.getElementById('_bnhPayBtn');btn.disabled=true;btn.textContent='⏳ Đang xử lý...';
     try{
-        await apiCall('/api/import/payments/'+_bnhPay.importId,'POST',{amount:amt,image_data:_bnhPay.imageData,note:note});
+        var res=await apiCall('/api/import/payments/'+_bnhPay.importId,'POST',{amount:amt,image_data:_bnhPay.imageData,note:note});
+        if(res.error){showToast(res.error,'error');btn.disabled=false;btn.textContent='💳 XÁC NHẬN THANH TOÁN';return;}
         showToast('✅ Thanh toán thành công: '+_bnhFM(amt)+'₫');
         var ov=document.getElementById('_bnhPayOv');if(ov)ov.remove();
         await _bnhLoadAll();
