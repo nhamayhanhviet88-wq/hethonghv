@@ -91,6 +91,7 @@ function _bnhRender(){
     // Build total import qty string
     var qtyParts=[];Object.keys(sumQtyByUnit).forEach(function(u){if(sumQtyByUnit[u]>0)qtyParts.push(_bnhFM(sumQtyByUnit[u])+' '+u);});
     var totalQtyStr=qtyParts.join(' + ')||'0';
+    _bnh.sumDebt=sumDebt;
 
     var tb=document.getElementById('bnhTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
@@ -150,7 +151,8 @@ function _bnhPayModal(importId,debt,total){
     +'<div style="font-size:15px;font-weight:800">💳 Thanh Toán Bill</div>'
     +'<button onclick="document.getElementById(\'_bnhPayOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
     +'<div style="padding:20px">'
-    +'<div style="background:#f1f5f9;padding:10px 14px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between"><span style="font-size:12px;color:#6b7280;font-weight:600">Công nợ còn lại</span><span style="font-size:16px;font-weight:900;color:#dc2626">'+_bnhFM(remaining)+'₫</span></div>'
+    +'<div style="background:#fee2e2;padding:10px 14px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between"><span style="font-size:12px;color:#dc2626;font-weight:700">📊 Tổng Công Nợ còn lại</span><span style="font-size:16px;font-weight:900;color:#dc2626">'+_bnhFM(_bnh.sumDebt||0)+'₫</span></div>'
+    +'<div style="background:#f1f5f9;padding:8px 14px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between"><span style="font-size:11px;color:#6b7280;font-weight:600">Nợ bill này</span><span style="font-size:14px;font-weight:800;color:#f59e0b">'+_bnhFM(remaining)+'₫</span></div>'
     +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">💵 Số tiền thanh toán <span style="color:#dc2626">*</span></label>'
     +'<input id="_bnhPayAmt" type="number" placeholder="Nhập số tiền..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none" max="'+remaining+'"></div>'
     +'<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📸 Hình ảnh thanh toán <span style="color:#dc2626">* (Ctrl+V)</span></label>'

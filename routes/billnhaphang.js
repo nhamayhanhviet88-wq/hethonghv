@@ -92,6 +92,7 @@ module.exports = async function(fastify) {
         return false;
     }
     async function isDuyetUser(req) {
+        if (req.user.role === 'giam_doc') return true;
         const u = await db.get('SELECT full_name FROM users WHERE id=$1', [req.user.id]);
         return u && u.full_name && (u.full_name.includes('Lê Việt Trinh') || u.full_name.includes('Le Viet Trinh'));
     }
