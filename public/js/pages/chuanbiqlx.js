@@ -170,6 +170,7 @@ async function _qlxLoadOrders() {
     try {
         var res = await apiCall('/api/qlx/orders' + qs);
         _qlx.orders = res.orders || [];
+        _qlx.phoiFabStatus = res.phoi_fab_status || {};
         _qlx.page = 1;
         _qlxRenderTable();
     } catch(e) { console.error('[QLX] orders:', e); }
@@ -223,7 +224,12 @@ function _qlxRenderRows(paged) {
         var bg = isNew ? '' : 'background:#f0f9ff;';
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
-        if (o.fabric_arrived) { fabIcon = '✅'; fabCls = ' on-fab'; } else if (o.fabric_called) { fabIcon = '📞'; fabCls = ' on-mat'; } else { fabIcon = '🧵'; }
+        // Per-phoi fabric icon
+        var _pfKey = o.id + '_' + (it ? it.id : 0) + '_' + (r.pairIndex || 0);
+        var _pfs = (_qlx.phoiFabStatus || {})[_pfKey];
+        if (_pfs && _pfs.pending === 0 && _pfs.arrived > 0) { fabIcon = '✅'; fabCls = ' on-fab'; }
+        else if (_pfs && _pfs.total > 0) { fabIcon = '📞'; fabCls = ' on-mat'; }
+        else { fabIcon = '🧵'; }
         if (o.material_arrived) { matIcon = '✅'; matCls = ' on-fab'; } else if (o.material_called) { matIcon = '📥'; matCls = ' on-mat'; } else { matIcon = '🔩'; }
 
         var fabAct = o.fabric_arrived ? 'reset_arrive' : o.fabric_called ? 'arrive' : 'call';
@@ -281,7 +287,7 @@ function _qlxRenderRows(paged) {
             }
         } else {
             if (o.qlx_reviewed) {
-                h += '<td></td><td style="text-align:center"><button class="qlx-icon-btn" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải" style="font-size:10px;opacity:0.7">🧵</button></td><td></td><td></td><td></td>';
+                h += '<td></td><td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải" style="font-size:10px">' + fabIcon + '</button></td><td></td><td></td><td></td>';
             } else {
                 h += '<td></td><td colspan="4"></td>';
             }

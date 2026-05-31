@@ -320,7 +320,27 @@ module.exports = async function(fastify) {
             o.items = itemMap[o.id] || [];
         }
 
-        return { orders };
+        // Fetch per-phoi fabric reservation statuses
+        let phoiFabRows = [];
+        if (orderIds.length > 0) {
+            phoiFabRows = await db.all(`
+                SELECT dht_order_id, item_id, phoi_index,
+                       COUNT(*)::int AS total,
+                       COUNT(*) FILTER (WHERE status = 'arrived')::int AS arrived,
+                       COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending
+                FROM qlx_fabric_reservations
+                WHERE dht_order_id = ANY($1) AND status != 'released'
+                GROUP BY dht_order_id, item_id, phoi_index
+            `, [orderIds]);
+        }
+        const phoiFabStatus = {};
+        for (const r of phoiFabRows) {
+            phoiFabStatus[`${r.dht_order_id}_${r.item_id}_${r.phoi_index}`] = {
+                total: r.total, arrived: r.arrived, pending: r.pending
+            };
+        }
+
+        return { orders, phoi_fab_status: phoiFabStatus };
     });
 
     // ========== FABRIC: Toggle gọi vải / vải về ==========
