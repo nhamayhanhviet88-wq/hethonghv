@@ -765,10 +765,10 @@ module.exports = async function(fastify) {
                 const importedTrees = impTreeMap[gk] || 0;
 
                 if (importedTrees >= neededTrees) {
-                    // FULFILLED → mark all reservations as arrived
+                    // FULFILLED → mark new_call reservations as 'fulfilled' (hidden in popup, replaced by auto-created from_stock)
                     const resIds = groupRes.rows.map(r => r.id);
                     await client.query(
-                        `UPDATE qlx_fabric_reservations SET status='arrived', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=ANY($3)`,
+                        `UPDATE qlx_fabric_reservations SET status='fulfilled', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=ANY($3)`,
                         [now, req.user.id, resIds]
                     );
                     // Auto-check order-level fabric_arrived for each affected order

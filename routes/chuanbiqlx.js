@@ -326,10 +326,10 @@ module.exports = async function(fastify) {
             phoiFabRows = await db.all(`
                 SELECT dht_order_id, item_id, phoi_index,
                        COUNT(*)::int AS total,
-                       COUNT(*) FILTER (WHERE status = 'arrived')::int AS arrived,
+                       COUNT(*) FILTER (WHERE status IN ('arrived', 'fulfilled'))::int AS arrived,
                        COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending
                 FROM qlx_fabric_reservations
-                WHERE dht_order_id = ANY($1) AND status != 'released'
+                WHERE dht_order_id = ANY($1) AND status NOT IN ('released')
                 GROUP BY dht_order_id, item_id, phoi_index
             `, [orderIds]);
         }
@@ -728,7 +728,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_create ON u_create.id = res.created_by
             LEFT JOIN users u_arrive ON u_arrive.id = res.arrived_by
             WHERE res.dht_order_id = $1 AND res.item_id = $2 AND res.phoi_index = $3
-              AND res.status != 'released'
+              AND res.status NOT IN ('released', 'fulfilled')
             ORDER BY res.reservation_type, res.created_at
         `, [orderId, itemId, pi]);
 

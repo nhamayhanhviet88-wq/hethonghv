@@ -570,9 +570,11 @@ function _qlxFabPreview(mat, color, unit) {
 }
 
 async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
+    if (window._qlxFabBusy) return;
+    window._qlxFabBusy = true;
     var trees = parseInt(document.getElementById('_qlxFabCallTrees').value) || 0;
     var amount = parseFloat(document.getElementById('_qlxFabCallAmount').value) || 0;
-    if (!trees && !amount) { showToast('Nhập số cây hoặc số lượng', 'error'); return; }
+    if (!trees && !amount) { showToast('Nhập số cây hoặc số lượng', 'error'); window._qlxFabBusy = false; return; }
     var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
     var note = document.getElementById('_qlxFabCallNote') ? document.getElementById('_qlxFabCallNote').value : '';
     var callDate = document.getElementById('_qlxFabCallDate') ? document.getElementById('_qlxFabCallDate').value : '';
@@ -601,7 +603,7 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
         // Refresh popup after short delay
         setTimeout(function() { _qlxFabricPopup(orderId, itemId, pairIndex); }, 1500);
         _qlxLoadAll();
-    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { window._qlxFabBusy = false; }
 }
 
 function _qlxFabCopyContent() {
@@ -621,11 +623,14 @@ async function _qlxFabArrived(resId, orderId, itemId, pairIndex) {
 
 
 async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, idx, mat, color, unit) {
+    if (window._qlxFabBusy) return;
+    window._qlxFabBusy = true;
     var inp = document.getElementById('_qlxFabKg_' + idx);
     var kg = inp ? parseFloat(inp.value) : 0;
     if (!kg || kg <= 0) {
         if(inp){inp.style.border='2px solid #dc2626';inp.style.background='#fef2f2';inp.focus();inp.style.animation='none';inp.offsetHeight;inp.style.animation='shake .4s';setTimeout(function(){inp.style.animation='';},400);}
         showToast('⚠️ Bắt buộc nhập số ' + (unit==='kg'?'kg':unit==='met'?'mét':'cái') + ' sử dụng!', 'error');
+        window._qlxFabBusy = false;
         return;
     }
     try {
@@ -637,7 +642,7 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
         showToast('✅ Đã đánh dấu cây ' + rollCode);
         _qlxFabricPopup(orderId, itemId, pairIndex);
         _qlxLoadAll();
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { showToast(e.message, 'error'); } finally { window._qlxFabBusy = false; }
 }
 
 async function _qlxFabRelease(resId, orderId, itemId, pairIndex) {
