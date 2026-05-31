@@ -419,7 +419,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         ? '<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">✅ ĐÃ VỀ</span>'
                         : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>';
                     var lbl = ex.reservation_type === 'from_stock'
-                        ? '📦 Cây ' + (ex.roll_code||'') + ': ' + ex.kg_reserved + unitLabel
+                        ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ' — Cây ' + (ex.roll_code||'') + ': ' + ex.kg_reserved + unitLabel
                         : '📞 ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name);
                     var metaInfo = '';
                     if (isArrived && ex.arrived_by_name) metaInfo = '<div style="font-size:9px;color:#059669;margin-top:2px">Xác nhận bởi: ' + ex.arrived_by_name + '</div>';

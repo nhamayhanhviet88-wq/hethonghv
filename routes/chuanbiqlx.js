@@ -674,7 +674,7 @@ module.exports = async function(fastify) {
                        COALESCE((
                            SELECT SUM(res.kg_reserved)
                            FROM qlx_fabric_reservations res
-                           WHERE res.roll_id = r.id AND res.status = 'reserved'
+                           WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
                        ), 0) AS reserved_total
                 FROM kv_rolls r
                 WHERE r.fabric_color_id = $1 AND r.is_returned = false
