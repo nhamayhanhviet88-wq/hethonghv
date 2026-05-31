@@ -3590,3 +3590,89 @@ async function _abCheckUnblock() {
         }
     } catch(e) {}
 }
+
+// ========== GLOBAL DOUBLE-CLICK PREVENTION ==========
+// Automatically prevents double-click on ALL buttons, links with onclick,
+// and interactive elements across the entire CRM — current and future.
+(function() {
+    var _lastClickedEl = null;
+    var _lastClickTime = 0;
+    var DEBOUNCE_MS = 400; // Block rapid clicks within 400ms
+
+    // Elements that should NOT be debounced (safe to click rapidly)
+    function _isExempt(el) {
+        if (!el) return true;
+        var tag = (el.tagName || '').toUpperCase();
+        // Input fields, textareas, selects, labels — always safe
+        if (['INPUT', 'TEXTAREA', 'SELECT', 'LABEL', 'OPTION'].indexOf(tag) >= 0) return true;
+        // Sidebar navigation links (switching pages should be instant)
+        if (el.closest && el.closest('.sidebar-link, .sidebar-nav, #sidebar')) return true;
+        // Tab switches, accordion toggles
+        if (el.closest && el.closest('[role="tab"], [data-toggle], .tab-btn, .nav-tab')) return true;
+        // Close buttons (modals, popups) — always allow
+        var txt = (el.textContent || '').trim();
+        if (txt === '✕' || txt === '×' || txt === 'X' || txt === '✕ Đóng') return true;
+        // Elements explicitly marked as safe
+        if (el.dataset && el.dataset.noDebounce) return true;
+        // Copy buttons — safe to click multiple times
+        if (txt.indexOf('Copy') >= 0 || txt.indexOf('📋') >= 0) return true;
+        return false;
+    }
+
+    // Check if element is a clickable action element
+    function _isClickable(el) {
+        if (!el) return false;
+        var tag = (el.tagName || '').toUpperCase();
+        if (tag === 'BUTTON') return true;
+        if (tag === 'A' && el.hasAttribute('onclick')) return true;
+        if (el.hasAttribute('onclick')) return true;
+        if (el.style && el.style.cursor === 'pointer') return true;
+        if (el.classList && (el.classList.contains('btn') || el.classList.contains('qlx-icon-btn'))) return true;
+        return false;
+    }
+
+    // Find the nearest clickable ancestor (walk up max 3 levels)
+    function _findClickable(el) {
+        for (var i = 0; i < 4 && el; i++) {
+            if (_isClickable(el)) return el;
+            el = el.parentElement;
+        }
+        return null;
+    }
+
+    document.addEventListener('click', function(e) {
+        var target = _findClickable(e.target);
+        if (!target) return; // Not a clickable element
+        if (_isExempt(target)) return; // Exempt elements
+
+        var now = Date.now();
+
+        // Same element clicked within debounce window → block it
+        if (target === _lastClickedEl && (now - _lastClickTime) < DEBOUNCE_MS) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            console.log('[AntiDblClick] ⛔ Blocked rapid click on:', target.textContent?.trim()?.substring(0, 30));
+            return false;
+        }
+
+        // Record this click
+        _lastClickedEl = target;
+        _lastClickTime = now;
+
+        // Visual feedback: briefly dim the button to indicate it was clicked
+        if (!target._antiDblActive) {
+            target._antiDblActive = true;
+            var origOpacity = target.style.opacity;
+            var origPointer = target.style.pointerEvents;
+            target.style.opacity = '0.6';
+            target.style.pointerEvents = 'none';
+            setTimeout(function() {
+                target.style.opacity = origOpacity || '';
+                target.style.pointerEvents = origPointer || '';
+                target._antiDblActive = false;
+            }, DEBOUNCE_MS);
+        }
+    }, true); // useCapture = true → fires BEFORE any onclick handlers
+
+    console.log('[AntiDblClick] ✅ Global double-click prevention active (400ms debounce)');
+})();
