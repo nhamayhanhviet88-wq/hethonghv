@@ -223,7 +223,7 @@ function _qlxRenderRows(paged) {
         var bg = isNew ? '' : 'background:#f0f9ff;';
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
-        if (o.fabric_arrived) { fabIcon = '✅'; fabCls = ' on-fab'; } else if (o.fabric_called) { fabIcon = '📦'; fabCls = ' on-mat'; } else { fabIcon = '🧵'; }
+        if (o.fabric_arrived) { fabIcon = '✅'; fabCls = ' on-fab'; } else if (o.fabric_called) { fabIcon = '📞'; fabCls = ' on-mat'; } else { fabIcon = '🧵'; }
         if (o.material_arrived) { matIcon = '✅'; matCls = ' on-fab'; } else if (o.material_called) { matIcon = '📥'; matCls = ' on-mat'; } else { matIcon = '🔩'; }
 
         var fabAct = o.fabric_arrived ? 'reset_arrive' : o.fabric_called ? 'arrive' : 'call';
