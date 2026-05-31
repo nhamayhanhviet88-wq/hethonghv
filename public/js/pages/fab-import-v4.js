@@ -251,7 +251,14 @@ function _bnhFabAddItem() {
 }
 
 function _bnhFabPickGroup(gi) {
-    var g = (window._fabPickGroups||[])[gi]; if (!g) return;
+    // Prevent double-click
+    if (window._fabPicking) return;
+    window._fabPicking = true;
+    var g = (window._fabPickGroups||[])[gi]; if (!g) { window._fabPicking = false; return; }
+    // Extra safety: check if this material+color already added
+    var gk = (g.material_name+'|'+g.color_name).toUpperCase();
+    var dup = _bnhFab.items.some(function(it) { return (it.material_name+'|'+it.color_name).toUpperCase() === gk; });
+    if (dup) { window._fabPicking = false; showToast('Đã chọn rồi!', 'warning'); var p = document.getElementById('_fabPick'); if (p) p.remove(); return; }
     _bnhFab.items.push({
         reservation_ids: g.reservations.map(function(r){return r.id;}),
         material_name: g.material_name, color_name: g.color_name, unit: g.unit || 'kg',
@@ -262,6 +269,7 @@ function _bnhFabPickGroup(gi) {
     });
     var p = document.getElementById('_fabPick'); if (p) p.remove();
     _bnhFabRenderBody();
+    setTimeout(function() { window._fabPicking = false; }, 300);
 }
 
 function _bnhFabRemoveItem(idx) { _bnhFab.items.splice(idx, 1); _bnhFabRenderBody(); }
