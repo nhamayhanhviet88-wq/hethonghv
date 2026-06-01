@@ -573,15 +573,6 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
                         html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu</button>';
                         html += '</div>';
-                    } else if (hasArrived) {
-                        // Roll fully reserved but fabric physically exists - allow overflow
-                        html += '<div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:6px;padding:4px 8px;margin-top:6px;font-size:9px;color:#92400e;font-weight:600">⚠️ Cây này đã phân bổ hết — bạn đang dùng phần dôi dư thực tế</div>';
-                        html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
-                        html += '<span style="font-size:10px;color:#92400e;font-weight:700">Dôi dư:<span style="color:#dc2626"> *</span></span>';
-                        html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" placeholder="Nhập số..." required style="width:80px;padding:4px 8px;border:1.5px solid #fbbf24;border-radius:6px;font-size:11px;text-align:center;background:#fffbeb" value="">';
-                        html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
-                        html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu (dôi dư)</button>';
-                        html += '</div>';
                     }
                     html += '</div>';
                 });

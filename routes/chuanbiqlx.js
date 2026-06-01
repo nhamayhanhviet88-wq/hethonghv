@@ -810,11 +810,7 @@ module.exports = async function(fastify) {
             // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
             const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
             const available = Number(roll.weight) - Number(reservedSum.total);
-            if (Number(kg_reserved) > available) {
-                // Allow overflow ONLY if roll has existing arrived reservations (fabric physically in warehouse)
-                const hasArrived = await db.get('SELECT 1 FROM qlx_fabric_reservations WHERE roll_id = $1 AND status = $2 LIMIT 1', [roll_id, 'arrived']);
-                if (!hasArrived) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng` });
-            }
+            if (Number(kg_reserved) > available) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng. Hãy sửa kg (✏️) các đơn khác trước.` });
 
             // from_stock = vải đã ở xưởng → auto status='arrived'
             await db.run(`
