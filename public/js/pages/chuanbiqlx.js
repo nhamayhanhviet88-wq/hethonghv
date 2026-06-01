@@ -495,6 +495,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                 // Sort: group by primary order tag, then by available ascending
                 var orderCode = o.order_code || '';
                 rolls.sort(function(a, b) {
+                    // First: rolls with available > 0 on top, 0 at bottom
+                    var aHas = a.available > 0 ? 1 : 0;
+                    var bHas = b.available > 0 ? 1 : 0;
+                    if (aHas !== bHas) return bHas - aHas;
                     // Parse called_for_orders
                     var aOrders = a.called_for_orders || [];
                     var bOrders = b.called_for_orders || [];
