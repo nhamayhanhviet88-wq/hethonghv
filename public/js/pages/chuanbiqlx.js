@@ -224,16 +224,16 @@ function _qlxRenderRows(paged) {
     if (!paged.length) { tbody.innerHTML = '<tr><td colspan="20"><div class="empty-state"><div class="icon">🏭</div><h3>Chưa có đơn hàng nào</h3><p>Chọn bộ lọc ở sidebar</p></div></td></tr>'; return; }
 
     var rows = [];
-    var phoiCounter = {};
     paged.forEach(function(o) {
         var items = o.items || [];
-        if (!items.length) { rows.push({ order: o, phoi: null, item: null, phoiIdx: 0 }); return; }
-        if (!phoiCounter[o.id]) phoiCounter[o.id] = 0;
+        if (!items.length) { rows.push({ order: o, phoi: null, item: null, phoiIdx: 0, itemIdx: 0, phoiInItem: 0 }); return; }
+        var itemIdx = 0;
         items.forEach(function(it) {
+            itemIdx++;
             var pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
-            if (pairs.length > 0) { pairs.forEach(function(p, pIdx) { phoiCounter[o.id]++; rows.push({ order: o, phoi: p, item: it, phoiIdx: phoiCounter[o.id], pairIndex: pIdx }); }); }
-            else { phoiCounter[o.id]++; rows.push({ order: o, phoi: null, item: it, phoiIdx: phoiCounter[o.id] }); }
+            if (pairs.length > 0) { pairs.forEach(function(p, pIdx) { rows.push({ order: o, phoi: p, item: it, phoiIdx: 0, pairIndex: pIdx, itemIdx: itemIdx, phoiInItem: pIdx + 1 }); }); }
+            else { rows.push({ order: o, phoi: null, item: it, phoiIdx: 0, itemIdx: itemIdx, phoiInItem: 1 }); }
         });
     });
 
@@ -264,9 +264,9 @@ function _qlxRenderRows(paged) {
         var totalRows = rowCountPerOrder[o.id] || 1;
         var spName;
         if (totalRows > 1) {
-            spName = o.order_code + ' - PH\u1ED0I ' + r.phoiIdx + (itemDesc ? ' - ' + itemDesc : '');
+            spName = o.order_code + ' \u2014 Phi\u1ebfu ' + r.itemIdx + ' \u2014 P' + r.phoiInItem + (itemDesc ? ' \u2014 ' + itemDesc : '');
         } else {
-            spName = o.order_code + (itemDesc ? ' - ' + itemDesc : '');
+            spName = o.order_code + (itemDesc ? ' \u2014 ' + itemDesc : '');
         }
         var phoiTag = '';
         var matName = p ? (p.material_name || '') : (it ? (it.material_name || '') : '');

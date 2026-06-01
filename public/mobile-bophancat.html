@@ -2,296 +2,273 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scale=no">
     <title>✂️ Bộ Phận Cắt — Đồng Phục HV</title>
-    <meta name="description" content="Báo cáo cắt vải trên điện thoại">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            min-height: 100vh; color: #e2e8f0;
-        }
-        .m-header {
-            background: linear-gradient(135deg, #7f1d1d, #991b1b);
-            padding: 14px 16px; display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 100;
-        }
-        .m-header img { width: 32px; height: 32px; border-radius: 8px; }
-        .m-header h1 { font-size: 15px; font-weight: 800; color: #fca5a5; flex: 1; }
-        .m-user { font-size: 10px; color: #fecaca; font-weight: 600; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; }
-
-        /* Filter bar */
-        .m-filter {
-            background: rgba(255,255,255,0.05); padding: 10px 16px;
-            display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid rgba(255,255,255,0.08);
-        }
-        .m-filter select, .m-filter input {
-            flex: 1; min-width: 100px; padding: 10px 12px; border: 1.5px solid rgba(255,255,255,0.12);
-            border-radius: 10px; font-size: 14px; font-family: 'Inter', sans-serif;
-            background: rgba(255,255,255,0.06); color: #e2e8f0; appearance: none;
-        }
-        .m-filter select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
-        .m-filter option { background: #1e293b; color: #e2e8f0; }
-
-        /* Stats */
-        .m-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 16px; }
-        .m-stat {
-            text-align: center; padding: 10px 6px; border-radius: 12px; color: #fff;
-            position: relative; overflow: hidden;
-        }
-        .m-stat-val { font-size: 20px; font-weight: 900; }
-        .m-stat-lbl { font-size: 8px; font-weight: 700; letter-spacing: 0.5px; opacity: 0.85; margin-top: 2px; }
-
-        /* Cards */
-        .m-cards { padding: 0 12px 80px; }
-        .m-card {
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
-            margin-bottom: 12px; overflow: hidden; transition: transform 0.1s;
-        }
-        .m-card:active { transform: scale(0.98); }
-        .m-card-top {
-            padding: 14px 16px; display: flex; align-items: center; gap: 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .m-card-icon { font-size: 28px; }
-        .m-card-title { font-size: 14px; font-weight: 800; color: #fca5a5; flex: 1; }
-        .m-card-code { font-size: 10px; color: #94a3b8; font-weight: 600; }
-        .m-card-body { padding: 12px 16px; }
-        .m-card-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
-        .m-card-label { font-size: 11px; color: #94a3b8; font-weight: 600; }
-        .m-card-value { font-size: 13px; color: #e2e8f0; font-weight: 700; }
-        .m-card-divider { border-top: 1px solid rgba(255,255,255,0.06); margin: 8px 0; }
-
-        /* Editable field */
-        .m-editable {
-            background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.12);
-            border-radius: 8px; padding: 6px 10px; font-size: 14px; color: #fbbf24;
-            font-weight: 800; text-align: right; width: 80px; font-family: 'Inter', sans-serif;
-        }
-        .m-editable:focus { outline: none; border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
-
-        /* Action buttons */
-        .m-card-actions {
-            display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
-            padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06);
-        }
-        .m-act-btn {
-            display: flex; flex-direction: column; align-items: center; gap: 3px;
-            padding: 10px 4px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.04); cursor: pointer; transition: all 0.15s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .m-act-btn:active { transform: scale(0.92); }
-        .m-act-btn .m-act-icon { font-size: 20px; }
-        .m-act-btn .m-act-lbl { font-size: 8px; font-weight: 700; color: #94a3b8; letter-spacing: 0.3px; }
-        .m-act-btn.on { border-color: #22c55e; background: rgba(34,197,94,0.15); }
-        .m-act-btn.on .m-act-lbl { color: #4ade80; }
-
-        /* History line */
-        .m-card-hist { padding: 8px 16px; font-size: 10px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.04); }
-        .m-card-hist span { color: #f87171; font-weight: 700; }
-
-        /* Toast */
-        .m-toast-container { position: fixed; top: 60px; left: 10px; right: 10px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
-        .m-toast { padding: 14px 18px; border-radius: 12px; color: white; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: mSlideIn .3s ease; }
-        .m-toast-success { background: linear-gradient(135deg, #10b981, #059669); }
-        .m-toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
-        @keyframes mSlideIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
-
-        /* Empty */
-        .m-empty { text-align: center; padding: 60px 20px; color: #64748b; }
-        .m-empty-icon { font-size: 48px; margin-bottom: 12px; }
-
-        /* FAB */
-        .m-fab {
-            position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px;
-            background: linear-gradient(135deg, #dc2626, #ef4444); border: none; border-radius: 50%;
-            color: white; font-size: 28px; cursor: pointer; z-index: 50;
-            box-shadow: 0 6px 24px rgba(220,38,38,0.5); display: flex; align-items: center; justify-content: center;
-        }
-        .m-fab:active { transform: scale(0.9); }
-
-        /* Back link */
-        .m-back { display: inline-flex; align-items: center; gap: 6px; color: #fca5a5; font-size: 12px; font-weight: 600; text-decoration: none; margin: 12px 16px; padding: 8px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; }
-
-        /* Loading */
-        .m-spinner { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #ef4444; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; margin-bottom: 8px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#1e293b);min-height:100vh;color:#e2e8f0;padding-bottom:70px}
+        .m-header{background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);position:sticky;top:0;z-index:100}
+        .m-header img{width:32px;height:32px;border-radius:8px}
+        .m-header h1{font-size:15px;font-weight:800;color:#fca5a5;flex:1}
+        .m-user{font-size:10px;color:#fecaca;font-weight:600;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px}
+        .m-tabs{display:flex;background:rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.08);position:sticky;top:60px;z-index:99}
+        .m-tab{flex:1;padding:12px 8px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s}
+        .m-tab.active{color:#fca5a5;border-bottom-color:#ef4444;background:rgba(239,68,68,0.08)}
+        .m-tab .m-tab-badge{display:inline-block;background:#ef4444;color:#fff;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;margin-left:4px;min-width:18px}
+        .m-content{padding:12px}
+        .m-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:12px;overflow:hidden}
+        .m-card-top{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.06)}
+        .m-card-icon{font-size:28px}
+        .m-card-title{font-size:14px;font-weight:800;color:#fca5a5;flex:1}
+        .m-card-code{font-size:10px;color:#94a3b8;font-weight:600}
+        .m-card-body{padding:12px 16px}
+        .m-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+        .m-lbl{font-size:11px;color:#94a3b8;font-weight:600}
+        .m-val{font-size:13px;color:#e2e8f0;font-weight:700}
+        .m-divider{border-top:1px solid rgba(255,255,255,0.06);margin:8px 0}
+        .m-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin:2px}
+        .m-badge-ok{background:#dcfce7;color:#059669}
+        .m-badge-no{background:#fee2e2;color:#dc2626}
+        .m-btn-claim{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;margin-top:10px;letter-spacing:0.5px;transition:all .2s}
+        .m-btn-claim.ready{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.4)}
+        .m-btn-claim.ready:active{transform:scale(0.97)}
+        .m-btn-claim.locked{background:rgba(255,255,255,0.06);color:#64748b;cursor:not-allowed}
+        .m-card-actions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.06)}
+        .m-act{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);cursor:pointer}
+        .m-act:active{transform:scale(0.92)}
+        .m-act .m-act-i{font-size:20px}
+        .m-act .m-act-l{font-size:8px;font-weight:700;color:#94a3b8}
+        .m-act.on{border-color:#22c55e;background:rgba(34,197,94,0.15)}
+        .m-act.on .m-act-l{color:#4ade80}
+        .m-editable{background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 10px;font-size:14px;color:#fbbf24;font-weight:800;text-align:right;width:80px;font-family:'Inter',sans-serif}
+        .m-editable:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.15)}
+        .m-empty{text-align:center;padding:60px 20px;color:#64748b}
+        .m-empty-icon{font-size:48px;margin-bottom:12px}
+        .m-toast-c{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
+        .m-toast{padding:14px 18px;border-radius:12px;color:white;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.3);animation:mSlide .3s ease}
+        .m-toast-ok{background:linear-gradient(135deg,#10b981,#059669)}
+        .m-toast-err{background:linear-gradient(135deg,#ef4444,#dc2626)}
+        @keyframes mSlide{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        .m-spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,0.1);border-top-color:#ef4444;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;margin-bottom:8px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .m-filter{display:flex;gap:8px;padding:8px 12px;background:rgba(255,255,255,0.03)}
+        .m-filter select{flex:1;padding:8px;border:1.5px solid rgba(255,255,255,0.12);border-radius:8px;font-size:13px;background:rgba(255,255,255,0.06);color:#e2e8f0;font-family:'Inter',sans-serif}
+        .m-filter option{background:#1e293b;color:#e2e8f0}
+        .m-pri{padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800}
     </style>
 </head>
 <body>
     <div class="m-header">
         <img src="/images/logo.png" alt="Logo">
         <h1>✂️ BỘ PHẬN CẮT</h1>
-        <span class="m-user" id="mUserBadge">...</span>
+        <span class="m-user" id="mUser">...</span>
     </div>
-
-    <div class="m-toast-container" id="mToastContainer"></div>
-
-    <div id="mFilterBar" class="m-filter" style="display:none">
-        <input type="date" id="mFilterDate" onchange="mLoadRecords()">
-        <select id="mFilterStatus" onchange="mLoadRecords()">
-            <option value="">Tất cả</option>
-            <option value="cutting">Đang cắt</option>
-            <option value="done">Đã xong</option>
-            <option value="approved">Đã duyệt</option>
-        </select>
+    <div class="m-toast-c" id="mToastC"></div>
+    <div class="m-tabs" id="mTabs">
+        <div class="m-tab active" data-tab="uncut" onclick="mSwitchTab('uncut')">🔴 Chưa Cắt <span class="m-tab-badge" id="mBadgeUncut">0</span></div>
+        <div class="m-tab" data-tab="mine" onclick="mSwitchTab('mine')">📋 Đơn Tôi <span class="m-tab-badge" id="mBadgeMine" style="background:#f59e0b">0</span></div>
+        <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
-
-    <div id="mStatsBar" class="m-stats" style="display:none">
-        <div class="m-stat" style="background:linear-gradient(135deg,#dc2626,#ef4444)"><div class="m-stat-val" id="mStatTotal">0</div><div class="m-stat-lbl">TỔNG</div></div>
-        <div class="m-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="m-stat-val" id="mStatCutting">0</div><div class="m-stat-lbl">ĐANG CẮT</div></div>
-        <div class="m-stat" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-stat-val" id="mStatDone">0</div><div class="m-stat-lbl">XONG</div></div>
-        <div class="m-stat" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><div class="m-stat-val" id="mStatApproved">0</div><div class="m-stat-lbl">DUYỆT</div></div>
+    <div class="m-content" id="mContent">
+        <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="m-spinner"></div><div>Đang tải...</div></div>
     </div>
+<script>
+let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[];
 
-    <div class="m-cards" id="mCards">
-        <div style="text-align:center;padding:60px 20px;color:#94a3b8">
-            <div class="m-spinner"></div>
-            <div>Đang tải...</div>
-        </div>
-    </div>
+async function mApi(url,method='GET',body=null){
+    const opts={method,headers:{'Content-Type':'application/json'},credentials:'include'};
+    if(body)opts.body=JSON.stringify(body);
+    const res=await fetch(url,opts);
+    if(res.status===401){window.location.href='/index.html';return;}
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Lỗi server');
+    return data;
+}
 
-    <a href="/bophancathv" class="m-back">← Về trang Desktop</a>
+function mToast(msg,ok=true){
+    const c=document.getElementById('mToastC'),d=document.createElement('div');
+    d.className='m-toast '+(ok?'m-toast-ok':'m-toast-err');
+    d.textContent=msg;c.appendChild(d);setTimeout(()=>d.remove(),3500);
+}
 
-    <script>
-    let currentUser = null;
-    let mRecords = [];
+function mFmt(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 
-    async function apiCall(url, method = 'GET', body = null) {
-        const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
-        if (body) opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
-        if (res.status === 401) { window.location.href = '/index.html'; return; }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Lỗi server');
-        return data;
-    }
+async function mInit(){
+    try{
+        const auth=await mApi('/api/auth/me');
+        if(!auth.user){window.location.href='/index.html';return;}
+        mUser=auth.user;
+        document.getElementById('mUser').textContent=mUser.full_name||mUser.username;
+        await mLoadAll();
+    }catch(e){document.getElementById('mContent').innerHTML='<div class="m-empty"><div class="m-empty-icon">❌</div><div>Lỗi: '+e.message+'</div></div>';}
+}
 
-    function mToast(msg, type = 'success') {
-        const c = document.getElementById('mToastContainer');
-        const d = document.createElement('div');
-        d.className = 'm-toast m-toast-' + type;
-        d.textContent = msg;
-        c.appendChild(d);
-        setTimeout(() => d.remove(), 3500);
-    }
+async function mLoadAll(){
+    try{
+        const [uncutRes, recRes]=await Promise.all([mApi('/api/cutting/unassigned'),mApi('/api/cutting/records?_=1')]);
+        mUncut=uncutRes.orders||[];
+        const allRec=recRes.records||[];
+        mMine=allRec.filter(r=>!r.is_cut_done);
+        mHist=allRec.filter(r=>r.is_cut_done);
+        document.getElementById('mBadgeUncut').textContent=mUncut.length;
+        document.getElementById('mBadgeMine').textContent=mMine.length;
+        mRender();
+    }catch(e){console.error(e);}
+}
 
-    function mFmtDate(d) { if (!d) return '—'; try { const p = d.split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } catch(e) { return d; } }
-    function mFmtTime(d) { if (!d) return ''; try { const dt = new Date(d); return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+mFmtDate(d); } catch(e) { return ''; } }
+function mSwitchTab(tab){
+    mTab=tab;
+    document.querySelectorAll('.m-tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===tab);});
+    mRender();
+}
 
-    async function mInit() {
-        try {
-            const auth = await apiCall('/api/auth/me');
-            if (!auth.user) { window.location.href = '/index.html'; return; }
-            currentUser = auth.user;
-            document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
-            document.getElementById('mFilterBar').style.display = '';
-            document.getElementById('mStatsBar').style.display = '';
-            await mLoadRecords();
-        } catch(e) {
-            document.getElementById('mCards').innerHTML = '<div class="m-empty"><div class="m-empty-icon">❌</div><div>Lỗi kết nối server</div></div>';
+function mRender(){
+    if(mTab==='uncut')mRenderUncut();
+    else if(mTab==='mine')mRenderMine();
+    else mRenderHist();
+}
+
+function mRenderUncut(){
+    const c=document.getElementById('mContent');
+    if(!mUncut.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không có đơn chờ</div><div style="font-size:13px">Tất cả đơn đã được nhận</div></div>';return;}
+    let lastId=null,html='';
+    mUncut.forEach(r=>{
+        const isNew=r.id!==lastId;
+        if(isNew)lastId=r.id;
+        const ready=r.fabric_arrived&&r.has_pc_in;
+        const priStyle=r.shipping_priority==='GẤP'?'background:#dc2626;color:#fff':r.shipping_priority==='GỬI'?'background:#f59e0b;color:#fff':'background:rgba(255,255,255,0.1);color:#94a3b8';
+        const spName=r.phoi_index>0?'PHỐI '+r.phoi_index+(r.item_desc?' — '+r.item_desc:''):(r.item_desc||r.order_code);
+
+        if(isNew){
+            if(html)html+='</div>';// close prev card
+            html+='<div class="m-card"><div class="m-card-top">';
+            html+='<div class="m-card-icon">'+(ready?'🟢':'🔴')+'</div>';
+            html+='<div class="m-card-title">'+r.order_code+'</div>';
+            html+='<span class="m-pri" style="'+priStyle+'">'+(r.shipping_priority||'CHUẨN')+'</span>';
+            html+='</div><div class="m-card-body">';
+            html+='<div class="m-row"><span class="m-lbl">👤 Khách hàng</span><span class="m-val">'+(r.customer_name||'—')+'</span></div>';
+            html+='<div class="m-row"><span class="m-lbl">📅 Ngày ship</span><span class="m-val">'+mFmt(r.expected_ship_date)+'</span></div>';
+            html+='<div class="m-row"><span class="m-lbl">📦 Số lượng</span><span class="m-val" style="color:#60a5fa">'+(r.total_quantity||'—')+'</span></div>';
+            html+='<div class="m-divider"></div>';
         }
-    }
+        // Phối row
+        html+='<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+        html+='<div style="font-size:12px;font-weight:700;color:#e2e8f0">'+spName+'</div>';
+        html+='<div style="display:flex;gap:8px;margin-top:4px;font-size:11px">';
+        html+='<span style="color:#94a3b8">🧵 '+(r.material_name||'—')+'</span>';
+        html+='<span style="color:#94a3b8">🎨 '+(r.color_name||'—')+'</span>';
+        html+='</div></div>';
+    });
+    // Close last card + add claim/status
+    if(html)html+='</div>';
+    // Re-render with buttons by grouping
+    c.innerHTML='';
+    let curId=null,cardHtml='';
+    const grouped={};
+    mUncut.forEach(r=>{if(!grouped[r.id])grouped[r.id]={order:r,phois:[]};grouped[r.id].phois.push(r);});
 
-    async function mLoadRecords() {
-        const status = document.getElementById('mFilterStatus')?.value || '';
-        const date = document.getElementById('mFilterDate')?.value || '';
-        let qs = '?_=1';
-        if (status) qs += '&status=' + status;
-
-        try {
-            const res = await apiCall('/api/cutting/records' + qs);
-            mRecords = res.records || [];
-
-            // Filter by date client-side if set
-            if (date) {
-                mRecords = mRecords.filter(r => r.cut_date && r.cut_date.startsWith(date));
-            }
-
-            mRenderStats();
-            mRenderCards();
-        } catch(e) {
-            document.getElementById('mCards').innerHTML = '<div class="m-empty"><div class="m-empty-icon">⚠️</div><div>'+e.message+'</div></div>';
+    Object.values(grouped).forEach(g=>{
+        const o=g.order,ready=o.fabric_arrived&&o.has_pc_in;
+        const priStyle=o.shipping_priority==='GẤP'?'background:#dc2626;color:#fff':o.shipping_priority==='GỬI'?'background:#f59e0b;color:#fff':'background:rgba(255,255,255,0.1);color:#94a3b8';
+        let h='<div class="m-card"><div class="m-card-top">';
+        h+='<div class="m-card-icon">'+(ready?'🟢':'🔴')+'</div>';
+        h+='<div class="m-card-title">'+o.order_code+'</div>';
+        h+='<span class="m-pri" style="'+priStyle+'">'+(o.shipping_priority||'CHUẨN')+'</span>';
+        h+='</div><div class="m-card-body">';
+        h+='<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+(o.customer_name||'—')+'</span></div>';
+        h+='<div class="m-row"><span class="m-lbl">📅 Ship</span><span class="m-val">'+mFmt(o.expected_ship_date)+'</span></div>';
+        h+='<div class="m-row"><span class="m-lbl">📦 SL</span><span class="m-val" style="color:#60a5fa">'+(o.total_quantity||'—')+'</span></div>';
+        h+='<div class="m-divider"></div>';
+        g.phois.forEach(p=>{
+            const sp=p.phoi_index>0?'PHỐI '+p.phoi_index+(p.item_desc?' — '+p.item_desc:''):(p.item_desc||'');
+            h+='<div style="padding:4px 0"><div style="font-size:12px;font-weight:700;color:#e2e8f0">'+(sp||o.order_code)+'</div>';
+            h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px">🧵 '+(p.material_name||'—')+' · 🎨 '+(p.color_name||'—')+'</div></div>';
+        });
+        h+='<div class="m-divider"></div>';
+        // Status badges
+        h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">';
+        h+='<span class="m-badge '+(o.fabric_arrived?'m-badge-ok':'m-badge-no')+'">'+(o.fabric_arrived?'✅ Vải đã về':'❌ Chưa có vải')+'</span>';
+        h+='<span class="m-badge '+(o.has_pc_in?'m-badge-ok':'m-badge-no')+'">'+(o.has_pc_in?'✅ Đã PC In':'❌ Chưa PC In')+'</span>';
+        h+='</div>';
+        // Claim button
+        if(ready){
+            h+='<button class="m-btn-claim ready" onclick="mClaim('+o.id+',\''+o.order_code+'\')">✂️ NHẬN ĐƠN CẮT</button>';
+        }else{
+            const miss=[];if(!o.fabric_arrived)miss.push('Vải');if(!o.has_pc_in)miss.push('PC In');
+            h+='<button class="m-btn-claim locked" disabled>🔒 CHƯA ĐỦ ĐIỀU KIỆN — Thiếu '+miss.join(' + ')+'</button>';
         }
-    }
+        h+='</div></div>';
+        cardHtml+=h;
+    });
+    c.innerHTML=cardHtml||'<div class="m-empty"><div class="m-empty-icon">✅</div><div>Không có đơn chờ</div></div>';
+}
 
-    function mRenderStats() {
-        const total = mRecords.length;
-        const cutting = mRecords.filter(r => r.is_cutting && !r.is_cut_done).length;
-        const done = mRecords.filter(r => r.is_cut_done).length;
-        const approved = mRecords.filter(r => r.salary_approved).length;
-        document.getElementById('mStatTotal').textContent = total;
-        document.getElementById('mStatCutting').textContent = cutting;
-        document.getElementById('mStatDone').textContent = done;
-        document.getElementById('mStatApproved').textContent = approved;
-    }
+function mRenderMine(){
+    const c=document.getElementById('mContent');
+    if(!mMine.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📋</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn nào</div><div style="font-size:13px">Nhận đơn ở tab "Chưa Cắt"</div></div>';return;}
+    c.innerHTML=mMine.map(r=>{
+        const cutCls=r.is_cutting?' on':'',doneCls=r.is_cut_done?' on':'';
+        const salCls=r.salary_approved?' on':'',washCls=r.wash_reported?' on':'';
+        return '<div class="m-card"><div class="m-card-top">'
+            +'<div class="m-card-icon">'+(r.is_cutting?'✂️':'📋')+'</div>'
+            +'<div class="m-card-title">'+(r.product_name||'Sản phẩm')+'</div>'
+            +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
+            +'<div class="m-card-body">'
+            +'<div class="m-row"><span class="m-lbl">📅 Ngày cắt</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
+            +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
+            +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
+            +'<div class="m-divider"></div>'
+            +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
+            +'<div class="m-row"><span class="m-lbl">✂️ SL Cắt</span><span class="m-val" style="color:#a78bfa">'+(r.cut_quantity||'—')+'</span></div>'
+            +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cắt</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+(r.kg_cut||'—')+'</span></div>'
+            +'</div>'
+            +'<div class="m-card-actions">'
+            +'<button class="m-act'+cutCls+'" onclick="mToggle('+r.id+',\''+(r.is_cutting?'undo_cutting':'start_cutting')+'\')"><span class="m-act-i">✂️</span><span class="m-act-l">CẮT</span></button>'
+            +'<button class="m-act'+doneCls+'" onclick="mToggle('+r.id+',\''+(r.is_cut_done?'undo_cut_done':'cut_done')+'\')"><span class="m-act-i">✅</span><span class="m-act-l">XONG</span></button>'
+            +'<button class="m-act'+salCls+'" onclick="mToggle('+r.id+',\''+(r.salary_approved?'undo_approve_salary':'approve_salary')+'\')"><span class="m-act-i">💰</span><span class="m-act-l">LƯƠNG</span></button>'
+            +'<button class="m-act'+washCls+'" onclick="mToggle('+r.id+',\''+(r.wash_reported?'undo_wash':'report_wash')+'\')"><span class="m-act-i">🫧</span><span class="m-act-l">GIẶT</span></button>'
+            +'<button class="m-act" onclick="mToggle('+r.id+',\'report_error\')"><span class="m-act-i">⚠️</span><span class="m-act-l">LỖI</span></button>'
+            +'</div></div>';
+    }).join('');
+}
 
-    function mRenderCards() {
-        const container = document.getElementById('mCards');
-        if (!mRecords.length) {
-            container.innerHTML = '<div class="m-empty"><div class="m-empty-icon">✂️</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn cắt</div><div style="font-size:13px">Đơn cắt sẽ hiển thị ở đây</div></div>';
-            return;
-        }
+function mRenderHist(){
+    const c=document.getElementById('mContent');
+    if(!mHist.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📅</div><div style="font-size:16px;font-weight:700">Chưa có lịch sử</div></div>';return;}
+    c.innerHTML=mHist.map(r=>'<div class="m-card"><div class="m-card-top">'
+        +'<div class="m-card-icon">✅</div>'
+        +'<div class="m-card-title">'+(r.product_name||'SP')+'</div>'
+        +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
+        +'<div class="m-card-body">'
+        +'<div class="m-row"><span class="m-lbl">📅 Ngày</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">🧵 CL</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">📦 SL</span><span class="m-val">'+(r.cut_quantity||r.order_quantity||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">⚖️ Kg</span><span class="m-val" style="color:#fbbf24">'+(r.kg_cut||'—')+'</span></div>'
+        +'</div></div>').join('');
+}
 
-        container.innerHTML = mRecords.map(function(r) {
-            const ratioColor = r.cut_ratio > 5 ? '#ef4444' : r.cut_ratio > 3 ? '#f59e0b' : '#4ade80';
-            const histLine = r.last_update_at ? '⏰ ' + mFmtTime(r.last_update_at) + (r.last_update_by ? ' — <span>' + r.last_update_by + '</span>' : '') : '';
+async function mClaim(id,code){
+    if(window._mBusy)return;
+    if(!confirm('Nhận đơn cắt '+code+'?'))return;
+    window._mBusy=true;
+    try{
+        const res=await mApi('/api/cutting/claim','POST',{dht_order_id:id});
+        mToast('✅ Đã nhận đơn '+code+' — '+res.created+' phối');
+        await mLoadAll();
+    }catch(e){mToast(e.message,false);}
+    finally{window._mBusy=false;}
+}
 
-            return '<div class="m-card">'
-                +'<div class="m-card-top">'
-                +'<div class="m-card-icon">' + (r.is_cut_done ? '✅' : r.is_cutting ? '✂️' : '📋') + '</div>'
-                +'<div class="m-card-title">' + (r.product_name || 'Sản phẩm') + '</div>'
-                +'<div class="m-card-code">' + (r.order_code || '') + '</div>'
-                +'</div>'
-                +'<div class="m-card-body">'
-                +'<div class="m-card-row"><span class="m-card-label">📅 Ngày cắt</span><span class="m-card-value">' + mFmtDate(r.cut_date) + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">👤 NV Cắt</span><span class="m-card-value" style="color:#4ade80">' + (r.cutter_name || '—') + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">🧵 Chất liệu</span><span class="m-card-value">' + (r.material_name || '—') + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">🎨 Màu vải</span><span class="m-card-value">' + (r.fabric_color || '—') + '</span></div>'
-                +'<div class="m-card-divider"></div>'
-                +'<div class="m-card-row"><span class="m-card-label">📦 SL Đơn</span><span class="m-card-value" style="color:#60a5fa">' + (r.order_quantity || '—') + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">✂️ SL Cắt</span><span class="m-card-value" style="color:#a78bfa">' + (r.cut_quantity || '—') + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">⚖️ Kg Cắt</span><span class="m-card-value" style="color:#fbbf24;font-size:16px">' + (r.kg_cut || '—') + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">📊 Tỉ lệ</span><span class="m-card-value" style="color:' + ratioColor + ';font-size:16px">' + (r.cut_ratio || '—') + '</span></div>'
-                + (r.ratio_reason ? '<div class="m-card-row"><span class="m-card-label">📝 Lý do sai TL</span><span class="m-card-value" style="font-size:11px;color:#f87171">' + r.ratio_reason + '</span></div>' : '')
-                +'<div class="m-card-divider"></div>'
-                +'<div class="m-card-row"><span class="m-card-label">🏋️ Kg Đầu</span><span class="m-card-value">' + (r.kg_start || '—') + '</span></div>'
-                +'<div class="m-card-row"><span class="m-card-label">🏁 Kg Cuối</span><span class="m-card-value">' + (r.kg_end || '—') + '</span></div>'
-                + (r.cut_warning ? '<div class="m-card-row"><span class="m-card-label">🚨 Cảnh báo</span><span class="m-card-value" style="color:#ef4444">' + r.cut_warning + '</span></div>' : '')
-                + (r.cut_shared ? '<div class="m-card-row"><span class="m-card-label">🔗 Cắt chung</span><span class="m-card-value" style="font-size:11px">' + r.cut_shared + '</span></div>' : '')
-                +'</div>'
-                +'<div class="m-card-actions">'
-                +'<button class="m-act-btn' + (r.is_cutting ? ' on' : '') + '" onclick="mToggle(' + r.id + ',\'' + (r.is_cutting ? 'undo_cutting' : 'start_cutting') + '\')"><span class="m-act-icon">✂️</span><span class="m-act-lbl">CẮT</span></button>'
-                +'<button class="m-act-btn' + (r.is_cut_done ? ' on' : '') + '" onclick="mToggle(' + r.id + ',\'' + (r.is_cut_done ? 'undo_cut_done' : 'cut_done') + '\')"><span class="m-act-icon">✅</span><span class="m-act-lbl">XONG</span></button>'
-                +'<button class="m-act-btn' + (r.salary_approved ? ' on' : '') + '" onclick="mToggle(' + r.id + ',\'' + (r.salary_approved ? 'undo_approve_salary' : 'approve_salary') + '\')"><span class="m-act-icon">💰</span><span class="m-act-lbl">LƯƠNG</span></button>'
-                +'<button class="m-act-btn' + (r.wash_reported ? ' on' : '') + '" onclick="mToggle(' + r.id + ',\'' + (r.wash_reported ? 'undo_wash' : 'report_wash') + '\')"><span class="m-act-icon">🫧</span><span class="m-act-lbl">GIẶT</span></button>'
-                +'<button class="m-act-btn' + (r.error_reported ? ' on' : '') + '" onclick="mReportError(' + r.id + ')"><span class="m-act-icon">⚠️</span><span class="m-act-lbl">LỖI</span></button>'
-                +'</div>'
-                + (histLine ? '<div class="m-card-hist">' + histLine + '</div>' : '')
-                +'</div>';
-        }).join('');
-    }
+async function mToggle(id,action){
+    try{await mApi('/api/cutting/toggle/'+id,'POST',{action});mToast('✅ Cập nhật');await mLoadAll();}
+    catch(e){mToast(e.message||'Lỗi',false);}
+}
 
-    async function mToggle(id, action) {
-        try {
-            await apiCall('/api/cutting/toggle/' + id, 'POST', { action });
-            mToast('✅ Cập nhật thành công');
-            await mLoadRecords();
-        } catch(e) { mToast(e.message || 'Lỗi', 'error'); }
-    }
-
-    function mReportError(id) {
-        window.location.href = '/donloikhachhang';
-    }
-
-    mInit();
-    </script>
+mInit();
+</script>
 </body>
 </html>
