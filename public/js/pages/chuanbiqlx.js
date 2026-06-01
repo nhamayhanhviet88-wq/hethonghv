@@ -441,7 +441,9 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     if (ex.reservation_type === 'new_call' && ex.call_content) {
                         html += '<button onclick="navigator.clipboard.writeText(\'' + (ex.call_content||'').replace(/'/g, "\\'") + '\');showToast(\'📋 Đã copy!\')" style="padding:3px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;font-size:9px;font-weight:600;cursor:pointer;color:#1e40af;white-space:nowrap">📋 Copy</button>';
                     }
-                    html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
+                    if (!isArrived) {
+                        html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
+                    }
                     html += '</div>';
                     html += metaInfo;
                     html += '</div>';
