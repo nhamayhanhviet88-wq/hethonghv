@@ -285,12 +285,7 @@ function _qlxRenderRows(paged) {
 
         var h = '<tr style="' + bg + '">';
         if (isNew) {
-            // Badge: Chưa In Phiếu SX
-            var sttExtra = '';
-            if (!o.sx_print_confirmed) {
-                sttExtra = '<div style="background:#dc2626;color:#fff;font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;margin-top:2px;white-space:nowrap;line-height:1.2">CHƯA IN PHIẾU</div>';
-            }
-            h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + sttExtra + '</td>';
+            h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + '</td>';
             if (o.qlx_reviewed) {
                 // Gọi Vải - LUÔN HIỆN sau checklist
                 h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải">' + fabIcon + '</button></td>';
@@ -307,9 +302,8 @@ function _qlxRenderRows(paged) {
                         h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" onclick="_qlxReceivePhieu(' + o.id + ')" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6;font-size:9px;font-weight:700;color:#1e40af;white-space:nowrap;animation:qlxPulse 2s infinite" title="Xác nhận đã nhận Phiếu SX từ KT">📋 Nhận Phiếu SX</button></td>';
                     }
                 } else {
-                    // Chưa in phiếu → PC In + PC May mờ + cảnh báo
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn" onclick="showToast(\'⚠️ Chưa In Phiếu SX. Vui lòng chờ KT in phiếu trước khi phân công.\', \'error\')" style="opacity:0.4;border-color:#fca5a5" title="Chưa In Phiếu SX">🖨️</button></td>';
-                    h += '<td style="text-align:center"><button class="qlx-icon-btn" onclick="showToast(\'⚠️ Chưa In Phiếu SX. Vui lòng chờ KT in phiếu trước khi phân công.\', \'error\')" style="opacity:0.4;border-color:#fca5a5" title="Chưa In Phiếu SX">🪡</button></td>';
+                    // Chưa in phiếu → hiện nút giống "Nhận Phiếu SX" nhưng màu đỏ
+                    h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#ef4444;font-size:9px;font-weight:700;color:#dc2626;white-space:nowrap;animation:qlxPulse 2s infinite;cursor:default" title="Chưa In Phiếu Sản Xuất">🖨️ Chưa In Phiếu SX</button></td>';
                 }
             } else {
                 // Chưa kiểm tra checklist → hiện nút Kiểm tra
@@ -405,26 +399,26 @@ function _qlxRenderStats(count, arr) {
 
     var af = _qlx.activeFilter || '';
     var sc = document.getElementById('qlxStatCards'); if (!sc) return;
-    function _fb(key, label, cnt, color, icon) {
+    function _fc(key, label, cnt, grad, icon) {
         var isActive = af === key;
-        var bg = isActive ? color : '#f8fafc';
-        var txtColor = isActive ? '#fff' : '#334155';
-        var border = isActive ? 'transparent' : '#e2e8f0';
-        var cntBg = isActive ? 'rgba(255,255,255,0.25)' : color;
-        return '<button onclick="_qlxStatFilter(\'' + key + '\')" style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;border:1.5px solid ' + border + ';background:' + bg + ';color:' + txtColor + ';font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap">'
-            + icon + ' ' + label + ' <span style="background:' + cntBg + ';color:#fff;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;min-width:18px;text-align:center">' + cnt + '</span></button>';
+        var opacity = isActive ? '1' : '0.85';
+        var scale = isActive ? 'transform:scale(1.05);box-shadow:0 6px 20px rgba(0,0,0,0.25)' : 'box-shadow:0 4px 15px rgba(0,0,0,0.15)';
+        return '<button onclick="_qlxStatFilter(\'' + key + '\')" style="background:linear-gradient(135deg,' + grad + ');color:#fff;padding:8px 16px;border-radius:10px;min-width:90px;text-align:center;border:none;cursor:pointer;position:relative;overflow:hidden;opacity:' + opacity + ';transition:all .2s;' + scale + '">'
+            + '<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:qlxShimmer 2.5s infinite"></div>'
+            + '<div style="font-size:9px;font-weight:600;opacity:0.9;letter-spacing:0.5px;margin-bottom:2px;white-space:nowrap">' + icon + ' ' + label + '</div>'
+            + '<div style="font-size:18px;font-weight:900">' + cnt + '</div></button>';
     }
-    sc.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;width:100%">'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">'
-        + _fb('', 'Tổng Số Đơn', totalAll, '#2563eb', '📦')
-        + _fb('no_print', 'Chưa In Phiếu', noPrint, '#dc2626', '🖨️')
-        + _fb('no_receive', 'Chưa Nhận Phiếu SX', noReceive, '#d97706', '📋')
+    sc.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;width:100%">'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
+        + _fc('', 'Tổng Đơn', totalAll, '#2563eb,#3b82f6', '📦')
+        + _fc('no_print', 'Chưa In Phiếu', noPrint, '#dc2626,#ef4444', '🖨️')
+        + _fc('no_receive', 'Chưa Nhận Phiếu', noReceive, '#d97706,#f59e0b', '📋')
         + '</div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">'
-        + _fb('no_fabric', 'Chưa Gọi Vải', noFab, '#059669', '🧵')
-        + _fb('no_material', 'Chưa Gọi VL', noMat, '#0369a1', '🔩')
-        + _fb('no_pc_in', 'Chưa PC In', noIn, '#7c3aed', '🖨️')
-        + _fb('no_pc_may', 'Chưa PC May', noMay, '#be185d', '🪡')
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
+        + _fc('no_fabric', 'Chưa Gọi Vải', noFab, '#059669,#10b981', '🧵')
+        + _fc('no_material', 'Chưa Gọi VL', noMat, '#0369a1,#0ea5e9', '🔩')
+        + _fc('no_pc_in', 'Chưa PC In', noIn, '#7c3aed,#8b5cf6', '🖨️')
+        + _fc('no_pc_may', 'Chưa PC May', noMay, '#be185d,#ec4899', '🪡')
         + '</div></div>';
 }
 
