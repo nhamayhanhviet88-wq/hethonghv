@@ -727,11 +727,14 @@ module.exports = async function(fastify) {
         const existing = await db.all(`
             SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code,
                    u_create.full_name AS created_by_name,
-                   u_arrive.full_name AS arrived_by_name
+                   u_arrive.full_name AS arrived_by_name,
+                   parent_o.order_code AS linked_from_order_code
             FROM qlx_fabric_reservations res
             LEFT JOIN kv_rolls r ON r.id = res.roll_id
             LEFT JOIN users u_create ON u_create.id = res.created_by
             LEFT JOIN users u_arrive ON u_arrive.id = res.arrived_by
+            LEFT JOIN qlx_fabric_reservations parent_res ON parent_res.id = res.linked_call_id
+            LEFT JOIN dht_orders parent_o ON parent_o.id = parent_res.dht_order_id
             WHERE res.dht_order_id = $1 AND res.item_id = $2 AND res.phoi_index = $3
               AND res.status NOT IN ('released', 'fulfilled')
             ORDER BY res.reservation_type, res.created_at

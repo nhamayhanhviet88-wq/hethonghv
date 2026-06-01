@@ -419,8 +419,15 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // Show existing reservations
             if (existing.length) {
+                // Sort: arrived first (kg ascending), then pending
+                existing.sort(function(a, b) {
+                    var aArr = a.status === 'arrived' ? 0 : 1;
+                    var bArr = b.status === 'arrived' ? 0 : 1;
+                    if (aArr !== bArr) return aArr - bArr;
+                    return (Number(a.kg_reserved)||0) - (Number(b.kg_reserved)||0);
+                });
                 html += '<div style="padding:12px 20px 0"><div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">📋 TRẠNG THÁI VẢI:</div>';
-                existing.forEach(function(ex) {
+                existing.forEach(function(ex, exIdx) {
                     var isArrived = ex.status === 'arrived';
                     var bgColor = isArrived ? '#f0fdf4' : '#fffbeb';
                     var borderColor = isArrived ? '#86efac' : '#fbbf24';
@@ -428,9 +435,9 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         ? '<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">✅ ĐÃ VỀ</span>'
                         : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>';
                     var lbl = ex.reservation_type === 'from_stock'
-                        ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ' — Cây ' + (ex.roll_code||'') + ': ' + ex.kg_reserved + unitLabel
+                        ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ': ' + ex.kg_reserved + unitLabel
                         : (ex.reservation_type === 'linked_call'
-                            ? '📎 Liên kết: ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name) + ' (từ đơn khác)'
+                            ? '📎 Liên kết: ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name) + (ex.linked_from_order_code ? ' (từ 🔖 ' + ex.linked_from_order_code + ')' : '')
                             : '📞 ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name));
                     var metaInfo = '';
                     if (isArrived && ex.arrived_by_name) metaInfo = '<div style="font-size:9px;color:#059669;margin-top:2px">Xác nhận bởi: ' + ex.arrived_by_name + '</div>';
@@ -438,12 +445,13 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11px">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+                    html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (exIdx+1) + '.</span>';
                     html += statusBadge + ' ';
                     html += '<span style="flex:1;font-weight:700;color:#1e293b">' + lbl + '</span>';
                     if (!isArrived) {
                         html += '<button onclick="_qlxFabArrived(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">✅ Vải Đã Về</button>';
                     }
-                    if (ex.reservation_type === 'new_call' && ex.call_content) {
+                    if ((ex.reservation_type === 'new_call' || ex.reservation_type === 'linked_call') && ex.call_content) {
                         html += '<button onclick="navigator.clipboard.writeText(\'' + (ex.call_content||'').replace(/'/g, "\\'") + '\');showToast(\'📋 Đã copy!\')" style="padding:3px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;font-size:9px;font-weight:600;cursor:pointer;color:#1e40af;white-space:nowrap">📋 Copy</button>';
                     }
                     if (!isArrived) {
@@ -484,16 +492,24 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
             html += '<div id="_qlxSecStock">';
             html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ')</div>';
             if (rolls.length) {
-                // Sort: rolls called for THIS order first
+                // Sort: group by primary order tag, then by available ascending
                 var orderCode = o.order_code || '';
                 rolls.sort(function(a, b) {
+                    // Parse called_for_orders
                     var aOrders = a.called_for_orders || [];
                     var bOrders = b.called_for_orders || [];
                     if (typeof aOrders === 'string') try { aOrders = JSON.parse(aOrders); } catch(e) { aOrders = []; }
                     if (typeof bOrders === 'string') try { bOrders = JSON.parse(bOrders); } catch(e) { bOrders = []; }
-                    var aMatch = aOrders.indexOf(orderCode) >= 0 ? 1 : 0;
-                    var bMatch = bOrders.indexOf(orderCode) >= 0 ? 1 : 0;
-                    return bMatch - aMatch; // this-order first
+                    // Priority: this-order first, then other orders, then untagged
+                    var aMatch = aOrders.indexOf(orderCode) >= 0 ? 2 : (aOrders.length > 0 ? 1 : 0);
+                    var bMatch = bOrders.indexOf(orderCode) >= 0 ? 2 : (bOrders.length > 0 ? 1 : 0);
+                    if (aMatch !== bMatch) return bMatch - aMatch;
+                    // Same group: sort by primary order tag to cluster
+                    var aTag = aOrders.length ? aOrders[0] : 'zzz';
+                    var bTag = bOrders.length ? bOrders[0] : 'zzz';
+                    if (aTag !== bTag) return aTag.localeCompare(bTag);
+                    // Same tag: sort by available ascending
+                    return a.available - b.available;
                 });
                 rolls.forEach(function(rl, idx) {
                     var avail = rl.available;
@@ -526,6 +542,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     var bgColor = calledOrders.indexOf(orderCode) >= 0 ? '#f0fdf4' : '#f8fafc';
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:10px;margin-bottom:6px">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+                    html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (idx+1) + '.</span>';
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
                     if (tagHtml) html += tagHtml;
