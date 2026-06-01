@@ -39,6 +39,30 @@ function renderBophancatPage(content) {
 +'.bpc-claim-btn.ready{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,0.3)}'
 +'.bpc-claim-btn.ready:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(16,185,129,0.4)}'
 +'.bpc-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1.5px solid #e2e8f0;font-weight:600}'
++'.bpc-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s ease}'
++'.bpc-modal-overlay.show{opacity:1}'
++'.bpc-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}'
++'.bpc-modal-overlay.show .bpc-modal{transform:scale(1)}'
++'.bpc-modal-header{background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px}'
++'.bpc-modal-header .m-icon{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))}'
++'.bpc-modal-header .m-title{font-size:16px;font-weight:800;letter-spacing:0.3px;font-family:Inter,system-ui,sans-serif}'
++'.bpc-modal-header .m-sub{font-size:11px;opacity:0.85;margin-top:2px}'
++'.bpc-modal-body{padding:20px 24px}'
++'.bpc-modal-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-family:Inter,system-ui,sans-serif}'
++'.bpc-modal-row:last-child{border-bottom:none}'
++'.bpc-modal-lbl{font-size:12px;color:#64748b;font-weight:600}'
++'.bpc-modal-val{font-size:13px;color:#1e293b;font-weight:700;text-align:right;max-width:60%}'
++'.bpc-modal-phoi{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-top:10px}'
++'.bpc-modal-phoi-title{font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}'
++'.bpc-modal-phoi-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}'
++'.bpc-modal-phoi-item .p-name{color:#1e293b;font-weight:600;flex:1}'
++'.bpc-modal-phoi-item .p-mat{color:#64748b;font-size:11px}'
++'.bpc-modal-actions{display:flex;gap:10px;padding:16px 24px;border-top:1px solid #f1f5f9}'
++'.bpc-modal-btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,system-ui,sans-serif;transition:all .15s}'
++'.bpc-modal-btn.confirm{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.3)}'
++'.bpc-modal-btn.confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,185,129,0.4)}'
++'.bpc-modal-btn.cancel{background:#f1f5f9;color:#475569}'
++'.bpc-modal-btn.cancel:hover{background:#e2e8f0}'
 +'@media(max-width:768px){.bpc-sidebar{display:none}}';
         document.head.appendChild(st);
     }
@@ -407,16 +431,63 @@ function _bpcRenderUnassigned() {
 
 async function _bpcClaimOrder(orderId, itemId, orderCode) {
     if (window._bpcBusy) return;
-    if (!confirm('Bạn muốn nhận đơn cắt ' + orderCode + '?')) return;
+    // Find all rows for this phiếu from unassigned data
+    var groupKey = orderId + '_' + (itemId || 0);
+    var rows = _bpc.unassignedOrders.filter(function(r) { return (r.id + '_' + (r.item_id || 0)) === groupKey; });
+    var o = rows[0] || {};
+    var title = (o.total_items_in_order > 1) ? o.order_code + ' — Phiếu ' + o.item_index : o.order_code;
+    var priMap = { 'GẤP': ['🔴 GẤP','background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff'], 'GỬI': ['🟡 GỬI','background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff'] };
+    var pri = priMap[o.shipping_priority] || ['🟣 CHUẨN','background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff'];
+
+    var h = '<div class="bpc-modal-overlay" id="_bpcClaimModal" onclick="if(event.target===this)_bpcCloseModal()">';
+    h += '<div class="bpc-modal">';
+    h += '<div class="bpc-modal-header"><div class="m-icon">✂️</div><div><div class="m-title">Nhận Đơn Cắt</div><div class="m-sub">Xác nhận nhận phiếu cắt này</div></div></div>';
+    h += '<div class="bpc-modal-body">';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Mã đơn</span><span class="bpc-modal-val" style="color:#059669;font-size:15px">' + title + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Khách hàng</span><span class="bpc-modal-val">' + (o.customer_name || '—') + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">💼 NV Sale</span><span class="bpc-modal-val" style="color:#60a5fa">' + (o.cskh_name || o.created_by_name || '—') + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày ship</span><span class="bpc-modal-val">' + _bpcFmtDate(o.expected_ship_date) + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚡ Ưu tiên</span><span class="bpc-modal-val"><span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;' + pri[1] + '">' + pri[0] + '</span></span></div>';
+    // Phối list
+    if (rows.length > 0) {
+        h += '<div class="bpc-modal-phoi"><div class="bpc-modal-phoi-title">📦 Danh sách phối (' + rows.length + ')</div>';
+        rows.forEach(function(p) {
+            var pName = (p.total_phoi > 1) ? ('P' + p.phoi_in_item + (p.item_desc ? ' — ' + p.item_desc : '')) : (p.item_desc || o.order_code);
+            h += '<div class="bpc-modal-phoi-item"><span class="p-name">' + pName + '</span>';
+            h += '<span class="p-mat">🧵 ' + (p.material_name || '—') + ' · 🎨 ' + (p.color_name || '—') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    h += '</div>';
+    h += '<div class="bpc-modal-actions">';
+    h += '<button class="bpc-modal-btn cancel" onclick="_bpcCloseModal()">Hủy</button>';
+    h += '<button class="bpc-modal-btn confirm" id="_bpcConfirmBtn" onclick="_bpcDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',\'' + orderCode + '\')">✂️ XÁC NHẬN NHẬN ĐƠN</button>';
+    h += '</div></div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(function() { document.getElementById('_bpcClaimModal').classList.add('show'); });
+}
+
+function _bpcCloseModal() {
+    var m = document.getElementById('_bpcClaimModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+}
+
+async function _bpcDoClaimOrder(orderId, itemId, orderCode) {
+    if (window._bpcBusy) return;
     window._bpcBusy = true;
+    var btn = document.getElementById('_bpcConfirmBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
     try {
         var body = { dht_order_id: orderId };
         if (itemId) body.order_item_id = itemId;
         var res = await apiCall('/api/cutting/claim', 'POST', body);
+        _bpcCloseModal();
         showToast('✅ Đã nhận đơn ' + orderCode + ' — tạo ' + res.created + ' phối cắt');
         await _bpcLoadAll();
     } catch(e) {
         showToast(e.message || 'Lỗi nhận đơn', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN NHẬN ĐƠN'; }
     } finally { window._bpcBusy = false; }
 }
 

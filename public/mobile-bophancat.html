@@ -61,6 +61,29 @@
         .m-pri-chuan{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.4)}
         .m-pri-gap{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,0.35)}
         .m-pri-gui{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,0.35)}
+        .mm-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .25s ease}
+        .mm-overlay.show{opacity:1}
+        .mm-sheet{background:#1e293b;border-radius:20px 20px 0 0;width:100%;max-height:85vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(0.34,1.56,0.64,1)}
+        .mm-overlay.show .mm-sheet{transform:translateY(0)}
+        .mm-header{background:linear-gradient(135deg,#059669,#10b981);padding:18px 20px;display:flex;align-items:center;gap:12px;border-radius:20px 20px 0 0}
+        .mm-header .mm-icon{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
+        .mm-header .mm-title{font-size:16px;font-weight:800;color:#fff}
+        .mm-header .mm-sub{font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px}
+        .mm-body{padding:16px 20px}
+        .mm-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+        .mm-row:last-child{border-bottom:none}
+        .mm-lbl{font-size:12px;color:#94a3b8;font-weight:600}
+        .mm-val{font-size:13px;color:#e2e8f0;font-weight:700;text-align:right;max-width:60%}
+        .mm-phoi{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:12px 14px;margin-top:12px}
+        .mm-phoi-title{font-size:10px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+        .mm-phoi-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px}
+        .mm-phoi-item .pn{color:#e2e8f0;font-weight:600;flex:1}
+        .mm-phoi-item .pm{color:#94a3b8;font-size:11px}
+        .mm-actions{display:flex;gap:10px;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.06)}
+        .mm-btn{flex:1;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+        .mm-btn-ok{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.3)}
+        .mm-btn-ok:active{transform:scale(0.97)}
+        .mm-btn-no{background:rgba(255,255,255,0.08);color:#94a3b8}
     </style>
 </head>
 <body>
@@ -260,16 +283,64 @@ function mRenderHist(){
 
 async function mClaim(id,itemId,code){
     if(window._mBusy)return;
-    if(!confirm('Nhận đơn cắt '+code+'?'))return;
+    // Find phoi rows for this claim unit
+    const gk=id+'_'+(itemId||0);
+    const rows=mUncut.filter(r=>(r.id+'_'+(r.item_id||0))===gk);
+    const o=rows[0]||{};
+    const title=(o.total_items_in_order>1)?o.order_code+' — Phiếu '+o.item_index:o.order_code;
+    const priMap={'GẤP':['🔴 GẤP','m-pri-gap'],'GỬI':['🟡 GỬI','m-pri-gui']};
+    const pri=priMap[o.shipping_priority]||['🟣 CHUẨN','m-pri-chuan'];
+
+    let h='<div class="mm-overlay" id="_mmModal" onclick="if(event.target===this)_mmClose()">';
+    h+='<div class="mm-sheet">';
+    h+='<div class="mm-header"><div class="mm-icon">✂️</div><div><div class="mm-title">Nhận Đơn Cắt</div><div class="mm-sub">Xác nhận nhận phiếu cắt này</div></div></div>';
+    h+='<div class="mm-body">';
+    h+='<div class="mm-row"><span class="mm-lbl">📋 Mã đơn</span><span class="mm-val" style="color:#10b981;font-size:15px">'+title+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">👤 Khách hàng</span><span class="mm-val">'+(o.customer_name||'—')+'</span></div>';
+    const sale=o.cskh_name||o.created_by_name||'';
+    if(sale) h+='<div class="mm-row"><span class="mm-lbl">💼 NV Sale</span><span class="mm-val" style="color:#60a5fa">'+sale+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">📅 Ngày ship</span><span class="mm-val">'+mFmt(o.expected_ship_date)+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">⚡ Ưu tiên</span><span class="mm-val"><span class="m-pri '+pri[1]+'">'+pri[0]+'</span></span></div>';
+    if(rows.length>0){
+        h+='<div class="mm-phoi"><div class="mm-phoi-title">📦 Danh sách phối ('+rows.length+')</div>';
+        rows.forEach(p=>{
+            const pn=(p.total_phoi>1)?('P'+p.phoi_in_item+(p.item_desc?' — '+p.item_desc:'')):(p.item_desc||o.order_code);
+            h+='<div class="mm-phoi-item"><span class="pn">'+pn+'</span>';
+            h+='<span class="pm">🧵 '+(p.material_name||'—')+' · 🎨 '+(p.color_name||'—')+'</span></div>';
+        });
+        h+='</div>';
+    }
+    h+='</div>';
+    h+='<div class="mm-actions">';
+    h+='<button class="mm-btn mm-btn-no" onclick="_mmClose()">Hủy</button>';
+    h+='<button class="mm-btn mm-btn-ok" id="_mmOk" onclick="_mmDoClaimOrder('+id+','+(itemId||'null')+',\''+code+'\')">✂️ XÁC NHẬN</button>';
+    h+='</div></div></div>';
+
+    document.body.insertAdjacentHTML('beforeend',h);
+    requestAnimationFrame(()=>document.getElementById('_mmModal').classList.add('show'));
+}
+
+function _mmClose(){
+    const m=document.getElementById('_mmModal');
+    if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}
+}
+
+async function _mmDoClaimOrder(id,itemId,code){
+    if(window._mBusy)return;
     window._mBusy=true;
+    const btn=document.getElementById('_mmOk');
+    if(btn){btn.disabled=true;btn.textContent='⏳ Đang xử lý...';}
     try{
         const body={dht_order_id:id};
         if(itemId) body.order_item_id=itemId;
         const res=await mApi('/api/cutting/claim','POST',body);
+        _mmClose();
         mToast('✅ Đã nhận đơn '+code+' — '+res.created+' phối');
         await mLoadAll();
-    }catch(e){mToast(e.message,false);}
-    finally{window._mBusy=false;}
+    }catch(e){
+        mToast(e.message,false);
+        if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN';}
+    }finally{window._mBusy=false;}
 }
 
 async function mToggle(id,action){
