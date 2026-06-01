@@ -531,10 +531,14 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                             var phoiLabel = ' Phối ' + ((rv.phoi_index||0)+1);
                             var prodName = rv.product_name ? ' — ' + rv.product_name : '';
                             var editId = '_qlxResKg_' + rv.id;
+                            // Calculate max allowed for this reservation: rollWeight - otherReservations
+                            var otherKg = 0;
+                            rl.reservations.forEach(function(orv) { if (orv.id !== rv.id) otherKg += Number(orv.kg_reserved||0); });
+                            var editMax = Number(rl.weight) - otherKg;
                             resInfo += '<div id="' + editId + '_row" style="font-size:10px;color:#475569;margin-top:3px;padding-left:8px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
                                 + badge
                                 + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b id="' + editId + '_val">' + rv.kg_reserved + unitLabel + '</b></span>'
-                                + '<button onclick="_qlxFabEditKgToggle(' + rv.id + ',' + rv.kg_reserved + ',\'' + unitLabel + '\',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px" title="Sửa kg">✏️</button>'
+                                + '<button onclick="_qlxFabEditKgToggle(' + rv.id + ',' + rv.kg_reserved + ',\'' + unitLabel + '\',' + orderId + ',' + itemId + ',' + pairIndex + ',' + editMax + ')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px" title="Sửa kg">✏️</button>'
                                 + '</div>';
                         });
                     }
@@ -739,17 +743,42 @@ async function _qlxFabRelease(resId, orderId, itemId, pairIndex) {
     } catch(e) { showToast(e.message, 'error'); }
 }
 
-function _qlxFabEditKgToggle(resId, currentKg, unitLabel, orderId, itemId, pairIndex) {
+function _qlxFabEditKgToggle(resId, currentKg, unitLabel, orderId, itemId, pairIndex, maxKg) {
     var valEl = document.getElementById('_qlxResKg_' + resId + '_val');
     if (!valEl) return;
-    // Replace the <b> with an inline input + save button
-    var parent = valEl.parentElement;
-    valEl.innerHTML = '<input id="_qlxResKgInput_' + resId + '" type="number" step="0.1" min="0.1" value="' + currentKg + '" style="width:60px;padding:2px 4px;border:1.5px solid #3b82f6;border-radius:4px;font-size:10px;text-align:center;font-weight:700">'
+    var mxVal = maxKg || 9999;
+    var saveId = '_qlxResKgSave_' + resId;
+    var errId = '_qlxResKgErr_' + resId;
+    valEl.innerHTML = '<input id="_qlxResKgInput_' + resId + '" type="number" step="0.1" min="0.1" max="' + mxVal + '" value="' + currentKg + '" oninput="_qlxFabEditKgCheck(' + resId + ',' + mxVal + ')" style="width:60px;padding:2px 4px;border:1.5px solid #3b82f6;border-radius:4px;font-size:10px;text-align:center;font-weight:700">'
         + '<span style="font-size:9px;color:#64748b;margin:0 2px">' + unitLabel + '</span>'
-        + '<button onclick="_qlxFabSaveKg(' + resId + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:1px 6px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer">💾</button>'
-        + '<button onclick="_qlxFabricPopup(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:1px 6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;font-size:9px;cursor:pointer;margin-left:2px">✕</button>';
+        + '<button id="' + saveId + '" onclick="_qlxFabSaveKg(' + resId + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:1px 6px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer">💾</button>'
+        + '<button onclick="_qlxFabricPopup(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:1px 6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;font-size:9px;cursor:pointer;margin-left:2px">✕</button>'
+        + '<span id="' + errId + '" style="font-size:8px;color:#dc2626;font-weight:700;display:none;margin-left:4px"></span>';
     var inp = document.getElementById('_qlxResKgInput_' + resId);
     if (inp) { inp.focus(); inp.select(); }
+}
+
+function _qlxFabEditKgCheck(resId, maxKg) {
+    var inp = document.getElementById('_qlxResKgInput_' + resId);
+    var saveBtn = document.getElementById('_qlxResKgSave_' + resId);
+    var errEl = document.getElementById('_qlxResKgErr_' + resId);
+    if (!inp || !saveBtn) return;
+    var v = parseFloat(inp.value);
+    if (v > maxKg || !v || v <= 0) {
+        inp.style.border = '2px solid #dc2626';
+        inp.style.background = '#fef2f2';
+        saveBtn.style.background = '#9ca3af';
+        saveBtn.style.cursor = 'not-allowed';
+        saveBtn.disabled = true;
+        if (errEl) { errEl.textContent = v > maxKg ? '⚠️ Tối đa ' + maxKg + '!' : ''; errEl.style.display = v > maxKg ? 'inline' : 'none'; }
+    } else {
+        inp.style.border = '1.5px solid #3b82f6';
+        inp.style.background = '#fff';
+        saveBtn.style.background = '#3b82f6';
+        saveBtn.style.cursor = 'pointer';
+        saveBtn.disabled = false;
+        if (errEl) { errEl.style.display = 'none'; }
+    }
 }
 
 async function _qlxFabSaveKg(resId, orderId, itemId, pairIndex) {
