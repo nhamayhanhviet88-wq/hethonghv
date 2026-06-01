@@ -2,7 +2,7 @@
 // Now integrated as a tab inside Cài Đặt Sản Xuất
 // This file keeps all helper functions; renderCaidatspqtPage redirects to the new page
 
-var _spqt = { saleTypes: [], products: [], steps: [], materials: [], selProduct: null };
+var _spqt = { saleTypes: [], products: [], steps: [], materials: [], cuttingCategories: [], selProduct: null };
 
 async function renderCaidatspqtPage(content) {
     // Redirect to Cài Đặt Sản Xuất with SP & QT tab
@@ -18,6 +18,7 @@ async function _spqtLoadAll() {
         apiCall('/api/dht/material-colors/0').catch(function(){ return {}; })
     ]);
     _spqt.saleTypes = (stRes.sale_types || []);
+    _spqt.cuttingCategories = (stRes.cutting_categories || []);
     _spqt.products = (pRes.products || []);
     _spqt.steps = (sRes.steps || []);
     // Load all materials from khovai (no wid = return all)
@@ -40,11 +41,14 @@ function _spqtRenderSidebar() {
         h += '<div id="_stGrp_' + st.id + '" style="margin-top:4px">';
         prods.forEach(function(p) {
             var sel = (_spqt.selProduct && _spqt.selProduct.id === p.id);
+            var ccBadge = p.cutting_category_name
+                ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-left:4px">' + p.cutting_category_name + '</span>'
+                : '<span style="background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-left:4px">⚠️</span>';
             h += '<div onclick="_spqtSelectProduct(' + p.id + ')" style="padding:5px 10px 5px 20px;font-size:12px;cursor:pointer;border-radius:4px;margin:1px 0;font-weight:'+(sel?'700':'500')+';background:'+(sel?'#fef3c7':'#fff')+';color:'+(sel?'#b45309':'#64748b')+'" onmouseover="if(!this.style.fontWeight||this.style.fontWeight!==\'700\')this.style.background=\'#f8fafc\'" onmouseout="if(!this.style.fontWeight||this.style.fontWeight!==\'700\')this.style.background=\'#fff\'">'
-                + '🏷️ ' + p.name + '</div>';
+                + '🏷️ ' + p.name + ccBadge + '</div>';
         });
         // Add product button
-        h += '<div style="padding:3px 10px 3px 20px"><button onclick="_spqtAddProduct(' + st.id + ')" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">+ Thêm SP</button></div>';
+        h += '<div style="padding:3px 10px 3px 20px"><button onclick="_spqtShowAddProduct(' + st.id + ')" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">+ Thêm SP</button></div>';
         h += '</div></div>';
     });
 
@@ -80,12 +84,31 @@ async function _spqtSelectProduct(pid) {
     var assignedSteps = (procRes.steps || []).map(function(s) { return s.step_id; });
 
     var p = _spqt.selProduct;
+    var ccName = p.cutting_category_name || null;
+    var ccBadge = ccName
+        ? '<span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">' + ccName + '</span>'
+        : '<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">⚠️ Chưa gán</span>';
     var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
         + '<div><span style="font-size:16px;font-weight:800;color:var(--navy,#1e293b)">🏷️ ' + p.name + '</span>'
-        + '<span style="font-size:11px;color:#94a3b8;margin-left:8px">(' + p.sale_type_name + ')</span></div>'
+        + '<span style="font-size:11px;color:#94a3b8;margin-left:8px">(' + p.sale_type_name + ')</span> ' + ccBadge + '</div>'
         + '<button onclick="_spqtDeleteProduct(' + p.id + ')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">🗑️ Xóa SP</button></div>';
 
-    // === Tab 1: Chất Liệu ===
+    // === Section 0: Loại Sản Phẩm Cắt ===
+    var ccOpts = '<option value=""' + (!p.cutting_category_id ? ' selected' : '') + '>-- Chọn loại sản phẩm --</option>';
+    _spqt.cuttingCategories.forEach(function(cc) {
+        ccOpts += '<option value="' + cc.id + '"' + (p.cutting_category_id === cc.id ? ' selected' : '') + '>' + cc.name + '</option>';
+    });
+    h += '<div style="margin-bottom:20px">'
+        + '<h4 style="font-size:13px;font-weight:800;color:#475569;margin:0 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0">🏷️ Loại Sản Phẩm Cắt <span style="color:red">*</span></h4>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<select id="_spqtCcSelect" class="form-control" style="max-width:250px;font-weight:600">' + ccOpts + '</select>'
+        + '<button onclick="_spqtSaveCc(' + pid + ')" style="background:#2563eb;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Lưu Loại SP</button>'
+        + '<button onclick="_spqtShowAddCc()" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">+ Thêm Loại Mới</button>'
+        + '</div>'
+        + '<div style="font-size:10px;color:#94a3b8;margin-top:4px">Xác định sản phẩm này khi đi vào Bộ Phận Cắt sẽ cắt loại gì (Áo, Quần, Váy, Túi...)</div>'
+        + '</div>';
+
+    // === Section 1: Chất Liệu ===
     h += '<div style="margin-bottom:20px">'
         + '<h4 style="font-size:13px;font-weight:800;color:#475569;margin:0 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0">🧶 Chất Liệu được dùng</h4>'
         + '<div style="display:flex;flex-wrap:wrap;gap:6px" id="_spqtMats">';
@@ -138,12 +161,75 @@ async function _spqtDeleteSaleType(id, name) {
     else showToast(res.error || 'Lỗi', 'error');
 }
 
-async function _spqtAddProduct(saleTypeId) {
-    var name = prompt('Tên sản phẩm (VD: Áo Polo, Áo Thun):');
-    if (!name) return;
-    var res = await apiCall('/api/dht/products', 'POST', { sale_type_id: saleTypeId, name: name.trim() });
-    if (res.success) { showToast('✅ Đã thêm SP'); await _spqtLoadAll(); _spqtRenderSidebar(); }
+function _spqtShowAddProduct(saleTypeId) {
+    var ccOpts = '<option value="">-- Chọn loại --</option>';
+    _spqt.cuttingCategories.forEach(function(cc) {
+        ccOpts += '<option value="' + cc.id + '">' + cc.name + '</option>';
+    });
+    var body = '<div style="display:grid;gap:12px">'
+        + '<div><label style="font-weight:700;font-size:12px">Tên Sản Phẩm <span style="color:red">*</span></label>'
+        + '<input id="_spqtNewName" class="form-control" placeholder="VD: Áo Polo, Áo Thun..." autofocus></div>'
+        + '<div><label style="font-weight:700;font-size:12px">Loại Sản Phẩm Cắt <span style="color:red">*</span></label>'
+        + '<div style="display:flex;gap:6px;align-items:center;margin-top:4px">'
+        + '<select id="_spqtNewCc" class="form-control" style="flex:1">' + ccOpts + '</select>'
+        + '<button onclick="_spqtShowAddCc()" type="button" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">+ Mới</button>'
+        + '</div>'
+        + '<div style="font-size:10px;color:#94a3b8;margin-top:2px">Xác định sản phẩm cắt loại gì (Áo, Quần, Váy...)</div></div>'
+        + '</div>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" onclick="_spqtDoAddProduct(' + saleTypeId + ')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">➕ Tạo Sản Phẩm</button>';
+    openModal('➕ Thêm Sản Phẩm', body, footer);
+}
+
+async function _spqtDoAddProduct(saleTypeId) {
+    var name = document.getElementById('_spqtNewName')?.value?.trim();
+    var ccId = document.getElementById('_spqtNewCc')?.value;
+    if (!name) { showToast('Nhập tên sản phẩm', 'error'); return; }
+    if (!ccId) { showToast('Chọn Loại Sản Phẩm Cắt', 'error'); return; }
+    var res = await apiCall('/api/dht/products', 'POST', { sale_type_id: saleTypeId, name: name, cutting_category_id: Number(ccId) });
+    if (res.success) { showToast('✅ Đã thêm SP'); closeModal(); await _spqtLoadAll(); _spqtRenderSidebar(); }
     else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtSaveCc(pid) {
+    var ccId = document.getElementById('_spqtCcSelect')?.value;
+    if (!ccId) { showToast('Chọn Loại Sản Phẩm Cắt', 'error'); return; }
+    var res = await apiCall('/api/dht/products/' + pid, 'PUT', { cutting_category_id: Number(ccId) });
+    if (res.success) {
+        showToast('✅ Đã lưu Loại SP Cắt');
+        await _spqtLoadAll();
+        // Re-select the product to refresh the view
+        _spqt.selProduct = _spqt.products.find(function(p) { return p.id === pid; }) || null;
+        _spqtRenderSidebar();
+        if (_spqt.selProduct) _spqtSelectProduct(pid);
+    } else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtShowAddCc() {
+    var name = prompt('Tên Loại Sản Phẩm Cắt mới (VD: Áo Khoác, Balo...):');
+    if (!name) return;
+    var res = await apiCall('/api/dht/settings-options', 'POST', { category: 'cutting_category', name: name.trim() });
+    if (res.success) {
+        showToast('✅ Đã thêm loại "' + name.trim() + '"');
+        await _spqtLoadAll();
+        // Refresh selects if open
+        var sel = document.getElementById('_spqtCcSelect');
+        if (sel) {
+            var newOpt = document.createElement('option');
+            newOpt.value = res.option.id;
+            newOpt.textContent = res.option.name;
+            newOpt.selected = true;
+            sel.appendChild(newOpt);
+        }
+        var sel2 = document.getElementById('_spqtNewCc');
+        if (sel2) {
+            var newOpt2 = document.createElement('option');
+            newOpt2.value = res.option.id;
+            newOpt2.textContent = res.option.name;
+            newOpt2.selected = true;
+            sel2.appendChild(newOpt2);
+        }
+    } else showToast(res.error || 'Lỗi', 'error');
 }
 
 async function _spqtDeleteProduct(pid) {

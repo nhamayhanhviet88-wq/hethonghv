@@ -56,6 +56,19 @@ module.exports = async function(fastify) {
     try { await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_free_cust_name ON dht_free_customers(name)`); } catch(e) {}
     // Smart Priority: categories column (TEXT[] array)
     try { await db.run(`ALTER TABLE dht_free_customers ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT '{}'`); } catch(e) {}
+    // ★ Cutting Category: link products to a cutting product type
+    try { await db.run(`ALTER TABLE dht_products ADD COLUMN IF NOT EXISTS cutting_category_id INTEGER REFERENCES dht_settings_options(id)`); } catch(e) {}
+    // Seed default cutting categories if none exist
+    try {
+        const ccCount = await db.get(`SELECT COUNT(*)::int AS cnt FROM dht_settings_options WHERE category = 'cutting_category' AND is_active = true`);
+        if (!ccCount || ccCount.cnt === 0) {
+            const cats = ['Áo', 'Áo Gió', 'Quần', 'Váy', 'Tạp Dề', 'Túi'];
+            for (let i = 0; i < cats.length; i++) {
+                await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', $1, $2) ON CONFLICT DO NOTHING`, [cats[i], i + 1]);
+            }
+            console.log('[DHT] Seeded', cats.length, 'cutting categories');
+        }
+    } catch(e) { console.error('[DHT] seed cutting_category:', e.message); }
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -1602,8 +1615,10 @@ module.exports = async function(fastify) {
         });
 
         // Products from dht_products (linked to sale_type)
-        const products = await db.all(`SELECT p.id, p.name, p.sale_type_id, s.name as sale_type_name
+        const products = await db.all(`SELECT p.id, p.name, p.sale_type_id, s.name as sale_type_name,
+                p.cutting_category_id, cc.name as cutting_category_name
             FROM dht_products p JOIN dht_settings_options s ON s.id = p.sale_type_id
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE p.is_active = true ORDER BY p.display_order ASC, p.name ASC`);
 
         // Materials from Kho Vải
@@ -1611,6 +1626,7 @@ module.exports = async function(fastify) {
 
         return {
             sale_types: grouped['sale_type'] || [],
+            cutting_categories: grouped['cutting_category'] || [],
             products: products,
             patterns: grouped['pattern'] || [],
             sewing_techniques: grouped['sewing_technique'] || [],
@@ -1643,10 +1659,12 @@ module.exports = async function(fastify) {
 
     // ========== PRODUCT & PROCESS CONFIG ==========
 
-    // GET all products (with sale_type info)
+    // GET all products (with sale_type + cutting_category info)
     fastify.get('/api/dht/products', { preHandler: [authenticate] }, async (request, reply) => {
-        const rows = await db.all(`SELECT p.id, p.name, p.sale_type_id, p.display_order, s.name as sale_type_name
+        const rows = await db.all(`SELECT p.id, p.name, p.sale_type_id, p.display_order, s.name as sale_type_name,
+                p.cutting_category_id, cc.name as cutting_category_name
             FROM dht_products p JOIN dht_settings_options s ON s.id = p.sale_type_id
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE p.is_active = true ORDER BY s.name ASC, p.display_order ASC, p.name ASC`);
         return { products: rows };
     });
@@ -1657,13 +1675,23 @@ module.exports = async function(fastify) {
         return { products: rows };
     });
 
-    // CREATE product
+    // CREATE product (with optional cutting_category_id)
     fastify.post('/api/dht/products', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const { sale_type_id, name } = request.body || {};
+        const { sale_type_id, name, cutting_category_id } = request.body || {};
         if (!sale_type_id || !name) return reply.code(400).send({ error: 'Thiếu thông tin' });
         const mx = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM dht_products WHERE sale_type_id = $1', [sale_type_id]);
-        const r = await db.get('INSERT INTO dht_products (sale_type_id, name, display_order) VALUES ($1,$2,$3) RETURNING *', [sale_type_id, name.trim(), (mx?.mx||0)+1]);
+        const r = await db.get('INSERT INTO dht_products (sale_type_id, name, display_order, cutting_category_id) VALUES ($1,$2,$3,$4) RETURNING *',
+            [sale_type_id, name.trim(), (mx?.mx||0)+1, cutting_category_id ? Number(cutting_category_id) : null]);
         return { success: true, product: r };
+    });
+
+    // UPDATE product cutting_category
+    fastify.put('/api/dht/products/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const pid = Number(request.params.id);
+        const { cutting_category_id } = request.body || {};
+        await db.run('UPDATE dht_products SET cutting_category_id = $1 WHERE id = $2',
+            [cutting_category_id ? Number(cutting_category_id) : null, pid]);
+        return { success: true };
     });
 
     // DELETE product (soft)

@@ -210,7 +210,7 @@ function _bpcRenderTable() {
     var all = _bpc.records.slice();
     if (_bpc.search) {
         var q = _bpc.search.toLowerCase();
-        all = all.filter(function(r) { return (r.product_name||'').toLowerCase().indexOf(q)>=0 || (r.material_name||'').toLowerCase().indexOf(q)>=0 || (r.order_code||'').toLowerCase().indexOf(q)>=0; });
+        all = all.filter(function(r) { return (r.product_name||'').toLowerCase().indexOf(q)>=0 || (r.material_name||'').toLowerCase().indexOf(q)>=0 || (r.order_code||'').toLowerCase().indexOf(q)>=0 || (r.cutting_category||'').toLowerCase().indexOf(q)>=0; });
     }
     var total = all.length, totalPages = Math.ceil(total / _bpc.pageSize) || 1;
     if (_bpc.page > totalPages) _bpc.page = totalPages;
@@ -239,6 +239,7 @@ function _bpcRenderRows(paged) {
         var warnHtml = r.cut_warning ? '<span style="color:#dc2626;font-weight:700">'+r.cut_warning+'</span>' : '—';
         var updateStr = '';
         if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
+        var ccBadge = r.cutting_category ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-right:4px">' + r.cutting_category + '</span>' : '';
         return '<tr>'
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
             +'<td style="text-align:center"><button class="bpc-icon-btn'+cutCls+'" onclick="_bpcToggleAction('+r.id+',\''+cutAct+'\')" title="Cắt">'+cutIcon+'</button></td>'
@@ -248,7 +249,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
-            +'<td style="font-weight:600;color:#1e293b;font-size:11px">'+(r.product_name||r.order_code||'—')+'</td>'
+            +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + (r.product_name||r.order_code||'—')+'</td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'—')+'</td>'

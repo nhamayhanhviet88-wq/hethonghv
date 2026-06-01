@@ -49,6 +49,8 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_cutting_cutter ON cutting_records(cutter_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_cutting_date ON cutting_records(cut_date)`);
     } catch(e) { console.error('[BPC] cutting_records:', e.message); }
+    // Add cutting_category column if not exists
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS cutting_category TEXT`); } catch(e) {}
 
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS cutting_history (
@@ -666,18 +668,33 @@ module.exports = async function(fastify) {
         `, [dht_order_id]);
         if (!hasPcIn) return reply.code(400).send({ error: 'Chưa Phân Công In — không thể nhận đơn cắt' });
 
-        // Get items to claim — specific item or all unclaimed items
+        // Lookup product's cutting_category for each item
         let items;
         if (order_item_id) {
             // Per-phiếu: check this specific item not already claimed
             const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [order_item_id]);
             if (existing) return reply.code(409).send({ error: 'Phiếu này đã được nhận bởi người khác' });
-            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
+            items = await db.all(`SELECT id, description, material_pairs, quantity, product_name FROM dht_order_items WHERE id = $1`, [order_item_id]);
         } else {
             // Legacy: claim all unclaimed items
             const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 LIMIT 1`, [dht_order_id]);
             if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
-            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+            items = await db.all(`SELECT id, description, material_pairs, quantity, product_name FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+        }
+
+        // Lookup cutting category from product config
+        let cuttingCategory = null;
+        if (items.length > 0 && items[0].product_name) {
+            const productMatch = await db.get(`
+                SELECT cc.name AS cutting_category_name
+                FROM dht_products p
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                WHERE p.name = $1 AND p.is_active = true
+                LIMIT 1
+            `, [items[0].product_name]);
+            if (productMatch && productMatch.cutting_category_name) {
+                cuttingCategory = productMatch.cutting_category_name;
+            }
         }
 
         // Count total items in order for naming logic
@@ -706,10 +723,10 @@ module.exports = async function(fastify) {
                             INSERT INTO cutting_records (
                                 dht_order_id, order_item_id, cutter_id, cut_date,
                                 product_name, material_name, fabric_color,
-                                order_quantity, created_by, created_at
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $3, $9)
+                                order_quantity, cutting_category, created_by, created_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $3, $10)
                             RETURNING id
-                        `, [dht_order_id, it.id, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, now]);
+                        `, [dht_order_id, it.id, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, now]);
                         if (result) createdIds.push(result.id);
                     }
                 } else {
@@ -720,10 +737,10 @@ module.exports = async function(fastify) {
                         INSERT INTO cutting_records (
                             dht_order_id, order_item_id, cutter_id, cut_date,
                             product_name, material_name, fabric_color,
-                            order_quantity, created_by, created_at
-                        ) VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $3, $7)
+                            order_quantity, cutting_category, created_by, created_at
+                        ) VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $3, $8)
                         RETURNING id
-                    `, [dht_order_id, it.id, userId, now, productName, it.quantity || 0, now]);
+                    `, [dht_order_id, it.id, userId, now, productName, it.quantity || 0, cuttingCategory, now]);
                     if (result) createdIds.push(result.id);
                 }
             }
@@ -731,10 +748,10 @@ module.exports = async function(fastify) {
             const result = await db.get(`
                 INSERT INTO cutting_records (
                     dht_order_id, cutter_id, cut_date,
-                    product_name, order_quantity, created_by, created_at
-                ) VALUES ($1, $2, $3, $4, $5, $2, $6)
+                    product_name, order_quantity, cutting_category, created_by, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $2, $7)
                 RETURNING id
-            `, [dht_order_id, userId, now, order.order_code, order.total_quantity || 0, now]);
+            `, [dht_order_id, userId, now, order.order_code, order.total_quantity || 0, cuttingCategory, now]);
             if (result) createdIds.push(result.id);
         }
 
