@@ -410,7 +410,6 @@ function _qlxRenderStats(count, arr) {
     }
     sc.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;width:100%">'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
-        + _fc('', 'Tổng Đơn', totalAll, '#2563eb,#3b82f6', '📦')
         + _fc('no_print', 'Chưa In Phiếu', noPrint, '#dc2626,#ef4444', '🖨️')
         + _fc('no_receive', 'Chưa Nhận Phiếu', noReceive, '#d97706,#f59e0b', '📋')
         + '</div>'
