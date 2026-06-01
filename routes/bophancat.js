@@ -197,22 +197,23 @@ module.exports = async function(fastify) {
             }))
         })).sort((a, b) => b.year - a.year);
 
-        // ── Unassigned count (orders with fabric_arrived but NO cutting_records) ──
+        // ── Unassigned count — per-item (phiếu) level ──
         const unassigned = await db.get(`
             SELECT
-                COUNT(DISTINCT o.id)::int AS total,
-                COUNT(DISTINCT o.id) FILTER (
+                COUNT(i.id)::int AS total,
+                COUNT(i.id) FILTER (
                     WHERE COALESCE(p.fabric_arrived, false) = true
                       AND EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL))
                 )::int AS ready,
-                COUNT(DISTINCT o.id) FILTER (
+                COUNT(i.id) FILTER (
                     WHERE COALESCE(p.fabric_arrived, false) = false
                        OR NOT EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL))
                 )::int AS pending
             FROM dht_orders o
+            JOIN dht_order_items i ON i.dht_order_id = o.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.dht_order_id = o.id)
+            WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id)
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
@@ -528,7 +529,7 @@ module.exports = async function(fastify) {
 
     // ========== UNASSIGNED: Đơn chưa cắt (pool) ==========
     fastify.get('/api/cutting/unassigned', { preHandler: [authenticate] }, async (request, reply) => {
-        // Orders where qlx_preparation exists AND no cutting_records yet
+        // Orders that have at least 1 unclaimed item (phiếu)
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
                    o.total_quantity, o.order_date, o.expected_ship_date, o.shipping_priority,
@@ -549,7 +550,12 @@ module.exports = async function(fastify) {
             LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in'
             LEFT JOIN users a_in ON qa_in.assigned_user_id = a_in.id
             LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
-            WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.dht_order_id = o.id)
+            WHERE EXISTS (
+                SELECT 1 FROM dht_order_items oi
+                WHERE oi.dht_order_id = o.id
+                AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+            )
+              AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.shipping_status, '') != 'shipped'
@@ -564,15 +570,23 @@ module.exports = async function(fastify) {
                 o.expected_ship_date ASC NULLS LAST, o.order_date DESC
         `);
 
-        // Fetch items + material_pairs for each order
+        // Fetch UNCLAIMED items only + total items count per order
         const orderIds = orders.map(o => o.id);
-        let items = [];
+        let items = [], allItemCounts = {};
         if (orderIds.length > 0) {
             items = await db.all(`
                 SELECT dht_order_id, id, description, material_pairs, quantity
                 FROM dht_order_items WHERE dht_order_id = ANY($1)
+                AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = dht_order_items.id)
                 ORDER BY dht_order_id, id
             `, [orderIds]);
+            // Total items in order (including already claimed) for display logic
+            const countRows = await db.all(`
+                SELECT dht_order_id, COUNT(*)::int AS cnt
+                FROM dht_order_items WHERE dht_order_id = ANY($1)
+                GROUP BY dht_order_id
+            `, [orderIds]);
+            for (const c of countRows) allItemCounts[c.dht_order_id] = c.cnt;
         }
         const itemMap = {};
         for (const it of items) {
@@ -580,15 +594,16 @@ module.exports = async function(fastify) {
             itemMap[it.dht_order_id].push(it);
         }
 
-        // Build flat rows: 1 row per phối
+        // Build flat rows: 1 row per phối, grouped by item (phiếu)
         const rows = [];
         for (const o of orders) {
             const itsArr = itemMap[o.id] || [];
+            const totalItemsInOrder = allItemCounts[o.id] || 1;
             if (!itsArr.length) {
-                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, material_name: null, color_name: null, item_qty: o.total_quantity });
+                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity });
                 continue;
             }
-            // Calculate total phối for this order
+            // Calculate total phối for this order (for naming)
             let totalPhoi = 0;
             for (const it2 of itsArr) {
                 let pp = [];
@@ -606,6 +621,7 @@ module.exports = async function(fastify) {
                             ...o, item_id: it.id, item_desc: it.description,
                             phoi_index: 0, phoi_pair_index: pi,
                             item_index: itemIdx, phoi_in_item: pi + 1, total_phoi: totalPhoi,
+                            total_items_in_order: totalItemsInOrder,
                             material_name: pairs[pi].material_name || null,
                             color_name: pairs[pi].color_name || null,
                             item_qty: it.quantity
@@ -616,6 +632,7 @@ module.exports = async function(fastify) {
                         ...o, item_id: it.id, item_desc: it.description,
                         phoi_index: 0, phoi_pair_index: 0,
                         item_index: itemIdx, phoi_in_item: 1, total_phoi: totalPhoi,
+                        total_items_in_order: totalItemsInOrder,
                         material_name: null, color_name: null, item_qty: it.quantity
                     });
                 }
@@ -625,9 +642,9 @@ module.exports = async function(fastify) {
         return { orders: rows };
     });
 
-    // ========== CLAIM: Thợ cắt nhận đơn ==========
+    // ========== CLAIM: Thợ cắt nhận đơn (per-phiếu) ==========
     fastify.post('/api/cutting/claim', { preHandler: [authenticate] }, async (request, reply) => {
-        const { dht_order_id } = request.body || {};
+        const { dht_order_id, order_item_id } = request.body || {};
         if (!dht_order_id) return reply.code(400).send({ error: 'Thiếu mã đơn hàng' });
 
         const now = vnNow();
@@ -649,30 +666,33 @@ module.exports = async function(fastify) {
         `, [dht_order_id]);
         if (!hasPcIn) return reply.code(400).send({ error: 'Chưa Phân Công In — không thể nhận đơn cắt' });
 
-        // Check not already claimed (race condition guard)
-        const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 LIMIT 1`, [dht_order_id]);
-        if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
+        // Get items to claim — specific item or all unclaimed items
+        let items;
+        if (order_item_id) {
+            // Per-phiếu: check this specific item not already claimed
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [order_item_id]);
+            if (existing) return reply.code(409).send({ error: 'Phiếu này đã được nhận bởi người khác' });
+            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
+        } else {
+            // Legacy: claim all unclaimed items
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 LIMIT 1`, [dht_order_id]);
+            if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
+            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+        }
 
-        // Get items + material_pairs → create per-phối cutting_records
-        const items = await db.all(`
-            SELECT id, description, material_pairs, quantity
-            FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
-        `, [dht_order_id]);
+        // Count total items in order for naming logic
+        const allItems = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+        let totalPhoi = 0;
+        for (const it2 of allItems) {
+            let pp = [];
+            try { pp = typeof it2.material_pairs === 'string' ? JSON.parse(it2.material_pairs) : (it2.material_pairs || []); } catch(e) {}
+            totalPhoi += pp.length > 0 ? pp.length : 1;
+        }
 
         const createdIds = [];
-
         if (items.length > 0) {
-            // Calculate total phối across all items
-            let totalPhoi = 0;
-            for (const it2 of items) {
-                let pp = [];
-                try { pp = typeof it2.material_pairs === 'string' ? JSON.parse(it2.material_pairs) : (it2.material_pairs || []); } catch(e) {}
-                totalPhoi += pp.length > 0 ? pp.length : 1;
-            }
-
-            let itemIdx = 0;
             for (const it of items) {
-                itemIdx++;
+                const itemIdx = allItems.findIndex(a => a.id === it.id) + 1;
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
 
@@ -689,11 +709,7 @@ module.exports = async function(fastify) {
                                 order_quantity, created_by, created_at
                             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $3, $9)
                             RETURNING id
-                        `, [
-                            dht_order_id, it.id, userId, now,
-                            productName, phoi.material_name || null, phoi.color_name || null,
-                            it.quantity || 0, now
-                        ]);
+                        `, [dht_order_id, it.id, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, now]);
                         if (result) createdIds.push(result.id);
                     }
                 } else {
@@ -712,7 +728,6 @@ module.exports = async function(fastify) {
                 }
             }
         } else {
-            // No items — create single record
             const result = await db.get(`
                 INSERT INTO cutting_records (
                     dht_order_id, cutter_id, cut_date,
@@ -723,41 +738,38 @@ module.exports = async function(fastify) {
             if (result) createdIds.push(result.id);
         }
 
-        // Log history
         for (const cid of createdIds) {
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [cid, 'claim', 'Thợ cắt nhận đơn', userId, now]);
+                [cid, 'claim', 'Thợ cắt nhận đơn' + (order_item_id ? ' (phiếu)' : ''), userId, now]);
         }
 
         return { success: true, created: createdIds.length, ids: createdIds };
     });
 
-    // ========== UNCLAIM: Trả đơn cắt ==========
+    // ========== UNCLAIM: Trả đơn cắt (per-phiếu supported) ==========
     fastify.post('/api/cutting/unclaim', { preHandler: [authenticate] }, async (request, reply) => {
-        const { dht_order_id } = request.body || {};
+        const { dht_order_id, order_item_id } = request.body || {};
         if (!dht_order_id) return reply.code(400).send({ error: 'Thiếu mã đơn hàng' });
 
-        const now = vnNow();
+        const whereClause = order_item_id
+            ? 'dht_order_id = $1 AND order_item_id = $2'
+            : 'dht_order_id = $1';
+        const params = order_item_id ? [dht_order_id, order_item_id] : [dht_order_id];
 
-        // Only allow unclaim if none of the records have started cutting
         const started = await db.get(`
-            SELECT id FROM cutting_records
-            WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)
-            LIMIT 1
-        `, [dht_order_id]);
+            SELECT id FROM cutting_records WHERE ${whereClause} AND (is_cutting = true OR is_cut_done = true) LIMIT 1
+        `, params);
         if (started) return reply.code(400).send({ error: 'Đơn đã bắt đầu cắt — không thể trả lại' });
 
-        // Only owner or manager can unclaim
         const isManager = await isCutManager(request);
         if (!isManager) {
             const owned = await db.get(`
-                SELECT id FROM cutting_records WHERE dht_order_id = $1 AND cutter_id = $2 LIMIT 1
-            `, [dht_order_id, request.user.id]);
+                SELECT id FROM cutting_records WHERE ${whereClause} AND cutter_id = $${params.length + 1} LIMIT 1
+            `, [...params, request.user.id]);
             if (!owned) return reply.code(403).send({ error: 'Chỉ người nhận đơn hoặc quản lý mới trả được' });
         }
 
-        // Delete all cutting_records for this order
-        await db.run(`DELETE FROM cutting_records WHERE dht_order_id = $1`, [dht_order_id]);
+        await db.run(`DELETE FROM cutting_records WHERE ${whereClause}`, params);
 
         return { success: true };
     });

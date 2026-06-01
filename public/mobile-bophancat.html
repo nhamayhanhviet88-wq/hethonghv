@@ -146,18 +146,23 @@ function mRenderUncut(){
     const c=document.getElementById('mContent');
     if(!mUncut.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không có đơn chờ</div><div style="font-size:13px">Tất cả đơn đã được nhận</div></div>';return;}
 
-    // Group by order — use Map to preserve API sort order (object keys auto-sort numerically!)
+    // Group by phiếu (item) — use Map to preserve API sort order
     const grouped=new Map();
-    mUncut.forEach(r=>{if(!grouped.has(r.id))grouped.set(r.id,{order:r,phois:[]});grouped.get(r.id).phois.push(r);});
+    mUncut.forEach(r=>{
+        const k=r.id+'_'+(r.item_id||0);
+        if(!grouped.has(k))grouped.set(k,{order:r,phois:[]});
+        grouped.get(k).phois.push(r);
+    });
 
     let cardHtml='';
     grouped.forEach(g=>{
         const o=g.order, ready=o.fabric_arrived&&o.has_pc_in;
         const priCls=mPriClass(o.shipping_priority);
         const priLbl=mPriLabel(o.shipping_priority);
+        const cardTitle=(o.total_items_in_order>1)?o.order_code+' — Phiếu '+o.item_index:o.order_code;
         let h='<div class="m-card"><div class="m-card-top">';
         h+='<div class="m-card-icon">'+(ready?'🟢':'🔴')+'</div>';
-        h+='<div class="m-card-title">'+o.order_code+'</div>';
+        h+='<div class="m-card-title">'+cardTitle+'</div>';
         h+='<span class="'+priCls+'">'+priLbl+'</span>';
         h+='</div><div class="m-card-body">';
         h+='<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+(o.customer_name||'—')+'</span></div>';
@@ -197,7 +202,7 @@ function mRenderUncut(){
         h+='</div>';
         // Claim button
         if(ready){
-            h+='<button class="m-btn-claim ready" onclick="mClaim('+o.id+',\''+o.order_code+'\')">✂️ NHẬN ĐƠN CẮT</button>';
+            h+='<button class="m-btn-claim ready" onclick="mClaim('+o.id+','+(o.item_id||'null')+',\''+o.order_code+'\')">✂️ NHẬN ĐƠN CẮT</button>';
         }else{
             const miss=[];if(!o.fabric_arrived)miss.push('Vải');if(!o.has_pc_in)miss.push('PC In');
             h+='<button class="m-btn-claim locked" disabled>🔒 CHƯA ĐỦ ĐIỀU KIỆN — Thiếu '+miss.join(' + ')+'</button>';
@@ -253,12 +258,14 @@ function mRenderHist(){
         +'</div></div>').join('');
 }
 
-async function mClaim(id,code){
+async function mClaim(id,itemId,code){
     if(window._mBusy)return;
     if(!confirm('Nhận đơn cắt '+code+'?'))return;
     window._mBusy=true;
     try{
-        const res=await mApi('/api/cutting/claim','POST',{dht_order_id:id});
+        const body={dht_order_id:id};
+        if(itemId) body.order_item_id=itemId;
+        const res=await mApi('/api/cutting/claim','POST',body);
         mToast('✅ Đã nhận đơn '+code+' — '+res.created+' phối');
         await mLoadAll();
     }catch(e){mToast(e.message,false);}

@@ -1,4 +1,4 @@
-// ========== BỘ PHẬN CẮT — Desktop SPA Page ==========
+// ========== Bá»˜ PHáº¬N Cáº®T â€” Desktop SPA Page ==========
 var _bpc = { records: [], tree: null, unassignedOrders: [], filter: { year: null, month: null, cutter_id: null, status: null, view: 'records' }, search: '', page: 1, pageSize: 100 };
 var _bpcOpen = {};
 
@@ -42,11 +42,11 @@ function renderBophancatPage(content) {
 +'@media(max-width:768px){.bpc-sidebar{display:none}}';
         document.head.appendChild(st);
     }
-    content.innerHTML = '<div class="bpc-wrap"><div class="bpc-sidebar" id="bpcSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpc-main">'
+    content.innerHTML = '<div class="bpc-wrap"><div class="bpc-sidebar" id="bpcSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Äang táº£i...</div></div><div class="bpc-main">'
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         +'<div id="bpcFilterInfo" style="font-size:12px"></div>'
         +'<div id="bpcStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
-        +'<input id="bpcSearch" placeholder="🔍 Tìm sản phẩm, chất liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
+        +'<input id="bpcSearch" placeholder="ðŸ” TÃ¬m sáº£n pháº©m, cháº¥t liá»‡u..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
         +'</div>'
         +'<div id="bpcPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px" id="bpcTableWrap"></div></div>'
@@ -73,44 +73,44 @@ function _bpcRenderSidebar() {
     var t = _bpc.tree, f = _bpc.filter;
     var ua = t.unassigned || { total: 0, ready: 0, pending: 0 };
 
-    var h = '<div class="bpc-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#dc2626;font-weight:900">✂️ Bộ Phận Cắt</span> <span style="color:var(--navy)">───</span></div>';
-    h += '<div class="bpc-sb-total" onclick="_bpcFilter()"><span>📦 Tổng đơn cắt</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
+    var h = '<div class="bpc-sb-title"><span style="color:var(--navy)">â”€â”€â”€</span> <span style="color:#dc2626;font-weight:900">âœ‚ï¸ Bá»™ Pháº­n Cáº¯t</span> <span style="color:var(--navy)">â”€â”€â”€</span></div>';
+    h += '<div class="bpc-sb-total" onclick="_bpcFilter()"><span>ðŸ“¦ Tá»•ng Ä‘Æ¡n cáº¯t</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
 
-    // Mục 1: Các Đơn Chưa Cắt
+    // Má»¥c 1: CÃ¡c ÄÆ¡n ChÆ°a Cáº¯t
     var uaActive = f.view === 'unassigned';
     h += '<div class="bpc-sb-uncut'+(uaActive?' active':'')+'" onclick="_bpcShowUnassigned()">';
-    h += '<span>🔴 CÁC ĐƠN CHƯA CẮT</span>';
+    h += '<span>ðŸ”´ CÃC ÄÆ N CHÆ¯A Cáº®T</span>';
     h += '<span style="background:rgba(255,255,255,0.3);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:900">' + ua.total + '</span>';
     h += '</div>';
     if (ua.total > 0) {
         h += '<div style="padding:4px 16px;font-size:9px;color:#6b7280;border-bottom:1px solid #f0f0f0;display:flex;gap:8px">';
-        h += '<span style="color:#059669;font-weight:700">🟢 Sẵn sàng: ' + ua.ready + '</span>';
-        if (ua.pending > 0) h += '<span style="color:#f59e0b;font-weight:700">🟡 Thiếu ĐK: ' + ua.pending + '</span>';
+        h += '<span style="color:#059669;font-weight:700">ðŸŸ¢ Sáºµn sÃ ng: ' + ua.ready + '</span>';
+        if (ua.pending > 0) h += '<span style="color:#f59e0b;font-weight:700">ðŸŸ¡ Thiáº¿u ÄK: ' + ua.pending + '</span>';
         h += '</div>';
     }
 
-    // Mục 2+3: Năm → NV → {Chưa HT, Tháng}
+    // Má»¥c 2+3: NÄƒm â†’ NV â†’ {ChÆ°a HT, ThÃ¡ng}
     if (t.yearTree) {
         t.yearTree.forEach(function(yr) {
             var yOpen = !!_bpcOpen['y'+yr.year];
-            h += '<div class="bpc-sb-year" onclick="_bpcToggle(\'y'+yr.year+'\')"><span>' + (yOpen?'▼':'▶') + ' 📅 Năm ' + yr.year + '</span><span style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
+            h += '<div class="bpc-sb-year" onclick="_bpcToggle(\'y'+yr.year+'\')"><span>' + (yOpen?'â–¼':'â–¶') + ' ðŸ“… NÄƒm ' + yr.year + '</span><span style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
             if (yOpen && yr.cutters) {
                 yr.cutters.forEach(function(c) {
                     var cKey = 'c'+yr.year+'_'+c.id;
                     var cOpen = !!_bpcOpen[cKey];
                     var cAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && !f.status;
-                    h += '<div class="bpc-sb-cutter'+(cAct?' active':'')+'" onclick="event.stopPropagation();_bpcToggle(\''+cKey+'\');_bpcFilter('+yr.year+',null,'+c.id+')"><span>'+(cOpen?'▼':'▶')+' 👤 '+(c.name||'Chưa PC')+'</span><span style="font-weight:800">'+c.total+'</span></div>';
+                    h += '<div class="bpc-sb-cutter'+(cAct?' active':'')+'" onclick="event.stopPropagation();_bpcToggle(\''+cKey+'\');_bpcFilter('+yr.year+',null,'+c.id+')"><span>'+(cOpen?'â–¼':'â–¶')+' ðŸ‘¤ '+(c.name||'ChÆ°a PC')+'</span><span style="font-weight:800">'+c.total+'</span></div>';
                     if (cOpen) {
-                        // Đơn Chưa Hoàn Thành
+                        // ÄÆ¡n ChÆ°a HoÃ n ThÃ nh
                         if (c.incomplete_count > 0) {
                             var incAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && f.status==='incomplete';
-                            h += '<div class="bpc-sb-sub incomplete'+(incAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterStatus('+yr.year+','+c.id+',\'incomplete\')"><span>⏳ Chưa Hoàn Thành</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">'+c.incomplete_count+'</span></div>';
+                            h += '<div class="bpc-sb-sub incomplete'+(incAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterStatus('+yr.year+','+c.id+',\'incomplete\')"><span>â³ ChÆ°a HoÃ n ThÃ nh</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">'+c.incomplete_count+'</span></div>';
                         }
-                        // Tháng đã hoàn thành
+                        // ThÃ¡ng Ä‘Ã£ hoÃ n thÃ nh
                         if (c.months) {
                             c.months.forEach(function(m) {
                                 var mAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && f.month==m.month && f.status==='done';
-                                h += '<div class="bpc-sb-sub'+(mAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterMonth('+yr.year+','+c.id+','+m.month+')"><span>📅 T'+String(m.month).padStart(2,'0')+'</span><span>'+m.count+'</span></div>';
+                                h += '<div class="bpc-sb-sub'+(mAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterMonth('+yr.year+','+c.id+','+m.month+')"><span>ðŸ“… T'+String(m.month).padStart(2,'0')+'</span><span>'+m.count+'</span></div>';
                             });
                         }
                     }
@@ -170,17 +170,17 @@ async function _bpcLoadRecords() {
         var wrap = document.getElementById('bpcTableWrap');
         if (wrap) {
             wrap.innerHTML = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
-                +'<th>STT</th><th>✂️</th><th>✅</th><th>💰</th><th>🫧</th><th>⚠️</th>'
-                +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th>'
-                +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
-                +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
+                +'<th>STT</th><th>âœ‚ï¸</th><th>âœ…</th><th>ðŸ’°</th><th>ðŸ«§</th><th>âš ï¸</th>'
+                +'<th>NgÃ y Cáº¯t</th><th>NV Cáº¯t</th><th>TÃªn SP</th><th>Cháº¥t Liá»‡u</th><th>MÃ u Váº£i</th>'
+                +'<th>SL ÄÆ¡n</th><th>SL Cáº¯t</th><th>Kg Cáº¯t</th><th>Tá»‰ Lá»‡</th><th>LÃ½ Do Sai TL</th>'
+                +'<th>Kg Äáº§u</th><th>Kg Cuá»‘i</th><th>Cáº£nh BÃ¡o</th><th>Cáº¯t Chung</th><th>Cáº­p Nháº­t</th>'
                 +'</tr></thead><tbody id="bpcTbody"></tbody></table>';
         }
         _bpcRenderTable();
     } catch(e) { console.error('[BPC] records:', e); }
 }
 
-function _bpcFmtDate(d) { if (!d) return '—'; try { var p = d.split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } catch(e) { return d; } }
+function _bpcFmtDate(d) { if (!d) return 'â€”'; try { var p = d.split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } catch(e) { return d; } }
 
 function _bpcRenderTable() {
     var all = _bpc.records.slice();
@@ -200,42 +200,42 @@ function _bpcRenderTable() {
 
 function _bpcRenderRows(paged) {
     var tbody = document.getElementById('bpcTbody'); if (!tbody) return;
-    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="21"><div class="empty-state"><div class="icon">✂️</div><h3>Chưa có đơn cắt nào</h3><p>Chọn mục ở sidebar</p></div></td></tr>'; return; }
+    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="21"><div class="empty-state"><div class="icon">âœ‚ï¸</div><h3>ChÆ°a cÃ³ Ä‘Æ¡n cáº¯t nÃ o</h3><p>Chá»n má»¥c á»Ÿ sidebar</p></div></td></tr>'; return; }
     tbody.innerHTML = paged.map(function(r, i) {
-        var cutIcon = r.is_cutting ? '✂️' : '⬜', cutCls = r.is_cutting ? ' on-cut' : '';
-        var doneIcon = r.is_cut_done ? '✅' : '⬜', doneCls = r.is_cut_done ? ' on-done' : '';
-        var salIcon = r.salary_approved ? '💰' : '⬜', salCls = r.salary_approved ? ' on-sal' : '';
-        var washIcon = r.wash_reported ? '🫧' : '⬜', washCls = r.wash_reported ? ' on-wash' : '';
-        var errIcon = r.error_reported ? '⚠️' : '⬜', errCls = r.error_reported ? ' on-err' : '';
+        var cutIcon = r.is_cutting ? 'âœ‚ï¸' : 'â¬œ', cutCls = r.is_cutting ? ' on-cut' : '';
+        var doneIcon = r.is_cut_done ? 'âœ…' : 'â¬œ', doneCls = r.is_cut_done ? ' on-done' : '';
+        var salIcon = r.salary_approved ? 'ðŸ’°' : 'â¬œ', salCls = r.salary_approved ? ' on-sal' : '';
+        var washIcon = r.wash_reported ? 'ðŸ«§' : 'â¬œ', washCls = r.wash_reported ? ' on-wash' : '';
+        var errIcon = r.error_reported ? 'âš ï¸' : 'â¬œ', errCls = r.error_reported ? ' on-err' : '';
         var cutAct = r.is_cutting ? 'undo_cutting' : 'start_cutting';
         var doneAct = r.is_cut_done ? 'undo_cut_done' : 'cut_done';
         var salAct = r.salary_approved ? 'undo_approve_salary' : 'approve_salary';
         var washAct = r.wash_reported ? 'undo_wash' : 'report_wash';
         var ratioColor = r.cut_ratio > 5 ? '#dc2626' : r.cut_ratio > 3 ? '#f59e0b' : '#059669';
-        var warnHtml = r.cut_warning ? '<span style="color:#dc2626;font-weight:700">'+r.cut_warning+'</span>' : '—';
+        var warnHtml = r.cut_warning ? '<span style="color:#dc2626;font-weight:700">'+r.cut_warning+'</span>' : 'â€”';
         var updateStr = '';
         if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
         return '<tr>'
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+cutCls+'" onclick="_bpcToggleAction('+r.id+',\''+cutAct+'\')" title="Cắt">'+cutIcon+'</button></td>'
+            +'<td style="text-align:center"><button class="bpc-icon-btn'+cutCls+'" onclick="_bpcToggleAction('+r.id+',\''+cutAct+'\')" title="Cáº¯t">'+cutIcon+'</button></td>'
             +'<td style="text-align:center"><button class="bpc-icon-btn'+doneCls+'" onclick="_bpcToggleAction('+r.id+',\''+doneAct+'\')" title="Xong">'+doneIcon+'</button></td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+salCls+'" onclick="_bpcToggleAction('+r.id+',\''+salAct+'\')" title="Duyệt lương">'+salIcon+'</button></td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+washCls+'" onclick="_bpcToggleAction('+r.id+',\''+washAct+'\')" title="Giặt vải">'+washIcon+'</button></td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
+            +'<td style="text-align:center"><button class="bpc-icon-btn'+salCls+'" onclick="_bpcToggleAction('+r.id+',\''+salAct+'\')" title="Duyá»‡t lÆ°Æ¡ng">'+salIcon+'</button></td>'
+            +'<td style="text-align:center"><button class="bpc-icon-btn'+washCls+'" onclick="_bpcToggleAction('+r.id+',\''+washAct+'\')" title="Giáº·t váº£i">'+washIcon+'</button></td>'
+            +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="BÃ¡o lá»—i">'+errIcon+'</button></td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
-            +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
-            +'<td style="font-weight:600;color:#1e293b;font-size:11px">'+(r.product_name||r.order_code||'—')+'</td>'
-            +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
-            +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.cut_quantity||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.kg_cut||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio||'—')+'</td>'
-            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:600">'+(r.kg_start||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:600">'+(r.kg_end||'—')+'</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'â€”')+'</td>'
+            +'<td style="font-weight:600;color:#1e293b;font-size:11px">'+(r.product_name||r.order_code||'â€”')+'</td>'
+            +'<td style="font-size:10px;color:#475569">'+(r.material_name||'â€”')+'</td>'
+            +'<td style="font-size:10px">'+(r.fabric_color||'â€”')+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'â€”')+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.cut_quantity||'â€”')+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.kg_cut||'â€”')+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio||'â€”')+'</td>'
+            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'â€”')+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+(r.kg_start||'â€”')+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+(r.kg_end||'â€”')+'</td>'
             +'<td>'+warnHtml+'</td>'
-            +'<td style="font-size:9px;color:#6b7280">'+(r.cut_shared||'—')+'</td>'
+            +'<td style="font-size:9px;color:#6b7280">'+(r.cut_shared||'â€”')+'</td>'
             +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
             +'</tr>';
     }).join('');
@@ -244,17 +244,17 @@ function _bpcRenderRows(paged) {
 function _bpcRenderPagination(totalItems, totalPages) {
     var html = '';
     if (totalPages <= 1) {
-        html = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">'+totalItems+' đơn</span></div>';
+        html = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">'+totalItems+' Ä‘Æ¡n</span></div>';
     } else {
         html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;padding:6px 0">';
-        html += '<button onclick="_bpcGoPage('+(_bpc.page-1)+')" '+(_bpc.page<=1?'disabled':'')+' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:'+(_bpc.page<=1?'#f1f5f9':'#fff')+';color:'+(_bpc.page<=1?'#94a3b8':'#dc2626')+';font-size:11px;font-weight:700;cursor:'+(_bpc.page<=1?'not-allowed':'pointer')+'">◀ Trước</button>';
+        html += '<button onclick="_bpcGoPage('+(_bpc.page-1)+')" '+(_bpc.page<=1?'disabled':'')+' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:'+(_bpc.page<=1?'#f1f5f9':'#fff')+';color:'+(_bpc.page<=1?'#94a3b8':'#dc2626')+';font-size:11px;font-weight:700;cursor:'+(_bpc.page<=1?'not-allowed':'pointer')+'">â—€ TrÆ°á»›c</button>';
         for (var p = 1; p <= totalPages; p++) {
             if (totalPages > 7 && p > 2 && p < totalPages - 1 && Math.abs(p - _bpc.page) > 1) { if (p === 3 || p === totalPages - 2) html += '<span style="padding:4px 6px;color:#94a3b8;font-size:11px">...</span>'; continue; }
             var isA = p === _bpc.page;
             html += '<button onclick="_bpcGoPage('+p+')" style="min-width:30px;padding:4px 8px;border-radius:6px;border:1px solid '+(isA?'#dc2626':'#cbd5e1')+';background:'+(isA?'#dc2626':'#fff')+';color:'+(isA?'#fff':'#334155')+';font-size:11px;font-weight:'+(isA?'800':'600')+';cursor:pointer">'+p+'</button>';
         }
-        html += '<button onclick="_bpcGoPage('+(_bpc.page+1)+')" '+(_bpc.page>=totalPages?'disabled':'')+' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:'+(_bpc.page>=totalPages?'#f1f5f9':'#fff')+';color:'+(_bpc.page>=totalPages?'#94a3b8':'#dc2626')+';font-size:11px;font-weight:700;cursor:'+(_bpc.page>=totalPages?'not-allowed':'pointer')+'">Sau ▶</button>';
-        html += ' <span style="font-size:11px;color:#64748b;font-weight:600;margin-left:8px">Trang '+_bpc.page+'/'+totalPages+' — '+totalItems+' đơn</span></div>';
+        html += '<button onclick="_bpcGoPage('+(_bpc.page+1)+')" '+(_bpc.page>=totalPages?'disabled':'')+' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:'+(_bpc.page>=totalPages?'#f1f5f9':'#fff')+';color:'+(_bpc.page>=totalPages?'#94a3b8':'#dc2626')+';font-size:11px;font-weight:700;cursor:'+(_bpc.page>=totalPages?'not-allowed':'pointer')+'">Sau â–¶</button>';
+        html += ' <span style="font-size:11px;color:#64748b;font-weight:600;margin-left:8px">Trang '+_bpc.page+'/'+totalPages+' â€” '+totalItems+' Ä‘Æ¡n</span></div>';
     }
     var top = document.getElementById('bpcPaginationTop'), bot = document.getElementById('bpcPaginationBottom');
     if (top) top.innerHTML = html;
@@ -271,32 +271,32 @@ function _bpcGoPage(p) {
 
 function _bpcRenderStats(count, arr) {
     var el = document.getElementById('bpcFilterInfo'); if (!el) return;
-    var f = _bpc.filter, parts = ['✂️ Bộ Phận Cắt'];
-    if (f.year) parts.push('📆 ' + f.year);
-    if (f.month) parts.push('🗓️ T' + f.month);
-    var label = parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ');
+    var f = _bpc.filter, parts = ['âœ‚ï¸ Bá»™ Pháº­n Cáº¯t'];
+    if (f.year) parts.push('ðŸ“† ' + f.year);
+    if (f.month) parts.push('ðŸ—“ï¸ T' + f.month);
+    var label = parts.join(' <span style="opacity:0.5;margin:0 6px">â€¢</span> ');
     el.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:0.3px">'
-        + label + ' <span style="opacity:0.5;margin:0 4px">—</span> <span style="color:#fca5a5;font-weight:900">' + count + '</span> đơn</div>';
+        + label + ' <span style="opacity:0.5;margin:0 4px">â€”</span> <span style="color:#fca5a5;font-weight:900">' + count + '</span> Ä‘Æ¡n</div>';
 
     var sc = document.getElementById('bpcStatCards'); if (!sc) return;
     var cutting = arr.filter(function(r){return r.is_cutting && !r.is_cut_done;}).length;
     var done = arr.filter(function(r){return r.is_cut_done;}).length;
     var approved = arr.filter(function(r){return r.salary_approved;}).length;
     sc.innerHTML = ''
-        +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div><div style="font-size:15px;font-weight:900">'+count+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .3s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✂️ ĐANG CẮT</div><div style="font-size:15px;font-weight:900">'+cutting+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .6s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #7c3aed30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .9s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">💰 DUYỆT</div><div style="font-size:15px;font-weight:900">'+approved+'</div></div>';
+        +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">ðŸ“¦ Tá»”NG</div><div style="font-size:15px;font-weight:900">'+count+'</div></div>'
+        +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .3s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">âœ‚ï¸ ÄANG Cáº®T</div><div style="font-size:15px;font-weight:900">'+cutting+'</div></div>'
+        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .6s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">âœ… XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
+        +'<div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #7c3aed30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .9s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">ðŸ’° DUYá»†T</div><div style="font-size:15px;font-weight:900">'+approved+'</div></div>';
 }
 
 async function _bpcToggleAction(id, action) {
-    try { await apiCall('/api/cutting/toggle/' + id, 'POST', { action: action }); showToast('✅ Cập nhật'); await _bpcLoadAll(); } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+    try { await apiCall('/api/cutting/toggle/' + id, 'POST', { action: action }); showToast('âœ… Cáº­p nháº­t'); await _bpcLoadAll(); } catch(e) { showToast(e.message || 'Lá»—i', 'error'); }
 }
 
 function _bpcReportError(id) {
     if (typeof navigate === 'function') {
         navigate('don-loi-khach-hang');
-        showToast('📋 Đã chuyển sang Đơn Lỗi — tạo báo cáo lỗi nội bộ');
+        showToast('ðŸ“‹ ÄÃ£ chuyá»ƒn sang ÄÆ¡n Lá»—i â€” táº¡o bÃ¡o cÃ¡o lá»—i ná»™i bá»™');
     }
 }
 
@@ -317,75 +317,85 @@ function _bpcRenderUnassigned() {
         var q = _bpc.search.toLowerCase();
         all = all.filter(function(r) { return (r.order_code||'').toLowerCase().indexOf(q)>=0 || (r.customer_name||'').toLowerCase().indexOf(q)>=0 || (r.material_name||'').toLowerCase().indexOf(q)>=0; });
     }
-    // Group by order for display
-    var lastId = null, stt = 0;
-    var readyCnt = all.filter(function(r){ return r.fabric_arrived && r.has_pc_in; }).length;
-    var pendCnt = all.length - readyCnt;
+    // Group by phiáº¿u (item) for display â€” each phiáº¿u = independent claim unit
+    var lastGroupKey = null, stt = 0;
+    // Count ready/pending at phiáº¿u level (unique item_ids)
+    var seenItems = {};
+    all.forEach(function(r) {
+        var k = r.id + '_' + (r.item_id || 0);
+        if (!seenItems[k]) { seenItems[k] = r; }
+    });
+    var itemList = Object.values(seenItems);
+    var readyCnt = itemList.filter(function(r){ return r.fabric_arrived && r.has_pc_in; }).length;
+    var pendCnt = itemList.length - readyCnt;
 
     // Stats
     var el = document.getElementById('bpcFilterInfo'); if (el) {
         el.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'
-            +'🔴 Đơn Chưa Cắt <span style="opacity:0.5;margin:0 4px">—</span> <span style="font-weight:900">' + all.length + '</span> phối</div>';
+            +'ðŸ”´ ÄÆ¡n ChÆ°a Cáº¯t <span style="opacity:0.5;margin:0 4px">â€”</span> <span style="font-weight:900">' + itemList.length + '</span> phiáº¿u</div>';
     }
     var sc = document.getElementById('bpcStatCards'); if (sc) {
-        sc.innerHTML = '<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">🟢 SẴN SÀNG</div><div style="font-size:15px;font-weight:900">' + readyCnt + '</div></div>'
-            +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30"><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">🟡 THIẾU ĐK</div><div style="font-size:15px;font-weight:900">' + pendCnt + '</div></div>';
+        sc.innerHTML = '<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">ðŸŸ¢ Sáº´N SÃ€NG</div><div style="font-size:15px;font-weight:900">' + readyCnt + '</div></div>'
+            +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30"><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">ðŸŸ¡ THIáº¾U ÄK</div><div style="font-size:15px;font-weight:900">' + pendCnt + '</div></div>';
     }
 
     // Table
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th style="min-width:130px;text-align:center">Nhận Đơn</th><th style="text-align:center">Ưu Tiên</th><th>Mã Đơn</th><th>Tên KH</th><th>CSKH</th><th>Tên SP / Phối</th>'
-        +'<th>Chất Liệu</th><th>Màu</th><th>SL</th><th>Ngày Ship</th>'
-        +'<th>Trạng Thái</th></tr></thead><tbody>';
+        +'<th>STT</th><th style="min-width:130px;text-align:center">Nháº­n ÄÆ¡n</th><th style="text-align:center">Æ¯u TiÃªn</th><th>MÃ£ ÄÆ¡n</th><th>TÃªn KH</th><th>CSKH</th><th>TÃªn SP / Phá»‘i</th>'
+        +'<th>Cháº¥t Liá»‡u</th><th>MÃ u</th><th>SL</th><th>NgÃ y Ship</th>'
+        +'<th>Tráº¡ng ThÃ¡i</th></tr></thead><tbody>';
     if (!all.length) {
-        th += '<tr><td colspan="12"><div class="empty-state"><div class="icon">✅</div><h3>Không có đơn chờ cắt</h3><p>Tất cả đơn đã được nhận</p></div></td></tr>';
+        th += '<tr><td colspan="12"><div class="empty-state"><div class="icon">âœ…</div><h3>KhÃ´ng cÃ³ Ä‘Æ¡n chá» cáº¯t</h3><p>Táº¥t cáº£ Ä‘Æ¡n Ä‘Ã£ Ä‘Æ°á»£c nháº­n</p></div></td></tr>';
     } else {
-        // Count rows per order for rowspan
-        var orderRowCount = {};
-        all.forEach(function(r) { orderRowCount[r.id] = (orderRowCount[r.id] || 0) + 1; });
+        // Count rows per phiáº¿u (item) for rowspan
+        var groupRowCount = {};
+        all.forEach(function(r) { var k = r.id + '_' + (r.item_id || 0); groupRowCount[k] = (groupRowCount[k] || 0) + 1; });
 
         all.forEach(function(r, i) {
-            var isNew = r.id !== lastId; if (isNew) { stt++; lastId = r.id; }
+            var groupKey = r.id + '_' + (r.item_id || 0);
+            var isNew = groupKey !== lastGroupKey; if (isNew) { stt++; lastGroupKey = groupKey; }
             var bg = isNew ? '' : 'background:#f0f9ff;';
             var ready = r.fabric_arrived && r.has_pc_in;
-            var priColor = r.shipping_priority === 'GẤP' ? 'background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,0.35)' : r.shipping_priority === 'GỬI' ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,0.35)' : 'background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.4)';
-            var spName = (r.total_phoi > 1) ? (r.order_code + ' — Phiếu ' + r.item_index + ' — P' + r.phoi_in_item + (r.item_desc ? ' — ' + r.item_desc : '')) : (r.order_code + (r.item_desc ? ' — ' + r.item_desc : ''));
+            var priColor = r.shipping_priority === 'Gáº¤P' ? 'background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,0.35)' : r.shipping_priority === 'Gá»¬I' ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,0.35)' : 'background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.4)';
+            var spName = (r.total_phoi > 1) ? (r.order_code + ' â€” Phiáº¿u ' + r.item_index + ' â€” P' + r.phoi_in_item + (r.item_desc ? ' â€” ' + r.item_desc : '')) : (r.order_code + (r.item_desc ? ' â€” ' + r.item_desc : ''));
             // Status badges
             var statusHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap">'
-                + (r.fabric_arrived ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ Vải</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ Vải</span>')
-                + (r.has_pc_in ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ PC In</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ PC In</span>')
+                + (r.fabric_arrived ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">âœ… Váº£i</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">âŒ Váº£i</span>')
+                + (r.has_pc_in ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">âœ… PC In</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">âŒ PC In</span>')
                 + '</div>';
-            // Claim button with rowspan
+            // Claim button with rowspan â€” per phiáº¿u
             var claimTd = '';
             var priTd = '';
             if (isNew) {
-                var rs = orderRowCount[r.id] || 1;
+                var rs = groupRowCount[groupKey] || 1;
                 var claimHtml;
                 if (ready) {
-                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nháº­n Ä‘Æ¡n cáº¯t">âœ‚ï¸ NHáº¬N ÄÆ N</button>';
                 } else {
                     var missing = [];
-                    if (!r.fabric_arrived) missing.push('Vải');
+                    if (!r.fabric_arrived) missing.push('Váº£i');
                     if (!r.has_pc_in) missing.push('PC In');
-                    claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
+                    claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiáº¿u: '+missing.join(', ')+'">ðŸ”’ Thiáº¿u '+missing.join('+')+'</button>';
                 }
                 claimTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
-                priTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle"><span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;letter-spacing:0.5px;font-family:Inter,system-ui,sans-serif;'+priColor+'">'+(r.shipping_priority||'CHUẨN')+'</span></td>';
+                priTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle"><span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;letter-spacing:0.5px;font-family:Inter,system-ui,sans-serif;'+priColor+'">'+(r.shipping_priority||'CHUáº¨N')+'</span></td>';
             }
-            // SL: P1 (phối chính mỗi phiếu) = xanh đậm, P2+ = xanh nhạt
+            // SL: P1 (phá»‘i chÃ­nh má»—i phiáº¿u) = xanh Ä‘áº­m, P2+ = xanh nháº¡t
             var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
             var qtyVal = r.item_qty || r.total_quantity || '';
+            // Show order info on first row of each phiáº¿u group
+            var showTitle = (r.total_items_in_order > 1) ? r.order_code + ' â€” Phiáº¿u ' + r.item_index : r.order_code;
 
             th += '<tr style="'+bg+'">'
                 +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
                 +claimTd
                 +priTd
-                +'<td style="font-weight:700;color:#1e293b">'+(isNew?r.order_code:'')+'</td>'
-                +'<td style="font-size:10px">'+(isNew?(r.customer_name||''):'')+'</td>'
-                +'<td style="font-size:10px;color:#6b7280">'+(isNew?(r.cskh_name||r.created_by_name||''):'')+'</td>'
+                +'<td style="font-weight:700;color:#1e293b">'+(isNew?showTitle:'')+'</td>'
+                +'<td style="font-size:10px">'+(isNew?(r.customer_name||''):'')+''+'</td>'
+                +'<td style="font-size:10px;color:#6b7280">'+(isNew?(r.cskh_name||r.created_by_name||''):'')+''+'</td>'
                 +'<td style="font-weight:600;font-size:11px;color:#1e293b">'+spName+'</td>'
-                +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
-                +'<td style="font-size:10px">'+(r.color_name||'—')+'</td>'
+                +'<td style="font-size:10px;color:#475569">'+(r.material_name||'â€”')+'</td>'
+                +'<td style="font-size:10px">'+(r.color_name||'â€”')+'</td>'
                 +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
                 +'<td style="font-size:10px;color:#475569">'+(isNew?_bpcFmtDate(r.expected_ship_date):'')+'</td>'
                 +'<td>'+(isNew?statusHtml:'')+'</td>'
@@ -396,16 +406,18 @@ function _bpcRenderUnassigned() {
     wrap.innerHTML = th;
     // Clear pagination for unassigned view
     var top = document.getElementById('bpcPaginationTop'), bot = document.getElementById('bpcPaginationBottom');
-    if (top) top.innerHTML = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">'+all.length+' phối chờ cắt</span></div>';
+    if (top) top.innerHTML = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">'+all.length+' phá»‘i chá» cáº¯t</span></div>';
     if (bot) bot.innerHTML = '';
 }
 
-async function _bpcClaimOrder(orderId, orderCode) {
+async function _bpcClaimOrder(orderId, itemId, orderCode) {
     if (window._bpcBusy) return;
     if (!confirm('Bạn muốn nhận đơn cắt ' + orderCode + '?')) return;
     window._bpcBusy = true;
     try {
-        var res = await apiCall('/api/cutting/claim', 'POST', { dht_order_id: orderId });
+        var body = { dht_order_id: orderId };
+        if (itemId) body.order_item_id = itemId;
+        var res = await apiCall('/api/cutting/claim', 'POST', body);
         showToast('✅ Đã nhận đơn ' + orderCode + ' — tạo ' + res.created + ' phối cắt');
         await _bpcLoadAll();
     } catch(e) {
