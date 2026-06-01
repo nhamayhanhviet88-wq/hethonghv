@@ -712,7 +712,7 @@ module.exports = async function(fastify) {
                     FROM qlx_fabric_reservations res
                     LEFT JOIN dht_orders o ON o.id = res.dht_order_id
                     LEFT JOIN dht_order_items it ON it.id = res.item_id
-                    WHERE res.roll_id = $1 AND res.status = 'reserved'
+                    WHERE res.roll_id = $1 AND res.status IN ('reserved', 'arrived')
                     ORDER BY res.created_at
                 `, [roll.id]);
             }

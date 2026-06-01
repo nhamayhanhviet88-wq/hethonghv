@@ -469,10 +469,19 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     var resInfo = '';
                     if (rl.reservations && rl.reservations.length) {
                         rl.reservations.forEach(function(rv) {
-                            resInfo += '<div style="font-size:9px;color:#d97706;margin-top:2px">⚠️ Tạm giữ: ' + rv.kg_reserved + unitLabel + ' → ' + rv.order_code + ' (Phối ' + (rv.phoi_index+1) + ')</div>';
+                            var isThisOrder = rv.order_code === orderCode;
+                            var badge = isThisOrder
+                                ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🏷️ Đơn này</span>'
+                                : '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔖 ' + rv.order_code + '</span>';
+                            var phoiLabel = ' Phối ' + ((rv.phoi_index||0)+1);
+                            var prodName = rv.product_name ? ' — ' + rv.product_name : '';
+                            resInfo += '<div style="font-size:10px;color:#475569;margin-top:3px;padding-left:8px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
+                                + badge
+                                + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b>' + rv.kg_reserved + unitLabel + '</b></span>'
+                                + '</div>';
                         });
                     }
-                    // Determine tag
+                    // Determine tag from called_for_orders
                     var calledOrders = rl.called_for_orders || [];
                     if (typeof calledOrders === 'string') try { calledOrders = JSON.parse(calledOrders); } catch(e) { calledOrders = []; }
                     var tagHtml = '';
