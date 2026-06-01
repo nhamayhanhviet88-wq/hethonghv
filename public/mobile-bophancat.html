@@ -146,12 +146,12 @@ function mRenderUncut(){
     const c=document.getElementById('mContent');
     if(!mUncut.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không có đơn chờ</div><div style="font-size:13px">Tất cả đơn đã được nhận</div></div>';return;}
 
-    // Group by order
-    const grouped={};
-    mUncut.forEach(r=>{if(!grouped[r.id])grouped[r.id]={order:r,phois:[]};grouped[r.id].phois.push(r);});
+    // Group by order — use Map to preserve API sort order (object keys auto-sort numerically!)
+    const grouped=new Map();
+    mUncut.forEach(r=>{if(!grouped.has(r.id))grouped.set(r.id,{order:r,phois:[]});grouped.get(r.id).phois.push(r);});
 
     let cardHtml='';
-    Object.values(grouped).forEach(g=>{
+    grouped.forEach(g=>{
         const o=g.order, ready=o.fabric_arrived&&o.has_pc_in;
         const priCls=mPriClass(o.shipping_priority);
         const priLbl=mPriLabel(o.shipping_priority);
