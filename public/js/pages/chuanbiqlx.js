@@ -463,6 +463,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
                     }
                     html += '</div>';
+                    // Show linked orders for new_call reservations
+                    if (ex.reservation_type === 'new_call' && ex.linked_order_codes) {
+                        html += '<div style="font-size:9px;color:#7c3aed;margin-top:3px;padding-left:28px;font-weight:600">🔗 Đã liên kết: ' + ex.linked_order_codes + ' (' + (ex.linked_count||0) + ' đơn)</div>';
+                    }
                     html += '</div>';
                 });
                 html += '</div>';

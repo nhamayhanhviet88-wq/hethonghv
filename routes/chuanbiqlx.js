@@ -729,7 +729,13 @@ module.exports = async function(fastify) {
             SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code,
                    u_create.full_name AS created_by_name,
                    u_arrive.full_name AS arrived_by_name,
-                   parent_o.order_code AS linked_from_order_code
+                   parent_o.order_code AS linked_from_order_code,
+                   (SELECT string_agg(DISTINCT lo.order_code, ', ')
+                    FROM qlx_fabric_reservations lk
+                    JOIN dht_orders lo ON lo.id = lk.dht_order_id
+                    WHERE lk.linked_call_id = res.id AND lk.status != 'released'
+                   ) AS linked_order_codes,
+                   (SELECT COUNT(*)::int FROM qlx_fabric_reservations lk WHERE lk.linked_call_id = res.id AND lk.status != 'released') AS linked_count
             FROM qlx_fabric_reservations res
             LEFT JOIN kv_rolls r ON r.id = res.roll_id
             LEFT JOIN users u_create ON u_create.id = res.created_by
