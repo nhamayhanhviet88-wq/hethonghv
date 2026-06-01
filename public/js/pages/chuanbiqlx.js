@@ -184,6 +184,31 @@ function _qlxRenderTable() {
         var q = _qlx.search.toLowerCase();
         all = all.filter(function(o) { return (o.order_code || '').toLowerCase().indexOf(q) >= 0 || (o.customer_name || '').toLowerCase().indexOf(q) >= 0; });
     }
+    // Apply active filter button
+    if (_qlx.activeFilter) {
+        var af = _qlx.activeFilter;
+        all = all.filter(function(o) {
+            if (af === 'no_print') return !o.sx_print_confirmed;
+            if (af === 'no_receive') return o.sx_print_confirmed && !(o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1');
+            if (af === 'no_fabric') return !o.fabric_called;
+            if (af === 'no_material') return !o.material_called;
+            if (af === 'no_pc_in') return !o.nguoi_in;
+            if (af === 'no_pc_may') return !o.nguoi_may;
+            return true;
+        });
+    }
+    // Sort: Tier 1 = Chưa In Phiếu, Tier 2 = Chưa Nhận Phiếu, Tier 3 = Đã Nhận
+    all.sort(function(a, b) {
+        var aPrint = a.sx_print_confirmed ? 1 : 0;
+        var bPrint = b.sx_print_confirmed ? 1 : 0;
+        if (aPrint !== bPrint) return aPrint - bPrint; // chưa in lên trước
+        var aRecv = (a.qlx_received_phieu === true || a.qlx_received_phieu === 't' || a.qlx_received_phieu === 1 || a.qlx_received_phieu === '1') ? 1 : 0;
+        var bRecv = (b.qlx_received_phieu === true || b.qlx_received_phieu === 't' || b.qlx_received_phieu === 1 || b.qlx_received_phieu === '1') ? 1 : 0;
+        if (aPrint && bPrint && aRecv !== bRecv) return aRecv - bRecv; // chưa nhận lên trước
+        // Sort by expected_ship_date ascending (gần → xa)
+        var dA = a.expected_ship_date || '9999-12-31', dB = b.expected_ship_date || '9999-12-31';
+        return dA < dB ? -1 : dA > dB ? 1 : 0;
+    });
     var total = all.length, totalPages = Math.ceil(total / _qlx.pageSize) || 1;
     if (_qlx.page > totalPages) _qlx.page = totalPages;
     if (_qlx.page < 1) _qlx.page = 1;
@@ -260,7 +285,12 @@ function _qlxRenderRows(paged) {
 
         var h = '<tr style="' + bg + '">';
         if (isNew) {
-            h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + '</td>';
+            // Badge: Chưa In Phiếu SX
+            var sttExtra = '';
+            if (!o.sx_print_confirmed) {
+                sttExtra = '<div style="background:#dc2626;color:#fff;font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;margin-top:2px;white-space:nowrap;line-height:1.2">CHƯA IN PHIẾU</div>';
+            }
+            h += '<td style="text-align:center;font-weight:700;color:#94a3b8">' + stt + sttExtra + '</td>';
             if (o.qlx_reviewed) {
                 // Gọi Vải - LUÔN HIỆN sau checklist
                 h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (it?it.id:0) + ',' + (r.pairIndex||0) + ')" title="Vải">' + fabIcon + '</button></td>';
@@ -297,7 +327,12 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-weight:600">' + phoiTag + '<span style="color:#1e293b;font-size:11px">' + spName + '</span></td>';
         h += '<td style="font-size:10px;color:#475569">' + matName + '</td>';
         h += '<td style="font-size:10px">' + (colorName ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:3px;vertical-align:middle"></span>' + colorName : '') + '</td>';
-        h += '<td style="text-align:center;font-weight:700;color:#0369a1">' + (isNew ? (o.total_quantity || '') : '') + '</td>';
+        // SL: phối 1 = xanh đậm, phối 2+ = xanh nhạt
+        if (isNew) {
+            h += '<td style="text-align:center;font-weight:700;color:#0369a1">' + (o.total_quantity || '') + '</td>';
+        } else {
+            h += '<td style="text-align:center;font-weight:700;color:#93c5fd;font-size:10px">' + (o.total_quantity || '') + '</td>';
+        }
         h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.expected_ship_date) : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? '<span class="qlx-priority" style="' + priColor + '">' + (o.shipping_priority || 'CHUẨN') + '</span>' : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? statusHtml : '') + '</td>';
@@ -358,19 +393,49 @@ function _qlxRenderStats(count, arr) {
     el.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:0.3px">'
         + label + ' <span style="opacity:0.5;margin:0 4px">—</span> <span style="color:#38bdf8;font-weight:900">' + count + '</span> đơn</div>';
 
+    // Count all stats from unfiltered orders
+    var allOrders = _qlx.orders || [];
+    var totalAll = allOrders.length;
+    var noPrint = allOrders.filter(function(o) { return !o.sx_print_confirmed; }).length;
+    var noReceive = allOrders.filter(function(o) { return o.sx_print_confirmed && !(o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1'); }).length;
+    var noFab = allOrders.filter(function(o) { return !o.fabric_called; }).length;
+    var noMat = allOrders.filter(function(o) { return !o.material_called; }).length;
+    var noIn = allOrders.filter(function(o) { return !o.nguoi_in; }).length;
+    var noMay = allOrders.filter(function(o) { return !o.nguoi_may; }).length;
+
+    var af = _qlx.activeFilter || '';
     var sc = document.getElementById('qlxStatCards'); if (!sc) return;
-    sc.innerHTML = '<div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #2563eb30;position:relative;overflow:hidden">'
-        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:qlxShimmer 2.5s infinite"></div>'
-        +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 SỐ ĐƠN</div>'
-        +'<div style="font-size:15px;font-weight:900">'+count+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden">'
-        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:qlxShimmer 2.5s infinite .3s"></div>'
-        +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">🧵 VẢI VỀ</div>'
-        +'<div style="font-size:15px;font-weight:900">'+arr.filter(function(o){return o.fabric_arrived;}).length+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:100px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden">'
-        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:qlxShimmer 2.5s infinite .6s"></div>'
-        +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ CHỜ VẢI</div>'
-        +'<div style="font-size:15px;font-weight:900">'+arr.filter(function(o){return !o.fabric_arrived;}).length+'</div></div>';
+    function _fb(key, label, cnt, color, icon) {
+        var isActive = af === key;
+        var bg = isActive ? color : '#f8fafc';
+        var txtColor = isActive ? '#fff' : '#334155';
+        var border = isActive ? 'transparent' : '#e2e8f0';
+        var cntBg = isActive ? 'rgba(255,255,255,0.25)' : color;
+        return '<button onclick="_qlxStatFilter(\'' + key + '\')" style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;border:1.5px solid ' + border + ';background:' + bg + ';color:' + txtColor + ';font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap">'
+            + icon + ' ' + label + ' <span style="background:' + cntBg + ';color:#fff;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;min-width:18px;text-align:center">' + cnt + '</span></button>';
+    }
+    sc.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;width:100%">'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">'
+        + _fb('', 'Tổng Số Đơn', totalAll, '#2563eb', '📦')
+        + _fb('no_print', 'Chưa In Phiếu', noPrint, '#dc2626', '🖨️')
+        + _fb('no_receive', 'Chưa Nhận Phiếu SX', noReceive, '#d97706', '📋')
+        + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">'
+        + _fb('no_fabric', 'Chưa Gọi Vải', noFab, '#059669', '🧵')
+        + _fb('no_material', 'Chưa Gọi VL', noMat, '#0369a1', '🔩')
+        + _fb('no_pc_in', 'Chưa PC In', noIn, '#7c3aed', '🖨️')
+        + _fb('no_pc_may', 'Chưa PC May', noMay, '#be185d', '🪡')
+        + '</div></div>';
+}
+
+function _qlxStatFilter(key) {
+    if (_qlx.activeFilter === key || key === '') {
+        _qlx.activeFilter = null;
+    } else {
+        _qlx.activeFilter = key;
+    }
+    _qlx.page = 1;
+    _qlxRenderTable();
 }
 
 async function _qlxFabric(orderId, action) {
