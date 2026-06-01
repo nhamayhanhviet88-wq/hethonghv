@@ -903,6 +903,33 @@ module.exports = async function(fastify) {
         return { reservations: rows };
     });
 
+    // PUT: Update kg_reserved on a from_stock reservation
+    fastify.put('/api/qlx/fabric-reserve/:id/update-kg', { preHandler: [authenticate] }, async (request, reply) => {
+        const isQLX = await isQLXUser(request);
+        if (!isQLX) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const resId = request.params.id;
+        const { kg_reserved } = request.body || {};
+        const newKg = Number(kg_reserved);
+        if (!newKg || newKg <= 0) return reply.code(400).send({ error: 'Số kg phải lớn hơn 0' });
+
+        const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [resId]);
+        if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (res.reservation_type !== 'from_stock') return reply.code(400).send({ error: 'Chỉ sửa được loại lấy từ kho' });
+
+        const oldKg = Number(res.kg_reserved);
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        await db.run('UPDATE qlx_fabric_reservations SET kg_reserved = $1 WHERE id = $2', [newKg, resId]);
+
+        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+            VALUES ($1, 'fabric_update_kg', $2, $3, $4)`,
+            [res.dht_order_id, `Sửa kg cây ${res.roll_code}: ${oldKg} → ${newKg} ${res.unit||'kg'} (Phối ${(res.phoi_index||0)+1})`, request.user.id, now]);
+
+        return { success: true, old_kg: oldKg, new_kg: newKg };
+    });
+
     // PUT: Mark fabric reservation as arrived
     fastify.put('/api/qlx/fabric-reserve/:id/arrive', { preHandler: [authenticate] }, async (request, reply) => {
         const isQLX = await isQLXUser(request);

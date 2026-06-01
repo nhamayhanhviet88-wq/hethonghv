@@ -529,9 +529,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                                 : '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔖 ' + rv.order_code + '</span>';
                             var phoiLabel = ' Phối ' + ((rv.phoi_index||0)+1);
                             var prodName = rv.product_name ? ' — ' + rv.product_name : '';
-                            resInfo += '<div style="font-size:10px;color:#475569;margin-top:3px;padding-left:8px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
+                            var editId = '_qlxResKg_' + rv.id;
+                            resInfo += '<div id="' + editId + '_row" style="font-size:10px;color:#475569;margin-top:3px;padding-left:8px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
                                 + badge
-                                + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b>' + rv.kg_reserved + unitLabel + '</b></span>'
+                                + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b id="' + editId + '_val">' + rv.kg_reserved + unitLabel + '</b></span>'
+                                + '<button onclick="_qlxFabEditKgToggle(' + rv.id + ',' + rv.kg_reserved + ',\'' + unitLabel + '\',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px" title="Sửa kg">✏️</button>'
                                 + '</div>';
                         });
                     }
@@ -733,6 +735,31 @@ async function _qlxFabRelease(resId, orderId, itemId, pairIndex) {
         showToast('🔓 Đã giải phóng');
         _qlxFabricPopup(orderId, itemId, pairIndex);
         _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+function _qlxFabEditKgToggle(resId, currentKg, unitLabel, orderId, itemId, pairIndex) {
+    var valEl = document.getElementById('_qlxResKg_' + resId + '_val');
+    if (!valEl) return;
+    // Replace the <b> with an inline input + save button
+    var parent = valEl.parentElement;
+    valEl.innerHTML = '<input id="_qlxResKgInput_' + resId + '" type="number" step="0.1" min="0.1" value="' + currentKg + '" style="width:60px;padding:2px 4px;border:1.5px solid #3b82f6;border-radius:4px;font-size:10px;text-align:center;font-weight:700">'
+        + '<span style="font-size:9px;color:#64748b;margin:0 2px">' + unitLabel + '</span>'
+        + '<button onclick="_qlxFabSaveKg(' + resId + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:1px 6px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer">💾</button>'
+        + '<button onclick="_qlxFabricPopup(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:1px 6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;font-size:9px;cursor:pointer;margin-left:2px">✕</button>';
+    var inp = document.getElementById('_qlxResKgInput_' + resId);
+    if (inp) { inp.focus(); inp.select(); }
+}
+
+async function _qlxFabSaveKg(resId, orderId, itemId, pairIndex) {
+    var inp = document.getElementById('_qlxResKgInput_' + resId);
+    if (!inp) return;
+    var newKg = parseFloat(inp.value);
+    if (!newKg || newKg <= 0) { inp.style.border = '2px solid #dc2626'; showToast('⚠️ Số kg phải > 0', 'error'); return; }
+    try {
+        await apiCall('/api/qlx/fabric-reserve/' + resId + '/update-kg', 'PUT', { kg_reserved: newKg });
+        showToast('✅ Đã cập nhật kg!');
+        _qlxFabricPopup(orderId, itemId, pairIndex);
     } catch(e) { showToast(e.message, 'error'); }
 }
 
