@@ -426,7 +426,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     if (aArr !== bArr) return aArr - bArr;
                     return (Number(a.kg_reserved)||0) - (Number(b.kg_reserved)||0);
                 });
-                html += '<div style="padding:12px 20px 0"><div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">📋 TRẠNG THÁI VẢI:</div>';
+                html += '<div style="padding:12px 20px 0"><div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">📋 TRẠNG THÁI VẢI: <span style="font-weight:600;color:#6b7280;font-size:11px">(' + existing.length + ' Cây Vải)</span></div>';
                 existing.forEach(function(ex, exIdx) {
                     var isArrived = ex.status === 'arrived';
                     var bgColor = isArrived ? '#f0fdf4' : '#fffbeb';
@@ -493,7 +493,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // === Stock section (always visible when warehouse has data) ===
             html += '<div id="_qlxSecStock">';
-            html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ')</div>';
+            html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ') <span style="font-weight:600;color:#6b7280;font-size:11px">— ' + rolls.length + ' Cây Vải</span></div>';
             if (rolls.length) {
                 // Sort: group by primary order tag, then by available ascending
                 var orderCode = o.order_code || '';
