@@ -126,9 +126,10 @@ function _bnhFabRenderBody() {
             + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#d97706">📋 CHI PHÍ KHÁC</span>'
             + '<button onclick="_bnhFabAddCost()" style="padding:4px 12px;border-radius:6px;border:1.5px solid #d97706;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm</button></div>';
         f.extraCosts.forEach(function (ec, ei) {
+            var amtMissing = ec.content && ec.content.trim() && (!ec.amount || Number(ec.amount) <= 0);
             h += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">'
                 + '<input placeholder="Nội dung..." value="' + _escAttr(ec.content) + '" onchange="_bnhFabEC(' + ei + ',\'c\',this.value)" style="flex:1;padding:6px 10px;border:1px solid #fcd34d;border-radius:6px;font-size:11px">'
-                + '<input type="number" placeholder="Số tiền" value="' + (ec.amount || '') + '" onchange="_bnhFabEC(' + ei + ',\'a\',this.value)" style="width:120px;padding:6px 10px;border:1px solid #fcd34d;border-radius:6px;font-size:11px">'
+                + '<input type="number" placeholder="Số tiền *" min="1" required value="' + (ec.amount || '') + '" onchange="_bnhFabEC(' + ei + ',\'a\',this.value)" style="width:120px;padding:6px 10px;border:1px solid ' + (amtMissing ? '#dc2626' : '#fcd34d') + ';border-radius:6px;font-size:11px;' + (amtMissing ? 'background:#fef2f2' : '') + '">'
                 + '<button onclick="_bnhFabRemCost(' + ei + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer">✕</button></div>';
         });
         if (!f.extraCosts.length) h += '<div style="text-align:center;padding:8px;color:#d97706;font-size:11px;opacity:.6">Không có chi phí khác</div>';
@@ -283,7 +284,7 @@ function _bnhFabTreeW(idx, ti, val) {
 
 function _bnhFabAddCost() { _bnhFab.extraCosts.push({ content: '', amount: '' }); _bnhFabRenderBody(); }
 function _bnhFabRemCost(i) { _bnhFab.extraCosts.splice(i, 1); _bnhFabRenderBody(); }
-function _bnhFabEC(i, f, v) { if (f === 'c') _bnhFab.extraCosts[i].content = v; else _bnhFab.extraCosts[i].amount = Number(v) || 0; }
+function _bnhFabEC(i, f, v) { if (f === 'c') _bnhFab.extraCosts[i].content = v; else { _bnhFab.extraCosts[i].amount = Number(v) || 0; _bnhFabRenderBody(); } }
 
 async function _bnhFabSubmit() {
     if (_bnhFab.submitting) return;
