@@ -520,7 +520,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     return a.available - b.available;
                 });
                 rolls.forEach(function(rl, idx) {
-                    var avail = rl.available;
+                    var avail = Math.max(0, rl.available);
                     var resInfo = '';
                     if (rl.reservations && rl.reservations.length) {
                         rl.reservations.forEach(function(rv) {

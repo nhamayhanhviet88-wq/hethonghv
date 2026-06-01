@@ -813,6 +813,15 @@ module.exports = async function(fastify) {
             if (Number(kg_reserved) > available) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng. Hãy sửa kg (✏️) các đơn khác trước.` });
 
             // from_stock = vải đã ở xưởng → auto status='arrived'
+            // Check if reservation already exists for this roll+order+phoi (prevent duplicate key)
+            const existingRes = await db.get(
+                'SELECT id FROM qlx_fabric_reservations WHERE roll_id = $1 AND dht_order_id = $2 AND phoi_index = $3 AND status IN ($4,$5)',
+                [roll_id, dht_order_id, phoi_index||0, 'reserved', 'arrived']
+            );
+            if (existingRes) {
+                return reply.code(400).send({ error: 'Đơn này đã đánh dấu cây vải này rồi! Hãy dùng ✏️ để sửa kg.' });
+            }
+
             await db.run(`
                 INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
                     reservation_type, roll_id, roll_code, kg_reserved, roll_note, status, arrived_at, arrived_by, created_by)
@@ -914,6 +923,22 @@ module.exports = async function(fastify) {
         if (res.reservation_type !== 'from_stock') return reply.code(400).send({ error: 'Chỉ sửa được loại lấy từ kho' });
 
         const oldKg = Number(res.kg_reserved);
+
+        // Validate: new total must not exceed roll weight
+        if (res.roll_id) {
+            const roll = await db.get('SELECT weight FROM kv_rolls WHERE id = $1', [res.roll_id]);
+            if (roll) {
+                const otherSum = await db.get(
+                    'SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND id != $2 AND status IN ($3,$4)',
+                    [res.roll_id, resId, 'reserved', 'arrived']
+                );
+                const maxAllowed = Number(roll.weight) - Number(otherSum.total);
+                if (newKg > maxAllowed) {
+                    return reply.code(400).send({ error: `Tối đa ${maxAllowed} ${res.unit||'kg'}! (Cây ${Number(roll.weight)}${res.unit||'kg'} - đơn khác ${Number(otherSum.total)}${res.unit||'kg'})` });
+                }
+            }
+        }
+
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
