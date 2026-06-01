@@ -203,11 +203,11 @@ module.exports = async function(fastify) {
                 COUNT(DISTINCT o.id)::int AS total,
                 COUNT(DISTINCT o.id) FILTER (
                     WHERE COALESCE(p.fabric_arrived, false) = true
-                      AND EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND qa.assigned_user_id IS NOT NULL)
+                      AND EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL))
                 )::int AS ready,
                 COUNT(DISTINCT o.id) FILTER (
                     WHERE COALESCE(p.fabric_arrived, false) = false
-                       OR NOT EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND qa.assigned_user_id IS NOT NULL)
+                       OR NOT EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL))
                 )::int AS pending
             FROM dht_orders o
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
@@ -538,9 +538,9 @@ module.exports = async function(fastify) {
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived,
                    EXISTS(
                        SELECT 1 FROM qlx_assignments qa
-                       WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND qa.assigned_user_id IS NOT NULL
+                       WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                    ) AS has_pc_in,
-                   a_in.full_name AS nguoi_in
+                   COALESCE(a_in.full_name, pc_in.name) AS nguoi_in
             FROM dht_orders o
             JOIN qlx_preparation p ON p.dht_order_id = o.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
@@ -548,13 +548,14 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in'
             LEFT JOIN users a_in ON qa_in.assigned_user_id = a_in.id
+            LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
             WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.shipping_status, '') != 'shipped'
             ORDER BY
                 CASE WHEN COALESCE(p.fabric_arrived, false) = true
-                     AND EXISTS (SELECT 1 FROM qlx_assignments qa2 WHERE qa2.dht_order_id = o.id AND qa2.assignment_type = 'in' AND qa2.assigned_user_id IS NOT NULL)
+                     AND EXISTS (SELECT 1 FROM qlx_assignments qa2 WHERE qa2.dht_order_id = o.id AND qa2.assignment_type = 'in' AND (qa2.assigned_user_id IS NOT NULL OR qa2.assigned_contractor_id IS NOT NULL))
                 THEN 0 ELSE 1 END,
                 o.expected_ship_date ASC NULLS LAST, o.order_date DESC
         `);
@@ -640,7 +641,7 @@ module.exports = async function(fastify) {
         if (!order.fabric_arrived) return reply.code(400).send({ error: 'Chưa có vải về — không thể nhận đơn cắt' });
 
         const hasPcIn = await db.get(`
-            SELECT 1 FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND assigned_user_id IS NOT NULL
+            SELECT 1 FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
         `, [dht_order_id]);
         if (!hasPcIn) return reply.code(400).send({ error: 'Chưa Phân Công In — không thể nhận đơn cắt' });
 

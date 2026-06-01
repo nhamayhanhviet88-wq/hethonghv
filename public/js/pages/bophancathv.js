@@ -3,6 +3,11 @@ var _bpc = { records: [], tree: null, unassignedOrders: [], filter: { year: null
 var _bpcOpen = {};
 
 function renderBophancatPage(content) {
+    if (!document.getElementById('_bpcFontLink')) {
+        var fl = document.createElement('link'); fl.id = '_bpcFontLink'; fl.rel = 'stylesheet';
+        fl.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap';
+        document.head.appendChild(fl);
+    }
     if (!document.getElementById('_bpcStyles')) {
         var st = document.createElement('style'); st.id = '_bpcStyles';
         st.textContent = '.bpc-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}'
@@ -30,10 +35,10 @@ function renderBophancatPage(content) {
 +'.bpc-icon-btn.on-sal{background:#fef3c7;border-color:#f59e0b}'
 +'.bpc-icon-btn.on-wash{background:#e0e7ff;border-color:#6366f1}'
 +'.bpc-icon-btn.on-err{background:#fee2e2;border-color:#ef4444}'
-+'.bpc-claim-btn{padding:6px 14px;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;transition:all .2s;white-space:nowrap}'
++'.bpc-claim-btn{padding:7px 16px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:"Inter",system-ui,sans-serif;letter-spacing:0.3px}'
 +'.bpc-claim-btn.ready{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,0.3)}'
 +'.bpc-claim-btn.ready:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(16,185,129,0.4)}'
-+'.bpc-claim-btn.disabled{background:#f1f5f9;color:#94a3b8;cursor:not-allowed}'
++'.bpc-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1.5px solid #e2e8f0;font-weight:600}'
 +'@media(max-width:768px){.bpc-sidebar{display:none}}';
         document.head.appendChild(st);
     }
@@ -329,7 +334,7 @@ function _bpcRenderUnassigned() {
 
     // Table
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th style="min-width:120px">Nhận Đơn</th><th>Mã Đơn</th><th>Tên KH</th><th>CSKH</th><th>Tên SP / Phối</th>'
+        +'<th>STT</th><th style="min-width:130px;text-align:center">Nhận Đơn</th><th>Mã Đơn</th><th>Tên KH</th><th>CSKH</th><th>Tên SP / Phối</th>'
         +'<th>Chất Liệu</th><th>Màu</th><th>SL</th><th>Ngày Ship</th><th>Ưu Tiên</th>'
         +'<th>Trạng Thái</th></tr></thead><tbody>';
     if (!all.length) {

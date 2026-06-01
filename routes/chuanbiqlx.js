@@ -93,6 +93,24 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS qlx_received_phieu_by INTEGER REFERENCES users(id)`);
     } catch(e) { console.error('[QLX] qlx_received_phieu columns:', e.message); }
 
+    // Add assigned_contractor_id to qlx_assignments (for Gia Công In)
+    try {
+        await db.exec(`ALTER TABLE qlx_assignments ADD COLUMN IF NOT EXISTS assigned_contractor_id INTEGER`);
+    } catch(e) { console.error('[QLX] contractor col:', e.message); }
+
+    // In/Thêu Chung table (multi-select)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_in_theu_chung (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            target_type VARCHAR(20) NOT NULL DEFAULT 'user',
+            target_id INTEGER NOT NULL,
+            assigned_by INTEGER REFERENCES users(id),
+            assigned_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(dht_order_id, target_type, target_id)
+        )`);
+    } catch(e) { console.error('[QLX] in_theu_chung table:', e.message); }
+
     // Fabric reservations table
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS qlx_fabric_reservations (
@@ -269,7 +287,14 @@ module.exports = async function(fastify) {
                 COALESCE(p.is_completed, false) AS is_completed,
                 -- Assignments
                 a_cat.full_name AS nguoi_cat,
-                a_in.full_name AS nguoi_in,
+                COALESCE(a_in.full_name, pc_in.name) AS nguoi_in,
+                (SELECT string_agg(
+                    CASE WHEN itc.target_type = 'user' THEN u_itc.full_name ELSE pc_itc.name END, ', ')
+                 FROM qlx_in_theu_chung itc
+                 LEFT JOIN users u_itc ON itc.target_type = 'user' AND u_itc.id = itc.target_id
+                 LEFT JOIN printing_contractors pc_itc ON itc.target_type = 'contractor' AND pc_itc.id = itc.target_id
+                 WHERE itc.dht_order_id = o.id
+                ) AS in_theu_chung_names,
                 a_ep.full_name AS nguoi_ep,
                 a_may.full_name AS nguoi_may,
                 -- Last history
@@ -286,6 +311,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users a_cat ON qa_cat.assigned_user_id = a_cat.id
             LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in'
             LEFT JOIN users a_in ON qa_in.assigned_user_id = a_in.id
+            LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
             LEFT JOIN qlx_assignments qa_ep ON qa_ep.dht_order_id = o.id AND qa_ep.assignment_type = 'ep'
             LEFT JOIN users a_ep ON qa_ep.assigned_user_id = a_ep.id
             LEFT JOIN qlx_assignments qa_may ON qa_may.dht_order_id = o.id AND qa_may.assignment_type = 'may'
@@ -495,6 +521,121 @@ module.exports = async function(fastify) {
         `, params);
 
         return { staff };
+    });
+
+    // ========== PRINT ASSIGNMENT: Combined modal data ==========
+    fastify.get('/api/qlx/print-assignment/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+        const orderId = Number(request.params.orderId);
+
+        // Order info
+        const order = await db.get(`SELECT o.id, o.order_code, o.customer_name FROM dht_orders o WHERE o.id = $1`, [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
+        const items = await db.all(`SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
+        const itemDesc = items.map(it => it.description || '').filter(Boolean).join(', ');
+
+        // Current print assignment
+        const qa = await db.get(`SELECT assigned_user_id, assigned_contractor_id FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
+        let currentPrinter = null;
+        if (qa) {
+            if (qa.assigned_user_id) {
+                const u = await db.get('SELECT full_name FROM users WHERE id=$1', [qa.assigned_user_id]);
+                currentPrinter = { type: 'user', id: qa.assigned_user_id, name: u ? u.full_name : '' };
+            } else if (qa.assigned_contractor_id) {
+                const c = await db.get('SELECT name FROM printing_contractors WHERE id=$1', [qa.assigned_contractor_id]);
+                currentPrinter = { type: 'contractor', id: qa.assigned_contractor_id, name: c ? c.name : '' };
+            }
+        }
+
+        // Current In/Thêu Chung
+        const itcRows = await db.all(`
+            SELECT itc.target_type, itc.target_id,
+                   CASE WHEN itc.target_type='user' THEN u.full_name ELSE pc.name END AS name
+            FROM qlx_in_theu_chung itc
+            LEFT JOIN users u ON itc.target_type='user' AND u.id=itc.target_id
+            LEFT JOIN printing_contractors pc ON itc.target_type='contractor' AND pc.id=itc.target_id
+            WHERE itc.dht_order_id = $1
+        `, [orderId]);
+        const currentITC = itcRows.map(r => ({ type: r.target_type, id: r.target_id, name: r.name }));
+
+        // Available staff (Phòng In) — exact match to avoid "KINH DOANH" false positive
+        const staff = await db.all(`
+            SELECT u.id, u.full_name FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')
+              AND (d.code = 'phongin' OR UPPER(COALESCE(d.name,'')) = 'PHONG IN')
+            ORDER BY u.full_name
+        `);
+
+        // Available contractors (Gia Công In)
+        const contractors = await db.all(`SELECT id, name FROM printing_contractors WHERE is_active=true ORDER BY display_order, name`);
+
+        return {
+            order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, items_desc: itemDesc },
+            current_printer: currentPrinter,
+            current_itc: currentITC,
+            staff,
+            contractors
+        };
+    });
+
+    fastify.post('/api/qlx/print-assignment/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const orderId = Number(request.params.orderId);
+        const { printer_type, printer_id, in_theu_chung } = request.body || {};
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        // Validate mutual exclusion
+        if (printer_type && printer_id && Array.isArray(in_theu_chung)) {
+            const conflict = in_theu_chung.some(itc => itc.type === printer_type && itc.id === printer_id);
+            if (conflict) return reply.code(400).send({ error: 'Người In chính không thể đồng thời ở In/Thêu Chung!' });
+        }
+
+        // Save Phân Công In
+        if (printer_type && printer_id) {
+            const userId = printer_type === 'user' ? Number(printer_id) : null;
+            const conId = printer_type === 'contractor' ? Number(printer_id) : null;
+            await db.run(`
+                INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
+                VALUES ($1, 'in', $2, $3, $4, $5)
+                ON CONFLICT (dht_order_id, assignment_type)
+                DO UPDATE SET assigned_user_id = $2, assigned_contractor_id = $3, assigned_by = $4, assigned_at = $5
+            `, [orderId, userId, conId, request.user.id, now]);
+
+            let pName = '';
+            if (userId) { const u = await db.get('SELECT full_name FROM users WHERE id=$1', [userId]); pName = u ? u.full_name : ''; }
+            else if (conId) { const c = await db.get('SELECT name FROM printing_contractors WHERE id=$1', [conId]); pName = c ? '🏭 ' + c.name : ''; }
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [orderId, 'assign_in', 'Phân công In: ' + pName, request.user.id, now]);
+        } else {
+            // Remove assignment
+            await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [orderId, 'unassign_in', 'Gỡ phân công In', request.user.id, now]);
+        }
+
+        // Save In/Thêu Chung (replace all)
+        await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+        const itcList = Array.isArray(in_theu_chung) ? in_theu_chung : [];
+        const itcNames = [];
+        for (const itc of itcList) {
+            if (!itc.type || !itc.id) continue;
+            await db.run(`INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at) VALUES ($1,$2,$3,$4,$5)
+                ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING`,
+                [orderId, itc.type, Number(itc.id), request.user.id, now]);
+            if (itc.type === 'user') { const u = await db.get('SELECT full_name FROM users WHERE id=$1', [itc.id]); itcNames.push(u ? u.full_name : ''); }
+            else { const c = await db.get('SELECT name FROM printing_contractors WHERE id=$1', [itc.id]); itcNames.push(c ? '🏭 ' + c.name : ''); }
+        }
+        if (itcNames.length) {
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [orderId, 'assign_itc', 'In/Thêu Chung: ' + itcNames.join(', '), request.user.id, now]);
+        }
+
+        return { success: true };
     });
 
     // ========== HISTORY: Lịch sử cập nhật ==========
