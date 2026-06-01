@@ -121,17 +121,8 @@ function _bnhFabRenderBody() {
             if (!it.fabric_color_id) h += '<div style="font-size:9px;color:#f59e0b;margin-top:2px">⚠️ Chưa có trong Kho Vải</div>';
             h += '</div>';
         });
-        // Auto total summary
-        var extraTotal = f.extraCosts.reduce(function(s,ec){return s+(Number(ec.amount)||0);},0);
-        var grandTotal = totalFabCost + extraTotal;
-        h += '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;margin-top:8px">'
-            + '<div style="font-size:10px;font-weight:800;color:#059669;margin-bottom:4px">📊 TỔNG KẾT BILL</div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b>'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
-        if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b>'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
-        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span>'+grandTotal.toLocaleString('vi-VN')+'đ</span></div>';
-
-        // --- CHI PHÍ KHÁC (inside TỔNG THÀNH TIỀN section) ---
-        h += '<div style="border-top:1.5px dashed #fde68a;margin-top:10px;padding-top:10px">'
+        // --- CHI PHÍ KHÁC (between fabric items and TỔNG KẾT BILL) ---
+        h += '<div style="border:1.5px solid #fde68a;border-radius:10px;padding:10px;margin-top:8px;margin-bottom:8px;background:#fffbeb">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#d97706">📋 CHI PHÍ KHÁC</span>'
             + '<button onclick="_bnhFabAddCost()" style="padding:4px 12px;border-radius:6px;border:1.5px solid #d97706;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm</button></div>';
         f.extraCosts.forEach(function (ec, ei) {
@@ -143,7 +134,16 @@ function _bnhFabRenderBody() {
         if (!f.extraCosts.length) h += '<div style="text-align:center;padding:8px;color:#d97706;font-size:11px;opacity:.6">Không có chi phí khác</div>';
         h += '</div>';
 
-        // --- HÌNH ẢNH BILL (inside TỔNG THÀNH TIỀN section) ---
+        // Auto total summary (TỔNG KẾT BILL — includes fabric + extra costs)
+        var extraTotal = f.extraCosts.reduce(function(s,ec){return s+(Number(ec.amount)||0);},0);
+        var grandTotal = totalFabCost + extraTotal;
+        h += '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;margin-top:8px">'
+            + '<div style="font-size:10px;font-weight:800;color:#059669;margin-bottom:4px">📊 TỔNG KẾT BILL</div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b>'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
+        if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b>'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
+        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span>'+grandTotal.toLocaleString('vi-VN')+'đ</span></div>';
+
+        // --- HÌNH ẢNH BILL ---
         h += '<div style="border-top:1.5px dashed #fca5a5;margin-top:10px;padding-top:10px">'
             + '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">📸 HÌNH ẢNH BILL * (Ctrl+V)</div>'
             + '<div id="_fabBillPaste" style="min-height:80px;border:2px dashed #fca5a5;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fff;position:relative" tabindex="0">';
@@ -151,7 +151,7 @@ function _bnhFabRenderBody() {
         else h += '<span style="font-size:11px;color:#fca5a5">Ctrl+V dán ảnh bill nhập vải</span>';
         h += '</div></div>';
 
-        // --- GHI CHÚ (inside TỔNG THÀNH TIỀN section) ---
+        // --- GHI CHÚ ---
         h += '<div style="border-top:1.5px dashed #e2e8f0;margin-top:10px;padding-top:10px">'
             + '<label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">📝 GHI CHÚ</label>'
             + '<textarea id="_fabNotes" rows="2" placeholder="Ghi chú thêm..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;resize:vertical">' + _escAttr(f.notes || '') + '</textarea></div>';
