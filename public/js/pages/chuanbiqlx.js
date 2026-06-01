@@ -440,8 +440,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                             ? '📎 Liên kết: ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name) + (ex.linked_from_order_code ? ' (từ 🔖 ' + ex.linked_from_order_code + ')' : '')
                             : '📞 ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name));
                     var metaInfo = '';
-                    if (isArrived && ex.arrived_by_name) metaInfo = '<div style="font-size:9px;color:#059669;margin-top:2px">Xác nhận bởi: ' + ex.arrived_by_name + '</div>';
-                    else if (ex.created_by_name) metaInfo = '<div style="font-size:9px;color:#6b7280;margin-top:2px">Tạo bởi: ' + ex.created_by_name + '</div>';
+                    if (isArrived && ex.arrived_at) {
+                        var dt = new Date(ex.arrived_at);
+                        var dateStr = ('0'+dt.getDate()).slice(-2) + '/' + ('0'+(dt.getMonth()+1)).slice(-2) + '/' + dt.getFullYear();
+                        metaInfo += '<div style="font-size:9px;color:#059669;margin-top:2px">📅 Ngày vải về: ' + dateStr + (ex.arrived_by_name ? ' • Xác nhận: ' + ex.arrived_by_name : '') + '</div>';
+                    } else if (ex.created_by_name) metaInfo = '<div style="font-size:9px;color:#6b7280;margin-top:2px">Tạo bởi: ' + ex.created_by_name + '</div>';
 
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11px">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
@@ -552,6 +555,12 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     if (tagHtml) html += tagHtml;
                     html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
                     html += '</div>';
+                    // Show import date (Ngày nhập kho)
+                    if (rl.roll_created_at) {
+                        var rdt = new Date(rl.roll_created_at);
+                        var rdStr = ('0'+rdt.getDate()).slice(-2) + '/' + ('0'+(rdt.getMonth()+1)).slice(-2) + '/' + rdt.getFullYear();
+                        html += '<div style="font-size:9px;color:#8b5cf6;margin-top:2px;padding-left:26px">📅 Ngày vải về: ' + rdStr + '</div>';
+                    }
                     html += resInfo;
                     if (avail > 0) {
                         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
