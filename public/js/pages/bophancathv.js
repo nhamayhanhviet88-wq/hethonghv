@@ -334,8 +334,8 @@ function _bpcRenderUnassigned() {
 
     // Table
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th style="min-width:130px;text-align:center">Nhận Đơn</th><th>Mã Đơn</th><th>Tên KH</th><th>CSKH</th><th>Tên SP / Phối</th>'
-        +'<th>Chất Liệu</th><th>Màu</th><th>SL</th><th>Ngày Ship</th><th>Ưu Tiên</th>'
+        +'<th>STT</th><th style="min-width:130px;text-align:center">Nhận Đơn</th><th style="text-align:center">Ưu Tiên</th><th>Mã Đơn</th><th>Tên KH</th><th>CSKH</th><th>Tên SP / Phối</th>'
+        +'<th>Chất Liệu</th><th>Màu</th><th>SL</th><th>Ngày Ship</th>'
         +'<th>Trạng Thái</th></tr></thead><tbody>';
     if (!all.length) {
         th += '<tr><td colspan="12"><div class="empty-state"><div class="icon">✅</div><h3>Không có đơn chờ cắt</h3><p>Tất cả đơn đã được nhận</p></div></td></tr>';
@@ -348,7 +348,7 @@ function _bpcRenderUnassigned() {
             var isNew = r.id !== lastId; if (isNew) { stt++; lastId = r.id; }
             var bg = isNew ? '' : 'background:#f0f9ff;';
             var ready = r.fabric_arrived && r.has_pc_in;
-            var priColor = r.shipping_priority === 'GẤP' ? 'background:#dc2626;color:#fff' : r.shipping_priority === 'GỬI' ? 'background:#f59e0b;color:#fff' : 'background:#e2e8f0;color:#334155';
+            var priColor = r.shipping_priority === 'GẤP' ? 'background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,0.35)' : r.shipping_priority === 'GỬI' ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,0.35)' : 'background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.4)';
             var spName = (r.total_phoi > 1) ? (r.order_code + ' — Phiếu ' + r.item_index + ' — P' + r.phoi_in_item + (r.item_desc ? ' — ' + r.item_desc : '')) : (r.order_code + (r.item_desc ? ' — ' + r.item_desc : ''));
             // Status badges
             var statusHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap">'
@@ -357,6 +357,7 @@ function _bpcRenderUnassigned() {
                 + '</div>';
             // Claim button with rowspan
             var claimTd = '';
+            var priTd = '';
             if (isNew) {
                 var rs = orderRowCount[r.id] || 1;
                 var claimHtml;
@@ -369,6 +370,7 @@ function _bpcRenderUnassigned() {
                     claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
                 }
                 claimTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
+                priTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle"><span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;letter-spacing:0.5px;font-family:Inter,system-ui,sans-serif;'+priColor+'">'+(r.shipping_priority||'CHUẨN')+'</span></td>';
             }
             // SL: P1 (phối chính mỗi phiếu) = xanh đậm, P2+ = xanh nhạt
             var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
@@ -377,6 +379,7 @@ function _bpcRenderUnassigned() {
             th += '<tr style="'+bg+'">'
                 +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
                 +claimTd
+                +priTd
                 +'<td style="font-weight:700;color:#1e293b">'+(isNew?r.order_code:'')+'</td>'
                 +'<td style="font-size:10px">'+(isNew?(r.customer_name||''):'')+'</td>'
                 +'<td style="font-size:10px;color:#6b7280">'+(isNew?(r.cskh_name||r.created_by_name||''):'')+'</td>'
@@ -385,7 +388,6 @@ function _bpcRenderUnassigned() {
                 +'<td style="font-size:10px">'+(r.color_name||'—')+'</td>'
                 +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
                 +'<td style="font-size:10px;color:#475569">'+(isNew?_bpcFmtDate(r.expected_ship_date):'')+'</td>'
-                +'<td style="text-align:center">'+(isNew?'<span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;'+priColor+'">'+(r.shipping_priority||'CHUẨN')+'</span>':'')+'</td>'
                 +'<td>'+(isNew?statusHtml:'')+'</td>'
                 +'</tr>';
         });
