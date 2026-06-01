@@ -128,6 +128,11 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS arrived_by INTEGER`);
     } catch(e) { console.error('[QLX] fabric arrival columns:', e.message); }
 
+    // Linked call support
+    try {
+        await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS linked_call_id INTEGER REFERENCES qlx_fabric_reservations(id)`);
+    } catch(e) { /* column likely exists */ }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -732,13 +737,46 @@ module.exports = async function(fastify) {
             ORDER BY res.reservation_type, res.created_at
         `, [orderId, itemId, pi]);
 
+        // Fetch pending new_call reservations from OTHER orders with same material/color
+        let pendingCalls = [];
+        if (phoi.material_name && phoi.color_name) {
+            pendingCalls = await db.all(`
+                SELECT res.id, res.dht_order_id, res.item_id, res.phoi_index,
+                       res.material_name, res.color_name, res.call_trees, res.call_amount,
+                       res.call_content, res.call_note, res.call_date, res.status,
+                       o.order_code, it.description AS product_name,
+                       u.full_name AS created_by_name,
+                       (SELECT COUNT(*)::int FROM qlx_fabric_reservations lk WHERE lk.linked_call_id = res.id AND lk.status != 'released') AS linked_count
+                FROM qlx_fabric_reservations res
+                LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+                LEFT JOIN dht_order_items it ON it.id = res.item_id
+                LEFT JOIN users u ON u.id = res.created_by
+                WHERE res.reservation_type = 'new_call'
+                  AND res.status = 'reserved'
+                  AND res.dht_order_id != $1
+                  AND UPPER(res.material_name) = UPPER($2)
+                  AND UPPER(res.color_name) = UPPER($3)
+                ORDER BY res.created_at DESC
+            `, [orderId, phoi.material_name.trim(), phoi.color_name.trim()]);
+        }
+
+        // Check if this order already linked to any call
+        const myLinked = await db.all(`
+            SELECT linked_call_id FROM qlx_fabric_reservations
+            WHERE dht_order_id = $1 AND item_id = $2 AND phoi_index = $3
+              AND reservation_type = 'linked_call' AND status != 'released'
+        `, [orderId, itemId, pi]);
+        const myLinkedIds = myLinked.map(r => r.linked_call_id);
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity },
             phoi: { material_name: phoi.material_name, color_name: phoi.color_name, phoi_index: pi },
             warehouse,
             rolls,
-            existing
+            existing,
+            pendingCalls,
+            myLinkedIds
         };
     });
 
@@ -796,6 +834,31 @@ module.exports = async function(fastify) {
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
                 VALUES ($1, 'fabric_call', $2, $3, $4)`,
                 [dht_order_id, `Gọi vải: ${call_content || (material_name+' - '+color_name)}`, request.user.id, now]);
+        } else if (reservation_type === 'linked_call') {
+            const { linked_call_id } = request.body || {};
+            if (!linked_call_id) return reply.code(400).send({ error: 'Thiếu linked_call_id' });
+
+            // Verify parent call exists and is still pending
+            const parent = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1 AND reservation_type = $2 AND status = $3',
+                [linked_call_id, 'new_call', 'reserved']);
+            if (!parent) return reply.code(400).send({ error: 'Cuộc gọi vải gốc không tồn tại hoặc đã xử lý' });
+
+            // Check if already linked
+            const alreadyLinked = await db.get(
+                'SELECT id FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND linked_call_id=$2 AND status!=$3',
+                [dht_order_id, linked_call_id, 'released']);
+            if (alreadyLinked) return reply.code(400).send({ error: 'Đã liên kết rồi!' });
+
+            await db.run(`
+                INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                    reservation_type, call_trees, call_amount, call_content, linked_call_id, status, created_by)
+                VALUES ($1,$2,$3,$4,$5,$6,'linked_call',$7,$8,$9,$10,'reserved',$11)
+            `, [dht_order_id, item_id, phoi_index||0, parent.material_name, parent.color_name, parent.unit||'kg',
+                parent.call_trees, parent.call_amount, parent.call_content, linked_call_id, request.user.id]);
+
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                VALUES ($1, 'fabric_link', $2, $3, $4)`,
+                [dht_order_id, `Liên kết gọi vải: ${parent.call_content || parent.material_name+' - '+parent.color_name} (từ đơn khác)`, request.user.id, now]);
         }
 
         // Update fabric_called status
@@ -853,13 +916,47 @@ module.exports = async function(fastify) {
         await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_item_arrived', $2, $3, $4)`,
             [res.dht_order_id, label, request.user.id, now]);
 
-        // Auto-update order-level fabric_arrived if ALL reservations for this order are arrived
-        const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [res.dht_order_id]);
-        if (pending && pending.cnt === 0) {
-            await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
-                VALUES ($1, true, $2, $3)
-                ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = $2, fabric_arrived_by = $3, updated_at = $2`,
-                [res.dht_order_id, now, request.user.id]);
+        // ===== CASCADE ARRIVE (2-way) =====
+        // Determine the root call ID for cascade
+        let rootCallId = null;
+        if (res.reservation_type === 'new_call') rootCallId = res.id;
+        else if (res.reservation_type === 'linked_call' && res.linked_call_id) rootCallId = res.linked_call_id;
+
+        const affectedOrderIds = [res.dht_order_id];
+        if (rootCallId) {
+            // Arrive the root call (if not this one)
+            if (rootCallId !== res.id) {
+                await db.run('UPDATE qlx_fabric_reservations SET status=$1, arrived_at=$2, arrived_by=$3, updated_at=$2 WHERE id=$4 AND status=$5',
+                    ['arrived', now, request.user.id, rootCallId, 'reserved']);
+                const rootRes = await db.get('SELECT dht_order_id FROM qlx_fabric_reservations WHERE id=$1', [rootCallId]);
+                if (rootRes && !affectedOrderIds.includes(rootRes.dht_order_id)) affectedOrderIds.push(rootRes.dht_order_id);
+            }
+            // Arrive all linked children
+            const linkedRows = await db.all(
+                'SELECT id, dht_order_id FROM qlx_fabric_reservations WHERE linked_call_id=$1 AND status=$2',
+                [rootCallId, 'reserved']);
+            for (const lk of linkedRows) {
+                await db.run('UPDATE qlx_fabric_reservations SET status=$1, arrived_at=$2, arrived_by=$3, updated_at=$2 WHERE id=$4',
+                    ['arrived', now, request.user.id, lk.id]);
+                if (!affectedOrderIds.includes(lk.dht_order_id)) affectedOrderIds.push(lk.dht_order_id);
+            }
+            // Log cascade for linked orders
+            for (const oid of affectedOrderIds) {
+                if (oid === res.dht_order_id) continue;
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_item_arrived', $2, $3, $4)`,
+                    [oid, `[Cascade] ${label}`, request.user.id, now]);
+            }
+        }
+
+        // Auto-update order-level fabric_arrived for ALL affected orders
+        for (const oid of affectedOrderIds) {
+            const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [oid]);
+            if (pending && pending.cnt === 0) {
+                await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
+                    VALUES ($1, true, $2, $3)
+                    ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = $2, fabric_arrived_by = $3, updated_at = $2`,
+                    [oid, now, request.user.id]);
+            }
         }
 
         return { success: true };
@@ -875,24 +972,41 @@ module.exports = async function(fastify) {
         const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [request.params.id]);
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
 
-        await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = NOW() WHERE id = $2', ['released', request.params.id]);
-
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
+
+        await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, request.params.id]);
+
         await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
             VALUES ($1, 'fabric_release', $2, $3, $4)`,
             [res.dht_order_id, `Giải phóng: ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount}${res.unit})`, user.id, now]);
 
-        // Recheck order-level fabric_arrived after releasing a reservation
-        const remaining = await db.get(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status != 'released'`, [res.dht_order_id]);
-        if (remaining && remaining.total > 0 && remaining.pending === 0) {
-            // All remaining are 'arrived' → fabric_arrived = true
-            await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                [now, user.id, res.dht_order_id]);
-        } else {
-            // Still has pending or no reservations left → fabric_arrived = false
-            await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                [now, res.dht_order_id]);
+        // ===== CASCADE RELEASE for new_call =====
+        const affectedOrderIds = [res.dht_order_id];
+        if (res.reservation_type === 'new_call') {
+            // Release all linked children
+            const linkedRows = await db.all(
+                'SELECT id, dht_order_id FROM qlx_fabric_reservations WHERE linked_call_id=$1 AND status!=$2',
+                [res.id, 'released']);
+            for (const lk of linkedRows) {
+                await db.run('UPDATE qlx_fabric_reservations SET status=$1, updated_at=$2 WHERE id=$3', ['released', now, lk.id]);
+                if (!affectedOrderIds.includes(lk.dht_order_id)) affectedOrderIds.push(lk.dht_order_id);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'fabric_release', $2, $3, $4)`,
+                    [lk.dht_order_id, `[Cascade hủy] Cuộc gọi vải gốc đã bị hủy`, user.id, now]);
+            }
+        }
+
+        // Recheck order-level fabric_arrived for ALL affected orders
+        for (const oid of affectedOrderIds) {
+            const remaining = await db.get(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status != 'released'`, [oid]);
+            if (remaining && remaining.total > 0 && remaining.pending === 0) {
+                await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                    [now, user.id, oid]);
+            } else {
+                await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                    [now, oid]);
+            }
         }
 
         return { success: true };

@@ -380,9 +380,12 @@ async function _qlxFabric(orderId, action) {
 async function _qlxFabricPopup(orderId, itemId, pairIndex) {
     try {
         var data = await apiCall('/api/qlx/fabric-lookup/' + orderId + '/' + itemId + '/' + pairIndex);
+        var d = data; // keep reference for pendingCalls/myLinkedIds
         var o = data.order, it = data.item, ph = data.phoi, wh = data.warehouse, rolls = data.rolls || [], existing = data.existing || [];
         var unit = wh ? wh.unit : 'kg';
         var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
+        // Store for _qlxFabLink access
+        window._qlxFabPopupData = { material_name: ph ? ph.material_name : '', color_name: ph ? ph.color_name : '', unit: unit };
 
         var html = '<div style="padding:0">';
         // Header info
@@ -426,7 +429,9 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>';
                     var lbl = ex.reservation_type === 'from_stock'
                         ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ' — Cây ' + (ex.roll_code||'') + ': ' + ex.kg_reserved + unitLabel
-                        : '📞 ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name);
+                        : (ex.reservation_type === 'linked_call'
+                            ? '📎 Liên kết: ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name) + ' (từ đơn khác)'
+                            : '📞 ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name));
                     var metaInfo = '';
                     if (isArrived && ex.arrived_by_name) metaInfo = '<div style="font-size:9px;color:#059669;margin-top:2px">Xác nhận bởi: ' + ex.arrived_by_name + '</div>';
                     else if (ex.created_by_name) metaInfo = '<div style="font-size:9px;color:#6b7280;margin-top:2px">Tạo bởi: ' + ex.created_by_name + '</div>';
@@ -449,6 +454,30 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += '</div>';
                 });
                 html += '</div>';
+            }
+            // === Pending calls from other orders (same material/color) ===
+            var pendingCalls = d.pendingCalls || [];
+            var myLinkedIds = d.myLinkedIds || [];
+            // Filter: only show calls NOT already linked by this order
+            var showableCalls = pendingCalls.filter(function(pc) { return myLinkedIds.indexOf(pc.id) < 0; });
+            if (showableCalls.length) {
+                html += '<div style="padding:8px 20px"><div style="border:1.5px dashed #8b5cf6;border-radius:10px;padding:10px;background:#faf5ff">';
+                html += '<div style="font-size:11px;font-weight:800;color:#7c3aed;margin-bottom:8px">📞 CUỘC GỌI VẢI ĐANG CHỜ (cùng ' + ph.material_name + ' - ' + ph.color_name + ')</div>';
+                showableCalls.forEach(function(pc) {
+                    var linkedWarn = pc.linked_count > 5 ? '<div style="font-size:9px;color:#dc2626;margin-top:2px">⚠️ Đã có ' + pc.linked_count + ' đơn liên kết!</div>' : '';
+                    html += '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:8px;padding:8px 10px;margin-bottom:6px">';
+                    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+                    html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">🔖 ' + pc.order_code + '</span>';
+                    html += '<span style="font-size:10px;color:#374151;font-weight:600">' + (pc.product_name ? 'Phối ' + ((pc.phoi_index||0)+1) + ' — ' + pc.product_name : 'Phối ' + ((pc.phoi_index||0)+1)) + '</span>';
+                    html += '<span style="margin-left:auto"></span>';
+                    html += '<button onclick="_qlxFabLink(' + pc.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">📎 Liên kết đơn này</button>';
+                    html += '</div>';
+                    html += '<div style="font-size:10px;color:#6b7280;margin-top:4px">📞 ' + (pc.call_content || pc.material_name + ' - ' + pc.color_name) + '</div>';
+                    if (pc.linked_count > 0) html += '<div style="font-size:9px;color:#7c3aed;margin-top:2px">🔗 Đã có ' + pc.linked_count + ' đơn liên kết</div>';
+                    html += linkedWarn;
+                    html += '</div>';
+                });
+                html += '</div></div>';
             }
 
             // === Stock section (always visible when warehouse has data) ===
@@ -665,6 +694,23 @@ async function _qlxFabRelease(resId, orderId, itemId, pairIndex) {
         _qlxLoadAll();
     } catch(e) { showToast(e.message, 'error'); }
 }
+
+async function _qlxFabLink(callId, orderId, itemId, pairIndex) {
+    if (!confirm('Liên kết đơn này vào cuộc gọi vải đang chờ?')) return;
+    try {
+        // Get phoi info from current popup data
+        var ph = window._qlxFabPopupData || {};
+        await apiCall('/api/qlx/fabric-reserve', 'POST', {
+            dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
+            material_name: ph.material_name || '', color_name: ph.color_name || '', unit: ph.unit || 'kg',
+            reservation_type: 'linked_call', linked_call_id: callId
+        });
+        showToast('📎 Đã liên kết thành công!');
+        _qlxFabricPopup(orderId, itemId, pairIndex);
+        _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
 async function _qlxMaterial(orderId, action) {
     try { await apiCall('/api/qlx/material/' + orderId, 'POST', { action: action }); showToast('✅ Cập nhật vật liệu'); await _qlxLoadAll(); } catch(e) { showToast(e.message, 'error'); }
 }
