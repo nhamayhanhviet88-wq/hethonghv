@@ -365,8 +365,8 @@ function _bpcRenderUnassigned() {
                 }
                 claimTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
             }
-            // SL: show for every phối, lighter color for non-first
-            var qtyStyle = isNew ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
+            // SL: P1 (phối chính mỗi phiếu) = xanh đậm, P2+ = xanh nhạt
+            var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
             var qtyVal = r.item_qty || r.total_quantity || '';
 
             th += '<tr style="'+bg+'">'
