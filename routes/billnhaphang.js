@@ -521,19 +521,21 @@ module.exports = async function(fastify) {
             if (match && match.wh_unit) g.unit = match.wh_unit;
         }
 
-        // 4. Count already imported trees for each group from import_records
+        // 4. Count already imported trees linked to specific reservations (NOT by material+color)
         const allImports = await db.all(`
             SELECT fabric_items FROM import_records WHERE record_type = 'fabric'
         `);
-        // Parse JSONB and count trees per material+color
-        const importedMap = {}; // key → imported_tree_count
+        // Build list of { resIds: Set<number>, treeCount } from all previous import bills
+        const importEntries = [];
         for (const ir of allImports) {
             let items = [];
             try { items = typeof ir.fabric_items === 'string' ? JSON.parse(ir.fabric_items) : (ir.fabric_items || []); } catch(e) {}
             for (const fi of items) {
-                const ik = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}|${(fi.unit||'kg')}`;
-                if (!importedMap[ik]) importedMap[ik] = 0;
-                importedMap[ik] += (fi.trees || []).length;
+                const resIds = (fi.reservation_ids || []).map(Number).filter(n => n > 0);
+                const treeCount = (fi.trees || []).length;
+                if (resIds.length > 0 && treeCount > 0) {
+                    importEntries.push({ resIds: new Set(resIds), treeCount });
+                }
             }
         }
 
@@ -541,7 +543,18 @@ module.exports = async function(fastify) {
         const groups = [];
         for (const key of Object.keys(groupMap)) {
             const g = groupMap[key];
-            g.imported_trees = importedMap[key] || 0;
+            // Count imported trees ONLY from bills whose reservation_ids overlap with this group
+            const groupResIds = new Set(g.reservations.map(r => r.id));
+            let imported = 0;
+            for (const entry of importEntries) {
+                for (const rid of entry.resIds) {
+                    if (groupResIds.has(rid)) {
+                        imported += entry.treeCount;
+                        break; // Count each bill entry only once
+                    }
+                }
+            }
+            g.imported_trees = imported;
             g.remaining_trees = Math.max(0, g.needed_trees - g.imported_trees);
             if (g.remaining_trees > 0) groups.push(g);
         }
@@ -723,49 +736,74 @@ module.exports = async function(fastify) {
                 });
             }
 
-            // 4. Smart fulfillment check per material+color group
-            // Count ALL imported trees (including this bill) per material+color
+            // 4. Smart fulfillment check per reservation group (NOT by material+color)
+            // Count imported trees from PREVIOUS bills linked to same reservation IDs
             const allImportRows = await client.query(`SELECT fabric_items FROM import_records WHERE record_type='fabric'`);
-            const impTreeMap = {};
+            const prevImportEntries = [];
             for (const row of allImportRows.rows) {
                 let items = []; try { items = typeof row.fabric_items === 'string' ? JSON.parse(row.fabric_items) : (row.fabric_items || []); } catch(e) {}
                 for (const fi of items) {
-                    const ik = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}`;
-                    impTreeMap[ik] = (impTreeMap[ik] || 0) + (fi.trees || []).length;
+                    const resIds = (fi.reservation_ids || []).map(Number).filter(n => n > 0);
+                    const treeCount = (fi.trees || []).length;
+                    if (resIds.length > 0 && treeCount > 0) {
+                        prevImportEntries.push({ resIds: new Set(resIds), treeCount });
+                    }
                 }
             }
-            // Also count trees from THIS bill (not yet in DB)
-            for (const fi of fabricItemsResult) {
-                const ik = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}`;
-                impTreeMap[ik] = (impTreeMap[ik] || 0) + (fi.trees || []).length;
-            }
 
-            // For each unique material+color in this bill, check if fulfilled
-            const checkedGroups = new Set();
+            // For each fabric item in this bill, check fulfillment by reservation_ids
+            const checkedResGroups = new Set();
             for (const fi of fabricItemsResult) {
-                const gk = `${(fi.material_name||'').trim().toUpperCase()}|${(fi.color_name||'').trim().toUpperCase()}`;
-                if (checkedGroups.has(gk)) continue;
-                checkedGroups.add(gk);
+                const fiResIds = (fi.reservation_ids || []).map(Number).filter(n => n > 0);
+                if (!fiResIds.length) continue;
+                const resKey = fiResIds.slice().sort((a, b) => a - b).join(',');
+                if (checkedResGroups.has(resKey)) continue;
+                checkedResGroups.add(resKey);
 
-                // Get all reservations for this material+color
+                const fiResIdSet = new Set(fiResIds);
+
+                // Get the specific reservations linked to this bill
                 const groupRes = await client.query(
                     `SELECT id, dht_order_id, call_trees, call_amount FROM qlx_fabric_reservations
-                     WHERE reservation_type='new_call' AND status='reserved'
-                       AND UPPER(TRIM(material_name))=$1 AND UPPER(TRIM(color_name))=$2
+                     WHERE id = ANY($1) AND reservation_type='new_call' AND status='reserved'
                      FOR UPDATE`,
-                    [fi.material_name.trim().toUpperCase(), fi.color_name.trim().toUpperCase()]
+                    [fiResIds]
                 );
                 if (groupRes.rows.length === 0) continue;
 
-                // Calculate needed trees for this group
+                // Calculate needed trees for these specific reservations
                 let neededTrees = 0;
                 for (const r of groupRes.rows) {
                     neededTrees += (Number(r.call_trees) || 0) + (Number(r.call_amount) > 0 ? 1 : 0);
                 }
-                const importedTrees = impTreeMap[gk] || 0;
 
-                if (importedTrees >= neededTrees) {
-                    // FULFILLED → mark new_call reservations as 'fulfilled' (hidden in popup, replaced by auto-created from_stock)
+                // Count trees from PREVIOUS bills linked to same reservations
+                let prevImported = 0;
+                for (const entry of prevImportEntries) {
+                    for (const rid of entry.resIds) {
+                        if (fiResIdSet.has(rid)) {
+                            prevImported += entry.treeCount;
+                            break; // Count each bill entry only once
+                        }
+                    }
+                }
+
+                // Count trees from THIS bill for this reservation group
+                let thisImported = 0;
+                for (const fi2 of fabricItemsResult) {
+                    const fi2ResIds = (fi2.reservation_ids || []).map(Number);
+                    for (const rid of fi2ResIds) {
+                        if (fiResIdSet.has(rid)) {
+                            thisImported += (fi2.trees || []).length;
+                            break; // Count each fabric item only once
+                        }
+                    }
+                }
+
+                const totalImported = prevImported + thisImported;
+
+                if (totalImported >= neededTrees) {
+                    // FULFILLED → mark new_call reservations as 'fulfilled'
                     const resIds = groupRes.rows.map(r => r.id);
                     await client.query(
                         `UPDATE qlx_fabric_reservations SET status='fulfilled', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=ANY($3)`,
