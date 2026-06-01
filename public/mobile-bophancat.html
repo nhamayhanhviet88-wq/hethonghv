@@ -9,17 +9,17 @@
     <link rel="icon" href="/images/logo.png" type="image/png">
     <style>
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#1e293b);min-height:100vh;color:#e2e8f0;padding-bottom:70px}
+        body{font-family:'Inter',sans-serif;background:#0f172a;min-height:100vh;color:#e2e8f0;padding-bottom:70px}
         .m-header{background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);position:sticky;top:0;z-index:100}
         .m-header img{width:32px;height:32px;border-radius:8px}
         .m-header h1{font-size:15px;font-weight:800;color:#fca5a5;flex:1}
         .m-user{font-size:10px;color:#fecaca;font-weight:600;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px}
-        .m-tabs{display:flex;background:rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.08);position:sticky;top:60px;z-index:99}
+        .m-tabs{display:flex;background:#1a2332;border-bottom:1px solid rgba(255,255,255,0.08);position:sticky;top:60px;z-index:99}
         .m-tab{flex:1;padding:12px 8px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s}
         .m-tab.active{color:#fca5a5;border-bottom-color:#ef4444;background:rgba(239,68,68,0.08)}
         .m-tab .m-tab-badge{display:inline-block;background:#ef4444;color:#fff;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;margin-left:4px;min-width:18px}
-        .m-content{padding:12px}
-        .m-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:12px;overflow:hidden}
+        .m-content{padding:12px;background:#0f172a;min-height:calc(100vh - 120px)}
+        .m-card{background:#1e293b;border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:12px;overflow:hidden}
         .m-card-top{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.06)}
         .m-card-icon{font-size:28px}
         .m-card-title{font-size:14px;font-weight:800;color:#fca5a5;flex:1}
@@ -32,10 +32,10 @@
         .m-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin:2px}
         .m-badge-ok{background:#dcfce7;color:#059669}
         .m-badge-no{background:#fee2e2;color:#dc2626}
-        .m-btn-claim{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;margin-top:10px;letter-spacing:0.5px;transition:all .2s}
+        .m-btn-claim{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;margin-top:10px;letter-spacing:0.5px;transition:all .2s;font-family:'Inter',sans-serif}
         .m-btn-claim.ready{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.4)}
         .m-btn-claim.ready:active{transform:scale(0.97)}
-        .m-btn-claim.locked{background:rgba(255,255,255,0.06);color:#64748b;cursor:not-allowed}
+        .m-btn-claim.locked{background:#283548;color:#94a3b8;cursor:not-allowed;border:1.5px solid rgba(255,255,255,0.1);font-weight:700}
         .m-card-actions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.06)}
         .m-act{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);cursor:pointer}
         .m-act:active{transform:scale(0.92)}
@@ -57,7 +57,10 @@
         .m-filter{display:flex;gap:8px;padding:8px 12px;background:rgba(255,255,255,0.03)}
         .m-filter select{flex:1;padding:8px;border:1.5px solid rgba(255,255,255,0.12);border-radius:8px;font-size:13px;background:rgba(255,255,255,0.06);color:#e2e8f0;font-family:'Inter',sans-serif}
         .m-filter option{background:#1e293b;color:#e2e8f0}
-        .m-pri{padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800}
+        .m-pri{padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:0.5px;display:inline-block;font-family:'Inter',sans-serif}
+        .m-pri-chuan{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.4)}
+        .m-pri-gap{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,0.35)}
+        .m-pri-gui{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,0.35)}
     </style>
 </head>
 <body>
@@ -95,6 +98,14 @@ function mToast(msg,ok=true){
 }
 
 function mFmt(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
+
+function mPriClass(pri){
+    if(pri==='GẤP') return 'm-pri m-pri-gap';
+    if(pri==='GỬI') return 'm-pri m-pri-gui';
+    return 'm-pri m-pri-chuan';
+}
+
+function mPriLabel(pri){ return pri || 'CHUẨN'; }
 
 async function mInit(){
     try{
@@ -134,59 +145,50 @@ function mRender(){
 function mRenderUncut(){
     const c=document.getElementById('mContent');
     if(!mUncut.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không có đơn chờ</div><div style="font-size:13px">Tất cả đơn đã được nhận</div></div>';return;}
-    let lastId=null,html='';
-    mUncut.forEach(r=>{
-        const isNew=r.id!==lastId;
-        if(isNew)lastId=r.id;
-        const ready=r.fabric_arrived&&r.has_pc_in;
-        const priStyle=r.shipping_priority==='GẤP'?'background:#dc2626;color:#fff':r.shipping_priority==='GỬI'?'background:#f59e0b;color:#fff':'background:rgba(255,255,255,0.1);color:#94a3b8';
-        const spName=r.phoi_index>0?'PHỐI '+r.phoi_index+(r.item_desc?' — '+r.item_desc:''):(r.item_desc||r.order_code);
 
-        if(isNew){
-            if(html)html+='</div>';// close prev card
-            html+='<div class="m-card"><div class="m-card-top">';
-            html+='<div class="m-card-icon">'+(ready?'🟢':'🔴')+'</div>';
-            html+='<div class="m-card-title">'+r.order_code+'</div>';
-            html+='<span class="m-pri" style="'+priStyle+'">'+(r.shipping_priority||'CHUẨN')+'</span>';
-            html+='</div><div class="m-card-body">';
-            html+='<div class="m-row"><span class="m-lbl">👤 Khách hàng</span><span class="m-val">'+(r.customer_name||'—')+'</span></div>';
-            html+='<div class="m-row"><span class="m-lbl">📅 Ngày ship</span><span class="m-val">'+mFmt(r.expected_ship_date)+'</span></div>';
-            html+='<div class="m-row"><span class="m-lbl">📦 Số lượng</span><span class="m-val" style="color:#60a5fa">'+(r.total_quantity||'—')+'</span></div>';
-            html+='<div class="m-divider"></div>';
-        }
-        // Phối row
-        html+='<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
-        html+='<div style="font-size:12px;font-weight:700;color:#e2e8f0">'+spName+'</div>';
-        html+='<div style="display:flex;gap:8px;margin-top:4px;font-size:11px">';
-        html+='<span style="color:#94a3b8">🧵 '+(r.material_name||'—')+'</span>';
-        html+='<span style="color:#94a3b8">🎨 '+(r.color_name||'—')+'</span>';
-        html+='</div></div>';
-    });
-    // Close last card + add claim/status
-    if(html)html+='</div>';
-    // Re-render with buttons by grouping
-    c.innerHTML='';
-    let curId=null,cardHtml='';
+    // Group by order
     const grouped={};
     mUncut.forEach(r=>{if(!grouped[r.id])grouped[r.id]={order:r,phois:[]};grouped[r.id].phois.push(r);});
 
+    let cardHtml='';
     Object.values(grouped).forEach(g=>{
-        const o=g.order,ready=o.fabric_arrived&&o.has_pc_in;
-        const priStyle=o.shipping_priority==='GẤP'?'background:#dc2626;color:#fff':o.shipping_priority==='GỬI'?'background:#f59e0b;color:#fff':'background:rgba(255,255,255,0.1);color:#94a3b8';
+        const o=g.order, ready=o.fabric_arrived&&o.has_pc_in;
+        const priCls=mPriClass(o.shipping_priority);
+        const priLbl=mPriLabel(o.shipping_priority);
         let h='<div class="m-card"><div class="m-card-top">';
         h+='<div class="m-card-icon">'+(ready?'🟢':'🔴')+'</div>';
         h+='<div class="m-card-title">'+o.order_code+'</div>';
-        h+='<span class="m-pri" style="'+priStyle+'">'+(o.shipping_priority||'CHUẨN')+'</span>';
+        h+='<span class="'+priCls+'">'+priLbl+'</span>';
         h+='</div><div class="m-card-body">';
         h+='<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+(o.customer_name||'—')+'</span></div>';
+        // NV Sale (CSKH)
+        const saleName = o.cskh_name || o.created_by_name || '';
+        if(saleName) h+='<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>';
         h+='<div class="m-row"><span class="m-lbl">📅 Ship</span><span class="m-val">'+mFmt(o.expected_ship_date)+'</span></div>';
-        h+='<div class="m-row"><span class="m-lbl">📦 SL</span><span class="m-val" style="color:#60a5fa">'+(o.total_quantity||'—')+'</span></div>';
+        h+='<div class="m-row"><span class="m-lbl">📦 SL tổng</span><span class="m-val" style="color:#60a5fa">'+(o.total_quantity||'—')+'</span></div>';
         h+='<div class="m-divider"></div>';
+
+        // Render each phối with full name
         g.phois.forEach(p=>{
-            const sp=p.phoi_index>0?'PHỐI '+p.phoi_index+(p.item_desc?' — '+p.item_desc:''):(p.item_desc||'');
-            h+='<div style="padding:4px 0"><div style="font-size:12px;font-weight:700;color:#e2e8f0">'+(sp||o.order_code)+'</div>';
-            h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px">🧵 '+(p.material_name||'—')+' · 🎨 '+(p.color_name||'—')+'</div></div>';
+            // Build phối name like desktop: "VTTI0002 — Phiếu 1 — P1 — ÁO CỔ BẺ"
+            let spName;
+            if(p.total_phoi > 1){
+                spName = o.order_code + ' — Phiếu ' + p.item_index + ' — P' + p.phoi_in_item + (p.item_desc ? ' — ' + p.item_desc : '');
+            } else {
+                spName = p.item_desc || o.order_code;
+            }
+            const itemQty = p.item_qty || '';
+            h+='<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+            h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+            h+='<div style="font-size:12px;font-weight:700;color:#e2e8f0;flex:1">'+spName+'</div>';
+            if(itemQty) h+='<div style="font-size:12px;font-weight:800;color:#60a5fa;margin-left:8px">SL: '+itemQty+'</div>';
+            h+='</div>';
+            h+='<div style="display:flex;gap:8px;margin-top:4px;font-size:11px">';
+            h+='<span style="color:#94a3b8">🧵 '+(p.material_name||'—')+'</span>';
+            h+='<span style="color:#94a3b8">🎨 '+(p.color_name||'—')+'</span>';
+            h+='</div></div>';
         });
+
         h+='<div class="m-divider"></div>';
         // Status badges
         h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">';

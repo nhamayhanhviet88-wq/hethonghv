@@ -557,6 +557,10 @@ module.exports = async function(fastify) {
                 CASE WHEN COALESCE(p.fabric_arrived, false) = true
                      AND EXISTS (SELECT 1 FROM qlx_assignments qa2 WHERE qa2.dht_order_id = o.id AND qa2.assignment_type = 'in' AND (qa2.assigned_user_id IS NOT NULL OR qa2.assigned_contractor_id IS NOT NULL))
                 THEN 0 ELSE 1 END,
+                CASE WHEN COALESCE(o.shipping_priority, 'CHUẨN') NOT IN ('GẤP','GỬI') THEN 0
+                     WHEN o.shipping_priority = 'GẤP' THEN 1
+                     WHEN o.shipping_priority = 'GỬI' THEN 2
+                     ELSE 3 END,
                 o.expected_ship_date ASC NULLS LAST, o.order_date DESC
         `);
 
