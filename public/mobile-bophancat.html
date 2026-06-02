@@ -633,7 +633,7 @@ function mOpenGroupDoneModal(groupId){
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
     h+='<span style="font-size:11px;font-weight:800;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
-    h+='<button onclick="mGDoneAllCut()" style="padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔴 Cắt hết</button></div>';
+    h+='<button id="_mGCutAllBtn" onclick="mGDoneAllCut()" style="padding:8px 18px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;min-height:38px">🔴 Cắt hết tất cả</button></div>';
     rolls.forEach((rl,idx)=>{
         const w=Number(rl.weight)||0;
         h+='<div style="border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:8px">';
@@ -665,6 +665,8 @@ function mOpenGroupDoneModal(groupId){
 function mCloseGDone(){const m=document.getElementById('_mmGDoneModal');if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}}
 function mGDoneToggleRoll(idx){
     window._mGDone._allCut=false;
+    const btn=document.getElementById('_mGCutAllBtn');
+    if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết tất cả';}
     const cb=document.querySelector('._mGRollCb[data-idx="'+idx+'"]');
     const inp=document.getElementById('_mGRollInp_'+idx);
     if(cb&&inp){inp.style.display=cb.checked?'block':'none';if(!cb.checked){const k=document.getElementById('_mGRollKg_'+idx);if(k)k.value='';}}
@@ -673,6 +675,8 @@ function mGDoneToggleRoll(idx){
 function mGDoneAllCut(){
     window._mGDone._allCut=true;
     document.querySelectorAll('._mGRollCb').forEach(cb=>{cb.checked=false;const i=cb.dataset.idx;const inp=document.getElementById('_mGRollInp_'+i);if(inp)inp.style.display='none';const k=document.getElementById('_mGRollKg_'+i);if(k)k.value='';});
+    const btn=document.getElementById('_mGCutAllBtn');
+    if(btn){btn.style.background='#059669';btn.textContent='✅ Đã chọn cắt hết';}
     mGDoneRecalc();
 }
 function mGDoneRecalc(){
@@ -685,17 +689,12 @@ function mGDoneRecalc(){
     d.records.forEach(r=>{const inp=document.getElementById('_mGQ_'+r.id);const q=inp?parseInt(inp.value)||0:0;qtys.push({id:r.id,qty:q,name:r.product_name||r.order_code});totalQty+=q;});
     let dh='';
     if(totalQty>0&&totalKgCut>0){
-        dh+='<div style="font-size:10px;font-weight:800;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📊 PHÂN BỔ TỈ LỆ</div>';
-        qtys.forEach(q=>{
-            const myKg=totalQty>0?(q.qty/totalQty)*totalKgCut:0;
-            const ratio=q.qty>0?Math.round((myKg/q.qty)*100)/100:0;
-            const rc=ratio>0.5?'#ef4444':ratio>0.3?'#fbbf24':'#10b981';
-            const shortN=q.name.length>28?q.name.substring(0,28)+'…':q.name;
-            dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:11px">';
-            dh+='<span style="color:#e2e8f0;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px">'+shortN+'</span>';
-            dh+='<span style="color:#94a3b8;white-space:nowrap">'+myKg.toFixed(1)+'kg</span>';
-            dh+='<span style="color:'+rc+';font-weight:900;min-width:45px;text-align:right">'+ratio.toFixed(2)+'</span></div>';
-        });
+        const combinedRatio=Math.round((totalKgCut/totalQty)*100)/100;
+        const rc=combinedRatio>0.5?'#ef4444':combinedRatio>0.3?'#fbbf24':'#10b981';
+        dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(16,185,129,0.1);border:1.5px solid rgba(16,185,129,0.25);border-radius:10px">';
+        dh+='<span style="font-size:12px;font-weight:800;color:#e2e8f0">📊 TỈ LỆ CHUNG</span>';
+        dh+='<span style="font-size:11px;color:#94a3b8">'+totalKgCut.toFixed(1)+'kg / '+totalQty+' sp</span>';
+        dh+='<span style="font-size:20px;font-weight:900;color:'+rc+'">'+combinedRatio.toFixed(2)+'</span></div>';
     }
     const dp=document.getElementById('_mGDistrib');if(dp)dp.innerHTML=dh;
 }
