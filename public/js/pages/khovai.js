@@ -26,6 +26,11 @@ async function renderKhovaiPage(content) {
             '.kv-sb-wh.active{background:#99f6e4}',
             '.kv-badge-nhap{background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
             '.kv-badge-xuat{background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
+            '.kv-badge-cat{background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
+            '.kv-badge-hoan{background:#10b981;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
+            '.kv-badge-nhapkk{background:#0d9488;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
+            '.kv-badge-xuatkk{background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
+            '.kv-badge-update{background:#6366f1;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
             '.kv-stat-card{background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:100px;box-shadow:0 2px 8px rgba(0,0,0,0.15)}',
             '.kv-stat-label{font-size:9px;font-weight:700;color:#0d9488;letter-spacing:1px;margin-bottom:2px}',
             '.kv-stat-val{font-size:13px;font-weight:900}',
@@ -240,9 +245,9 @@ function _kvRenderTable() {
         h += '<td style="text-align:right;font-weight:900;color:' + cuoiColor + '">' + _kvFmt(r.cuoi_ky) + '</td>';
         h += '<td style="text-align:right;font-size:11px">' + (r.price ? _kvFmt(r.price) + '\u0111' : '\u2014') + '</td>';
         h += '<td style="white-space:nowrap">' + (lastUp || '<span style="color:var(--gray-300)">\u2014</span>') + '</td>';
-        h += '<td style="white-space:nowrap" onclick="event.stopPropagation()"><button onclick="_kvShowRolls(' + r.id + ')" style="background:#0d9488;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Xem c\u1ee5c v\u1ea3i">\ud83d\udce6</button> ';
-        h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="L\u1ecbch s\u1eed">\ud83d\udccb</button> ';
-        h += '<button onclick="_kvShowTx(' + r.id + ')" style="background:#f59e0b;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700" title="Nh\u1eadp/Xu\u1ea5t">\u00b1</button></td>';
+        h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
+        h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
+        h += '</td>';
         h += '</tr>';
     });
     h += '</tbody></table>';
@@ -511,11 +516,19 @@ async function _kvShowHistory(fcid) {
             hist.forEach(function(t) {
                 var d = new Date(t.created_at);
                 var ds = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-                var typeBadge = t.tx_type === 'NHAP' ? '<span class="kv-badge-nhap">NHẬP</span>' : (t.tx_type === 'XUAT' ? '<span class="kv-badge-xuat">XUẤT</span>' : '<span style="background:#6366f1;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px">CẬP NHẬT</span>');
+                var typeBadge = '';
+                if (t.tx_type === 'NHAP') typeBadge = '<span class="kv-badge-nhap">NHẬP</span>';
+                else if (t.tx_type === 'XUAT') typeBadge = '<span class="kv-badge-xuat">XUẤT</span>';
+                else if (t.tx_type === 'CAT') typeBadge = '<span class="kv-badge-cat">CẮT</span>';
+                else if (t.tx_type === 'HOAN') typeBadge = '<span class="kv-badge-hoan">HOÀN</span>';
+                else if (t.tx_type === 'NHAP_KK') typeBadge = '<span class="kv-badge-nhapkk">NHẬP KK</span>';
+                else if (t.tx_type === 'XUAT_KK') typeBadge = '<span class="kv-badge-xuatkk">XUẤT KK</span>';
+                else typeBadge = '<span class="kv-badge-update">CẬP NHẬT</span>';
+
                 body += '<tr><td style="padding:6px;white-space:nowrap">' + ds + '</td>';
                 body += '<td style="padding:6px">' + typeBadge + '</td>';
                 body += '<td style="padding:6px;text-align:right;font-weight:700">' + (Number(t.quantity) ? _kvFmt(t.quantity) : '—') + '</td>';
-                body += '<td style="padding:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + (t.description||'') + '</td>';
+                body += '<td style="padding:6px;word-break:break-word">' + (t.description||'') + '</td>';
                 body += '<td style="padding:6px;font-size:10px">' + (t.created_by_name||'—') + '</td></tr>';
             });
             body += '</tbody></table>';

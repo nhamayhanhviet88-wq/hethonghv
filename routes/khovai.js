@@ -452,16 +452,100 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/history', { preHandler: [authenticate] }, async (request) => {
         const { fcid } = request.query;
         if (!fcid) return { history: [] };
-        const rows = await db.all(
-            `SELECT t.*, u.full_name AS created_by_name, u.role AS created_by_role
-             FROM kv_transactions t
-             LEFT JOIN users u ON u.id = t.created_by
-             WHERE t.fabric_color_id = $1
-             ORDER BY t.created_at DESC
-             LIMIT 50`,
+
+        // 1. Fetch fabric color details to get material and color name for matching cuts/nx
+        const colorInfo = await db.get(
+            `SELECT fc.color_name, m.name AS material_name
+             FROM kv_fabric_colors fc
+             JOIN kv_materials m ON m.id = fc.material_id
+             WHERE fc.id = $1`,
             [fcid]
         );
-        return { history: rows };
+        if (!colorInfo) return { history: [] };
+        const colorName = (colorInfo.color_name || '').trim();
+        const materialName = (colorInfo.material_name || '').trim();
+
+        // 2. Fetch direct warehouse transactions (kv_transactions)
+        const kvTx = await db.all(
+            `SELECT t.tx_type, t.quantity, t.description, t.created_at,
+                    u.full_name AS created_by_name, u.role AS created_by_role
+             FROM kv_transactions t
+             LEFT JOIN users u ON u.id = t.created_by
+             WHERE t.fabric_color_id = $1`,
+            [fcid]
+        );
+
+        // 3. Fetch completed cuts (cutting_records)
+        const cuts = await db.all(
+            `SELECT cr.product_name, cr.cut_quantity, cr.kg_cut AS quantity,
+                    COALESCE(cr.cut_done_at, cr.updated_at, cr.created_at) AS created_at,
+                    u.full_name AS created_by_name, u.role AS created_by_role
+             FROM cutting_records cr
+             LEFT JOIN users u ON u.id = cr.cut_done_by
+             WHERE cr.is_cut_done = true
+               AND TRIM(cr.material_name) ILIKE $1
+               AND TRIM(cr.fabric_color) ILIKE $2`,
+            [materialName, colorName]
+        );
+
+        // 4. Fetch returns, KK, and external transactions (fabric_transactions)
+        const externalTx = await db.all(
+            `SELECT ft.tx_type, ft.total_quantity AS quantity, ft.notes AS description, ft.is_approved,
+                    COALESCE(ft.approved_at, ft.created_at) AS created_at,
+                    u.full_name AS created_by_name, u.role AS created_by_role
+             FROM fabric_transactions ft
+             LEFT JOIN users u ON u.id = COALESCE(ft.approved_by, ft.created_by)
+             WHERE TRIM(ft.material_name) ILIKE $1
+               AND TRIM(ft.color_name) ILIKE $2`,
+            [materialName, colorName]
+        );
+
+        // 5. Merge all history logs
+        const merged = [];
+
+        // Add kv_transactions
+        for (const t of kvTx) {
+            merged.push({
+                created_at: t.created_at,
+                tx_type: t.tx_type,
+                quantity: Number(t.quantity),
+                description: t.description || '',
+                created_by_name: t.created_by_name || '—'
+            });
+        }
+
+        // Add completed cutting records
+        for (const c of cuts) {
+            merged.push({
+                created_at: c.created_at,
+                tx_type: 'CAT',
+                quantity: Number(c.quantity),
+                description: `Cắt đơn hàng: ${c.product_name || '—'} (SL: ${c.cut_quantity || 0} cái)`,
+                created_by_name: c.created_by_name || '—'
+            });
+        }
+
+        // Add external fabric transactions
+        const TX_LABELS = { HOAN: 'Hoàn', NHAP_KK: 'Nhập Kiểm Kê', XUAT_KK: 'Xuất Kiểm Kê', NHAP: 'Nhập Vải', XUAT: 'Xuất Vải' };
+        for (const ft of externalTx) {
+            let label = TX_LABELS[ft.tx_type] || ft.tx_type;
+            let desc = ft.description || '';
+            if (ft.is_approved === false) {
+                desc = '[Chờ duyệt] ' + desc;
+            }
+            merged.push({
+                created_at: ft.created_at,
+                tx_type: ft.tx_type,
+                quantity: Number(ft.quantity),
+                description: `[NXHV ${label}] ${desc}`.trim(),
+                created_by_name: ft.created_by_name || '—'
+            });
+        }
+
+        // Sort descending by created_at
+        merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        return { history: merged };
     });
 
     // ========== SUMMARY (Bảng chính) ==========
