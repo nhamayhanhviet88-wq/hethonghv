@@ -110,6 +110,31 @@
 <script>
 let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[];
 
+function mConfirm(msg, onOk){
+    const d=document.createElement('div');
+    d.className='mm-overlay';
+    d.id='_mmConfirmModal';
+    let h='<div class="mm-sheet">';
+    h+='<div class="mm-header" style="background:linear-gradient(135deg,#f59e0b,#ea580c)">';
+    h+='<div class="mm-icon">⚠️</div><div><div class="mm-title">XÁC NHẬN CẮT HẾT</div></div></div>';
+    h+='<div class="mm-body" style="padding:24px 20px;font-size:15px;font-weight:700;color:#e2e8f0;text-align:center;line-height:1.5;white-space:pre-line">'+msg+'</div>';
+    h+='<div class="mm-actions">';
+    h+='<button class="mm-btn mm-btn-no" onclick="mCloseConfirm()">HUỶ</button>';
+    h+='<button class="mm-btn mm-btn-ok" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 4px 15px rgba(234,88,12,0.3)" id="_mConfirmOk">ĐỒNG Ý</button>';
+    h+='</div></div>';
+    d.innerHTML=h;
+    document.body.appendChild(d);
+    setTimeout(()=>d.classList.add('show'),10);
+    document.getElementById('_mConfirmOk').onclick=()=>{
+        mCloseConfirm();
+        onOk();
+    };
+}
+function mCloseConfirm(){
+    const m=document.getElementById('_mmConfirmModal');
+    if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}
+}
+
 async function mApi(url,method='GET',body=null){
     const opts={method,headers:{'Content-Type':'application/json'},credentials:'include'};
     if(body)opts.body=JSON.stringify(body);
@@ -584,13 +609,19 @@ async function mSubmitDone(recordId){
     });
     if(err){mToast('Kiểm tra kg còn lại',false);return;}
     const uc=d.rolls.length-rollRemains.length;
-    if(uc>0&&!confirm(uc+' cây sẽ cắt hết (0kg). OK?'))return;
-    const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains};
-    const reason=document.getElementById('_mDoneReason');if(reason&&reason.value.trim())body.ratio_reason=reason.value.trim();
-    if(d.imgData)body.ratio_image=d.imgData;
-    const btn=document.getElementById('_mDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
-    try{await mApi('/api/cutting/toggle/'+recordId,'POST',body);mCloseDoneModal();mToast('✅ Cắt xong!');await mLoadAll();}
-    catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN';}}
+    const proceed=async()=>{
+        const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains};
+        const reason=document.getElementById('_mDoneReason');if(reason&&reason.value.trim())body.ratio_reason=reason.value.trim();
+        if(d.imgData)body.ratio_image=d.imgData;
+        const btn=document.getElementById('_mDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
+        try{await mApi('/api/cutting/toggle/'+recordId,'POST',body);mCloseDoneModal();mToast('✅ Cắt xong!');await mLoadAll();}
+        catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN';}}
+    };
+    if(uc>0){
+        mConfirm(uc+' cây sẽ cắt hết (0kg).\nBạn có chắc chắn?',proceed);
+    }else{
+        proceed();
+    }
 }
 
 // ========== FAB visibility ==========
@@ -737,13 +768,19 @@ async function mSubmitGDone(){
     });
     if(err){mToast('Kiểm tra kg còn lại',false);return;}
     const uc=d.rolls.length-rollRemains.length;
-    if(uc>0&&!confirm(uc+' cây sẽ cắt hết (0kg). OK?'))return;
-    const body={group_id:d.groupId,items,roll_remains:rollRemains};
-    const btn=document.getElementById('_mGDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
-    try{
-        await mApi('/api/cutting/multi-cut/done','POST',body);
-        mCloseGDone();mToast('✅ Cắt xong nhóm '+items.length+' đơn!');await mLoadAll();
-    }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN CẮT XONG';}}
+    const proceed=async()=>{
+        const body={group_id:d.groupId,items,roll_remains:rollRemains};
+        const btn=document.getElementById('_mGDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
+        try{
+            await mApi('/api/cutting/multi-cut/done','POST',body);
+            mCloseGDone();mToast('✅ Cắt xong nhóm '+items.length+' đơn!');await mLoadAll();
+        }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN CẮT XONG';}}
+    };
+    if(uc>0){
+        mConfirm(uc+' cây sẽ cắt hết (0kg).\nBạn có chắc chắn?',proceed);
+    }else{
+        proceed();
+    }
 }
 
 // ========== MULTI-CUT WIZARD (Mobile) ==========
