@@ -210,6 +210,13 @@ function _dhtRenderTable() {
         filtered.sort(function(a, b) { return (Number(b.remaining_amount)||0) - (Number(a.remaining_amount)||0); });
     } else if (sf === 'revenue') {
         filtered.sort(function(a, b) { return (Number(b.total_amount)||0) - (Number(a.total_amount)||0); });
+    } else if (sf === 'no_sx_print') {
+        // Chưa In Phiếu: exclude PET(8), TEM(9)
+        var _SX_EXCLUDE_CATS = [8, 9];
+        filtered = filtered.filter(function(o) {
+            if (_SX_EXCLUDE_CATS.indexOf(Number(o.category_id)) !== -1) return false;
+            return !o.sx_print_confirmed;
+        });
     }
 
     // Apply sorting
@@ -598,6 +605,7 @@ function _dhtRenderOrderRows(filtered) {
         if (o.zalo_oa_sent) badges += `<span style="${bStyle}background:#dbeafe;color:#1e40af;">ZA</span> `;
         if (o.has_error) badges += `<span style="${bStyle}background:#fee2e2;color:#dc2626;">LỖI</span> `;
         if (o.has_repair_order) badges += `<span style="${bStyle}background:#ede9fe;color:#6d28d9;">SỬA</span> `;
+        if (o.sx_print_confirmed) badges += `<span style="${bStyle}background:#d1fae5;color:#059669;">✅SX</span> `;
         const badgeRow = badges ? `<div style="margin-top:2px;">${badges}</div>` : '';
 
         // Category color badge
@@ -729,6 +737,19 @@ function _dhtUpdateInfo(count, filtered) {
                 +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ CHƯA THU</div>'
                 +'<div style="font-size:15px;font-weight:900">'+fmt(totalRemaining)+'đ</div>'
                 +'</div>';
+            // ★ Chưa In Phiếu SX card — exclude PET(8), TEM(9)
+            var _SX_EXCLUDE = [8, 9];
+            var noPrintCount = (filtered || arr).filter(function(o) {
+                if (_SX_EXCLUDE.indexOf(Number(o.category_id)) !== -1) return false;
+                return !o.sx_print_confirmed;
+            }).length;
+            if (noPrintCount > 0) {
+                cardsHTML += '<div onclick="_dhtStatFilter(\'no_sx_print\')" style="cursor:pointer;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:8px 18px;border-radius:10px;min-width:120px;text-align:center;box-shadow:0 4px 15px #d9770630;position:relative;overflow:hidden;transition:all .2s;'+_ring('no_sx_print')+'">' 
+                    +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.9s"></div>'
+                    +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">🏭 CHƯA IN PHIẾU</div>'
+                    +'<div style="font-size:15px;font-weight:900">'+noPrintCount+' đơn</div>'
+                    +'</div>';
+            }
             sc.innerHTML = cardsHTML;
         }
         // Inject shimmer animation if not present
@@ -879,7 +900,7 @@ async function _dhtShowDetail(id) {
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
             { icon: o.zalo_oa_sent ? '✅' : '📱', label: o.zalo_oa_sent ? 'Đã Gửi Zalo OA' : 'Chưa Gửi Zalo OA', color: o.zalo_oa_sent ? '#059669' : '#94a3b8', bg: o.zalo_oa_sent ? '#d1fae5' : '#f1f5f9', fn: `alert('Chức năng Zalo OA sẽ được kết nối sau!')`, perm: canDo('dht_zalo_oa', 'view') },
             { icon: '🖨️', label: 'In Phiếu', color: '#7c3aed', bg: '#ede9fe', fn: `_dhtPrintOrder(${id})`, perm: canDo('dht_in_phieu', 'view') },
-            { icon: '🏭', label: 'In Phiếu SX', color: '#0891b2', bg: '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
+            { icon: o.sx_print_confirmed ? '✅' : '🏭', label: o.sx_print_confirmed ? 'Đã In Phiếu SX' : 'In Phiếu SX', color: o.sx_print_confirmed ? '#059669' : '#0891b2', bg: o.sx_print_confirmed ? '#d1fae5' : '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: (o.has_error && o.all_errors_handed_over) ? '#b45309' : '#cbd5e1', bg: (o.has_error && o.all_errors_handed_over) ? '#fef3c7' : '#f1f5f9', fn: `_dhtCreateRepairOrder(${id})`, disabled: !(o.has_error && o.all_errors_handed_over), perm: canDo('dht_don_sua', 'view'), disabledTitle: !o.has_error ? 'Cần báo đơn lỗi trước' : 'Cần bàn giao Hàng Lỗi Về cho QLX trước', extraClass: (o.has_error && o.all_errors_handed_over) ? 'dht-don-sua-glow' : '' },
             { icon: '📦', label: 'Hàng Lỗi Về', color: o.has_error ? (o.all_errors_handed_over ? '#059669' : '#0369a1') : '#cbd5e1', bg: o.has_error ? (o.all_errors_handed_over ? '#d1fae5' : '#e0f2fe') : '#f1f5f9', fn: `_dhtErrorReturnHandover(${id})`, disabled: !o.has_error, perm: canDo('dht_bao_loi', 'view'), disabledTitle: 'Cần báo đơn lỗi trước', extraClass: o.has_error ? 'dht-hang-loi-ve-glow' : '' },
             { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },

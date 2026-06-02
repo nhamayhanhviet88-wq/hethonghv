@@ -15,6 +15,11 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed BOOLEAN DEFAULT FALSE`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_at TIMESTAMP DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS sx_print_confirmed_by INTEGER DEFAULT NULL`); } catch(e) {}
+    // ★ Migration: backfill old orders as "đã in" so they don't flood "Chưa In Phiếu" filter
+    try {
+        const backfill = await db.run(`UPDATE dht_orders SET sx_print_confirmed = TRUE WHERE sx_print_confirmed = FALSE AND sx_print_confirmed_at IS NULL AND order_date < '2026-06-03'`);
+        if (backfill?.changes > 0) console.log(`[Migration] Backfilled ${backfill.changes} old orders as sx_print_confirmed`);
+    } catch(e) {}
     // Smart Customer: link orders to free customer record
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS free_customer_id INTEGER DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_carriers ADD COLUMN IF NOT EXISTS tracking_url_template TEXT DEFAULT NULL`); } catch(e) {}
