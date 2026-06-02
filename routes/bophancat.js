@@ -1358,7 +1358,7 @@ module.exports = async function(fastify) {
         const groupId = 'MCG_' + Date.now() + '_' + userId;
         const records = await db.all(`SELECT id, product_name FROM cutting_records WHERE id = ANY($1)`, [createdIds]);
         const productNames = records.map(r => r.product_name).filter(Boolean);
-        const cutShared = 'Cắt chung ' + records.length + ' đơn: ' + productNames.join(', ');
+        const cutShared = 'Cắt chung ' + records.length + ' đơn:\n' + productNames.join('\n');
 
         for (const rid of createdIds) {
             await db.run(`UPDATE cutting_records SET

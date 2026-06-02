@@ -274,7 +274,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center;font-weight:600">'+(r.kg_start||'—')+'</td>'
             +'<td style="text-align:center;font-weight:600">'+(r.kg_end||'—')+'</td>'
             +'<td>'+warnHtml+'</td>'
-            +'<td style="font-size:9px;color:#6b7280">'+(r.cut_shared||'—')+'</td>'
+            +'<td style="font-size:9px;color:#6b7280;white-space:pre-line;line-height:1.4">'+(r.cut_shared||'—')+'</td>'
             +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
             +'</tr>';
     }).join('');
@@ -655,7 +655,7 @@ function _bpcOpenDetail(recordId) {
     }
     // Warning + shared
     if (r.cut_warning) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Cảnh Báo</span><span class="bpc-modal-val" style="color:#dc2626">' + r.cut_warning + '</span></div>';
-    if (r.cut_shared) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1">' + r.cut_shared + '</span></div>';
+    if (r.cut_shared) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1;white-space:pre-line;line-height:1.5;font-size:10px">' + r.cut_shared + '</span></div>';
     h += '</div>';
     // Close button
     h += '<div style="padding:12px 24px;border-top:1px solid #f1f5f9;text-align:center"><button class="bpc-modal-btn cancel" style="width:100%" onclick="var m=document.getElementById(\'_bpcDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Đóng</button></div>';

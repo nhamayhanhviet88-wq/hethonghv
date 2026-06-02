@@ -274,7 +274,7 @@ function mRenderMine(){
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
             +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+r.kg_start+'</span></div>':'')
-            +(r.multi_cut_group_id?'<div style="margin:4px 0;padding:4px 10px;background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:6px;font-size:10px;font-weight:700;color:#f97316">🔗 '+(r.cut_shared||'Cắt chung')+'</div>':'')
+            +(r.multi_cut_group_id?'<div style="margin:4px 0;padding:6px 10px;background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:6px;font-size:10px;font-weight:700;color:#f97316;white-space:pre-line;line-height:1.5">🔗 '+(r.cut_shared||'Cắt chung')+'</div>':'')
             +actionHtml
             +'</div></div>';
     }).join('');
@@ -477,7 +477,7 @@ function mOpenDetail(recordId){
         if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
     }
     if(r.cut_warning) h+='<div class="mm-row"><span class="mm-lbl">⚠️ Cảnh báo</span><span class="mm-val" style="color:#ef4444">'+r.cut_warning+'</span></div>';
-    if(r.cut_shared) h+='<div class="mm-row"><span class="mm-lbl">🔄 Cắt chung</span><span class="mm-val" style="color:#a5b4fc">'+r.cut_shared+'</span></div>';
+    if(r.cut_shared) h+='<div class="mm-row"><span class="mm-lbl">🔄 Cắt chung</span><span class="mm-val" style="color:#a5b4fc;white-space:pre-line;line-height:1.5;font-size:10px">'+r.cut_shared+'</span></div>';
     h+='</div>';
     h+='<div class="mm-actions"><button class="mm-btn mm-btn-no" style="width:100%" onclick="var m=document.getElementById(\'_mmDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(()=>m.remove(),350)}">Đóng</button></div>';
     h+='</div></div>';
