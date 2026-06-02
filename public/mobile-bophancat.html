@@ -216,14 +216,14 @@ async function mInit(){
     }catch(e){document.getElementById('mContent').innerHTML='<div class="m-empty"><div class="m-empty-icon">❌</div><div>Lỗi: '+e.message+'</div></div>';}
 }
 
-async function mOpenTargetRatioModal(){
+async function mOpenRatioModal() {
     if(window._mBusy) return;
     window._mBusy = true;
     let h = '<div class="mm-overlay" id="_mRatioModal" onclick="if(event.target===this)mCloseRatioModal()">';
     h += '<div class="mm-sheet" style="max-height:85vh;display:flex;flex-direction:column">';
-    h += '<div class="mm-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mm-icon">⚖️</div><div><div class="mm-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="mm-sub">Giám đốc thiết lập tỉ lệ định lượng tối thiểu</div></div></div>';
-    h += '<div class="mm-body" id="_mRatioBody" style="overflow-y:auto;flex:1;padding:16px 20px"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
-    h += '<div class="mm-actions" style="border-top:1px solid rgba(255,255,255,0.06);padding:16px 20px"><button class="mm-btn mm-btn-no" onclick="mCloseRatioModal()">Hủy</button>';
+    h += '<div class="mm-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mm-icon">⚖️</div><div><div class="mm-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="mm-sub">Giám đốc thiết lập số sản phẩm tối thiểu trên 1 Kg hoặc 1 Mét vải</div></div></div>';
+    h += '<div class="mm-body" id="_mRatioBody" style="overflow-y:auto;flex:1;padding:16px;background:#111827"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
+    h += '<div class="mm-actions" style="border-top:1px solid rgba(255,255,255,0.06);padding:16px"><button class="mm-btn mm-btn-no" onclick="mCloseRatioModal()">Hủy</button>';
     h += '<button class="mm-btn mm-btn-ok" style="background:linear-gradient(135deg,#059669,#10b981)" onclick="mSaveTargetRatios()">💾 LƯU THAY ĐỔI</button></div>';
     h += '</div></div>';
     document.body.insertAdjacentHTML('beforeend', h);
@@ -231,33 +231,53 @@ async function mOpenTargetRatioModal(){
 
     try {
         const res = await mApi('/api/cutting/target-ratios');
-        const mats = res.materials || [];
+        const materials = res.materials || [];
+        const categories = res.categories || [];
+        const targets = res.targets || [];
+        
+        const targetMap = {};
+        targets.forEach(t => {
+            targetMap[t.material_id + '_' + t.cutting_category] = Number(t.target_ratio) || 0;
+        });
+
         const bd = document.getElementById('_mRatioBody');
-        let b = '<div style="padding-right:4px">';
+        let b = '<div style="padding-bottom:10px">';
         
-        const kgMats = mats.filter(m => m.unit_name === 'kg');
-        const metMats = mats.filter(m => m.unit_name === 'mét');
+        const groups = {};
+        materials.forEach(m => {
+            const whKey = m.warehouse_name + ' (Đơn vị: ' + m.unit + ')';
+            if (!groups[whKey]) groups[whKey] = [];
+            groups[whKey].push(m);
+        });
         
-        if (kgMats.length > 0) {
-            b += '<div style="font-size:11px;font-weight:800;color:#10b981;margin-bottom:8px;letter-spacing:0.5px">🧵 KHO VẢI KG (KG/SP)</div>';
-            kgMats.forEach(m => {
-                b += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
-                b += '<span style="font-size:12px;font-weight:600;color:#e2e8f0">' + m.material_name + '</span>';
-                b += '<div style="display:flex;align-items:center;gap:6px">';
-                b += '<input class="_mRatioInput" data-id="' + m.id + '" type="number" step="0.01" min="0" value="' + (m.target_cut_ratio || 0) + '" style="width:75px;padding:6px;border:1.5px solid rgba(255,255,255,0.15);border-radius:8px;font-size:13px;font-weight:700;text-align:center;color:#10b981;background:rgba(255,255,255,0.06)">';
-                b += '<span style="font-size:10px;color:#94a3b8">kg</span></div></div>';
+        for (const [whName, list] of Object.entries(groups)) {
+            b += '<div style="margin-bottom:16px">';
+            b += '<div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-left:3px solid #10b981;padding-left:6px">' + whName + '</div>';
+            b += '<div style="display:flex;flex-direction:column;gap:8px">';
+            list.forEach(m => {
+                b += '<div class="material-acc-group" style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:#1f2937;overflow:hidden">';
+                b += '  <div class="acc-header" onclick="var body=this.nextElementSibling; body.style.display=body.style.display===\'none\'?\'block\':\'none\'; this.querySelector(\'.arrow\').textContent=body.style.display===\'none\'?\'▼\':\'▲\'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#111827;cursor:pointer;user-select:none">';
+                b += '    <span style="font-size:12px;font-weight:700;color:#f3f4f6">🧶 ' + m.name + '</span>';
+                b += '    <span style="font-size:10px;color:#10b981;font-weight:600">sp/' + m.unit + ' <span class="arrow" style="margin-left:4px">▼</span></span>';
+                b += '  </div>';
+                b += '  <div class="acc-body" style="display:none;padding:12px;background:#1f2937;border-top:1px solid rgba(255,255,255,0.06)">';
+                
+                categories.forEach(cat => {
+                    const key = m.id + '_' + cat.name;
+                    const val = targetMap[key] || 0;
+                    b += '    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+                    b += '      <span style="font-size:11px;color:#d1d5db">🏷️ ' + cat.name + '</span>';
+                    b += '      <div style="display:flex;align-items:center;gap:4px">';
+                    b += '        <input class="_mRatioInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="number" step="0.01" min="0" value="' + val + '" style="width:65px;padding:4px;border:1.5px solid #10b981;border-radius:6px;font-size:12px;font-weight:800;text-align:center;color:#10b981;background:rgba(255,255,255,0.04)">';
+                    b += '        <span style="font-size:9px;color:#94a3b8">sp/' + m.unit + '</span>';
+                    b += '      </div>';
+                    b += '    </div>';
+                });
+                
+                b += '  </div>';
+                b += '</div>';
             });
-        }
-        
-        if (metMats.length > 0) {
-            b += '<div style="font-size:11px;font-weight:800;color:#3b82f6;margin-top:14px;margin-bottom:8px;letter-spacing:0.5px">📐 KHO VẢI MÉT (MÉT/SP)</div>';
-            metMats.forEach(m => {
-                b += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
-                b += '<span style="font-size:12px;font-weight:600;color:#e2e8f0">' + m.material_name + '</span>';
-                b += '<div style="display:flex;align-items:center;gap:6px">';
-                b += '<input class="_mRatioInput" data-id="' + m.id + '" type="number" step="0.01" min="0" value="' + (m.target_cut_ratio || 0) + '" style="width:75px;padding:6px;border:1.5px solid rgba(255,255,255,0.15);border-radius:8px;font-size:13px;font-weight:700;text-align:center;color:#3b82f6;background:rgba(255,255,255,0.06)">';
-                b += '<span style="font-size:10px;color:#94a3b8">m</span></div></div>';
-            });
+            b += '</div></div>';
         }
         
         b += '</div>';
@@ -278,11 +298,12 @@ async function mSaveTargetRatios() {
     if(window._mSubmitBusy) return;
     window._mSubmitBusy = true;
     const inputs = document.querySelectorAll('._mRatioInput');
-    const items = [];
+    const ratios = [];
     inputs.forEach(inp => {
-        items.push({
-            id: Number(inp.dataset.id),
-            target_cut_ratio: parseFloat(inp.value) || 0
+        ratios.push({
+            material_id: Number(inp.dataset.matId),
+            cutting_category: inp.dataset.cat,
+            target_ratio: parseFloat(inp.value) || 0
         });
     });
 
@@ -290,7 +311,7 @@ async function mSaveTargetRatios() {
     if(btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
 
     try {
-        await mApi('/api/cutting/target-ratios', 'POST', { items });
+        await mApi('/api/cutting/target-ratios', 'POST', { ratios });
         mCloseRatioModal();
         mToast('✅ Đã lưu tỉ lệ định lượng!');
         await mLoadAll();
@@ -452,7 +473,7 @@ function mRenderMine(){
         const isGroupInProgress = r.multi_cut_group_id && groupNotDoneIds.has(r.multi_cut_group_id);
         const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' kg' : '—');
         const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? Number(r.kg_end).toFixed(2) + ' kg' : '—');
-        const ratioVal = isGroupInProgress ? 'Chờ nhóm' : (r.cut_ratio ? Number(r.cut_ratio).toFixed(2) : '—');
+        const ratioVal = isGroupInProgress ? 'Chờ nhóm' : (r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—');
         const cutQtyVal = r.cut_quantity || '—';
 
         let metricsHtml = '';
@@ -460,7 +481,12 @@ function mRenderMine(){
             metricsHtml += '<div class="m-row"><span class="m-lbl">📦 SL Cắt</span><span class="m-val" style="color:#10b981;font-size:15px;font-weight:900">'+cutQtyVal+'</span></div>';
             metricsHtml += '<div class="m-row"><span class="m-lbl">⚖️ Kg Cuối</span><span class="m-val" style="color:#ef4444">'+kgEndVal+'</span></div>';
             metricsHtml += '<div class="m-row"><span class="m-lbl">✂️ Kg Cắt</span><span class="m-val" style="color:#10b981">'+kgCutVal+'</span></div>';
-            metricsHtml += '<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ</span><span class="m-val" style="color:#fbbf24">'+ratioVal+'</span></div>';
+            let rc = '#fbbf24';
+            const tr = Number(r.target_cut_ratio) || 0;
+            if (tr > 0 && r.cut_ratio) {
+                rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
+            }
+            metricsHtml += '<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>';
         }
 
         const sharedText = r.cut_shared ? r.cut_shared.split(':')[0] : 'Cắt chung';
@@ -492,9 +518,14 @@ function mRenderHist(){
         
         const kgCutVal = r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' kg' : '—';
         const kgEndVal = r.kg_end ? Number(r.kg_end).toFixed(2) + ' kg' : '—';
-        const ratioVal = r.cut_ratio ? Number(r.cut_ratio).toFixed(2) : '—';
+        const ratioVal = r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—';
 
-        return '<div class="m-card"><div class="m-card-top">'
+            let rc = '#a5b4fc';
+            const tr = Number(r.target_cut_ratio) || 0;
+            if (tr > 0 && r.cut_ratio) {
+                rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
+            }
+            return '<div class="m-card"><div class="m-card-top">'
             +'<div class="m-card-icon">✅</div>'
             +'<div class="m-card-title">'+(r.product_name||'SP')+ccBadge+sharedBadge+'</div>'
             +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
@@ -506,7 +537,7 @@ function mRenderHist(){
             +'<div class="m-row"><span class="m-lbl">📦 SL</span><span class="m-val">'+(r.cut_quantity||r.order_quantity||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cuối</span><span class="m-val">'+kgEndVal+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">✂️ Kg Cắt</span><span class="m-val" style="color:#fbbf24">'+kgCutVal+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ</span><span class="m-val">'+ratioVal+'</span></div>'
+            +'<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>'
             +'</div></div>';
     }).join('');
 }
@@ -706,9 +737,9 @@ function mOpenDetail(recordId){
     mMine.forEach(x => { if (x.multi_cut_group_id && !x.is_cut_done) groupNotDoneIds.add(x.multi_cut_group_id); });
     const isGroupInProgress = r.multi_cut_group_id && groupNotDoneIds.has(r.multi_cut_group_id);
 
-    const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' kg' : '—');
-    const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? Number(r.kg_end).toFixed(2) + ' kg' : '—');
-    const ratioVal = isGroupInProgress ? 'Chờ nhóm' : (r.cut_ratio ? Number(r.cut_ratio).toFixed(2) : '—');
+    const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' ' + (r.fabric_unit || 'kg') : '—');
+    const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? Number(r.kg_end).toFixed(2) + ' ' + (r.fabric_unit || 'kg') : '—');
+    const ratioVal = isGroupInProgress ? 'Chờ nhóm' : (r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—');
 
     // Kg stats grid
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
@@ -719,8 +750,15 @@ function mOpenDetail(recordId){
     h+='</div>';
     // Ratio
     if(r.cut_ratio || isGroupInProgress){
-        const rc=Number(r.cut_ratio)>5?'#ef4444':Number(r.cut_ratio)>3?'#fbbf24':'#10b981';
-        h+='<div class="mm-row" style="margin-top:8px"><span class="mm-lbl">📊 Tỉ Lệ</span><span class="mm-val" style="color:'+rc+';font-size:18px">'+ratioVal+'</span></div>';
+        let rc = '#fbbf24';
+        const tr = Number(r.target_cut_ratio) || 0;
+        if (tr > 0 && r.cut_ratio) {
+            rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
+        }
+        h+='<div class="mm-row" style="margin-top:8px"><span class="mm-lbl">📊 Tỉ Lệ Thực Tế</span><span class="mm-val" style="color:'+rc+';font-size:18px">'+ratioVal+'</span></div>';
+        if(tr > 0) {
+            h+='<div class="mm-row"><span class="mm-lbl">⚖️ Định Lượng</span><span class="mm-val" style="color:#10b981;font-weight:700">'+tr+' sp/'+(r.fabric_unit || 'kg')+'</span></div>';
+        }
         if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
     }
     if(r.cut_warning) h+='<div class="mm-row"><span class="mm-lbl">⚠️ Cảnh báo</span><span class="mm-val" style="color:#ef4444">'+r.cut_warning+'</span></div>';
@@ -739,7 +777,7 @@ function mOpenDoneModal(recordId){
     if(window._mBusy)return;
     window._mBusy=true;
     let rolls=[];try{rolls=typeof r.selected_roll_ids==='string'?JSON.parse(r.selected_roll_ids):(r.selected_roll_ids||[]);}catch(e){}
-    window._mDoneData={recordId,rolls,kgStart:Number(r.kg_start)||0,orderQty:Number(r.order_quantity)||0,imgData:null,isMultiGroup:false,isLastInGroup:true,targetRatio:Number(r.target_cut_ratio)||0};
+    window._mDoneData={recordId,rolls,kgStart:Number(r.kg_start)||0,orderQty:Number(r.order_quantity)||0,imgData:null,isMultiGroup:false,isLastInGroup:true,targetRatio:Number(r.target_cut_ratio)||0,unit:r.fabric_unit || 'kg'};
     let h='<div class="mm-overlay" id="_mmDoneModal" onclick="if(event.target===this)mCloseDoneModal()">';
     h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,#1e40af,#3b82f6)"><div class="mm-icon">🏁</div><div><div class="mm-title">CẮT XONG</div><div class="mm-sub">'+(r.product_name||r.order_code||'')+'</div></div></div>';
     h+='<div class="mm-body" style="max-height:60vh;overflow-y:auto">';
@@ -777,7 +815,7 @@ function mOpenDoneModal(recordId){
     // Reason+Image warning container
     h+='<div id="_mDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
     h+='<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
-    h+='<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO</div>';
+    h+='<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO (Định lượng tối thiểu: ' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + ')</div>';
     h+='<textarea id="_mDoneReason" placeholder="Lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;resize:none;background:rgba(255,255,255,0.06);color:#e2e8f0"></textarea>';
     h+='<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px dashed rgba(239,68,68,0.4);border-radius:8px;cursor:pointer">';
     h+='<span style="font-size:24px">📷</span><span style="font-size:12px;color:#fca5a5;font-weight:600">Chụp/Chọn ảnh</span>';
@@ -823,8 +861,8 @@ function mDoneRecalc(){
     let kgR=0;document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
     const kgCut=d.kgStart-kgR;const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=kgCut.toFixed(2);
     const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
-    const ratio=qty>0?Math.round((kgCut/qty)*100)/100:0;
-    const re=document.getElementById('_mDoneRatio');if(re){re.textContent=ratio?ratio.toFixed(2):'—';re.style.color=ratio>5?'#ef4444':ratio>3?'#fbbf24':'#10b981';}
+    const ratio=kgCut>0?Math.round((qty/kgCut)*100)/100:0;
+    const re=document.getElementById('_mDoneRatio');if(re){re.textContent=ratio?ratio.toFixed(2)+' sp/'+d.unit:'—';if(d.targetRatio > 0){re.style.color=ratio>=d.targetRatio?'#10b981':'#ef4444';}else{re.style.color='#60a5fa';}}
     
     // Toggle warning for target ratio
     const warn = document.getElementById('_mDoneRatioWarn');
@@ -897,7 +935,7 @@ async function mSubmitDone(recordId){
     let kgR=0;
     rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
     const kgCut = d.kgStart - kgR;
-    const ratio = qty > 0 ? Math.round((kgCut / qty) * 100) / 100 : 0;
+    const ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
 
     if (d.targetRatio > 0 && ratio < d.targetRatio) {
         const reason = document.getElementById('_mDoneReason');
@@ -955,7 +993,7 @@ function mOpenGroupDoneModal(groupId){
     const ref=groupRecs[0];
     let rolls=[];try{rolls=typeof ref.selected_roll_ids==='string'?JSON.parse(ref.selected_roll_ids):(ref.selected_roll_ids||[]);}catch(e){}
     const kgStart=Number(ref.kg_start)||0;
-    window._mGDone={groupId,records:groupRecs,rolls,kgStart,imgData:null,_allCut:false,targetRatio:Number(ref.target_cut_ratio)||0};
+    window._mGDone={groupId,records:groupRecs,rolls,kgStart,imgData:null,_allCut:false,targetRatio:Number(ref.target_cut_ratio)||0,unit:ref.fabric_unit || 'kg'};
     let h='<div class="mm-overlay" id="_mmGDoneModal" onclick="if(event.target===this)mCloseGDone()">';
     h+='<div class="mm-sheet">';
     // Header
@@ -1010,7 +1048,7 @@ function mOpenGroupDoneModal(groupId){
     // Warning Ratio Reason Container Mobile Group
     h+='<div id="_mGDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
     h+=  '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
-    h+=  '<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO</div>';
+    h+=  '<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO (Định lượng tối thiểu: ' + (ref.target_cut_ratio || 0) + ' sp/' + (ref.fabric_unit || 'kg') + ')</div>';
     h+=  '<textarea id="_mGDoneReason" placeholder="Lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;resize:none;background:rgba(255,255,255,0.06);color:#e2e8f0"></textarea>';
     h+=  '<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px dashed rgba(239,68,68,0.4);border-radius:8px;cursor:pointer">';
     h+=  '<span style="font-size:24px">📷</span><span style="font-size:12px;color:#fca5a5;font-weight:600">Chụp/Chọn ảnh</span>';
@@ -1066,13 +1104,16 @@ function mGDoneRecalc(){
     d.records.forEach(r=>{const inp=document.getElementById('_mGQ_'+r.id);const q=inp?parseInt(inp.value)||0:0;qtys.push({id:r.id,qty:q,name:r.product_name||r.order_code});totalQty+=q;});
     let dh='';
     let combinedRatio=0;
-    if(totalQty>0&&totalKgCut>0){
-        combinedRatio=Math.round((totalKgCut/totalQty)*100)/100;
-        const rc=combinedRatio>0.5?'#ef4444':combinedRatio>0.3?'#fbbf24':'#10b981';
+    if(totalKgCut>0){
+        combinedRatio=Math.round((totalQty/totalKgCut)*100)/100;
+        let rc='#60a5fa';
+        if(d.targetRatio > 0){
+            rc=combinedRatio>=d.targetRatio?'#10b981':'#ef4444';
+        }
         dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(16,185,129,0.1);border:1.5px solid rgba(16,185,129,0.25);border-radius:10px">';
         dh+='<span style="font-size:12px;font-weight:800;color:#e2e8f0">📊 TỈ LỆ CHUNG</span>';
-        dh+='<span style="font-size:11px;color:#94a3b8">'+totalKgCut.toFixed(1)+'kg / '+totalQty+' sp</span>';
-        dh+='<span style="font-size:20px;font-weight:900;color:'+rc+'">'+combinedRatio.toFixed(2)+'</span></div>';
+        dh+='<span style="font-size:11px;color:#94a3b8">'+totalQty+' sp / '+totalKgCut.toFixed(1)+' '+d.unit+'</span>';
+        dh+='<span style="font-size:20px;font-weight:900;color:'+rc+'">'+combinedRatio.toFixed(2)+' sp/'+d.unit+'</span></div>';
     }
     const dp=document.getElementById('_mGDistrib');if(dp)dp.innerHTML=dh;
 
@@ -1144,7 +1185,7 @@ async function mSubmitGDone(){
     const totalKgCut = d.kgStart - kgR;
     let totalQty = 0;
     items.forEach(it => { totalQty += it.cut_quantity || 0; });
-    const combinedRatio = totalQty > 0 ? Math.round((totalKgCut / totalQty) * 100) / 100 : 0;
+    const combinedRatio = totalKgCut > 0 ? Math.round((totalQty / totalKgCut) * 100) / 100 : 0;
 
     if (d.targetRatio > 0 && combinedRatio < d.targetRatio) {
         const reason = document.getElementById('_mGDoneReason');

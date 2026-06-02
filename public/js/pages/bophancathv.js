@@ -269,7 +269,11 @@ function _bpcRenderRows(paged) {
         var errIcon = r.error_reported ? '⚠️' : '⬜', errCls = r.error_reported ? ' on-err' : '';
         var salAct = r.salary_approved ? 'undo_approve_salary' : 'approve_salary';
         var washAct = r.wash_reported ? 'undo_wash' : 'report_wash';
-        var ratioColor = r.cut_ratio > 5 ? '#dc2626' : r.cut_ratio > 3 ? '#f59e0b' : '#059669';
+        var ratioColor = '#3b82f6';
+        var tr = Number(r.target_cut_ratio) || 0;
+        if (tr > 0 && r.cut_ratio) {
+            ratioColor = Number(r.cut_ratio) >= tr ? '#059669' : '#dc2626';
+        }
         var warnHtml = r.cut_warning ? '<span style="color:#dc2626;font-weight:700">'+r.cut_warning+'</span>' : '—';
         var updateStr = '';
         if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
@@ -315,7 +319,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.cut_quantity||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.kg_cut||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio ? r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') : '—')+'</td>'
             +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
             +'<td style="text-align:center;font-weight:600">'+(r.kg_start||'—')+'</td>'
             +'<td style="text-align:center;font-weight:600">'+(r.kg_end||'—')+'</td>'
@@ -728,9 +732,16 @@ function _bpcOpenDetail(recordId) {
     h += '</div></div>';
     // Ratio
     if (r.cut_ratio) {
-        var rc = Number(r.cut_ratio) > 5 ? '#dc2626' : Number(r.cut_ratio) > 3 ? '#f59e0b' : '#059669';
+        var rc = '#3b82f6';
+        var tr = Number(r.target_cut_ratio) || 0;
+        if (tr > 0) {
+            rc = Number(r.cut_ratio) >= tr ? '#059669' : '#dc2626';
+        }
         h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Tỉ Lệ</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Tỉ Lệ Thực Tế</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
+        if (tr > 0) {
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
+        }
         if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
         h += '</div>';
     }
@@ -753,7 +764,7 @@ function _bpcOpenDoneModal(recordId) {
     if (r.multi_cut_group_id) { return _bpcOpenGroupDoneModal(r.multi_cut_group_id); }
     var rolls = [];
     try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
-    window._bpcDoneData = { recordId: recordId, rolls: rolls, kgStart: Number(r.kg_start) || 0, orderQty: Number(r.order_quantity) || 0, imgData: null, targetRatio: Number(r.target_cut_ratio) || 0 };
+    window._bpcDoneData = { recordId: recordId, rolls: rolls, kgStart: Number(r.kg_start) || 0, orderQty: Number(r.order_quantity) || 0, imgData: null, targetRatio: Number(r.target_cut_ratio) || 0, unit: r.fabric_unit || 'kg' };
     var h = '<div class="bpc-modal-overlay" id="_bpcDoneModal" onclick="if(event.target===this)_bpcCloseDoneModal()">';
     h += '<div class="bpc-modal" style="width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#1e40af,#3b82f6)"><div class="m-icon">🏁</div><div><div class="m-title">CẮT XONG</div><div class="m-sub">' + (r.product_name||r.order_code||'') + '</div></div></div>';
@@ -794,11 +805,11 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + (r.kg_start||0) + '</div></div>';
     h += '<div style="background:#fee2e2;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">✂️ TỔNG KG CẮT</div><div id="_bpcDoneKgCut" style="font-size:16px;font-weight:900;color:#dc2626">' + (r.kg_start||0) + '</div></div>';
     h += '</div>';
-    h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">📊 Tỉ Lệ Cắt</span><span class="bpc-modal-val" id="_bpcDoneRatio" style="font-size:16px;font-weight:900;color:#059669">—</span></div>';
+    h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">📊 Tỉ Lệ Thực Tế</span><span class="bpc-modal-val" id="_bpcDoneRatio" style="font-size:16px;font-weight:900;color:#059669">—</span></div>';
     // Conditional: ratio reason + image
     h += '<div id="_bpcDoneRatioWarn" style="display:none;border-top:2px solid #fca5a5;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px">';
-    h += '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO</div>';
+    h += '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO (Định lượng tối thiểu: ' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + ')</div>';
     h += '<textarea id="_bpcDoneReason" placeholder="Nhập lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;resize:none;font-family:Inter,sans-serif"></textarea>';
     h += '<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#dc2626;margin-bottom:4px">📷 Hình ảnh (Ctrl+V hoặc chọn file) <span style="color:#dc2626">*</span></div>';
     h += '<div id="_bpcDoneImgArea" style="border:2px dashed #fca5a5;border-radius:8px;padding:16px;text-align:center;cursor:pointer;min-height:60px;position:relative" onclick="document.getElementById(\'_bpcDoneImgInput\').click()">';
@@ -883,11 +894,15 @@ function _bpcDoneRecalc() {
     var el = document.getElementById('_bpcDoneKgCut');
     if (el) el.textContent = kgCut.toFixed(2);
     var qty = parseFloat(document.getElementById('_bpcDoneQty').value) || 0;
-    var ratio = qty > 0 ? Math.round((kgCut / qty) * 100) / 100 : 0;
+    var ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
     var ratioEl = document.getElementById('_bpcDoneRatio');
     if (ratioEl) {
-        ratioEl.textContent = ratio ? ratio.toFixed(2) : '—';
-        ratioEl.style.color = ratio > 5 ? '#dc2626' : ratio > 3 ? '#f59e0b' : '#059669';
+        ratioEl.textContent = ratio ? ratio.toFixed(2) + ' sp/' + d.unit : '—';
+        if (d.targetRatio > 0) {
+            ratioEl.style.color = ratio >= d.targetRatio ? '#059669' : '#dc2626';
+        } else {
+            ratioEl.style.color = '#3b82f6';
+        }
     }
     
     // Show/hide ratio warning based on target ratio setup
@@ -937,7 +952,7 @@ async function _bpcSubmitDone(recordId) {
     var kgRemain = 0;
     rollRemains.forEach(function(r) { kgRemain += r.remaining_weight || 0; });
     var kgCut = d.kgStart - kgRemain;
-    var ratio = qty > 0 ? Math.round((kgCut / qty) * 100) / 100 : 0;
+    var ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
 
     var body = { action: 'cut_done', cut_quantity: qty, roll_remains: rollRemains };
     
@@ -981,7 +996,7 @@ function _bpcOpenGroupDoneModal(groupId) {
     var ref = groupRecs[0];
     var rolls = []; try { rolls = typeof ref.selected_roll_ids === 'string' ? JSON.parse(ref.selected_roll_ids) : (ref.selected_roll_ids || []); } catch(e) {}
     var kgStart = Number(ref.kg_start) || 0;
-    window._bpcGDone = { groupId: groupId, records: groupRecs, rolls: rolls, kgStart: kgStart, _allCut: false, targetRatio: Number(ref.target_cut_ratio) || 0, imgData: null };
+    window._bpcGDone = { groupId: groupId, records: groupRecs, rolls: rolls, kgStart: kgStart, _allCut: false, targetRatio: Number(ref.target_cut_ratio) || 0, imgData: null, unit: ref.fabric_unit || 'kg' };
     var h = '<div class="bpc-modal-overlay" id="_bpcGDoneModal" onclick="if(event.target===this)_bpcCloseGDone()">';
     h += '<div class="bpc-modal" style="width:580px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#a855f7)"><div class="m-icon">🏁</div><div><div class="m-title">CẮT XONG NHÓM</div>';
@@ -1025,7 +1040,7 @@ function _bpcOpenGroupDoneModal(groupId) {
     // Warning Ratio Reason Container
     h += '<div id="_bpcGDoneRatioWarn" style="display:none;border-top:2px solid #fca5a5;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px">';
-    h += '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO</div>';
+    h += '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO (Định lượng tối thiểu: ' + (ref.target_cut_ratio || 0) + ' sp/' + (ref.fabric_unit || 'kg') + ')</div>';
     h += '<textarea id="_bpcGDoneReason" placeholder="Nhập lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;resize:none;font-family:Inter,sans-serif"></textarea>';
     h += '<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#dc2626;margin-bottom:4px">📷 Hình ảnh (Ctrl+V hoặc chọn file) <span style="color:#dc2626">*</span></div>';
     h += '<div id="_bpcGDoneImgArea" style="border:2px dashed #fca5a5;border-radius:8px;padding:16px;text-align:center;cursor:pointer;min-height:60px;position:relative" onclick="document.getElementById(\'_bpcGDoneImgInput\').click()">';
@@ -1117,13 +1132,16 @@ function _bpcGDoneRecalc() {
     d.records.forEach(function(r) { var inp = document.getElementById('_bpcGQ_' + r.id); var q = inp ? parseInt(inp.value) || 0 : 0; qtys.push({ id: r.id, qty: q, name: r.product_name || r.order_code }); totalQty += q; });
     var dh = '';
     var combinedRatio = 0;
-    if (totalQty > 0 && totalKgCut > 0) {
-        combinedRatio = Math.round((totalKgCut / totalQty) * 100) / 100;
-        var rc = combinedRatio > 0.5 ? '#dc2626' : combinedRatio > 0.3 ? '#f59e0b' : '#059669';
+    if (totalKgCut > 0) {
+        combinedRatio = Math.round((totalQty / totalKgCut) * 100) / 100;
+        var rc = '#3b82f6';
+        if (d.targetRatio > 0) {
+            rc = combinedRatio >= d.targetRatio ? '#059669' : '#dc2626';
+        }
         dh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px">';
         dh += '<span style="font-size:12px;font-weight:800;color:#1e293b">📊 TỈ LỆ CHUNG</span>';
-        dh += '<span style="font-size:11px;color:#64748b">' + totalKgCut.toFixed(1) + 'kg / ' + totalQty + ' sp</span>';
-        dh += '<span style="font-size:18px;font-weight:900;color:' + rc + '">' + combinedRatio.toFixed(2) + '</span></div>';
+        dh += '<span style="font-size:11px;color:#64748b">' + totalQty + ' sp / ' + totalKgCut.toFixed(1) + ' ' + d.unit + '</span>';
+        dh += '<span style="font-size:18px;font-weight:900;color:' + rc + '">' + combinedRatio.toFixed(2) + ' sp/' + d.unit + '</span></div>';
     }
     var dp = document.getElementById('_bpcGDistrib'); if (dp) dp.innerHTML = dh;
     
@@ -1166,7 +1184,7 @@ async function _bpcSubmitGDone() {
     var kgR = 0;
     rollRemains.forEach(function(r) { kgR += r.remaining_weight || 0; });
     var totalKgCut = d.kgStart - kgR;
-    var combinedRatio = totalQty > 0 ? Math.round((totalKgCut / totalQty) * 100) / 100 : 0;
+    var combinedRatio = totalKgCut > 0 ? Math.round((totalQty / totalKgCut) * 100) / 100 : 0;
 
     var body = { group_id: d.groupId, items: items, roll_remains: rollRemains };
 
@@ -1373,16 +1391,23 @@ async function _bpcOpenTargetRatioModal() {
     try {
         const res = await apiCall('/api/cutting/target-ratios');
         const materials = res.materials || [];
+        const categories = res.categories || [];
+        const targets = res.targets || [];
+        
+        const targetMap = {};
+        targets.forEach(t => {
+            targetMap[t.material_id + '_' + t.cutting_category] = Number(t.target_ratio) || 0;
+        });
         
         let h = '<div class="bpc-modal-overlay" id="_bpcTargetRatioModal" onclick="if(event.target===this)_bpcCloseTargetRatioModal()">';
-        h += '<div class="bpc-modal" style="width:600px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">';
-        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">⚖️</div><div><div class="m-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="m-sub">Giám đốc thiết lập tỉ lệ định lượng tối thiểu cho từng chất liệu</div></div></div>';
-        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:20px">';
+        h += '<div class="bpc-modal" style="width:700px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">⚖️</div><div><div class="m-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="m-sub">Giám đốc thiết lập số sản phẩm tối thiểu thu hồi được trên 1 Kg hoặc 1 Mét vải</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:20px;background:#f8fafc">';
         
         // Group materials by warehouse
         const groups = {};
         materials.forEach(m => {
-            const whKey = m.warehouse_name + ' (' + m.unit + ')';
+            const whKey = m.warehouse_name + ' (Đơn vị: ' + m.unit + ')';
             if (!groups[whKey]) groups[whKey] = [];
             groups[whKey].push(m);
         });
@@ -1390,14 +1415,29 @@ async function _bpcOpenTargetRatioModal() {
         for (const [whName, list] of Object.entries(groups)) {
             h += '<div style="margin-bottom:20px">';
             h += '<div style="font-size:12px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;border-left:3px solid #059669;padding-left:8px">' + whName + '</div>';
-            h += '<div style="display:grid;grid-template-columns:1fr;gap:8px">';
+            h += '<div style="display:grid;grid-template-columns:1fr;gap:10px">';
             list.forEach(m => {
-                h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f9fafb">';
-                h += '<span style="font-size:13px;font-weight:700;color:#1e293b">' + m.name + '</span>';
-                h += '<div style="display:flex;align-items:center;gap:6px">';
-                h += '<input class="_bpcTargetInput" data-id="' + m.id + '" type="number" step="0.01" min="0" value="' + (m.target_cut_ratio || 0) + '" style="width:90px;padding:6px 10px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#059669">';
-                h += '<span style="font-size:12px;color:#64748b;font-weight:600">' + m.unit + '/sp</span>';
-                h += '</div></div>';
+                h += '<div class="material-acc-group" style="border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02)">';
+                h += '  <div class="acc-header" onclick="var b=this.nextElementSibling; b.style.display=b.style.display===\'none\'?\'grid\':\'none\'; this.querySelector(\'.arrow\').textContent=b.style.display===\'none\'?\'▼\':\'▲\'" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#f9fafb;cursor:pointer;user-select:none;border-bottom:1.5px solid #f1f5f9">';
+                h += '    <span style="font-size:13px;font-weight:800;color:#1e293b">🧶 ' + m.name + '</span>';
+                h += '    <span style="font-size:11px;font-weight:700;color:#059669">Thiết lập định lượng (sp/' + m.unit + ') <span class="arrow" style="margin-left:4px">▼</span></span>';
+                h += '  </div>';
+                h += '  <div class="acc-body" style="display:none;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px;background:#fff">';
+                
+                categories.forEach(cat => {
+                    const key = m.id + '_' + cat.name;
+                    const val = targetMap[key] || 0;
+                    h += '    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid #f1f5f9;border-radius:8px;background:#f9fafb">';
+                    h += '      <span style="font-size:12px;font-weight:700;color:#475569">🏷️ ' + cat.name + '</span>';
+                    h += '      <div style="display:flex;align-items:center;gap:4px">';
+                    h += '        <input class="_bpcTargetInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="number" step="0.01" min="0" value="' + val + '" style="width:75px;padding:5px 8px;border:1.5px solid #10b981;border-radius:6px;font-size:13px;font-weight:800;text-align:center;color:#059669;background:#fff">';
+                    h += '        <span style="font-size:10px;color:#64748b;font-weight:600">sp/' + m.unit + '</span>';
+                    h += '      </div>';
+                    h += '    </div>';
+                });
+                
+                h += '  </div>';
+                h += '</div>';
             });
             h += '</div></div>';
         }
@@ -1426,8 +1466,9 @@ async function _bpcSaveTargetRatios() {
     const ratios = [];
     inputs.forEach(inp => {
         ratios.push({
-            id: Number(inp.dataset.id),
-            target_cut_ratio: parseFloat(inp.value) || 0
+            material_id: Number(inp.dataset.matId),
+            cutting_category: inp.dataset.cat,
+            target_ratio: parseFloat(inp.value) || 0
         });
     });
     
