@@ -13,6 +13,7 @@ async function renderCaidatsanxuatPage(container) {
                     <div class="tab active" data-tab="sp-qt" onclick="switchCdsxTab('sp-qt', this)">📦 Sản Phẩm & Quy Trình</div>
                     <div class="tab" data-tab="kho-vai" onclick="switchCdsxTab('kho-vai', this)">🏬 Kho Vải</div>
                     <div class="tab" data-tab="luong-sx" onclick="switchCdsxTab('luong-sx', this)">💰 Lương Sản Xuất</div>
+                    <div class="tab" data-tab="luong-tho-cat" onclick="switchCdsxTab('luong-tho-cat', this)">✂️ Lương Thợ Cắt</div>
                     <div class="tab" data-tab="bang-gia" onclick="switchCdsxTab('bang-gia', this)">💲 Bảng Giá May</div>
                     <div class="tab" data-tab="vi-tri-phoi" onclick="switchCdsxTab('vi-tri-phoi', this)">📌 Vị Trí Phối</div>
                     <div class="tab" data-tab="quyen-duyet" onclick="switchCdsxTab('quyen-duyet', this)">🔑 Quyền Duyệt TSAM</div>
@@ -55,6 +56,9 @@ async function switchCdsxTab(tab, el) {
             break;
         case 'luong-sx':
             _cdsxLoadShell(content, '💰', 'Lương Sản Xuất', 'Cấu hình bảng lương cho công nhân sản xuất');
+            break;
+        case 'luong-tho-cat':
+            await _cdsxLoadLuongThoCat(content);
             break;
         case 'bang-gia':
             await _cdsxLoadBangGia(content);
@@ -816,4 +820,338 @@ async function _cdsxToggleApprover(userId, val) {
     // Reload to update toggle visuals
     var content = document.getElementById('cdsxContent');
     if (content) await _cdsxLoadQuyenDuyet(content);
+}
+
+// ===== LƯƠNG THỢ CẮT Tab =====
+let _ltcProductTypes = [];
+let _ltcTiers = [];
+let _ltcCutters = [];
+let _ltcAssignments = [];
+
+async function _cdsxLoadLuongThoCat(container) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-400)">Đang tải cấu hình lương thợ cắt...</div>';
+    try {
+        const ptRes = await apiCall('/api/cutting-salary/product-types');
+        const tRes = await apiCall('/api/cutting-salary/tiers');
+        const aRes = await apiCall('/api/cutting-salary/assignments');
+
+        _ltcProductTypes = ptRes.product_types || [];
+        _ltcTiers = tRes.tiers || [];
+        _ltcCutters = aRes.cutters || [];
+        _ltcAssignments = aRes.assignments || [];
+
+        _ltcRenderMain(container);
+    } catch(e) {
+        container.innerHTML = '<div style="padding:20px;color:#dc2626;font-weight:700;">Lỗi tải cấu hình lương: ' + e.message + '</div>';
+    }
+}
+
+function _ltcRenderMain(container) {
+    let h = `
+        <div style="display:grid; grid-template-columns: 460px 1fr; gap: 20px; margin-top: 10px;">
+            <!-- Left panel: Quản lý Bậc Lương -->
+            <div style="background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+                    <span style="font-weight:800; font-size:14px; color:#1e293b;">📋 Danh Sách Bậc Lương</span>
+                    <button onclick="_ltcShowCreateTier()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">➕ Thêm Bậc</button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label style="font-size:11px; font-weight:700; color:#64748b; min-width:85px;">Lọc Sản phẩm:</label>
+                    <select id="_ltcFilterProdType" onchange="_ltcRenderTiersList()" style="flex:1; border:1px solid #d1d5db; border-radius:6px; padding:5px 8px; font-size:12px; background:#fff;">
+                        <option value="all">-- Tất cả sản phẩm --</option>
+                        ${_ltcProductTypes.map(pt => `<option value="${pt}">${pt}</option>`).join('')}
+                    </select>
+                </div>
+                <div id="_ltcTiersListContainer" style="flex:1; overflow-y:auto; max-height:calc(100vh - 350px); display:flex; flex-direction:column; gap:10px; padding-top:4px;">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Right panel: Gán Bậc Lương Nhân Viên -->
+            <div style="background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:12px;">
+                <div style="border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+                    <span style="font-weight:800; font-size:14px; color:#7c3aed;">👥 Gán Bậc Lương Thợ Cắt</span>
+                    <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Chọn bậc lương tương ứng cho mỗi thợ theo từng loại sản phẩm. Thay đổi sẽ tự động lưu lại.</div>
+                </div>
+                <div style="flex:1; overflow:auto; max-height:calc(100vh - 290px);">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                        <thead>
+                            <tr style="border-bottom:2px solid #e2e8f0; background:#f8fafc;">
+                                <th style="padding:10px 8px; font-weight:700; color:#475569;">Thợ Cắt</th>
+                                ${_ltcProductTypes.map(pt => `<th style="padding:10px 8px; font-weight:700; color:#475569; min-width:110px;">${pt}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${_ltcCutters.map(cutter => `
+                                <tr style="border-bottom:1px solid #f1f5f9;" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='none'">
+                                    <td style="padding:10px 8px; font-weight:700; color:#1e293b;">
+                                        ${cutter.full_name || cutter.username}
+                                        <div style="font-size:10px; font-weight:normal; color:#94a3b8;">@${cutter.username}</div>
+                                    </td>
+                                    ${_ltcProductTypes.map(pt => {
+                                        const currentTierId = _ltcAssignments.find(a => a.user_id === cutter.id && a.product_type === pt)?.tier_id || '';
+                                        const availableTiers = _ltcTiers.filter(t => t.product_type === pt);
+                                        return `
+                                            <td style="padding:8px 6px;">
+                                                <select onchange="_ltcSaveAssignment(${cutter.id}, '${pt}', this.value)" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:4px 6px; font-size:11px; background:#fff; cursor:pointer;">
+                                                    <option value="">-- Chưa gán --</option>
+                                                    ${availableTiers.map(t => `<option value="${t.id}" ${t.id == currentTierId ? 'selected' : ''}>${t.tier_name}</option>`).join('')}
+                                                </select>
+                                            </td>
+                                        `;
+                                    }).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    container.innerHTML = h;
+    _ltcRenderTiersList();
+}
+
+function _ltcRenderTiersList() {
+    const container = document.getElementById('_ltcTiersListContainer');
+    if (!container) return;
+
+    const filterVal = document.getElementById('_ltcFilterProdType')?.value || 'all';
+    const filteredTiers = filterVal === 'all' ? _ltcTiers : _ltcTiers.filter(t => t.product_type === filterVal);
+
+    if (filteredTiers.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:11px;">Chưa có bậc lương nào</div>';
+        return;
+    }
+
+    let h = '';
+    filteredTiers.forEach(t => {
+        let rules = [];
+        try {
+            rules = typeof t.rules === 'string' ? JSON.parse(t.rules) : t.rules;
+        } catch(e) {}
+
+        let rulesText = '';
+        rules.forEach(r => {
+            const min = r.min_qty;
+            const max = r.max_qty;
+            const price = Number(r.price).toLocaleString('vi-VN') + 'đ';
+            let qtyText = '';
+            if (max === null || max === undefined || max === '') {
+                qtyText = `> ${min - 1} sản phẩm`;
+            } else {
+                qtyText = `${min} - ${max} sản phẩm`;
+            }
+            rulesText += `<div style="display:flex; justify-content:space-between; font-size:11px; color:#475569; padding:2px 0;">
+                <span>• ${qtyText}</span>
+                <span style="font-weight:700; color:#0f766e;">${price}/sp</span>
+            </div>`;
+        });
+
+        h += `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed #cbd5e1; padding-bottom:4px;">
+                    <div>
+                        <span style="font-weight:800; font-size:12px; color:#1e293b;">${t.tier_name}</span>
+                        <span style="background:#ccfbf1; color:#0d9488; font-size:9px; padding:1px 5px; border-radius:4px; font-weight:700; margin-left:6px;">${t.product_type}</span>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button onclick="_ltcEditTier(${t.id})" style="border:none; background:none; color:#2563eb; font-weight:700; font-size:10px; cursor:pointer;">✏️ Sửa</button>
+                        <button onclick="_ltcDeleteTier(${t.id})" style="border:none; background:none; color:#dc2626; font-weight:700; font-size:10px; cursor:pointer;">🗑️ Xóa</button>
+                    </div>
+                </div>
+                <div>
+                    ${rulesText}
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = h;
+}
+
+async function _ltcSaveAssignment(cutterId, productType, tierId) {
+    try {
+        const res = await apiCall('/api/cutting-salary/assignments', 'POST', {
+            user_id: cutterId,
+            product_type: productType,
+            tier_id: tierId ? Number(tierId) : null
+        });
+        if (res.success) {
+            showToast('✅ Đã lưu gán bậc lương');
+            if (!tierId) {
+                _ltcAssignments = _ltcAssignments.filter(a => !(a.user_id === cutterId && a.product_type === productType));
+            } else {
+                const existing = _ltcAssignments.find(a => a.user_id === cutterId && a.product_type === productType);
+                if (existing) {
+                    existing.tier_id = Number(tierId);
+                } else {
+                    _ltcAssignments.push({ user_id: cutterId, product_type: productType, tier_id: Number(tierId) });
+                }
+            }
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
+    } catch(err) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+function _ltcShowCreateTier() {
+    _ltcShowTierFormModal();
+}
+
+function _ltcEditTier(id) {
+    const tier = _ltcTiers.find(t => t.id === id);
+    if (!tier) return;
+    _ltcShowTierFormModal(tier);
+}
+
+function _ltcShowTierFormModal(tier = null) {
+    const isEdit = !!tier;
+    const title = isEdit ? '✏️ Chỉnh Sửa Bậc Lương' : '➕ Thêm Bậc Lương Mới';
+    
+    let rules = [{ min_qty: 1, max_qty: 299, price: 400 }];
+    if (isEdit) {
+        try {
+            rules = typeof tier.rules === 'string' ? JSON.parse(tier.rules) : tier.rules;
+        } catch(e) {}
+    }
+
+    let body = `
+        <div style="display:flex; flex-direction:column; gap:12px; font-size:12px;">
+            <div style="display:flex; gap:12px;">
+                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-weight:700; color:#475569;">Tên bậc lương:</label>
+                    <input type="text" id="_formTierName" value="${isEdit ? tier.tier_name : ''}" placeholder="Ví dụ: Bậc 1" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px;">
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-weight:700; color:#475569;">Loại sản phẩm:</label>
+                    <select id="_formTierProdType" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; background:#fff; cursor:pointer;">
+                        ${_ltcProductTypes.map(pt => `<option value="${pt}" ${isEdit && tier.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            
+            <div style="border-top:1px solid #e2e8f0; padding-top:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-weight:700; color:#475569;">Định mức số lượng & Đơn giá:</span>
+                    <button onclick="_formAddRuleRow()" style="background:#10b981; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">➕ Thêm khoảng</button>
+                </div>
+                <div id="_formRulesContainer" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
+                    <!-- Rule rows dynamic -->
+                </div>
+            </div>
+        </div>
+    `;
+
+    let footer = `<button class="btn" onclick="${isEdit ? `_ltcSubmitTierForm(${tier.id})` : '_ltcSubmitTierForm()'}" style="background:#2563eb; color:#fff; border:none; padding:8px 20px; border-radius:6px; font-weight:700; cursor:pointer;">💾 Lưu Bậc Lương</button>`;
+    
+    openModal(title, body, footer);
+
+    window._formAddRuleRow = function(min = '', max = '', price = '') {
+        const container = document.getElementById('_formRulesContainer');
+        if (!container) return;
+        const row = document.createElement('div');
+        row.className = '_form-rule-row';
+        row.style = 'display:flex; gap:8px; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px;';
+        row.innerHTML = `
+            <div style="display:flex; align-items:center; gap:4px; flex:1;">
+                <span style="color:#64748b; font-size:10px;">Từ:</span>
+                <input type="number" class="min-qty" value="${min}" placeholder="1" style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:3px 6px;">
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; flex:1;">
+                <span style="color:#64748b; font-size:10px;">Đến:</span>
+                <input type="number" class="max-qty" value="${max}" placeholder="Ví dụ: 299" style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:3px 6px;">
+                <span style="color:#94a3b8; font-size:10px; cursor:pointer;" onclick="this.previousElementSibling.value='';" title="Vô hạn (Không giới hạn tối đa)">♾️</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; flex:1.2;">
+                <span style="color:#64748b; font-size:10px;">Đơn giá:</span>
+                <input type="number" class="price" value="${price}" placeholder="đ/sp" style="width:100%; border:1px solid #d1d5db; border-radius:4px; padding:3px 6px;">
+            </div>
+            <button onclick="this.parentElement.remove()" style="background:none; border:none; color:#dc2626; font-size:12px; cursor:pointer;" title="Xóa">🗑️</button>
+        `;
+        container.appendChild(row);
+    };
+
+    rules.forEach(r => {
+        window._formAddRuleRow(r.min_qty, r.max_qty !== null && r.max_qty !== undefined ? r.max_qty : '', r.price);
+    });
+}
+
+async function _ltcSubmitTierForm(id = null) {
+    const isEdit = id !== null;
+    const tierName = document.getElementById('_formTierName')?.value?.trim();
+    const productType = document.getElementById('_formTierProdType')?.value;
+    
+    if (!tierName) { showToast('Nhập tên bậc lương', 'error'); return; }
+    if (!productType) { showToast('Chọn loại sản phẩm', 'error'); return; }
+
+    const rowEls = document.querySelectorAll('#_formRulesContainer ._form-rule-row');
+    const rules = [];
+    
+    for (const row of rowEls) {
+        const minVal = row.querySelector('.min-qty').value;
+        const maxVal = row.querySelector('.max-qty').value;
+        const priceVal = row.querySelector('.price').value;
+
+        if (minVal === '' || isNaN(Number(minVal))) {
+            showToast('Giá trị "Từ" số lượng phải là số', 'error');
+            return;
+        }
+        if (priceVal === '' || isNaN(Number(priceVal))) {
+            showToast('Đơn giá phải là số hợp lệ', 'error');
+            return;
+        }
+
+        rules.push({
+            min_qty: Number(minVal),
+            max_qty: maxVal !== '' ? Number(maxVal) : null,
+            price: Number(priceVal)
+        });
+    }
+
+    if (rules.length === 0) {
+        showToast('Vui lòng thêm ít nhất một dòng định mức', 'error');
+        return;
+    }
+
+    rules.sort((a, b) => a.min_qty - b.min_qty);
+
+    const payload = {
+        tier_name: tierName,
+        product_type: productType,
+        rules: rules
+    };
+
+    try {
+        const url = isEdit ? `/api/cutting-salary/tiers/${id}` : '/api/cutting-salary/tiers';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await apiCall(url, method, payload);
+        if (res.success) {
+            showToast(isEdit ? '✅ Đã cập nhật bậc lương' : '✅ Đã thêm bậc lương mới');
+            closeModal();
+            const content = document.getElementById('cdsxContent');
+            if (content) await _cdsxLoadLuongThoCat(content);
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
+    } catch(err) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+async function _ltcDeleteTier(id) {
+    if (!confirm('Bạn có chắc chắn muốn xóa bậc lương này?')) return;
+    try {
+        const res = await apiCall(`/api/cutting-salary/tiers/${id}`, 'DELETE');
+        if (res.success) {
+            showToast('🗑️ Đã xóa bậc lương');
+            const content = document.getElementById('cdsxContent');
+            if (content) await _cdsxLoadLuongThoCat(content);
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
+    } catch(err) {
+        showToast('Lỗi kết nối', 'error');
+    }
 }

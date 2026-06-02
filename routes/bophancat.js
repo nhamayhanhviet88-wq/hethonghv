@@ -196,6 +196,40 @@ module.exports = async function(fastify) {
         return false;
     }
 
+    async function calculateCutterSalary(cutterId, productType, quantity) {
+        if (!cutterId || !productType || !quantity) return { unit_price: 0, salary: 0 };
+        const assignment = await db.get(`
+            SELECT tier_id FROM user_cutting_salary_tiers 
+            WHERE user_id = $1 AND product_type = $2
+        `, [cutterId, productType]);
+        if (!assignment) return { unit_price: 0, salary: 0 };
+
+        const tier = await db.get(`
+            SELECT rules FROM cutting_salary_tiers WHERE id = $1
+        `, [assignment.tier_id]);
+        if (!tier || !tier.rules) return { unit_price: 0, salary: 0 };
+
+        let rules = [];
+        try {
+            rules = typeof tier.rules === 'string' ? JSON.parse(tier.rules) : tier.rules;
+        } catch(e) {
+            console.error('[BPC] Error parsing rules:', e);
+            return { unit_price: 0, salary: 0 };
+        }
+
+        const qty = Number(quantity) || 0;
+        let price = 0;
+        for (const rule of rules) {
+            const min = rule.min_qty !== null && rule.min_qty !== undefined ? Number(rule.min_qty) : 0;
+            const max = rule.max_qty !== null && rule.max_qty !== undefined ? Number(rule.max_qty) : Infinity;
+            if (qty >= min && qty <= max) {
+                price = Number(rule.price) || 0;
+                break;
+            }
+        }
+        return { unit_price: price, salary: price * qty };
+    }
+
     // ========== TREE: Sidebar data (V2 — Year→Cutter→{Incomplete, Month}) ==========
     fastify.get('/api/cutting/tree', { preHandler: [authenticate] }, async (request, reply) => {
         const isManager = await isCutManager(request);
@@ -541,9 +575,10 @@ module.exports = async function(fastify) {
 
                 if (!isLastInGroup) {
                     // NOT last: only save cut_quantity, no roll weight changes
+                    const salInfo = await calculateCutterSalary(rec.cutter_id, rec.cutting_category, cutQty);
                     await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
-                        cut_quantity = $3, ratio_reason = $4, ratio_image = $5, updated_at = $1 WHERE id = $6`,
-                        [now, request.user.id, cutQty, ratio_reason || null, ratio_image || null, id]);
+                        cut_quantity = $3, ratio_reason = $4, ratio_image = $5, unit_price = $6, salary = $7, updated_at = $1 WHERE id = $8`,
+                        [now, request.user.id, cutQty, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
                     detail = '✅ Cắt xong (nhóm, chờ đơn cuối) — SL: ' + cutQty;
                 } else {
                     // LAST in group: handle roll weights + distribute kg proportionally
@@ -584,10 +619,11 @@ module.exports = async function(fastify) {
                         }
                     }
 
+                    const salInfo = await calculateCutterSalary(rec.cutter_id, rec.cutting_category, cutQty);
                     await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                         kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
-                        ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
-                        [now, request.user.id, kgEnd, myKgCut, cutQty, myRatio, ratio_reason || null, ratio_image || null, id]);
+                        ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
+                        [now, request.user.id, kgEnd, myKgCut, cutQty, myRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
 
                     // Distribute kg to other group members
                     for (const gr of allGroupDone) {
@@ -633,10 +669,11 @@ module.exports = async function(fastify) {
                     }
                 }
 
+                const salInfo = await calculateCutterSalary(rec.cutter_id, rec.cutting_category, cutQty);
                 await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                     kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
-                    ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
-                    [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, id]);
+                    ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
+                    [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
                 for (const s of snapshot) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                     await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
@@ -677,7 +714,7 @@ module.exports = async function(fastify) {
                     }
                 }
                 await db.run(`UPDATE cutting_records SET is_cut_done = false, cut_done_at = NULL, cut_done_by = NULL,
-                    kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, updated_at = $1 WHERE id = $2`, [now, id]);
+                    kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, unit_price = 0, salary = 0, updated_at = $1 WHERE id = $2`, [now, id]);
                 detail = '↩️ Hoàn tác cắt xong (nhóm) — đã khôi phục';
             } else {
                 // Normal single undo
@@ -690,7 +727,7 @@ module.exports = async function(fastify) {
                     }
                 }
                 await db.run(`UPDATE cutting_records SET is_cut_done = false, cut_done_at = NULL, cut_done_by = NULL,
-                    kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, updated_at = $1 WHERE id = $2`, [now, id]);
+                    kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, unit_price = 0, salary = 0, updated_at = $1 WHERE id = $2`, [now, id]);
                 detail = '↩️ Hoàn tác cắt xong — đã khôi phục ' + snapshot.length + ' cây vải';
             }
         } else if (action === 'approve_salary') {
