@@ -355,6 +355,15 @@ module.exports = async function (fastify) {
         );
         if (!roll) return { error: 'Không tìm thấy cuộn vải' };
 
+        if (!roll.source_import_id && roll.note && roll.note.startsWith('Nhập vải từ bill ')) {
+            const code = roll.note.replace('Nhập vải từ bill ', '').trim();
+            const imp = await db.get('SELECT id FROM import_records WHERE fabric_import_code = $1', [code]);
+            if (imp) {
+                roll.source_import_id = imp.id;
+                await db.run('UPDATE kv_rolls SET source_import_id = $1 WHERE id = $2', [imp.id, roll.id]);
+            }
+        }
+
         // Cut history from cutting_records
         const cutHistory = await db.all(
             `SELECT cr.id AS cutting_record_id, cr.cut_date, cr.product_name,
