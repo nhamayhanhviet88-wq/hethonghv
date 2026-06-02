@@ -16,6 +16,9 @@ var _lsx = {
 var _lsxOpen = {};
 
 function renderLuongSanXuatPage(content) {
+    if (!content) content = document.getElementById('contentArea');
+    if (!content) return;
+
     if (!document.getElementById('_lsxS')) {
         var st = document.createElement('style');
         st.id = '_lsxS';
