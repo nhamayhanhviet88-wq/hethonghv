@@ -2060,6 +2060,7 @@ async function renderDashboardPage(container) {
 // Registry cho các trang có tên hàm KHÔNG theo convention
 // Key = page id (từ MENU_CONFIG), Value = tên hàm init
 var _PAGE_INIT_REGISTRY = {
+    'luong-san-xuat': 'renderLuongSanXuatPage',
     'nhantintimdoitackh': '_poInit',
     'addcmtdoitackh': '_acInit',
     'dangvideo': '_dvInit',
