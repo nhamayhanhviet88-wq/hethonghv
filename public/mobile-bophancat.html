@@ -268,7 +268,7 @@ async function mOpenRatioModal() {
                     b += '    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
                     b += '      <span style="font-size:11px;color:#d1d5db">🏷️ ' + cat.name + '</span>';
                     b += '      <div style="display:flex;align-items:center;gap:4px">';
-                    b += '        <input class="_mRatioInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="number" step="0.01" min="0" value="' + val + '" style="width:65px;padding:4px;border:1.5px solid #10b981;border-radius:6px;font-size:12px;font-weight:800;text-align:center;color:#10b981;background:rgba(255,255,255,0.04)">';
+                    b += '        <input class="_mRatioInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="text" inputmode="decimal" value="' + val + '" style="width:65px;padding:4px;border:1.5px solid #10b981;border-radius:6px;font-size:12px;font-weight:800;text-align:center;color:#10b981;background:rgba(255,255,255,0.04)">';
                     b += '        <span style="font-size:9px;color:#94a3b8">sp/' + m.unit + '</span>';
                     b += '      </div>';
                     b += '    </div>';
@@ -303,7 +303,7 @@ async function mSaveTargetRatios() {
         ratios.push({
             material_id: Number(inp.dataset.matId),
             cutting_category: inp.dataset.cat,
-            target_ratio: parseFloat(inp.value) || 0
+            target_ratio: parseFloat(inp.value.replace(/,/g, '.')) || 0
         });
     });
 

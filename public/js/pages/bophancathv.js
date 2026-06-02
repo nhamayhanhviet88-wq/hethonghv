@@ -1430,7 +1430,7 @@ async function _bpcOpenTargetRatioModal() {
                     h += '    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid #f1f5f9;border-radius:8px;background:#f9fafb">';
                     h += '      <span style="font-size:12px;font-weight:700;color:#475569">🏷️ ' + cat.name + '</span>';
                     h += '      <div style="display:flex;align-items:center;gap:4px">';
-                    h += '        <input class="_bpcTargetInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="number" step="0.01" min="0" value="' + val + '" style="width:75px;padding:5px 8px;border:1.5px solid #10b981;border-radius:6px;font-size:13px;font-weight:800;text-align:center;color:#059669;background:#fff">';
+                    h += '        <input class="_bpcTargetInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="text" inputmode="decimal" value="' + val + '" style="width:75px;padding:5px 8px;border:1.5px solid #10b981;border-radius:6px;font-size:13px;font-weight:800;text-align:center;color:#059669;background:#fff">';
                     h += '        <span style="font-size:10px;color:#64748b;font-weight:600">sp/' + m.unit + '</span>';
                     h += '      </div>';
                     h += '    </div>';
@@ -1468,7 +1468,7 @@ async function _bpcSaveTargetRatios() {
         ratios.push({
             material_id: Number(inp.dataset.matId),
             cutting_category: inp.dataset.cat,
-            target_ratio: parseFloat(inp.value) || 0
+            target_ratio: parseFloat(inp.value.replace(/,/g, '.')) || 0
         });
     });
     
