@@ -1133,7 +1133,7 @@ module.exports = async function(fastify) {
 
     // ========== MULTI-CUT: Auto-claim + gộp cắt nhiều đơn ==========
     fastify.post('/api/cutting/multi-cut', { preHandler: [authenticate] }, async (request, reply) => {
-        const { selected_roll_ids, selected_order_item_ids } = request.body || {};
+        const { selected_roll_ids, selected_order_item_ids, material_name: reqMaterial, fabric_color: reqColor } = request.body || {};
         if (!selected_roll_ids || !Array.isArray(selected_roll_ids) || !selected_roll_ids.length)
             return reply.code(400).send({ error: 'Chọn ít nhất 1 cây vải' });
         if (!selected_order_item_ids || !Array.isArray(selected_order_item_ids) || selected_order_item_ids.length < 2)
@@ -1197,8 +1197,17 @@ module.exports = async function(fastify) {
             }
 
             if (pairs.length > 0) {
+                // MULTI-CUT: Only create records for pairs matching the selected material+color
+                const matFilter = (reqMaterial || '').trim().toLowerCase();
+                const colFilter = (reqColor || '').trim().toLowerCase();
                 for (let pi = 0; pi < pairs.length; pi++) {
                     const phoi = pairs[pi];
+                    // If material+color filter provided, skip non-matching pairs
+                    if (matFilter && colFilter) {
+                        const pMat = (phoi.material_name || '').trim().toLowerCase();
+                        const pCol = (phoi.color_name || '').trim().toLowerCase();
+                        if (pMat !== matFilter || pCol !== colFilter) continue;
+                    }
                     const productName = totalPhoi > 1
                         ? it.order_code + ' — Phiếu ' + itemIdx + ' — P' + (pi + 1) + (it.description ? ' — ' + it.description : '')
                         : it.order_code + (it.description ? ' — ' + it.description : '');

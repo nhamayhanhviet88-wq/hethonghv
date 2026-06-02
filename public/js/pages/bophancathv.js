@@ -1015,7 +1015,7 @@ async function _mcNext() {
         var btn = document.getElementById('_mcNextBtn');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
         try {
-            await apiCall('/api/cutting/multi-cut', 'POST', { selected_roll_ids: _mcData.selRolls, selected_order_item_ids: _mcData.selOrders });
+            await apiCall('/api/cutting/multi-cut', 'POST', { selected_roll_ids: _mcData.selRolls, selected_order_item_ids: _mcData.selOrders, material_name: _mcData.selMat, fabric_color: _mcData.selColor });
             _mcClose();
             showToast('✅ Đã bắt đầu cắt chung ' + _mcData.selOrders.length + ' đơn!');
             await _bpcLoadAll();

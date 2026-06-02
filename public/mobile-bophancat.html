@@ -727,7 +727,7 @@ async function mMCNext(){
     }else if(_mm.step===4){
         var btn=document.getElementById('_mmMCNext');if(btn){btn.disabled=true;btn.textContent='⏳...';}
         try{
-            await mApi('/api/cutting/multi-cut','POST',{selected_roll_ids:_mm.selRolls,selected_order_item_ids:_mm.selOrders});
+            await mApi('/api/cutting/multi-cut','POST',{selected_roll_ids:_mm.selRolls,selected_order_item_ids:_mm.selOrders,material_name:_mm.selMat,fabric_color:_mm.selColor});
             mCloseMC();mToast('✅ Đã cắt chung '+_mm.selOrders.length+' đơn!');await mLoadAll();
         }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN';}}
     }
