@@ -394,6 +394,8 @@ module.exports = async function(fastify) {
         let detail = '';
 
         if (action === 'start_cutting') {
+            if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong, không thể bắt đầu cắt' });
+            if (rec.is_cutting) return reply.code(400).send({ error: 'Đơn đang trong quá trình cắt' });
             // === NEW: Require selected_roll_ids for locking rolls ===
             const selectedRollIds = request.body.selected_roll_ids;
             if (!selectedRollIds || !Array.isArray(selectedRollIds) || selectedRollIds.length === 0) {
@@ -433,6 +435,8 @@ module.exports = async function(fastify) {
             );
             detail = '✂️ Bắt đầu cắt — ' + locked.length + ' cây, ' + kgStart.toFixed(2) + 'kg';
         } else if (action === 'undo_cutting') {
+            if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong, không thể hoàn tác bắt đầu cắt' });
+            if (!rec.is_cutting) return reply.code(400).send({ error: 'Đơn chưa bắt đầu cắt, không thể hoàn tác' });
             // Multi-cut group handling
             if (rec.multi_cut_group_id) {
                 const groupMembers = await db.all(
@@ -570,6 +574,8 @@ module.exports = async function(fastify) {
                 detail = '✅ Cắt xong — Kg cắt: ' + kgCut.toFixed(2) + ', SL: ' + cutQty + ', Tỉ lệ: ' + cutRatio;
             }
         } else if (action === 'undo_cut_done') {
+            const isManager = await isCutManager(request);
+            if (!isManager) return reply.code(403).send({ error: 'Chỉ Quản Lý Xưởng hoặc Giám Đốc mới có quyền hoàn tác cắt xong!' });
             if (!rec.is_cut_done) return reply.code(400).send({ error: 'Đơn chưa cắt xong — không cần hoàn tác' });
             let snapshot = [];
             try { snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []); } catch(e) {}
@@ -1149,6 +1155,10 @@ module.exports = async function(fastify) {
             [group_id]
         );
         if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
+
+        // Check if any record in the group is already finalized
+        const alreadyDone = groupRecords.filter(r => r.is_cut_done);
+        if (alreadyDone.length > 0) return reply.code(400).send({ error: 'Một số đơn trong nhóm đã báo cắt xong, không thể gửi lại!' });
 
         // Validate all items match group records
         for (const it of items) {

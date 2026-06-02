@@ -110,7 +110,7 @@
 <script>
 let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[];
 
-function mConfirm(msg, onOk){
+function mConfirm(msg, onOk, onCancel){
     const d=document.createElement('div');
     d.className='mm-overlay';
     d.id='_mmConfirmModal';
@@ -119,7 +119,7 @@ function mConfirm(msg, onOk){
     h+='<div class="mm-icon">⚠️</div><div><div class="mm-title">XÁC NHẬN CẮT HẾT</div></div></div>';
     h+='<div class="mm-body" style="padding:24px 20px;font-size:15px;font-weight:700;color:#e2e8f0;text-align:center;line-height:1.5;white-space:pre-line">'+msg+'</div>';
     h+='<div class="mm-actions">';
-    h+='<button class="mm-btn mm-btn-no" onclick="mCloseConfirm()">HUỶ</button>';
+    h+='<button class="mm-btn mm-btn-no">HUỶ</button>';
     h+='<button class="mm-btn mm-btn-ok" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 4px 15px rgba(234,88,12,0.3)" id="_mConfirmOk">ĐỒNG Ý</button>';
     h+='</div></div>';
     d.innerHTML=h;
@@ -129,6 +129,13 @@ function mConfirm(msg, onOk){
         mCloseConfirm();
         onOk();
     };
+    const btnNo = d.querySelector('.mm-btn-no');
+    if (btnNo) {
+        btnNo.onclick = () => {
+            mCloseConfirm();
+            if (onCancel) onCancel();
+        };
+    }
 }
 function mCloseConfirm(){
     const m=document.getElementById('_mmConfirmModal');
@@ -340,7 +347,12 @@ function mRenderMine(){
             const doneBg=r.is_cut_done?'linear-gradient(135deg,#059669,#10b981)':'linear-gradient(135deg,#1e40af,#3b82f6)';
             const doneTxt=r.is_cut_done?'✅ ĐÃ CẮT XONG':'🏁 CẮT XONG';
             if(r.is_cut_done){
-                actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mToggle('+r.id+',\'undo_cut_done\')">'+doneTxt+'</button>';
+                const isManager = mUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(mUser.role);
+                if (isManager) {
+                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mToggle('+r.id+',\'undo_cut_done\')">'+doneTxt+'</button>';
+                } else {
+                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:default;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;margin:8px 0;opacity:0.65" disabled>'+doneTxt+' (CHỈ QL ĐƯỢC HOÀN TÁC)</button>';
+                }
             } else {
                 actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mOpenDoneModal('+r.id+')">'+doneTxt+'</button>';
             }
@@ -471,8 +483,23 @@ async function _mmDoClaimOrder(id,itemId,code){
 }
 
 async function mToggle(id,action){
-    try{await mApi('/api/cutting/toggle/'+id,'POST',{action});mToast('✅ Cập nhật');await mLoadAll();}
+    if(window._mSubmitBusy)return;
+    let msg = '';
+    if(action==='undo_cut_done'){
+        msg='⚠️ CẢNH BÁO: Hoàn tác cắt xong sẽ mở khóa các cây vải và khôi phục số lượng vải về trạng thái chưa cắt. Bạn có chắc chắn muốn thực hiện?';
+    } else if(action==='undo_cutting'){
+        msg='Hoàn tác bắt đầu cắt? Sẽ mở khóa tất cả cây vải đã chọn.';
+    }
+    if(msg && !confirm(msg))return;
+
+    window._mSubmitBusy=true;
+    try{
+        await mApi('/api/cutting/toggle/'+id,'POST',{action});
+        mToast('✅ Cập nhật');
+        await mLoadAll();
+    }
     catch(e){mToast(e.message||'Lỗi',false);}
+    finally{window._mSubmitBusy=false;}
 }
 
 async function mOpenCutModal(recordId){
@@ -536,8 +563,10 @@ function mCloseCutModal(){
 }
 
 async function mDoCut(recordId){
+    if(window._mSubmitBusy)return;
+    window._mSubmitBusy=true;
     const cbs=document.querySelectorAll('._mRollCb:checked');
-    if(!cbs.length){mToast('Chọn ít nhất 1 cây vải',false);return;}
+    if(!cbs.length){mToast('Chọn ít nhất 1 cây vải',false);window._mSubmitBusy=false;return;}
     const ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));
     const btn=document.getElementById('_mmCutOk');
     if(btn){btn.disabled=true;btn.textContent='⏳...';}
@@ -549,6 +578,8 @@ async function mDoCut(recordId){
     }catch(e){
         mToast(e.message||'Lỗi',false);
         if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN CẮT';}
+    }finally{
+        window._mSubmitBusy=false;
     }
 }
 
@@ -699,17 +730,21 @@ function mCloseDoneModal(){
     if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}
 }
 async function mSubmitDone(recordId){
-    const d=window._mDoneData;if(!d)return;
+    if(window._mSubmitBusy)return;
+    window._mSubmitBusy=true;
+    const d=window._mDoneData;if(!d){window._mSubmitBusy=false;return;}
     const qtyInput=document.getElementById('_mDoneQty');
     const qty=parseInt(qtyInput.value);
     if(!qty||qty<=0){
         mToast('Nhập Số Lượng Cắt',false);
         mHighlight(qtyInput);
+        window._mSubmitBusy=false;
         return;
     }
     if(d.orderQty&&qty>d.orderQty){
         mToast('Số Lượng Cắt > Số Lượng Sản Phẩm',false);
         mHighlight(qtyInput);
+        window._mSubmitBusy=false;
         return;
     }
     // Validate: must select rolls or click "Cắt hết"
@@ -718,6 +753,7 @@ async function mSubmitDone(recordId){
         mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);
         const allCutBtn=document.querySelector('button[onclick="mDoneAllCut()"]');
         mHighlight(allCutBtn);
+        window._mSubmitBusy=false;
         return;
     }
     const rollRemains=[];let err=false;
@@ -738,18 +774,28 @@ async function mSubmitDone(recordId){
             rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});
         }
     });
-    if(err){mToast('Kiểm tra kg còn lại',false);return;}
+    if(err){mToast('Kiểm tra kg còn lại',false);window._mSubmitBusy=false;return;}
     const uc=d.rolls.length-rollRemains.length;
     const proceed=async()=>{
         const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains};
         const reason=document.getElementById('_mDoneReason');if(reason&&reason.value.trim())body.ratio_reason=reason.value.trim();
         if(d.imgData)body.ratio_image=d.imgData;
         const btn=document.getElementById('_mDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
-        try{await mApi('/api/cutting/toggle/'+recordId,'POST',body);mCloseDoneModal();mToast('✅ Cắt xong!');await mLoadAll();}
-        catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN';}}
+        try{
+            await mApi('/api/cutting/toggle/'+recordId,'POST',body);
+            mCloseDoneModal();
+            mToast('✅ Cắt xong!');
+            await mLoadAll();
+        }
+        catch(e){
+            mToast(e.message||'Lỗi',false);
+            if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN';}
+        }finally{
+            window._mSubmitBusy=false;
+        }
     };
     if(uc>0){
-        mConfirm(uc+' cây sẽ cắt hết (0kg).\nBạn có chắc chắn?',proceed);
+        mConfirm(uc+' cây sẽ cắt hết (0kg).\nBạn có chắc chắn?',proceed,()=>{window._mSubmitBusy=false;});
     }else{
         proceed();
     }
@@ -873,7 +919,9 @@ function mGDoneRecalc(){
     const dp=document.getElementById('_mGDistrib');if(dp)dp.innerHTML=dh;
 }
 async function mSubmitGDone(){
-    const d=window._mGDone;if(!d)return;
+    if(window._mSubmitBusy)return;
+    window._mSubmitBusy=true;
+    const d=window._mGDone;if(!d){window._mSubmitBusy=false;return;}
     // Validate quantities
     const items=[];
     for(const r of d.records){
@@ -882,11 +930,13 @@ async function mSubmitGDone(){
         if(!qty||qty<=0){
             mToast('Nhập SL Cắt cho tất cả đơn',false);
             mHighlight(inp);
+            window._mSubmitBusy=false;
             return;
         }
         if(r.order_quantity&&qty>Number(r.order_quantity)){
             mToast('SL Cắt > SL Đơn cho '+(r.product_name||r.id),false);
             mHighlight(inp);
+            window._mSubmitBusy=false;
             return;
         }
         items.push({record_id:r.id,cut_quantity:qty});
@@ -897,6 +947,7 @@ async function mSubmitGDone(){
         mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);
         const allCutBtn=document.getElementById('_mGCutAllBtn');
         mHighlight(allCutBtn);
+        window._mSubmitBusy=false;
         return;
     }
     const rollRemains=[];let err=false;
@@ -917,7 +968,7 @@ async function mSubmitGDone(){
             rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});
         }
     });
-    if(err){mToast('Kiểm tra kg còn lại',false);return;}
+    if(err){mToast('Kiểm tra kg còn lại',false);window._mSubmitBusy=false;return;}
     const uc=d.rolls.length-rollRemains.length;
     const proceed=async()=>{
         const body={group_id:d.groupId,items,roll_remains:rollRemains};
@@ -925,10 +976,15 @@ async function mSubmitGDone(){
         try{
             await mApi('/api/cutting/multi-cut/done','POST',body);
             mCloseGDone();mToast('✅ Cắt xong nhóm '+items.length+' đơn!');await mLoadAll();
-        }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN CẮT XONG';}}
+        }catch(e){
+            mToast(e.message||'Lỗi',false);
+            if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN CẮT XONG';}
+        }finally{
+            window._mSubmitBusy=false;
+        }
     };
     if(uc>0){
-        mConfirm(uc+' cây sẽ cắt hết (0kg).\nBạn có chắc chắn?',proceed);
+        mConfirm(uc+' cây sẽ cắt hết (0kg).\nBạn có chắc chắn?',proceed,()=>{window._mSubmitBusy=false;});
     }else{
         proceed();
     }

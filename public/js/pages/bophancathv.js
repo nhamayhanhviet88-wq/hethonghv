@@ -273,15 +273,32 @@ function _bpcRenderRows(paged) {
         var updateStr = '';
         if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
         var ccBadge = r.cutting_category ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-right:4px">' + r.cutting_category + '</span>' : '';
+        var sharedBadge = '';
+        if (r.multi_cut_group_id) {
+            var label = 'CẮT CHUNG';
+            if (r.cut_shared) {
+                var m = r.cut_shared.match(/Cắt chung (\d+) đơn/i);
+                if (m) label = 'CẮT CHUNG ' + m[1] + ' ĐƠN';
+            }
+            sharedBadge = '<span style="background:#ea580c;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">' + label + '</span>';
+        }
         // Cut button: show modal instead of direct toggle
         var cutBtnHtml = showCutBtn
             ? '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>'
             : '<button class="bpc-icon-btn on-cut" disabled title="Đang cắt" style="opacity:0.4;cursor:default">✂️</button>';
+        var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].indexOf(window._currentUser.role) >= 0;
         var doneBtnHtml = showDoneBtn
             ? (r.is_cut_done
-                ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong">'+doneIcon+'</button>'
+                ? (isManager
+                    ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Quản lý)">'+doneIcon+'</button>'
+                    : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Quản lý mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>')
                 : '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>')
             : '<span style="width:26px;display:inline-block"></span>';
+        var sharedCol = '—';
+        if (r.cut_shared) {
+            var firstLine = r.cut_shared.split('\n')[0].replace(':', '');
+            sharedCol = '<span title="' + r.cut_shared.replace(/"/g, '&quot;') + '" style="cursor:help;border-bottom:1px dashed #ea580c;font-weight:700;color:#ea580c">' + firstLine + '</span>';
+        }
         return '<tr>'
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
             +'<td style="text-align:center">'+cutBtnHtml+'</td>'
@@ -291,7 +308,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
-            +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
+            +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'—')+'</td>'
@@ -302,7 +319,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center;font-weight:600">'+(r.kg_start||'—')+'</td>'
             +'<td style="text-align:center;font-weight:600">'+(r.kg_end||'—')+'</td>'
             +'<td>'+warnHtml+'</td>'
-            +'<td style="font-size:9px;color:#6b7280;white-space:pre-line;line-height:1.4">'+(r.cut_shared||'—')+'</td>'
+            +'<td style="font-size:10px;text-align:center">'+sharedCol+'</td>'
             +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
             +'</tr>';
     }).join('');
@@ -357,7 +374,30 @@ function _bpcRenderStats(count, arr) {
 }
 
 async function _bpcToggleAction(id, action) {
-    try { await apiCall('/api/cutting/toggle/' + id, 'POST', { action: action }); showToast('✅ Cập nhật'); await _bpcLoadAll(); } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+    if (window._bpcBusy) return;
+    var msg = '';
+    if (action === 'undo_cut_done') {
+        msg = '⚠️ CẢNH BÁO: Hoàn tác cắt xong sẽ mở khóa các cây vải và khôi phục số lượng vải về trạng thái chưa cắt. Bạn có chắc chắn muốn thực hiện?';
+    } else if (action === 'undo_cutting') {
+        msg = 'Hoàn tác bắt đầu cắt? Sẽ mở khóa tất cả cây vải đã chọn.';
+    } else if (action === 'undo_approve_salary') {
+        msg = 'Bạn có chắc chắn muốn hoàn tác duyệt lương cho đơn này?';
+    } else if (action === 'undo_wash') {
+        msg = 'Bạn có chắc chắn muốn hoàn tác báo giặt cho đơn này?';
+    }
+
+    if (msg && !confirm(msg)) return;
+
+    window._bpcBusy = true;
+    try {
+        await apiCall('/api/cutting/toggle/' + id, 'POST', { action: action });
+        showToast('✅ Cập nhật');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._bpcBusy = false;
+    }
 }
 
 function _bpcReportError(id) {
@@ -545,13 +585,18 @@ async function _bpcUnclaimOrder(orderId, orderCode) {
 
 // ========== CUT MODAL: Form chọn cây vải khi ấn ✂️ ==========
 async function _bpcOpenCutModal(recordId) {
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
     var rec = _bpc.records.find(function(r) { return r.id === recordId; });
-    if (!rec) { showToast('Không tìm thấy record', 'error'); return; }
+    if (!rec) { showToast('Không tìm thấy record', 'error'); window._bpcBusy = false; return; }
     // If already cutting, allow undo
     if (rec.is_cutting) {
         if (confirm('Hoàn tác bắt đầu cắt? Sẽ unlock tất cả cây vải đã chọn.')) {
-            _bpcToggleAction(recordId, 'undo_cutting');
+            try {
+                await _bpcToggleAction(recordId, 'undo_cutting');
+            } catch(e) {}
         }
+        window._bpcBusy = false;
         return;
     }
     // Show loading modal
@@ -601,6 +646,7 @@ async function _bpcOpenCutModal(recordId) {
     } catch(e) {
         var body2 = document.getElementById('_bpcCutBody');
         if (body2) body2.innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444">❌ Lỗi: ' + (e.message||'Không thể tải') + '</div>';
+        window._bpcBusy = false;
     }
 }
 
@@ -613,13 +659,16 @@ function _bpcRecalcKg() {
 }
 
 function _bpcCloseCutModal() {
+    window._bpcBusy = false;
     var m = document.getElementById('_bpcCutModal');
     if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
 }
 
 async function _bpcDoCut(recordId) {
+    if (window._bpcSubmitBusy) return;
+    window._bpcSubmitBusy = true;
     var cbs = document.querySelectorAll('._bpcRollCb:checked');
-    if (!cbs.length) { showToast('Vui lòng chọn ít nhất 1 cây vải', 'error'); return; }
+    if (!cbs.length) { showToast('Vui lòng chọn ít nhất 1 cây vải', 'error'); window._bpcSubmitBusy = false; return; }
     var rollIds = [];
     cbs.forEach(function(cb) { rollIds.push(Number(cb.value)); });
     var btn = document.getElementById('_bpcCutConfirmBtn');
@@ -632,6 +681,9 @@ async function _bpcDoCut(recordId) {
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
         if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; }
+    } finally {
+        window._bpcSubmitBusy = false;
+        window._bpcBusy = false;
     }
 }
 
@@ -848,10 +900,12 @@ function _bpcCloseDoneModal() {
 }
 
 async function _bpcSubmitDone(recordId) {
-    var d = window._bpcDoneData; if (!d) return;
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    var d = window._bpcDoneData; if (!d) { window._bpcBusy = false; return; }
     var qty = parseInt(document.getElementById('_bpcDoneQty').value);
-    if (!qty || qty <= 0) { showToast('⚠️ Vui lòng nhập SL Cắt', 'error'); return; }
-    if (d.orderQty && qty > d.orderQty) { showToast('⚠️ SL Cắt không được lớn hơn SL Đơn (' + d.orderQty + ')', 'error'); return; }
+    if (!qty || qty <= 0) { showToast('⚠️ Vui lòng nhập SL Cắt', 'error'); window._bpcBusy = false; return; }
+    if (d.orderQty && qty > d.orderQty) { showToast('⚠️ SL Cắt không được lớn hơn SL Đơn (' + d.orderQty + ')', 'error'); window._bpcBusy = false; return; }
     // Collect roll remains
     var rollRemains = [];
     var cbs = document.querySelectorAll('._bpcDoneRollCb');
@@ -867,10 +921,10 @@ async function _bpcSubmitDone(recordId) {
             rollRemains.push({ roll_id: Number(cb.dataset.rollid), remaining_weight: val });
         }
     });
-    if (hasError) { showToast('⚠️ Kiểm tra lại kg còn lại các cây đã chọn', 'error'); return; }
+    if (hasError) { showToast('⚠️ Kiểm tra lại kg còn lại các cây đã chọn', 'error'); window._bpcBusy = false; return; }
     // Confirm if all rolls cut
     var unchecked = d.rolls.length - rollRemains.length;
-    if (unchecked > 0 && !confirm('Có ' + unchecked + ' cây vải sẽ cắt hết (0kg). Xác nhận?')) return;
+    if (unchecked > 0 && !confirm('Có ' + unchecked + ' cây vải sẽ cắt hết (0kg). Xác nhận?')) { window._bpcBusy = false; return; }
 
     var body = { action: 'cut_done', cut_quantity: qty, roll_remains: rollRemains };
     // Ratio reason/image (future threshold)
@@ -888,13 +942,17 @@ async function _bpcSubmitDone(recordId) {
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
         if (btn) { btn.disabled = false; btn.textContent = '🏁 XÁC NHẬN CẮT XONG'; }
+    } finally {
+        window._bpcBusy = false;
     }
 }
 
 // ========== GROUP DONE MODAL (Multi-cut Desktop) ==========
 function _bpcOpenGroupDoneModal(groupId) {
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
     var groupRecs = _bpc.records.filter(function(x) { return x.multi_cut_group_id === groupId; });
-    if (groupRecs.length < 2) { showToast('Nhóm không đủ đơn', 'error'); return; }
+    if (groupRecs.length < 2) { showToast('Nhóm không đủ đơn', 'error'); window._bpcBusy = false; return; }
     var ref = groupRecs[0];
     var rolls = []; try { rolls = typeof ref.selected_roll_ids === 'string' ? JSON.parse(ref.selected_roll_ids) : (ref.selected_roll_ids || []); } catch(e) {}
     var kgStart = Number(ref.kg_start) || 0;
@@ -914,7 +972,8 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<div style="display:flex;align-items:center;justify-content:space-between">';
         h += '<span style="font-size:11px;color:#7c3aed">SL Đơn: <b>' + gr.order_quantity + '</b></span>';
         h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#64748b;font-weight:600">SL Cắt:</span>';
-        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + (gr.order_quantity||'') + '" oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed"></div></div></div>';
+        const defaultQty = gr.cut_quantity || gr.order_quantity || '';
+        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + defaultQty + '" oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed"></div></div></div>';
     });
     h += '</div>';
     // Rolls
@@ -946,7 +1005,7 @@ function _bpcOpenGroupDoneModal(groupId) {
     requestAnimationFrame(function() { document.getElementById('_bpcGDoneModal').classList.add('show'); });
     _bpcGDoneRecalc();
 }
-function _bpcCloseGDone() { var m = document.getElementById('_bpcGDoneModal'); if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); } }
+function _bpcCloseGDone() { window._bpcBusy = false; var m = document.getElementById('_bpcGDoneModal'); if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); } }
 function _bpcGDoneToggleRoll(idx) {
     window._bpcGDone._allCut = false;
     var btn = document.getElementById('_bpcGCutAllBtn');
@@ -997,16 +1056,18 @@ function _bpcGDoneRecalc() {
     var dp = document.getElementById('_bpcGDistrib'); if (dp) dp.innerHTML = dh;
 }
 async function _bpcSubmitGDone() {
-    var d = window._bpcGDone; if (!d) return;
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    var d = window._bpcGDone; if (!d) { window._bpcBusy = false; return; }
     var items = [];
     for (var i = 0; i < d.records.length; i++) {
         var r = d.records[i]; var inp = document.getElementById('_bpcGQ_' + r.id);
         var qty = inp ? parseInt(inp.value) : 0;
-        if (!qty || qty <= 0) { showToast('Nhập SL Cắt cho tất cả đơn', 'error'); return; }
+        if (!qty || qty <= 0) { showToast('Nhập SL Cắt cho tất cả đơn', 'error'); window._bpcBusy = false; return; }
         items.push({ record_id: r.id, cut_quantity: qty });
     }
     var hasChecked = document.querySelectorAll('._bpcGRollCb:checked').length > 0;
-    if (!hasChecked && !d._allCut) { showToast('Chọn cây còn lại hoặc ấn "Cắt hết"', 'error'); return; }
+    if (!hasChecked && !d._allCut) { showToast('Chọn cây còn lại hoặc ấn "Cắt hết"', 'error'); window._bpcBusy = false; return; }
     var rollRemains = []; var err = false;
     document.querySelectorAll('._bpcGRollCb').forEach(function(cb) {
         if (cb.checked) { var k = document.getElementById('_bpcGRollKg_' + cb.dataset.idx); var v = k ? parseFloat(k.value) : 0; var mx = parseFloat(cb.dataset.weight) || 0;
@@ -1014,14 +1075,19 @@ async function _bpcSubmitGDone() {
         if (v > mx) { err = true; showToast('Kg > ' + mx, 'error'); }
         rollRemains.push({ roll_id: Number(cb.dataset.rollid), remaining_weight: v }); }
     });
-    if (err) { showToast('Kiểm tra kg còn lại', 'error'); return; }
+    if (err) { showToast('Kiểm tra kg còn lại', 'error'); window._bpcBusy = false; return; }
     var uc = d.rolls.length - rollRemains.length;
-    if (uc > 0 && !confirm(uc + ' cây sẽ cắt hết (0kg). OK?')) return;
+    if (uc > 0 && !confirm(uc + ' cây sẽ cắt hết (0kg). OK?')) { window._bpcBusy = false; return; }
     var btn = document.getElementById('_bpcGDoneOk'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
     try {
         await apiCall('/api/cutting/multi-cut/done', 'POST', { group_id: d.groupId, items: items, roll_remains: rollRemains });
         _bpcCloseGDone(); showToast('✅ Cắt xong nhóm ' + items.length + ' đơn!'); await _bpcLoadAll();
-    } catch(e) { showToast(e.message || 'Lỗi', 'error'); if (btn) { btn.disabled = false; btn.textContent = '🏁 XÁC NHẬN CẮT XONG NHÓM'; } }
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🏁 XÁC NHẬN CẮT XONG NHÓM'; }
+    } finally {
+        window._bpcBusy = false;
+    }
 }
 
 // ========== MULTI-CUT WIZARD (Desktop) ==========
@@ -1175,6 +1241,8 @@ async function _mcNext() {
         _mcData.step = 4; _mcRenderStep();
     } else if (_mcData.step === 4) {
         // Submit
+        if (window._bpcBusy) return;
+        window._bpcBusy = true;
         var btn = document.getElementById('_mcNextBtn');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
         try {
@@ -1185,6 +1253,8 @@ async function _mcNext() {
         } catch(e) {
             showToast(e.message || 'Lỗi', 'error');
             if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; }
+        } finally {
+            window._bpcBusy = false;
         }
     }
 }
