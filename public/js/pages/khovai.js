@@ -289,7 +289,16 @@ async function _kvShowDetail(fcid) {
     body += '<div id="kvDetailRollsArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải...</div>';
     body += '</div>';
 
+    // Part 3: Completed rolls list (Về 0kg)
+    body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-top:16px">';
+    body += '<div style="font-weight:800;font-size:14px;margin-bottom:12px">✅ Các cây đã cắt xong <span id="kvCompletedRollCount" style="background:#64748b;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">...</span></div>';
+    body += '<div id="kvCompletedRollsArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải...</div>';
+    body += '</div>';
+
     openModal('🧵 Chi tiết — ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>');
+
+    // Load completed rolls (Về 0kg)
+    _kvLoadCompletedRolls(fcid, 1);
 
     // Fetch rolls async
     try {
@@ -378,8 +387,14 @@ async function _kvShowRollDetail(rollId) {
         var rlCutLabel = rl.cutting_order_name ? ('✂️ ' + rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
         body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">NG\u01af\u1edcI NH\u1eacP V\u1ea2I</td><td style="' + tdS + '">' + (rl.created_by_name || '\u2014') + '</td></tr>';
-        body += '<tr><td style="' + thS + '">H\u00ccNH \u1ea2NH PHI\u1ec0U</td><td style="' + tdS + '">' + (rl.receipt_image ? '<a href="' + rl.receipt_image + '" target="_blank" style="color:#0d9488;font-weight:700">\ud83d\udcf7 Xem \u1ea3nh</a>' : '<span style="color:var(--gray-400)">Ch\u01b0a c\u00f3</span>') + '</td></tr>';
-        body += '<tr><td style="' + thS + '">ID BILL</td><td style="' + tdS + '">' + (rl.bill_id ? '<code style="background:#e2e8f0;padding:2px 8px;border-radius:4px">' + rl.bill_id + '</code>' : '<span style="color:var(--gray-400)">\u2014</span>') + '</td></tr>';
+        
+        var billLink = '<span style="color:var(--gray-400)">Chưa có</span>';
+        if (rl.source_import_id) {
+            billLink = '<a href="javascript:void(0)" onclick="_kvOpenImportBill(' + rl.source_import_id + ')" style="color:#7c3aed;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #7c3aed">🧵 Xem Chi Tiết Bill Nhập Vải</a>';
+        } else if (rl.receipt_image) {
+            billLink = '<a href="' + rl.receipt_image + '" target="_blank" style="color:#0d9488;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0d9488">🖼 Xem ảnh phiếu</a>';
+        }
+        body += '<tr><td style="' + thS + '">🧵 Chi Tiết Bill Nhập Vải</td><td style="' + tdS + '">' + billLink + '</td></tr>';
         body += '</table></div>';
 
         // Part 2: Cut history
@@ -387,34 +402,29 @@ async function _kvShowRollDetail(rollId) {
         body += '<div style="font-weight:800;font-size:14px;margin-bottom:12px">\ud83d\udd2a \u0110\u01a0N H\u00c0NG \u0110\u00c3 S\u1ea2N XU\u1ea4T <span style="background:#6366f1;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">' + cuts.length + '</span></div>';
 
         if (!cuts.length) {
-            body += '<div style="text-align:center;padding:20px;color:var(--gray-400)"><div style="font-size:24px">\ud83d\udce6</div><div style="margin-top:4px">Ch\u01b0a c\u00f3 \u0111\u01a1n c\u1eaft n\u00e0o</div></div>';
+            body += '<div style="text-align:center;padding:20px;color:var(--gray-400)"><div style="font-size:24px">\ud83d\udce6</div><div style="margin-top:4px">Chưa có đơn cắt nào</div></div>';
         } else {
             var cThS = 'padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#fff;background:#1e293b';
             body += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
             body += '<th style="' + cThS + ';border-radius:6px 0 0 0">#</th>';
-            body += '<th style="' + cThS + '">\u0110\u01a1n C\u1eaft</th>';
-            body += '<th style="' + cThS + '">Ng\u00e0y C\u1eaft</th>';
-            body += '<th style="' + cThS + '">C\u00e1c C\u00e2y C\u1eaft</th>';
-            body += '<th style="' + cThS + ';text-align:right">Kg \u0110\u1ea7u</th>';
-            body += '<th style="' + cThS + ';text-align:right">Kg C\u1eaft</th>';
-            body += '<th style="' + cThS + ';text-align:right">Kg C\u00f2n</th>';
-            body += '<th style="' + cThS + '">S\u1ea3n Ph\u1ea9m</th>';
-            body += '<th style="' + cThS + ';text-align:right">SL \u0110\u01a1n</th>';
-            body += '<th style="' + cThS + ';border-radius:0 6px 0 0;text-align:right">SL C\u1eaft</th>';
+            body += '<th style="' + cThS + '">Đơn Cắt / Sản Phẩm</th>';
+            body += '<th style="' + cThS + '">Ngày Cắt</th>';
+            body += '<th style="' + cThS + ';text-align:right">SL Đơn</th>';
+            body += '<th style="' + cThS + ';text-align:right">SL Cắt</th>';
+            body += '<th style="' + cThS + ';text-align:right">Kg Sử Dụng</th>';
+            body += '<th style="' + cThS + ';border-radius:0 6px 0 0">Thợ Cắt</th>';
             body += '</tr></thead><tbody>';
             cuts.forEach(function(c, ci) {
-                var allRolls = (c.all_rolls||[]).map(function(ar) { return ar.roll_code; }).join(', ');
+                var cDate = c.cut_date ? new Date(c.cut_date) : null;
+                var cDs = cDate ? (String(cDate.getDate()).padStart(2,'0') + '/' + String(cDate.getMonth()+1).padStart(2,'0') + '/' + cDate.getFullYear()) : '—';
                 body += '<tr style="border-bottom:1px solid var(--gray-100)">';
-                body += '<td style="padding:6px 8px">' + (ci+1) + '</td>';
-                body += '<td style="padding:6px 8px;font-weight:700">' + (c.cut_code||'') + '</td>';
-                body += '<td style="padding:6px 8px;font-size:10px">' + (c.cut_date||'') + '</td>';
-                body += '<td style="padding:6px 8px;font-size:9px;max-width:120px;word-break:break-all">' + allRolls + '</td>';
-                body += '<td style="padding:6px 8px;text-align:right;font-weight:700">' + _kvFmt(c.kg_before) + '</td>';
-                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(c.kg_used) + '</td>';
-                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669">' + _kvFmt(c.kg_remaining) + '</td>';
-                body += '<td style="padding:6px 8px;font-size:10px">' + (c.product_name||'\u2014') + '</td>';
-                body += '<td style="padding:6px 8px;text-align:right">' + (c.order_quantity||0) + '</td>';
-                body += '<td style="padding:6px 8px;text-align:right;font-weight:700">' + (c.cut_quantity||0) + '</td>';
+                body += '<td style="padding:6px 8px;color:var(--gray-400)">' + (ci+1) + '</td>';
+                body += '<td style="padding:6px 8px;font-weight:700;color:#0d9488">' + (c.product_name||'') + '</td>';
+                body += '<td style="padding:6px 8px;font-size:10px">' + cDs + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right">' + _kvFmt(c.order_quantity) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#0d9488">' + _kvFmt(c.cut_quantity) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(c.kg_cut) + ' kg</td>';
+                body += '<td style="padding:6px 8px;font-size:10px">' + (c.cutter_name||'—') + '</td>';
                 body += '</tr>';
             });
             body += '</tbody></table>';
@@ -661,3 +671,83 @@ async function _kvCreateColor(mid) {
         else showToast(data.error || 'Lỗi', 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
+
+async function _kvLoadCompletedRolls(fcid, page) {
+    page = page || 1;
+    var areaEl = document.getElementById('kvCompletedRollsArea');
+    var countEl = document.getElementById('kvCompletedRollCount');
+    if (!areaEl) return;
+    areaEl.innerHTML = '<div style="color:var(--gray-400);text-align:center;padding:12px">Đang tải...</div>';
+    try {
+        var data = await apiCall('/api/khovai/completed-rolls?fcid=' + fcid + '&page=' + page + '&limit=10');
+        var rolls = data.rolls || [];
+        var total = data.total || 0;
+        if (countEl) countEl.textContent = total;
+
+        if (!rolls.length) {
+            areaEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--gray-400)">Chưa có cây vải nào cắt xong</div>';
+            return;
+        }
+
+        var rh = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        var thStyle = 'padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#fff;background:#475569';
+        rh += '<thead><tr>';
+        rh += '<th style="' + thStyle + ';border-radius:6px 0 0 0">#</th>';
+        rh += '<th style="' + thStyle + '">Mã Cây</th>';
+        rh += '<th style="' + thStyle + ';text-align:right">Nhập</th>';
+        rh += '<th style="' + thStyle + ';text-align:right">Tồn</th>';
+        rh += '<th style="' + thStyle + '">Ngày Cắt Xong</th>';
+        rh += '<th style="' + thStyle + ';border-radius:0 6px 0 0">Người Nhập</th>';
+        rh += '</tr></thead><tbody>';
+
+        rolls.forEach(function(rl, idx) {
+            var rlDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
+            var rlDs = rlDate ? (String(rlDate.getDate()).padStart(2,'0') + '/' + String(rlDate.getMonth()+1).padStart(2,'0') + '/' + rlDate.getFullYear() + ' ' + String(rlDate.getHours()).padStart(2,'0') + ':' + String(rlDate.getMinutes()).padStart(2,'0')) : '—';
+            var origW = Number(rl.original_weight || rl.weight);
+            var curW = Number(rl.weight);
+
+            rh += '<tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="_kvShowRollDetail(' + rl.id + ')">';
+            rh += '<td style="padding:6px 8px;color:var(--gray-400)">' + ((page - 1) * 10 + idx + 1) + '</td>';
+            rh += '<td style="padding:6px 8px;font-weight:700;color:#475569;text-decoration:underline">' + (rl.roll_code||'N/A') + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669">' + _kvFmt(origW) + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(curW) + '</td>';
+            rh += '<td style="padding:6px 8px;font-size:10px;color:#64748b">' + rlDs + '</td>';
+            rh += '<td style="padding:6px 8px;font-size:10px">' + (rl.created_by_name || '—') + '</td>';
+            rh += '</tr>';
+        });
+        rh += '</tbody></table>';
+
+        var totalPages = Math.ceil(total / 10);
+        if (totalPages > 1) {
+            rh += '<div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px;font-size:11px">';
+            if (page > 1) {
+                rh += '<button class="btn btn-sm btn-outline-secondary" onclick="_kvLoadCompletedRolls(' + fcid + ',' + (page - 1) + ')" style="padding:2px 8px;font-size:10px">◀ Trước</button>';
+            } else {
+                rh += '<button class="btn btn-sm btn-outline-secondary" disabled style="padding:2px 8px;font-size:10px;opacity:0.5">◀ Trước</button>';
+            }
+            rh += '<span>Trang ' + page + ' / ' + totalPages + '</span>';
+            if (page < totalPages) {
+                rh += '<button class="btn btn-sm btn-outline-secondary" onclick="_kvLoadCompletedRolls(' + fcid + ',' + (page + 1) + ')" style="padding:2px 8px;font-size:10px">Sau ▶</button>';
+            } else {
+                rh += '<button class="btn btn-sm btn-outline-secondary" disabled style="padding:2px 8px;font-size:10px;opacity:0.5">Sau ▶</button>';
+            }
+            rh += '</div>';
+        }
+
+        areaEl.innerHTML = rh;
+    } catch(e) {
+        if (areaEl) areaEl.innerHTML = '<div style="color:#dc2626">Lỗi tải dữ liệu các cây đã cắt xong</div>';
+    }
+}
+window._kvLoadCompletedRolls = _kvLoadCompletedRolls;
+
+window._kvOpenImportBill = function(importId) {
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=20260601b';
+        s.onload = function() { _bnhFabDetail(importId); };
+        document.head.appendChild(s);
+    }
+};

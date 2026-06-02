@@ -305,6 +305,36 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // ========== COMPLETED ROLLS ==========
+
+    // GET /api/khovai/completed-rolls — Paginated completed rolls (weight = 0)
+    fastify.get('/api/khovai/completed-rolls', { preHandler: [authenticate] }, async (request) => {
+        const { fcid, page, limit } = request.query;
+        if (!fcid) return { rolls: [], total: 0 };
+        const p = Math.max(1, Number(page) || 1);
+        const l = Math.max(1, Number(limit) || 10);
+        const offset = (p - 1) * l;
+
+        const countRow = await db.get(
+            `SELECT COUNT(*)::int AS total FROM kv_rolls
+             WHERE fabric_color_id = $1 AND is_returned = false AND weight = 0`,
+            [fcid]
+        );
+        const total = countRow ? countRow.total : 0;
+
+        const rolls = await db.all(
+            `SELECT r.*,
+                    u.full_name AS created_by_name
+             FROM kv_rolls r
+             LEFT JOIN users u ON u.id = r.created_by
+             WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight = 0
+             ORDER BY r.updated_at DESC NULLS LAST, r.id DESC
+             LIMIT $2 OFFSET $3`,
+            [fcid, l, offset]
+        );
+        return { rolls, total, page: p, limit: l };
+    });
+
     // ========== ROLL DETAIL ==========
 
     // GET /api/khovai/rolls/:id/detail — Full roll detail with cut history
@@ -325,23 +355,17 @@ module.exports = async function (fastify) {
         );
         if (!roll) return { error: 'Không tìm thấy cuộn vải' };
 
-        // Cut history
+        // Cut history from cutting_records
         const cutHistory = await db.all(
-            `SELECT cor.*, co.cut_code, co.cut_date, co.product_name,
-                    co.order_quantity, co.cut_quantity, co.notes AS cut_notes
-             FROM kv_cut_order_rolls cor
-             JOIN kv_cut_orders co ON co.id = cor.cut_order_id
-             WHERE cor.roll_id = $1
-             ORDER BY co.cut_date DESC`, [request.params.id]
+            `SELECT cr.id AS cutting_record_id, cr.cut_date, cr.product_name,
+                    cr.order_quantity, cr.cut_quantity, cr.kg_cut,
+                    u.full_name AS cutter_name
+             FROM cutting_records cr
+             LEFT JOIN users u ON u.id = cr.cutter_id
+             WHERE cr.is_cut_done = true
+               AND cr.selected_roll_ids @> jsonb_build_array(jsonb_build_object('roll_id', $1::int))
+             ORDER BY cr.cut_date DESC`, [request.params.id]
         );
-
-        // For each cut order, get all participating rolls
-        for (const ch of cutHistory) {
-            ch.all_rolls = await db.all(
-                `SELECT cor.roll_code, cor.kg_used FROM kv_cut_order_rolls cor
-                 WHERE cor.cut_order_id = $1 ORDER BY cor.roll_code`, [ch.cut_order_id]
-            );
-        }
 
         return { roll, cutHistory };
     });
