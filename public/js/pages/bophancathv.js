@@ -186,6 +186,34 @@ async function _bpcLoadRecords() {
     try {
         var res = await apiCall('/api/cutting/records' + qs);
         _bpc.records = res.records || [];
+        // Group by order_code to keep them together, ordering the groups by max id of items DESC, and items within each group by product_name ASC
+        var groups = {};
+        _bpc.records.forEach(function(r) {
+            var key = r.order_code || 'Chưa rõ';
+            if (!groups[key]) groups[key] = { maxId: 0, items: [] };
+            if (r.id > groups[key].maxId) groups[key].maxId = r.id;
+            groups[key].items.push(r);
+        });
+        
+        // Sort each group's items by product_name ASC
+        Object.keys(groups).forEach(function(key) {
+            groups[key].items.sort(function(a, b) {
+                return (a.product_name || '').localeCompare(b.product_name || '');
+            });
+        });
+        
+        // Sort groups by maxId DESC
+        var sortedGroups = Object.keys(groups).sort(function(a, b) {
+            return groups[b].maxId - groups[a].maxId;
+        });
+        
+        // Flatten back to _bpc.records
+        var newRecs = [];
+        sortedGroups.forEach(function(key) {
+            newRecs = newRecs.concat(groups[key].items);
+        });
+        _bpc.records = newRecs;
+
         // Filter incomplete on client if needed
         if (f.status === 'incomplete') {
             _bpc.records = _bpc.records.filter(function(r) { return !r.is_cut_done; });
