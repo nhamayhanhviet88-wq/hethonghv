@@ -469,6 +469,7 @@ module.exports = async function(fastify) {
             }
         } else if (action === 'cut_done') {
             if (!rec.is_cutting) return reply.code(400).send({ error: 'Chưa bấm Cắt — không thể bấm Cắt Xong' });
+            if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong' });
             const { cut_quantity, roll_remains, ratio_reason, ratio_image } = b;
             if (!cut_quantity) return reply.code(400).send({ error: 'Thiếu SL Cắt' });
             const cutQty = Number(cut_quantity);
