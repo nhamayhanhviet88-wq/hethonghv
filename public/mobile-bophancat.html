@@ -47,7 +47,7 @@
         .m-editable:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.15)}
         .m-empty{text-align:center;padding:60px 20px;color:#64748b}
         .m-empty-icon{font-size:48px;margin-bottom:12px}
-        .m-toast-c{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
+        .m-toast-c{position:fixed;top:60px;left:10px;right:10px;z-index:100000;display:flex;flex-direction:column;gap:8px}
         .m-toast{padding:14px 18px;border-radius:12px;color:white;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.3);animation:mSlide .3s ease}
         .m-toast-ok{background:linear-gradient(135deg,#10b981,#059669)}
         .m-toast-err{background:linear-gradient(135deg,#ef4444,#dc2626)}
@@ -133,6 +133,27 @@ function mConfirm(msg, onOk){
 function mCloseConfirm(){
     const m=document.getElementById('_mmConfirmModal');
     if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}
+}
+function mHighlight(el){
+    if(!el)return;
+    el.style.borderColor='#ef4444';
+    el.style.boxShadow='0 0 0 3px rgba(239,68,68,0.35)';
+    setTimeout(()=>{
+        el.style.borderColor='';
+        el.style.boxShadow='';
+    },2500);
+}
+function mDoneValidQty(el,max){
+    const v=parseInt(el.value)||0;
+    if(v>max || v<=0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
+    else{el.style.borderColor='#3b82f6';el.style.color='#93c5fd';}
+    mDoneRecalc();
+}
+function mDoneValidKg(el,max){
+    const v=parseFloat(el.value)||0;
+    if(v>max || v<=0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
+    else{el.style.borderColor='#3b82f6';el.style.color='#93c5fd';}
+    mDoneRecalc();
 }
 
 async function mApi(url,method='GET',body=null){
@@ -526,7 +547,7 @@ function mOpenDoneModal(recordId){
     h+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(r.cutting_category||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
     // Số Lượng Cắt
-    h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+(r.order_quantity||'')+'" oninput="mDoneRecalc()" style="width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)"></span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+(r.order_quantity||'')+'" oninput="mDoneValidQty(this,'+(r.order_quantity||9999)+')" style="width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)"></span></div>';
     // Rolls
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -540,7 +561,7 @@ function mOpenDoneModal(recordId){
         h+='<span style="font-size:12px;font-weight:700;color:#94a3b8">'+w+'kg</span></label>';
         h+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
-        h+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneRecalc()" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
+        h+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
         h+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
     h+='</div>';
@@ -594,18 +615,43 @@ function mDoneImgFile(e){
 function mCloseDoneModal(){const m=document.getElementById('_mmDoneModal');if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}}
 async function mSubmitDone(recordId){
     const d=window._mDoneData;if(!d)return;
-    const qty=parseInt(document.getElementById('_mDoneQty').value);
-    if(!qty||qty<=0){mToast('Nhập Số Lượng Cắt',false);return;}
-    if(d.orderQty&&qty>d.orderQty){mToast('Số Lượng Cắt > Số Lượng Sản Phẩm',false);return;}
+    const qtyInput=document.getElementById('_mDoneQty');
+    const qty=parseInt(qtyInput.value);
+    if(!qty||qty<=0){
+        mToast('Nhập Số Lượng Cắt',false);
+        mHighlight(qtyInput);
+        return;
+    }
+    if(d.orderQty&&qty>d.orderQty){
+        mToast('Số Lượng Cắt > Số Lượng Sản Phẩm',false);
+        mHighlight(qtyInput);
+        return;
+    }
     // Validate: must select rolls or click "Cắt hết"
     const hasCheckedRoll=document.querySelectorAll('._mDoneRollCb:checked').length>0;
-    if(!hasCheckedRoll && !d._allCut){mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);return;}
+    if(!hasCheckedRoll && !d._allCut){
+        mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);
+        const allCutBtn=document.querySelector('button[onclick="mDoneAllCut()"]');
+        mHighlight(allCutBtn);
+        return;
+    }
     const rollRemains=[];let err=false;
     document.querySelectorAll('._mDoneRollCb').forEach(cb=>{
-        if(cb.checked){const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);const v=k?parseFloat(k.value):0;const mx=parseFloat(cb.dataset.weight)||0;
-        if(!v||v<=0){err=true;if(k)k.style.border='2px solid #ef4444';}
-        if(v>mx){err=true;mToast('Kg > '+mx,false);}
-        rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});}
+        if(cb.checked){
+            const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);
+            const v=k?parseFloat(k.value):0;
+            const mx=parseFloat(cb.dataset.weight)||0;
+            if(!v||v<=0){
+                err=true;
+                mHighlight(k);
+            }
+            if(v>mx){
+                err=true;
+                mToast('Kg > '+mx,false);
+                mHighlight(k);
+            }
+            rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});
+        }
     });
     if(err){mToast('Kiểm tra kg còn lại',false);return;}
     const uc=d.rolls.length-rollRemains.length;
@@ -714,18 +760,7 @@ function mGDoneAllCut(){
     const rl=document.getElementById('_mGRollsList');if(rl)rl.style.display='none';
     mGDoneRecalc();
 }
-function mGDoneValidQty(el,max){
-    const v=parseInt(el.value)||0;
-    if(v>max){el.style.border='2px solid #ef4444';el.style.color='#ef4444';}
-    else{el.style.border='2px solid #8b5cf6';el.style.color='#c4b5fd';}
-    mGDoneRecalc();
-}
-function mGDoneValidKg(el,max){
-    const v=parseFloat(el.value)||0;
-    if(v>max){el.style.border='2px solid #ef4444';el.style.color='#ef4444';}
-    else{el.style.border='1.5px solid #8b5cf6';el.style.color='#c4b5fd';}
-    mGDoneRecalc();
-}
+
 function mGDoneRecalc(){
     const d=window._mGDone;if(!d)return;
     let kgR=0;document.querySelectorAll('._mGRollCb:checked').forEach(cb=>{const k=document.getElementById('_mGRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
@@ -752,19 +787,43 @@ async function mSubmitGDone(){
     for(const r of d.records){
         const inp=document.getElementById('_mGQ_'+r.id);
         const qty=inp?parseInt(inp.value):0;
-        if(!qty||qty<=0){mToast('Nhập SL Cắt cho tất cả đơn',false);return;}
-        if(r.order_quantity&&qty>Number(r.order_quantity)){mToast('SL Cắt > SL Đơn cho '+(r.product_name||r.id),false);return;}
+        if(!qty||qty<=0){
+            mToast('Nhập SL Cắt cho tất cả đơn',false);
+            mHighlight(inp);
+            return;
+        }
+        if(r.order_quantity&&qty>Number(r.order_quantity)){
+            mToast('SL Cắt > SL Đơn cho '+(r.product_name||r.id),false);
+            mHighlight(inp);
+            return;
+        }
         items.push({record_id:r.id,cut_quantity:qty});
     }
     // Validate rolls
     const hasChecked=document.querySelectorAll('._mGRollCb:checked').length>0;
-    if(!hasChecked&&!d._allCut){mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);return;}
+    if(!hasChecked&&!d._allCut){
+        mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);
+        const allCutBtn=document.getElementById('_mGCutAllBtn');
+        mHighlight(allCutBtn);
+        return;
+    }
     const rollRemains=[];let err=false;
     document.querySelectorAll('._mGRollCb').forEach(cb=>{
-        if(cb.checked){const k=document.getElementById('_mGRollKg_'+cb.dataset.idx);const v=k?parseFloat(k.value):0;const mx=parseFloat(cb.dataset.weight)||0;
-        if(!v||v<=0){err=true;if(k)k.style.border='2px solid #ef4444';}
-        if(v>mx){err=true;mToast('Kg > '+mx,false);}
-        rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});}
+        if(cb.checked){
+            const k=document.getElementById('_mGRollKg_'+cb.dataset.idx);
+            const v=k?parseFloat(k.value):0;
+            const mx=parseFloat(cb.dataset.weight)||0;
+            if(!v||v<=0){
+                err=true;
+                mHighlight(k);
+            }
+            if(v>mx){
+                err=true;
+                mToast('Kg > '+mx,false);
+                mHighlight(k);
+            }
+            rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});
+        }
     });
     if(err){mToast('Kiểm tra kg còn lại',false);return;}
     const uc=d.rolls.length-rollRemains.length;
