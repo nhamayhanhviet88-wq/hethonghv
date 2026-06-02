@@ -407,7 +407,8 @@ module.exports = async function(fastify) {
     // ========== TOGGLE: Toggle icon states ==========
     fastify.post('/api/cutting/toggle/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const { action } = request.body || {};
+        const b = request.body || {};
+        const { action } = b;
         const now = vnNow();
 
         const rec = await db.get('SELECT * FROM cutting_records WHERE id = $1', [id]);
