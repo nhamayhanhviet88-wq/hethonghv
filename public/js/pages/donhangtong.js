@@ -1865,7 +1865,8 @@ async function _dhtConfirmPhieuSX(orderId) {
     try {
         var res = await fetch('/api/dht/orders/' + orderId + '/confirm-sx-print', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
         });
         if (!res.ok) {
             var errData = {}; try { errData = await res.json(); } catch(e) {}
