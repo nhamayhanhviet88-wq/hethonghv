@@ -136,6 +136,7 @@ const MENU_CONFIG = [
     { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp \u0026 Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
 
     // ========== BỘ PHẬN XƯỞNG SX ==========
+    { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
     { id: 'bang-mau-vai', label: 'Bảng Màu Vải', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bangmauvai', permKey: 'bang_mau_vai' },
     { id: 'ke-toan-gui-hang', label: 'Đơn Hàng Kế Toán Gửi', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/ketoanguihang', permKey: 'ke_toan_gui_hang' },
     { id: 'kinh-doanh-gui-hang', label: 'Đơn Hàng Kinh Doanh Gửi', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/kinhdoanhguihang', permKey: 'kinh_doanh_gui_hang' },
@@ -145,7 +146,6 @@ const MENU_CONFIG = [
     { id: 'bo-phan-may', label: 'Bộ Phận May', icon: '🧵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophanmayhv', permKey: 'bo_phan_may' },
     { id: 'kiem-tra-chat-luong', label: 'Kiểm Tra Chất Lượng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/kiemtrachatluong', permKey: 'kiem_tra_chat_luong' },
     { id: 'bo-phan-hoan-thien', label: 'Cắt Chỉ & Hoàn Thiện', icon: '✅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophanhoanthienhv', permKey: 'bo_phan_hoan_thien' },
-    // [Moved to Cài Đặt Sản Xuất tab] { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'MẪU & GIÁ SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
     // [Moved to Cài Đặt Sản Xuất tab] { id: 'bang-gia-may', label: 'Bảng Giá May', icon: '💲', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'MẪU & GIÁ SẢN XUẤT', href: '/banggiamay', permKey: 'bang_gia_may' },
     { id: 'bill-nhap-hang', label: 'Bill Nhập Vải', icon: '🧾', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/billnhaphang', permKey: 'bill_nhap_hang' },
     { id: 'kiem-kho', label: 'Kiểm Kho Vải', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/kiemkhohv', permKey: 'kiem_kho' },
