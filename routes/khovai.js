@@ -545,7 +545,14 @@ module.exports = async function (fastify) {
         // Sort descending by created_at
         merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        return { history: merged };
+        const page = Math.max(1, Number(request.query.page) || 1);
+        const limit = Math.max(1, Number(request.query.limit) || 20);
+        const offset = (page - 1) * limit;
+
+        const total = merged.length;
+        const sliced = merged.slice(offset, offset + limit);
+
+        return { history: sliced, total, page, limit };
     });
 
     // ========== SUMMARY (Bảng chính) ==========

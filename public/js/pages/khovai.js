@@ -506,36 +506,85 @@ async function _kvDeleteRoll(rollId, fcid) {
 async function _kvShowHistory(fcid) {
     var r = _kv.summary.find(function(x) { return x.id === fcid; });
     var label = r ? (r.material_name + ' - ' + r.color_name) : '';
-    try {
-        var data = await apiCall('/api/khovai/history?fcid=' + fcid);
-        var hist = data.history || [];
-        var body = '';
-        if (!hist.length) { body = '<div style="text-align:center;padding:20px;color:var(--gray-400)">Chưa có lịch sử</div>'; }
-        else {
-            body = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr><th style="padding:6px;border-bottom:2px solid var(--gray-200)">Thời gian</th><th style="padding:6px;border-bottom:2px solid var(--gray-200)">Loại</th><th style="padding:6px;text-align:right;border-bottom:2px solid var(--gray-200)">SL</th><th style="padding:6px;border-bottom:2px solid var(--gray-200)">Mô tả</th><th style="padding:6px;border-bottom:2px solid var(--gray-200)">Người thực hiện</th></tr></thead><tbody>';
-            hist.forEach(function(t) {
-                var d = new Date(t.created_at);
-                var ds = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-                var typeBadge = '';
-                if (t.tx_type === 'NHAP') typeBadge = '<span class="kv-badge-nhap">NHẬP</span>';
-                else if (t.tx_type === 'XUAT') typeBadge = '<span class="kv-badge-xuat">XUẤT</span>';
-                else if (t.tx_type === 'CAT') typeBadge = '<span class="kv-badge-cat">CẮT</span>';
-                else if (t.tx_type === 'HOAN') typeBadge = '<span class="kv-badge-hoan">HOÀN</span>';
-                else if (t.tx_type === 'NHAP_KK') typeBadge = '<span class="kv-badge-nhapkk">NHẬP KK</span>';
-                else if (t.tx_type === 'XUAT_KK') typeBadge = '<span class="kv-badge-xuatkk">XUẤT KK</span>';
-                else typeBadge = '<span class="kv-badge-update">CẬP NHẬT</span>';
+    
+    var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px">';
+    body += '<div style="font-weight:800;font-size:14px;margin-bottom:12px">📋 Chi tiết lịch sử <span id="kvHistoryCount" style="background:#0d9488;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">...</span></div>';
+    body += '<div id="kvHistoryArea" style="color:var(--gray-400);text-align:center;padding:12px">Đang tải...</div>';
+    body += '</div>';
 
-                body += '<tr><td style="padding:6px;white-space:nowrap">' + ds + '</td>';
-                body += '<td style="padding:6px">' + typeBadge + '</td>';
-                body += '<td style="padding:6px;text-align:right;font-weight:700">' + (Number(t.quantity) ? _kvFmt(t.quantity) : '—') + '</td>';
-                body += '<td style="padding:6px;word-break:break-word">' + (t.description||'') + '</td>';
-                body += '<td style="padding:6px;font-size:10px">' + (t.created_by_name||'—') + '</td></tr>';
-            });
-            body += '</tbody></table>';
-        }
-        openModal('📋 Lịch Sử — ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>');
-    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+    openModal('📋 Lịch Sử — ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>');
+    _kvLoadHistoryPage(fcid, 1);
 }
+
+async function _kvLoadHistoryPage(fcid, page) {
+    page = page || 1;
+    var areaEl = document.getElementById('kvHistoryArea');
+    var countEl = document.getElementById('kvHistoryCount');
+    if (!areaEl) return;
+    areaEl.innerHTML = '<div style="color:var(--gray-400);text-align:center;padding:12px">Đang tải...</div>';
+    try {
+        var data = await apiCall('/api/khovai/history?fcid=' + fcid + '&page=' + page + '&limit=20');
+        var hist = data.history || [];
+        var total = data.total || 0;
+        if (countEl) countEl.textContent = total;
+
+        if (!hist.length) {
+            areaEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400)">Chưa có lịch sử</div>';
+            return;
+        }
+
+        var bh = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>';
+        var thStyle = 'padding:6px;border-bottom:2px solid var(--gray-200);text-align:left';
+        bh += '<th style="' + thStyle + '">Thời gian</th>';
+        bh += '<th style="' + thStyle + '">Loại</th>';
+        bh += '<th style="' + thStyle + ';text-align:right">SL</th>';
+        bh += '<th style="' + thStyle + '">Mô tả</th>';
+        bh += '<th style="' + thStyle + '">Người thực hiện</th>';
+        bh += '</tr></thead><tbody>';
+
+        hist.forEach(function(t) {
+            var d = new Date(t.created_at);
+            var ds = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+            var typeBadge = '';
+            if (t.tx_type === 'NHAP') typeBadge = '<span class="kv-badge-nhap">NHẬP</span>';
+            else if (t.tx_type === 'XUAT') typeBadge = '<span class="kv-badge-xuat">XUẤT</span>';
+            else if (t.tx_type === 'CAT') typeBadge = '<span class="kv-badge-cat">CẮT</span>';
+            else if (t.tx_type === 'HOAN') typeBadge = '<span class="kv-badge-hoan">HOÀN</span>';
+            else if (t.tx_type === 'NHAP_KK') typeBadge = '<span class="kv-badge-nhapkk">NHẬP KK</span>';
+            else if (t.tx_type === 'XUAT_KK') typeBadge = '<span class="kv-badge-xuatkk">XUẤT KK</span>';
+            else typeBadge = '<span class="kv-badge-update">CẬP NHẬT</span>';
+
+            bh += '<tr><td style="padding:6px;white-space:nowrap">' + ds + '</td>';
+            bh += '<td style="padding:6px">' + typeBadge + '</td>';
+            bh += '<td style="padding:6px;text-align:right;font-weight:700">' + (Number(t.quantity) ? _kvFmt(t.quantity) : '—') + '</td>';
+            bh += '<td style="padding:6px;word-break:break-word">' + (t.description||'') + '</td>';
+            bh += '<td style="padding:6px;font-size:10px">' + (t.created_by_name||'—') + '</td></tr>';
+        });
+        bh += '</tbody></table>';
+
+        var totalPages = Math.ceil(total / 20);
+        if (totalPages > 1) {
+            bh += '<div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px;font-size:11px">';
+            if (page > 1) {
+                bh += '<button class="btn btn-sm btn-outline-secondary" onclick="_kvLoadHistoryPage(' + fcid + ',' + (page - 1) + ')" style="padding:2px 8px;font-size:10px">◀ Trước</button>';
+            } else {
+                bh += '<button class="btn btn-sm btn-outline-secondary" disabled style="padding:2px 8px;font-size:10px;opacity:0.5">◀ Trước</button>';
+            }
+            bh += '<span>Trang ' + page + ' / ' + totalPages + '</span>';
+            if (page < totalPages) {
+                bh += '<button class="btn btn-sm btn-outline-secondary" onclick="_kvLoadHistoryPage(' + fcid + ',' + (page + 1) + ')" style="padding:2px 8px;font-size:10px">Sau ▶</button>';
+            } else {
+                bh += '<button class="btn btn-sm btn-outline-secondary" disabled style="padding:2px 8px;font-size:10px;opacity:0.5">Sau ▶</button>';
+            }
+            bh += '</div>';
+        }
+
+        areaEl.innerHTML = bh;
+    } catch(e) {
+        if (areaEl) areaEl.innerHTML = '<div style="color:#dc2626">Lỗi tải dữ liệu lịch sử</div>';
+    }
+}
+window._kvLoadHistoryPage = _kvLoadHistoryPage;
 
 // ========== MANUAL TRANSACTION ==========
 function _kvShowTx(fcid) {
