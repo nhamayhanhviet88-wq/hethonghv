@@ -304,6 +304,7 @@ async function _kvShowDetail(fcid) {
     try {
         var data = await apiCall('/api/khovai/rolls?fcid=' + fcid);
         var rolls = data.rolls || [];
+        rolls.sort(function(a, b) { return Number(b.weight) - Number(a.weight); });
         var countEl = document.getElementById('kvDetailRollCount');
         var areaEl = document.getElementById('kvDetailRollsArea');
         if (countEl) countEl.textContent = rolls.length;
@@ -336,7 +337,7 @@ async function _kvShowDetail(fcid) {
             var origW = Number(rl.original_weight || rl.weight);
             var curW = Number(rl.weight);
             var xuatW = origW - curW;
-            var cutLabel = rl.cutting_order_name ? ('✂️ ' + rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
+            var cutLabel = rl.cutting_order_name ? (rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
             rh += '<tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="_kvShowRollDetail(' + rl.id + ')">';
             rh += '<td style="padding:6px 8px;color:var(--gray-400)">' + (idx+1) + '</td>';
             rh += '<td style="padding:6px 8px;font-weight:600;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + '</td>';
@@ -384,7 +385,7 @@ async function _kvShowRollDetail(rollId) {
         body += '<tr><td style="' + thS + '">T\u1ed2N</td><td style="' + tdS + '"><b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(curW) + '</b></td></tr>';
         body += '<tr><td style="' + thS + '">HO\u00c0N</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">\u0110\u00e3 ho\u00e0n</span>' : '<span style="color:#64748b">Ch\u01b0a ho\u00e0n</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' \u2014 <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
-        var rlCutLabel = rl.cutting_order_name ? ('✂️ ' + rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
+        var rlCutLabel = rl.cutting_order_name ? (rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
         body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">NG\u01af\u1edcI NH\u1eacP V\u1ea2I</td><td style="' + tdS + '">' + (rl.created_by_name || '\u2014') + '</td></tr>';
         
@@ -431,7 +432,7 @@ async function _kvShowRollDetail(rollId) {
         }
         body += '</div>';
 
-        var footer = '<button class="btn btn-primary" onclick="_kvShowDetail(' + rl.fabric_color_id + ')" style="background:linear-gradient(135deg,#0d9488,#0f766e)">← Quay lại</button> ';
+        var footer = '<button class="btn btn-primary" onclick="_kvShowDetail(' + rl.fabric_color_id + ')" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff !important;font-weight:700">← Quay lại</button> ';
         footer += '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
         openModal('\ud83e\uddf5 ' + label, body, footer);
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
@@ -443,6 +444,7 @@ async function _kvShowRolls(fcid) {
     try {
         var data = await apiCall('/api/khovai/rolls?fcid=' + fcid);
         var rolls = data.rolls || [];
+        rolls.sort(function(a, b) { return Number(b.weight) - Number(a.weight); });
         var threshold = rolls.length && rolls[0].original_tree_threshold ? Number(rolls[0].original_tree_threshold) : 10;
         var body = '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">';
         body += '<span style="font-size:12px;color:#64748b">Ngưỡng cây nguyên: <b style="color:#7c3aed">≥' + threshold + ' ' + (r?r.unit:'kg') + '</b></span>';

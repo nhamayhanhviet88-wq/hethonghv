@@ -476,10 +476,11 @@ module.exports = async function (fastify) {
                    w.name AS warehouse_name, w.unit,
                    COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
                              WHERE t.fabric_color_id = fc.id AND t.tx_type = 'NHAP'), 0) AS dau_ky,
-                   COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
-                             WHERE t.fabric_color_id = fc.id AND t.tx_type = 'XUAT'), 0) AS xuat,
+                   GREATEST(0, COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
+                             WHERE t.fabric_color_id = fc.id AND t.tx_type = 'NHAP'), 0) - COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
+                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0)) AS xuat,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
-                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS so_cuc,
+                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), 0) AS so_cuc,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
                              AND r.weight >= fc.original_tree_threshold), 0) AS cay_nguyen,
@@ -491,7 +492,7 @@ module.exports = async function (fastify) {
                     WHERE t2.fabric_color_id = fc.id
                     ORDER BY t2.created_at DESC LIMIT 1) AS last_update,
                    COALESCE((SELECT json_agg(json_build_object('w', r.weight, 'ow', r.original_weight) ORDER BY r.weight DESC)
-                    FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false), '[]') AS roll_weights
+                    FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), '[]') AS roll_weights
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id
