@@ -335,7 +335,7 @@ module.exports = async function(fastify) {
             ) lh ON true
             LEFT JOIN users lh_user ON lh.performed_by = lh_user.id
             ${where}
-            ORDER BY o.order_code ASC NULLS LAST, cr.product_name ASC, cr.created_at DESC
+            ORDER BY cr.is_cutting DESC, o.order_code ASC NULLS LAST, cr.product_name ASC, cr.created_at DESC
         `, params);
 
         return { records };
