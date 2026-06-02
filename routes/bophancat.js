@@ -947,13 +947,14 @@ module.exports = async function(fastify) {
 
         // Verify conditions
         const order = await db.get(`
-            SELECT o.id, o.order_code, o.total_quantity,
+            SELECT o.id, o.order_code, o.total_quantity, o.shipping_status,
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived
             FROM dht_orders o
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
             WHERE o.id = $1
         `, [dht_order_id]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
+        if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi đi rồi — không thể nhận đơn cắt!' });
         if (!order.fabric_arrived) return reply.code(400).send({ error: 'Chưa có vải về — không thể nhận đơn cắt' });
 
         const hasPcIn = await db.get(`
@@ -1094,7 +1095,11 @@ module.exports = async function(fastify) {
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN dht_categories c ON o.category_id = c.id
             WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+              AND COALESCE(o.shipping_status, '') != 'shipped'
+              AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
+              AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
             ORDER BY o.created_at DESC
         `);
 
@@ -1241,7 +1246,7 @@ module.exports = async function(fastify) {
         // Re-validate: all items must be unclaimed + have preconditions met
         const items = await db.all(`
             SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
-                   o.id AS dht_order_id, o.order_code,
+                   o.id AS dht_order_id, o.order_code, o.shipping_status,
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived,
                    EXISTS(SELECT 1 FROM qlx_assignments qa
                           WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
@@ -1260,6 +1265,7 @@ module.exports = async function(fastify) {
             // Check not already claimed
             const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [it.order_item_id]);
             if (existing) return reply.code(409).send({ error: 'Phiếu "' + (it.description || it.order_code) + '" đã được nhận bởi người khác' });
+            if (it.shipping_status === 'shipped') return reply.code(400).send({ error: 'Phiếu thuộc đơn hàng "' + it.order_code + '" đã được gửi đi rồi' });
             if (!it.fabric_arrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
             if (!it.has_print) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa Phân Công In' });
         }
