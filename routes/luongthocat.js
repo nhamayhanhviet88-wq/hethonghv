@@ -158,10 +158,16 @@ module.exports = async function(fastify) {
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
             WHERE u.status = 'active'
-              AND (LOWER(COALESCE(d.name, '')) LIKE '%cắt%' 
+              AND (
+                (
+                  (LOWER(COALESCE(d.name, '')) LIKE '%cắt%' 
                    OR LOWER(COALESCE(d.code, '')) LIKE '%cat%' 
-                   OR LOWER(COALESCE(d.name, '')) = 'phongcat'
-                   OR u.role IN ('nhanviencat', 'nhan_vien_cat'))
+                   OR LOWER(COALESCE(d.name, '')) = 'phongcat')
+                  AND LOWER(COALESCE(d.code, '')) <> 'catcanh'
+                  AND LOWER(COALESCE(d.name, '')) NOT LIKE '%cánh%'
+                )
+                OR u.role IN ('nhanviencat', 'nhan_vien_cat')
+              )
             ORDER BY u.full_name ASC
         `);
 
