@@ -837,12 +837,17 @@ module.exports = async function(fastify) {
             rolls = await db.all(`
                 SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note,
                        r.called_for_orders, r.created_at AS roll_created_at,
+                       r.locked_by_cutting_id,
+                       cr_lock.product_name AS cutting_order_name,
+                       u_lock.full_name AS cutting_by_name,
                        COALESCE((
                            SELECT SUM(res.kg_reserved)
                            FROM qlx_fabric_reservations res
                            WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
                        ), 0) AS reserved_total
                 FROM kv_rolls r
+                LEFT JOIN cutting_records cr_lock ON cr_lock.id = r.locked_by_cutting_id
+                LEFT JOIN users u_lock ON u_lock.id = cr_lock.cutter_id
                 WHERE r.fabric_color_id = $1 AND r.is_returned = false
                 ORDER BY r.weight DESC
             `, [fc.fabric_color_id]);
@@ -951,8 +956,9 @@ module.exports = async function(fastify) {
             if (!roll_id || !kg_reserved || Number(kg_reserved) <= 0) return reply.code(400).send({ error: 'Chọn cây vải và nhập số kg' });
 
             // Validate: check available
-            const roll = await db.get('SELECT weight FROM kv_rolls WHERE id = $1 AND is_returned = false', [roll_id]);
+            const roll = await db.get('SELECT weight, locked_by_cutting_id FROM kv_rolls WHERE id = $1 AND is_returned = false', [roll_id]);
             if (!roll) return reply.code(400).send({ error: 'Cây vải không tồn tại hoặc đã trả NCC' });
+            if (roll.locked_by_cutting_id) return reply.code(400).send({ error: 'Cây vải đang bị khóa — đang được Bộ Phận Cắt sử dụng' });
 
             // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
             const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);

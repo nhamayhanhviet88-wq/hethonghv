@@ -51,6 +51,49 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPC] cutting_records:', e.message); }
     // Add cutting_category column if not exists
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS cutting_category TEXT`); } catch(e) {}
+    // Add selected_roll_ids JSONB for storing which rolls were selected for cutting
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS selected_roll_ids JSONB DEFAULT '[]'`); } catch(e) {}
+    // Add locked_by_cutting_id to kv_rolls for hard-locking rolls during cutting
+    try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS locked_by_cutting_id INTEGER REFERENCES cutting_records(id) ON DELETE SET NULL`); } catch(e) {}
+    // Add multi_cut_group_id for grouping records that are cut together
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS multi_cut_group_id TEXT`); } catch(e) {}
+    // Backfill cutting_category for existing records
+    try {
+        await db.exec(`
+            UPDATE cutting_records cr
+            SET cutting_category = cc.name
+            FROM dht_order_items oi
+            JOIN dht_products p ON p.name = TRIM(oi.description) AND p.is_active = true
+            JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+            WHERE cr.order_item_id = oi.id
+              AND cr.cutting_category IS NULL
+              AND cc.name IS NOT NULL
+        `);
+    } catch(e) { console.log('[BPC] backfill cutting_category:', e.message); }
+
+    // Backfill selected_roll_ids with label for existing records
+    try {
+        const recs = await db.all(`SELECT id, selected_roll_ids FROM cutting_records WHERE selected_roll_ids IS NOT NULL AND selected_roll_ids != '[]'`);
+        for (const rec of recs) {
+            let rolls = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []);
+            if (!rolls.length || rolls[0].label) continue; // skip if empty or already has label
+            const rollIds = rolls.map(r => r.roll_id);
+            const details = await db.all(`
+                SELECT r.id, r.weight, m.name AS material_name, fc.color_name
+                FROM kv_rolls r
+                JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                JOIN kv_materials m ON m.id = fc.material_id
+                WHERE r.id = ANY($1)
+            `, [rollIds]);
+            const detailMap = {};
+            details.forEach(d => { detailMap[d.id] = d; });
+            const updated = rolls.map(r => {
+                const d = detailMap[r.roll_id];
+                return { ...r, label: d ? (d.material_name + ' - ' + d.color_name + ' - ' + Number(d.weight) + 'kg') : r.roll_code };
+            });
+            await db.run(`UPDATE cutting_records SET selected_roll_ids = $1 WHERE id = $2`, [JSON.stringify(updated), rec.id]);
+        }
+    } catch(e) { console.log('[BPC] backfill roll labels:', e.message); }
 
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS cutting_history (
@@ -351,21 +394,228 @@ module.exports = async function(fastify) {
         let detail = '';
 
         if (action === 'start_cutting') {
-            await db.run(`UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, updated_at = $1 WHERE id = $3`,
-                [now, request.user.id, id]);
-            detail = '✂️ Bắt đầu cắt';
+            // === NEW: Require selected_roll_ids for locking rolls ===
+            const selectedRollIds = request.body.selected_roll_ids;
+            if (!selectedRollIds || !Array.isArray(selectedRollIds) || selectedRollIds.length === 0) {
+                return reply.code(400).send({ error: 'Vui lòng chọn ít nhất 1 cây vải' });
+            }
+            // Atomic lock: only lock rolls that are not yet locked
+            const locked = await db.all(
+                `UPDATE kv_rolls SET locked_by_cutting_id = $1
+                 WHERE id = ANY($2) AND locked_by_cutting_id IS NULL
+                 RETURNING id, weight, roll_code`,
+                [id, selectedRollIds]
+            );
+            if (locked.length !== selectedRollIds.length) {
+                // Rollback any that were locked in this attempt
+                if (locked.length > 0) {
+                    await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id = $1`, [id]);
+                }
+                return reply.code(409).send({ error: 'Có cây vải đã bị thợ khác chọn, vui lòng tải lại và chọn lại' });
+            }
+            // Fetch full label (material + color) for snapshot
+            const rollDetails = await db.all(`
+                SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name
+                FROM kv_rolls r
+                JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                JOIN kv_materials m ON m.id = fc.material_id
+                WHERE r.id = ANY($1)
+            `, [locked.map(r => r.id)]);
+            // Calculate kg_start from locked rolls
+            const kgStart = locked.reduce((sum, r) => sum + Number(r.weight), 0);
+            const rollSnapshot = rollDetails.map(r => ({
+                roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
+                label: (r.material_name || '') + ' - ' + (r.color_name || '') + ' - ' + Number(r.weight) + 'kg'
+            }));
+            await db.run(
+                `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, updated_at = $1 WHERE id = $5`,
+                [now, request.user.id, kgStart, JSON.stringify(rollSnapshot), id]
+            );
+            detail = '✂️ Bắt đầu cắt — ' + locked.length + ' cây, ' + kgStart.toFixed(2) + 'kg';
         } else if (action === 'undo_cutting') {
-            await db.run(`UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, updated_at = $1 WHERE id = $2`,
-                [now, id]);
-            detail = '↩️ Hoàn tác bắt đầu cắt';
+            // Multi-cut group handling
+            if (rec.multi_cut_group_id) {
+                const groupMembers = await db.all(
+                    `SELECT id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cutting = true`,
+                    [rec.multi_cut_group_id, id]
+                );
+                if (groupMembers.length > 0) {
+                    // Transfer lock if this record owns the lock
+                    const lockOwned = await db.get(`SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1 LIMIT 1`, [id]);
+                    if (lockOwned) {
+                        await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = $1 WHERE locked_by_cutting_id = $2`, [groupMembers[0].id, id]);
+                    }
+                    // Update cut_shared for remaining members
+                    const remaining = await db.all(`SELECT product_name FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cutting = true`, [rec.multi_cut_group_id, id]);
+                    const newShared = 'Cắt chung ' + remaining.length + ' đơn: ' + remaining.map(r => r.product_name).join(', ');
+                    await db.run(`UPDATE cutting_records SET cut_shared = $1, updated_at = $2 WHERE multi_cut_group_id = $3 AND id != $4 AND is_cutting = true`, [newShared, now, rec.multi_cut_group_id, id]);
+                } else {
+                    // Last member — unlock rolls
+                    await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id = $1`, [id]);
+                }
+                await db.run(
+                    `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', multi_cut_group_id = NULL, cut_shared = NULL, updated_at = $1 WHERE id = $2`,
+                    [now, id]
+                );
+                detail = '↩️ Hoàn tác cắt chung — ' + (groupMembers.length > 0 ? 'rời nhóm, ' + groupMembers.length + ' đơn còn lại' : 'đã unlock cây vải');
+            } else {
+                // Normal single-cut undo
+                await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id = $1`, [id]);
+                await db.run(
+                    `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', updated_at = $1 WHERE id = $2`,
+                    [now, id]
+                );
+                detail = '↩️ Hoàn tác bắt đầu cắt — đã unlock cây vải';
+            }
         } else if (action === 'cut_done') {
-            await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2, is_cutting = true, cutting_at = COALESCE(cutting_at, $1), updated_at = $1 WHERE id = $3`,
-                [now, request.user.id, id]);
-            detail = '✅ Cắt xong';
+            if (!rec.is_cutting) return reply.code(400).send({ error: 'Chưa bấm Cắt — không thể bấm Cắt Xong' });
+            const { cut_quantity, roll_remains, ratio_reason, ratio_image } = b;
+            if (!cut_quantity) return reply.code(400).send({ error: 'Thiếu SL Cắt' });
+            const cutQty = Number(cut_quantity);
+            if (rec.order_quantity && cutQty > Number(rec.order_quantity))
+                return reply.code(400).send({ error: 'SL Cắt (' + cutQty + ') không thể lớn hơn SL Đơn (' + rec.order_quantity + ')' });
+
+            let snapshot = [];
+            try { snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []); } catch(e) {}
+
+            // Check if this is a multi-cut group
+            if (rec.multi_cut_group_id) {
+                const otherNotDone = await db.all(
+                    `SELECT id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = false`,
+                    [rec.multi_cut_group_id, id]
+                );
+                const isLastInGroup = otherNotDone.length === 0;
+
+                if (!isLastInGroup) {
+                    // NOT last: only save cut_quantity, no roll weight changes
+                    await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
+                        cut_quantity = $3, ratio_reason = $4, ratio_image = $5, updated_at = $1 WHERE id = $6`,
+                        [now, request.user.id, cutQty, ratio_reason || null, ratio_image || null, id]);
+                    detail = '✅ Cắt xong (nhóm, chờ đơn cuối) — SL: ' + cutQty;
+                } else {
+                    // LAST in group: handle roll weights + distribute kg proportionally
+                    const remainsMap = {};
+                    if (roll_remains && Array.isArray(roll_remains)) {
+                        for (const rm of roll_remains) {
+                            const rem = Number(rm.remaining_weight);
+                            if (isNaN(rem) || rem < 0) return reply.code(400).send({ error: 'Kg còn lại không hợp lệ' });
+                            const orig = snapshot.find(s => s.roll_id === rm.roll_id);
+                            if (orig && rem > Number(orig.weight)) return reply.code(400).send({ error: 'Kg còn lại > kg ban đầu (' + orig.label + ')' });
+                            remainsMap[rm.roll_id] = rem;
+                        }
+                    }
+                    const kgStart = Number(rec.kg_start) || 0;
+                    let kgEnd = 0;
+                    for (const s of snapshot) { kgEnd += remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0; }
+                    const totalKgCut = kgStart - kgEnd;
+
+                    // Get all done records in group to distribute kg
+                    const allGroupDone = await db.all(
+                        `SELECT id, cut_quantity FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = true`,
+                        [rec.multi_cut_group_id, id]
+                    );
+                    const totalQtyOthers = allGroupDone.reduce((s, r) => s + (Number(r.cut_quantity) || 0), 0);
+                    const totalQtyAll = totalQtyOthers + cutQty;
+
+                    // Update this (last) record
+                    const myKgCut = totalQtyAll > 0 ? (cutQty / totalQtyAll) * totalKgCut : totalKgCut;
+                    const myRatio = cutQty > 0 ? Math.round((myKgCut / cutQty) * 100) / 100 : 0;
+                    await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
+                        kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
+                        ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
+                        [now, request.user.id, kgEnd, myKgCut, cutQty, myRatio, ratio_reason || null, ratio_image || null, id]);
+
+                    // Distribute kg to other group members
+                    for (const gr of allGroupDone) {
+                        const grQty = Number(gr.cut_quantity) || 0;
+                        const grKgCut = totalQtyAll > 0 ? (grQty / totalQtyAll) * totalKgCut : 0;
+                        const grRatio = grQty > 0 ? Math.round((grKgCut / grQty) * 100) / 100 : 0;
+                        await db.run(`UPDATE cutting_records SET kg_end = $1, kg_cut = $2, cut_ratio = $3, updated_at = $4 WHERE id = $5`,
+                            [kgEnd, grKgCut, grRatio, now, gr.id]);
+                    }
+
+                    // Update rolls + unlock
+                    for (const s of snapshot) {
+                        const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
+                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
+                    }
+                    detail = '✅ Cắt xong (đơn cuối nhóm) — Kg cắt tổng: ' + totalKgCut.toFixed(2) + ', SL: ' + cutQty;
+                }
+            } else {
+                // Normal single-cut done (existing logic)
+                const remainsMap = {};
+                if (roll_remains && Array.isArray(roll_remains)) {
+                    for (const rm of roll_remains) {
+                        const rem = Number(rm.remaining_weight);
+                        if (isNaN(rem) || rem < 0) return reply.code(400).send({ error: 'Kg còn lại không hợp lệ' });
+                        const orig = snapshot.find(s => s.roll_id === rm.roll_id);
+                        if (orig && rem > Number(orig.weight)) return reply.code(400).send({ error: 'Kg còn lại > kg ban đầu (' + orig.label + ')' });
+                        remainsMap[rm.roll_id] = rem;
+                    }
+                }
+                const kgStart = Number(rec.kg_start) || 0;
+                let kgEnd = 0;
+                for (const s of snapshot) { kgEnd += remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0; }
+                const kgCut = kgStart - kgEnd;
+                const cutRatio = cutQty > 0 ? Math.round((kgCut / cutQty) * 100) / 100 : 0;
+                await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
+                    kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
+                    ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
+                    [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, id]);
+                for (const s of snapshot) {
+                    const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
+                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
+                }
+                detail = '✅ Cắt xong — Kg cắt: ' + kgCut.toFixed(2) + ', SL: ' + cutQty + ', Tỉ lệ: ' + cutRatio;
+            }
         } else if (action === 'undo_cut_done') {
-            await db.run(`UPDATE cutting_records SET is_cut_done = false, cut_done_at = NULL, cut_done_by = NULL, updated_at = $1 WHERE id = $2`,
-                [now, id]);
-            detail = '↩️ Hoàn tác cắt xong';
+            if (!rec.is_cut_done) return reply.code(400).send({ error: 'Đơn chưa cắt xong — không cần hoàn tác' });
+            let snapshot = [];
+            try { snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []); } catch(e) {}
+
+            if (rec.multi_cut_group_id) {
+                // Check if this was the last record that completed (rolls were unlocked)
+                const othersStillDone = await db.all(
+                    `SELECT id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = true`,
+                    [rec.multi_cut_group_id, id]
+                );
+                const othersNotDone = await db.all(
+                    `SELECT id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cutting = true AND is_cut_done = false`,
+                    [rec.multi_cut_group_id, id]
+                );
+                const wasLastDone = othersNotDone.length === 0 && othersStillDone.length > 0;
+                // If rolls were already unlocked (this was last done), re-lock and restore
+                if (wasLastDone || (othersStillDone.length === 0 && othersNotDone.length === 0)) {
+                    if (snapshot.length > 0) {
+                        const rollIds = snapshot.map(s => s.roll_id);
+                        const conflicts = await db.all(`SELECT id FROM kv_rolls WHERE id = ANY($1) AND locked_by_cutting_id IS NOT NULL`, [rollIds]);
+                        if (conflicts.length > 0) return reply.code(409).send({ error: 'Không thể hoàn tác — cây vải đã bị đơn khác chọn' });
+                        for (const s of snapshot) {
+                            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = $2 WHERE id = $3`, [s.weight, id, s.roll_id]);
+                        }
+                    }
+                    // Reset kg for all group members that were done
+                    for (const gr of othersStillDone) {
+                        await db.run(`UPDATE cutting_records SET kg_end = 0, kg_cut = 0, cut_ratio = 0, updated_at = $1 WHERE id = $2`, [now, gr.id]);
+                    }
+                }
+                await db.run(`UPDATE cutting_records SET is_cut_done = false, cut_done_at = NULL, cut_done_by = NULL,
+                    kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, updated_at = $1 WHERE id = $2`, [now, id]);
+                detail = '↩️ Hoàn tác cắt xong (nhóm) — đã khôi phục';
+            } else {
+                // Normal single undo
+                if (snapshot.length > 0) {
+                    const rollIds = snapshot.map(s => s.roll_id);
+                    const conflicts = await db.all(`SELECT id, locked_by_cutting_id FROM kv_rolls WHERE id = ANY($1) AND locked_by_cutting_id IS NOT NULL`, [rollIds]);
+                    if (conflicts.length > 0) return reply.code(409).send({ error: 'Không thể hoàn tác — ' + conflicts.length + ' cây vải đã bị đơn khác chọn' });
+                    for (const s of snapshot) {
+                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = $2 WHERE id = $3`, [s.weight, id, s.roll_id]);
+                    }
+                }
+                await db.run(`UPDATE cutting_records SET is_cut_done = false, cut_done_at = NULL, cut_done_by = NULL,
+                    kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, updated_at = $1 WHERE id = $2`, [now, id]);
+                detail = '↩️ Hoàn tác cắt xong — đã khôi phục ' + snapshot.length + ' cây vải';
+            }
         } else if (action === 'approve_salary') {
             const isManager = await isCutManager(request);
             if (!isManager) return reply.code(403).send({ error: 'Chỉ QLX/GĐ mới duyệt lương' });
@@ -512,6 +762,42 @@ module.exports = async function(fastify) {
         `, [Number(request.params.id)]);
 
         return { history: rows };
+    });
+
+    // ========== AVAILABLE ROLLS: Cây vải khả dụng theo chất liệu + màu ==========
+    fastify.get('/api/cutting/available-rolls', { preHandler: [authenticate] }, async (request, reply) => {
+        const { material_name, color_name } = request.query;
+        if (!material_name || !color_name) return { rolls: [], message: 'Thiếu chất liệu hoặc màu' };
+
+        const rolls = await db.all(`
+            SELECT r.id, r.roll_code, r.weight, r.locked_by_cutting_id,
+                   m.name AS material_name, fc.color_name,
+                   u_lock.full_name AS locked_by_name,
+                   cr_lock.product_name AS locked_product,
+                   do_lock.order_code AS locked_order_code
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            LEFT JOIN cutting_records cr_lock ON cr_lock.id = r.locked_by_cutting_id
+            LEFT JOIN users u_lock ON u_lock.id = cr_lock.cutter_id
+            LEFT JOIN dht_orders do_lock ON do_lock.id = cr_lock.dht_order_id
+            WHERE r.is_returned = false
+              AND TRIM(m.name) ILIKE $1
+              AND TRIM(fc.color_name) ILIKE $2
+            ORDER BY r.weight ASC
+        `, ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%']);
+
+        return {
+            rolls: rolls.map(r => ({
+                id: r.id,
+                roll_code: r.roll_code,
+                weight: Number(r.weight),
+                locked: !!r.locked_by_cutting_id,
+                locked_by: r.locked_by_name || null,
+                locked_order: r.locked_order_code || null,
+                label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg'
+            }))
+        };
     });
 
     // ========== STAFF: DS nhân viên phòng cắt ==========
@@ -674,26 +960,30 @@ module.exports = async function(fastify) {
             // Per-phiếu: check this specific item not already claimed
             const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [order_item_id]);
             if (existing) return reply.code(409).send({ error: 'Phiếu này đã được nhận bởi người khác' });
-            items = await db.all(`SELECT id, description, material_pairs, quantity, product_name FROM dht_order_items WHERE id = $1`, [order_item_id]);
+            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
         } else {
             // Legacy: claim all unclaimed items
             const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 LIMIT 1`, [dht_order_id]);
             if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
-            items = await db.all(`SELECT id, description, material_pairs, quantity, product_name FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
         }
 
         // Lookup cutting category from product config
+        // dht_order_items.description contains the product name (e.g. "ÁO CỔ BẺ")
         let cuttingCategory = null;
-        if (items.length > 0 && items[0].product_name) {
-            const productMatch = await db.get(`
-                SELECT cc.name AS cutting_category_name
-                FROM dht_products p
-                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
-                WHERE p.name = $1 AND p.is_active = true
-                LIMIT 1
-            `, [items[0].product_name]);
-            if (productMatch && productMatch.cutting_category_name) {
-                cuttingCategory = productMatch.cutting_category_name;
+        if (items.length > 0) {
+            const itemDesc = items[0].description || '';
+            if (itemDesc) {
+                const productMatch = await db.get(`
+                    SELECT cc.name AS cutting_category_name
+                    FROM dht_products p
+                    LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                    WHERE p.name = $1 AND p.is_active = true
+                    LIMIT 1
+                `, [itemDesc.trim()]);
+                if (productMatch && productMatch.cutting_category_name) {
+                    cuttingCategory = productMatch.cutting_category_name;
+                }
             }
         }
 
@@ -761,6 +1051,233 @@ module.exports = async function(fastify) {
         }
 
         return { success: true, created: createdIds.length, ids: createdIds };
+    });
+
+    // ========== AVAILABLE MATERIALS: Chất liệu + màu từ sổ kho ==========
+    fastify.get('/api/cutting/available-materials', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(`
+            SELECT m.name AS material_name, fc.color_name,
+                   COUNT(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL THEN 1 END)::int AS roll_count,
+                   COALESCE(SUM(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL THEN r.weight ELSE 0 END), 0)::numeric AS total_weight
+            FROM kv_materials m
+            JOIN kv_fabric_colors fc ON fc.material_id = m.id
+            LEFT JOIN kv_rolls r ON r.fabric_color_id = fc.id AND r.is_returned = false
+            WHERE m.is_active = true AND fc.is_active = true
+            GROUP BY m.name, fc.color_name
+            HAVING COUNT(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL THEN 1 END) > 0
+            ORDER BY m.name, fc.color_name
+        `);
+        return { materials: rows };
+    });
+
+    // ========== MULTI-CUT CANDIDATES: Đơn CHƯA NHẬN có thể gộp ==========
+    fastify.get('/api/cutting/multi-cut/candidates', { preHandler: [authenticate] }, async (request, reply) => {
+        const { material_name, fabric_color } = request.query;
+        if (!material_name || !fabric_color) return { candidates: [] };
+
+        // Find unclaimed order_items whose material_pairs match the selected material+color
+        const allItems = await db.all(`
+            SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
+                   o.id AS dht_order_id, o.order_code, o.customer_name,
+                   COALESCE(p.fabric_arrived, false) AS fabric_arrived,
+                   EXISTS(SELECT 1 FROM qlx_assignments qa
+                          WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
+                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                   ) AS has_print
+            FROM dht_order_items oi
+            JOIN dht_orders o ON o.id = oi.dht_order_id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+            ORDER BY o.created_at DESC
+        `);
+
+        const matQ = material_name.trim().toLowerCase();
+        const colQ = fabric_color.trim().toLowerCase();
+        const candidates = [];
+
+        for (const it of allItems) {
+            let pairs = [];
+            try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+            // Check if any pair matches the selected material+color
+            const matchingPair = pairs.find(p =>
+                (p.material_name || '').trim().toLowerCase() === matQ &&
+                (p.color_name || '').trim().toLowerCase() === colQ
+            );
+            if (!matchingPair) continue;
+
+            let status = 'ready';
+            let statusLabel = '✅ Sẵn sàng';
+            let canSelect = true;
+            if (!it.fabric_arrived && !it.has_print) {
+                status = 'missing_both'; statusLabel = '🔒 Thiếu Vải + PC In'; canSelect = false;
+            } else if (!it.fabric_arrived) {
+                status = 'missing_fabric'; statusLabel = '🔒 Thiếu Vải'; canSelect = false;
+            } else if (!it.has_print) {
+                status = 'missing_print'; statusLabel = '🔒 Thiếu PC In'; canSelect = false;
+            }
+
+            candidates.push({
+                order_item_id: it.order_item_id,
+                dht_order_id: it.dht_order_id,
+                order_code: it.order_code,
+                customer_name: it.customer_name,
+                description: it.description,
+                quantity: it.quantity,
+                material_name: matchingPair.material_name,
+                color_name: matchingPair.color_name,
+                status, statusLabel, canSelect
+            });
+        }
+        return { candidates };
+    });
+
+    // ========== MULTI-CUT: Auto-claim + gộp cắt nhiều đơn ==========
+    fastify.post('/api/cutting/multi-cut', { preHandler: [authenticate] }, async (request, reply) => {
+        const { selected_roll_ids, selected_order_item_ids } = request.body || {};
+        if (!selected_roll_ids || !Array.isArray(selected_roll_ids) || !selected_roll_ids.length)
+            return reply.code(400).send({ error: 'Chọn ít nhất 1 cây vải' });
+        if (!selected_order_item_ids || !Array.isArray(selected_order_item_ids) || selected_order_item_ids.length < 2)
+            return reply.code(400).send({ error: 'Chọn ít nhất 2 đơn để cắt chung' });
+
+        const now = vnNow();
+        const userId = request.user.id;
+
+        // Re-validate: all items must be unclaimed + have preconditions met
+        const items = await db.all(`
+            SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
+                   o.id AS dht_order_id, o.order_code,
+                   COALESCE(p.fabric_arrived, false) AS fabric_arrived,
+                   EXISTS(SELECT 1 FROM qlx_assignments qa
+                          WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
+                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                   ) AS has_print
+            FROM dht_order_items oi
+            JOIN dht_orders o ON o.id = oi.dht_order_id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            WHERE oi.id = ANY($1)
+        `, [selected_order_item_ids]);
+
+        if (items.length !== selected_order_item_ids.length)
+            return reply.code(400).send({ error: 'Một số phiếu không tồn tại' });
+
+        for (const it of items) {
+            // Check not already claimed
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [it.order_item_id]);
+            if (existing) return reply.code(409).send({ error: 'Phiếu "' + (it.description || it.order_code) + '" đã được nhận bởi người khác' });
+            if (!it.fabric_arrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
+            if (!it.has_print) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa Phân Công In' });
+        }
+
+        // Lookup cutting_category from product config (use first item's description)
+        let cuttingCategory = null;
+        if (items.length > 0 && items[0].description) {
+            const productMatch = await db.get(`
+                SELECT cc.name AS cutting_category_name
+                FROM dht_products p
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                WHERE p.name = $1 AND p.is_active = true LIMIT 1
+            `, [items[0].description.trim()]);
+            if (productMatch) cuttingCategory = productMatch.cutting_category_name;
+        }
+
+        // Auto-claim: create cutting_records for each item
+        const createdIds = [];
+        for (const it of items) {
+            let pairs = [];
+            try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+
+            // Build product_name
+            const allOrderItems = await db.all(`SELECT id, material_pairs FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [it.dht_order_id]);
+            const itemIdx = allOrderItems.findIndex(a => a.id === it.order_item_id) + 1;
+            let totalPhoi = 0;
+            for (const ait of allOrderItems) {
+                let pp = [];
+                try { pp = typeof ait.material_pairs === 'string' ? JSON.parse(ait.material_pairs) : (ait.material_pairs || []); } catch(e) {}
+                totalPhoi += pp.length > 0 ? pp.length : 1;
+            }
+
+            if (pairs.length > 0) {
+                for (let pi = 0; pi < pairs.length; pi++) {
+                    const phoi = pairs[pi];
+                    const productName = totalPhoi > 1
+                        ? it.order_code + ' — Phiếu ' + itemIdx + ' — P' + (pi + 1) + (it.description ? ' — ' + it.description : '')
+                        : it.order_code + (it.description ? ' — ' + it.description : '');
+                    const result = await db.get(`
+                        INSERT INTO cutting_records (
+                            dht_order_id, order_item_id, cutter_id, cut_date,
+                            product_name, material_name, fabric_color,
+                            order_quantity, cutting_category, created_by, created_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $3, $10)
+                        RETURNING id
+                    `, [it.dht_order_id, it.order_item_id, userId, now, productName,
+                        phoi.material_name || null, phoi.color_name || null,
+                        it.quantity || 0, cuttingCategory, now]);
+                    if (result) createdIds.push(result.id);
+                }
+            } else {
+                const productName = it.order_code + (it.description ? ' — ' + it.description : '');
+                const result = await db.get(`
+                    INSERT INTO cutting_records (
+                        dht_order_id, order_item_id, cutter_id, cut_date,
+                        product_name, order_quantity, cutting_category, created_by, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $3, $8)
+                    RETURNING id
+                `, [it.dht_order_id, it.order_item_id, userId, now, productName,
+                    it.quantity || 0, cuttingCategory, now]);
+                if (result) createdIds.push(result.id);
+            }
+        }
+
+        if (createdIds.length < 2) {
+            // Cleanup if something went wrong
+            if (createdIds.length > 0) await db.run(`DELETE FROM cutting_records WHERE id = ANY($1)`, [createdIds]);
+            return reply.code(400).send({ error: 'Không tạo được đủ đơn cắt' });
+        }
+
+        // Atomic lock rolls
+        const primaryId = createdIds[0];
+        const locked = await db.all(
+            `UPDATE kv_rolls SET locked_by_cutting_id = $1
+             WHERE id = ANY($2) AND locked_by_cutting_id IS NULL
+             RETURNING id, weight, roll_code`,
+            [primaryId, selected_roll_ids]
+        );
+        if (locked.length !== selected_roll_ids.length) {
+            if (locked.length > 0) await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id = $1`, [primaryId]);
+            await db.run(`DELETE FROM cutting_records WHERE id = ANY($1)`, [createdIds]);
+            return reply.code(409).send({ error: 'Có cây vải đã bị thợ khác chọn, vui lòng tải lại' });
+        }
+
+        // Fetch roll labels
+        const rollDetails = await db.all(`
+            SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name
+            FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id WHERE r.id = ANY($1)
+        `, [locked.map(r => r.id)]);
+        const kgStart = locked.reduce((s, r) => s + Number(r.weight), 0);
+        const rollSnapshot = rollDetails.map(r => ({
+            roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
+            label: (r.material_name||'') + ' - ' + (r.color_name||'') + ' - ' + Number(r.weight) + 'kg'
+        }));
+
+        // Generate group ID + update all records
+        const groupId = 'MCG_' + Date.now() + '_' + userId;
+        const records = await db.all(`SELECT id, product_name FROM cutting_records WHERE id = ANY($1)`, [createdIds]);
+        const productNames = records.map(r => r.product_name).filter(Boolean);
+        const cutShared = 'Cắt chung ' + records.length + ' đơn: ' + productNames.join(', ');
+
+        for (const rid of createdIds) {
+            await db.run(`UPDATE cutting_records SET
+                is_cutting = true, cutting_at = $1, cutting_by = $2,
+                kg_start = $3, selected_roll_ids = $4,
+                multi_cut_group_id = $5, cut_shared = $6, updated_at = $1
+                WHERE id = $7`,
+                [now, userId, kgStart, JSON.stringify(rollSnapshot), groupId, cutShared, rid]);
+            await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [rid, 'multi_cut_start', '✂️ Cắt chung ' + records.length + ' đơn — ' + locked.length + ' cây, ' + kgStart.toFixed(2) + 'kg', userId, now]);
+        }
+
+        return { success: true, group_id: groupId, count: createdIds.length, kg_start: kgStart };
     });
 
     // ========== UNCLAIM: Trả đơn cắt (per-phiếu supported) ==========

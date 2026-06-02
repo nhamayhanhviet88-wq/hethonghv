@@ -84,6 +84,11 @@
         .mm-btn-ok{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.3)}
         .mm-btn-ok:active{transform:scale(0.97)}
         .mm-btn-no{background:rgba(255,255,255,0.08);color:#94a3b8}
+        .m-fab{position:fixed;bottom:20px;right:16px;z-index:90;padding:14px 20px;border:none;border-radius:50px;font-size:14px;font-weight:900;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;box-shadow:0 6px 24px rgba(234,88,12,0.45);display:none;letter-spacing:0.5px}
+        .m-fab:active{transform:scale(0.95)}
+        .m-progress{display:flex;gap:4px;margin-bottom:16px}
+        .m-progress-dot{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.15)}
+        .m-progress-dot.active{background:#f97316}
     </style>
 </head>
 <body>
@@ -98,6 +103,7 @@
         <div class="m-tab" data-tab="mine" onclick="mSwitchTab('mine')">📋 Đơn Tôi <span class="m-tab-badge" id="mBadgeMine" style="background:#f59e0b">0</span></div>
         <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
+    <button class="m-fab" id="mFab" onclick="mOpenMultiCut()">✂️+ CẮT NHIỀU ĐƠN</button>
     <div class="m-content" id="mContent">
         <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="m-spinner"></div><div>Đang tải...</div></div>
     </div>
@@ -163,6 +169,7 @@ function mRender(){
     if(mTab==='uncut')mRenderUncut();
     else if(mTab==='mine')mRenderMine();
     else mRenderHist();
+    mUpdateFab();
 }
 
 function mRenderUncut(){
@@ -192,8 +199,9 @@ function mRenderUncut(){
         // NV Sale (CSKH)
         const saleName = o.cskh_name || o.created_by_name || '';
         if(saleName) h+='<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>';
-        h+='<div class="m-row"><span class="m-lbl">📅 Ship</span><span class="m-val">'+mFmt(o.expected_ship_date)+'</span></div>';
-        h+='<div class="m-row"><span class="m-lbl">📦 SL tổng</span><span class="m-val" style="color:#60a5fa">'+(o.total_quantity||'—')+'</span></div>';
+        h+='<div class="m-row"><span class="m-lbl">📅 Ngày Ra Đơn</span><span class="m-val">'+mFmt(o.expected_ship_date)+'</span></div>';
+        var itemQtySum = 0; g.phois.forEach(p=>{ itemQtySum += Number(p.item_qty)||0; });
+        h+='<div class="m-row"><span class="m-lbl">📦 Số Lượng Sản Phẩm</span><span class="m-val" style="color:#60a5fa">'+(itemQtySum||o.total_quantity||'—')+'</span></div>';
         h+='<div class="m-divider"></div>';
 
         // Render each phối with full name
@@ -203,7 +211,7 @@ function mRenderUncut(){
             if(p.total_phoi > 1){
                 spName = o.order_code + ' — Phiếu ' + p.item_index + ' — P' + p.phoi_in_item + (p.item_desc ? ' — ' + p.item_desc : '');
             } else {
-                spName = p.item_desc || o.order_code;
+                spName = o.order_code + (p.item_desc ? ' — ' + p.item_desc : '');
             }
             const itemQty = p.item_qty || '';
             h+='<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
@@ -240,27 +248,34 @@ function mRenderMine(){
     const c=document.getElementById('mContent');
     if(!mMine.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📋</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn nào</div><div style="font-size:13px">Nhận đơn ở tab "Chưa Cắt"</div></div>';return;}
     c.innerHTML=mMine.map(r=>{
-        const cutCls=r.is_cutting?' on':'',doneCls=r.is_cut_done?' on':'';
+        const doneCls=r.is_cut_done?' on':'';
         const salCls=r.salary_approved?' on':'',washCls=r.wash_reported?' on':'';
+        const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
+        // Cut/Done button visibility: not cutting→show cut, hide done; cutting→hide cut, show done
+        let actionHtml='';
+        if(!r.is_cutting){
+            actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 4px 15px rgba(239,68,68,0.4);margin:8px 0" onclick="mOpenCutModal('+r.id+')">✂️ BẮT ĐẦU CẮT</button>';
+        } else {
+            const doneBg=r.is_cut_done?'linear-gradient(135deg,#059669,#10b981)':'linear-gradient(135deg,#1e40af,#3b82f6)';
+            const doneTxt=r.is_cut_done?'✅ ĐÃ CẮT XONG':'🏁 CẮT XONG';
+            if(r.is_cut_done){
+                actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mToggle('+r.id+',\'undo_cut_done\')">'+doneTxt+'</button>';
+            } else {
+                actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mOpenDoneModal('+r.id+')">'+doneTxt+'</button>';
+            }
+        }
         return '<div class="m-card"><div class="m-card-top">'
-            +'<div class="m-card-icon">'+(r.is_cutting?'✂️':'📋')+'</div>'
-            +'<div class="m-card-title">'+(r.product_name||'Sản phẩm')+'</div>'
+            +'<div class="m-card-icon">'+(r.is_cut_done?'✅':r.is_cutting?'✂️':'📋')+'</div>'
+            +'<div class="m-card-title">'+(r.product_name||'Sản phẩm')+ccBadge+'</div>'
             +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
+            +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
             +'<div class="m-card-body">'
-            +'<div class="m-row"><span class="m-lbl">📅 Ngày cắt</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
-            +'<div class="m-divider"></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">✂️ SL Cắt</span><span class="m-val" style="color:#a78bfa">'+(r.cut_quantity||'—')+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cắt</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+(r.kg_cut||'—')+'</span></div>'
-            +'</div>'
-            +'<div class="m-card-actions">'
-            +'<button class="m-act'+cutCls+'" onclick="mToggle('+r.id+',\''+(r.is_cutting?'undo_cutting':'start_cutting')+'\')"><span class="m-act-i">✂️</span><span class="m-act-l">CẮT</span></button>'
-            +'<button class="m-act'+doneCls+'" onclick="mToggle('+r.id+',\''+(r.is_cut_done?'undo_cut_done':'cut_done')+'\')"><span class="m-act-i">✅</span><span class="m-act-l">XONG</span></button>'
-            +'<button class="m-act'+salCls+'" onclick="mToggle('+r.id+',\''+(r.salary_approved?'undo_approve_salary':'approve_salary')+'\')"><span class="m-act-i">💰</span><span class="m-act-l">LƯƠNG</span></button>'
-            +'<button class="m-act'+washCls+'" onclick="mToggle('+r.id+',\''+(r.wash_reported?'undo_wash':'report_wash')+'\')"><span class="m-act-i">🫧</span><span class="m-act-l">GIẶT</span></button>'
-            +'<button class="m-act" onclick="mToggle('+r.id+',\'report_error\')"><span class="m-act-i">⚠️</span><span class="m-act-l">LỖI</span></button>'
+            +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+r.kg_start+'</span></div>':'')
+            +(r.multi_cut_group_id?'<div style="margin:4px 0;padding:4px 10px;background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:6px;font-size:10px;font-weight:700;color:#f97316">🔗 '+(r.cut_shared||'Cắt chung')+'</div>':'')
+            +actionHtml
             +'</div></div>';
     }).join('');
 }
@@ -346,6 +361,376 @@ async function _mmDoClaimOrder(id,itemId,code){
 async function mToggle(id,action){
     try{await mApi('/api/cutting/toggle/'+id,'POST',{action});mToast('✅ Cập nhật');await mLoadAll();}
     catch(e){mToast(e.message||'Lỗi',false);}
+}
+
+async function mOpenCutModal(recordId){
+    const rec=mMine.find(r=>r.id===recordId);
+    if(!rec){mToast('Không tìm thấy',false);return;}
+    let h='<div class="mm-overlay" id="_mmCutModal" onclick="if(event.target===this)mCloseCutModal()">';
+    h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,#dc2626,#ef4444)"><div class="mm-icon">✂️</div><div><div class="mm-title">BẮT ĐẦU CẮT</div><div class="mm-sub">Chọn cây vải để cắt</div></div></div>';
+    h+='<div class="mm-body" id="_mmCutBody"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
+    h+='<div class="mm-actions" id="_mmCutActs" style="display:none"><button class="mm-btn mm-btn-no" onclick="mCloseCutModal()">Hủy</button><button class="mm-btn mm-btn-ok" id="_mmCutOk" onclick="mDoCut('+recordId+')">✂️ XÁC NHẬN CẮT</button></div>';
+    h+='</div></div>';
+    document.body.insertAdjacentHTML('beforeend',h);
+    requestAnimationFrame(()=>document.getElementById('_mmCutModal').classList.add('show'));
+    try{
+        const res=await mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(rec.material_name||'')+'&color_name='+encodeURIComponent(rec.fabric_color||''));
+        const rolls=res.rolls||[];
+        const bd=document.getElementById('_mmCutBody');
+        let b='';
+        b+='<div class="mm-row"><span class="mm-lbl">📋 Tên SP</span><span class="mm-val">'+(rec.product_name||'—')+'</span></div>';
+        b+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val">'+(rec.material_name||'—')+'</span></div>';
+        b+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(rec.fabric_color||'—')+'</span></div>';
+        b+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(rec.cutting_category||'—')+'</span></div>';
+        b+='<div class="mm-row"><span class="mm-lbl">👤 Nhân Viên Cắt</span><span class="mm-val" style="color:#4ade80">'+(mUser.full_name||mUser.username)+'</span></div>';
+        b+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px"><div style="font-size:11px;font-weight:800;color:#fca5a5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CHỌN CÂY CẮT <span style="color:#ef4444">*</span></div>';
+        if(!rolls.length){
+            b+='<div style="text-align:center;padding:16px;color:#fbbf24;background:rgba(251,191,36,0.1);border-radius:8px">⚠️ Không tìm thấy cây vải</div>';
+        } else {
+            rolls.forEach(r=>{
+                const dis=r.locked?' disabled':'';
+                const lk=r.locked?'<div style="color:#ef4444;font-size:10px;margin-top:2px">🔒 '+(r.locked_by||'Đang cắt')+'</div>':'';
+                const op=r.locked?'opacity:0.4;':'';
+                b+='<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+'">';
+                b+='<input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
+                b+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+'</div>'+lk+'</div></label>';
+            });
+        }
+        b+='</div>';
+        b+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:10px;padding-top:12px;display:flex;justify-content:space-between;align-items:center">';
+        b+='<span style="font-size:13px;font-weight:800;color:#e2e8f0">⚖️ SỐ KG ĐẦU</span>';
+        b+='<span id="_mKgDisp" style="font-size:22px;font-weight:900;color:#fbbf24">0.00 kg</span></div>';
+        bd.innerHTML=b;
+        document.getElementById('_mmCutActs').style.display='flex';
+    }catch(e){
+        const bd=document.getElementById('_mmCutBody');
+        if(bd) bd.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">❌ '+e.message+'</div>';
+    }
+}
+
+function mRecalcKg(){
+    const cbs=document.querySelectorAll('._mRollCb:checked');
+    let t=0;cbs.forEach(cb=>{t+=parseFloat(cb.dataset.weight)||0;});
+    const el=document.getElementById('_mKgDisp');
+    if(el) el.textContent=t.toFixed(2)+' kg';
+}
+
+function mCloseCutModal(){
+    const m=document.getElementById('_mmCutModal');
+    if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}
+}
+
+async function mDoCut(recordId){
+    const cbs=document.querySelectorAll('._mRollCb:checked');
+    if(!cbs.length){mToast('Chọn ít nhất 1 cây vải',false);return;}
+    const ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));
+    const btn=document.getElementById('_mmCutOk');
+    if(btn){btn.disabled=true;btn.textContent='⏳...';}
+    try{
+        await mApi('/api/cutting/toggle/'+recordId,'POST',{action:'start_cutting',selected_roll_ids:ids});
+        mCloseCutModal();
+        mToast('✅ Đã bắt đầu cắt — '+ids.length+' cây');
+        await mLoadAll();
+    }catch(e){
+        mToast(e.message||'Lỗi',false);
+        if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN CẮT';}
+    }
+}
+
+function mOpenDetail(recordId){
+    const r=mMine.find(x=>x.id===recordId)||mHist.find(x=>x.id===recordId);
+    if(!r) return;
+    let rolls=[];
+    try{rolls=typeof r.selected_roll_ids==='string'?JSON.parse(r.selected_roll_ids):(r.selected_roll_ids||[]);}catch(e){}
+    const sTxt=r.is_cut_done?'✅ Đã cắt xong':r.is_cutting?'✂️ Đang cắt':'📋 Chờ cắt';
+    const sBg=r.is_cut_done?'#059669':r.is_cutting?'#dc2626':'#6366f1';
+    let h='<div class="mm-overlay" id="_mmDetailModal" onclick="if(event.target===this){this.classList.remove(\'show\');setTimeout(()=>this.remove(),350)}">';
+    h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,'+sBg+','+sBg+'cc)"><div class="mm-icon">📋</div><div><div class="mm-title">CHI TIẾT ĐƠN CẮT</div><div class="mm-sub">'+sTxt+'</div></div></div>';
+    h+='<div class="mm-body">';
+    h+='<div class="mm-row"><span class="mm-lbl">📋 Tên SP</span><span class="mm-val">'+(r.product_name||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val">'+(r.material_name||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(r.fabric_color||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(r.cutting_category||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">👤 Nhân Viên Cắt</span><span class="mm-val" style="color:#4ade80">'+(r.cutter_name||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
+    // Rolls
+    h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px"><div style="font-size:10px;font-weight:800;color:#4ade80;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CÂY VẢI ĐÃ CHỌN ('+rolls.length+')</div>';
+    if(rolls.length){
+        rolls.forEach((rl,i)=>{
+            h+='<div style="padding:10px 14px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#e2e8f0">'+(rl.label||rl.roll_code||'Cây '+(i+1))+'</div>';
+        });
+    } else {
+        h+='<div style="text-align:center;padding:12px;color:#64748b;font-size:12px">Chưa có dữ liệu cây vải</div>';
+    }
+    h+='</div>';
+    // Kg stats grid
+    h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+(r.kg_start||'—')+'</div></div>';
+    h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">⚖️ KG CUỐI</div><div style="font-size:20px;font-weight:900;color:#ef4444">'+(r.kg_end||'—')+'</div></div>';
+    h+='<div style="background:rgba(16,185,129,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#6ee7b7">✂️ KG CẮT</div><div style="font-size:20px;font-weight:900;color:#10b981">'+(r.kg_cut||'—')+'</div></div>';
+    h+='<div style="background:rgba(96,165,250,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#93c5fd">📦 SL CẮT</div><div style="font-size:20px;font-weight:900;color:#60a5fa">'+(r.cut_quantity||'—')+'</div></div>';
+    h+='</div>';
+    // Ratio
+    if(r.cut_ratio){
+        const rc=Number(r.cut_ratio)>5?'#ef4444':Number(r.cut_ratio)>3?'#fbbf24':'#10b981';
+        h+='<div class="mm-row" style="margin-top:8px"><span class="mm-lbl">📊 Tỉ Lệ</span><span class="mm-val" style="color:'+rc+';font-size:18px">'+r.cut_ratio+'</span></div>';
+        if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
+    }
+    if(r.cut_warning) h+='<div class="mm-row"><span class="mm-lbl">⚠️ Cảnh báo</span><span class="mm-val" style="color:#ef4444">'+r.cut_warning+'</span></div>';
+    if(r.cut_shared) h+='<div class="mm-row"><span class="mm-lbl">🔄 Cắt chung</span><span class="mm-val" style="color:#a5b4fc">'+r.cut_shared+'</span></div>';
+    h+='</div>';
+    h+='<div class="mm-actions"><button class="mm-btn mm-btn-no" style="width:100%" onclick="var m=document.getElementById(\'_mmDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(()=>m.remove(),350)}">Đóng</button></div>';
+    h+='</div></div>';
+    document.body.insertAdjacentHTML('beforeend',h);
+    requestAnimationFrame(()=>document.getElementById('_mmDetailModal').classList.add('show'));
+}
+
+function mOpenDoneModal(recordId){
+    const r=mMine.find(x=>x.id===recordId);if(!r)return;
+    let rolls=[];try{rolls=typeof r.selected_roll_ids==='string'?JSON.parse(r.selected_roll_ids):(r.selected_roll_ids||[]);}catch(e){}
+    // Check if last in multi-cut group
+    let isLastInGroup=true;
+    if(r.multi_cut_group_id){
+        const othersNotDone=mMine.filter(x=>x.multi_cut_group_id===r.multi_cut_group_id&&x.id!==recordId&&!x.is_cut_done);
+        isLastInGroup=othersNotDone.length===0;
+    }
+    window._mDoneData={recordId,rolls,kgStart:Number(r.kg_start)||0,orderQty:Number(r.order_quantity)||0,imgData:null,isMultiGroup:!!r.multi_cut_group_id,isLastInGroup};
+    let h='<div class="mm-overlay" id="_mmDoneModal" onclick="if(event.target===this)mCloseDoneModal()">';
+    h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,#1e40af,#3b82f6)"><div class="mm-icon">🏁</div><div><div class="mm-title">CẮT XONG</div><div class="mm-sub">'+(r.product_name||r.order_code||'')+'</div></div></div>';
+    h+='<div class="mm-body">';
+    h+='<div class="mm-row"><span class="mm-lbl">📋 Tên SP</span><span class="mm-val" style="font-size:11px">'+(r.product_name||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val">'+(r.material_name||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(r.fabric_color||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">👤 Nhân Viên Cắt</span><span class="mm-val" style="color:#4ade80">'+(r.cutter_name||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(r.cutting_category||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
+    // Multi-cut group banner for non-last records
+    if(r.multi_cut_group_id && !isLastInGroup){
+        h+='<div style="background:rgba(234,88,12,0.15);border:1.5px solid rgba(234,88,12,0.3);border-radius:10px;padding:12px;margin:10px 0">';
+        h+='<div style="font-size:11px;font-weight:800;color:#f97316;margin-bottom:4px">🔗 CẮT CHUNG NHÓM</div>';
+        h+='<div style="font-size:10px;color:#94a3b8">Chỉ nhập SL Cắt. Kg còn lại sẽ nhập khi đơn cuối cùng trong nhóm hoàn thành.</div></div>';
+    }
+    // Số Lượng Cắt
+    h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+(r.order_quantity||'')+'" oninput="mDoneRecalc()" style="width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)"></span></div>';
+    // Rolls section - only show for last in group or single records
+    if(!r.multi_cut_group_id || isLastInGroup){
+    // Rolls
+    h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
+    h+='<button onclick="mDoneAllCut()" style="padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔴 Cắt hết</button></div>';
+    rolls.forEach((rl,idx)=>{
+        const w=Number(rl.weight)||0;
+        h+='<div style="border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:8px">';
+        h+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
+        h+='<input type="checkbox" class="_mDoneRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#3b82f6">';
+        h+='<span style="flex:1;font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>';
+        h+='<span style="font-size:12px;font-weight:700;color:#94a3b8">'+w+'kg</span></label>';
+        h+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
+        h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
+        h+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneRecalc()" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
+        h+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
+    });
+    h+='</div>';
+    // Stats
+    h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+(r.kg_start||0)+'</div></div>';
+    h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+(r.kg_start||0)+'</div></div></div>';
+    h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Tỉ Lệ</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
+    // Reason+Image (hidden, future threshold)
+    h+='<div id="_mDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
+    h+='<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
+    h+='<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP</div>';
+    h+='<textarea id="_mDoneReason" placeholder="Lý do..." rows="2" style="width:100%;padding:8px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;resize:none;background:rgba(255,255,255,0.06);color:#e2e8f0"></textarea>';
+    h+='<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px dashed rgba(239,68,68,0.4);border-radius:8px;cursor:pointer">';
+    h+='<span style="font-size:24px">📷</span><span style="font-size:12px;color:#fca5a5;font-weight:600">Chụp/Chọn ảnh</span>';
+    h+='<input type="file" id="_mDoneImgInput" accept="image/*" capture="environment" style="display:none" onchange="mDoneImgFile(event)"></label>';
+    h+='<div id="_mDoneImgPreview" style="margin-top:6px"></div></div></div></div>';
+    } // end if last/single
+    h+='</div>';
+    h+='<div class="mm-actions"><button class="mm-btn mm-btn-no" onclick="mCloseDoneModal()">Hủy</button>';
+    h+='<button class="mm-btn mm-btn-ok" id="_mDoneOk" style="background:linear-gradient(135deg,#1e40af,#3b82f6)" onclick="mSubmitDone('+recordId+')">🏁 XÁC NHẬN</button></div>';
+    h+='</div></div>';
+    document.body.insertAdjacentHTML('beforeend',h);
+    requestAnimationFrame(()=>document.getElementById('_mmDoneModal').classList.add('show'));
+    mDoneRecalc();
+}
+function mDoneToggleRoll(idx){
+    window._mDoneData._allCut=false;
+    const cb=document.querySelector('._mDoneRollCb[data-idx="'+idx+'"]');
+    const inp=document.getElementById('_mDoneRollInp_'+idx);
+    if(cb&&inp){inp.style.display=cb.checked?'block':'none';if(!cb.checked){const k=document.getElementById('_mDoneRollKg_'+idx);if(k)k.value='';}}
+    mDoneRecalc();
+}
+function mDoneAllCut(){
+    window._mDoneData._allCut=true;
+    document.querySelectorAll('._mDoneRollCb').forEach(cb=>{cb.checked=false;const i=cb.dataset.idx;const inp=document.getElementById('_mDoneRollInp_'+i);if(inp)inp.style.display='none';const k=document.getElementById('_mDoneRollKg_'+i);if(k)k.value='';});
+    mDoneRecalc();
+}
+function mDoneRecalc(){
+    const d=window._mDoneData;if(!d)return;
+    let kgR=0;document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
+    const kgCut=d.kgStart-kgR;const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=kgCut.toFixed(2);
+    const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
+    const ratio=qty>0?Math.round((kgCut/qty)*100)/100:0;
+    const re=document.getElementById('_mDoneRatio');if(re){re.textContent=ratio?ratio.toFixed(2):'—';re.style.color=ratio>5?'#ef4444':ratio>3?'#fbbf24':'#10b981';}
+}
+function mDoneImgFile(e){
+    const f=e.target.files[0];if(!f)return;const r=new FileReader();
+    r.onload=ev=>{window._mDoneData.imgData=ev.target.result;const p=document.getElementById('_mDoneImgPreview');if(p)p.innerHTML='<img src="'+ev.target.result+'" style="max-width:100%;max-height:100px;border-radius:8px">';};
+    r.readAsDataURL(f);
+}
+function mCloseDoneModal(){const m=document.getElementById('_mmDoneModal');if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}}
+async function mSubmitDone(recordId){
+    const d=window._mDoneData;if(!d)return;
+    const qty=parseInt(document.getElementById('_mDoneQty').value);
+    if(!qty||qty<=0){mToast('Nhập Số Lượng Cắt',false);return;}
+    if(d.orderQty&&qty>d.orderQty){mToast('Số Lượng Cắt > Số Lượng Sản Phẩm',false);return;}
+    // Validate: must select rolls or click "Cắt hết" (only for last in group or single)
+    if(!d.isMultiGroup || d.isLastInGroup){
+        const hasCheckedRoll=document.querySelectorAll('._mDoneRollCb:checked').length>0;
+        if(!hasCheckedRoll && !d._allCut){mToast('Chọn cây còn lại hoặc ấn "Cắt hết"',false);return;}
+    }
+    const rollRemains=[];let err=false;
+    document.querySelectorAll('._mDoneRollCb').forEach(cb=>{
+        if(cb.checked){const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);const v=k?parseFloat(k.value):0;const mx=parseFloat(cb.dataset.weight)||0;
+        if(!v||v<=0){err=true;if(k)k.style.border='2px solid #ef4444';}
+        if(v>mx){err=true;mToast('Kg > '+mx,false);}
+        rollRemains.push({roll_id:Number(cb.dataset.rollid),remaining_weight:v});}
+    });
+    if(err){mToast('Kiểm tra kg còn lại',false);return;}
+    const uc=d.rolls.length-rollRemains.length;
+    if(uc>0&&!confirm(uc+' cây sẽ cắt hết (0kg). OK?'))return;
+    const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains};
+    const reason=document.getElementById('_mDoneReason');if(reason&&reason.value.trim())body.ratio_reason=reason.value.trim();
+    if(d.imgData)body.ratio_image=d.imgData;
+    const btn=document.getElementById('_mDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
+    try{await mApi('/api/cutting/toggle/'+recordId,'POST',body);mCloseDoneModal();mToast('✅ Cắt xong!');await mLoadAll();}
+    catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='🏁 XÁC NHẬN';}}
+}
+
+// ========== FAB visibility ==========
+function mUpdateFab(){var f=document.getElementById('mFab');if(f)f.style.display=(mTab==='mine'&&mMine.length>0)?'block':'none';}
+
+// ========== MULTI-CUT WIZARD (Mobile) ==========
+var _mm={step:1,materials:[],rolls:[],candidates:[],selMat:'',selColor:'',selRolls:[],selOrders:[]};
+
+async function mOpenMultiCut(){
+    _mm={step:1,materials:[],rolls:[],candidates:[],selMat:'',selColor:'',selRolls:[],selOrders:[]};
+    var h='<div class="mm-overlay" id="_mmMC" onclick="if(event.target===this)mCloseMC()">';
+    h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,#ea580c,#f97316)"><div class="mm-icon">✂️</div><div><div class="mm-title">CẮT NHIỀU ĐƠN</div><div class="mm-sub">Gộp đơn cùng chất liệu & màu</div></div></div>';
+    h+='<div class="mm-body" id="_mmMCBody"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
+    h+='<div class="mm-actions" id="_mmMCActs" style="display:none"><button class="mm-btn mm-btn-no" onclick="mCloseMC()">Hủy</button><button class="mm-btn mm-btn-no" id="_mmMCBack" onclick="mMCBack()" style="display:none">◀</button><button class="mm-btn mm-btn-ok" id="_mmMCNext" onclick="mMCNext()" style="background:linear-gradient(135deg,#ea580c,#f97316)">Tiếp ▶</button></div>';
+    h+='</div></div>';
+    document.body.insertAdjacentHTML('beforeend',h);
+    requestAnimationFrame(()=>document.getElementById('_mmMC').classList.add('show'));
+    try{
+        var res=await mApi('/api/cutting/available-materials');
+        _mm.materials=res.materials||[];
+        document.getElementById('_mmMCActs').style.display='flex';
+        mMCRender();
+    }catch(e){document.getElementById('_mmMCBody').innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">❌ '+e.message+'</div>';}
+}
+function mCloseMC(){var m=document.getElementById('_mmMC');if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}}
+
+function mMCRender(){
+    var bd=document.getElementById('_mmMCBody');if(!bd)return;
+    var bk=document.getElementById('_mmMCBack'),nx=document.getElementById('_mmMCNext');
+    if(bk)bk.style.display=_mm.step>1?'':'none';
+    // Progress bar
+    var prog='<div class="m-progress">';for(var i=1;i<=4;i++)prog+='<div class="m-progress-dot'+(i<=_mm.step?' active':'')+'"></div>';prog+='</div>';
+
+    if(_mm.step===1){
+        var mats=_mm.materials,matN=[],matM={};
+        mats.forEach(m=>{if(!matM[m.material_name]){matM[m.material_name]=[];matN.push(m.material_name);}matM[m.material_name].push(m);});
+        var h=prog+'<div style="font-size:10px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">BƯỚC 1: CHẤT LIỆU & MÀU</div>';
+        h+='<div style="margin-bottom:10px"><div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:4px">🧵 Chất Liệu *</div>';
+        h+='<select id="_mmMatS" onchange="mMCMatCh()" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.15);border-radius:10px;font-size:14px;font-weight:700;background:#fff;color:#000;font-family:Inter,sans-serif"><option value="" style="color:#000;background:#fff">— Chọn —</option>';
+        matN.forEach(n=>{h+='<option value="'+n+'" style="color:#000;background:#fff"'+(n===_mm.selMat?' selected':'')+'>'+n+'</option>';});
+        h+='</select></div>';
+        h+='<div style="margin-bottom:10px"><div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:4px">🎨 Màu Sắc *</div>';
+        h+='<select id="_mmColS" onchange="mMCColCh()" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.15);border-radius:10px;font-size:14px;font-weight:700;background:#fff;color:#000;font-family:Inter,sans-serif"><option value="" style="color:#000;background:#fff">— Chọn —</option>';
+        if(_mm.selMat&&matM[_mm.selMat])matM[_mm.selMat].forEach(m=>{h+='<option value="'+m.color_name+'" style="color:#000;background:#fff"'+(m.color_name===_mm.selColor?' selected':'')+'>'+m.color_name+' ('+m.roll_count+' cây)</option>';});
+        h+='</select></div>';
+        bd.innerHTML=h;
+        if(nx)nx.textContent='Tiếp ▶';
+    }else if(_mm.step===2){
+        var h=prog+'<div style="font-size:10px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">BƯỚC 2: CHỌN CÂY VẢI</div>';
+        h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:10px">🧵 '+_mm.selMat+' · 🎨 '+_mm.selColor+'</div>';
+        if(!_mm.rolls.length)h+='<div style="text-align:center;padding:16px;color:#fbbf24;background:rgba(251,191,36,0.1);border-radius:8px">⚠️ Không có cây vải</div>';
+        else _mm.rolls.forEach(r=>{
+            var dis=r.locked?' disabled':'',op=r.locked?'opacity:0.4;':'',chk=_mm.selRolls.indexOf(r.id)>=0?' checked':'';
+            h+='<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+'">';
+            h+='<input type="checkbox" class="_mmRCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mMCRollCh()" style="width:20px;height:20px;accent-color:#f97316">';
+            h+='<span style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0">'+r.label+'</span>';
+            if(r.locked)h+='<span style="color:#ef4444;font-size:9px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'')+'</span>';
+            h+='</label>';
+        });
+        h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:800;color:#e2e8f0">⚖️ KG ĐẦU</span><span id="_mmKgD" style="font-size:20px;font-weight:900;color:#f97316">0.00 kg</span></div>';
+        bd.innerHTML=h;mMCRollCh();
+        if(nx)nx.textContent='Tiếp ▶';
+    }else if(_mm.step===3){
+        var readyCount=0;_mm.candidates.forEach(c=>{if(c.canSelect)readyCount++;});
+        var h=prog+'<div style="font-size:10px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">BƯỚC 3: CHỌN ĐƠN GỘP</div>';
+        if(!_mm.candidates.length)h+='<div style="text-align:center;padding:16px;color:#fbbf24;background:rgba(251,191,36,0.1);border-radius:8px">⚠️ Không có đơn chưa nhận phù hợp</div>';
+        else if(readyCount<2)h+='<div style="text-align:center;padding:16px;color:#fbbf24;background:rgba(251,191,36,0.1);border-radius:8px;margin-bottom:8px">⚠️ Chỉ có '+readyCount+' đơn sẵn sàng — cần ít nhất 2</div>';
+        if(_mm.candidates.length>0){
+            _mm.candidates.forEach(c=>{
+                var dis=c.canSelect?'':' disabled',op=c.canSelect?'':'opacity:0.45;';
+                var bc=c.canSelect?'rgba(255,255,255,0.12)':'rgba(239,68,68,0.3)';
+                var chk=_mm.selOrders.indexOf(c.order_item_id)>=0?' checked':'';
+                h+='<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid '+bc+';border-radius:10px;margin-bottom:6px;cursor:'+(c.canSelect?'pointer':'not-allowed')+';'+op+'">';
+                h+='<input type="checkbox" class="_mmOCb" value="'+c.order_item_id+'"'+dis+chk+' onchange="mMCOrdCh()" style="width:20px;height:20px;accent-color:#f97316">';
+                h+='<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#e2e8f0">'+c.order_code+(c.description?' — '+c.description:'')+'</div>';
+                h+='<div style="font-size:10px;color:#94a3b8;margin-top:2px">SL: '+(c.quantity||'—')+' · '+(c.customer_name||'')+'</div></div>';
+                if(!c.canSelect)h+='<span style="font-size:8px;font-weight:700;color:#fca5a5;white-space:nowrap">'+c.statusLabel+'</span>';
+                else h+='<span style="font-size:8px;font-weight:700;color:#4ade80;white-space:nowrap">'+c.statusLabel+'</span>';
+                h+='</label>';
+            });
+        }
+        bd.innerHTML=h;
+        if(nx)nx.textContent='Tiếp ▶';
+    }else if(_mm.step===4){
+        var so=_mm.candidates.filter(c=>_mm.selOrders.indexOf(c.order_item_id)>=0);
+        var tk=0;_mm.rolls.forEach(r=>{if(_mm.selRolls.indexOf(r.id)>=0)tk+=r.weight;});
+        var h=prog+'<div style="font-size:10px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">BƯỚC 4: XÁC NHẬN</div>';
+        h+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val" style="color:#f97316">'+_mm.selMat+'</span></div>';
+        h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+_mm.selColor+'</span></div>';
+        h+='<div class="mm-row"><span class="mm-lbl">📦 Cây vải</span><span class="mm-val" style="color:#f97316">'+_mm.selRolls.length+' cây</span></div>';
+        h+='<div class="mm-row"><span class="mm-lbl">⚖️ Kg đầu</span><span class="mm-val" style="color:#f97316;font-size:18px">'+tk.toFixed(2)+' kg</span></div>';
+        h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:8px 0;padding-top:8px"><div style="font-size:10px;font-weight:700;color:#4ade80;margin-bottom:6px">📋 ĐƠN ('+so.length+') — sẽ tự nhận + cắt</div>';
+        so.forEach(o=>{h+='<div style="padding:6px 10px;border:1px solid rgba(34,197,94,0.2);border-radius:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:#e2e8f0">'+o.order_code+(o.description?' — '+o.description:'')+' · SL: '+(o.quantity||'—')+'</div>';});
+        h+='</div>';bd.innerHTML=h;
+        if(nx){nx.textContent='✂️ XÁC NHẬN';nx.style.background='linear-gradient(135deg,#059669,#10b981)';}
+    }
+}
+function mMCMatCh(){var s=document.getElementById('_mmMatS');_mm.selMat=s?s.value:'';_mm.selColor='';mMCRender();}
+function mMCColCh(){var s=document.getElementById('_mmColS');_mm.selColor=s?s.value:'';}
+function mMCRollCh(){var cbs=document.querySelectorAll('._mmRCb:checked');var ids=[],kg=0;cbs.forEach(cb=>{ids.push(Number(cb.value));kg+=parseFloat(cb.dataset.weight)||0;});_mm.selRolls=ids;var el=document.getElementById('_mmKgD');if(el)el.textContent=kg.toFixed(2)+' kg';}
+function mMCOrdCh(){var cbs=document.querySelectorAll('._mmOCb:checked');var ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));_mm.selOrders=ids;}
+function mMCBack(){if(_mm.step>1){_mm.step--;mMCRender();}}
+async function mMCNext(){
+    if(_mm.step===1){
+        if(!_mm.selMat||!_mm.selColor){mToast('Chọn chất liệu và màu',false);return;}
+        try{
+            var r1=await mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(_mm.selMat)+'&color_name='+encodeURIComponent(_mm.selColor));
+            _mm.rolls=r1.rolls||[];
+            var r2=await mApi('/api/cutting/multi-cut/candidates?material_name='+encodeURIComponent(_mm.selMat)+'&fabric_color='+encodeURIComponent(_mm.selColor));
+            _mm.candidates=r2.candidates||[];
+        }catch(e){mToast(e.message,false);return;}
+        _mm.step=2;mMCRender();
+    }else if(_mm.step===2){
+        if(!_mm.selRolls.length){mToast('Chọn ít nhất 1 cây',false);return;}
+        _mm.step=3;mMCRender();
+    }else if(_mm.step===3){
+        if(_mm.selOrders.length<2){mToast('Chọn ít nhất 2 đơn',false);return;}
+        _mm.step=4;mMCRender();
+    }else if(_mm.step===4){
+        var btn=document.getElementById('_mmMCNext');if(btn){btn.disabled=true;btn.textContent='⏳...';}
+        try{
+            await mApi('/api/cutting/multi-cut','POST',{selected_roll_ids:_mm.selRolls,selected_order_item_ids:_mm.selOrders});
+            mCloseMC();mToast('✅ Đã cắt chung '+_mm.selOrders.length+' đơn!');await mLoadAll();
+        }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN';}}
+    }
 }
 
 mInit();

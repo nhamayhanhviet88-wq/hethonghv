@@ -1863,10 +1863,9 @@ async function _dhtShowPhieuSX(orderId) {
 async function _dhtConfirmPhieuSX(orderId) {
     if (!confirm('Xác nhận IN PHIẾU SẢN XUẤT cho đơn hàng này?')) return;
     try {
-        var res = await fetch('/api/dht/orders/' + orderId, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sx_print_confirmed: true, sx_print_confirmed_at: new Date().toISOString(), sx_print_confirmed_by: currentUser ? currentUser.id : null })
+        var res = await fetch('/api/dht/orders/' + orderId + '/confirm-sx-print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) {
             var errData = {}; try { errData = await res.json(); } catch(e) {}
@@ -1878,6 +1877,7 @@ async function _dhtConfirmPhieuSX(orderId) {
         _dhtShowDetail(orderId);
     } catch(e) { showToast('❌ ' + e.message, 'error'); }
 }
+
 
 // ========== APPLY DISCOUNT ==========
 async function _dhtApplyDiscount(orderId) {

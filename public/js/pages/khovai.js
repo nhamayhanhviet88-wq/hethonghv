@@ -327,7 +327,7 @@ async function _kvShowDetail(fcid) {
             var origW = Number(rl.original_weight || rl.weight);
             var curW = Number(rl.weight);
             var xuatW = origW - curW;
-            var cutting = rl.is_cutting;
+            var cutLabel = rl.cutting_order_name ? ('✂️ ' + rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
             rh += '<tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="_kvShowRollDetail(' + rl.id + ')">';
             rh += '<td style="padding:6px 8px;color:var(--gray-400)">' + (idx+1) + '</td>';
             rh += '<td style="padding:6px 8px;font-weight:600;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + '</td>';
@@ -335,7 +335,7 @@ async function _kvShowDetail(fcid) {
             rh += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(xuatW) + '</td>';
             rh += '<td style="padding:6px 8px;text-align:right;font-weight:800;color:#0d9488">' + _kvFmt(curW) + '</td>';
             rh += '<td style="padding:6px 8px;font-size:10px;color:#64748b">' + rlDs + '</td>';
-            rh += '<td style="padding:6px 8px;text-align:center">' + (cutting ? '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">\u2702 \u0110ang c\u1eaft</span>' : '<span style="color:#059669;font-size:10px;font-weight:600">Kh\u00f4ng c\u1eaft</span>') + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:center">' + (cutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + cutLabel + '</span>' : '<span style="color:#94a3b8;font-size:10px">—</span>') + '</td>';
             rh += '</tr>';
         });
         rh += '</tbody></table>';
@@ -375,7 +375,8 @@ async function _kvShowRollDetail(rollId) {
         body += '<tr><td style="' + thS + '">T\u1ed2N</td><td style="' + tdS + '"><b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(curW) + '</b></td></tr>';
         body += '<tr><td style="' + thS + '">HO\u00c0N</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">\u0110\u00e3 ho\u00e0n</span>' : '<span style="color:#64748b">Ch\u01b0a ho\u00e0n</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' \u2014 <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
-        body += '<tr><td style="' + thS + '">\u0110ANG C\u1eaET</td><td style="' + tdS + '">' + (rl.is_cutting ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">\u2702 \u0110ang c\u1eaft</span>' : '<span style="color:#059669;font-weight:700">Kh\u00f4ng c\u1eaft \u2705</span>') + '</td></tr>';
+        var rlCutLabel = rl.cutting_order_name ? ('✂️ ' + rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
+        body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">NG\u01af\u1edcI NH\u1eacP V\u1ea2I</td><td style="' + tdS + '">' + (rl.created_by_name || '\u2014') + '</td></tr>';
         body += '<tr><td style="' + thS + '">H\u00ccNH \u1ea2NH PHI\u1ec0U</td><td style="' + tdS + '">' + (rl.receipt_image ? '<a href="' + rl.receipt_image + '" target="_blank" style="color:#0d9488;font-weight:700">\ud83d\udcf7 Xem \u1ea3nh</a>' : '<span style="color:var(--gray-400)">Ch\u01b0a c\u00f3</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">ID BILL</td><td style="' + tdS + '">' + (rl.bill_id ? '<code style="background:#e2e8f0;padding:2px 8px;border-radius:4px">' + rl.bill_id + '</code>' : '<span style="color:var(--gray-400)">\u2014</span>') + '</td></tr>';

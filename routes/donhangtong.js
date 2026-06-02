@@ -1054,6 +1054,42 @@ module.exports = async function(fastify) {
       }
     });
 
+    // ========== ORDERS: Confirm SX Print (GĐ + Phòng Kế Toán) ==========
+    // ★ Dedicated endpoint — does NOT require dht_sua_don permission
+    fastify.post('/api/dht/orders/:id/confirm-sx-print', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        // Check permission: GĐ or Phòng Kế Toán
+        let allowed = request.user.role === 'giam_doc';
+        if (!allowed) {
+            const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
+            if (dept && dept.name) {
+                const n = dept.name.toLowerCase();
+                allowed = n.includes('kế toán') || n.includes('ke toan');
+            }
+        }
+        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ hoặc Phòng Kế Toán mới được xác nhận in phiếu SX' });
+
+        const order = await db.get('SELECT id, order_code, sx_print_confirmed FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        if (order.sx_print_confirmed) return reply.code(400).send({ error: 'Đơn hàng đã được xác nhận in phiếu SX rồi' });
+
+        const { vnISOString } = require('../utils/timezone');
+        await db.run(
+            `UPDATE dht_orders SET sx_print_confirmed = TRUE, sx_print_confirmed_at = $1, sx_print_confirmed_by = $2, last_updated_at = NOW() WHERE id = $3`,
+            [vnISOString(), request.user.id, orderId]
+        );
+
+        // Audit log
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`,
+                [orderId, 'sx_print', '✅ Xác nhận In Phiếu Sản Xuất', JSON.stringify([{ field: 'sx_print_confirmed', label: 'In Phiếu SX', old: 'false', new: 'true' }]), request.user.id]
+            );
+        } catch(e) { console.error('[AuditLog] sx_print:', e.message); }
+
+        return { success: true };
+    });
+
     // ========== ORDERS: Update (full edit) ==========
     // ★ Requires “Sửa Đơn” permission
     fastify.put('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('dht_sua_don', 'view')] }, async (request, reply) => {

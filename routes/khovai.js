@@ -204,9 +204,13 @@ module.exports = async function (fastify) {
         if (!fcid) return { rolls: [] };
         const rows = await db.all(
             `SELECT r.*, fc.original_tree_threshold,
-                    (r.weight >= fc.original_tree_threshold) AS is_original_tree
+                    (r.weight >= fc.original_tree_threshold) AS is_original_tree,
+                    cr.product_name AS cutting_order_name,
+                    u_cut.full_name AS cutting_by_name
              FROM kv_rolls r
              JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+             LEFT JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
+             LEFT JOIN users u_cut ON u_cut.id = cr.cutter_id
              WHERE r.fabric_color_id = $1 AND r.is_returned = false
              ORDER BY r.created_at DESC`,
             [fcid]
@@ -307,12 +311,16 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/rolls/:id/detail', { preHandler: [authenticate] }, async (request) => {
         const roll = await db.get(
             `SELECT r.*, fc.color_name, m.name AS material_name, w.name AS warehouse_name, w.unit,
-                    u.full_name AS created_by_name
+                    u.full_name AS created_by_name,
+                    cr.product_name AS cutting_order_name,
+                    u_cut.full_name AS cutting_by_name
              FROM kv_rolls r
              JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
              JOIN kv_materials m ON m.id = fc.material_id
              JOIN kv_warehouses w ON w.id = m.warehouse_id
              LEFT JOIN users u ON u.id = r.created_by
+             LEFT JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
+             LEFT JOIN users u_cut ON u_cut.id = cr.cutter_id
              WHERE r.id = $1`, [request.params.id]
         );
         if (!roll) return { error: 'Không tìm thấy cuộn vải' };
