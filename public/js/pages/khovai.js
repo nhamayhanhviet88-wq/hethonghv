@@ -431,8 +431,10 @@ async function _kvShowRollDetail(rollId) {
         }
         body += '</div>';
 
-        openModal('\ud83e\uddf5 ' + label, body, '<button class="btn btn-secondary" onclick="closeModal()">\u0110\u00f3ng</button>');
-    } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
+        var footer = '<button class="btn btn-primary" onclick="_kvShowDetail(' + rl.fabric_color_id + ')" style="background:linear-gradient(135deg,#0d9488,#0f766e)">← Quay lại</button> ';
+        footer += '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
+        openModal('\ud83e\uddf5 ' + label, body, footer);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
 async function _kvShowRolls(fcid) {
