@@ -1131,6 +1131,91 @@ module.exports = async function(fastify) {
         return { candidates };
     });
 
+    // ========== MULTI-CUT DONE: Hoàn thành cả nhóm cắt chung 1 lần ==========
+    fastify.post('/api/cutting/multi-cut/done', { preHandler: [authenticate] }, async (request, reply) => {
+        const { group_id, items, roll_remains, ratio_reason, ratio_image } = request.body || {};
+        // items = [{ record_id, cut_quantity }, ...]
+        if (!group_id) return reply.code(400).send({ error: 'Thiếu group_id' });
+        if (!items || !Array.isArray(items) || items.length < 2)
+            return reply.code(400).send({ error: 'Cần ít nhất 2 đơn trong nhóm' });
+
+        const now = vnNow();
+        const userId = request.user.id;
+
+        // Load all records in this group
+        const groupRecords = await db.all(
+            `SELECT id, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
+            [group_id]
+        );
+        if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
+
+        // Validate all items match group records
+        for (const it of items) {
+            const rec = groupRecords.find(r => r.id === it.record_id);
+            if (!rec) return reply.code(400).send({ error: 'Record ' + it.record_id + ' không thuộc nhóm này' });
+            if (!it.cut_quantity || Number(it.cut_quantity) <= 0) return reply.code(400).send({ error: 'SL Cắt phải > 0' });
+            if (rec.order_quantity && Number(it.cut_quantity) > Number(rec.order_quantity))
+                return reply.code(400).send({ error: 'SL Cắt (' + it.cut_quantity + ') > SL Đơn (' + rec.order_quantity + ') cho ' + (rec.product_name || rec.id) });
+        }
+
+        // Get roll snapshot from the first record (all records share same rolls)
+        let snapshot = [];
+        try { snapshot = typeof groupRecords[0].selected_roll_ids === 'string' ? JSON.parse(groupRecords[0].selected_roll_ids) : (groupRecords[0].selected_roll_ids || []); } catch(e) {}
+
+        // Process roll remains
+        const remainsMap = {};
+        if (roll_remains && Array.isArray(roll_remains)) {
+            for (const rm of roll_remains) {
+                const rem = Number(rm.remaining_weight);
+                if (isNaN(rem) || rem < 0) return reply.code(400).send({ error: 'Kg còn lại không hợp lệ' });
+                const orig = snapshot.find(s => s.roll_id === rm.roll_id);
+                if (orig && rem > Number(orig.weight)) return reply.code(400).send({ error: 'Kg còn lại > kg ban đầu (' + (orig.label || orig.roll_id) + ')' });
+                remainsMap[rm.roll_id] = rem;
+            }
+        }
+
+        const kgStart = Number(groupRecords[0].kg_start) || 0;
+        let kgEnd = 0;
+        for (const s of snapshot) { kgEnd += remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0; }
+        const totalKgCut = kgStart - kgEnd;
+
+        // Calculate total SL across all items
+        const totalQty = items.reduce((s, it) => s + Number(it.cut_quantity), 0);
+
+        // Update each record with proportional kg
+        for (const it of items) {
+            const qty = Number(it.cut_quantity);
+            const myKgCut = totalQty > 0 ? (qty / totalQty) * totalKgCut : 0;
+            const myRatio = qty > 0 ? Math.round((myKgCut / qty) * 100) / 100 : 0;
+
+            await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
+                kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
+                ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
+                [now, userId, kgEnd, myKgCut, qty, myRatio, ratio_reason || null, ratio_image || null, it.record_id]);
+
+            await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [it.record_id, 'multi_cut_done', '✅ Cắt xong nhóm — SL: ' + qty + ', Kg: ' + myKgCut.toFixed(2) + ', TL: ' + myRatio, userId, now]);
+        }
+
+        // Unlock rolls + update weight
+        for (const s of snapshot) {
+            const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
+            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
+        }
+
+        return {
+            success: true,
+            total_kg_cut: totalKgCut,
+            total_qty: totalQty,
+            records: items.map(it => {
+                const qty = Number(it.cut_quantity);
+                const myKgCut = totalQty > 0 ? (qty / totalQty) * totalKgCut : 0;
+                const myRatio = qty > 0 ? Math.round((myKgCut / qty) * 100) / 100 : 0;
+                return { record_id: it.record_id, kg_cut: myKgCut, cut_ratio: myRatio };
+            })
+        };
+    });
+
     // ========== MULTI-CUT: Auto-claim + gộp cắt nhiều đơn ==========
     fastify.post('/api/cutting/multi-cut', { preHandler: [authenticate] }, async (request, reply) => {
         const { selected_roll_ids, selected_order_item_ids, material_name: reqMaterial, fabric_color: reqColor } = request.body || {};
