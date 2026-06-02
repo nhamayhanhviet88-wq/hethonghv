@@ -663,7 +663,8 @@ function mOpenDoneModal(recordId){
     // Rolls
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
-    h+='<button onclick="mDoneAllCut()" style="padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔴 Cắt hết</button></div>';
+    h+='<button id="_mDoneAllCutBtn" onclick="mDoneAllCut()" style="padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔴 Cắt hết</button></div>';
+    h+='<div id="_mDoneRollsList">';
     rolls.forEach((rl,idx)=>{
         const w=Number(rl.weight)||0;
         h+='<div style="border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:8px">';
@@ -676,7 +677,7 @@ function mOpenDoneModal(recordId){
         h+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
         h+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
-    h+='</div>';
+    h+='</div></div>';
     // Stats
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+(r.kg_start||0)+'</div></div>';
@@ -701,14 +702,29 @@ function mOpenDoneModal(recordId){
 }
 function mDoneToggleRoll(idx){
     window._mDoneData._allCut=false;
+    const btn=document.getElementById('_mDoneAllCutBtn');
+    if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết';}
+    const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='';
     const cb=document.querySelector('._mDoneRollCb[data-idx="'+idx+'"]');
     const inp=document.getElementById('_mDoneRollInp_'+idx);
     if(cb&&inp){inp.style.display=cb.checked?'block':'none';if(!cb.checked){const k=document.getElementById('_mDoneRollKg_'+idx);if(k)k.value='';}}
     mDoneRecalc();
 }
 function mDoneAllCut(){
-    window._mDoneData._allCut=true;
+    const d=window._mDoneData;if(!d)return;
+    if(d._allCut){
+        d._allCut=false;
+        const btn=document.getElementById('_mDoneAllCutBtn');
+        if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết';}
+        const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='';
+        mDoneRecalc();
+        return;
+    }
+    d._allCut=true;
     document.querySelectorAll('._mDoneRollCb').forEach(cb=>{cb.checked=false;const i=cb.dataset.idx;const inp=document.getElementById('_mDoneRollInp_'+i);if(inp)inp.style.display='none';const k=document.getElementById('_mDoneRollKg_'+i);if(k)k.value='';});
+    const btn=document.getElementById('_mDoneAllCutBtn');
+    if(btn){btn.style.background='#10b981';btn.textContent='🟢 Đã Cắt Hết';}
+    const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='none';
     mDoneRecalc();
 }
 function mDoneRecalc(){
