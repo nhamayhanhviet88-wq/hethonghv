@@ -743,13 +743,11 @@ function _dhtUpdateInfo(count, filtered) {
                 if (_SX_EXCLUDE.indexOf(Number(o.category_id)) !== -1) return false;
                 return !o.sx_print_confirmed;
             }).length;
-            if (noPrintCount > 0) {
-                cardsHTML += '<div onclick="_dhtStatFilter(\'no_sx_print\')" style="cursor:pointer;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:8px 18px;border-radius:10px;min-width:120px;text-align:center;box-shadow:0 4px 15px #d9770630;position:relative;overflow:hidden;transition:all .2s;'+_ring('no_sx_print')+'">' 
-                    +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.9s"></div>'
-                    +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">🏭 CHƯA IN PHIẾU</div>'
-                    +'<div style="font-size:15px;font-weight:900">'+noPrintCount+' đơn</div>'
-                    +'</div>';
-            }
+            cardsHTML += '<div onclick="_dhtStatFilter(\'no_sx_print\')" style="cursor:pointer;background:linear-gradient(135deg,'+(noPrintCount > 0 ? '#d97706,#f59e0b' : '#6b7280,#9ca3af')+');color:#fff;padding:8px 18px;border-radius:10px;min-width:120px;text-align:center;box-shadow:0 4px 15px '+(noPrintCount > 0 ? '#d9770630' : '#6b728030')+';position:relative;overflow:hidden;transition:all .2s;'+_ring('no_sx_print')+'">' 
+                +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhtShimmer 2.5s infinite 0.9s"></div>'
+                +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">🏭 CHƯA IN PHIẾU</div>'
+                +'<div style="font-size:15px;font-weight:900">'+noPrintCount+' đơn</div>'
+                +'</div>';
             sc.innerHTML = cardsHTML;
         }
         // Inject shimmer animation if not present
