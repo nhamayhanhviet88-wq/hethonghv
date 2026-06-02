@@ -886,12 +886,13 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<div style="display:flex;align-items:center;justify-content:space-between">';
         h += '<span style="font-size:11px;color:#7c3aed">SL Đơn: <b>' + gr.order_quantity + '</b></span>';
         h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#64748b;font-weight:600">SL Cắt:</span>';
-        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + (gr.order_quantity||'') + '" oninput="_bpcGDoneRecalc()" style="width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed"></div></div></div>';
+        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + (gr.order_quantity||'') + '" oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed"></div></div></div>';
     });
     h += '</div>';
     // Rolls
     h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#7c3aed;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
     h += '<button id="_bpcGCutAllBtn" onclick="_bpcGDoneAllCut()" style="padding:4px 14px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;min-height:32px">🔴 Cắt hết tất cả</button></div>';
+    h += '<div id="_bpcGRollsList">';
     rolls.forEach(function(rl, idx) {
         var w = Number(rl.weight) || 0;
         h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
@@ -900,10 +901,10 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label||'Cây '+(idx+1)) + '</span>';
         h += '<span style="font-size:11px;font-weight:700;color:#64748b">' + w + 'kg</span></label>';
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
-        h += '<input id="_bpcGRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" oninput="_bpcGDoneRecalc()" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
+        h += '<input id="_bpcGRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" oninput="_bpcGDoneValidKg(this,' + w + ')" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
         h += '<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
-    h += '</div>';
+    h += '</div></div>';
     // Stats
     h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + kgStart + '</div></div>';
@@ -922,16 +923,31 @@ function _bpcGDoneToggleRoll(idx) {
     window._bpcGDone._allCut = false;
     var btn = document.getElementById('_bpcGCutAllBtn');
     if (btn) { btn.style.background = '#dc2626'; btn.textContent = '🔴 Cắt hết tất cả'; }
+    var rl = document.getElementById('_bpcGRollsList'); if (rl) rl.style.display = '';
     var cb = document.querySelector('._bpcGRollCb[data-idx="' + idx + '"]');
     var inp = document.getElementById('_bpcGRollInp_' + idx);
     if (cb && inp) { inp.style.display = cb.checked ? 'block' : 'none'; if (!cb.checked) { var k = document.getElementById('_bpcGRollKg_' + idx); if (k) k.value = ''; } }
     _bpcGDoneRecalc();
 }
 function _bpcGDoneAllCut() {
+    if (window._bpcGDone._allCut) { window._bpcGDone._allCut = false; var btn2 = document.getElementById('_bpcGCutAllBtn'); if (btn2) { btn2.style.background = '#dc2626'; btn2.textContent = '🔴 Cắt hết tất cả'; } var rl2 = document.getElementById('_bpcGRollsList'); if (rl2) rl2.style.display = ''; _bpcGDoneRecalc(); return; }
     window._bpcGDone._allCut = true;
     document.querySelectorAll('._bpcGRollCb').forEach(function(cb) { cb.checked = false; var i = cb.dataset.idx; var inp = document.getElementById('_bpcGRollInp_' + i); if (inp) inp.style.display = 'none'; var k = document.getElementById('_bpcGRollKg_' + i); if (k) k.value = ''; });
     var btn = document.getElementById('_bpcGCutAllBtn');
     if (btn) { btn.style.background = '#059669'; btn.textContent = '✅ Đã chọn cắt hết'; }
+    var rl = document.getElementById('_bpcGRollsList'); if (rl) rl.style.display = 'none';
+    _bpcGDoneRecalc();
+}
+function _bpcGDoneValidQty(el, max) {
+    var v = parseInt(el.value) || 0;
+    if (v > max) { el.style.border = '2px solid #ef4444'; el.style.color = '#ef4444'; }
+    else { el.style.border = '2px solid #8b5cf6'; el.style.color = '#7c3aed'; }
+    _bpcGDoneRecalc();
+}
+function _bpcGDoneValidKg(el, max) {
+    var v = parseFloat(el.value) || 0;
+    if (v > max) { el.style.border = '2px solid #ef4444'; el.style.color = '#ef4444'; }
+    else { el.style.border = '1.5px solid #8b5cf6'; el.style.color = '#7c3aed'; }
     _bpcGDoneRecalc();
 }
 function _bpcGDoneRecalc() {
