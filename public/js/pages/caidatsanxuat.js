@@ -876,9 +876,9 @@ function _ltcRenderMain(container) {
                 <div style="flex:1; overflow:auto; max-height:calc(100vh - 290px);">
                     <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
                         <thead>
-                            <tr style="border-bottom:2px solid #e2e8f0; background:#f8fafc;">
-                                <th style="padding:10px 8px; font-weight:700; color:#475569;">Thợ Cắt</th>
-                                ${_ltcProductTypes.map(pt => `<th style="padding:10px 8px; font-weight:700; color:#475569; min-width:110px;">${pt}</th>`).join('')}
+                            <tr style="border-bottom:2px solid #cbd5e1; background:#1e3a5f !important; color:#ffffff !important; position:sticky; top:0; z-index:1;">
+                                <th style="padding:10px 8px; font-weight:700; color:#ffffff !important; background:#1e3a5f !important;">Thợ Cắt</th>
+                                ${_ltcProductTypes.map(pt => `<th style="padding:10px 8px; font-weight:700; color:#ffffff !important; background:#1e3a5f !important; min-width:110px;">${pt}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>

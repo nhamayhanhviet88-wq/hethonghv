@@ -157,7 +157,7 @@ module.exports = async function(fastify) {
             SELECT u.id, u.full_name, u.username, u.role
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
-            WHERE u.status = 'active' AND u.is_active = true
+            WHERE u.status = 'active'
               AND (LOWER(COALESCE(d.name, '')) LIKE '%cắt%' 
                    OR LOWER(COALESCE(d.code, '')) LIKE '%cat%' 
                    OR LOWER(COALESCE(d.name, '')) = 'phongcat'
