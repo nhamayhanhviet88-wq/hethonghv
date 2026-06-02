@@ -95,6 +95,7 @@
     <div class="m-header">
         <img src="/images/logo.png" alt="Logo">
         <h1>✂️ BỘ PHẬN CẮT</h1>
+        <button id="mRatioBtn" onclick="mOpenTargetRatioModal()" style="display:none;background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-weight:800;margin-right:10px;cursor:pointer">⚖️ Định lượng</button>
         <span class="m-user" id="mUser">...</span>
     </div>
     <div class="m-toast-c" id="mToastC"></div>
@@ -207,8 +208,98 @@ async function mInit(){
         if(!auth.user){window.location.href='/index.html';return;}
         mUser=auth.user;
         document.getElementById('mUser').textContent=mUser.full_name||mUser.username;
+        if(mUser.role === 'giam_doc'){
+            const btn = document.getElementById('mRatioBtn');
+            if(btn) btn.style.display = 'block';
+        }
         await mLoadAll();
     }catch(e){document.getElementById('mContent').innerHTML='<div class="m-empty"><div class="m-empty-icon">❌</div><div>Lỗi: '+e.message+'</div></div>';}
+}
+
+async function mOpenTargetRatioModal(){
+    if(window._mBusy) return;
+    window._mBusy = true;
+    let h = '<div class="mm-overlay" id="_mRatioModal" onclick="if(event.target===this)mCloseRatioModal()">';
+    h += '<div class="mm-sheet" style="max-height:85vh;display:flex;flex-direction:column">';
+    h += '<div class="mm-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mm-icon">⚖️</div><div><div class="mm-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="mm-sub">Giám đốc thiết lập tỉ lệ định lượng tối thiểu</div></div></div>';
+    h += '<div class="mm-body" id="_mRatioBody" style="overflow-y:auto;flex:1;padding:16px 20px"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
+    h += '<div class="mm-actions" style="border-top:1px solid rgba(255,255,255,0.06);padding:16px 20px"><button class="mm-btn mm-btn-no" onclick="mCloseRatioModal()">Hủy</button>';
+    h += '<button class="mm-btn mm-btn-ok" style="background:linear-gradient(135deg,#059669,#10b981)" onclick="mSaveTargetRatios()">💾 LƯU THAY ĐỔI</button></div>';
+    h += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(() => document.getElementById('_mRatioModal').classList.add('show'));
+
+    try {
+        const res = await mApi('/api/cutting/target-ratios');
+        const mats = res.materials || [];
+        const bd = document.getElementById('_mRatioBody');
+        let b = '<div style="padding-right:4px">';
+        
+        const kgMats = mats.filter(m => m.unit_name === 'kg');
+        const metMats = mats.filter(m => m.unit_name === 'mét');
+        
+        if (kgMats.length > 0) {
+            b += '<div style="font-size:11px;font-weight:800;color:#10b981;margin-bottom:8px;letter-spacing:0.5px">🧵 KHO VẢI KG (KG/SP)</div>';
+            kgMats.forEach(m => {
+                b += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
+                b += '<span style="font-size:12px;font-weight:600;color:#e2e8f0">' + m.material_name + '</span>';
+                b += '<div style="display:flex;align-items:center;gap:6px">';
+                b += '<input class="_mRatioInput" data-id="' + m.id + '" type="number" step="0.01" min="0" value="' + (m.target_cut_ratio || 0) + '" style="width:75px;padding:6px;border:1.5px solid rgba(255,255,255,0.15);border-radius:8px;font-size:13px;font-weight:700;text-align:center;color:#10b981;background:rgba(255,255,255,0.06)">';
+                b += '<span style="font-size:10px;color:#94a3b8">kg</span></div></div>';
+            });
+        }
+        
+        if (metMats.length > 0) {
+            b += '<div style="font-size:11px;font-weight:800;color:#3b82f6;margin-top:14px;margin-bottom:8px;letter-spacing:0.5px">📐 KHO VẢI MÉT (MÉT/SP)</div>';
+            metMats.forEach(m => {
+                b += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
+                b += '<span style="font-size:12px;font-weight:600;color:#e2e8f0">' + m.material_name + '</span>';
+                b += '<div style="display:flex;align-items:center;gap:6px">';
+                b += '<input class="_mRatioInput" data-id="' + m.id + '" type="number" step="0.01" min="0" value="' + (m.target_cut_ratio || 0) + '" style="width:75px;padding:6px;border:1.5px solid rgba(255,255,255,0.15);border-radius:8px;font-size:13px;font-weight:700;text-align:center;color:#3b82f6;background:rgba(255,255,255,0.06)">';
+                b += '<span style="font-size:10px;color:#94a3b8">m</span></div></div>';
+            });
+        }
+        
+        b += '</div>';
+        bd.innerHTML = b;
+    } catch(e) {
+        const bd = document.getElementById('_mRatioBody');
+        if(bd) bd.innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444">❌ Lỗi: ' + e.message + '</div>';
+    }
+}
+
+function mCloseRatioModal() {
+    window._mBusy = false;
+    const m = document.getElementById('_mRatioModal');
+    if(m) { m.classList.remove('show'); setTimeout(() => m.remove(), 350); }
+}
+
+async function mSaveTargetRatios() {
+    if(window._mSubmitBusy) return;
+    window._mSubmitBusy = true;
+    const inputs = document.querySelectorAll('._mRatioInput');
+    const items = [];
+    inputs.forEach(inp => {
+        items.push({
+            id: Number(inp.dataset.id),
+            target_cut_ratio: parseFloat(inp.value) || 0
+        });
+    });
+
+    const btn = document.querySelector('#_mRatioModal .mm-btn-ok');
+    if(btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
+
+    try {
+        await mApi('/api/cutting/target-ratios', 'POST', { items });
+        mCloseRatioModal();
+        mToast('✅ Đã lưu tỉ lệ định lượng!');
+        await mLoadAll();
+    } catch(e) {
+        mToast(e.message || 'Lỗi', false);
+        if(btn) { btn.disabled = false; btn.textContent = '💾 LƯU THAY ĐỔI'; }
+    } finally {
+        window._mSubmitBusy = false;
+    }
 }
 
 async function mLoadAll(){
@@ -648,10 +739,10 @@ function mOpenDoneModal(recordId){
     if(window._mBusy)return;
     window._mBusy=true;
     let rolls=[];try{rolls=typeof r.selected_roll_ids==='string'?JSON.parse(r.selected_roll_ids):(r.selected_roll_ids||[]);}catch(e){}
-    window._mDoneData={recordId,rolls,kgStart:Number(r.kg_start)||0,orderQty:Number(r.order_quantity)||0,imgData:null,isMultiGroup:false,isLastInGroup:true};
+    window._mDoneData={recordId,rolls,kgStart:Number(r.kg_start)||0,orderQty:Number(r.order_quantity)||0,imgData:null,isMultiGroup:false,isLastInGroup:true,targetRatio:Number(r.target_cut_ratio)||0};
     let h='<div class="mm-overlay" id="_mmDoneModal" onclick="if(event.target===this)mCloseDoneModal()">';
     h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,#1e40af,#3b82f6)"><div class="mm-icon">🏁</div><div><div class="mm-title">CẮT XONG</div><div class="mm-sub">'+(r.product_name||r.order_code||'')+'</div></div></div>';
-    h+='<div class="mm-body">';
+    h+='<div class="mm-body" style="max-height:60vh;overflow-y:auto">';
     h+='<div class="mm-row"><span class="mm-lbl">📋 Tên SP</span><span class="mm-val" style="font-size:11px">'+(r.product_name||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val">'+(r.material_name||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(r.fabric_color||'—')+'</span></div>';
@@ -682,17 +773,17 @@ function mOpenDoneModal(recordId){
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+(r.kg_start||0)+'</div></div>';
     h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+(r.kg_start||0)+'</div></div></div>';
-    h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Tỉ Lệ</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
-    // Reason+Image (hidden, future threshold)
+    h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Tỉ Lệ Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
+    // Reason+Image warning container
     h+='<div id="_mDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
     h+='<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
-    h+='<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP</div>';
-    h+='<textarea id="_mDoneReason" placeholder="Lý do..." rows="2" style="width:100%;padding:8px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;resize:none;background:rgba(255,255,255,0.06);color:#e2e8f0"></textarea>';
+    h+='<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO</div>';
+    h+='<textarea id="_mDoneReason" placeholder="Lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;resize:none;background:rgba(255,255,255,0.06);color:#e2e8f0"></textarea>';
     h+='<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px dashed rgba(239,68,68,0.4);border-radius:8px;cursor:pointer">';
     h+='<span style="font-size:24px">📷</span><span style="font-size:12px;color:#fca5a5;font-weight:600">Chụp/Chọn ảnh</span>';
     h+='<input type="file" id="_mDoneImgInput" accept="image/*" capture="environment" style="display:none" onchange="mDoneImgFile(event)"></label>';
     h+='<div id="_mDoneImgPreview" style="margin-top:6px"></div></div></div></div>';
-    h+='</div>';
+    h+='</div>'; // mm-body end
     h+='<div class="mm-actions"><button class="mm-btn mm-btn-no" onclick="mCloseDoneModal()">Hủy</button>';
     h+='<button class="mm-btn mm-btn-ok" id="_mDoneOk" style="background:linear-gradient(135deg,#1e40af,#3b82f6)" onclick="mSubmitDone('+recordId+')">🏁 XÁC NHẬN</button></div>';
     h+='</div></div>';
@@ -734,6 +825,16 @@ function mDoneRecalc(){
     const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
     const ratio=qty>0?Math.round((kgCut/qty)*100)/100:0;
     const re=document.getElementById('_mDoneRatio');if(re){re.textContent=ratio?ratio.toFixed(2):'—';re.style.color=ratio>5?'#ef4444':ratio>3?'#fbbf24':'#10b981';}
+    
+    // Toggle warning for target ratio
+    const warn = document.getElementById('_mDoneRatioWarn');
+    if (warn) {
+        if (d.targetRatio > 0 && ratio < d.targetRatio) {
+            warn.style.display = 'block';
+        } else {
+            warn.style.display = 'none';
+        }
+    }
 }
 function mDoneImgFile(e){
     const f=e.target.files[0];if(!f)return;const r=new FileReader();
@@ -791,11 +892,36 @@ async function mSubmitDone(recordId){
         }
     });
     if(err){mToast('Kiểm tra kg còn lại',false);window._mSubmitBusy=false;return;}
+
+    // Check ratio and target ratio validation
+    let kgR=0;
+    rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
+    const kgCut = d.kgStart - kgR;
+    const ratio = qty > 0 ? Math.round((kgCut / qty) * 100) / 100 : 0;
+
+    if (d.targetRatio > 0 && ratio < d.targetRatio) {
+        const reason = document.getElementById('_mDoneReason');
+        if (!reason || !reason.value.trim() || reason.value.trim().length < 2) {
+            mToast('⚠️ Tỉ lệ cắt thấp hơn định lượng (' + d.targetRatio + '). Vui lòng nhập lý do!', false);
+            if (reason) mHighlight(reason);
+            window._mSubmitBusy = false;
+            return;
+        }
+        if (!d.imgData) {
+            mToast('⚠️ Tỉ lệ cắt thấp hơn định lượng (' + d.targetRatio + '). Vui lòng chụp/chọn ảnh minh chứng!', false);
+            window._mSubmitBusy = false;
+            return;
+        }
+    }
+
     const uc=d.rolls.length-rollRemains.length;
     const proceed=async()=>{
         const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains};
-        const reason=document.getElementById('_mDoneReason');if(reason&&reason.value.trim())body.ratio_reason=reason.value.trim();
-        if(d.imgData)body.ratio_image=d.imgData;
+        if (d.targetRatio > 0 && ratio < d.targetRatio) {
+            const reason = document.getElementById('_mDoneReason');
+            body.ratio_reason = reason.value.trim();
+            body.ratio_image = d.imgData;
+        }
         const btn=document.getElementById('_mDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
         try{
             await mApi('/api/cutting/toggle/'+recordId,'POST',body);
@@ -829,14 +955,14 @@ function mOpenGroupDoneModal(groupId){
     const ref=groupRecs[0];
     let rolls=[];try{rolls=typeof ref.selected_roll_ids==='string'?JSON.parse(ref.selected_roll_ids):(ref.selected_roll_ids||[]);}catch(e){}
     const kgStart=Number(ref.kg_start)||0;
-    window._mGDone={groupId,records:groupRecs,rolls,kgStart,imgData:null,_allCut:false};
+    window._mGDone={groupId,records:groupRecs,rolls,kgStart,imgData:null,_allCut:false,targetRatio:Number(ref.target_cut_ratio)||0};
     let h='<div class="mm-overlay" id="_mmGDoneModal" onclick="if(event.target===this)mCloseGDone()">';
     h+='<div class="mm-sheet">';
     // Header
     h+='<div class="mm-header" style="background:linear-gradient(135deg,#7c3aed,#a855f7)">';
     h+='<div class="mm-icon">🏁</div><div><div class="mm-title">CẮT XONG NHÓM</div>';
     h+='<div class="mm-sub">'+groupRecs.length+' đơn · '+rolls.length+' cây · '+kgStart+'kg</div></div></div>';
-    h+='<div class="mm-body">';
+    h+='<div class="mm-body" style="max-height:60vh;overflow-y:auto">';
     // Info
     h+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val">'+(ref.material_name||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(ref.fabric_color||'—')+'</span></div>';
@@ -881,7 +1007,16 @@ function mOpenGroupDoneModal(groupId){
     h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ TỔNG KG CẮT</div><div id="_mGKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+kgStart+'</div></div></div>';
     // Distribution preview
     h+='<div id="_mGDistrib" style="margin-top:8px"></div>';
-    h+='</div>';
+    // Warning Ratio Reason Container Mobile Group
+    h+='<div id="_mGDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
+    h+=  '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
+    h+=  '<div style="font-size:11px;font-weight:800;color:#fca5a5;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO</div>';
+    h+=  '<textarea id="_mGDoneReason" placeholder="Lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;resize:none;background:rgba(255,255,255,0.06);color:#e2e8f0"></textarea>';
+    h+=  '<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;padding:10px;border:1.5px dashed rgba(239,68,68,0.4);border-radius:8px;cursor:pointer">';
+    h+=  '<span style="font-size:24px">📷</span><span style="font-size:12px;color:#fca5a5;font-weight:600">Chụp/Chọn ảnh</span>';
+    h+=  '<input type="file" id="_mGDoneImgInput" accept="image/*" capture="environment" style="display:none" onchange="mGDoneImgFile(event)"></label>';
+    h+=  '<div id="_mGDoneImgPreview" style="margin-top:6px"></div></div></div></div>';
+    h+='</div>'; // mm-body end
     // Actions
     h+='<div class="mm-actions"><button class="mm-btn mm-btn-no" onclick="mCloseGDone()">Hủy</button>';
     h+='<button class="mm-btn mm-btn-ok" id="_mGDoneOk" style="background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="mSubmitGDone()">🏁 XÁC NHẬN CẮT XONG</button></div>';
@@ -889,6 +1024,12 @@ function mOpenGroupDoneModal(groupId){
     document.body.insertAdjacentHTML('beforeend',h);
     requestAnimationFrame(()=>document.getElementById('_mmGDoneModal').classList.add('show'));
     mGDoneRecalc();
+}
+
+function mGDoneImgFile(e){
+    const f=e.target.files[0];if(!f)return;const r=new FileReader();
+    r.onload=ev=>{window._mGDone.imgData=ev.target.result;const p=document.getElementById('_mGDoneImgPreview');if(p)p.innerHTML='<img src="'+ev.target.result+'" style="max-width:100%;max-height:100px;border-radius:8px">';};
+    r.readAsDataURL(f);
 }
 function mCloseGDone(){
     window._mBusy=false;
@@ -924,8 +1065,9 @@ function mGDoneRecalc(){
     let totalQty=0;const qtys=[];
     d.records.forEach(r=>{const inp=document.getElementById('_mGQ_'+r.id);const q=inp?parseInt(inp.value)||0:0;qtys.push({id:r.id,qty:q,name:r.product_name||r.order_code});totalQty+=q;});
     let dh='';
+    let combinedRatio=0;
     if(totalQty>0&&totalKgCut>0){
-        const combinedRatio=Math.round((totalKgCut/totalQty)*100)/100;
+        combinedRatio=Math.round((totalKgCut/totalQty)*100)/100;
         const rc=combinedRatio>0.5?'#ef4444':combinedRatio>0.3?'#fbbf24':'#10b981';
         dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(16,185,129,0.1);border:1.5px solid rgba(16,185,129,0.25);border-radius:10px">';
         dh+='<span style="font-size:12px;font-weight:800;color:#e2e8f0">📊 TỈ LỆ CHUNG</span>';
@@ -933,6 +1075,16 @@ function mGDoneRecalc(){
         dh+='<span style="font-size:20px;font-weight:900;color:'+rc+'">'+combinedRatio.toFixed(2)+'</span></div>';
     }
     const dp=document.getElementById('_mGDistrib');if(dp)dp.innerHTML=dh;
+
+    // Toggle warning for target ratio in group
+    const warn = document.getElementById('_mGDoneRatioWarn');
+    if (warn) {
+        if (d.targetRatio > 0 && combinedRatio < d.targetRatio) {
+            warn.style.display = 'block';
+        } else {
+            warn.style.display = 'none';
+        }
+    }
 }
 async function mSubmitGDone(){
     if(window._mSubmitBusy)return;
@@ -985,9 +1137,38 @@ async function mSubmitGDone(){
         }
     });
     if(err){mToast('Kiểm tra kg còn lại',false);window._mSubmitBusy=false;return;}
+
+    // Check target ratio validation for group cutting
+    let kgR=0;
+    rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
+    const totalKgCut = d.kgStart - kgR;
+    let totalQty = 0;
+    items.forEach(it => { totalQty += it.cut_quantity || 0; });
+    const combinedRatio = totalQty > 0 ? Math.round((totalKgCut / totalQty) * 100) / 100 : 0;
+
+    if (d.targetRatio > 0 && combinedRatio < d.targetRatio) {
+        const reason = document.getElementById('_mGDoneReason');
+        if (!reason || !reason.value.trim() || reason.value.trim().length < 2) {
+            mToast('⚠️ Tỉ lệ cắt thấp hơn định lượng (' + d.targetRatio + '). Vui lòng nhập lý do!', false);
+            if (reason) mHighlight(reason);
+            window._mSubmitBusy = false;
+            return;
+        }
+        if (!d.imgData) {
+            mToast('⚠️ Tỉ lệ cắt thấp hơn định lượng (' + d.targetRatio + '). Vui lòng chụp/chọn ảnh minh chứng!', false);
+            window._mSubmitBusy = false;
+            return;
+        }
+    }
+
     const uc=d.rolls.length-rollRemains.length;
     const proceed=async()=>{
         const body={group_id:d.groupId,items,roll_remains:rollRemains};
+        if (d.targetRatio > 0 && combinedRatio < d.targetRatio) {
+            const reason = document.getElementById('_mGDoneReason');
+            body.ratio_reason = reason.value.trim();
+            body.ratio_image = d.imgData;
+        }
         const btn=document.getElementById('_mGDoneOk');if(btn){btn.disabled=true;btn.textContent='⏳...';}
         try{
             await mApi('/api/cutting/multi-cut/done','POST',body);

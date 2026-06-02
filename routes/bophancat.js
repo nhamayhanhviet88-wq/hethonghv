@@ -57,6 +57,10 @@ module.exports = async function(fastify) {
     try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS locked_by_cutting_id INTEGER REFERENCES cutting_records(id) ON DELETE SET NULL`); } catch(e) {}
     // Add multi_cut_group_id for grouping records that are cut together
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS multi_cut_group_id TEXT`); } catch(e) {}
+    // Add target_cut_ratio to kv_materials
+    try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS target_cut_ratio NUMERIC DEFAULT 0`); } catch(e) {}
+    // Add ratio_image to cutting_records
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_image TEXT`); } catch(e) {}
     // Backfill cutting_category for existing records
     try {
         await db.exec(`
@@ -321,13 +325,15 @@ module.exports = async function(fastify) {
                    -- Last history
                    lh.details AS last_update_detail,
                    lh.performed_at AS last_update_at,
-                   lh_user.full_name AS last_update_by
+                   lh_user.full_name AS last_update_by,
+                   m.target_cut_ratio
             FROM cutting_records cr
             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
             LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
+            LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             LEFT JOIN LATERAL (
                 SELECT h.details, h.performed_at, h.performed_by
                 FROM cutting_history h WHERE h.cutting_id = cr.id
@@ -349,13 +355,15 @@ module.exports = async function(fastify) {
                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
-                   o.order_code
+                   o.order_code,
+                   m.target_cut_ratio
             FROM cutting_records cr
             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
             LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
+            LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             WHERE cr.id = $1
         `, [Number(request.params.id)]);
 
@@ -506,6 +514,8 @@ module.exports = async function(fastify) {
             let snapshot = [];
             try { snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []); } catch(e) {}
 
+            const targetRatio = await getTargetCutRatio(rec.material_name, snapshot);
+
             // Check if this is a multi-cut group
             if (rec.multi_cut_group_id) {
                 const otherNotDone = await db.all(
@@ -548,6 +558,17 @@ module.exports = async function(fastify) {
                     // Update this (last) record
                     const myKgCut = totalQtyAll > 0 ? (cutQty / totalQtyAll) * totalKgCut : totalKgCut;
                     const myRatio = cutQty > 0 ? Math.round((myKgCut / cutQty) * 100) / 100 : 0;
+
+                    // VALIDATION TỈ LỆ
+                    if (targetRatio > 0 && myRatio < targetRatio) {
+                        if (!ratio_reason || ratio_reason.trim().length < 2) {
+                            return reply.code(400).send({ error: 'Tỉ lệ cắt của nhóm (' + myRatio + ') thấp hơn định lượng (' + targetRatio + '). Vui lòng nhập lý do!' });
+                        }
+                        if (!ratio_image || ratio_image.trim().length === 0) {
+                            return reply.code(400).send({ error: 'Tỉ lệ cắt của nhóm (' + myRatio + ') thấp hơn định lượng (' + targetRatio + '). Vui lòng chụp/chọn ảnh minh chứng!' });
+                        }
+                    }
+
                     await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                         kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
                         ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
@@ -586,6 +607,17 @@ module.exports = async function(fastify) {
                 for (const s of snapshot) { kgEnd += remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0; }
                 const kgCut = kgStart - kgEnd;
                 const cutRatio = cutQty > 0 ? Math.round((kgCut / cutQty) * 100) / 100 : 0;
+
+                // VALIDATION TỈ LỆ
+                if (targetRatio > 0 && cutRatio < targetRatio) {
+                    if (!ratio_reason || ratio_reason.trim().length < 2) {
+                        return reply.code(400).send({ error: 'Tỉ lệ cắt (' + cutRatio + ') thấp hơn định lượng (' + targetRatio + '). Vui lòng nhập lý do!' });
+                    }
+                    if (!ratio_image || ratio_image.trim().length === 0) {
+                        return reply.code(400).send({ error: 'Tỉ lệ cắt (' + cutRatio + ') thấp hơn định lượng (' + targetRatio + '). Vui lòng chụp/chọn ảnh minh chứng!' });
+                    }
+                }
+
                 await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                     kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
                     ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
@@ -1221,6 +1253,18 @@ module.exports = async function(fastify) {
         // Calculate total SL across all items
         const totalQty = items.reduce((s, it) => s + Number(it.cut_quantity), 0);
 
+        // VALIDATION TỈ LỆ
+        const targetRatio = await getTargetCutRatio(groupRecords[0].material_name, snapshot);
+        const combinedRatio = totalQty > 0 ? Math.round((totalKgCut / totalQty) * 100) / 100 : 0;
+        if (targetRatio > 0 && combinedRatio < targetRatio) {
+            if (!ratio_reason || ratio_reason.trim().length < 2) {
+                return reply.code(400).send({ error: 'Tỉ lệ cắt của nhóm (' + combinedRatio + ') thấp hơn định lượng (' + targetRatio + '). Vui lòng nhập lý do!' });
+            }
+            if (!ratio_image || ratio_image.trim().length === 0) {
+                return reply.code(400).send({ error: 'Tỉ lệ cắt của nhóm (' + combinedRatio + ') thấp hơn định lượng (' + targetRatio + '). Vui lòng chụp/chọn ảnh minh chứng!' });
+            }
+        }
+
         // Update each record with proportional kg
         for (const it of items) {
             const qty = Number(it.cut_quantity);
@@ -1439,6 +1483,59 @@ module.exports = async function(fastify) {
 
         await db.run(`DELETE FROM cutting_records WHERE ${whereClause}`, params);
 
+        return { success: true };
+    });
+
+    async function getTargetCutRatio(materialName, snapshot) {
+        let matName = materialName;
+        if (!matName && snapshot && snapshot.length > 0) {
+            const rollId = snapshot[0].roll_id || snapshot[0].id;
+            if (rollId) {
+                const rollDb = await db.get(`
+                    SELECT m.name AS material_name
+                    FROM kv_rolls r
+                    JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                    JOIN kv_materials m ON m.id = fc.material_id
+                    WHERE r.id = $1 LIMIT 1
+                `, [rollId]);
+                if (rollDb) matName = rollDb.material_name;
+            }
+        }
+        if (matName) {
+            const mat = await db.get(`SELECT target_cut_ratio FROM kv_materials WHERE name = $1 AND is_active = true LIMIT 1`, [matName]);
+            return mat ? Number(mat.target_cut_ratio) || 0 : 0;
+        }
+        return 0;
+    }
+
+    // ========== GET TARGET RATIOS: Lấy tỉ lệ định lượng (Director/Setup) ==========
+    fastify.get('/api/cutting/target-ratios', { preHandler: [authenticate] }, async (request, reply) => {
+        const materials = await db.all(`
+            SELECT m.id, m.name, m.target_cut_ratio, w.name as warehouse_name, w.unit
+            FROM kv_materials m
+            JOIN kv_warehouses w ON m.warehouse_id = w.id
+            WHERE m.is_active = true
+            ORDER BY w.display_order, m.display_order, m.name
+        `);
+        return { materials };
+    });
+
+    // ========== POST TARGET RATIOS: Thiết lập tỉ lệ định lượng (Director Only) ==========
+    fastify.post('/api/cutting/target-ratios', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập tỉ lệ định lượng!' });
+        }
+        const { ratios } = request.body || {};
+        if (!ratios || !Array.isArray(ratios)) {
+            return reply.code(400).send({ error: 'Dữ liệu không hợp lệ!' });
+        }
+        for (const item of ratios) {
+            const val = Number(item.target_cut_ratio);
+            if (isNaN(val) || val < 0) {
+                return reply.code(400).send({ error: 'Tỉ lệ định lượng phải là số >= 0!' });
+            }
+            await db.run('UPDATE kv_materials SET target_cut_ratio = $1 WHERE id = $2', [val, item.id]);
+        }
         return { success: true };
     });
 };
