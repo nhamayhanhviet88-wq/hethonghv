@@ -341,6 +341,28 @@ module.exports = async function(fastify) {
         return { records };
     });
 
+    // ========== GET SINGLE RECORD: Chi tiết một đơn cắt ==========
+    fastify.get('/api/cutting/records/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const record = await db.get(`
+            SELECT cr.*,
+                   u_cutter.full_name AS cutter_name,
+                   u_done.full_name AS cut_done_by_name,
+                   u_salary.full_name AS salary_approved_by_name,
+                   u_wash.full_name AS wash_reported_by_name,
+                   o.order_code
+            FROM cutting_records cr
+            LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
+            LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
+            LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
+            LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
+            LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
+            WHERE cr.id = $1
+        `, [Number(request.params.id)]);
+
+        if (!record) return reply.code(404).send({ error: 'Không tìm thấy đơn cắt' });
+        return { record };
+    });
+
     // ========== CREATE: Tạo record cắt mới ==========
     fastify.post('/api/cutting/records', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body || {};
