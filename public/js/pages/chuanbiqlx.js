@@ -963,10 +963,13 @@ async function _qlxAssignIn(orderId) {
         html += '<select id="_qlxPASelect" onchange="_qlxPAFilterITC()" class="form-control" style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:600">' + optHtml + '</select></div>';
 
         // IN/THÊU CHUNG (multi-select checkboxes)
+        var _itcDisabled = !selVal;
         html += '<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:800;color:#0f172a;display:block;margin-bottom:6px">IN / THÊU CHUNG <span style="font-size:9px;color:#6b7280;font-weight:600">(không bắt buộc)</span></label>';
-        html += '<div id="_qlxPAITC" style="max-height:180px;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px">';
+        html += '<div id="_qlxPAITC" style="max-height:180px;overflow-y:auto;border:1.5px solid ' + (_itcDisabled ? '#f1f5f9' : '#e2e8f0') + ';border-radius:10px;padding:10px;' + (_itcDisabled ? 'opacity:0.4;pointer-events:none;' : '') + '">';
         html += _qlxBuildITCCheckboxes(staff, cons, selVal, itcSet);
-        html += '</div></div>';
+        html += '</div>';
+        html += '<div id="_qlxPAITCHint" style="font-size:10px;color:#f59e0b;font-weight:600;margin-top:4px;' + (_itcDisabled ? '' : 'display:none;') + '">⚠️ Vui lòng chọn Phân Công In trước</div>';
+        html += '</div>';
         html += '</div>';
 
         // Footer
@@ -1011,6 +1014,20 @@ function _qlxBuildITCCheckboxes(staff, cons, excludeVal, checkedSet) {
 function _qlxPAFilterITC() {
     var sel = document.getElementById('_qlxPASelect');
     var selVal = sel ? sel.value : '';
+    var itcBox = document.getElementById('_qlxPAITC');
+    var itcHint = document.getElementById('_qlxPAITCHint');
+    // Disable ITC when no printer selected
+    if (!selVal) {
+        if (itcBox) { itcBox.style.opacity = '0.4'; itcBox.style.pointerEvents = 'none'; itcBox.style.borderColor = '#f1f5f9'; }
+        if (itcHint) itcHint.style.display = '';
+        // Uncheck all
+        var allCbs = document.querySelectorAll('#_qlxPAITC input[type="checkbox"]');
+        allCbs.forEach(function(cb) { cb.checked = false; });
+        return;
+    }
+    // Enable ITC
+    if (itcBox) { itcBox.style.opacity = '1'; itcBox.style.pointerEvents = 'auto'; itcBox.style.borderColor = '#e2e8f0'; }
+    if (itcHint) itcHint.style.display = 'none';
     var labels = document.querySelectorAll('#_qlxPAITC label[data-itc-val]');
     labels.forEach(function(lbl) {
         var val = lbl.getAttribute('data-itc-val');
