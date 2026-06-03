@@ -179,7 +179,7 @@ module.exports = async function(fastify) {
         );
         if (dept && dept.name) {
             const n = dept.name.toLowerCase();
-            if (n.includes('quản lý xưởng') || n.includes('quan ly xuong') || n.includes('qlx') || n.includes('cắt')) return true;
+            if (n.includes('quản lý xưởng') || n.includes('quan ly xuong') || n.includes('qlx')) return true;
         }
         return false;
     }
