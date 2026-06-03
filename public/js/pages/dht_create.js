@@ -488,6 +488,7 @@ document.addEventListener('click', function(e) {
 
 // === STEP 2: Fill Order Info ===
 async function _dhtGoStep2() {
+    _dhtFreeMode = false;
     // Fetch data
     var [infoRes, codesRes, designRes, carrierRes, holidayRes, phieuRes, nnRes] = await Promise.all([
         apiCall('/api/dht/my-info'),
@@ -752,6 +753,7 @@ async function _dhtOnCatChange() {
     var catId = catSel ? catSel.value : '';
     var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
     var isFree = (catName === 'PET' || catName === 'TEM');
+    var wasFree = _dhtFreeMode;
     _dhtFreeMode = isFree;
     _dhtCreate.freeCatName = catName;
 
@@ -834,8 +836,8 @@ async function _dhtOnCatChange() {
 
         // Lock phone + name back
         var _dis2 = 'background:#f1f5f9;color:#64748b;cursor:not-allowed';
-        if (phoneEl) { phoneEl.disabled = true; phoneEl.placeholder = '← Chọn mã đơn'; phoneEl.style.cssText = _dis2; phoneEl.value = ''; }
-        if (nameEl) { nameEl.disabled = true; nameEl.placeholder = '← Chọn mã đơn'; nameEl.style.cssText = _dis2; nameEl.value = ''; }
+        if (phoneEl) { phoneEl.disabled = true; phoneEl.placeholder = '← Chọn mã đơn'; phoneEl.style.cssText = _dis2; if (wasFree) phoneEl.value = ''; }
+        if (nameEl) { nameEl.disabled = true; nameEl.placeholder = '← Chọn mã đơn'; nameEl.style.cssText = _dis2; if (wasFree) nameEl.value = ''; }
         if (phoneLbl) phoneLbl.innerHTML = 'SĐT Khách Hàng 🔒';
         if (nameLbl) nameLbl.innerHTML = 'Tên Khách Hàng 🔒';
     }
