@@ -848,7 +848,7 @@ module.exports = async function(fastify) {
                 FROM kv_rolls r
                 LEFT JOIN cutting_records cr_lock ON cr_lock.id = r.locked_by_cutting_id
                 LEFT JOIN users u_lock ON u_lock.id = cr_lock.cutter_id
-                WHERE r.fabric_color_id = $1 AND r.is_returned = false
+                WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight > 0
                 ORDER BY r.weight DESC
             `, [fc.fabric_color_id]);
 

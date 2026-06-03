@@ -1304,9 +1304,8 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const userId = request.user.id;
 
-        // Load all records in this group
         const groupRecords = await db.all(
-            `SELECT id, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
+            `SELECT id, dht_order_id, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
             [group_id]
         );
         if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
@@ -1375,10 +1374,27 @@ module.exports = async function(fastify) {
                 [it.record_id, 'multi_cut_done', '✅ Cắt xong nhóm — SL: ' + qty + ', Kg: ' + myKgCut.toFixed(2) + ', TL: ' + myRatio, userId, now]);
         }
 
-        // Unlock rolls + update weight
+        // Unlock rolls + update weight + release other reservations if depleted
         for (const s of snapshot) {
             const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
-            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
+            const finalWeight = rem <= 0 ? 0 : rem;
+            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [finalWeight, s.roll_id]);
+            if (finalWeight === 0) {
+                const groupOrderIds = groupRecords.map(r => r.dht_order_id).filter(Boolean);
+                if (groupOrderIds.length > 0) {
+                    await db.run(`
+                        UPDATE qlx_fabric_reservations 
+                        SET status = 'released', updated_at = $1 
+                        WHERE roll_id = $2 AND dht_order_id != ALL($3) AND status IN ('reserved', 'arrived')
+                    `, [now, s.roll_id, groupOrderIds]);
+                } else {
+                    await db.run(`
+                        UPDATE qlx_fabric_reservations 
+                        SET status = 'released', updated_at = $1 
+                        WHERE roll_id = $2 AND status IN ('reserved', 'arrived')
+                    `, [now, s.roll_id]);
+                }
+            }
         }
 
         return {
