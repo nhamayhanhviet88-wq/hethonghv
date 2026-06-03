@@ -698,73 +698,84 @@ async function _bpcDoCut(recordId) {
 }
 
 // ========== DETAIL MODAL: Xem chi tiết đơn cắt ==========
-function _bpcOpenDetail(recordId) {
-    var r = _bpc.records.find(function(x) { return x.id === recordId; });
-    if (!r) return;
-    var rolls = [];
-    try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
-    var statusTxt = r.is_cut_done ? '✅ Đã cắt xong' : r.is_cutting ? '✂️ Đang cắt' : '📋 Chờ cắt';
-    var statusBg = r.is_cut_done ? '#059669' : r.is_cutting ? '#dc2626' : '#6366f1';
-    var h = '<div class="bpc-modal-overlay" id="_bpcDetailModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpcDetailModal\').remove()},300)">';
-    h += '<div class="bpc-modal" style="width:540px">';
-    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,'+statusBg+','+statusBg+'cc)"><div class="m-icon">📋</div><div><div class="m-title">CHI TIẾT ĐƠN CẮT</div><div class="m-sub">' + statusTxt + '</div></div></div>';
-    h += '<div class="bpc-modal-body" style="max-height:65vh;overflow-y:auto">';
-    // Order info
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Tên SP</span><span class="bpc-modal-val" style="font-size:12px">' + (r.product_name||r.order_code||'—') + '</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧵 Chất liệu</span><span class="bpc-modal-val"><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.material_name||'—') + '</span></span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + _bpcFmtDate(r.cut_date) + '</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + (r.order_quantity||'—') + '</span></div>';
-    // Selected rolls
-    h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px"><div style="font-size:11px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CÂY VẢI ĐÃ CHỌN (' + rolls.length + ')</div>';
-    if (rolls.length) {
-        rolls.forEach(function(rl, idx) {
-            h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + '</div>';
-        });
-    } else {
-        h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Chưa có dữ liệu cây vải</div>';
-    }
-    h += '</div>';
-    // Kg stats
-    h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    h += '<div style="background:#fef3c7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#b45309">' + (r.kg_start||'—') + '</div></div>';
-    h += '<div style="background:#fee2e2;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">⚖️ KG CUỐI</div><div style="font-size:18px;font-weight:900;color:#dc2626">' + (r.kg_end||'—') + '</div></div>';
-    h += '<div style="background:#dcfce7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#166534">✂️ KG CẮT</div><div style="font-size:18px;font-weight:900;color:#059669">' + (r.kg_cut||'—') + '</div></div>';
-    h += '<div style="background:#dbeafe;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">📦 SL CẮT</div><div style="font-size:18px;font-weight:900;color:#2563eb">' + (r.cut_quantity||'—') + '</div></div>';
-    h += '</div></div>';
-    // Ratio
-    if (r.cut_ratio) {
-        var rc = '#3b82f6';
-        var tr = Number(r.target_cut_ratio) || 0;
-        if (tr > 0) {
-            rc = Number(r.cut_ratio) >= tr ? '#059669' : '#dc2626';
-        }
-        h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
-        if (tr > 0) {
-            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
-        }
-        if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do sai định lượng :</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
-        if (r.ratio_image) {
-            h += '<div style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">';
-            h += '<div style="font-size:11px;font-weight:800;color:#94a3b8;margin-bottom:6px">🖼️ HÌNH ẢNH CHỨNG MINH SAI:</div>';
-            h += '<div style="text-align:center"><img src="' + r.ratio_image + '" style="max-width:100%;max-height:250px;border-radius:8px;border:1px solid #e2e8f0"></div>';
-            h += '</div>';
+// ========== DETAIL MODAL: Xem chi tiết đơn cắt ==========
+async function _bpcOpenDetail(recordId) {
+    if (window._bpcDetailBusy) return;
+    window._bpcDetailBusy = true;
+    try {
+        var res = await apiCall('/api/cutting/records/' + recordId);
+        var r = res.record;
+        if (!r) return;
+        var rolls = [];
+        try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
+        var statusTxt = r.is_cut_done ? '✅ Đã cắt xong' : r.is_cutting ? '✂️ Đang cắt' : '📋 Chờ cắt';
+        var statusBg = r.is_cut_done ? '#059669' : r.is_cutting ? '#dc2626' : '#6366f1';
+        var h = '<div class="bpc-modal-overlay" id="_bpcDetailModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpcDetailModal\').remove()},300)">';
+        h += '<div class="bpc-modal" style="width:540px">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,'+statusBg+','+statusBg+'cc)"><div class="m-icon">📋</div><div><div class="m-title">CHI TIẾT ĐƠN CẮT</div><div class="m-sub">' + statusTxt + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="max-height:65vh;overflow-y:auto">';
+        // Order info
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Tên SP</span><span class="bpc-modal-val" style="font-size:12px">' + (r.product_name||r.order_code||'—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧵 Chất liệu</span><span class="bpc-modal-val"><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.material_name||'—') + '</span></span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + _bpcFmtDate(r.cut_date) + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + (r.order_quantity||'—') + '</span></div>';
+        // Selected rolls
+        h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px"><div style="font-size:11px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CÂY VẢI ĐÃ CHỌN (' + rolls.length + ')</div>';
+        if (rolls.length) {
+            rolls.forEach(function(rl, idx) {
+                h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + '</div>';
+            });
+        } else {
+            h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Chưa có dữ liệu cây vải</div>';
         }
         h += '</div>';
+        // Kg stats
+        h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+        h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+        h += '<div style="background:#fef3c7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#b45309">' + (r.kg_start||'—') + '</div></div>';
+        h += '<div style="background:#fee2e2;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">⚖️ KG CUỐI</div><div style="font-size:18px;font-weight:900;color:#dc2626">' + (r.kg_end||'—') + '</div></div>';
+        h += '<div style="background:#dcfce7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#166534">✂️ KG CẮT</div><div style="font-size:18px;font-weight:900;color:#059669">' + (r.kg_cut||'—') + '</div></div>';
+        h += '<div style="background:#dbeafe;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">📦 SL CẮT</div><div style="font-size:18px;font-weight:900;color:#2563eb">' + (r.cut_quantity||'—') + '</div></div>';
+        h += '</div></div>';
+        // Ratio
+        if (r.cut_ratio) {
+            var rc = '#3b82f6';
+            var tr = Number(r.target_cut_ratio) || 0;
+            if (tr > 0) {
+                rc = Number(r.cut_ratio) >= tr ? '#059669' : '#dc2626';
+            }
+            h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
+            if (tr > 0) {
+                h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
+            }
+            if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do sai định lượng :</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
+            if (r.ratio_image) {
+                h += '<div style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">';
+                h += '<div style="font-size:11px;font-weight:800;color:#94a3b8;margin-bottom:6px">🖼️ HÌNH ẢNH CHỨNG MINH SAI:</div>';
+                h += '<div style="text-align:center"><img src="' + r.ratio_image + '" style="max-width:100%;max-height:250px;border-radius:8px;border:1px solid #e2e8f0"></div>';
+                h += '</div>';
+            }
+            h += '</div>';
+        }
+        // Warning + shared
+        if (r.cut_warning) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Cảnh Báo</span><span class="bpc-modal-val" style="color:#dc2626">' + r.cut_warning + '</span></div>';
+        if (r.cut_shared) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1;white-space:pre-line;line-height:1.5;font-size:10px">' + r.cut_shared + '</span></div>';
+        h += '</div>';
+        // Close button
+        h += '<div style="padding:12px 24px;border-top:1px solid #f1f5f9;text-align:center"><button class="bpc-modal-btn cancel" style="width:100%" onclick="var m=document.getElementById(\'_bpcDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Đóng</button></div>';
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+        requestAnimationFrame(function() { document.getElementById('_bpcDetailModal').classList.add('show'); });
+    } catch(e) {
+        console.error('[BPC] Load detail error:', e);
+        alert('Không thể tải chi tiết đơn cắt. Lỗi: ' + e.message);
+    } finally {
+        window._bpcDetailBusy = false;
     }
-    // Warning + shared
-    if (r.cut_warning) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Cảnh Báo</span><span class="bpc-modal-val" style="color:#dc2626">' + r.cut_warning + '</span></div>';
-    if (r.cut_shared) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1;white-space:pre-line;line-height:1.5;font-size:10px">' + r.cut_shared + '</span></div>';
-    h += '</div>';
-    // Close button
-    h += '<div style="padding:12px 24px;border-top:1px solid #f1f5f9;text-align:center"><button class="bpc-modal-btn cancel" style="width:100%" onclick="var m=document.getElementById(\'_bpcDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Đóng</button></div>';
-    h += '</div></div>';
-    document.body.insertAdjacentHTML('beforeend', h);
-    requestAnimationFrame(function() { document.getElementById('_bpcDetailModal').classList.add('show'); });
 }
 
 // ========== CẮT XONG MODAL ==========

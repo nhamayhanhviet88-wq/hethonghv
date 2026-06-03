@@ -367,7 +367,7 @@ module.exports = async function(fastify) {
                    cr.salary_approved_by, cr.wash_reported, cr.wash_reported_at, cr.wash_reported_by,
                    cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.product_name,
                    cr.material_name, cr.fabric_color, cr.order_quantity, cr.cut_quantity, cr.kg_cut,
-                   cr.cut_ratio, cr.ratio_reason, cr.ratio_image, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
+                   cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary,
                    u_cutter.full_name AS cutter_name,
@@ -412,7 +412,8 @@ module.exports = async function(fastify) {
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
                    o.order_code,
-                   m.target_cut_ratio
+                   t.target_ratio AS target_cut_ratio,
+                   w.unit AS fabric_unit
             FROM cutting_records cr
             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
@@ -420,6 +421,8 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
+            LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
+            LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
             WHERE cr.id = $1
         `, [Number(request.params.id)]);
 
