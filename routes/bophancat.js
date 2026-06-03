@@ -918,6 +918,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_lock ON u_lock.id = cr_lock.cutter_id
             LEFT JOIN dht_orders do_lock ON do_lock.id = cr_lock.dht_order_id
             WHERE r.is_returned = false
+              AND r.weight > 0
               AND TRIM(m.name) ILIKE $1
               AND TRIM(fc.color_name) ILIKE $2
             ORDER BY r.weight ASC
