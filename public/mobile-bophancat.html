@@ -533,25 +533,35 @@ function mRenderHist(){
         const kgEndVal = r.kg_end ? mFmtKg(r.kg_end) + ' kg' : '—';
         const ratioVal = r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—';
 
-            let rc = '#a5b4fc';
-            const tr = Number(r.target_cut_ratio) || 0;
-            if (tr > 0 && r.cut_ratio) {
-                rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
-            }
-            return '<div class="m-card"><div class="m-card-top">'
-            +'<div class="m-card-icon">✅</div>'
-            +'<div class="m-card-title">'+(r.product_name||'SP')+ccBadge+sharedBadge+'</div>'
-            +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
-            +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
-            +'<div class="m-card-body">'
-            +'<div class="m-row"><span class="m-lbl">📅 Ngày</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">🧵 CL</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">📦 SL</span><span class="m-val">'+(r.cut_quantity||r.order_quantity||'—')+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cuối</span><span class="m-val">'+kgEndVal+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">✂️ Kg Cắt</span><span class="m-val" style="color:#fbbf24">'+kgCutVal+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>'
-            +'</div></div>';
+        let rc = '#a5b4fc';
+        const tr = Number(r.target_cut_ratio) || 0;
+        if (tr > 0 && r.cut_ratio) {
+            rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
+        }
+        
+        const targetRatioVal = tr > 0 ? tr + ' sp/' + (r.fabric_unit || 'kg') : '—';
+        
+        let reasonHtml = '';
+        if (tr > 0 && r.cut_ratio && Number(r.cut_ratio) < tr) {
+            reasonHtml = '<div class="m-row"><span class="m-lbl">📝 Lý do sai tỉ lệ</span><span class="m-val" style="color:#ef4444;font-size:11px;max-width:65%;text-align:right;white-space:pre-wrap">' + (r.ratio_reason || '—') + '</span></div>';
+        }
+
+        return '<div class="m-card"><div class="m-card-top">'
+        +'<div class="m-card-icon">✅</div>'
+        +'<div class="m-card-title">'+(r.product_name||'SP')+ccBadge+sharedBadge+'</div>'
+        +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
+        +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
+        +'<div class="m-card-body">'
+        +'<div class="m-row"><span class="m-lbl">📅 Ngày</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">🧵 Chất Liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">📦 Số Lượng Cắt</span><span class="m-val">'+(r.cut_quantity||r.order_quantity||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cuối</span><span class="m-val">'+kgEndVal+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">✂️ Kg Cắt</span><span class="m-val" style="color:#fbbf24">'+kgCutVal+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ Cắt Thực Tế</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">⚖️ Tỉ Lệ Cắt Yêu Cầu</span><span class="m-val" style="color:#10b981;font-weight:700">'+targetRatioVal+'</span></div>'
+        +reasonHtml
+        +'</div></div>';
     }).join('');
 }
 
