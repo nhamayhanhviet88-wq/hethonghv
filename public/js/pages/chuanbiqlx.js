@@ -16,7 +16,8 @@ function renderQuanlyxuongqlxPage(content) {
 +'.qlx-sb-total{background:linear-gradient(135deg,#0369a1,#0284c7,#0ea5e9);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;position:relative;overflow:hidden}'
 +'.qlx-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:qlxGlow 2.5s infinite}'
 +'@keyframes qlxGlow{0%{left:-100%}100%{left:150%}}'
-+'.qlx-sb-grp{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200)}'
++'.qlx-sb-grp{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200);transition:all 0.15s}'
++'.qlx-sb-grp:hover{background:#f1f5f9}.qlx-sb-grp.active{background:#e0f2fe;color:#0369a1}'
 +'.qlx-sb-cat{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;color:#0369a1}'
 +'.qlx-sb-cat:hover{background:#f0f9ff}.qlx-sb-cat.active{background:#e0f2fe;font-weight:800}'
 +'.qlx-sb-month{padding:5px 16px 5px 42px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fafafa;color:#64748b}'
@@ -125,7 +126,8 @@ function _qlxRenderSidebar() {
 
     // Chưa Hoàn Thành
     var incOpen = !!_qlxOpen.inc;
-    h += '<div class="qlx-sb-grp" onclick="_qlxToggle(\'inc\')"><span>' + (incOpen ? '▼' : '▶') + ' ⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
+    var incAct = f.status === 'incomplete' && !f.category_id && !f.year && !f.month;
+    h += '<div class="qlx-sb-grp' + (incAct ? ' active' : '') + '" onclick="_qlxToggleGroup(\'inc\',\'incomplete\')"><span>' + (incOpen ? '▼' : '▶') + ' ⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
     if (incOpen && t.incomplete && t.incomplete.categories) {
         t.incomplete.categories.forEach(function(cat) {
             var catOpen = !!_qlxOpen['cat' + cat.id];
@@ -142,7 +144,8 @@ function _qlxRenderSidebar() {
 
     // Đã Hoàn Thành
     var compOpen = !!_qlxOpen.comp;
-    h += '<div class="qlx-sb-grp" onclick="_qlxToggle(\'comp\')"><span>' + (compOpen ? '▼' : '▶') + ' ✅ Đã Hoàn Thành</span><span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + compTotal + '</span></div>';
+    var compAct = f.status === 'complete' && !f.year && !f.month;
+    h += '<div class="qlx-sb-grp' + (compAct ? ' active' : '') + '" onclick="_qlxToggleGroup(\'comp\',\'complete\')"><span>' + (compOpen ? '▼' : '▶') + ' ✅ Đã Hoàn Thành</span><span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + compTotal + '</span></div>';
     if (compOpen && t.complete && t.complete.months) {
         t.complete.months.forEach(function(m) {
             var mAct = f.status === 'complete' && f.year == m.year && f.month == m.month;
@@ -153,6 +156,7 @@ function _qlxRenderSidebar() {
 }
 
 function _qlxToggle(key) { _qlxOpen[key] = !_qlxOpen[key]; _qlxRenderSidebar(); }
+function _qlxToggleGroup(key, status) { _qlxOpen[key] = !_qlxOpen[key]; _qlxFilter(status); }
 
 function _qlxFilter(status, catId, year, month) {
     _qlx.filter = { status: status || 'all', category_id: catId || null, year: year || null, month: month || null };
