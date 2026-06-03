@@ -890,7 +890,10 @@ function _ltcRenderMain(container) {
                                     </td>
                                     ${_ltcProductTypes.map(pt => {
                                         const currentTierId = _ltcAssignments.find(a => a.user_id === cutter.id && a.product_type === pt)?.tier_id || '';
-                                        const availableTiers = _ltcTiers.filter(t => t.product_type === pt);
+                                        const availableTiers = _ltcTiers.filter(t => {
+                                            const types = (t.product_type || '').split(',').map(s => s.trim());
+                                            return types.includes(pt);
+                                        });
                                         return `
                                             <td style="padding:8px 6px;">
                                                 <select onchange="_ltcSaveAssignment(${cutter.id}, '${pt}', this.value)" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:4px 6px; font-size:11px; background:#fff; cursor:pointer;">
@@ -917,7 +920,10 @@ function _ltcRenderTiersList() {
     if (!container) return;
 
     const filterVal = document.getElementById('_ltcFilterProdType')?.value || 'all';
-    const filteredTiers = filterVal === 'all' ? _ltcTiers : _ltcTiers.filter(t => t.product_type === filterVal);
+    const filteredTiers = filterVal === 'all' ? _ltcTiers : _ltcTiers.filter(t => {
+        const types = (t.product_type || '').split(',').map(s => s.trim());
+        return types.includes(filterVal);
+    });
 
     if (filteredTiers.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:11px;">Chưa có bậc lương nào</div>';
@@ -948,12 +954,16 @@ function _ltcRenderTiersList() {
             </div>`;
         });
 
+        const badges = (t.product_type || '').split(',').map(s => s.trim()).map(p => `
+            <span style="background:#ccfbf1; color:#0d9488; font-size:9px; padding:1px 5px; border-radius:4px; font-weight:700; margin-left:4px; display:inline-block; margin-top:2px;">${p}</span>
+        `).join('');
+
         h += `
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed #cbd5e1; padding-bottom:4px;">
                     <div>
                         <span style="font-weight:800; font-size:12px; color:#1e293b;">${t.tier_name}</span>
-                        <span style="background:#ccfbf1; color:#0d9488; font-size:9px; padding:1px 5px; border-radius:4px; font-weight:700; margin-left:6px;">${t.product_type}</span>
+                        ${badges}
                     </div>
                     <div style="display:flex; gap:6px;">
                         <button onclick="_ltcEditTier(${t.id})" style="border:none; background:none; color:#2563eb; font-weight:700; font-size:10px; cursor:pointer;">✏️ Sửa</button>
@@ -1019,16 +1029,24 @@ function _ltcShowTierFormModal(tier = null) {
 
     let body = `
         <div style="display:flex; flex-direction:column; gap:12px; font-size:12px;">
-            <div style="display:flex; gap:12px;">
+            <div style="display:flex; gap:12px; align-items: stretch;">
                 <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
                     <label style="font-weight:700; color:#475569;">Tên bậc lương:</label>
-                    <input type="text" id="_formTierName" value="${isEdit ? tier.tier_name : ''}" placeholder="Ví dụ: Bậc 1" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px;">
+                    <input type="text" id="_formTierName" value="${isEdit ? tier.tier_name : ''}" placeholder="Ví dụ: Bậc 1" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; height: 38px; box-sizing: border-box;">
                 </div>
                 <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
-                    <label style="font-weight:700; color:#475569;">Loại sản phẩm:</label>
-                    <select id="_formTierProdType" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; background:#fff; cursor:pointer;">
-                        ${_ltcProductTypes.map(pt => `<option value="${pt}" ${isEdit && tier.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('')}
-                    </select>
+                    <label style="font-weight:700; color:#475569;">Loại sản phẩm (chọn nhiều):</label>
+                    <div style="border:1px solid #d1d5db; border-radius:6px; padding:8px; background:#fff; max-height:120px; overflow-y:auto; display:grid; grid-template-columns: 1fr 1fr; gap:6px; box-sizing: border-box;">
+                        ${_ltcProductTypes.map(pt => {
+                            const isChecked = isEdit && (tier.product_type || '').split(',').map(s => s.trim()).includes(pt);
+                            return `
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; user-select:none; margin:0;">
+                                    <input type="checkbox" class="_formTierProdTypeCb" value="${pt}" ${isChecked ? 'checked' : ''} style="cursor:pointer; width:14px; height:14px; margin:0;">
+                                    <span>${pt}</span>
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
             </div>
             
@@ -1081,10 +1099,13 @@ function _ltcShowTierFormModal(tier = null) {
 async function _ltcSubmitTierForm(id = null) {
     const isEdit = id !== null;
     const tierName = document.getElementById('_formTierName')?.value?.trim();
-    const productType = document.getElementById('_formTierProdType')?.value;
+    const prodTypeCbs = document.querySelectorAll('._formTierProdTypeCb:checked');
+    const selectedProdTypes = Array.from(prodTypeCbs).map(cb => cb.value);
     
     if (!tierName) { showToast('Nhập tên bậc lương', 'error'); return; }
-    if (!productType) { showToast('Chọn loại sản phẩm', 'error'); return; }
+    if (selectedProdTypes.length === 0) { showToast('Chọn ít nhất một loại sản phẩm', 'error'); return; }
+
+    const productType = selectedProdTypes.join(', ');
 
     const rowEls = document.querySelectorAll('#_formRulesContainer ._form-rule-row');
     const rules = [];

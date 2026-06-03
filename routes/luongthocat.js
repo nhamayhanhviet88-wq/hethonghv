@@ -16,6 +16,12 @@ module.exports = async function(fastify) {
             created_at      TIMESTAMPTZ DEFAULT NOW(),
             updated_at      TIMESTAMPTZ DEFAULT NOW()
         )`);
+        
+        try {
+            await db.exec(`ALTER TABLE cutting_salary_tiers ALTER COLUMN product_type TYPE TEXT`);
+        } catch(e) {
+            console.error('[LTC] Alter column product_type error:', e.message);
+        }
 
         // 2. Table for user tier assignments
         await db.exec(`CREATE TABLE IF NOT EXISTS user_cutting_salary_tiers (
