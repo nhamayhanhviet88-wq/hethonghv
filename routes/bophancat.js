@@ -540,6 +540,23 @@ module.exports = async function(fastify) {
                 `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, updated_at = $1 WHERE id = $5`,
                 [now, request.user.id, kgStart, JSON.stringify(rollSnapshot), id]
             );
+
+            // Release unselected reservations for this coordination part
+            if (rec.dht_order_id && rec.order_item_id && rec.material_name && rec.fabric_color) {
+                await db.run(
+                    `UPDATE qlx_fabric_reservations
+                     SET status = 'released', updated_at = $1
+                     WHERE dht_order_id = $2
+                       AND item_id = $3
+                       AND material_name = $4
+                       AND color_name = $5
+                       AND roll_id IS NOT NULL
+                       AND roll_id != ALL($6)
+                       AND status IN ('reserved', 'arrived')`,
+                    [now, rec.dht_order_id, rec.order_item_id, rec.material_name, rec.fabric_color, selectedRollIds]
+                );
+            }
+
             detail = '✂️ Bắt đầu cắt — ' + locked.length + ' cây, ' + kgStart.toFixed(2) + 'kg';
         } else if (action === 'undo_cutting') {
             if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong, không thể hoàn tác bắt đầu cắt' });
@@ -1567,6 +1584,23 @@ module.exports = async function(fastify) {
                 [now, userId, kgStart, JSON.stringify(rollSnapshot), groupId, cutShared, rid]);
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
                 [rid, 'multi_cut_start', '✂️ Cắt chung ' + records.length + ' đơn — ' + locked.length + ' cây, ' + kgStart.toFixed(2) + 'kg', userId, now]);
+
+            // Release unselected reservations for this coordination part
+            const fullRec = await db.get(`SELECT dht_order_id, order_item_id, material_name, fabric_color FROM cutting_records WHERE id = $1`, [rid]);
+            if (fullRec && fullRec.dht_order_id && fullRec.order_item_id && fullRec.material_name && fullRec.fabric_color) {
+                await db.run(
+                    `UPDATE qlx_fabric_reservations
+                     SET status = 'released', updated_at = $1
+                     WHERE dht_order_id = $2
+                       AND item_id = $3
+                       AND material_name = $4
+                       AND color_name = $5
+                       AND roll_id IS NOT NULL
+                       AND roll_id != ALL($6)
+                       AND status IN ('reserved', 'arrived')`,
+                    [now, fullRec.dht_order_id, fullRec.order_item_id, fullRec.material_name, fullRec.fabric_color, selected_roll_ids]
+                );
+            }
         }
 
         return { success: true, group_id: groupId, count: createdIds.length, kg_start: kgStart };
