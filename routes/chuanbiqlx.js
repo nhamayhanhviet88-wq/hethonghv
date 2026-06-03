@@ -265,7 +265,7 @@ module.exports = async function(fastify) {
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(o.shipping_date, o.order_date)) = $${idx++}`; params.push(Number(month)); }
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
         if (search) {
-            where += ` AND (o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx})`;
+            where += ` AND (o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR u_cskh.full_name ILIKE $${idx} OR u_created.full_name ILIKE $${idx})`;
             params.push(`%${search}%`);
             idx++;
         }

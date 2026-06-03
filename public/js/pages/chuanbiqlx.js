@@ -1,5 +1,5 @@
 // ========== CHUẨN BỊ QLX — White Sidebar + Blue Theme ==========
-var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', page: 1, pageSize: 100 };
+var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 100 };
 var _qlxOpen = { inc: true };
 function _qlxFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 function _qlxFmtDate(v) { if (!v) return '—'; try { var d = new Date(v); if (isNaN(d.getTime())) return '—'; return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch(e) { return '—'; } }
@@ -128,6 +128,14 @@ function _qlxRenderSidebar() {
     var incOpen = !!_qlxOpen.inc;
     var incAct = f.status === 'incomplete' && !f.category_id && !f.year && !f.month;
     h += '<div class="qlx-sb-grp' + (incAct ? ' active' : '') + '" onclick="_qlxToggleGroup(\'inc\',\'incomplete\')"><span>' + (incOpen ? '▼' : '▶') + ' ⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
+    if (incOpen) {
+        h += '<div style="padding:8px 12px;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:6px">';
+        h += '<input type="text" id="qlxSidebarSearch" placeholder="🔍 Tìm mã đơn, khách, sale..." style="flex:1;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;outline:none;background:#f8fafc" value="' + (_qlx.sidebarSearch || '') + '" oninput="_qlxSidebarSearchInput(this.value)" onclick="event.stopPropagation()">';
+        if (_qlx.sidebarSearch) {
+            h += '<button onclick="event.stopPropagation();_qlxSidebarSearchInput(\'\')" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:bold;cursor:pointer">✕</button>';
+        }
+        h += '</div>';
+    }
     if (incOpen && t.incomplete && t.incomplete.categories) {
         t.incomplete.categories.forEach(function(cat) {
             var catOpen = !!_qlxOpen['cat' + cat.id];
@@ -157,6 +165,17 @@ function _qlxRenderSidebar() {
 
 function _qlxToggle(key) { _qlxOpen[key] = !_qlxOpen[key]; _qlxRenderSidebar(); }
 function _qlxToggleGroup(key, status) { _qlxOpen[key] = !_qlxOpen[key]; _qlxFilter(status); }
+function _qlxSidebarSearchInput(val) {
+    _qlx.sidebarSearch = val || '';
+    _qlx.page = 1;
+    _qlxRenderTable();
+    _qlxRenderSidebar();
+    var newInp = document.getElementById('qlxSidebarSearch');
+    if (newInp) {
+        newInp.focus();
+        newInp.setSelectionRange(newInp.value.length, newInp.value.length);
+    }
+}
 
 function _qlxFilter(status, catId, year, month) {
     _qlx.filter = { status: status || 'all', category_id: catId || null, year: year || null, month: month || null };
@@ -186,7 +205,21 @@ function _qlxRenderTable() {
     var all = _qlx.orders.slice();
     if (_qlx.search) {
         var q = _qlx.search.toLowerCase();
-        all = all.filter(function(o) { return (o.order_code || '').toLowerCase().indexOf(q) >= 0 || (o.customer_name || '').toLowerCase().indexOf(q) >= 0; });
+        all = all.filter(function(o) {
+            var code = (o.order_code || '').toLowerCase();
+            var cust = (o.customer_name || '').toLowerCase();
+            var sale = (o.cskh_name || o.created_by_name || '').toLowerCase();
+            return code.indexOf(q) >= 0 || cust.indexOf(q) >= 0 || sale.indexOf(q) >= 0;
+        });
+    }
+    if (_qlx.sidebarSearch) {
+        var sq = _qlx.sidebarSearch.toLowerCase();
+        all = all.filter(function(o) {
+            var code = (o.order_code || '').toLowerCase();
+            var cust = (o.customer_name || '').toLowerCase();
+            var sale = (o.cskh_name || o.created_by_name || '').toLowerCase();
+            return code.indexOf(sq) >= 0 || cust.indexOf(sq) >= 0 || sale.indexOf(sq) >= 0;
+        });
     }
     // Apply active filter button
     if (_qlx.activeFilter) {
