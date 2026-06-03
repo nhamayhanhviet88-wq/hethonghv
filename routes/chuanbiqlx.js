@@ -285,8 +285,14 @@ module.exports = async function(fastify) {
                 COALESCE(p.material_called, false) AS material_called,
                 COALESCE(p.material_arrived, false) AS material_arrived,
                 COALESCE(p.is_completed, false) AS is_completed,
-                -- Assignments
-                a_cat.full_name AS nguoi_cat,
+                COALESCE(
+                    (SELECT string_agg(DISTINCT u_c.full_name, ', ')
+                     FROM cutting_records cr_c
+                     JOIN users u_c ON cr_c.cutter_id = u_c.id
+                     WHERE cr_c.dht_order_id = o.id
+                    ),
+                    a_cat.full_name
+                ) AS nguoi_cat,
                 COALESCE(a_in.full_name, pc_in.name) AS nguoi_in,
                 (SELECT string_agg(
                     CASE WHEN itc.target_type = 'user' THEN u_itc.full_name ELSE pc_itc.name END, ', ')
