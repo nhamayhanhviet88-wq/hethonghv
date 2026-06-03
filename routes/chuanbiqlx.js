@@ -968,7 +968,7 @@ module.exports = async function(fastify) {
             // Validate: check available
             const roll = await db.get('SELECT weight, locked_by_cutting_id FROM kv_rolls WHERE id = $1 AND is_returned = false', [roll_id]);
             if (!roll) return reply.code(400).send({ error: 'Cây vải không tồn tại hoặc đã trả NCC' });
-            if (roll.locked_by_cutting_id) return reply.code(400).send({ error: 'Cây vải đang bị khóa — đang được Bộ Phận Cắt sử dụng' });
+            // Allow reserving even if locked by cutting, per user request
 
             // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
             const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);

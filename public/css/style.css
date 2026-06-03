@@ -904,19 +904,34 @@ select.form-control {
 .toast {
     padding: 14px 20px;
     border-radius: var(--radius);
-    color: var(--white);
     font-size: 13px;
-    font-weight: 500;
-    box-shadow: var(--shadow-lg);
-    animation: slideInRight 0.4s ease, fadeOut 0.4s ease 3s forwards;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    animation: slideInRight 0.4s ease, fadeOut 0.4s ease 4s forwards;
     min-width: 280px;
     max-width: 400px;
 }
 
-.toast-success { background: var(--success); }
-.toast-error { background: var(--danger); }
-.toast-warning { background: var(--warning); color: var(--navy); }
-.toast-info { background: var(--info); }
+.toast-success { 
+    background: #f0fdf4; 
+    color: #166534; 
+    border: 1.5px solid #bbf7d0; 
+}
+.toast-error { 
+    background: #fef2f2; 
+    color: #991b1b; 
+    border: 1.5px solid #fca5a5; 
+}
+.toast-warning { 
+    background: #fffbeb; 
+    color: #92400e; 
+    border: 1.5px solid #fde68a; 
+}
+.toast-info { 
+    background: #f0f9ff; 
+    color: #075985; 
+    border: 1.5px solid #bae6fd; 
+}
 
 /* ========== TOOLBAR ========== */
 .toolbar {
