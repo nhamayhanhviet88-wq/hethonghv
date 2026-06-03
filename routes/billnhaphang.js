@@ -385,6 +385,7 @@ module.exports = async function(fastify) {
                 await client.query('BEGIN');
                 // 1. Rollback kv_rolls + kv_transactions
                 const items = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
+                const affectedOrders = [];
                 for (const fi of items) {
                     if (fi.roll_ids_created && fi.roll_ids_created.length) {
                         await client.query('DELETE FROM kv_transactions WHERE fabric_color_id = $1 AND description LIKE $2',
@@ -393,8 +394,33 @@ module.exports = async function(fastify) {
                     }
                     // 2. Revert QLX reservation status
                     if (fi.reservation_id) {
+                        const parentRes = await client.query('SELECT dht_order_id FROM qlx_fabric_reservations WHERE id = $1', [fi.reservation_id]);
+                        if (parentRes.rows.length && !affectedOrders.includes(parentRes.rows[0].dht_order_id)) {
+                            affectedOrders.push(parentRes.rows[0].dht_order_id);
+                        }
+                        const childRes = await client.query('SELECT dht_order_id FROM qlx_fabric_reservations WHERE linked_call_id = $1 AND status != $2', [fi.reservation_id, 'released']);
+                        for (const cr of childRes.rows) {
+                            if (!affectedOrders.includes(cr.dht_order_id)) {
+                                affectedOrders.push(cr.dht_order_id);
+                            }
+                        }
+
                         await client.query('UPDATE qlx_fabric_reservations SET status=$1, arrived_at=NULL, arrived_by=NULL, updated_at=NOW() WHERE id=$2',
                             ['reserved', fi.reservation_id]);
+                        await client.query('UPDATE qlx_fabric_reservations SET status=$1, arrived_at=NULL, arrived_by=NULL, updated_at=NOW() WHERE linked_call_id=$2 AND status!=$3',
+                            ['reserved', fi.reservation_id, 'released']);
+                    }
+                }
+                for (const oid of affectedOrders) {
+                    const remaining = await client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status != 'released'`, [oid]);
+                    if (remaining.rows.length && remaining.rows[0].total > 0 && remaining.rows[0].pending === 0) {
+                        await client.query(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
+                            VALUES ($1, true, NOW(), $2)
+                            ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = NOW(), fabric_arrived_by = $2, updated_at = NOW()`,
+                            [oid, rec.importer_id]);
+                    } else {
+                        await client.query(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = NOW() WHERE dht_order_id = $1`,
+                            [oid]);
                     }
                 }
                 // 3. Delete cashflow + payment if ship
@@ -809,8 +835,25 @@ module.exports = async function(fastify) {
                         `UPDATE qlx_fabric_reservations SET status='fulfilled', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=ANY($3)`,
                         [now, req.user.id, resIds]
                     );
-                    // Auto-check order-level fabric_arrived for each affected order
-                    const affectedOrders = [...new Set(groupRes.rows.map(r => r.dht_order_id))];
+
+                    // Cascade arrive to all linked children (linked_call)
+                    const linkedChildren = await client.query(
+                        `SELECT id, dht_order_id FROM qlx_fabric_reservations WHERE linked_call_id = ANY($1) AND status = 'reserved'`,
+                        [resIds]
+                    );
+                    if (linkedChildren.rows.length > 0) {
+                        const childResIds = linkedChildren.rows.map(c => c.id);
+                        await client.query(
+                            `UPDATE qlx_fabric_reservations SET status = 'arrived', arrived_at = $1, arrived_by = $2, updated_at = $1 WHERE id = ANY($3)`,
+                            [now, req.user.id, childResIds]
+                        );
+                    }
+
+                    // Auto-check order-level fabric_arrived for each affected order (including children)
+                    const parentOrders = groupRes.rows.map(r => r.dht_order_id);
+                    const childOrders = linkedChildren.rows.map(c => c.dht_order_id);
+                    const affectedOrders = [...new Set([...parentOrders, ...childOrders])];
+
                     for (const ordId of affectedOrders) {
                         const pending = await client.query(
                             `SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND status='reserved'`,

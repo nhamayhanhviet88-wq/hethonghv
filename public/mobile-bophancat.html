@@ -459,11 +459,11 @@ function mRenderMine(){
             const doneBg=r.is_cut_done?'linear-gradient(135deg,#059669,#10b981)':'linear-gradient(135deg,#1e40af,#3b82f6)';
             const doneTxt=r.is_cut_done?'✅ ĐÃ CẮT XONG':'🏁 CẮT XONG';
             if(r.is_cut_done){
-                const isManager = mUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(mUser.role);
-                if (isManager) {
+                const isGiamDoc = mUser && mUser.role === 'giam_doc';
+                if (isGiamDoc) {
                     actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mToggle('+r.id+',\'undo_cut_done\')">'+doneTxt+'</button>';
                 } else {
-                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:default;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;margin:8px 0;opacity:0.65" disabled>'+doneTxt+' (CHỈ QL ĐƯỢC HOÀN TÁC)</button>';
+                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:default;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;margin:8px 0;opacity:0.65" disabled>'+doneTxt+' (CHỈ GIÁM ĐỐC ĐƯỢC HOÀN TÁC)</button>';
                 }
             } else {
                 actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mOpenDoneModal('+r.id+')">'+doneTxt+'</button>';

@@ -644,7 +644,15 @@ module.exports = async function(fastify) {
                     // Update rolls + unlock
                     for (const s of snapshot) {
                         const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
-                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
+                        const finalWeight = rem <= 0 ? 0 : rem;
+                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [finalWeight, s.roll_id]);
+                        if (finalWeight === 0) {
+                            await db.run(`
+                                UPDATE qlx_fabric_reservations 
+                                SET status = 'released', updated_at = $1 
+                                WHERE roll_id = $2 AND dht_order_id != $3 AND status IN ('reserved', 'arrived')
+                            `, [now, s.roll_id, rec.dht_order_id]);
+                        }
                     }
                     detail = '✅ Cắt xong (đơn cuối nhóm) — Kg cắt tổng: ' + totalKgCut.toFixed(2) + ', SL: ' + cutQty;
                 }
@@ -683,13 +691,20 @@ module.exports = async function(fastify) {
                     [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
                 for (const s of snapshot) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
-                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [rem <= 0 ? 0 : rem, s.roll_id]);
+                    const finalWeight = rem <= 0 ? 0 : rem;
+                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [finalWeight, s.roll_id]);
+                    if (finalWeight === 0) {
+                        await db.run(`
+                            UPDATE qlx_fabric_reservations 
+                            SET status = 'released', updated_at = $1 
+                            WHERE roll_id = $2 AND dht_order_id != $3 AND status IN ('reserved', 'arrived')
+                        `, [now, s.roll_id, rec.dht_order_id]);
+                    }
                 }
                 detail = '✅ Cắt xong — Kg cắt: ' + kgCut.toFixed(2) + ', SL: ' + cutQty + ', Tỉ lệ: ' + cutRatio;
             }
         } else if (action === 'undo_cut_done') {
-            const isManager = await isCutManager(request);
-            if (!isManager) return reply.code(403).send({ error: 'Chỉ Quản Lý Xưởng hoặc Giám Đốc mới có quyền hoàn tác cắt xong!' });
+            if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền hoàn tác cắt xong!' });
             if (!rec.is_cut_done) return reply.code(400).send({ error: 'Đơn chưa cắt xong — không cần hoàn tác' });
             let snapshot = [];
             try { snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []); } catch(e) {}

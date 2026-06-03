@@ -287,16 +287,21 @@ function _bpcRenderRows(paged) {
             }
             sharedBadge = '<span style="background:#ea580c;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">' + label + '</span>';
         }
-        // Cut button: show modal instead of direct toggle
-        var cutBtnHtml = showCutBtn
-            ? '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>'
-            : '<button class="bpc-icon-btn on-cut" disabled title="Đang cắt" style="opacity:0.4;cursor:default">✂️</button>';
-        var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].indexOf(window._currentUser.role) >= 0;
+        // Cut button: show modal instead of direct toggle or checkmark when done
+        var cutBtnHtml = '';
+        if (r.is_cut_done) {
+            cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đã hoàn thành cắt" style="opacity:0.8;cursor:default">✅</button>';
+        } else if (showCutBtn) {
+            cutBtnHtml = '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>';
+        } else {
+            cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đang cắt" style="opacity:0.4;cursor:default">✂️</button>';
+        }
+        var isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
         var doneBtnHtml = showDoneBtn
             ? (r.is_cut_done
-                ? (isManager
-                    ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Quản lý)">'+doneIcon+'</button>'
-                    : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Quản lý mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>')
+                ? (isGiamDoc
+                    ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Giám đốc)">'+doneIcon+'</button>'
+                    : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>')
                 : '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>')
             : '<span style="width:26px;display:inline-block"></span>';
         var sharedCol = '—';
