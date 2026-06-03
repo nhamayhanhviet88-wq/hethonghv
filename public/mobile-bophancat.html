@@ -761,7 +761,7 @@ async function mOpenDetail(recordId){
             }
             h+='<div class="mm-row" style="margin-top:8px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" style="color:'+rc+';font-size:18px">'+ratioVal+'</span></div>';
             if(tr > 0) {
-                h+='<div class="mm-row"><span class="mm-lbl">⚖️ Định Lượng</span><span class="mm-val" style="color:#10b981;font-weight:700">'+tr+' sp/'+(r.fabric_unit || 'kg')+'</span></div>';
+                h+='<div class="mm-row"><span class="mm-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="mm-val" style="color:#10b981;font-weight:700">'+tr+' sp/'+(r.fabric_unit || 'kg')+'</span></div>';
             }
             if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do sai định lượng :</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
             if(r.has_ratio_image) {
@@ -845,6 +845,7 @@ function mOpenDoneModal(recordId){
     h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+(r.kg_start||0)+'</div></div>';
     h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+(r.kg_start||0)+'</div></div></div>';
     h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
+    h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="mm-val" style="font-size:16px;font-weight:700;color:#fbbf24">' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
     // Reason+Image warning container
     h+='<div id="_mDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
     h+='<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
@@ -1155,6 +1156,7 @@ function mGDoneRecalc(){
         dh+='<span style="font-size:12px;font-weight:800;color:#e2e8f0">📊 TỈ LỆ CHUNG</span>';
         dh+='<span style="font-size:11px;color:#94a3b8">'+totalQty+' sp / '+totalKgCut.toFixed(1)+' '+d.unit+'</span>';
         dh+='<span style="font-size:20px;font-weight:900;color:'+rc+'">'+combinedRatio.toFixed(2)+' sp/'+d.unit+'</span></div>';
+        dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;margin-top:6px;"><span style="font-size:12px;font-weight:800;color:#e2e8f0">⚖️ Định Lượng Cắt Yêu Cầu</span><span style="font-size:15px;font-weight:700;color:#fbbf24">' + (d.targetRatio || 0) + ' sp/' + d.unit + '</span></div>';
     }
     const dp=document.getElementById('_mGDistrib');if(dp)dp.innerHTML=dh;
 

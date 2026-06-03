@@ -750,7 +750,7 @@ async function _bpcOpenDetail(recordId) {
             h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
             h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
             if (tr > 0) {
-                h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
+                h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
             }
             if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do sai định lượng :</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
             if (r.has_ratio_image) {
@@ -845,6 +845,7 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div style="background:#fee2e2;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">✂️ TỔNG KG CẮT</div><div id="_bpcDoneKgCut" style="font-size:16px;font-weight:900;color:#dc2626">' + (r.kg_start||0) + '</div></div>';
     h += '</div>';
     h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" id="_bpcDoneRatio" style="font-size:16px;font-weight:900;color:#059669">—</span></div>';
+    h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="bpc-modal-val" style="font-size:14px;font-weight:700;color:#f59e0b">' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
     // Conditional: ratio reason + image
     h += '<div id="_bpcDoneRatioWarn" style="display:none;border-top:2px solid #fca5a5;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px">';
@@ -1177,6 +1178,7 @@ function _bpcGDoneRecalc() {
         dh += '<span style="font-size:12px;font-weight:800;color:#1e293b">📊 TỈ LỆ CHUNG</span>';
         dh += '<span style="font-size:11px;color:#64748b">' + totalQty + ' sp / ' + totalKgCut.toFixed(1) + ' ' + d.unit + '</span>';
         dh += '<span style="font-size:18px;font-weight:900;color:' + rc + '">' + combinedRatio.toFixed(2) + ' sp/' + d.unit + '</span></div>';
+        dh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;margin-top:6px;"><span style="font-size:12px;font-weight:800;color:#1e293b">⚖️ Định Lượng Cắt Yêu Cầu</span><span style="font-size:14px;font-weight:700;color:#f59e0b">' + (d.targetRatio || 0) + ' sp/' + d.unit + '</span></div>';
     }
     var dp = document.getElementById('_bpcGDistrib'); if (dp) dp.innerHTML = dh;
     
