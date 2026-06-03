@@ -439,7 +439,15 @@ function _qlxStatFilter(key) {
 }
 
 async function _qlxFabric(orderId, action) {
-    try { await apiCall('/api/qlx/fabric/' + orderId, 'POST', { action: action }); showToast('✅ Cập nhật vải'); await _qlxLoadAll(); } catch(e) { showToast(e.message, 'error'); }
+    try {
+        var res = await apiCall('/api/qlx/fabric/' + orderId, 'POST', { action: action });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Cập nhật vải');
+        await _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function _qlxFabricPopup(orderId, itemId, pairIndex) {
@@ -755,12 +763,16 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
     var content = parts.join(' - ');
 
     try {
-        await apiCall('/api/qlx/fabric-reserve', 'POST', {
+        var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
             reservation_type: 'new_call', call_trees: trees, call_amount: amount,
             call_note: note, call_date: callDate || null, call_content: content
         });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         // Show copy content
         var el = document.getElementById('_qlxFabCallResult');
         if (el) {
@@ -784,7 +796,11 @@ function _qlxFabCopyContent() {
 async function _qlxFabArrived(resId, orderId, itemId, pairIndex) {
     if (!confirm('Xác nhận VẢI ĐÃ VỀ cho mục này?')) return;
     try {
-        await apiCall('/api/qlx/fabric-reserve/' + resId + '/arrive', 'PUT');
+        var res = await apiCall('/api/qlx/fabric-reserve/' + resId + '/arrive', 'PUT');
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã xác nhận vải về!');
         _qlxFabricPopup(orderId, itemId, pairIndex);
         _qlxLoadAll();
@@ -811,11 +827,15 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
         return;
     }
     try {
-        await apiCall('/api/qlx/fabric-reserve', 'POST', {
+        var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
             reservation_type: 'from_stock', roll_id: rollId, roll_code: rollCode, kg_reserved: kg
         });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã đánh dấu cây ' + rollCode);
         _qlxFabricPopup(orderId, itemId, pairIndex);
         _qlxLoadAll();
@@ -825,7 +845,11 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
 async function _qlxFabRelease(resId, orderId, itemId, pairIndex) {
     if (!confirm('Giải phóng đánh dấu này?')) return;
     try {
-        await apiCall('/api/qlx/fabric-reserve/' + resId, 'DELETE');
+        var res = await apiCall('/api/qlx/fabric-reserve/' + resId, 'DELETE');
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('🔓 Đã giải phóng');
         _qlxFabricPopup(orderId, itemId, pairIndex);
         _qlxLoadAll();
@@ -876,7 +900,11 @@ async function _qlxFabSaveKg(resId, orderId, itemId, pairIndex) {
     var newKg = parseFloat(inp.value);
     if (!newKg || newKg <= 0) { inp.style.border = '2px solid #dc2626'; showToast('⚠️ Số kg phải > 0', 'error'); return; }
     try {
-        await apiCall('/api/qlx/fabric-reserve/' + resId + '/update-kg', 'PUT', { kg_reserved: newKg });
+        var res = await apiCall('/api/qlx/fabric-reserve/' + resId + '/update-kg', 'PUT', { kg_reserved: newKg });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã cập nhật kg!');
         _qlxFabricPopup(orderId, itemId, pairIndex);
     } catch(e) { showToast(e.message, 'error'); }
@@ -887,11 +915,15 @@ async function _qlxFabLink(callId, orderId, itemId, pairIndex) {
     try {
         // Get phoi info from current popup data
         var ph = window._qlxFabPopupData || {};
-        await apiCall('/api/qlx/fabric-reserve', 'POST', {
+        var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: ph.material_name || '', color_name: ph.color_name || '', unit: ph.unit || 'kg',
             reservation_type: 'linked_call', linked_call_id: callId
         });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('📎 Đã liên kết thành công!');
         _qlxFabricPopup(orderId, itemId, pairIndex);
         _qlxLoadAll();
@@ -899,7 +931,15 @@ async function _qlxFabLink(callId, orderId, itemId, pairIndex) {
 }
 
 async function _qlxMaterial(orderId, action) {
-    try { await apiCall('/api/qlx/material/' + orderId, 'POST', { action: action }); showToast('✅ Cập nhật vật liệu'); await _qlxLoadAll(); } catch(e) { showToast(e.message, 'error'); }
+    try {
+        var res = await apiCall('/api/qlx/material/' + orderId, 'POST', { action: action });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Cập nhật vật liệu');
+        await _qlxLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function _qlxAssign(orderId, type) {

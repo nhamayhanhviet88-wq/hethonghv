@@ -73,11 +73,15 @@ function _bnhFabRenderBody() {
                 + '<div><div style="font-size:12px;font-weight:800;color:#1e293b">' + it.material_name + ' - ' + it.color_name + '</div>';
             // Show QLX detail per order
             if (it.reservations && it.reservations.length) {
-                h += '<div style="font-size:10px;color:#6b7280;margin-top:2px">📏 QLX cần: ' + it.needed_trees + ' cây (từ ' + it.reservations.length + ' đơn)</div>';
                 it.reservations.forEach(function(r) {
-                    h += '<div style="font-size:9px;color:#a78bfa;margin-left:12px">📦 ' + (r.order_code||'') + ' Phối ' + ((r.phoi_index||0)+1) + ': ' + (r.call_trees||0) + ' cây, ' + (r.call_amount||0) + (it.unit||'kg') + '</div>';
+                    h += '<div style="background:#fff7ed;border:1.5px solid #ffedd5;padding:6px 12px;border-radius:8px;margin:4px 4px 4px 12px;font-size:13px;color:#c2410c;font-weight:800;display:inline-block;box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
+                        + '📦 ' + (r.order_code||'') + ' Phối ' + ((r.phoi_index||0)+1) + ': ' 
+                        + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_trees||0) + ' cây</span>, ' 
+                        + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_amount||0) + ' ' + (it.unit || 'kg') + '</span>'
+                        + '</div>';
                 });
-                if (it.imported_trees > 0) h += '<div style="font-size:9px;color:#059669;margin-left:12px">✅ Đã nhập trước: ' + it.imported_trees + ' cây</div>';
+                h += '<div style="margin-top:4px"><span style="font-size:10px;color:#6b7280;font-weight:700">📏 QLX cần: ' + it.needed_trees + ' cây (từ ' + it.reservations.length + ' đơn)</span></div>';
+                if (it.imported_trees > 0) h += '<div style="font-size:9px;color:#059669;margin-left:12px;margin-top:2px">✅ Đã nhập trước: ' + it.imported_trees + ' cây</div>';
             }
             h += '</div><button onclick="_bnhFabRemoveItem(' + idx + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:2px 8px;font-size:10px;cursor:pointer;font-weight:700">✕</button></div>';
             // Unit price
@@ -222,33 +226,70 @@ function _bnhFabAttachPaste(elId, type) {
 }
 
 function _bnhFabAddItem() {
+    function removeDiacritics(str) {
+        return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+    }
     // Filter groups not already added
     var groups = _bnhFab.groups.filter(function(g) {
         var gk = (g.material_name+'|'+g.color_name).toUpperCase();
         return !_bnhFab.items.some(function(it) { return (it.material_name+'|'+it.color_name).toUpperCase() === gk; });
     });
     if (!groups.length) { showToast('Không còn yêu cầu Gọi Vải nào chưa nhập', 'warning'); return; }
-    var html = '<div style="max-height:400px;overflow-y:auto">';
-    groups.forEach(function(g, gi) {
-        html += '<div onclick="_bnhFabPickGroup('+gi+')" style="padding:10px 14px;border:1px solid #e9d5ff;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#fff\'">'
-            + '<div style="font-size:12px;font-weight:700;color:#1e293b">🧵 '+g.material_name+' - '+g.color_name+'</div>'
-            + '<div style="font-size:10px;color:#7c3aed">📏 Cần: '+g.needed_trees+' cây | Đã nhập: '+g.imported_trees+' | Còn: '+g.remaining_trees+' cây</div>';
-        (g.reservations||[]).forEach(function(r) {
-            html += '<div style="font-size:9px;color:#6b7280;margin-left:12px">📦 '+(r.order_code||'')+' Phối '+((r.phoi_index||0)+1)+': '+(r.call_trees||0)+' cây, '+(r.call_amount||0)+g.unit+'</div>';
-        });
-        html += (g.fabric_color_id ? '<div style="font-size:9px;color:#059669">✅ Có trong kho</div>' : '<div style="font-size:9px;color:#f59e0b">⚠️ Chưa có trong kho</div>')
-            + '</div>';
-    });
-    html += '</div>';
+
     var m = document.createElement('div');
     m.id = '_fabPick';
     m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
-    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:100%;max-width:550px;padding:20px;box-shadow:0 15px 40px rgba(0,0,0,.2)">'
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:100%;max-width:550px;padding:20px;box-shadow:0 15px 40px rgba(0,0,0,.2);display:flex;flex-direction:column;max-height:85vh">'
         + '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:800;color:#7c3aed">Chọn Chất Liệu + Màu Vải</span><button onclick="document.getElementById(\'_fabPick\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>'
-        + html + '</div>';
+        + '<div style="margin-bottom:12px"><input type="text" id="_fabPickSearch" placeholder="🔍 Tìm tên chất liệu hoặc màu..." style="width:100%;padding:10px 14px;border:1.5px solid #c084fc;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:4px;transition:all 0.2s" onfocus="this.style.borderColor=\'#9333ea\';this.style.boxShadow=\'0 0 0 3px rgba(147,51,234,0.15)\'" onblur="this.style.borderColor=\'#c084fc\';this.style.boxShadow=\'none\'"></div>'
+        + '<div id="_fabPickList" style="overflow-y:auto;flex:1;max-height:400px"></div>'
+        + '</div>';
+
     // Store filtered groups for picking
     window._fabPickGroups = groups;
     document.body.appendChild(m);
+
+    function renderList(query) {
+        var q = removeDiacritics(query).trim();
+        var html = '';
+        groups.forEach(function(g, gi) {
+            var mat = removeDiacritics(g.material_name);
+            var col = removeDiacritics(g.color_name);
+            var matchesOrder = (g.reservations || []).some(function(r) {
+                return removeDiacritics(r.order_code || '').indexOf(q) >= 0;
+            });
+            if (q && mat.indexOf(q) === -1 && col.indexOf(q) === -1 && !matchesOrder) {
+                return;
+            }
+            html += '<div onclick="_bnhFabPickGroup('+gi+')" style="padding:10px 14px;border:1px solid #e9d5ff;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#fff\'">'
+                + '<div style="font-size:12px;font-weight:700;color:#1e293b">🧵 '+g.material_name+' - '+g.color_name+'</div>';
+            (g.reservations||[]).forEach(function(r) {
+                html += '<div style="background:#fff7ed;border:1.5px solid #ffedd5;padding:6px 12px;border-radius:8px;margin:4px 4px 4px 12px;font-size:13px;color:#c2410c;font-weight:800;display:inline-block;box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
+                    + '📦 ' + (r.order_code||'') + ' Phối ' + ((r.phoi_index||0)+1) + ': ' 
+                    + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_trees||0) + ' cây</span>, ' 
+                    + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_amount||0) + ' ' + (g.unit || 'kg') + '</span>'
+                    + '</div>';
+            });
+            html += '<div style="margin-top:4px"><span style="font-size:10px;color:#7c3aed;font-weight:700">📏 Cần: '+g.needed_trees+' cây | Đã nhập: '+g.imported_trees+' | Còn: '+g.remaining_trees+' cây</span></div>'
+                + (g.fabric_color_id ? '<div style="font-size:9px;color:#059669;margin-top:2px">✅ Có trong kho</div>' : '<div style="font-size:9px;color:#f59e0b;margin-top:2px">⚠️ Chưa có trong kho</div>')
+                + '</div>';
+        });
+        if (!html) {
+            html = '<div style="text-align:center;padding:20px;color:#6b7280;font-size:12px">Không tìm thấy chất liệu hoặc màu phù hợp</div>';
+        }
+        var listEl = document.getElementById('_fabPickList');
+        if (listEl) listEl.innerHTML = html;
+    }
+
+    renderList('');
+
+    var searchInput = document.getElementById('_fabPickSearch');
+    if (searchInput) {
+        searchInput.focus();
+        searchInput.addEventListener('input', function(e) {
+            renderList(e.target.value);
+        });
+    }
 }
 
 function _bnhFabPickGroup(gi) {
