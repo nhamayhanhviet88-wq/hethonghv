@@ -168,6 +168,23 @@ module.exports = async function(fastify) {
         }
     } catch(e) { console.error('[BPC] migration PHỐI→Phiếu:', e.message); }
 
+    // ========== MIGRATION: Release stale reservations for already-cut orders/items ==========
+    try {
+        const releasedCount = await db.run(`
+            UPDATE qlx_fabric_reservations res
+            SET status = 'released', updated_at = NOW()
+            FROM cutting_records cr
+            WHERE res.dht_order_id = cr.dht_order_id
+              AND res.item_id = cr.order_item_id
+              AND cr.is_cut_done = TRUE
+              AND res.status IN ('reserved', 'arrived')
+        `);
+        if (releasedCount && releasedCount.changes > 0) {
+            console.log('[BPC] Released', releasedCount.changes, 'stale reservations for completed cuts.');
+        }
+    } catch(e) { console.error('[BPC] migration release stale reservations:', e.message); }
+
+
     // ========== ACCESS CHECK ==========
     const CUT_MGMT_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -678,17 +695,33 @@ module.exports = async function(fastify) {
                             [kgEnd, grKgCut, grRatio, now, gr.id]);
                     }
 
+                    const groupOrderIds = [rec.dht_order_id, ...allGroupDone.map(r => r.dht_order_id)].filter(Boolean);
                     // Update rolls + unlock
                     for (const s of snapshot) {
                         const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                         const finalWeight = rem <= 0 ? 0 : rem;
                         await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [finalWeight, s.roll_id]);
-                        if (finalWeight === 0) {
+                        if (groupOrderIds.length > 0) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
                                 SET status = 'released', updated_at = $1 
-                                WHERE roll_id = $2 AND dht_order_id != $3 AND status IN ('reserved', 'arrived')
-                            `, [now, s.roll_id, rec.dht_order_id]);
+                                WHERE roll_id = $2 AND dht_order_id = ANY($3) AND status IN ('reserved', 'arrived')
+                            `, [now, s.roll_id, groupOrderIds]);
+                        }
+                        if (finalWeight === 0) {
+                            if (groupOrderIds.length > 0) {
+                                await db.run(`
+                                    UPDATE qlx_fabric_reservations 
+                                    SET status = 'released', updated_at = $1 
+                                    WHERE roll_id = $2 AND dht_order_id != ALL($3) AND status IN ('reserved', 'arrived')
+                                `, [now, s.roll_id, groupOrderIds]);
+                            } else {
+                                await db.run(`
+                                    UPDATE qlx_fabric_reservations 
+                                    SET status = 'released', updated_at = $1 
+                                    WHERE roll_id = $2 AND status IN ('reserved', 'arrived')
+                                `, [now, s.roll_id]);
+                            }
                         }
                     }
                     detail = '✅ Cắt xong (đơn cuối nhóm) — Kg cắt tổng: ' + totalKgCut.toFixed(2) + ', SL: ' + cutQty;
@@ -730,12 +763,18 @@ module.exports = async function(fastify) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                     const finalWeight = rem <= 0 ? 0 : rem;
                     await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [finalWeight, s.roll_id]);
+                    // Release the reservation for the current order on this roll since it's cut
+                    await db.run(`
+                        UPDATE qlx_fabric_reservations 
+                        SET status = 'released', updated_at = $1 
+                        WHERE roll_id = $2 AND dht_order_id = $3 AND status IN ('reserved', 'arrived')
+                    `, [now, s.roll_id, rec.dht_order_id]);
                     if (finalWeight === 0) {
                         await db.run(`
                             UPDATE qlx_fabric_reservations 
                             SET status = 'released', updated_at = $1 
-                            WHERE roll_id = $2 AND dht_order_id != $3 AND status IN ('reserved', 'arrived')
-                        `, [now, s.roll_id, rec.dht_order_id]);
+                            WHERE roll_id = $2 AND status IN ('reserved', 'arrived')
+                        `, [now, s.roll_id]);
                     }
                 }
                 detail = '✅ Cắt xong — Kg cắt: ' + kgCut.toFixed(2) + ', SL: ' + cutQty + ', Tỉ lệ: ' + cutRatio;
@@ -1394,13 +1433,20 @@ module.exports = async function(fastify) {
                 [it.record_id, 'multi_cut_done', '✅ Cắt xong nhóm — SL: ' + qty + ', Kg: ' + myKgCut.toFixed(2) + ', TL: ' + myRatio, userId, now]);
         }
 
+        const groupOrderIds = groupRecords.map(r => r.dht_order_id).filter(Boolean);
         // Unlock rolls + update weight + release other reservations if depleted
         for (const s of snapshot) {
             const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
             const finalWeight = rem <= 0 ? 0 : rem;
             await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL WHERE id = $2`, [finalWeight, s.roll_id]);
+            if (groupOrderIds.length > 0) {
+                await db.run(`
+                    UPDATE qlx_fabric_reservations 
+                    SET status = 'released', updated_at = $1 
+                    WHERE roll_id = $2 AND dht_order_id = ANY($3) AND status IN ('reserved', 'arrived')
+                `, [now, s.roll_id, groupOrderIds]);
+            }
             if (finalWeight === 0) {
-                const groupOrderIds = groupRecords.map(r => r.dht_order_id).filter(Boolean);
                 if (groupOrderIds.length > 0) {
                     await db.run(`
                         UPDATE qlx_fabric_reservations 

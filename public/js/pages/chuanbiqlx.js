@@ -567,8 +567,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                 var orderCode = o.order_code || '';
                 rolls.sort(function(a, b) {
                     // First: locked by cutting on top, unlocked below
-                    var aLocked = (a.locked_by_cutting_id && a.cutting_order_name) ? 1 : 0;
-                    var bLocked = (b.locked_by_cutting_id && b.cutting_order_name) ? 1 : 0;
+                    var aLocked = a.locked_by_cutting_id ? 1 : 0;
+                    var bLocked = b.locked_by_cutting_id ? 1 : 0;
                     if (aLocked !== bLocked) return bLocked - aLocked;
 
                     // Second: rolls with available > 0 on top, 0 at bottom
@@ -638,7 +638,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     var borderColor = calledOrders.indexOf(orderCode) >= 0 ? '#86efac' : '#e2e8f0';
                     var bgColor = calledOrders.indexOf(orderCode) >= 0 ? '#f0fdf4' : '#f8fafc';
                     // Cutting lock check
-                    var isLocked = rl.locked_by_cutting_id && rl.cutting_order_name;
+                    var isLocked = !!rl.locked_by_cutting_id;
                     if (isLocked) { borderColor = '#fca5a5'; bgColor = '#fef2f2'; }
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:10px;margin-bottom:6px;' + (isLocked ? 'opacity:0.6;' : '') + '">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
@@ -646,7 +646,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
                     if (isLocked) {
-                        html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + rl.cutting_order_name + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + '</span>';
+                        html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + (rl.cutting_order_name || 'Đang xử lý') + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + '</span>';
                     }
                     if (tagHtml) html += tagHtml;
                     html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
