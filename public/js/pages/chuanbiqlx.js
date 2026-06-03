@@ -524,9 +524,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     if ((ex.reservation_type === 'new_call' || ex.reservation_type === 'linked_call') && ex.call_content) {
                         html += '<button onclick="navigator.clipboard.writeText(\'' + (ex.call_content||'').replace(/'/g, "\\'") + '\');showToast(\'📋 Đã copy!\')" style="padding:3px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;font-size:9px;font-weight:600;cursor:pointer;color:#1e40af;white-space:nowrap">📋 Copy</button>';
                     }
-                    if (!isArrived) {
-                        html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
-                    }
+                    html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
                     html += '</div>';
                     // Show linked orders for new_call reservations
                     if (ex.reservation_type === 'new_call' && ex.linked_order_codes) {
@@ -608,6 +606,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                                 + badge
                                 + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b id="' + editId + '_val">' + rv.kg_reserved + unitLabel + '</b></span>'
                                 + '<button onclick="_qlxFabEditKgToggle(' + rv.id + ',' + rv.kg_reserved + ',\'' + unitLabel + '\',' + orderId + ',' + itemId + ',' + pairIndex + ',' + editMax + ')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px" title="Sửa kg">✏️</button>'
+                                + '<button onclick="_qlxFabRelease(' + rv.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px" title="Hủy giữ vải">🗑️</button>'
                                 + '</div>';
                         });
                     }
