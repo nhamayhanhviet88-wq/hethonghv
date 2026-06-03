@@ -226,7 +226,7 @@ function _kvRenderTable() {
         if (rwList.length) {
             var parts = rwList.map(function(rw) {
                 var w = Number(rw.w), ow = Number(rw.ow);
-                var isNguyen = (w === ow && w > 0);
+                var isNguyen = (w === ow && w >= (Number(r.original_tree_threshold) || 10));
                 return isNguyen ? '<span style="color:#ea580c;font-weight:800">' + _kvFmt(w) + '</span>' : '<span>' + _kvFmt(w) + '</span>';
             });
             rwHtml = ' - ' + parts.join(', ');

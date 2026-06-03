@@ -644,7 +644,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (idx+1) + '.</span>';
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
-                    if (Number(rl.weight) >= 10) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
+                    if (rl.is_original_tree) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
                     if (isLocked) {
                         html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + (rl.cutting_order_name || 'Đang xử lý') + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + '</span>';
                     }

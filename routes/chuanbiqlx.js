@@ -846,12 +846,16 @@ module.exports = async function(fastify) {
                        r.locked_by_cutting_id,
                        cr_lock.product_name AS cutting_order_name,
                        u_lock.full_name AS cutting_by_name,
+                       (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
                        COALESCE((
                            SELECT SUM(res.kg_reserved)
                            FROM qlx_fabric_reservations res
                            WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
                        ), 0) AS reserved_total
                 FROM kv_rolls r
+                JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                JOIN kv_materials m ON m.id = fc.material_id
+                JOIN kv_warehouses w ON w.id = m.warehouse_id
                 LEFT JOIN cutting_records cr_lock ON cr_lock.id = r.locked_by_cutting_id
                 LEFT JOIN users u_lock ON u_lock.id = cr_lock.cutter_id
                 WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight > 0

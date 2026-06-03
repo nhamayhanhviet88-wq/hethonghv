@@ -41,15 +41,15 @@ module.exports = async function (fastify) {
         return { success: true, warehouse: row };
     });
 
-    // PUT /api/khovai/warehouses/:id — Update warehouse
     fastify.put('/api/khovai/warehouses/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, unit, display_order } = request.body || {};
+        const { name, unit, display_order, original_tree_threshold } = request.body || {};
         const updates = [];
         const params = [];
         let idx = 1;
         if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name.trim()); }
         if (unit !== undefined) { updates.push(`unit = $${idx++}`); params.push(unit.trim()); }
         if (display_order !== undefined) { updates.push(`display_order = $${idx++}`); params.push(display_order); }
+        if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push(`updated_at = NOW()`);
         params.push(request.params.id);
@@ -106,10 +106,11 @@ module.exports = async function (fastify) {
 
     // PUT /api/khovai/materials/:id — Update material
     fastify.put('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, display_order } = request.body || {};
+        const { name, display_order, original_tree_threshold } = request.body || {};
         const updates = []; const params = []; let idx = 1;
         if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name.trim()); }
         if (display_order !== undefined) { updates.push(`display_order = $${idx++}`); params.push(display_order); }
+        if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -203,12 +204,15 @@ module.exports = async function (fastify) {
         const { fcid } = request.query;
         if (!fcid) return { rolls: [] };
         const rows = await db.all(
-            `SELECT r.*, fc.original_tree_threshold,
-                    (r.weight >= fc.original_tree_threshold) AS is_original_tree,
+            `SELECT r.*,
+                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
+                    (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
                     cr.product_name AS cutting_order_name,
                     u_cut.full_name AS cutting_by_name
              FROM kv_rolls r
              JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+             JOIN kv_materials m ON m.id = fc.material_id
+             JOIN kv_warehouses w ON w.id = m.warehouse_id
              LEFT JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
              LEFT JOIN users u_cut ON u_cut.id = cr.cutter_id
              WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight > 0
@@ -561,8 +565,9 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/summary', { preHandler: [authenticate] }, async (request) => {
         const { wid, mid } = request.query;
         let sql = `
-            SELECT fc.id, fc.color_name, fc.price, fc.original_tree_threshold, fc.notes,
-                   fc.material_id, fc.updated_at,
+            SELECT fc.id, fc.color_name, fc.price,
+                   COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
+                   fc.notes, fc.material_id, fc.updated_at,
                    m.name AS material_name, m.warehouse_id,
                    w.name AS warehouse_name, w.unit,
                    COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
@@ -574,7 +579,8 @@ module.exports = async function (fastify) {
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), 0) AS so_cuc,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
-                             AND r.weight >= fc.original_tree_threshold), 0) AS cay_nguyen,
+                             AND r.weight = r.original_weight
+                             AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)), 0) AS cay_nguyen,
                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS cuoi_ky,
                    (SELECT json_build_object('name', u.full_name, 'role', u.role, 'at', t2.created_at)

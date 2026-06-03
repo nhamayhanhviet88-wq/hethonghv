@@ -371,6 +371,7 @@ async function start() {
             id              SERIAL PRIMARY KEY,
             name            TEXT NOT NULL,
             unit            TEXT NOT NULL DEFAULT 'kg',
+            original_tree_threshold NUMERIC NOT NULL DEFAULT 10,
             display_order   INTEGER DEFAULT 0,
             is_active       BOOLEAN DEFAULT true,
             created_at      TIMESTAMP DEFAULT NOW(),
@@ -380,6 +381,7 @@ async function start() {
             id              SERIAL PRIMARY KEY,
             warehouse_id    INTEGER NOT NULL REFERENCES kv_warehouses(id),
             name            TEXT NOT NULL,
+            original_tree_threshold NUMERIC,
             display_order   INTEGER DEFAULT 0,
             is_active       BOOLEAN DEFAULT true,
             created_at      TIMESTAMP DEFAULT NOW(),
@@ -415,6 +417,9 @@ async function start() {
             updated_at        TIMESTAMP DEFAULT NOW()
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_rolls_fcid ON kv_rolls(fabric_color_id)`);
+        // Migrations for kv_warehouses & kv_materials
+        try { await db.exec(`ALTER TABLE kv_warehouses ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC NOT NULL DEFAULT 10`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC`); } catch(e) {}
         // Migrations for kv_rolls
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_weight NUMERIC NOT NULL DEFAULT 0`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS is_cutting BOOLEAN DEFAULT false`); } catch(e) {}

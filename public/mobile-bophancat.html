@@ -679,7 +679,7 @@ async function mOpenCutModal(recordId){
                 const op=r.locked?'opacity:0.4;':'';
                 b+='<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+'">';
                 b+='<input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
-                b+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+'</div>'+lk+'</div></label>';
+                b+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div></label>';
             });
         }
         b+='</div>';
@@ -1353,7 +1353,7 @@ function mMCRender(){
             var dis=r.locked?' disabled':'',op=r.locked?'opacity:0.4;':'',chk=_mm.selRolls.indexOf(r.id)>=0?' checked':'';
             h+='<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+'">';
             h+='<input type="checkbox" class="_mmRCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mMCRollCh()" style="width:20px;height:20px;accent-color:#f97316">';
-            h+='<span style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0">'+r.label+'</span>';
+            h+='<span style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</span>';
             if(r.locked)h+='<span style="color:#ef4444;font-size:9px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'')+'</span>';
             h+='</label>';
         });

@@ -982,14 +982,16 @@ module.exports = async function(fastify) {
         if (!material_name || !color_name) return { rolls: [], message: 'Thiếu chất liệu hoặc màu' };
 
         const rolls = await db.all(`
-            SELECT r.id, r.roll_code, r.weight, r.locked_by_cutting_id,
+            SELECT r.id, r.roll_code, r.weight, r.original_weight, r.locked_by_cutting_id,
                    m.name AS material_name, fc.color_name,
                    u_lock.full_name AS locked_by_name,
                    cr_lock.product_name AS locked_product,
-                   do_lock.order_code AS locked_order_code
+                   do_lock.order_code AS locked_order_code,
+                   (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
             LEFT JOIN cutting_records cr_lock ON cr_lock.id = r.locked_by_cutting_id
             LEFT JOIN users u_lock ON u_lock.id = cr_lock.cutter_id
             LEFT JOIN dht_orders do_lock ON do_lock.id = cr_lock.dht_order_id
@@ -1008,6 +1010,7 @@ module.exports = async function(fastify) {
                 locked: !!r.locked_by_cutting_id,
                 locked_by: r.locked_by_name || null,
                 locked_order: r.locked_order_code || null,
+                is_original_tree: !!r.is_original_tree,
                 label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg'
             }))
         };

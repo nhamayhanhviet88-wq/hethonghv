@@ -668,7 +668,7 @@ async function _bpcOpenCutModal(recordId) {
                 var opacity = roll.locked ? 'opacity:0.5;' : '';
                 bh += '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled)this.style.borderColor=\'#dc2626\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">';
                 bh += '<input type="checkbox" class="_bpcRollCb" value="'+roll.id+'" data-weight="'+roll.weight+'"'+disabled+' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
-                bh += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + roll.label + '</span>';
+                bh += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
                 bh += lockInfo;
                 bh += '</label>';
             });
@@ -1365,7 +1365,7 @@ function _mcRenderStep() {
                 var chk = _mcData.selRolls.indexOf(r.id) >= 0 ? ' checked' : '';
                 h += '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:' + (r.locked?'not-allowed':'pointer') + ';' + op + '">';
                 h += '<input type="checkbox" class="_mcRollCb" value="' + r.id + '" data-weight="' + r.weight + '"' + dis + chk + ' onchange="_mcRollChanged()" style="width:18px;height:18px;accent-color:#ea580c">';
-                h += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + r.label + '</span>';
+                h += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + r.label + (r.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
                 if (r.locked) h += '<span style="color:#ef4444;font-size:10px">🔒 ' + (r.locked_order ? r.locked_order + ' — ' : '') + (r.locked_by||'') + '</span>';
                 h += '</label>';
             });

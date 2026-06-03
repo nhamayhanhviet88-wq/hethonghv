@@ -50,9 +50,11 @@ function _cdkRenderCol1() {
             h += '<input type="checkbox" ' + (isChk ? 'checked' : '') + ' onclick="event.stopPropagation();_cdkChkWh(' + w.id + ')" style="width:16px;height:16px;cursor:pointer;accent-color:#059669;flex-shrink:0">';
             h += '<span>🏭 ' + w.name + '</span>';
             h += '<span class="cdk-badge" style="background:' + (isOn ? '#d1fae5;color:#059669' : '#fee2e2;color:#dc2626') + '">' + (w.unit||'kg') + '</span>';
+            h += '<span class="cdk-badge" style="background:#ede9fe;color:#7c3aed;margin-left:4px">Ngưỡng: ' + (w.original_tree_threshold || 10) + '</span>';
             if (!isOn) h += '<span class="cdk-badge" style="background:#fee2e2;color:#dc2626">ẨN</span>';
             h += '</div>';
             h += '<div class="cdk-item-actions">';
+            h += '<button class="cdk-btn-sm" style="background:#6366f1;color:#fff" onclick="event.stopPropagation();_cdkEditWh(' + w.id + ')" title="Sửa">✏️</button>';
             h += '<button class="cdk-toggle ' + (isOn ? 'on' : 'off') + '" onclick="event.stopPropagation();_cdkToggleWh(' + w.id + ',' + !isOn + ')" title="' + (isOn ? 'Tắt' : 'Bật') + '"></button>';
             h += '<button class="cdk-btn-sm" style="background:#dc2626;color:#fff" onclick="event.stopPropagation();_cdkDeleteWh(' + w.id + ')" title="Xóa">🗑️</button>';
             h += '</div></div>';
@@ -169,9 +171,13 @@ function _cdkRenderCol2() {
             h += '<div class="cdk-item-name" style="align-items:center">';
             h += '<input type="checkbox" ' + (isChk ? 'checked' : '') + ' onclick="event.stopPropagation();_cdkChkMat(' + m.id + ')" style="width:16px;height:16px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0">';
             h += '<span>🧵 ' + m.name + '</span>';
+            if (m.original_tree_threshold !== null && m.original_tree_threshold !== undefined) {
+                h += '<span class="cdk-badge" style="background:#ede9fe;color:#7c3aed;margin-left:4px">Ngưỡng: ' + m.original_tree_threshold + '</span>';
+            }
             if (!isOn) h += '<span class="cdk-badge" style="background:#fee2e2;color:#dc2626">ẨN</span>';
             h += '</div>';
             h += '<div class="cdk-item-actions">';
+            h += '<button class="cdk-btn-sm" style="background:#6366f1;color:#fff" onclick="event.stopPropagation();_cdkEditMat(' + m.id + ')" title="Sửa">✏️</button>';
             h += '<button class="cdk-toggle ' + (isOn ? 'on' : 'off') + '" onclick="event.stopPropagation();_cdkToggleMat(' + m.id + ',' + !isOn + ')" title="' + (isOn ? 'Tắt' : 'Bật') + '"></button>';
             h += '<button class="cdk-btn-sm" style="background:#dc2626;color:#fff" onclick="event.stopPropagation();_cdkDeleteMat(' + m.id + ')">🗑️</button>';
             h += '</div></div>';
@@ -301,7 +307,6 @@ function _cdkRenderCol3() {
             h += '<input type="checkbox" ' + (isChk ? 'checked' : '') + ' onclick="_cdkChkColor(' + c.id + ')" style="width:16px;height:16px;cursor:pointer;accent-color:#2563eb;flex-shrink:0">';
             h += '<span>🎨 ' + c.color_name + '</span>';
             h += '<span style="color:#64748b;font-size:10px;font-weight:400;margin-left:4px">' + priceStr + '</span>';
-            if (c.original_tree_threshold) h += '<span class="cdk-badge" style="background:#ede9fe;color:#7c3aed">≥' + c.original_tree_threshold + '</span>';
             if (!isOn) h += '<span class="cdk-badge" style="background:#fee2e2;color:#dc2626">ẨN</span>';
             h += '</div>';
             h += '<div class="cdk-item-actions">';
@@ -374,7 +379,6 @@ function _cdkEditColor(id) {
     var body = '<div style="display:grid;gap:10px">'
         + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Tên màu</label><input type="text" id="cdkEditName" class="form-control" value="' + (c.color_name||'') + '" style="padding:10px"></div>'
         + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Giá</label><input type="number" id="cdkEditPrice" class="form-control" value="' + (c.price||0) + '" style="padding:10px"></div>'
-        + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Ngưỡng cây nguyên</label><input type="number" id="cdkEditThreshold" class="form-control" value="' + (c.original_tree_threshold||10) + '" style="padding:10px"></div>'
         + '</div>';
     openModal('✏️ Sửa Màu: ' + c.color_name, body,
         '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
@@ -384,15 +388,69 @@ function _cdkEditColor(id) {
 async function _cdkSaveColor(id) {
     var name = document.getElementById('cdkEditName')?.value;
     var price = document.getElementById('cdkEditPrice')?.value;
-    var threshold = document.getElementById('cdkEditThreshold')?.value;
     if (!name || !name.trim()) { showToast('Nhập tên!', 'error'); return; }
     try {
         var data = await apiCall('/api/khovai/colors/' + id, 'PUT', {
             color_name: name.trim(),
-            price: price ? Number(price) : 0,
-            original_tree_threshold: threshold ? Number(threshold) : 10
+            price: price ? Number(price) : 0
         });
         if (data.success) { showToast('✅ Đã lưu'); closeModal(); await _cdkLoadColors(); }
+        else showToast(data.error || 'Lỗi', 'error');
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function _cdkEditWh(id) {
+    var w = _cdk.warehouses.find(function(x) { return x.id === id; });
+    if (!w) return;
+    var body = '<div style="display:grid;gap:10px">'
+        + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Tên kho</label><input type="text" id="cdkEditWhName" class="form-control" value="' + (w.name||'') + '" style="padding:10px"></div>'
+        + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Đơn vị tính (ĐVT)</label><input type="text" id="cdkEditWhUnit" class="form-control" value="' + (w.unit||'') + '" style="padding:10px"></div>'
+        + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Ngưỡng cây nguyên</label><input type="number" id="cdkEditWhThreshold" class="form-control" value="' + (w.original_tree_threshold !== null && w.original_tree_threshold !== undefined ? w.original_tree_threshold : 10) + '" style="padding:10px"></div>'
+        + '</div>';
+    openModal('✏️ Sửa Kho: ' + w.name, body,
+        '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn btn-primary" onclick="_cdkSaveWh(' + id + ')" style="width:auto">Lưu</button>');
+}
+
+async function _cdkSaveWh(id) {
+    var name = document.getElementById('cdkEditWhName')?.value;
+    var unit = document.getElementById('cdkEditWhUnit')?.value;
+    var threshold = document.getElementById('cdkEditWhThreshold')?.value;
+    if (!name || !name.trim()) { showToast('Nhập tên kho!', 'error'); return; }
+    if (!unit || !unit.trim()) { showToast('Nhập ĐVT!', 'error'); return; }
+    try {
+        var data = await apiCall('/api/khovai/warehouses/' + id, 'PUT', {
+            name: name.trim(),
+            unit: unit.trim(),
+            original_tree_threshold: threshold ? Number(threshold) : 10
+        });
+        if (data.success) { showToast('✅ Đã lưu'); closeModal(); await _cdkLoadWarehouses(); }
+        else showToast(data.error || 'Lỗi', 'error');
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function _cdkEditMat(id) {
+    var m = _cdk.materials.find(function(x) { return x.id === id; });
+    if (!m) return;
+    var body = '<div style="display:grid;gap:10px">'
+        + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Tên chất liệu</label><input type="text" id="cdkEditMatName" class="form-control" value="' + (m.name||'') + '" style="padding:10px"></div>'
+        + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Ngưỡng cây nguyên (để trống nếu dùng mặc định của kho)</label><input type="number" id="cdkEditMatThreshold" class="form-control" value="' + (m.original_tree_threshold !== null && m.original_tree_threshold !== undefined ? m.original_tree_threshold : '') + '" style="padding:10px" placeholder="Mặc định theo kho"></div>'
+        + '</div>';
+    openModal('✏️ Sửa Chất Liệu: ' + m.name, body,
+        '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn btn-primary" onclick="_cdkSaveMat(' + id + ')" style="width:auto">Lưu</button>');
+}
+
+async function _cdkSaveMat(id) {
+    var name = document.getElementById('cdkEditMatName')?.value;
+    var threshold = document.getElementById('cdkEditMatThreshold')?.value;
+    if (!name || !name.trim()) { showToast('Nhập tên chất liệu!', 'error'); return; }
+    try {
+        var data = await apiCall('/api/khovai/materials/' + id, 'PUT', {
+            name: name.trim(),
+            original_tree_threshold: threshold && threshold.trim() !== '' ? Number(threshold) : null
+        });
+        if (data.success) { showToast('✅ Đã lưu'); closeModal(); await _cdkLoadMaterials(); }
         else showToast(data.error || 'Lỗi', 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
