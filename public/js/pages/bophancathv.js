@@ -743,11 +743,17 @@ function _bpcOpenDetail(recordId) {
             rc = Number(r.cut_ratio) >= tr ? '#059669' : '#dc2626';
         }
         h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Tỉ Lệ Thực Tế</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
         if (tr > 0) {
             h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
         }
-        if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
+        if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do sai định lượng :</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
+        if (r.ratio_image) {
+            h += '<div style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">';
+            h += '<div style="font-size:11px;font-weight:800;color:#94a3b8;margin-bottom:6px">🖼️ HÌNH ẢNH CHỨNG MINH SAI:</div>';
+            h += '<div style="text-align:center"><img src="' + r.ratio_image + '" style="max-width:100%;max-height:250px;border-radius:8px;border:1px solid #e2e8f0"></div>';
+            h += '</div>';
+        }
         h += '</div>';
     }
     // Warning + shared
@@ -810,7 +816,7 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + (r.kg_start||0) + '</div></div>';
     h += '<div style="background:#fee2e2;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">✂️ TỔNG KG CẮT</div><div id="_bpcDoneKgCut" style="font-size:16px;font-weight:900;color:#dc2626">' + (r.kg_start||0) + '</div></div>';
     h += '</div>';
-    h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">📊 Tỉ Lệ Thực Tế</span><span class="bpc-modal-val" id="_bpcDoneRatio" style="font-size:16px;font-weight:900;color:#059669">—</span></div>';
+    h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" id="_bpcDoneRatio" style="font-size:16px;font-weight:900;color:#059669">—</span></div>';
     // Conditional: ratio reason + image
     h += '<div id="_bpcDoneRatioWarn" style="display:none;border-top:2px solid #fca5a5;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px">';

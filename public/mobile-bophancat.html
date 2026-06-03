@@ -755,11 +755,17 @@ function mOpenDetail(recordId){
         if (tr > 0 && r.cut_ratio) {
             rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
         }
-        h+='<div class="mm-row" style="margin-top:8px"><span class="mm-lbl">📊 Tỉ Lệ Thực Tế</span><span class="mm-val" style="color:'+rc+';font-size:18px">'+ratioVal+'</span></div>';
+        h+='<div class="mm-row" style="margin-top:8px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" style="color:'+rc+';font-size:18px">'+ratioVal+'</span></div>';
         if(tr > 0) {
             h+='<div class="mm-row"><span class="mm-lbl">⚖️ Định Lượng</span><span class="mm-val" style="color:#10b981;font-weight:700">'+tr+' sp/'+(r.fabric_unit || 'kg')+'</span></div>';
         }
-        if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
+        if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do sai định lượng :</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
+        if(r.ratio_image) {
+            h+='<div style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">';
+            h+='  <div style="font-size:11px;font-weight:800;color:#94a3b8;margin-bottom:6px">🖼️ HÌNH ẢNH CHỨNG MINH SAI:</div>';
+            h+='  <div style="text-align:center"><img src="'+r.ratio_image+'" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)"></div>';
+            h+='</div>';
+        }
     }
     if(r.cut_warning) h+='<div class="mm-row"><span class="mm-lbl">⚠️ Cảnh báo</span><span class="mm-val" style="color:#ef4444">'+r.cut_warning+'</span></div>';
     if(r.cut_shared) h+='<div class="mm-row"><span class="mm-lbl">🔄 Cắt chung</span><span class="mm-val" style="color:#a5b4fc;white-space:pre-line;line-height:1.5;font-size:10px">'+r.cut_shared+'</span></div>';
@@ -811,7 +817,7 @@ function mOpenDoneModal(recordId){
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+(r.kg_start||0)+'</div></div>';
     h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+(r.kg_start||0)+'</div></div></div>';
-    h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Tỉ Lệ Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
+    h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
     // Reason+Image warning container
     h+='<div id="_mDoneRatioWarn" style="display:none;border-top:1px solid rgba(239,68,68,0.3);margin:10px 0;padding-top:10px">';
     h+='<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px">';
