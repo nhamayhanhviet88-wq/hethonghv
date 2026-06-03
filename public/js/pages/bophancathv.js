@@ -753,10 +753,10 @@ async function _bpcOpenDetail(recordId) {
                 h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚖️ Định Lượng</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + tr + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
             }
             if (r.ratio_reason) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do sai định lượng :</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap">' + r.ratio_reason + '</span></div>';
-            if (r.ratio_image) {
-                h += '<div style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">';
+            if (r.has_ratio_image) {
+                h += '<div id="_bpcRatioImgContainer" style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">';
                 h += '<div style="font-size:11px;font-weight:800;color:#94a3b8;margin-bottom:6px">🖼️ HÌNH ẢNH CHỨNG MINH SAI:</div>';
-                h += '<div style="text-align:center"><img src="' + r.ratio_image + '" style="max-width:100%;max-height:250px;border-radius:8px;border:1px solid #e2e8f0"></div>';
+                h += '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px" class="bpc-img-placeholder">⏳ Đang tải ảnh chứng minh sai...</div>';
                 h += '</div>';
             }
             h += '</div>';
@@ -770,6 +770,23 @@ async function _bpcOpenDetail(recordId) {
         h += '</div></div>';
         document.body.insertAdjacentHTML('beforeend', h);
         requestAnimationFrame(function() { document.getElementById('_bpcDetailModal').classList.add('show'); });
+
+        // Background fetch image
+        if (r.has_ratio_image) {
+            apiCall('/api/cutting/records/' + recordId + '/image').then(function(imgRes) {
+                var imgContainer = document.getElementById('_bpcRatioImgContainer');
+                if (imgContainer && imgRes && imgRes.ratio_image) {
+                    var placeholder = imgContainer.querySelector('.bpc-img-placeholder');
+                    if (placeholder) placeholder.remove();
+                    var imgHtml = '<div style="text-align:center"><img src="' + imgRes.ratio_image + '" style="max-width:100%;max-height:250px;border-radius:8px;border:1px solid #e2e8f0"></div>';
+                    imgContainer.insertAdjacentHTML('beforeend', imgHtml);
+                }
+            }).catch(function(err) {
+                console.error('[BPC] Lazy load image error:', err);
+                var placeholder = document.querySelector('#_bpcRatioImgContainer .bpc-img-placeholder');
+                if (placeholder) placeholder.textContent = '❌ Lỗi tải ảnh';
+            });
+        }
     } catch(e) {
         console.error('[BPC] Load detail error:', e);
         alert('Không thể tải chi tiết đơn cắt. Lỗi: ' + e.message);

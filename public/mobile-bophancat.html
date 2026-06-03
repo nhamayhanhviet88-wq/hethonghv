@@ -764,10 +764,10 @@ async function mOpenDetail(recordId){
                 h+='<div class="mm-row"><span class="mm-lbl">⚖️ Định Lượng</span><span class="mm-val" style="color:#10b981;font-weight:700">'+tr+' sp/'+(r.fabric_unit || 'kg')+'</span></div>';
             }
             if(r.ratio_reason) h+='<div class="mm-row"><span class="mm-lbl">📝 Lý do sai định lượng :</span><span class="mm-val" style="font-size:11px;color:#94a3b8;white-space:pre-wrap">'+r.ratio_reason+'</span></div>';
-            if(r.ratio_image) {
-                h+='<div style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">';
+            if(r.has_ratio_image) {
+                h+='<div id="_mmRatioImgContainer" style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">';
                 h+='  <div style="font-size:11px;font-weight:800;color:#94a3b8;margin-bottom:6px">🖼️ HÌNH ẢNH CHỨNG MINH SAI:</div>';
-                h+='  <div style="text-align:center"><img src="'+r.ratio_image+'" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)"></div>';
+                h+='  <div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px" class="mm-img-placeholder">⏳ Đang tải ảnh chứng minh sai...</div>';
                 h+='</div>';
             }
         }
@@ -778,6 +778,23 @@ async function mOpenDetail(recordId){
         h+='</div></div>';
         document.body.insertAdjacentHTML('beforeend',h);
         requestAnimationFrame(()=>document.getElementById('_mmDetailModal').classList.add('show'));
+
+        // Background fetch image
+        if (r.has_ratio_image) {
+            mApi('/api/cutting/records/' + recordId + '/image').then(imgRes => {
+                const imgContainer = document.getElementById('_mmRatioImgContainer');
+                if (imgContainer && imgRes && imgRes.ratio_image) {
+                    const placeholder = imgContainer.querySelector('.mm-img-placeholder');
+                    if (placeholder) placeholder.remove();
+                    const imgHtml = '<div style="text-align:center"><img src="'+imgRes.ratio_image+'" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)"></div>';
+                    imgContainer.insertAdjacentHTML('beforeend', imgHtml);
+                }
+            }).catch(err => {
+                console.error('[BPC] Lazy load image error:', err);
+                const placeholder = document.querySelector('#_mmRatioImgContainer .mm-img-placeholder');
+                if (placeholder) placeholder.textContent = '❌ Lỗi tải ảnh';
+            });
+        }
     } catch(e) {
         console.error('[BPC] Load detail error:', e);
         mToast('Không thể tải chi tiết đơn cắt', false);

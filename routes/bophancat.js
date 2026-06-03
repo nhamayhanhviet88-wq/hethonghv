@@ -406,7 +406,15 @@ module.exports = async function(fastify) {
     // ========== GET SINGLE RECORD: Chi tiết một đơn cắt ==========
     fastify.get('/api/cutting/records/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const record = await db.get(`
-            SELECT cr.*,
+            SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.is_cutting, cr.cutting_at, cr.cutting_by,
+                   cr.is_cut_done, cr.cut_done_at, cr.cut_done_by, cr.salary_approved, cr.salary_approved_at,
+                   cr.salary_approved_by, cr.wash_reported, cr.wash_reported_at, cr.wash_reported_by,
+                   cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.product_name,
+                   cr.material_name, cr.fabric_color, cr.order_quantity, cr.cut_quantity, cr.kg_cut,
+                   cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
+                   cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
+                   cr.multi_cut_group_id, cr.unit_price, cr.salary,
+                   (cr.ratio_image IS NOT NULL AND cr.ratio_image != '') AS has_ratio_image,
                    u_cutter.full_name AS cutter_name,
                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
@@ -428,6 +436,15 @@ module.exports = async function(fastify) {
 
         if (!record) return reply.code(404).send({ error: 'Không tìm thấy đơn cắt' });
         return { record };
+    });
+
+    // ========== GET RECORD IMAGE: Lấy hình ảnh chứng minh sai ==========
+    fastify.get('/api/cutting/records/:id/image', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get(`
+            SELECT ratio_image FROM cutting_records WHERE id = $1
+        `, [Number(request.params.id)]);
+        if (!row) return reply.code(404).send({ error: 'Không tìm thấy đơn cắt' });
+        return { ratio_image: row.ratio_image };
     });
 
     // ========== CREATE: Tạo record cắt mới ==========

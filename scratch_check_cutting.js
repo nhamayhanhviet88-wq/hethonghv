@@ -5,9 +5,8 @@ async function main() {
         console.log("Connecting to DB...");
         await db.init();
         
-        const rolls = await db.all("SELECT id, roll_code, weight, locked_by_cutting_id, is_returned FROM kv_rolls WHERE id IN (14, 18)");
-        console.log("\nRolls details:");
-        console.log(JSON.stringify(rolls, null, 2));
+        const record = await db.get(`SELECT * FROM cutting_records LIMIT 1`);
+        console.log("Columns:", Object.keys(record));
 
     } catch (e) {
         console.error("Error:", e);
