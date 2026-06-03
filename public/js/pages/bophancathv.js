@@ -873,13 +873,12 @@ function _bpcDonePasteHandler(e) {
     for (var i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
             var blob = items[i].getAsFile();
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                window._bpcDoneData.imgData = ev.target.result;
+            _bpcCompressImage(blob, function(compressed) {
+                if (!compressed) return;
+                window._bpcDoneData.imgData = compressed;
                 var prev = document.getElementById('_bpcDoneImgPreview');
-                if (prev) prev.innerHTML = '<img src="' + ev.target.result + '" style="max-width:100%;max-height:120px;border-radius:6px">';
-            };
-            reader.readAsDataURL(blob);
+                if (prev) prev.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:120px;border-radius:6px">';
+            });
             e.preventDefault();
             break;
         }
@@ -888,13 +887,12 @@ function _bpcDonePasteHandler(e) {
 
 function _bpcDoneImgFile(e) {
     var f = e.target.files[0]; if (!f) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        window._bpcDoneData.imgData = ev.target.result;
+    _bpcCompressImage(f, function(compressed) {
+        if (!compressed) return;
+        window._bpcDoneData.imgData = compressed;
         var prev = document.getElementById('_bpcDoneImgPreview');
-        if (prev) prev.innerHTML = '<img src="' + ev.target.result + '" style="max-width:100%;max-height:120px;border-radius:6px">';
-    };
-    reader.readAsDataURL(f);
+        if (prev) prev.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:120px;border-radius:6px">';
+    });
 }
 
 function _bpcDoneToggleRoll(idx) {
@@ -1108,13 +1106,12 @@ function _bpcGDonePasteHandler(e) {
     for (var i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
             var blob = items[i].getAsFile();
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                window._bpcGDone.imgData = ev.target.result;
+            _bpcCompressImage(blob, function(compressed) {
+                if (!compressed) return;
+                window._bpcGDone.imgData = compressed;
                 var prev = document.getElementById('_bpcGDoneImgPreview');
-                if (prev) prev.innerHTML = '<img src="' + ev.target.result + '" style="max-width:100%;max-height:120px;border-radius:6px">';
-            };
-            reader.readAsDataURL(blob);
+                if (prev) prev.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:120px;border-radius:6px">';
+            });
             e.preventDefault();
             break;
         }
@@ -1123,13 +1120,12 @@ function _bpcGDonePasteHandler(e) {
 
 function _bpcGDoneImgFile(e) {
     var f = e.target.files[0]; if (!f) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        window._bpcGDone.imgData = ev.target.result;
+    _bpcCompressImage(f, function(compressed) {
+        if (!compressed) return;
+        window._bpcGDone.imgData = compressed;
         var prev = document.getElementById('_bpcGDoneImgPreview');
-        if (prev) prev.innerHTML = '<img src="' + ev.target.result + '" style="max-width:100%;max-height:120px;border-radius:6px">';
-    };
-    reader.readAsDataURL(f);
+        if (prev) prev.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:120px;border-radius:6px">';
+    });
 }
 function _bpcGDoneToggleRoll(idx) {
     window._bpcGDone._allCut = false;
@@ -1522,4 +1518,47 @@ async function _bpcSaveTargetRatios() {
         showToast(e.message || 'Lỗi khi lưu', 'error');
         if (btn) { btn.disabled = false; btn.textContent = '💾 LƯU THAY ĐỔI'; }
     }
+}
+
+function _bpcCompressImage(file, callback) {
+    if (!file) return callback(null);
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxWidth = 1000;
+            var maxHeight = 1000;
+            var width = img.width;
+            var height = img.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = Math.round((width * maxHeight) / height);
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            var compressed = canvas.toDataURL('image/jpeg', 0.7);
+            callback(compressed);
+        };
+        img.onerror = function() {
+            callback(e.target.result);
+        };
+        img.src = e.target.result;
+    };
+    reader.onerror = function() {
+        callback(null);
+    };
+    reader.readAsDataURL(file);
 }
