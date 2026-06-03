@@ -392,6 +392,9 @@ module.exports = async function(fastify) {
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
                    o.order_code,
+                   o.customer_name,
+                   u_cskh.full_name AS cskh_name,
+                   u_created.full_name AS created_by_name,
                    -- Last history
                    lh.details AS last_update_detail,
                    lh.performed_at AS last_update_at,
@@ -404,6 +407,8 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+            LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
@@ -437,6 +442,9 @@ module.exports = async function(fastify) {
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
                    o.order_code,
+                   o.customer_name,
+                   u_cskh.full_name AS cskh_name,
+                   u_created.full_name AS created_by_name,
                    t.target_ratio AS target_cut_ratio,
                    w.unit AS fabric_unit
             FROM cutting_records cr
@@ -445,6 +453,8 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+            LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category

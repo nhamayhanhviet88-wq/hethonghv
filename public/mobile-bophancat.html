@@ -89,6 +89,7 @@
         .m-progress{display:flex;gap:4px;margin-bottom:16px}
         .m-progress-dot{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.15)}
         .m-progress-dot.active{background:#f97316}
+        #mSearchInp:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.15)}
     </style>
 </head>
 <body>
@@ -104,12 +105,32 @@
         <div class="m-tab" data-tab="mine" onclick="mSwitchTab('mine')">📋 Đơn Tôi <span class="m-tab-badge" id="mBadgeMine" style="background:#f59e0b">0</span></div>
         <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
+    <div style="padding: 10px 12px; background: #1a2332; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; gap: 8px; align-items: center; position: sticky; top: 99px; z-index: 98;">
+        <input type="text" id="mSearchInp" placeholder="🔍 Tìm mã đơn, khách, sale..." style="flex:1; padding: 10px 14px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: all 0.2s;" oninput="mDoSearch()">
+        <button onclick="mClearSearch()" id="mClearSearchBtn" style="display:none; background:none; border:none; color:#ef4444; font-size:16px; cursor:pointer; padding: 0 4px; font-weight: bold;">✕</button>
+    </div>
     <button class="m-fab" id="mFab" onclick="mOpenMultiCut()">✂️+ CẮT NHIỀU ĐƠN</button>
     <div class="m-content" id="mContent">
         <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="m-spinner"></div><div>Đang tải...</div></div>
     </div>
 <script>
-let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[];
+let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[], mSearchQuery='';
+
+function mDoSearch() {
+    const inp = document.getElementById('mSearchInp');
+    mSearchQuery = (inp ? inp.value : '').trim().toLowerCase();
+    const clearBtn = document.getElementById('mClearSearchBtn');
+    if (clearBtn) {
+        clearBtn.style.display = mSearchQuery ? 'block' : 'none';
+    }
+    mRender();
+}
+
+function mClearSearch() {
+    const inp = document.getElementById('mSearchInp');
+    if (inp) inp.value = '';
+    mDoSearch();
+}
 
 function mFmtKg(val) {
     if (val === null || val === undefined || val === '' || val === '—') return '—';
@@ -381,11 +402,26 @@ function mRender(){
 
 function mRenderUncut(){
     const c=document.getElementById('mContent');
-    if(!mUncut.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không có đơn chờ</div><div style="font-size:13px">Tất cả đơn đã được nhận</div></div>';return;}
+    let itemsToRender = mUncut;
+    if (mSearchQuery) {
+        itemsToRender = mUncut.filter(o => {
+            const code = (o.order_code || '').toLowerCase();
+            const cust = (o.customer_name || '').toLowerCase();
+            const sale = (o.cskh_name || o.created_by_name || '').toLowerCase();
+            return code.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery);
+        });
+        if (!itemsToRender.length) {
+            c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
+            return;
+        }
+    } else if(!mUncut.length){
+        c.innerHTML='<div class="m-empty"><div class="m-empty-icon">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không có đơn chờ</div><div style="font-size:13px">Tất cả đơn đã được nhận</div></div>';
+        return;
+    }
 
     // Group by phiếu (item) — use Map to preserve API sort order
     const grouped=new Map();
-    mUncut.forEach(r=>{
+    itemsToRender.forEach(r=>{
         const k=r.id+'_'+(r.item_id||0);
         if(!grouped.has(k))grouped.set(k,{order:r,phois:[]});
         grouped.get(k).phois.push(r);
@@ -453,12 +489,29 @@ function mRenderUncut(){
 
 function mRenderMine(){
     const c=document.getElementById('mContent');
-    if(!mMine.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📋</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn nào</div><div style="font-size:13px">Nhận đơn ở tab "Chưa Cắt"</div></div>';return;}
+    let itemsToRender = mMine;
+    if (mSearchQuery) {
+        itemsToRender = mMine.filter(r => {
+            const code = (r.order_code || '').toLowerCase();
+            const prod = (r.product_name || '').toLowerCase();
+            const cust = (r.customer_name || '').toLowerCase();
+            const sale = (r.cskh_name || r.created_by_name || '').toLowerCase();
+            const cutter = (r.cutter_name || '').toLowerCase();
+            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery);
+        });
+        if (!itemsToRender.length) {
+            c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
+            return;
+        }
+    } else if(!mMine.length){
+        c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📋</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn nào</div><div style="font-size:13px">Nhận đơn ở tab "Chưa Cắt"</div></div>';
+        return;
+    }
     
     const groupNotDoneIds = new Set();
     mMine.forEach(x => { if (x.multi_cut_group_id && !x.is_cut_done) groupNotDoneIds.add(x.multi_cut_group_id); });
 
-    c.innerHTML=mMine.map(r=>{
+    c.innerHTML=itemsToRender.map(r=>{
         const doneCls=r.is_cut_done?' on':'';
         const salCls=r.salary_approved?' on':'',washCls=r.wash_reported?' on':'';
         const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
@@ -502,6 +555,10 @@ function mRenderMine(){
             metricsHtml += '<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>';
         }
 
+        const constCust = r.customer_name || '—';
+        const saleName = r.cskh_name || r.created_by_name || '';
+        const saleHtml = saleName ? '<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>' : '';
+
         const sharedText = r.cut_shared ? r.cut_shared.split(':')[0] : 'Cắt chung';
         const sharedHtml = r.multi_cut_group_id ? '<div style="margin:4px 0;padding:6px 10px;background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:6px;font-size:10px;font-weight:700;color:#f97316;white-space:pre-line;line-height:1.5">🔗 ' + sharedText + '</div>' : '';
 
@@ -511,6 +568,8 @@ function mRenderMine(){
             +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
             +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
             +'<div class="m-card-body">'
+            +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+constCust+'</span></div>'
+            +saleHtml
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
@@ -524,8 +583,26 @@ function mRenderMine(){
 
 function mRenderHist(){
     const c=document.getElementById('mContent');
-    if(!mHist.length){c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📅</div><div style="font-size:16px;font-weight:700">Chưa có lịch sử</div></div>';return;}
-    c.innerHTML=mHist.map(r=>{
+    let itemsToRender = mHist;
+    if (mSearchQuery) {
+        itemsToRender = mHist.filter(r => {
+            const code = (r.order_code || '').toLowerCase();
+            const prod = (r.product_name || '').toLowerCase();
+            const cust = (r.customer_name || '').toLowerCase();
+            const sale = (r.cskh_name || r.created_by_name || '').toLowerCase();
+            const cutter = (r.cutter_name || '').toLowerCase();
+            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery);
+        });
+        if (!itemsToRender.length) {
+            c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
+            return;
+        }
+    } else if(!mHist.length){
+        c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📅</div><div style="font-size:16px;font-weight:700">Chưa có lịch sử</div></div>';
+        return;
+    }
+
+    c.innerHTML=itemsToRender.map(r=>{
         const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         
@@ -546,12 +623,18 @@ function mRenderHist(){
             reasonHtml = '<div class="m-row"><span class="m-lbl">📝 Lý do sai tỉ lệ</span><span class="m-val" style="color:#ef4444;font-size:11px;max-width:65%;text-align:right;white-space:pre-wrap">' + (r.ratio_reason || '—') + '</span></div>';
         }
 
+        const constCust = r.customer_name || '—';
+        const saleName = r.cskh_name || r.created_by_name || '';
+        const saleHtml = saleName ? '<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>' : '';
+
         return '<div class="m-card"><div class="m-card-top">'
         +'<div class="m-card-icon">✅</div>'
         +'<div class="m-card-title">'+(r.product_name||'SP')+ccBadge+sharedBadge+'</div>'
         +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
         +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
         +'<div class="m-card-body">'
+        +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+constCust+'</span></div>'
+        +saleHtml
         +'<div class="m-row"><span class="m-lbl">📅 Ngày</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">🧵 Chất Liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
