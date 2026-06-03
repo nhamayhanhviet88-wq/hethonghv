@@ -838,7 +838,7 @@ function mOpenDoneModal(recordId){
     // Rolls
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
-    h+='<button id="_mDoneAllCutBtn" onclick="mDoneAllCut()" style="padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔴 Cắt hết</button></div>';
+    h+='<button id="_mDoneAllCutBtn" onclick="mDoneAllCut()" style="padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔴 Cắt hết tất cả</button></div>';
     h+='<div id="_mDoneRollsList">';
     rolls.forEach((rl,idx)=>{
         const w=Number(rl.weight)||0;
@@ -879,7 +879,7 @@ function mOpenDoneModal(recordId){
 function mDoneToggleRoll(idx){
     window._mDoneData._allCut=false;
     const btn=document.getElementById('_mDoneAllCutBtn');
-    if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết';}
+    if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết tất cả';}
     const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='';
     const cb=document.querySelector('._mDoneRollCb[data-idx="'+idx+'"]');
     const inp=document.getElementById('_mDoneRollInp_'+idx);
@@ -891,7 +891,7 @@ function mDoneAllCut(){
     if(d._allCut){
         d._allCut=false;
         const btn=document.getElementById('_mDoneAllCutBtn');
-        if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết';}
+        if(btn){btn.style.background='#ef4444';btn.textContent='🔴 Cắt hết tất cả';}
         const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='';
         mDoneRecalc();
         return;
@@ -899,7 +899,7 @@ function mDoneAllCut(){
     d._allCut=true;
     document.querySelectorAll('._mDoneRollCb').forEach(cb=>{cb.checked=false;const i=cb.dataset.idx;const inp=document.getElementById('_mDoneRollInp_'+i);if(inp)inp.style.display='none';const k=document.getElementById('_mDoneRollKg_'+i);if(k)k.value='';});
     const btn=document.getElementById('_mDoneAllCutBtn');
-    if(btn){btn.style.background='#10b981';btn.textContent='🟢 Đã Cắt Hết';}
+    if(btn){btn.style.background='#059669';btn.textContent='Đã Cắt Hết Tất Cả';}
     const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='none';
     mDoneRecalc();
 }
@@ -1144,7 +1144,7 @@ function mGDoneAllCut(){
     window._mGDone._allCut=true;
     document.querySelectorAll('._mGRollCb').forEach(cb=>{cb.checked=false;const i=cb.dataset.idx;const inp=document.getElementById('_mGRollInp_'+i);if(inp)inp.style.display='none';const k=document.getElementById('_mGRollKg_'+i);if(k)k.value='';});
     const btn=document.getElementById('_mGCutAllBtn');
-    if(btn){btn.style.background='#059669';btn.textContent='✅ Đã chọn cắt hết';}
+    if(btn){btn.style.background='#059669';btn.textContent='Đã Cắt Hết Tất Cả';}
     const rl=document.getElementById('_mGRollsList');if(rl)rl.style.display='none';
     mGDoneRecalc();
 }
