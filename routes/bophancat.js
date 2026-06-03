@@ -1305,7 +1305,7 @@ module.exports = async function(fastify) {
         const userId = request.user.id;
 
         const groupRecords = await db.all(
-            `SELECT id, dht_order_id, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
+            `SELECT id, dht_order_id, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name, cutter_id, cutting_category FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
             [group_id]
         );
         if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
@@ -1365,10 +1365,13 @@ module.exports = async function(fastify) {
             const myKgCut = totalQty > 0 ? (qty / totalQty) * totalKgCut : 0;
             const myRatio = myKgCut > 0 ? Math.round((qty / myKgCut) * 100) / 100 : 0;
 
+            const rec = groupRecords.find(r => r.id === it.record_id);
+            const salInfo = await calculateCutterSalary(rec.cutter_id, rec.cutting_category, qty);
+
             await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                 kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
-                ratio_reason = $7, ratio_image = $8, updated_at = $1 WHERE id = $9`,
-                [now, userId, kgEnd, myKgCut, qty, myRatio, ratio_reason || null, ratio_image || null, it.record_id]);
+                ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
+                [now, userId, kgEnd, myKgCut, qty, myRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, it.record_id]);
 
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
                 [it.record_id, 'multi_cut_done', '✅ Cắt xong nhóm — SL: ' + qty + ', Kg: ' + myKgCut.toFixed(2) + ', TL: ' + myRatio, userId, now]);
