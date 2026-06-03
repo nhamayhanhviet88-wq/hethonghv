@@ -864,7 +864,7 @@ module.exports = async function(fastify) {
                 // Reserve TM code in payment_records
                 await client.query(
                     `INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
-                     VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'fabric_ship', $5, $6)`,
+                     VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)`,
                     [cfCode, seq, shipCost, cfDesc, cfDate, req.user.id]
                 );
                 // Create cashflow CHI
