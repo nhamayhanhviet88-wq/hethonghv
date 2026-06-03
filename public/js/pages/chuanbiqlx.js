@@ -566,15 +566,28 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                 // Sort: group by primary order tag, then by available ascending
                 var orderCode = o.order_code || '';
                 rolls.sort(function(a, b) {
-                    // First: rolls with available > 0 on top, 0 at bottom
+                    // First: locked by cutting on top, unlocked below
+                    var aLocked = (a.locked_by_cutting_id && a.cutting_order_name) ? 1 : 0;
+                    var bLocked = (b.locked_by_cutting_id && b.cutting_order_name) ? 1 : 0;
+                    if (aLocked !== bLocked) return bLocked - aLocked;
+
+                    // Second: rolls with available > 0 on top, 0 at bottom
                     var aHas = a.available > 0 ? 1 : 0;
                     var bHas = b.available > 0 ? 1 : 0;
                     if (aHas !== bHas) return bHas - aHas;
+
                     // Parse called_for_orders
                     var aOrders = a.called_for_orders || [];
                     var bOrders = b.called_for_orders || [];
                     if (typeof aOrders === 'string') try { aOrders = JSON.parse(aOrders); } catch(e) { aOrders = []; }
                     if (typeof bOrders === 'string') try { bOrders = JSON.parse(bOrders); } catch(e) { bOrders = []; }
+
+                    // Filter called_for_orders by active reservations
+                    var aActive = (a.reservations || []).map(function(rv) { return rv.order_code; });
+                    var bActive = (b.reservations || []).map(function(rv) { return rv.order_code; });
+                    aOrders = aOrders.filter(function(ord) { return aActive.indexOf(ord) >= 0; });
+                    bOrders = bOrders.filter(function(ord) { return bActive.indexOf(ord) >= 0; });
+
                     // Priority: this-order first, then other orders, then untagged
                     var aMatch = aOrders.indexOf(orderCode) >= 0 ? 2 : (aOrders.length > 0 ? 1 : 0);
                     var bMatch = bOrders.indexOf(orderCode) >= 0 ? 2 : (bOrders.length > 0 ? 1 : 0);
@@ -613,6 +626,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     // Determine tag from called_for_orders
                     var calledOrders = rl.called_for_orders || [];
                     if (typeof calledOrders === 'string') try { calledOrders = JSON.parse(calledOrders); } catch(e) { calledOrders = []; }
+                    var activeResOrders = (rl.reservations || []).map(function(rv) { return rv.order_code; });
+                    calledOrders = calledOrders.filter(function(ord) { return activeResOrders.indexOf(ord) >= 0; });
                     var tagHtml = '';
                     if (calledOrders.indexOf(orderCode) >= 0) {
                         tagHtml = '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🏷️ Gọi cho đơn này</span>';
