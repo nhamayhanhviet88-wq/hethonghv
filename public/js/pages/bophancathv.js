@@ -857,7 +857,8 @@ function _bpcOpenDoneModal(recordId) {
             h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
             h += '<input type="checkbox" class="_bpcDoneRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#3b82f6">';
             h += '<span style="flex:1;font-size:12px;font-weight:700;color:#1e293b">' + (rl.label || 'Cây '+(idx+1)) + '</span>';
-            h += '<span style="font-size:11px;font-weight:700;color:#64748b">' + w + 'kg</span></label>';
+            h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
+            h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Xóa cây vải">🗑️</button></label>';
             h += '<div id="_bpcDoneRollInput_' + idx + '" style="display:none;margin-top:8px;padding-left:28px">';
             h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn lại:</span>';
             h += '<input id="_bpcDoneRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" placeholder="0" oninput="_bpcDoneRecalc()" style="width:70px;padding:4px 8px;border:1.5px solid #3b82f6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
@@ -868,6 +869,16 @@ function _bpcOpenDoneModal(recordId) {
         h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Chưa có dữ liệu cây</div>';
     }
     h += '</div>';
+    h += '<button onclick="_bpcShowAddRoll(' + recordId + ', \'' + (r.material_name || '').replace(/'/g, "\\'") + '\', \'' + (r.fabric_color || '').replace(/'/g, "\\'") + '\')" style="margin-top:8px;padding:6px 12px;background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">➕ Thêm cây vải khác</button>';
+    h += '<div id="_bpcAddRollArea" style="margin-top:10px;display:none;background:#f8fafc;padding:10px;border-radius:8px;border:1px dashed #cbd5e1">';
+    h += '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:6px">CHỌN CÂY VẢI THÊM:</div>';
+    h += '<select id="_bpcAddRollSelect" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #cbd5e1;font-size:12px;font-weight:700;margin-bottom:8px">';
+    h += '<option value="">— Đang tải danh sách cây vải... —</option>';
+    h += '</select>';
+    h += '<div style="display:flex;gap:6px;justify-content:flex-end">';
+    h += '<button class="bpc-modal-btn cancel" style="padding:4px 10px;font-size:11px;min-height:28px" onclick="document.getElementById(\'_bpcAddRollArea\').style.display=\'none\'">Hủy</button>';
+    h += '<button class="bpc-modal-btn confirm" style="padding:4px 10px;font-size:11px;background:#3b82f6;min-height:28px" onclick="_bpcDoAddRoll(' + recordId + ')">Xác nhận thêm</button>';
+    h += '</div></div>';
     // Auto-calc stats
     h += '<div style="border-top:2px solid #e2e8f0;margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + _bpcFmtKg(r.kg_start || 0) + '</div></div>';
@@ -1118,12 +1129,23 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
         h += '<input type="checkbox" class="_bpcGRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcGDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#8b5cf6">';
         h += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label||'Cây '+(idx+1)) + '</span>';
-        h += '<span style="font-size:11px;font-weight:700;color:#64748b">' + w + 'kg</span></label>';
+        h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
+        h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Xóa cây vải">🗑️</button></label>';
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
         h += '<input id="_bpcGRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" oninput="_bpcGDoneValidKg(this,' + w + ')" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
         h += '<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
-    h += '</div></div>';
+    h += '</div>';
+    h += '<button onclick="_bpcShowAddRollGroup(\'' + groupId + '\', \'' + (ref.material_name || '').replace(/'/g, "\\'") + '\', \'' + (ref.fabric_color || '').replace(/'/g, "\\'") + '\')" style="margin-top:8px;padding:6px 12px;background:#faf5ff;color:#7c3aed;border:1.5px solid #e9d5ff;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">➕ Thêm cây vải khác</button>';
+    h += '<div id="_bpcAddRollAreaGroup" style="margin-top:10px;display:none;background:#fcfaff;padding:10px;border-radius:8px;border:1px dashed #d8b4fe">';
+    h += '<div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:6px">CHỌN CÂY VẢI THÊM VÀO NHÓM:</div>';
+    h += '<select id="_bpcAddRollSelectGroup" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #e9d5ff;font-size:12px;font-weight:700;margin-bottom:8px">';
+    h += '<option value="">— Đang tải danh sách cây vải... —</option>';
+    h += '</select>';
+    h += '<div style="display:flex;gap:6px;justify-content:flex-end">';
+    h += '<button class="bpc-modal-btn cancel" style="padding:4px 10px;font-size:11px;min-height:28px" onclick="document.getElementById(\'_bpcAddRollAreaGroup\').style.display=\'none\'">Hủy</button>';
+    h += '<button class="bpc-modal-btn confirm" style="padding:4px 10px;font-size:11px;background:#8b5cf6;min-height:28px" onclick="_bpcDoAddRollGroup(\'' + groupId + '\')">Xác nhận thêm</button>';
+    h += '</div></div></div>';
     // Stats
     h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + _bpcFmtKg(kgStart) + '</div></div>';
@@ -1304,6 +1326,155 @@ async function _bpcSubmitGDone() {
         if (btn) { btn.disabled = false; btn.textContent = '🏁 XÁC NHẬN CẮT XONG NHÓM'; }
     } finally {
         window._bpcBusy = false;
+    }
+}
+
+// ========== DYNAMIC ADD/REMOVE ROLLS (Desktop) ==========
+async function _bpcRemoveRoll(recordId, rollId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi đơn cắt?')) return;
+    try {
+        const res = await apiCall('/api/cutting/records/' + recordId + '/remove-roll', 'POST', { roll_id: rollId });
+        showToast('✅ Đã xóa cây vải!');
+        if (window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
+            window._bpcDoneData.rolls = res.selected_roll_ids;
+            window._bpcDoneData.kgStart = Number(res.kg_start) || 0;
+        }
+        const rec = _bpc.records.find(x => x.id === recordId);
+        if (rec) {
+            rec.selected_roll_ids = res.selected_roll_ids;
+            rec.kg_start = res.kg_start;
+        }
+        _bpcCloseDoneModal();
+        _bpcOpenDoneModal(recordId);
+    } catch (e) {
+        showToast(e.message || 'Lỗi khi xóa cây vải', 'error');
+    }
+}
+
+async function _bpcShowAddRoll(recordId, materialName, colorName) {
+    const area = document.getElementById('_bpcAddRollArea');
+    if (!area) return;
+    area.style.display = 'block';
+    const select = document.getElementById('_bpcAddRollSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">— Đang tải danh sách cây vải... —</option>';
+    try {
+        const res = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName));
+        const rolls = res.rolls || [];
+        const activeRolls = rolls.filter(r => !r.locked);
+        if (!activeRolls.length) {
+            select.innerHTML = '<option value="">❌ Không còn cây vải khả dụng trong kho</option>';
+            return;
+        }
+        let html = '<option value="">— Chọn cây vải để thêm —</option>';
+        activeRolls.forEach(r => {
+            html += `<option value="${r.id}">${r.label}</option>`;
+        });
+        select.innerHTML = html;
+    } catch (e) {
+        select.innerHTML = '<option value="">❌ Lỗi tải danh sách cây vải</option>';
+    }
+}
+
+async function _bpcDoAddRoll(recordId) {
+    const select = document.getElementById('_bpcAddRollSelect');
+    if (!select) return;
+    const rollId = Number(select.value);
+    if (!rollId) { showToast('Vui lòng chọn một cây vải', 'error'); return; }
+    try {
+        const res = await apiCall('/api/cutting/records/' + recordId + '/add-roll', 'POST', { roll_id: rollId });
+        showToast('✅ Đã thêm cây vải!');
+        if (window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
+            window._bpcDoneData.rolls = res.selected_roll_ids;
+            window._bpcDoneData.kgStart = Number(res.kg_start) || 0;
+        }
+        const rec = _bpc.records.find(x => x.id === recordId);
+        if (rec) {
+            rec.selected_roll_ids = res.selected_roll_ids;
+            rec.kg_start = res.kg_start;
+        }
+        _bpcCloseDoneModal();
+        _bpcOpenDoneModal(recordId);
+    } catch (e) {
+        showToast(e.message || 'Lỗi khi thêm cây vải', 'error');
+    }
+}
+
+async function _bpcRemoveRollGroup(groupId, rollId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi nhóm cắt?')) return;
+    const refRecord = window._bpcGDone && window._bpcGDone.records[0];
+    if (!refRecord) return;
+    try {
+        const res = await apiCall('/api/cutting/records/' + refRecord.id + '/remove-roll', 'POST', { roll_id: rollId });
+        showToast('✅ Đã xóa cây vải khỏi nhóm!');
+        if (window._bpcGDone && window._bpcGDone.groupId === groupId) {
+            window._bpcGDone.rolls = res.selected_roll_ids;
+            window._bpcGDone.kgStart = Number(res.kg_start) || 0;
+        }
+        window._bpcGDone.records.forEach(r => {
+            const rec = _bpc.records.find(x => x.id === r.id);
+            if (rec) {
+                rec.selected_roll_ids = res.selected_roll_ids;
+                rec.kg_start = res.kg_start;
+            }
+        });
+        _bpcCloseGDone();
+        _bpcOpenGroupDoneModal(groupId);
+    } catch (e) {
+        showToast(e.message || 'Lỗi khi xóa cây vải', 'error');
+    }
+}
+
+async function _bpcShowAddRollGroup(groupId, materialName, colorName) {
+    const area = document.getElementById('_bpcAddRollAreaGroup');
+    if (!area) return;
+    area.style.display = 'block';
+    const select = document.getElementById('_bpcAddRollSelectGroup');
+    if (!select) return;
+    select.innerHTML = '<option value="">— Đang tải danh sách cây vải... —</option>';
+    try {
+        const res = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName));
+        const rolls = res.rolls || [];
+        const activeRolls = rolls.filter(r => !r.locked);
+        if (!activeRolls.length) {
+            select.innerHTML = '<option value="">❌ Không còn cây vải khả dụng trong kho</option>';
+            return;
+        }
+        let html = '<option value="">— Chọn cây vải để thêm —</option>';
+        activeRolls.forEach(r => {
+            html += `<option value="${r.id}">${r.label}</option>`;
+        });
+        select.innerHTML = html;
+    } catch (e) {
+        select.innerHTML = '<option value="">❌ Lỗi tải danh sách cây vải</option>';
+    }
+}
+
+async function _bpcDoAddRollGroup(groupId) {
+    const select = document.getElementById('_bpcAddRollSelectGroup');
+    if (!select) return;
+    const rollId = Number(select.value);
+    if (!rollId) { showToast('Vui lòng chọn một cây vải', 'error'); return; }
+    const refRecord = window._bpcGDone && window._bpcGDone.records[0];
+    if (!refRecord) return;
+    try {
+        const res = await apiCall('/api/cutting/records/' + refRecord.id + '/add-roll', 'POST', { roll_id: rollId });
+        showToast('✅ Đã thêm cây vải vào nhóm!');
+        if (window._bpcGDone && window._bpcGDone.groupId === groupId) {
+            window._bpcGDone.rolls = res.selected_roll_ids;
+            window._bpcGDone.kgStart = Number(res.kg_start) || 0;
+        }
+        window._bpcGDone.records.forEach(r => {
+            const rec = _bpc.records.find(x => x.id === r.id);
+            if (rec) {
+                rec.selected_roll_ids = res.selected_roll_ids;
+                rec.kg_start = res.kg_start;
+            }
+        });
+        _bpcCloseGDone();
+        _bpcOpenGroupDoneModal(groupId);
+    } catch (e) {
+        showToast(e.message || 'Lỗi khi thêm cây vải', 'error');
     }
 }
 

@@ -856,13 +856,24 @@ function mOpenDoneModal(recordId){
         h+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         h+='<input type="checkbox" class="_mDoneRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#3b82f6">';
         h+='<span style="flex:1;font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>';
-        h+='<span style="font-size:12px;font-weight:700;color:#94a3b8">'+w+'kg</span></label>';
+        h+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
+        h+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRoll('+recordId+','+rl.roll_id+')" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0" title="Xóa cây vải">🗑️</button></label>';
         h+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
         h+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
         h+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
-    h+='</div></div>';
+    h+='</div>';
+    h+='<button onclick="mShowAddRoll('+recordId+', \''+(r.material_name||'').replace(/'/g, "\\'")+'\', \''+(r.fabric_color||'').replace(/'/g, "\\'")+'\')" style="margin-top:8px;width:100%;padding:10px;background:rgba(255,255,255,0.06);color:#93c5fd;border:1.5px dashed rgba(147,197,253,0.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">➕ Thêm cây vải khác</button>';
+    h+='<div id="_mAddRollArea" style="margin-top:10px;display:none;background:rgba(255,255,255,0.04);padding:12px;border-radius:10px;border:1.5px dashed rgba(255,255,255,0.1)">';
+    h+='<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px">CHỌN CÂY VẢI THÊM:</div>';
+    h+='<select id="_mAddRollSelect" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.15);font-size:13px;font-weight:700;margin-bottom:10px;background:#fff;color:#000;font-family:Inter,sans-serif">';
+    h+='<option value="">— Đang tải... —</option>';
+    h+='</select>';
+    h+='<div style="display:flex;gap:8px;justify-content:flex-end">';
+    h+='<button class="mm-btn mm-btn-no" style="padding:6px 12px;font-size:12px;min-height:32px" onclick="document.getElementById(\'_mAddRollArea\').style.display=\'none\'">Hủy</button>';
+    h+='<button class="mm-btn mm-btn-ok" style="padding:6px 12px;font-size:12px;min-height:32px;background:linear-gradient(135deg,#3b82f6,#1d4ed8)" onclick="mDoAddRoll('+recordId+')">Thêm</button>';
+    h+='</div></div></div>';
     // Stats
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||0)+'</div></div>';
@@ -1093,13 +1104,24 @@ function mOpenGroupDoneModal(groupId){
         h+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         h+='<input type="checkbox" class="_mGRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mGDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#8b5cf6">';
         h+='<span style="flex:1;font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>';
-        h+='<span style="font-size:12px;font-weight:700;color:#94a3b8">'+w+'kg</span></label>';
+        h+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
+        h+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup('+groupId+','+rl.roll_id+')" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0" title="Xóa cây vải">🗑️</button></label>';
         h+='<div id="_mGRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
         h+='<input id="_mGRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mGDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)">';
         h+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
-    h+='</div></div>';
+    h+='</div>';
+    h+='<button onclick="mShowAddRollGroup('+groupId+', \''+(ref.material_name||'').replace(/'/g, "\\'")+'\', \''+(ref.fabric_color||'').replace(/'/g, "\\'")+'\')" style="margin-top:8px;width:100%;padding:10px;background:rgba(255,255,255,0.06);color:#c4b5fd;border:1.5px dashed rgba(167,139,250,0.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">➕ Thêm cây vải khác</button>';
+    h+='<div id="_mAddRollAreaGroup" style="margin-top:10px;display:none;background:rgba(255,255,255,0.04);padding:12px;border-radius:10px;border:1.5px dashed rgba(255,255,255,0.1)">';
+    h+='<div style="font-size:11px;font-weight:700;color:#a5b4fc;margin-bottom:8px">CHỌN CÂY VẢI THÊM VÀO NHÓM:</div>';
+    h+='<select id="_mAddRollSelectGroup" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.15);font-size:13px;font-weight:700;margin-bottom:10px;background:#fff;color:#000;font-family:Inter,sans-serif">';
+    h+='<option value="">— Đang tải... —</option>';
+    h+='</select>';
+    h+='<div style="display:flex;gap:8px;justify-content:flex-end">';
+    h+='<button class="mm-btn mm-btn-no" style="padding:6px 12px;font-size:12px;min-height:32px" onclick="document.getElementById(\'_mAddRollAreaGroup\').style.display=\'none\'">Hủy</button>';
+    h+='<button class="mm-btn mm-btn-ok" style="padding:6px 12px;font-size:12px;min-height:32px;background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="mDoAddRollGroup('+groupId+')">Thêm</button>';
+    h+='</div></div></div>';
     // Stats
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+mFmtKg(kgStart)+'</div></div>';
@@ -1466,6 +1488,155 @@ function mCompressImage(file, callback) {
         callback(null);
     };
     reader.readAsDataURL(file);
+}
+
+// ========== DYNAMIC ADD/REMOVE ROLLS (Mobile) ==========
+async function mRemoveRoll(recordId, rollId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi đơn cắt?')) return;
+    try {
+        const res = await mApi('/api/cutting/records/' + recordId + '/remove-roll', 'POST', { roll_id: rollId });
+        mToast('✅ Đã xóa cây vải!');
+        if (window._mDoneData && window._mDoneData.recordId === recordId) {
+            window._mDoneData.rolls = res.selected_roll_ids;
+            window._mDoneData.kgStart = Number(res.kg_start) || 0;
+        }
+        const rec = mMine.find(x => x.id === recordId);
+        if (rec) {
+            rec.selected_roll_ids = res.selected_roll_ids;
+            rec.kg_start = res.kg_start;
+        }
+        mCloseDoneModal();
+        mOpenDoneModal(recordId);
+    } catch (e) {
+        mToast(e.message || 'Lỗi khi xóa cây vải', false);
+    }
+}
+
+async function mShowAddRoll(recordId, materialName, colorName) {
+    const area = document.getElementById('_mAddRollArea');
+    if (!area) return;
+    area.style.display = 'block';
+    const select = document.getElementById('_mAddRollSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">— Đang tải... —</option>';
+    try {
+        const res = await mApi('/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName));
+        const rolls = res.rolls || [];
+        const activeRolls = rolls.filter(r => !r.locked);
+        if (!activeRolls.length) {
+            select.innerHTML = '<option value="">❌ Không còn cây vải khả dụng</option>';
+            return;
+        }
+        let html = '<option value="">— Chọn cây vải để thêm —</option>';
+        activeRolls.forEach(r => {
+            html += `<option value="${r.id}">${r.label}</option>`;
+        });
+        select.innerHTML = html;
+    } catch (e) {
+        select.innerHTML = '<option value="">❌ Lỗi tải cây vải</option>';
+    }
+}
+
+async function mDoAddRoll(recordId) {
+    const select = document.getElementById('_mAddRollSelect');
+    if (!select) return;
+    const rollId = Number(select.value);
+    if (!rollId) { mToast('Vui lòng chọn một cây vải', false); return; }
+    try {
+        const res = await mApi('/api/cutting/records/' + recordId + '/add-roll', 'POST', { roll_id: rollId });
+        mToast('✅ Đã thêm cây vải!');
+        if (window._mDoneData && window._mDoneData.recordId === recordId) {
+            window._mDoneData.rolls = res.selected_roll_ids;
+            window._mDoneData.kgStart = Number(res.kg_start) || 0;
+        }
+        const rec = mMine.find(x => x.id === recordId);
+        if (rec) {
+            rec.selected_roll_ids = res.selected_roll_ids;
+            rec.kg_start = res.kg_start;
+        }
+        mCloseDoneModal();
+        mOpenDoneModal(recordId);
+    } catch (e) {
+        mToast(e.message || 'Lỗi khi thêm cây vải', false);
+    }
+}
+
+async function mRemoveRollGroup(groupId, rollId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi nhóm cắt?')) return;
+    const refRecord = window._mGDone && window._mGDone.records[0];
+    if (!refRecord) return;
+    try {
+        const res = await mApi('/api/cutting/records/' + refRecord.id + '/remove-roll', 'POST', { roll_id: rollId });
+        mToast('✅ Đã xóa cây vải khỏi nhóm!');
+        if (window._mGDone && window._mGDone.groupId === groupId) {
+            window._mGDone.rolls = res.selected_roll_ids;
+            window._mGDone.kgStart = Number(res.kg_start) || 0;
+        }
+        window._mGDone.records.forEach(r => {
+            const rec = mMine.find(x => x.id === r.id);
+            if (rec) {
+                rec.selected_roll_ids = res.selected_roll_ids;
+                rec.kg_start = res.kg_start;
+            }
+        });
+        mCloseGDone();
+        mOpenGroupDoneModal(groupId);
+    } catch (e) {
+        mToast(e.message || 'Lỗi khi xóa cây vải', false);
+    }
+}
+
+async function mShowAddRollGroup(groupId, materialName, colorName) {
+    const area = document.getElementById('_mAddRollAreaGroup');
+    if (!area) return;
+    area.style.display = 'block';
+    const select = document.getElementById('_mAddRollSelectGroup');
+    if (!select) return;
+    select.innerHTML = '<option value="">— Đang tải... —</option>';
+    try {
+        const res = await mApi('/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName));
+        const rolls = res.rolls || [];
+        const activeRolls = rolls.filter(r => !r.locked);
+        if (!activeRolls.length) {
+            select.innerHTML = '<option value="">❌ Không còn cây vải khả dụng</option>';
+            return;
+        }
+        let html = '<option value="">— Chọn cây vải để thêm —</option>';
+        activeRolls.forEach(r => {
+            html += `<option value="${r.id}">${r.label}</option>`;
+        });
+        select.innerHTML = html;
+    } catch (e) {
+        select.innerHTML = '<option value="">❌ Lỗi tải cây vải</option>';
+    }
+}
+
+async function mDoAddRollGroup(groupId) {
+    const select = document.getElementById('_mAddRollSelectGroup');
+    if (!select) return;
+    const rollId = Number(select.value);
+    if (!rollId) { mToast('Vui lòng chọn một cây vải', false); return; }
+    const refRecord = window._mGDone && window._mGDone.records[0];
+    if (!refRecord) return;
+    try {
+        const res = await mApi('/api/cutting/records/' + refRecord.id + '/add-roll', 'POST', { roll_id: rollId });
+        mToast('✅ Đã thêm cây vải vào nhóm!');
+        if (window._mGDone && window._mGDone.groupId === groupId) {
+            window._mGDone.rolls = res.selected_roll_ids;
+            window._mGDone.kgStart = Number(res.kg_start) || 0;
+        }
+        window._mGDone.records.forEach(r => {
+            const rec = mMine.find(x => x.id === r.id);
+            if (rec) {
+                rec.selected_roll_ids = res.selected_roll_ids;
+                rec.kg_start = res.kg_start;
+            }
+        });
+        mCloseGDone();
+        mOpenGroupDoneModal(groupId);
+    } catch (e) {
+        mToast(e.message || 'Lỗi khi thêm cây vải', false);
+    }
 }
 
 mInit();

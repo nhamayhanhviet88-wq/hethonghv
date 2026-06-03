@@ -976,6 +976,148 @@ module.exports = async function(fastify) {
         return { history: rows };
     });
 
+    // ========== ADD ROLL: Thêm cây vải vào đơn đang cắt ==========
+    fastify.post('/api/cutting/records/:id/add-roll', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const { roll_id } = request.body || {};
+        if (!roll_id) return reply.code(400).send({ error: 'Thiếu ID cây vải' });
+        const now = vnNow();
+
+        const rec = await db.get('SELECT * FROM cutting_records WHERE id = $1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (!rec.is_cutting) return reply.code(400).send({ error: 'Đơn chưa bắt đầu cắt, không thể thêm cây vải' });
+        if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong, không thể thêm cây vải' });
+
+        const roll = await db.get(`
+            SELECT r.id, r.roll_code, r.weight, r.is_returned, r.locked_by_cutting_id,
+                   m.name AS material_name, fc.color_name
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            WHERE r.id = $1
+        `, [roll_id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cây vải trong kho' });
+        if (roll.is_returned || Number(roll.weight) <= 0) return reply.code(400).send({ error: 'Cây vải không khả dụng (đã trả hoặc hết vải)' });
+        if (roll.locked_by_cutting_id) return reply.code(409).send({ error: 'Cây vải đã bị đơn khác chọn' });
+
+        // Option A: Only allow rolls with matching material and color
+        if (
+            (roll.material_name || '').trim().toLowerCase() !== (rec.material_name || '').trim().toLowerCase() ||
+            (roll.color_name || '').trim().toLowerCase() !== (rec.fabric_color || '').trim().toLowerCase()
+        ) {
+            return reply.code(400).send({ error: 'Cây vải không đúng chất liệu hoặc màu sắc của đơn gốc' });
+        }
+
+        let targetIds = [id];
+        let lockId = id;
+        if (rec.multi_cut_group_id) {
+            const groupMembers = await db.all('SELECT id FROM cutting_records WHERE multi_cut_group_id = $1', [rec.multi_cut_group_id]);
+            if (groupMembers.length > 0) {
+                targetIds = groupMembers.map(m => m.id);
+                lockId = groupMembers[0].id;
+            }
+        }
+
+        const lockResult = await db.run(
+            `UPDATE kv_rolls SET locked_by_cutting_id = $1 WHERE id = $2 AND locked_by_cutting_id IS NULL`,
+            [lockId, roll_id]
+        );
+        if (lockResult.changes === 0) {
+            return reply.code(409).send({ error: 'Cây vải đã bị đơn khác chọn' });
+        }
+
+        let snapshot = [];
+        try {
+            snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []);
+        } catch (e) {}
+
+        const newRollSnapshot = {
+            roll_id: roll.id,
+            weight: Number(roll.weight),
+            roll_code: roll.roll_code,
+            label: (roll.material_name || '') + ' - ' + (roll.color_name || '') + ' - ' + Number(roll.weight) + 'kg'
+        };
+        snapshot.push(newRollSnapshot);
+        const newKgStart = Number(rec.kg_start) + Number(roll.weight);
+
+        await db.run(
+            `UPDATE cutting_records SET selected_roll_ids = $1, kg_start = $2, updated_at = $3 WHERE id = ANY($4)`,
+            [JSON.stringify(snapshot), newKgStart, now, targetIds]
+        );
+
+        const historyDetail = `➕ Thêm cây vải khác: ${newRollSnapshot.label}`;
+        for (const tId of targetIds) {
+            await db.run(
+                `INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [tId, 'add_roll', historyDetail, request.user.id, now]
+            );
+        }
+
+        return { success: true, selected_roll_ids: snapshot, kg_start: newKgStart };
+    });
+
+    // ========== REMOVE ROLL: Xóa cây vải khỏi đơn đang cắt ==========
+    fastify.post('/api/cutting/records/:id/remove-roll', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const { roll_id } = request.body || {};
+        if (!roll_id) return reply.code(400).send({ error: 'Thiếu ID cây vải' });
+        const now = vnNow();
+
+        const rec = await db.get('SELECT * FROM cutting_records WHERE id = $1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (!rec.is_cutting) return reply.code(400).send({ error: 'Đơn chưa bắt đầu cắt' });
+        if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong, không thể xóa cây vải' });
+
+        let snapshot = [];
+        try {
+            snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []);
+        } catch (e) {}
+
+        const idx = snapshot.findIndex(r => r.roll_id === roll_id);
+        if (idx === -1) return reply.code(400).send({ error: 'Cây vải không thuộc đơn đang cắt này' });
+
+        // Option A constraint check: Must keep at least 1 roll
+        if (snapshot.length <= 1) {
+            return reply.code(400).send({ error: 'Đơn cắt phải có ít nhất 1 cây vải, không thể xóa cây vải duy nhất.' });
+        }
+
+        let targetIds = [id];
+        let lockId = id;
+        if (rec.multi_cut_group_id) {
+            const groupMembers = await db.all('SELECT id FROM cutting_records WHERE multi_cut_group_id = $1', [rec.multi_cut_group_id]);
+            if (groupMembers.length > 0) {
+                targetIds = groupMembers.map(m => m.id);
+                lockId = groupMembers[0].id;
+            }
+        }
+
+        const removedRoll = snapshot[idx];
+        await db.run(
+            `UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE id = $1 AND locked_by_cutting_id = $2`,
+            [roll_id, lockId]
+        );
+
+        snapshot.splice(idx, 1);
+        const newKgStart = Math.max(0, Number(rec.kg_start) - Number(removedRoll.weight));
+
+        await db.run(
+            `UPDATE cutting_records SET selected_roll_ids = $1, kg_start = $2, updated_at = $3 WHERE id = ANY($4)`,
+            [JSON.stringify(snapshot), newKgStart, now, targetIds]
+        );
+
+        const historyDetail = `🗑️ Xóa cây vải: ${removedRoll.roll_code || removedRoll.roll_id} (${removedRoll.weight}kg)`;
+        for (const tId of targetIds) {
+            await db.run(
+                `INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [tId, 'remove_roll', historyDetail, request.user.id, now]
+            );
+        }
+
+        return { success: true, selected_roll_ids: snapshot, kg_start: newKgStart };
+    });
+
     // ========== AVAILABLE ROLLS: Cây vải khả dụng theo chất liệu + màu ==========
     fastify.get('/api/cutting/available-rolls', { preHandler: [authenticate] }, async (request, reply) => {
         const { material_name, color_name } = request.query;
