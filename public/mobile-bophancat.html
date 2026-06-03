@@ -111,6 +111,19 @@
 <script>
 let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[];
 
+function mFmtKg(val) {
+    if (val === null || val === undefined || val === '' || val === '—') return '—';
+    var str = String(val).replace(',', '.');
+    var num = Number(str);
+    if (isNaN(num)) return val;
+    var parts = str.split('.');
+    if (parts.length > 1 && parts[1].length > 0) {
+        return parts[0] + '.' + parts[1].substring(0, 1);
+    }
+    return parts[0];
+}
+
+
 function mConfirm(msg, onOk, onCancel){
     const d=document.createElement('div');
     d.className='mm-overlay';
@@ -471,8 +484,8 @@ function mRenderMine(){
         }
 
         const isGroupInProgress = r.multi_cut_group_id && groupNotDoneIds.has(r.multi_cut_group_id);
-        const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' kg' : '—');
-        const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? Number(r.kg_end).toFixed(2) + ' kg' : '—');
+        const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? mFmtKg(r.kg_cut) + ' kg' : '—');
+        const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? mFmtKg(r.kg_end) + ' kg' : '—');
         const ratioVal = isGroupInProgress ? 'Chờ nhóm' : (r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—');
         const cutQtyVal = r.cut_quantity || '—';
 
@@ -501,7 +514,7 @@ function mRenderMine(){
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
-            +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+r.kg_start+'</span></div>':'')
+            +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+mFmtKg(r.kg_start)+'</span></div>':'')
             +metricsHtml
             +sharedHtml
             +actionHtml
@@ -516,8 +529,8 @@ function mRenderHist(){
         const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         
-        const kgCutVal = r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' kg' : '—';
-        const kgEndVal = r.kg_end ? Number(r.kg_end).toFixed(2) + ' kg' : '—';
+        const kgCutVal = r.kg_cut ? mFmtKg(r.kg_cut) + ' kg' : '—';
+        const kgEndVal = r.kg_end ? mFmtKg(r.kg_end) + ' kg' : '—';
         const ratioVal = r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—';
 
             let rc = '#a5b4fc';
@@ -675,7 +688,7 @@ function mRecalcKg(){
     const cbs=document.querySelectorAll('._mRollCb:checked');
     let t=0;cbs.forEach(cb=>{t+=parseFloat(cb.dataset.weight)||0;});
     const el=document.getElementById('_mKgDisp');
-    if(el) el.textContent=t.toFixed(2)+' kg';
+    if(el) el.textContent=mFmtKg(t)+' kg';
 }
 
 function mCloseCutModal(){
@@ -741,13 +754,13 @@ async function mOpenDetail(recordId){
         mMine.forEach(x => { if (x.multi_cut_group_id && !x.is_cut_done) groupNotDoneIds.add(x.multi_cut_group_id); });
         const isGroupInProgress = r.multi_cut_group_id && groupNotDoneIds.has(r.multi_cut_group_id);
 
-        const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? Number(r.kg_cut).toFixed(2) + ' ' + (r.fabric_unit || 'kg') : '—');
-        const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? Number(r.kg_end).toFixed(2) + ' ' + (r.fabric_unit || 'kg') : '—');
+        const kgCutVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_cut ? mFmtKg(r.kg_cut) + ' ' + (r.fabric_unit || 'kg') : '—');
+        const kgEndVal = isGroupInProgress ? 'Chờ nhóm' : (r.kg_end ? mFmtKg(r.kg_end) + ' ' + (r.fabric_unit || 'kg') : '—');
         const ratioVal = isGroupInProgress ? 'Chờ nhóm' : (r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—');
 
         // Kg stats grid
         h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-        h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+(r.kg_start||'—')+'</div></div>';
+        h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||'—')+'</div></div>';
         h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">⚖️ KG CUỐI</div><div style="font-size:20px;font-weight:900;color:#ef4444">'+kgEndVal+'</div></div>';
         h+='<div style="background:rgba(16,185,129,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#6ee7b7">✂️ KG CẮT</div><div style="font-size:20px;font-weight:900;color:#10b981">'+kgCutVal+'</div></div>';
         h+='<div style="background:rgba(96,165,250,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#93c5fd">📦 SL CẮT</div><div style="font-size:20px;font-weight:900;color:#60a5fa">'+(r.cut_quantity||'—')+'</div></div>';
@@ -842,8 +855,8 @@ function mOpenDoneModal(recordId){
     h+='</div></div>';
     // Stats
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+(r.kg_start||0)+'</div></div>';
-    h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+(r.kg_start||0)+'</div></div></div>';
+    h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||0)+'</div></div>';
+    h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+mFmtKg(r.kg_start||0)+'</div></div></div>';
     h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
     h+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="mm-val" style="font-size:16px;font-weight:700;color:#fbbf24">' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
     // Reason+Image warning container
@@ -893,7 +906,7 @@ function mDoneAllCut(){
 function mDoneRecalc(){
     const d=window._mDoneData;if(!d)return;
     let kgR=0;document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
-    const kgCut=d.kgStart-kgR;const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=kgCut.toFixed(2);
+    const kgCut=d.kgStart-kgR;const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=mFmtKg(kgCut);
     const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
     const ratio=kgCut>0?Math.round((qty/kgCut)*100)/100:0;
     const re=document.getElementById('_mDoneRatio');if(re){re.textContent=ratio?ratio.toFixed(2)+' sp/'+d.unit:'—';if(d.targetRatio > 0){re.style.color=ratio>=d.targetRatio?'#10b981':'#ef4444';}else{re.style.color='#60a5fa';}}
@@ -1079,8 +1092,8 @@ function mOpenGroupDoneModal(groupId){
     h+='</div></div>';
     // Stats
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+kgStart+'</div></div>';
-    h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ TỔNG KG CẮT</div><div id="_mGKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+kgStart+'</div></div></div>';
+    h+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+mFmtKg(kgStart)+'</div></div>';
+    h+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ TỔNG KG CẮT</div><div id="_mGKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+mFmtKg(kgStart)+'</div></div></div>';
     // Distribution preview
     h+='<div id="_mGDistrib" style="margin-top:8px"></div>';
     // Warning Ratio Reason Container Mobile Group
@@ -1140,7 +1153,7 @@ function mGDoneRecalc(){
     const d=window._mGDone;if(!d)return;
     let kgR=0;document.querySelectorAll('._mGRollCb:checked').forEach(cb=>{const k=document.getElementById('_mGRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
     const totalKgCut=d.kgStart-kgR;
-    const el=document.getElementById('_mGKgCut');if(el)el.textContent=totalKgCut.toFixed(2);
+    const el=document.getElementById('_mGKgCut');if(el)el.textContent=mFmtKg(totalKgCut);
     // Calculate distribution
     let totalQty=0;const qtys=[];
     d.records.forEach(r=>{const inp=document.getElementById('_mGQ_'+r.id);const q=inp?parseInt(inp.value)||0:0;qtys.push({id:r.id,qty:q,name:r.product_name||r.order_code});totalQty+=q;});
@@ -1154,7 +1167,7 @@ function mGDoneRecalc(){
         }
         dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(16,185,129,0.1);border:1.5px solid rgba(16,185,129,0.25);border-radius:10px">';
         dh+='<span style="font-size:12px;font-weight:800;color:#e2e8f0">📊 TỈ LỆ CHUNG</span>';
-        dh+='<span style="font-size:11px;color:#94a3b8">'+totalQty+' sp / '+totalKgCut.toFixed(1)+' '+d.unit+'</span>';
+        dh+='<span style="font-size:11px;color:#94a3b8">'+totalQty+' sp / '+mFmtKg(totalKgCut)+' '+d.unit+'</span>';
         dh+='<span style="font-size:20px;font-weight:900;color:'+rc+'">'+combinedRatio.toFixed(2)+' sp/'+d.unit+'</span></div>';
         dh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;margin-top:6px;"><span style="font-size:12px;font-weight:800;color:#e2e8f0">⚖️ Định Lượng Cắt Yêu Cầu</span><span style="font-size:15px;font-weight:700;color:#fbbf24">' + (d.targetRatio || 0) + ' sp/' + d.unit + '</span></div>';
     }
@@ -1365,7 +1378,7 @@ function mMCRender(){
         h+='<div class="mm-row"><span class="mm-lbl">🧵 Chất liệu</span><span class="mm-val" style="color:#f97316">'+_mm.selMat+'</span></div>';
         h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+_mm.selColor+'</span></div>';
         h+='<div class="mm-row"><span class="mm-lbl">📦 Cây vải</span><span class="mm-val" style="color:#f97316">'+_mm.selRolls.length+' cây</span></div>';
-        h+='<div class="mm-row"><span class="mm-lbl">⚖️ Kg đầu</span><span class="mm-val" style="color:#f97316;font-size:18px">'+tk.toFixed(2)+' kg</span></div>';
+        h+='<div class="m-row"><span class="m-lbl">⚖️ Kg đầu</span><span class="m-val" style="color:#f97316;font-size:18px">'+mFmtKg(tk)+' kg</span></div>';
         h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:8px 0;padding-top:8px"><div style="font-size:10px;font-weight:700;color:#4ade80;margin-bottom:6px">📋 ĐƠN ('+so.length+') — sẽ tự nhận + cắt</div>';
         so.forEach(o=>{h+='<div style="padding:6px 10px;border:1px solid rgba(34,197,94,0.2);border-radius:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:#e2e8f0">'+o.order_code+(o.description?' — '+o.description:'')+' · SL: '+(o.quantity||'—')+'</div>';});
         h+='</div>';bd.innerHTML=h;
@@ -1374,7 +1387,7 @@ function mMCRender(){
 }
 function mMCMatCh(){var s=document.getElementById('_mmMatS');_mm.selMat=s?s.value:'';_mm.selColor='';mMCRender();}
 function mMCColCh(){var s=document.getElementById('_mmColS');_mm.selColor=s?s.value:'';}
-function mMCRollCh(){var cbs=document.querySelectorAll('._mmRCb:checked');var ids=[],kg=0;cbs.forEach(cb=>{ids.push(Number(cb.value));kg+=parseFloat(cb.dataset.weight)||0;});_mm.selRolls=ids;var el=document.getElementById('_mmKgD');if(el)el.textContent=kg.toFixed(2)+' kg';}
+function mMCRollCh(){var cbs=document.querySelectorAll('._mmRCb:checked');var ids=[],kg=0;cbs.forEach(cb=>{ids.push(Number(cb.value));kg+=parseFloat(cb.dataset.weight)||0;});_mm.selRolls=ids;var el=document.getElementById('_mmKgD');if(el)el.textContent=mFmtKg(kg)+' kg';}
 function mMCOrdCh(){var cbs=document.querySelectorAll('._mmOCb:checked');var ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));_mm.selOrders=ids;}
 function mMCBack(){if(_mm.step>1){_mm.step--;mMCRender();}}
 async function mMCNext(){
