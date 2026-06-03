@@ -285,64 +285,7 @@ module.exports = async function(fastify) {
         }
 
         // Build query parts based on selected department filter
-        const selectCutting = `
-            SELECT 
-                'cutting' AS dept,
-                cr.id,
-                COALESCE(cr.cut_date, cr.created_at::date) AS work_date,
-                cr.cutter_id AS worker_id,
-                NULL::integer AS contractor_id,
-                u.full_name AS worker_name,
-                NULL::text AS contractor_name,
-                o.order_code,
-                cr.cut_quantity AS quantity,
-                cr.product_name,
-                COALESCE(cr.unit_price, 0) AS unit_price,
-                COALESCE(cr.salary, 0) AS salary,
-                cr.salary_approved AS is_approved,
-                cr.salary_approved_at AS approved_at,
-                u_app.full_name AS approved_by_name,
-                lh.details AS last_update_detail,
-                lh.performed_at AS last_update_at,
-                lh_u.full_name AS last_update_by,
-                cr.created_at
-            FROM cutting_records cr
-            LEFT JOIN users u ON cr.cutter_id = u.id
-            LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
-            LEFT JOIN users u_app ON cr.salary_approved_by = u_app.id
-            LEFT JOIN LATERAL (
-                SELECT h.details, h.performed_at, h.performed_by 
-                FROM cutting_history h WHERE h.cutting_id = cr.id 
-                ORDER BY h.performed_at DESC LIMIT 1
-            ) lh ON true
-            LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
-            WHERE ${whereCutting}
-        `;
-
-        const selectPressing = `
-            SELECT 
-                'pressing' AS dept,
-                pr.id,
-                COALESCE(pr.press_date, pr.created_at::date) AS work_date,
-                pr.presser_id AS worker_id,
-                NULL::integer AS contractor_id,
-                u.full_name AS worker_name,
-                NULL::text AS contractor_name,
-                o.order_code,
-                pr.press_quantity AS quantity,
-                pr.product_name,
-                COALESCE(pr.unit_price, 0) AS unit_price,
-                COALESCE(pr.salary, 0) AS salary,
-                pr.salary_approved AS is_approved,
-                pr.salary_approved_at AS approved_at,
-                u_app ON pr.salary_approved_by = u_app.id
-                -- Wait! In pressing_records, the approved_by column in database is salary_approved_by
-                -- Let's make sure it's LEFT JOIN users u_app ON pr.salary_approved_by = u_app.id
-            FROM pressing_records pr
-            -- Wait, let's fix the select query syntax. Let's rewrite it cleanly:
-        `;
-
-        // Let's write the complete query strings
+        // Build query parts based on selected department filter
         let query = '';
         const queryParts = [];
 
@@ -357,6 +300,7 @@ module.exports = async function(fastify) {
                     u.full_name AS worker_name,
                     NULL::text AS contractor_name,
                     o.order_code,
+                    COALESCE(cr.order_quantity, 0) AS order_quantity,
                     cr.cut_quantity AS quantity,
                     cr.product_name,
                     COALESCE(cr.unit_price, 0) AS unit_price,
@@ -393,6 +337,7 @@ module.exports = async function(fastify) {
                     u.full_name AS worker_name,
                     NULL::text AS contractor_name,
                     o.order_code,
+                    COALESCE(pr.order_quantity, 0) AS order_quantity,
                     pr.press_quantity AS quantity,
                     pr.product_name,
                     COALESCE(pr.unit_price, 0) AS unit_price,
@@ -429,6 +374,7 @@ module.exports = async function(fastify) {
                     u.full_name AS worker_name,
                     c.name AS contractor_name,
                     o.order_code,
+                    COALESCE(sr.quantity, 0) AS order_quantity,
                     sr.quantity AS quantity,
                     sr.product_name,
                     COALESCE(CASE WHEN sr.checked_price > 0 THEN sr.checked_price ELSE sr.base_price END, 0) AS unit_price,
