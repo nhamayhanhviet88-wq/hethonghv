@@ -1138,14 +1138,14 @@ function _dhtAddItemFree(editIdx) {
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
 
     // Qty/price rows
-    var qps = existing.quantities || [{qty:0, price:0}];
+    var qps = existing.quantities || [{qty: '', price: ''}];
     var qpHTML = '';
     for (var qi = 0; qi < qps.length; qi++) {
         var n = qi + 1;
         var rm = qi > 0 ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
         qpHTML += '<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
-            + '<div><label style="font-size:10px;font-weight:700">SL' + n + ' *</label><input type="number" class="_pp_qty" value="' + (qps[qi].qty || 0) + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
-            + '<div><label style="font-size:10px;font-weight:700">Giá ' + n + ' *</label><input type="number" class="_pp_price" value="' + (qps[qi].price || 0) + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+            + '<div><label style="font-size:10px;font-weight:700">SL' + n + ' *</label><input type="number" class="_pp_qty" value="' + (qps[qi].qty || '') + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+            + '<div><label style="font-size:10px;font-weight:700">Giá ' + n + ' *</label><input type="number" class="_pp_price" value="' + (qps[qi].price || '') + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
             + rm + '</div>';
     }
 
@@ -1178,8 +1178,8 @@ function _ppAddQtyFree() {
     var row = document.createElement('div');
     row.className = '_ppQR';
     row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
-    row.innerHTML = '<div><label style="font-size:10px;font-weight:700">SL' + count + ' *</label><input type="number" class="_pp_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
-        + '<div><label style="font-size:10px;font-weight:700">Giá ' + count + ' *</label><input type="number" class="_pp_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+    row.innerHTML = '<div><label style="font-size:10px;font-weight:700">SL' + count + ' *</label><input type="number" class="_pp_qty" value="" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+        + '<div><label style="font-size:10px;font-weight:700">Giá ' + count + ' *</label><input type="number" class="_pp_price" value="" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
         + '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
     rows.appendChild(row);
 }
@@ -1249,8 +1249,8 @@ async function _dhtAddItem(editIdx) {
     window._ppSewItems = (existing.sewing_techniques || []).slice();
     var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
-    var qps=existing.quantities||[{qty:0,price:0}], qpHTML='';
-    for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
+    var qps=existing.quantities||[{qty:'',price:''}], qpHTML='';
+    for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
     var vatSel='<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
     var orderCode=_dhtCreate.orderCode||'???';
     var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'');
@@ -1514,7 +1514,7 @@ function _dhtAddQtyRowPP() {
     var n = c.querySelectorAll('._ppQR').length + 1;
     var r = document.createElement('div'); r.className='_ppQR';
     r.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
-    r.innerHTML='<div><label style="font-size:10px;font-weight:700">SL'+n+'</label><input type="number" class="_pp_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+'</label><input type="number" class="_pp_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
+    r.innerHTML='<div><label style="font-size:10px;font-weight:700">SL'+n+'</label><input type="number" class="_pp_qty" value="" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+'</label><input type="number" class="_pp_price" value="" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
     c.appendChild(r);
 }
 
