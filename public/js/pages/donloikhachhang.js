@@ -163,9 +163,9 @@ function _ceoRenderTable() {
             var fmtMoney = function(v) { return Number(v||0) > 0 ? Number(v).toLocaleString('vi-VN') : ''; };
 
             // Đơn Lỗi type badge
-            var errorType = item.dht_order_id ? 'Khách Hàng' : 'Nội Bộ';
-            var etColor = item.dht_order_id ? '#dc2626' : '#2563eb';
-            var etBg = item.dht_order_id ? '#fee2e2' : '#dbeafe';
+            var errorType = item.error_type || (item.dht_order_id ? 'Khách Hàng' : 'Nội Bộ');
+            var etColor = (errorType === 'Nội Bộ') ? '#7c3aed' : '#dc2626';
+            var etBg = (errorType === 'Nội Bộ') ? '#f3e8ff' : '#fee2e2';
 
             // Video column
             var videoHtml = item.error_video ? '<a href="' + item.error_video + '" target="_blank" style="color:#2563eb;font-weight:700;font-size:11px" title="Xem video">🎬 Xem</a>' : '<span style="color:#d1d5db">—</span>';
@@ -203,9 +203,9 @@ async function _ceoViewDetail(id) {
     var _canEdit=currentUser&&(currentUser.role==='giam_doc'||currentUser.role==='quan_ly_cap_cao');
     var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'—';
     var fmtMoney=function(v){return Number(v||0)>0?Number(v).toLocaleString('vi-VN')+'đ':'—';};
-    var errorType=item.dht_order_id?'Khách Hàng':'Nội Bộ';
-    var etColor=item.dht_order_id?'#dc2626':'#2563eb';
-    var etBg=item.dht_order_id?'#fee2e2':'#dbeafe';
+    var errorType=item.error_type||(item.dht_order_id?'Khách Hàng':'Nội Bộ');
+    var etColor=(errorType==='Nội Bộ')?'#7c3aed':'#dc2626';
+    var etBg=(errorType==='Nội Bộ')?'#f3e8ff':'#fee2e2';
     var imgs=[];try{imgs=typeof item.error_images==='string'?JSON.parse(item.error_images||'[]'):(item.error_images||[]);}catch(e){}
     var imgHtml=imgs.length?imgs.map(function(url){return '<img src="'+url+'" style="width:100px;height:100px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb" onclick="_ceoViewImage(\''+url+'\')">';}).join(''):'<span style="color:#9ca3af;font-style:italic">Không có hình ảnh</span>';
     var videoHtml=item.error_video?'<video controls style="max-width:100%;max-height:250px;border-radius:8px;border:2px solid #e5e7eb"><source src="'+item.error_video+'"></video>':'<span style="color:#9ca3af;font-style:italic">Không có video</span>';

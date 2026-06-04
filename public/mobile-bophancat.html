@@ -530,6 +530,10 @@ function mRenderMine(){
             ? '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(139,92,246,0.15);border:1.5px solid rgba(139,92,246,0.35);color:#c084fc;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">🫧 Đã báo giặt</button>'
             : '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⬜ Báo giặt</button>';
         const washRowHtml = '<div class="m-row"><span class="m-lbl">🫧 Giặt vải</span><span class="m-val">'+washBtnHtml+'</span></div>';
+        const errBtnHtml = r.error_reported
+            ? '<button onclick="mOpenErrorModal('+r.id+')" style="background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">🚨 Đã báo lỗi</button>'
+            : '<button onclick="mOpenErrorModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⚠️ Báo lỗi</button>';
+        const errRowHtml = '<div class="m-row"><span class="m-lbl">⚠️ Báo lỗi</span><span class="m-val">'+errBtnHtml+'</span></div>';
         
         // Cut/Done button visibility
         let actionHtml='';
@@ -594,7 +598,7 @@ function mRenderMine(){
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
-            +washRowHtml
+            +washRowHtml+errRowHtml
             +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+mFmtKg(r.kg_start)+'</span></div>':'')
             +metricsHtml
             +sharedHtml
@@ -940,6 +944,153 @@ async function mUndoWash(recordId) {
         await mLoadAll();
     } catch(e) {
         mToast(e.message || 'Lỗi', false);
+    } finally {
+        window._mSubmitBusy = false;
+    }
+}
+
+async function mOpenErrorModal(recordId) {
+    if (window._mBusy) return;
+    window._mBusy = true;
+    let rec = mMine.find(r => r.id === recordId);
+    if (!rec) rec = mAllRecords.find(r => r.id === recordId);
+    if (!rec) { mToast('Không tìm thấy record', false); window._mBusy = false; return; }
+
+    try {
+        const updated = await mApi('/api/cutting/records/' + recordId);
+        if (updated) {
+            rec = updated;
+            let idx = mMine.findIndex(r => r.id === recordId);
+            if (idx >= 0) mMine[idx] = updated;
+            idx = mAllRecords.findIndex(r => r.id === recordId);
+            if (idx >= 0) mAllRecords[idx] = updated;
+        }
+    } catch(e) {
+        console.error('Error fetching record detail:', e);
+    }
+
+    try {
+        const ce = await mApi('/api/common-errors-tpl');
+        const commonErrors = ce.items || [];
+
+        const old = document.getElementById('_mmErrorModal'); if (old) old.remove();
+
+        const cutterName = mUser ? mUser.full_name : 'Thợ cắt';
+        const reporterName = 'Người Báo Lỗi: Bộ Phận Cắt - ' + cutterName;
+
+        let h = '<div class="mm-overlay" id="_mmErrorModal" onclick="if(event.target===this)mCloseErrorModal()">';
+        h += '<div class="mm-sheet" style="max-height:85vh;overflow-y:auto">';
+        h += '<div class="mm-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea)"><div class="mm-icon">🚨</div><div><div class="mm-title">BÁO ĐƠN LỖI</div><div class="mm-sub">' + (rec.order_code || '') + '</div></div></div>';
+        h += '<div class="mm-body" style="font-family:Inter,sans-serif">';
+
+        h += '<div class="mm-row"><span class="mm-lbl">📋 Mã Đơn</span><span class="mm-val" style="font-weight:700">' + (rec.order_code || '—') + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">👤 Khách Hàng</span><span class="mm-val" style="font-weight:700">' + (rec.customer_name || '—') + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">📦 SL Sản Xuất</span><span class="mm-val" style="font-weight:700;color:#10b981">' + (rec.order_quantity || 0) + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">✍️ Người Báo Lỗi</span><span class="mm-val" style="font-weight:700;color:#c084fc">' + reporterName + '</span></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+        h += '<select id="mmE_common" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;font-weight:700;color:#e2e8f0;background:#1e1b4b">';
+        h += '<option value="">-- Chọn lỗi thường gặp --</option>';
+        commonErrors.forEach(ce => {
+            h += '<option value="' + ce.name + '">' + ce.name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#f87171">*</span></label>';
+        h += '<input type="number" id="mmE_qty" min="1" max="' + (rec.order_quantity || 9999) + '" value="1" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b">';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#f87171">*</span></label>';
+        h += '<textarea id="mmE_content" rows="3" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa</label>';
+        h += '<input type="file" id="mmE_images" multiple accept="image/*" style="font-size:12px;width:100%;color:#e2e8f0">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="mm-actions">';
+        h += '<button class="mm-btn mm-btn-no" onclick="mCloseErrorModal()">Hủy</button>';
+        h += '<button class="mm-btn mm-btn-ok" id="_mmErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="mSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+        requestAnimationFrame(() => document.getElementById('_mmErrorModal').classList.add('show'));
+
+        window._mBusy = false;
+    } catch(e) {
+        mToast('Lỗi: ' + e.message, false);
+        window._mBusy = false;
+    }
+}
+
+function mCloseErrorModal() {
+    const m = document.getElementById('_mmErrorModal');
+    if (m) { m.classList.remove('show'); setTimeout(() => m.remove(), 300); }
+}
+
+async function mSubmitError(recordId) {
+    if (window._mSubmitBusy) return;
+
+    const qtyEl = document.getElementById('mmE_qty');
+    const qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { mToast('⚠️ Vui lòng nhập số lượng lỗi hợp lệ!', false); return; }
+
+    const contentEl = document.getElementById('mmE_content');
+    const content = contentEl.value.trim();
+    if (!content) { mToast('⚠️ Vui lòng nhập chi tiết nội dung lỗi!', false); return; }
+
+    window._mSubmitBusy = true;
+    const btn = document.getElementById('_mmErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        const updated = await mApi('/api/cutting/records/' + recordId);
+        if (!updated) throw new Error('Không tìm thấy record gốc');
+
+        let today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            const n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+        }
+
+        const cutterName = mUser ? mUser.full_name : 'Thợ cắt';
+        const reporterName = 'Người Báo Lỗi: Bộ Phận Cắt - ' + cutterName;
+
+        const body = {
+            report_date: today,
+            common_error_type: document.getElementById('mmE_common').value,
+            order_code: updated.order_code,
+            cskh_name: reporterName,
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: updated.dht_order_id,
+            customer_name: updated.customer_name,
+            production_quantity: updated.order_quantity,
+            error_department: 'Cắt',
+            error_type: 'Nội Bộ'
+        };
+
+        const result = await mApi('/api/customer-errors', 'POST', body);
+        if (result.error) throw new Error(result.error);
+
+        const fileInput = document.getElementById('mmE_images');
+        if (fileInput && fileInput.files.length > 0 && result.id) {
+            const fd = new FormData();
+            for (let i = 0; i < fileInput.files.length; i++) fd.append('file_' + i, fileInput.files[i]);
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        await mApi('/api/cutting/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+        mToast('✅ Đã báo đơn lỗi thành công!', true);
+        mCloseErrorModal();
+        await mLoadAll();
+    } catch(e) {
+        mToast('Lỗi: ' + e.message, false);
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
     } finally {
         window._mSubmitBusy = false;
     }

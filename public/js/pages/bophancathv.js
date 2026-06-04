@@ -443,10 +443,139 @@ async function _bpcToggleAction(id, action) {
     }
 }
 
-function _bpcReportError(id) {
-    if (typeof navigate === 'function') {
-        navigate('don-loi-khach-hang');
-        showToast('📋 Đã chuyển sang Đơn Lỗi — tạo báo cáo lỗi nội bộ');
+async function _bpcReportError(recordId) {
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+
+    try {
+        var res = await apiCall('/api/cutting/records/' + recordId);
+        var r = res.record;
+        if (!r) { showToast('Không tìm thấy đơn cắt', 'error'); window._bpcBusy = false; return; }
+
+        var ce = await apiCall('/api/common-errors-tpl');
+        var commonErrors = ce.items || [];
+
+        var old = document.getElementById('_bpcErrorModal'); if (old) old.remove();
+
+        var cutterName = window._currentUser ? window._currentUser.full_name : 'Thợ cắt';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận Cắt - ' + cutterName;
+
+        var h = '<div class="bpc-modal-overlay" id="_bpcErrorModal" onclick="if(event.target===this)_bpcCloseErrorModal()">';
+        h += '<div class="bpc-modal" style="width:520px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea)"><div class="m-icon">🚨</div><div><div class="m-title">BÁO ĐƠN LỖI</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
+
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Mã Đơn</span><span class="bpc-modal-val" style="font-weight:700">' + (r.order_code || '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Khách Hàng</span><span class="bpc-modal-val" style="font-weight:700">' + (r.customer_name || '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + (r.order_quantity || 0) + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpc-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+        h += '<select id="bpcE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#fff">';
+        h += '<option value="">-- Chọn lỗi thường gặp (nếu có) --</option>';
+        commonErrors.forEach(function(ce) {
+            h += '<option value="' + ce.name + '">' + ce.name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
+        h += '<input type="number" id="bpcE_qty" min="1" max="' + (r.order_quantity || 9999) + '" value="1" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626">';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
+        h += '<textarea id="bpcE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa</label>';
+        h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="font-size:11px;width:100%">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="bpc-modal-actions" style="margin-top:0">';
+        h += '<button class="bpc-modal-btn cancel" onclick="_bpcCloseErrorModal()">Hủy</button>';
+        h += '<button class="bpc-modal-btn confirm" id="_bpcErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="_bpcSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+        requestAnimationFrame(function() { document.getElementById('_bpcErrorModal').classList.add('show'); });
+
+        window._bpcBusy = false;
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        window._bpcBusy = false;
+    }
+}
+
+function _bpcCloseErrorModal() {
+    var m = document.getElementById('_bpcErrorModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+}
+
+async function _bpcSubmitError(recordId) {
+    if (window._bpcSubmitBusy) return;
+
+    var qtyEl = document.getElementById('bpcE_qty');
+    var qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { showToast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    var contentEl = document.getElementById('bpcE_content');
+    var content = contentEl.value.trim();
+    if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    window._bpcSubmitBusy = true;
+    var btn = document.getElementById('_bpcErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        var res = await apiCall('/api/cutting/records/' + recordId);
+        var r = res.record;
+        if (!r) { throw new Error('Không tìm thấy record gốc'); }
+
+        var today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            var n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+        }
+
+        var cutterName = window._currentUser ? window._currentUser.full_name : 'Thợ cắt';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận Cắt - ' + cutterName;
+
+        var body = {
+            report_date: today,
+            common_error_type: document.getElementById('bpcE_common').value,
+            order_code: r.order_code,
+            cskh_name: reporterName,
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: r.dht_order_id,
+            customer_name: r.customer_name,
+            production_quantity: r.order_quantity,
+            error_department: 'Cắt',
+            error_type: 'Nội Bộ'
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { throw new Error(result.error); }
+
+        var fileInput = document.getElementById('bpcE_images');
+        if (fileInput && fileInput.files.length > 0 && result.id) {
+            var fd = new FormData();
+            for (var i = 0; i < fileInput.files.length; i++) fd.append('file_' + i, fileInput.files[i]);
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+        showToast('✅ Đã báo đơn lỗi thành công!');
+        _bpcCloseErrorModal();
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._bpcSubmitBusy = false;
     }
 }
 

@@ -137,8 +137,8 @@ async function routes(fastify) {
                 violator_name, production_cost, shipping_cost,
                 violation_month, penalty_month, violator_commitment,
                 fix_plan, common_error_type, dht_order_id,
-                customer_name, production_quantity, linh_vuc, created_by, error_department
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+                customer_name, production_quantity, linh_vuc, created_by, error_department, error_type
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING id
         `, [
             b.order_code || null,
@@ -161,7 +161,8 @@ async function routes(fastify) {
             Number(b.production_quantity) || 0,
             b.linh_vuc || null,
             userId,
-            b.error_department || null
+            b.error_department || null,
+            b.error_type || 'Khách Hàng'
         ]);
 
         // ★ Create audit log entry for DHT order history
