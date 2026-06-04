@@ -850,6 +850,13 @@ function _bpcOpenDoneModal(recordId) {
     var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#1e40af';
     var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✏️ SL Cắt <span style="color:#dc2626">*</span></span><span class="bpc-modal-val"><input id="_bpcDoneQty" type="number" min="1" max="' + (r.order_quantity||9999) + '" value="' + initialQty + '" ' + disAttr + ' oninput="_bpcDoneRecalc()" style="' + qtyStyle + '">' + siblingNote + '</span></div>';
+    h += '<div id="_bpcDoneCompensateArea" style="display:none;border-top:1.5px dashed #e2e8f0;margin:10px 0;padding-top:10px">';
+    h += '<div style="background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between">';
+    h += '<div><div style="font-size:11px;font-weight:800;color:#6b21a8">⚠️ CẮT THIẾU SỐ LƯỢNG</div><div style="font-size:10px;color:#8b5cf6">Bạn muốn xử lý phần thiếu như thế nào?</div></div>';
+    h += '<select id="_bpcDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid #d8b4fe;font-size:11px;font-weight:700;color:#6b21a8;background:#fff">';
+    h += '<option value="false">🔴 Chốt đơn (Không bù)</option>';
+    h += '<option value="true">🟡 Cắt bù sau (Tạo phiếu bù)</option>';
+    h += '</select></div></div>';
     // Rolls section
     h += '<div style="border-top:2px solid #e2e8f0;margin:10px 0;padding-top:10px">';
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -995,6 +1002,18 @@ function _bpcDoneRecalc() {
     var el = document.getElementById('_bpcDoneKgCut');
     if (el) el.textContent = _bpcFmtKg(kgCut);
     var qty = parseFloat(document.getElementById('_bpcDoneQty').value) || 0;
+    
+    // Show/hide compensation area based on qty
+    var cmpEl = document.getElementById('_bpcDoneCompensateArea');
+    if (cmpEl) {
+        var qtyInput = document.getElementById('_bpcDoneQty');
+        if (qty < d.orderQty && (!qtyInput || !qtyInput.readOnly)) {
+            cmpEl.style.display = 'block';
+        } else {
+            cmpEl.style.display = 'none';
+        }
+    }
+
     var ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
     var ratioEl = document.getElementById('_bpcDoneRatio');
     if (ratioEl) {
@@ -1062,7 +1081,8 @@ async function _bpcSubmitDone(recordId) {
     var kgCut = d.kgStart - kgRemain;
     var ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
 
-    var body = { action: 'cut_done', cut_quantity: qty, roll_remains: rollRemains };
+    var needCompensate = document.getElementById('_bpcDoneCompensateSelect') ? (document.getElementById('_bpcDoneCompensateSelect').value === 'true') : false;
+    var body = { action: 'cut_done', cut_quantity: qty, roll_remains: rollRemains, need_compensate: needCompensate };
     
     if (d.targetRatio > 0 && ratio < d.targetRatio) {
         var reason = document.getElementById('_bpcDoneReason');
@@ -1125,7 +1145,15 @@ function _bpcOpenGroupDoneModal(groupId) {
         var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed';
         var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + '</div>' : '';
         h += '<div style="display:flex;flex-direction:column;align-items:flex-end"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#64748b;font-weight:600">SL Cắt:</span>';
-        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + defaultQty + '" ' + disAttr + ' oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="' + qtyStyle + '"></div>' + siblingNote + '</div></div></div>';
+        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + defaultQty + '" ' + disAttr + ' oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="' + qtyStyle + '"></div>' + siblingNote;
+        h += '<div id="_bpcGroupCompensate_' + gr.id + '" style="display:none;margin-top:6px;padding-top:6px;width:100%;border-top:1px dashed #d8b4fe">';
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">';
+        h += '<span style="font-size:10px;font-weight:700;color:#6b21a8">⚠️ Cắt thiếu:</span>';
+        h += '<select id="_bpcGroupCompSelect_' + gr.id + '" style="padding:2px 6px;border-radius:4px;border:1.5px solid #d8b4fe;font-size:10px;font-weight:700;color:#6b21a8;background:#fff">';
+        h += '<option value="false">🔴 Chốt (Không bù)</option>';
+        h += '<option value="true">🟡 Cắt bù sau</option>';
+        h += '</select></div></div>';
+        h += '</div></div></div>';
     });
     h += '</div>';
     // Rolls
@@ -1250,7 +1278,24 @@ function _bpcGDoneRecalc() {
     var totalKgCut = d.kgStart - kgR;
     var el = document.getElementById('_bpcGKgCut'); if (el) el.textContent = _bpcFmtKg(totalKgCut);
     var totalQty = 0; var qtys = [];
-    d.records.forEach(function(r) { var inp = document.getElementById('_bpcGQ_' + r.id); var q = inp ? parseInt(inp.value) || 0 : 0; qtys.push({ id: r.id, qty: q, name: r.product_name || r.order_code }); totalQty += q; });
+    d.records.forEach(function(r) {
+        var inp = document.getElementById('_bpcGQ_' + r.id);
+        var q = inp ? parseInt(inp.value) || 0 : 0;
+        
+        // Show/hide group compensation area
+        var max = r.order_quantity || 0;
+        var comp = document.getElementById('_bpcGroupCompensate_' + r.id);
+        if (comp && inp) {
+            if (q < max && !inp.readOnly) {
+                comp.style.display = 'block';
+            } else {
+                comp.style.display = 'none';
+            }
+        }
+        
+        qtys.push({ id: r.id, qty: q, name: r.product_name || r.order_code });
+        totalQty += q;
+    });
     var dh = '';
     var combinedRatio = 0;
     if (totalKgCut > 0) {
@@ -1287,7 +1332,9 @@ async function _bpcSubmitGDone() {
         var r = d.records[i]; var inp = document.getElementById('_bpcGQ_' + r.id);
         var qty = inp ? parseInt(inp.value) : 0;
         if (!qty || qty <= 0) { showToast('Nhập SL Cắt cho tất cả đơn', 'error'); window._bpcBusy = false; return; }
-        items.push({ record_id: r.id, cut_quantity: qty });
+        var compSelect = document.getElementById('_bpcGroupCompSelect_' + r.id);
+        var needCompensate = compSelect ? (compSelect.value === 'true') : false;
+        items.push({ record_id: r.id, cut_quantity: qty, need_compensate: needCompensate });
         totalQty += qty;
     }
     var hasChecked = document.querySelectorAll('._bpcGRollCb:checked').length > 0;

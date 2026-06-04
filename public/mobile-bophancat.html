@@ -933,6 +933,13 @@ function mOpenDoneModal(recordId){
     const qtyStyle = hasSiblingQty ? 'width:70px;padding:8px;border:2px solid #4b5563;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#9ca3af;background:rgba(255,255,255,0.1);cursor:not-allowed' : 'width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)';
     const siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#f87171;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
     h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+initialQty+'" '+disAttr+' oninput="mDoneValidQty(this,'+(r.order_quantity||9999)+')" style="'+qtyStyle+'">'+siblingNote+'</span></div>';
+    h+='<div id="_mDoneCompensateArea" style="display:none;border-top:1.5px dashed rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
+    h+='<div style="background:rgba(124,58,237,0.1);border:1.5px solid rgba(167,139,250,0.3);border-radius:10px;padding:10px;display:flex;align-items:center;justify-content:space-between">';
+    h+='<div><div style="font-size:11px;font-weight:800;color:#c4b5fd">⚠️ CẮT THIẾU SỐ LƯỢNG</div><div style="font-size:9px;color:#a5b4fc">Bạn muốn xử lý phần thiếu như thế nào?</div></div>';
+    h+='<select id="_mDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid rgba(167,139,250,0.3);font-size:11px;font-weight:700;color:#c4b5fd;background:rgba(255,255,255,0.08)">';
+    h+='<option value="false" style="color:#000">🔴 Chốt đơn (Không bù)</option>';
+    h+='<option value="true" style="color:#000">🟡 Cắt bù sau</option>';
+    h+='</select></div></div>';
     // Rolls
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -1017,6 +1024,18 @@ function mDoneRecalc(){
     let kgR=0;document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
     const kgCut=d.kgStart-kgR;const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=mFmtKg(kgCut);
     const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
+    
+    // Show/hide compensation area based on qty
+    const cmpEl=document.getElementById('_mDoneCompensateArea');
+    if (cmpEl) {
+        const qtyInput=document.getElementById('_mDoneQty');
+        if (qty < d.orderQty && (!qtyInput || !qtyInput.readOnly)) {
+            cmpEl.style.display = 'block';
+        } else {
+            cmpEl.style.display = 'none';
+        }
+    }
+
     const ratio=kgCut>0?Math.round((qty/kgCut)*100)/100:0;
     const re=document.getElementById('_mDoneRatio');if(re){re.textContent=ratio?ratio.toFixed(2)+' sp/'+d.unit:'—';if(d.targetRatio > 0){re.style.color=ratio>=d.targetRatio?'#10b981':'#ef4444';}else{re.style.color='#60a5fa';}}
     
@@ -1112,9 +1131,11 @@ async function mSubmitDone(recordId){
         }
     }
 
-    const uc=d.rolls.length-rollRemains.length;
+    const needCompSelect = document.getElementById('_mDoneCompensateSelect');
+    const needCompensate = needCompSelect ? (needCompSelect.value === 'true') : false;
+
     const proceed=async()=>{
-        const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains};
+        const body={action:'cut_done',cut_quantity:qty,roll_remains:rollRemains,need_compensate:needCompensate};
         if (d.targetRatio > 0 && ratio < d.targetRatio) {
             const reason = document.getElementById('_mDoneReason');
             body.ratio_reason = reason.value.trim();
@@ -1180,7 +1201,15 @@ function mOpenGroupDoneModal(groupId){
         const qtyStyle = hasSiblingQty ? 'width:65px;padding:7px;border:2px solid #4b5563;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#9ca3af;background:rgba(255,255,255,0.1);cursor:not-allowed' : 'width:65px;padding:7px;border:2px solid #8b5cf6;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)';
         const siblingNote = hasSiblingQty ? '<div style="font-size:9px;color:#fca5a5;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + '</div>' : '';
         h+='<div style="display:flex;flex-direction:column;align-items:flex-end"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;font-weight:600">SL Cắt:</span>';
-        h+='<input id="_mGQ_'+gr.id+'" type="number" inputmode="numeric" min="1" max="'+(gr.order_quantity||9999)+'" value="'+defaultQty+'" '+disAttr+' oninput="mGDoneValidQty(this,'+gr.order_quantity+')" style="'+qtyStyle+'"></div>'+siblingNote+'</div></div></div>';
+        h+='<input id="_mGQ_'+gr.id+'" type="number" inputmode="numeric" min="1" max="'+(gr.order_quantity||9999)+'" value="'+defaultQty+'" '+disAttr+' oninput="mGDoneValidQty(this,'+gr.order_quantity+')" style="'+qtyStyle+'"></div>'+siblingNote;
+        h+='<div id="_mGroupCompensate_'+gr.id+'" style="display:none;margin-top:6px;padding-top:6px;width:100%;border-top:1px dashed rgba(255,255,255,0.08)">';
+        h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">';
+        h+='<span style="font-size:10px;font-weight:700;color:#c4b5fd">⚠️ Cắt thiếu:</span>';
+        h+='<select id="_mGroupCompSelect_'+gr.id+'" style="padding:2px 6px;border-radius:4px;border:1.5px solid rgba(167,139,250,0.3);font-size:10px;font-weight:700;color:#c4b5fd;background:rgba(255,255,255,0.08)">';
+        h+='<option value="false" style="color:#000">🔴 Chốt (Không bù)</option>';
+        h+='<option value="true" style="color:#000">🟡 Cắt bù sau</option>';
+        h+='</select></div></div>';
+        h+='</div></div></div>';
     });
     h+='</div>';
     // Rolls section
@@ -1279,7 +1308,24 @@ function mGDoneRecalc(){
     const el=document.getElementById('_mGKgCut');if(el)el.textContent=mFmtKg(totalKgCut);
     // Calculate distribution
     let totalQty=0;const qtys=[];
-    d.records.forEach(r=>{const inp=document.getElementById('_mGQ_'+r.id);const q=inp?parseInt(inp.value)||0:0;qtys.push({id:r.id,qty:q,name:r.product_name||r.order_code});totalQty+=q;});
+    d.records.forEach(r=>{
+        const inp=document.getElementById('_mGQ_'+r.id);
+        const q=inp?parseInt(inp.value)||0:0;
+        
+        // Show/hide group compensation area
+        const max=r.order_quantity||0;
+        const comp=document.getElementById('_mGroupCompensate_'+r.id);
+        if(comp && inp){
+            if(q<max && !inp.readOnly){
+                comp.style.display='block';
+            }else{
+                comp.style.display='none';
+            }
+        }
+        
+        qtys.push({id:r.id,qty:q,name:r.product_name||r.order_code});
+        totalQty+=q;
+    });
     let dh='';
     let combinedRatio=0;
     if(totalKgCut>0){
@@ -1327,7 +1373,9 @@ async function mSubmitGDone(){
             window._mSubmitBusy=false;
             return;
         }
-        items.push({record_id:r.id,cut_quantity:qty});
+        const compSelect = document.getElementById('_mGroupCompSelect_'+r.id);
+        const needCompensate = compSelect ? (compSelect.value === 'true') : false;
+        items.push({record_id:r.id,cut_quantity:qty,need_compensate:needCompensate});
     }
     // Validate rolls
     const hasChecked=document.querySelectorAll('._mGRollCb:checked').length>0;

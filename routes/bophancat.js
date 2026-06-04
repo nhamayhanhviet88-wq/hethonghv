@@ -5,6 +5,26 @@ const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
+    async function createCompensationTicket(rec, cutQty, performedBy, timeStr) {
+        const remQty = Number(rec.order_quantity) - Number(cutQty);
+        if (remQty <= 0) return;
+        const newRec = await db.get(`
+            INSERT INTO cutting_records (
+                dht_order_id, order_item_id, cut_date, cutter_id,
+                product_name, material_name, fabric_color,
+                order_quantity, cut_quantity, kg_cut, cut_ratio,
+                ratio_reason, kg_start, kg_end, cut_warning, cut_shared,
+                created_by, created_at, cutting_category, selected_roll_ids
+            ) VALUES ($1, $2, CURRENT_DATE, NULL, $3, $4, $5, $6, 0, 0, 0, NULL, 0, 0, $7, NULL, $8, $9, $10, '[]')
+            RETURNING id
+        `, [
+            rec.dht_order_id, rec.order_item_id, rec.product_name, rec.material_name, rec.fabric_color,
+            remQty, `Cắt bù phần thiếu: ${remQty} áo`, performedBy, timeStr, rec.cutting_category
+        ]);
+        await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [newRec.id, 'create', `Tạo phiếu cắt bù cho đơn thiếu (${remQty} áo)`, performedBy, timeStr]);
+    }
+
     // ========== AUTO-MIGRATE ==========
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS cutting_records (
@@ -643,7 +663,7 @@ module.exports = async function(fastify) {
         } else if (action === 'cut_done') {
             if (!rec.is_cutting) return reply.code(400).send({ error: 'Chưa bấm Cắt — không thể bấm Cắt Xong' });
             if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong' });
-            const { cut_quantity, roll_remains, ratio_reason, ratio_image } = b;
+            const { cut_quantity, roll_remains, ratio_reason, ratio_image, need_compensate } = b;
             let cutQty = Number(cut_quantity);
 
             if (rec.dht_order_id && rec.order_item_id) {
@@ -681,6 +701,9 @@ module.exports = async function(fastify) {
                     await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                         cut_quantity = $3, ratio_reason = $4, ratio_image = $5, unit_price = $6, salary = $7, updated_at = $1 WHERE id = $8`,
                         [now, request.user.id, cutQty, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
+                    if (need_compensate) {
+                        await createCompensationTicket(rec, cutQty, request.user.id, now);
+                    }
                     detail = '✅ Cắt xong (nhóm, chờ đơn cuối) — SL: ' + cutQty;
                 } else {
                     // LAST in group: handle roll weights + distribute kg proportionally
@@ -726,6 +749,9 @@ module.exports = async function(fastify) {
                         kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
                         ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
                         [now, request.user.id, kgEnd, myKgCut, cutQty, myRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
+                    if (need_compensate) {
+                        await createCompensationTicket(rec, cutQty, request.user.id, now);
+                    }
 
                     // Distribute kg to other group members
                     for (const gr of allGroupDone) {
@@ -800,6 +826,9 @@ module.exports = async function(fastify) {
                     kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
                     ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
                     [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
+                if (need_compensate) {
+                    await createCompensationTicket(rec, cutQty, request.user.id, now);
+                }
                 for (const s of snapshot) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                     const finalWeight = rem <= 0 ? 0 : rem;
@@ -1614,6 +1643,10 @@ module.exports = async function(fastify) {
                 kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
                 ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
                 [now, userId, kgEnd, myKgCut, qty, myRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, it.record_id]);
+
+            if (it.need_compensate) {
+                await createCompensationTicket(rec, qty, userId, now);
+            }
 
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
                 [it.record_id, 'multi_cut_done', '✅ Cắt xong nhóm — SL: ' + qty + ', Kg: ' + myKgCut.toFixed(2) + ', TL: ' + myRatio, userId, now]);
