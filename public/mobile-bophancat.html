@@ -522,7 +522,7 @@ function mRenderMine(){
 
     c.innerHTML=itemsToRender.map(r=>{
         const doneCls=r.is_cut_done?' on':'';
-        const salCls=r.salary_approved?' on':'',washCls=r.wash_reported?' on':'';
+        const washCls=r.wash_reported?' on':'';
         const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         const compBadge=r.cut_warning?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>':'';

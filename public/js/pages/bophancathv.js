@@ -252,7 +252,7 @@ async function _bpcLoadRecords() {
         var wrap = document.getElementById('bpcTableWrap');
         if (wrap) {
             wrap.innerHTML = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
-                +'<th>STT</th><th>✂️</th><th>✅</th><th>💰</th><th>🫧</th><th>⚠️</th>'
+                +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
                 +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th>'
                 +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
                 +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
@@ -282,7 +282,7 @@ function _bpcRenderTable() {
 
 function _bpcRenderRows(paged) {
     var tbody = document.getElementById('bpcTbody'); if (!tbody) return;
-    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="21"><div class="empty-state"><div class="icon">✂️</div><h3>Chưa có đơn cắt nào</h3><p>Chọn mục ở sidebar</p></div></td></tr>'; return; }
+    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="20"><div class="empty-state"><div class="icon">✂️</div><h3>Chưa có đơn cắt nào</h3><p>Chọn mục ở sidebar</p></div></td></tr>'; return; }
     tbody.innerHTML = paged.map(function(r, i) {
         // === CUT/DONE button visibility logic ===
         // Not cutting yet: show ✂️, hide ✅
@@ -292,10 +292,8 @@ function _bpcRenderRows(paged) {
         var showDoneBtn = r.is_cutting;
         var cutIcon = r.is_cutting ? '✂️' : '⬜', cutCls = r.is_cutting ? ' on-cut' : '';
         var doneIcon = r.is_cut_done ? '✅' : '🏁', doneCls = r.is_cut_done ? ' on-done' : '';
-        var salIcon = r.salary_approved ? '💰' : '⬜', salCls = r.salary_approved ? ' on-sal' : '';
         var washIcon = r.wash_reported ? '🫧' : '⬜', washCls = r.wash_reported ? ' on-wash' : '';
         var errIcon = r.error_reported ? '⚠️' : '⬜', errCls = r.error_reported ? ' on-err' : '';
-        var salAct = r.salary_approved ? 'undo_approve_salary' : 'approve_salary';
         var washAct = r.wash_reported ? 'undo_wash' : 'report_wash';
         var ratioColor = '#3b82f6';
         var tr = Number(r.target_cut_ratio) || 0;
@@ -349,7 +347,6 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
             +'<td style="text-align:center">'+cutBtnHtml+'</td>'
             +'<td style="text-align:center">'+doneBtnHtml+'</td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+salCls+'" onclick="_bpcToggleAction('+r.id+',\''+salAct+'\')" title="Duyệt lương">'+salIcon+'</button></td>'
             +'<td style="text-align:center"><button class="bpc-icon-btn'+washCls+'" onclick="_bpcToggleAction('+r.id+',\''+washAct+'\')" title="Giặt vải">'+washIcon+'</button></td>'
             +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
@@ -411,12 +408,10 @@ function _bpcRenderStats(count, arr) {
     var sc = document.getElementById('bpcStatCards'); if (!sc) return;
     var cutting = arr.filter(function(r){return r.is_cutting && !r.is_cut_done;}).length;
     var done = arr.filter(function(r){return r.is_cut_done;}).length;
-    var approved = arr.filter(function(r){return r.salary_approved;}).length;
     sc.innerHTML = ''
         +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div><div style="font-size:15px;font-weight:900">'+count+'</div></div>'
         +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .3s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✂️ ĐANG CẮT</div><div style="font-size:15px;font-weight:900">'+cutting+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .6s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #7c3aed30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .9s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">💰 DUYỆT</div><div style="font-size:15px;font-weight:900">'+approved+'</div></div>';
+        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .6s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>';
 }
 
 async function _bpcToggleAction(id, action) {
