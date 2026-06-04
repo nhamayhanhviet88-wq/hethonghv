@@ -977,6 +977,9 @@ async function mOpenErrorModal(recordId) {
 
         const cutterName = mUser ? mUser.full_name : 'Thợ cắt';
         const reporterName = 'Người Báo Lỗi: Bộ Phận Cắt - ' + cutterName;
+        const saleName = rec.cskh_name || rec.created_by_name || '—';
+
+        window._mmErrorImages = [];
 
         let h = '<div class="mm-overlay" id="_mmErrorModal" onclick="if(event.target===this)mCloseErrorModal()">';
         h += '<div class="mm-sheet" style="max-height:85vh;overflow-y:auto">';
@@ -985,6 +988,7 @@ async function mOpenErrorModal(recordId) {
 
         h += '<div class="mm-row"><span class="mm-lbl">📋 Mã Đơn</span><span class="mm-val" style="font-weight:700">' + (rec.order_code || '—') + '</span></div>';
         h += '<div class="mm-row"><span class="mm-lbl">👤 Khách Hàng</span><span class="mm-val" style="font-weight:700">' + (rec.customer_name || '—') + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">💼 CSKH</span><span class="mm-val" style="font-weight:700">' + saleName + '</span></div>';
         h += '<div class="mm-row"><span class="mm-lbl">📦 SL Sản Xuất</span><span class="mm-val" style="font-weight:700;color:#10b981">' + (rec.order_quantity || 0) + '</span></div>';
         h += '<div class="mm-row"><span class="mm-lbl">✍️ Người Báo Lỗi</span><span class="mm-val" style="font-weight:700;color:#c084fc">' + reporterName + '</span></div>';
 
@@ -997,15 +1001,20 @@ async function mOpenErrorModal(recordId) {
         h += '</select></div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#f87171">*</span></label>';
-        h += '<input type="number" id="mmE_qty" min="1" max="' + (rec.order_quantity || 9999) + '" value="1" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b">';
+        h += '<input type="number" id="mmE_qty" min="1" max="' + (rec.order_quantity || 9999) + '" value="" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b" placeholder="Nhập số lượng...">';
         h += '</div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#f87171">*</span></label>';
         h += '<textarea id="mmE_content" rows="3" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
         h += '</div>';
 
-        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa</label>';
-        h += '<input type="file" id="mmE_images" multiple accept="image/*" style="font-size:12px;width:100%;color:#e2e8f0">';
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#f87171">*</span></label>';
+        h += '<input type="file" id="mmE_images" multiple accept="image/*" style="font-size:12px;width:100%;color:#e2e8f0;margin-bottom:8px" onchange="mmOnErrorImagesChange(event)">';
+        h += '<div id="mmE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="mmE_video" accept="video/*" style="font-size:12px;width:100%;color:#e2e8f0">';
         h += '</div>';
 
         h += '</div>';
@@ -1031,6 +1040,49 @@ function mCloseErrorModal() {
     if (m) { m.classList.remove('show'); setTimeout(() => m.remove(), 300); }
 }
 
+function mmOnErrorImagesChange(e) {
+    const files = e.target.files;
+    for (let i = 0; i < files.length; i++) {
+        mmAddErrorImage(files[i]);
+    }
+    e.target.value = '';
+}
+
+function mmAddErrorImage(file) {
+    mCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._mmErrorImages.push(compressed);
+        mmRenderErrorImagePreviews();
+    });
+}
+
+function mmRenderErrorImagePreviews() {
+    const area = document.getElementById('mmE_previews');
+    if (!area) return;
+    let h = '';
+    window._mmErrorImages.forEach((imgData, index) => {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15)">';
+        h += '<span onclick="mmRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.4)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function mmRemoveErrorImage(index) {
+    window._mmErrorImages.splice(index, 1);
+    mmRenderErrorImagePreviews();
+}
+
+function mDataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
 async function mSubmitError(recordId) {
     if (window._mSubmitBusy) return;
 
@@ -1041,6 +1093,11 @@ async function mSubmitError(recordId) {
     const contentEl = document.getElementById('mmE_content');
     const content = contentEl.value.trim();
     if (!content) { mToast('⚠️ Vui lòng nhập chi tiết nội dung lỗi!', false); return; }
+
+    if (!window._mmErrorImages || window._mmErrorImages.length === 0) {
+        mToast('⚠️ Vui lòng chọn hoặc chụp ít nhất 1 hình ảnh minh họa bắt buộc!', false);
+        return;
+    }
 
     window._mSubmitBusy = true;
     const btn = document.getElementById('_mmErrorSubmitBtn');
@@ -1076,11 +1133,20 @@ async function mSubmitError(recordId) {
         const result = await mApi('/api/customer-errors', 'POST', body);
         if (result.error) throw new Error(result.error);
 
-        const fileInput = document.getElementById('mmE_images');
-        if (fileInput && fileInput.files.length > 0 && result.id) {
+        if (window._mmErrorImages && window._mmErrorImages.length > 0 && result.id) {
             const fd = new FormData();
-            for (let i = 0; i < fileInput.files.length; i++) fd.append('file_' + i, fileInput.files[i]);
+            window._mmErrorImages.forEach(function(imgData, index) {
+                var blob = mDataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
             await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        const videoInput = document.getElementById('mmE_video');
+        if (videoInput && videoInput.files.length > 0 && result.id) {
+            const fdv = new FormData();
+            fdv.append('video', videoInput.files[0]);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
         }
 
         await mApi('/api/cutting/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });

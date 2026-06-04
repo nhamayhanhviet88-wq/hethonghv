@@ -459,6 +459,9 @@ async function _bpcReportError(recordId) {
 
         var cutterName = window._currentUser ? window._currentUser.full_name : 'Thợ cắt';
         var reporterName = 'Người Báo Lỗi: Bộ Phận Cắt - ' + cutterName;
+        var saleName = r.cskh_name || r.created_by_name || '—';
+
+        window._bpcErrorImages = [];
 
         var h = '<div class="bpc-modal-overlay" id="_bpcErrorModal" onclick="if(event.target===this)_bpcCloseErrorModal()">';
         h += '<div class="bpc-modal" style="width:520px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
@@ -467,6 +470,7 @@ async function _bpcReportError(recordId) {
 
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Mã Đơn</span><span class="bpc-modal-val" style="font-weight:700">' + (r.order_code || '—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Khách Hàng</span><span class="bpc-modal-val" style="font-weight:700">' + (r.customer_name || '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">💼 CSKH</span><span class="bpc-modal-val" style="font-weight:700">' + saleName + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + (r.order_quantity || 0) + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpc-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
 
@@ -479,15 +483,21 @@ async function _bpcReportError(recordId) {
         h += '</select></div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
-        h += '<input type="number" id="bpcE_qty" min="1" max="' + (r.order_quantity || 9999) + '" value="1" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626">';
+        h += '<input type="number" id="bpcE_qty" min="1" max="' + (r.order_quantity || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626" placeholder="Nhập số lượng lỗi...">';
         h += '</div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
         h += '<textarea id="bpcE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
         h += '</div>';
 
-        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa</label>';
-        h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="font-size:11px;width:100%">';
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:2px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px">(Nhấp vào modal rồi bấm Ctrl+V để dán ảnh, hoặc chọn tệp dưới)</div>';
+        h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="font-size:11px;width:100%;margin-bottom:8px" onchange="_bpcOnErrorImagesChange(event)">';
+        h += '<div id="bpcE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="bpcE_video" accept="video/*" style="font-size:11px;width:100%">';
         h += '</div>';
 
         h += '</div>';
@@ -501,6 +511,7 @@ async function _bpcReportError(recordId) {
         document.body.insertAdjacentHTML('beforeend', h);
         requestAnimationFrame(function() { document.getElementById('_bpcErrorModal').classList.add('show'); });
 
+        _bpcSetupPasteListener();
         window._bpcBusy = false;
     } catch(e) {
         showToast('Lỗi: ' + e.message, 'error');
@@ -513,6 +524,63 @@ function _bpcCloseErrorModal() {
     if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
 }
 
+function _bpcOnErrorImagesChange(e) {
+    var files = e.target.files;
+    for (var i = 0; i < files.length; i++) {
+        _bpcAddErrorImage(files[i]);
+    }
+    e.target.value = '';
+}
+
+function _bpcAddErrorImage(file) {
+    _bpcCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._bpcErrorImages.push(compressed);
+        _bpcRenderErrorImagePreviews();
+    });
+}
+
+function _bpcRenderErrorImagePreviews() {
+    var area = document.getElementById('bpcE_previews');
+    if (!area) return;
+    var h = '';
+    window._bpcErrorImages.forEach(function(imgData, index) {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1">';
+        h += '<span onclick="_bpcRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function _bpcRemoveErrorImage(index) {
+    window._bpcErrorImages.splice(index, 1);
+    _bpcRenderErrorImagePreviews();
+}
+
+function _bpcSetupPasteListener() {
+    var modal = document.getElementById('_bpcErrorModal');
+    if (!modal) return;
+    modal.addEventListener('paste', function(e) {
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                var blob = items[i].getAsFile();
+                _bpcAddErrorImage(blob);
+            }
+        }
+    });
+}
+
+function dataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
 async function _bpcSubmitError(recordId) {
     if (window._bpcSubmitBusy) return;
 
@@ -523,6 +591,11 @@ async function _bpcSubmitError(recordId) {
     var contentEl = document.getElementById('bpcE_content');
     var content = contentEl.value.trim();
     if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._bpcErrorImages || window._bpcErrorImages.length === 0) {
+        showToast('Vui lòng dán hoặc chọn ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
 
     window._bpcSubmitBusy = true;
     var btn = document.getElementById('_bpcErrorSubmitBtn');
@@ -559,11 +632,20 @@ async function _bpcSubmitError(recordId) {
         var result = await apiCall('/api/customer-errors', 'POST', body);
         if (result.error) { throw new Error(result.error); }
 
-        var fileInput = document.getElementById('bpcE_images');
-        if (fileInput && fileInput.files.length > 0 && result.id) {
+        if (window._bpcErrorImages && window._bpcErrorImages.length > 0 && result.id) {
             var fd = new FormData();
-            for (var i = 0; i < fileInput.files.length; i++) fd.append('file_' + i, fileInput.files[i]);
+            window._bpcErrorImages.forEach(function(imgData, index) {
+                var blob = dataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
             await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        var videoInput = document.getElementById('bpcE_video');
+        if (videoInput && videoInput.files.length > 0 && result.id) {
+            var fdv = new FormData();
+            fdv.append('video', videoInput.files[0]);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
         }
 
         await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
