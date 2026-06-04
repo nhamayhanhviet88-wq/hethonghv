@@ -1001,7 +1001,11 @@ async function mOpenErrorModal(recordId) {
         h += '</div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#f87171">*</span></label>';
-        h += '<input type="file" id="mmE_images" multiple accept="image/*" style="font-size:12px;width:100%;color:#e2e8f0;margin-bottom:8px" onchange="mmOnErrorImagesChange(event)">';
+        h += '<div id="mmE_paste_zone" style="border:2px dashed #7c3aed;border-radius:10px;padding:16px;text-align:center;background:rgba(124,58,237,0.1);cursor:pointer;margin-bottom:8px;" onclick="document.getElementById(\'mmE_images\').click()">';
+        h += '    <div style="font-size:20px;margin-bottom:4px">📸</div>';
+        h += '    <div style="font-size:12px;font-weight:700;color:#c084fc">Chạm để chụp hoặc chọn ảnh</div>';
+        h += '</div>';
+        h += '<input type="file" id="mmE_images" multiple accept="image/*" style="display:none" onchange="mmOnErrorImagesChange(event)">';
         h += '<div id="mmE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
         h += '</div>';
 

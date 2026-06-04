@@ -482,9 +482,13 @@ async function _bpcReportError(recordId) {
         h += '<textarea id="bpcE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
         h += '</div>';
 
-        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:2px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
-        h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px">(Bấm Ctrl+V tại bất kỳ đâu trên trang này để dán ảnh, hoặc chọn tệp dưới)</div>';
-        h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="font-size:11px;width:100%;margin-bottom:8px" onchange="_bpcOnErrorImagesChange(event)">';
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div id="bpcE_paste_zone" style="border:2px dashed #7c3aed;border-radius:10px;padding:20px;text-align:center;background:rgba(124,58,237,0.05);cursor:pointer;margin-bottom:8px;transition:all 0.2s;" ondragover="event.preventDefault();this.style.background=\'rgba(124,58,237,0.15)\'" ondragleave="this.style.background=\'rgba(124,58,237,0.05)\'" ondrop="event.preventDefault();this.style.background=\'rgba(124,58,237,0.05)\';_bpcOnDropImages(event)" onclick="document.getElementById(\'bpcE_images\').click()">';
+        h += '    <div style="font-size:24px;margin-bottom:6px">📋</div>';
+        h += '    <div style="font-size:12px;font-weight:700;color:#7c3aed">Kéo thả ảnh hoặc Click để chọn tệp</div>';
+        h += '    <div style="font-size:10px;color:#64748b;margin-top:2px">(Hoặc bấm Ctrl+V tại bất kỳ đâu để dán ảnh từ bộ nhớ tạm)</div>';
+        h += '</div>';
+        h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="display:none" onchange="_bpcOnErrorImagesChange(event)">';
         h += '<div id="bpcE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
         h += '</div>';
 
@@ -515,7 +519,7 @@ function _bpcCloseErrorModal() {
     var m = document.getElementById('_bpcErrorModal');
     if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
     if (window._bpcPasteHandler) {
-        document.removeEventListener('paste', window._bpcPasteHandler);
+        window.removeEventListener('paste', window._bpcPasteHandler);
         window._bpcPasteHandler = null;
     }
 }
@@ -526,6 +530,15 @@ function _bpcOnErrorImagesChange(e) {
         _bpcAddErrorImage(files[i]);
     }
     e.target.value = '';
+}
+
+function _bpcOnDropImages(e) {
+    var files = e.dataTransfer.files;
+    for (var i = 0; i < files.length; i++) {
+        if (files[i].type.indexOf('image') === 0) {
+            _bpcAddErrorImage(files[i]);
+        }
+    }
 }
 
 function _bpcAddErrorImage(file) {
@@ -556,7 +569,7 @@ function _bpcRemoveErrorImage(index) {
 
 function _bpcSetupPasteListener() {
     if (window._bpcPasteHandler) {
-        document.removeEventListener('paste', window._bpcPasteHandler);
+        window.removeEventListener('paste', window._bpcPasteHandler);
     }
     window._bpcPasteHandler = function(e) {
         if (!document.getElementById('_bpcErrorModal')) return;
@@ -568,7 +581,7 @@ function _bpcSetupPasteListener() {
             }
         }
     };
-    document.addEventListener('paste', window._bpcPasteHandler);
+    window.addEventListener('paste', window._bpcPasteHandler);
 }
 
 function dataURLtoBlob(dataurl) {
