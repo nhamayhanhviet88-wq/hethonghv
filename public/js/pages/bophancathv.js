@@ -315,6 +315,7 @@ function _bpcRenderRows(paged) {
             }
             sharedBadge = '<span style="background:#ea580c;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">' + label + '</span>';
         }
+        var compBadge = r.cut_warning ? '<span style="background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>' : '';
         // Cut button: show modal instead of direct toggle or checkmark when done
         var cutBtnHtml = '';
         if (r.is_cut_done) {
@@ -346,7 +347,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
-            +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
+            +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'—')+'</td>'
