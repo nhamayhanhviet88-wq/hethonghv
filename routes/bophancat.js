@@ -925,6 +925,18 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE cutting_records SET error_reported = true, error_order_id = $1, updated_at = $2 WHERE id = $3`,
                 [request.body.error_order_id || null, now, id]);
             detail = '⚠️ Báo đơn lỗi nội bộ';
+        } else if (action === 'cancel_compensation') {
+            if (!['giam_doc', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
+                return reply.code(403).send({ error: 'Chỉ Quản lý hoặc Giám đốc mới có quyền hủy cắt bù!' });
+            }
+            if (rec.is_cutting || rec.is_cut_done) {
+                return reply.code(400).send({ error: 'Đơn đang cắt hoặc đã cắt xong, không thể hủy!' });
+            }
+            if (!rec.cut_warning || !rec.cut_warning.includes('Cắt bù')) {
+                return reply.code(400).send({ error: 'Đây không phải là đơn cắt bù!' });
+            }
+            await db.run('DELETE FROM cutting_records WHERE id = $1', [id]);
+            return { success: true };
         } else {
             return reply.code(400).send({ error: 'Action không hợp lệ' });
         }

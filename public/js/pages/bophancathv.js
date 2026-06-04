@@ -302,7 +302,15 @@ function _bpcRenderRows(paged) {
         if (tr > 0 && r.cut_ratio) {
             ratioColor = Number(r.cut_ratio) >= tr ? '#059669' : '#dc2626';
         }
-        var warnHtml = r.cut_warning ? '<span style="color:#dc2626;font-weight:700">'+r.cut_warning+'</span>' : '—';
+        var warnHtml = '—';
+        if (r.cut_warning) {
+            warnHtml = '<span style="color:#dc2626;font-weight:700">' + r.cut_warning + '</span>';
+            var isComp = r.cut_warning.indexOf('Cắt bù') >= 0;
+            var isStaff = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
+            if (isComp && !r.is_cutting && !r.is_cut_done && isStaff) {
+                warnHtml += ' <button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;margin-left:8px;font-weight:bold;height:auto;line-height:1;display:inline-block;vertical-align:middle;width:auto">❌ Hủy Cắt Bù</button>';
+            }
+        }
         var updateStr = '';
         if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
         var ccBadge = r.cutting_category ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-right:4px">' + r.cutting_category + '</span>' : '';
@@ -423,6 +431,8 @@ async function _bpcToggleAction(id, action) {
         msg = 'Bạn có chắc chắn muốn hoàn tác duyệt lương cho đơn này?';
     } else if (action === 'undo_wash') {
         msg = 'Bạn có chắc chắn muốn hoàn tác báo giặt cho đơn này?';
+    } else if (action === 'cancel_compensation') {
+        msg = 'Bạn có chắc chắn muốn HỦY đơn cắt bù này không? Phiếu cắt bù này sẽ bị xóa vĩnh viễn khỏi hệ thống.';
     }
 
     if (msg && !confirm(msg)) return;
