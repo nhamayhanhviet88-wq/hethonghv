@@ -483,13 +483,10 @@ async function _bpcReportError(recordId) {
         h += '</div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
-        h += '<div id="bpcE_paste_zone" style="border:2px dashed #7c3aed;border-radius:10px;padding:20px;text-align:center;background:rgba(124,58,237,0.05);cursor:pointer;margin-bottom:8px;transition:all 0.2s;" ondragover="event.preventDefault();this.style.background=\'rgba(124,58,237,0.15)\'" ondragleave="this.style.background=\'rgba(124,58,237,0.05)\'" ondrop="event.preventDefault();this.style.background=\'rgba(124,58,237,0.05)\';_bpcOnDropImages(event)" onclick="document.getElementById(\'bpcE_images\').click()">';
-        h += '    <div style="font-size:24px;margin-bottom:6px">📋</div>';
-        h += '    <div style="font-size:12px;font-weight:700;color:#7c3aed">Kéo thả ảnh hoặc Click để chọn tệp</div>';
-        h += '    <div style="font-size:10px;color:#64748b;margin-top:2px">(Hoặc bấm Ctrl+V tại bất kỳ đâu để dán ảnh từ bộ nhớ tạm)</div>';
+        h += '<div style="border:1.5px dashed #7c3aed;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(124,58,237,0.03);color:#7c3aed;font-size:13px;font-weight:700;">';
+        h += '    Bấm <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> tại bất kỳ đâu trên trang này để dán ảnh';
         h += '</div>';
-        h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="display:none" onchange="_bpcOnErrorImagesChange(event)">';
-        h += '<div id="bpcE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
+        h += '<div id="bpcE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>';
         h += '</div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
