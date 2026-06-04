@@ -1131,6 +1131,7 @@ async function mSubmitDone(recordId){
         }
     }
 
+    const uc=d.rolls.length-rollRemains.length;
     const needCompSelect = document.getElementById('_mDoneCompensateSelect');
     const needCompensate = needCompSelect ? (needCompSelect.value === 'true') : false;
 
