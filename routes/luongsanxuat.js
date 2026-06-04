@@ -81,6 +81,11 @@ module.exports = async function(fastify) {
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 WHERE ${whereCutting}
+                  AND cr.id = (
+                      SELECT MIN(sub.id) FROM cutting_records sub
+                      WHERE sub.order_item_id = cr.order_item_id
+                        AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
+                  )
 
                 UNION ALL
 
@@ -194,7 +199,13 @@ module.exports = async function(fastify) {
                 COALESCE(SUM(salary) FILTER (WHERE NOT is_approved), 0)::numeric AS pending,
                 COUNT(*)::int AS count
             FROM (
-                SELECT cutter_id AS worker_id, salary, salary_approved AS is_approved FROM cutting_records
+                SELECT cutter_id AS worker_id, salary, salary_approved AS is_approved 
+                FROM cutting_records cr
+                WHERE cr.id = (
+                    SELECT MIN(sub.id) FROM cutting_records sub
+                    WHERE sub.order_item_id = cr.order_item_id
+                      AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
+                )
                 UNION ALL
                 SELECT presser_id AS worker_id, salary, salary_approved AS is_approved FROM pressing_records
                 UNION ALL
@@ -323,6 +334,11 @@ module.exports = async function(fastify) {
                 ) lh ON true
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
                 WHERE ${whereCutting}
+                  AND cr.id = (
+                      SELECT MIN(sub.id) FROM cutting_records sub
+                      WHERE sub.order_item_id = cr.order_item_id
+                        AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
+                  )
             `);
         }
 
@@ -437,22 +453,35 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Bộ phận không hợp lệ' });
         }
 
-        const rec = await db.get(`SELECT salary_approved FROM ${table} WHERE id = $1`, [recordId]);
+        const rec = await db.get(`SELECT salary_approved, order_item_id, cut_warning FROM ${table} WHERE id = $1`, [recordId]);
         if (!rec) {
             return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
         }
 
         const newApproved = !rec.salary_approved;
         
-        await db.run(`
-            UPDATE ${table} 
-            SET 
-                salary_approved = $1, 
-                salary_approved_at = $2, 
-                salary_approved_by = $3, 
-                updated_at = $2 
-            WHERE id = $4
-        `, [newApproved, now, req.user.id, recordId]);
+        if (dept === 'cutting') {
+            await db.run(`
+                UPDATE cutting_records 
+                SET 
+                    salary_approved = $1, 
+                    salary_approved_at = $2, 
+                    salary_approved_by = $3, 
+                    updated_at = $2 
+                WHERE order_item_id = $4
+                  AND ((COALESCE(cut_warning, '') LIKE '%Cắt bù%') = (COALESCE($5, '') LIKE '%Cắt bù%'))
+            `, [newApproved, now, req.user.id, rec.order_item_id, rec.cut_warning]);
+        } else {
+            await db.run(`
+                UPDATE ${table} 
+                SET 
+                    salary_approved = $1, 
+                    salary_approved_at = $2, 
+                    salary_approved_by = $3, 
+                    updated_at = $2 
+                WHERE id = $4
+            `, [newApproved, now, req.user.id, recordId]);
+        }
 
         const action = newApproved ? 'approve_salary' : 'undo_approve_salary';
         const details = newApproved ? '💰 Duyệt lương sản xuất' : '↩️ Hoàn tác duyệt lương sản xuất';
@@ -480,7 +509,7 @@ module.exports = async function(fastify) {
         const newSalary = Number(salary) || 0;
 
         if (dept === 'cutting') {
-            const rec = await db.get('SELECT cut_quantity FROM cutting_records WHERE id = $1', [recordId]);
+            const rec = await db.get('SELECT cut_quantity, order_item_id, cut_warning FROM cutting_records WHERE id = $1', [recordId]);
             if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
             
             const calcSal = newSalary > 0 ? newSalary : (Number(rec.cut_quantity) || 0) * newPrice;
@@ -488,8 +517,9 @@ module.exports = async function(fastify) {
             await db.run(`
                 UPDATE cutting_records 
                 SET unit_price = $1, salary = $2, updated_at = $3 
-                WHERE id = $4
-            `, [newPrice, calcSal, now, recordId]);
+                WHERE order_item_id = $4
+                  AND ((COALESCE(cut_warning, '') LIKE '%Cắt bù%') = (COALESCE($5, '') LIKE '%Cắt bù%'))
+            `, [newPrice, calcSal, now, rec.order_item_id, rec.cut_warning]);
 
             await db.run(`
                 INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at)
