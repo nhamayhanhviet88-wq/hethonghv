@@ -965,12 +965,20 @@ function mOpenDoneModal(recordId){
     const siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#f87171;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
     h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+initialQty+'" '+disAttr+' oninput="mDoneValidQty(this,'+(r.order_quantity||9999)+')" style="'+qtyStyle+'">'+siblingNote+'</span></div>';
     h+='<div id="_mDoneCompensateArea" style="display:none;border-top:1.5px dashed rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
-    h+='<div style="background:rgba(124,58,237,0.1);border:1.5px solid rgba(167,139,250,0.3);border-radius:10px;padding:10px;display:flex;align-items:center;justify-content:space-between">';
-    h+='<div><div style="font-size:11px;font-weight:800;color:#c4b5fd">⚠️ CẮT THIẾU SỐ LƯỢNG</div><div style="font-size:9px;color:#a5b4fc">Bạn muốn xử lý phần thiếu như thế nào?</div></div>';
-    h+='<select id="_mDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid rgba(167,139,250,0.3);font-size:11px;font-weight:700;color:#c4b5fd;background:rgba(255,255,255,0.08)">';
-    h+='<option value="false" style="color:#000">🔴 Chốt đơn (Không bù)</option>';
-    h+='<option value="true" style="color:#000">🟡 Cắt bù sau</option>';
-    h+='</select></div></div>';
+    h+='<div style="background:rgba(124,58,237,0.1);border:1.5px solid rgba(167,139,250,0.3);border-radius:10px;padding:10px;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box">';
+    h+='<div><div style="font-size:11px;font-weight:800;color:#c4b5fd">⚠️ CẮT THIẾU SỐ LƯỢNG</div><div style="font-size:9px;color:#a5b4fc">Xử lý phần thiếu tự động theo phối trước:</div></div>';
+    if (hasSiblingQty) {
+        const compText = r.has_compensation_ticket ? '🟡 Cắt bù sau' : '🔴 Chốt đơn (Không bù)';
+        const compVal = r.has_compensation_ticket ? 'true' : 'false';
+        h+='<div style="font-size:11px;font-weight:800;color:#fcd34d">' + compText + '</div>';
+        h+='<input type="hidden" id="_mDoneCompensateSelect" value="' + compVal + '">';
+    } else {
+        h+='<select id="_mDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid rgba(167,139,250,0.3);font-size:11px;font-weight:700;color:#c4b5fd;background:rgba(255,255,255,0.08)">';
+        h+='<option value="false" style="color:#000">🔴 Chốt đơn (Không bù)</option>';
+        h+='<option value="true" style="color:#000">🟡 Cắt bù sau</option>';
+        h+='</select>';
+    }
+    h+='</div></div>';
     // Rolls
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -1059,8 +1067,7 @@ function mDoneRecalc(){
     // Show/hide compensation area based on qty
     const cmpEl=document.getElementById('_mDoneCompensateArea');
     if (cmpEl) {
-        const qtyInput=document.getElementById('_mDoneQty');
-        if (qty < d.orderQty && (!qtyInput || !qtyInput.readOnly)) {
+        if (qty < d.orderQty) {
             cmpEl.style.display = 'block';
         } else {
             cmpEl.style.display = 'none';

@@ -878,12 +878,20 @@ function _bpcOpenDoneModal(recordId) {
     var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✏️ SL Cắt <span style="color:#dc2626">*</span></span><span class="bpc-modal-val"><input id="_bpcDoneQty" type="number" min="1" max="' + (r.order_quantity||9999) + '" value="' + initialQty + '" ' + disAttr + ' oninput="_bpcDoneRecalc()" style="' + qtyStyle + '">' + siblingNote + '</span></div>';
     h += '<div id="_bpcDoneCompensateArea" style="display:none;border-top:1.5px dashed #e2e8f0;margin:10px 0;padding-top:10px">';
-    h += '<div style="background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between">';
-    h += '<div><div style="font-size:11px;font-weight:800;color:#6b21a8">⚠️ CẮT THIẾU SỐ LƯỢNG</div><div style="font-size:10px;color:#8b5cf6">Bạn muốn xử lý phần thiếu như thế nào?</div></div>';
-    h += '<select id="_bpcDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid #d8b4fe;font-size:11px;font-weight:700;color:#6b21a8;background:#fff">';
-    h += '<option value="false">🔴 Chốt đơn (Không bù)</option>';
-    h += '<option value="true">🟡 Cắt bù sau (Tạo phiếu bù)</option>';
-    h += '</select></div></div>';
+    h += '<div style="background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box">';
+    h += '<div><div style="font-size:11px;font-weight:800;color:#6b21a8">⚠️ CẮT THIẾU SỐ LƯỢNG</div><div style="font-size:10px;color:#8b5cf6">Xử lý phần thiếu tự động theo phối trước:</div></div>';
+    if (hasSiblingQty) {
+        var compText = r.has_compensation_ticket ? '🟡 Cắt bù sau' : '🔴 Chốt đơn (Không bù)';
+        var compVal = r.has_compensation_ticket ? 'true' : 'false';
+        h += '<div style="font-size:11px;font-weight:800;color:#b45309">' + compText + '</div>';
+        h += '<input type="hidden" id="_bpcDoneCompensateSelect" value="' + compVal + '">';
+    } else {
+        h += '<select id="_bpcDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid #d8b4fe;font-size:11px;font-weight:700;color:#6b21a8;background:#fff">';
+        h += '<option value="false">🔴 Chốt đơn (Không bù)</option>';
+        h += '<option value="true">🟡 Cắt bù sau (Tạo phiếu bù)</option>';
+        h += '</select>';
+    }
+    h += '</div></div>';
     // Rolls section
     h += '<div style="border-top:2px solid #e2e8f0;margin:10px 0;padding-top:10px">';
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -1033,8 +1041,7 @@ function _bpcDoneRecalc() {
     // Show/hide compensation area based on qty
     var cmpEl = document.getElementById('_bpcDoneCompensateArea');
     if (cmpEl) {
-        var qtyInput = document.getElementById('_bpcDoneQty');
-        if (qty < d.orderQty && (!qtyInput || !qtyInput.readOnly)) {
+        if (qty < d.orderQty) {
             cmpEl.style.display = 'block';
         } else {
             cmpEl.style.display = 'none';

@@ -434,6 +434,13 @@ module.exports = async function(fastify) {
                          AND sub.id != cr.id
                        LIMIT 1
                    ) AS ticket_completed_quantity,
+                   (
+                       SELECT EXISTS (
+                           SELECT 1 FROM cutting_records sub 
+                           WHERE sub.order_item_id = cr.order_item_id 
+                             AND sub.cut_warning LIKE '%Cắt bù%'
+                       )
+                   )::boolean AS has_compensation_ticket,
                    u_cutter.full_name AS cutter_name,
                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
@@ -492,6 +499,13 @@ module.exports = async function(fastify) {
                          AND sub.id != cr.id
                        LIMIT 1
                    ) AS ticket_completed_quantity,
+                   (
+                       SELECT EXISTS (
+                           SELECT 1 FROM cutting_records sub 
+                           WHERE sub.order_item_id = cr.order_item_id 
+                             AND sub.cut_warning LIKE '%Cắt bù%'
+                       )
+                   )::boolean AS has_compensation_ticket,
                    (cr.ratio_image IS NOT NULL AND cr.ratio_image != '') AS has_ratio_image,
                    u_cutter.full_name AS cutter_name,
                    u_done.full_name AS cut_done_by_name,
