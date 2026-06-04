@@ -530,6 +530,7 @@ async function _ceoOpenQLX(id){
   if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
   if(!item)return;
   if(!_ceo.allUsers.length){try{var ud=await apiCall('/api/users');_ceo.allUsers=ud.users||ud||[];}catch(e){}}
+  var old=document.getElementById('ceoUpdateOv');if(old)old.remove();
   var ov=document.createElement('div');ov.id='ceoUpdateOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   var h='<div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">';
@@ -601,6 +602,7 @@ async function _ceoOpenPhat(id){
   var item;try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}
   if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
   if(!item)return;
+  var old=document.getElementById('ceoUpdateOv');if(old)old.remove();
   var ov=document.createElement('div');ov.id='ceoUpdateOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   var h='<div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">';
@@ -636,6 +638,7 @@ async function _ceoOpenNVP(id){
   var item;try{var d=await apiCall('/api/customer-errors/'+id);item=d.item;}catch(e){}
   if(!item){item=_ceo.items.find(function(x){return x.id===id;});}
   if(!item)return;
+  var old=document.getElementById('ceoUpdateOv');if(old)old.remove();
   var ov=document.createElement('div');ov.id='ceoUpdateOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   var h='<div style="background:#fff;border-radius:16px;width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3)" onclick="event.stopPropagation()">';
