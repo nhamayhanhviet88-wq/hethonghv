@@ -539,9 +539,9 @@ async function _ceoOpenQLX(id){
   h+='<span onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="color:#fff;font-size:20px;cursor:pointer;opacity:0.8">\u2715</span></div>';
   h+='<div style="padding:20px">';
   // 👤 Chịu Trách Nhiệm (read-only from template)
-  h+=_ceoRespSection(item);
+  h+='<div id="ceoU_respContainer">'+_ceoRespSection(item)+'</div>';
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Lỗi Thường Gặp <span style="color:#dc2626">*</span></label>';
-  h+='<select id="ceoU_errtype" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#f8fafc">';
+  h+='<select id="ceoU_errtype" onchange="_ceoOnCommonErrorChange(this)" data-prev-val="'+(item.common_error_type||'')+'" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:#f8fafc">';
   h+='<option value="">-- Chọn loại lỗi --</option>';
   _ceo.commonErrors.forEach(function(ce){h+='<option value="'+ce.error_name+'"'+(item.common_error_type===ce.error_name?' selected':'')+'>'+ce.error_name+'</option>';});
   h+='</select></div>';
@@ -560,6 +560,40 @@ async function _ceoOpenQLX(id){
   _ceo._selectedViolators=[];
   if(item.violator_name){item.violator_name.split(',').forEach(function(n){var t=n.trim();if(t)_ceo._selectedViolators.push(t);});}
   _ceoRenderViolatorChips();
+}
+
+function _ceoOnCommonErrorChange(el) {
+  var txt = document.getElementById('ceoU_saleRes');
+  if (!txt) return;
+  var prevVal = el.getAttribute('data-prev-val') || '';
+  var currentContent = txt.value.trim();
+  var prevGuide = '';
+  if (prevVal) {
+    var prevTpl = _ceo.commonErrors.find(function(x) { return x.error_name === prevVal; });
+    if (prevTpl) prevGuide = (prevTpl.sale_guide || '').trim();
+  }
+  var newTpl = _ceo.commonErrors.find(function(x) { return x.error_name === el.value; });
+  var newGuide = newTpl ? (newTpl.sale_guide || '').trim() : '';
+  var canOverwrite = !currentContent || currentContent === '1.' || currentContent === '1. ' || currentContent === prevGuide;
+  if (canOverwrite) {
+    txt.value = newGuide || '1. ';
+    el.setAttribute('data-prev-val', el.value);
+    var respContainer = document.getElementById('ceoU_respContainer');
+    if (respContainer) {
+      respContainer.innerHTML = _ceoRespSection({common_error_type: el.value});
+    }
+  } else {
+    if (confirm('Bạn có muốn áp dụng Cách Xử Lý Mẫu cho lỗi này không? (Nội dung cũ sẽ bị ghi đè)')) {
+      txt.value = newGuide || '1. ';
+      el.setAttribute('data-prev-val', el.value);
+      var respContainer = document.getElementById('ceoU_respContainer');
+      if (respContainer) {
+        respContainer.innerHTML = _ceoRespSection({common_error_type: el.value});
+      }
+    } else {
+      el.value = prevVal;
+    }
+  }
 }
 
 // ===== MODAL 2: PHẠT =====
