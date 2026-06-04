@@ -487,6 +487,9 @@ function mRenderUncut(){
             const miss=[];if(!o.fabric_arrived)miss.push('Vải');if(!o.has_pc_in)miss.push('PC In');
             h+='<button class="m-btn-claim locked" disabled>🔒 CHƯA ĐỦ ĐIỀU KIỆN — Thiếu '+miss.join(' + ')+'</button>';
         }
+        if (o.cut_warning && o.cut_warning.indexOf('Cắt bù') >= 0 && o.cutting_record_id) {
+            h+='<button style="width:100%;padding:12px;border:1px solid #fca5a5;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:8px 0 0 0;box-sizing:border-box" onclick="mToggle('+o.cutting_record_id+',\'cancel_compensation\')">❌ HỦY CẮT BÙ</button>';
+        }
         h+='</div></div>';
         cardHtml+=h;
     });

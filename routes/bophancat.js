@@ -330,6 +330,7 @@ module.exports = async function(fastify) {
         })).sort((a, b) => b.year - a.year);
 
         // ── Unassigned count — per-item (phiếu) level ──
+        const isManagerOrStaff = isManager || ['quan_ly', 'truong_phong'].includes(request.user.role);
         const unassigned = await db.get(`
             SELECT
                 COUNT(i.id)::int AS total,
@@ -347,13 +348,27 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_categories c ON o.category_id = c.id
             WHERE (
                 NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id)
-                OR EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false)
+                OR EXISTS (
+                    SELECT 1 FROM cutting_records cr 
+                    WHERE cr.order_item_id = i.id 
+                    AND cr.cutter_id IS NULL 
+                    AND cr.is_cut_done = false
+                    AND (
+                        $1 = true
+                        OR EXISTS (
+                            SELECT 1 FROM cutting_records r 
+                            WHERE r.order_item_id = i.id 
+                            AND r.is_cut_done = true 
+                            AND r.cutter_id = $2
+                        )
+                    )
+                )
             )
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.shipping_status, '') != 'shipped'
-        `);
+        `, [isManagerOrStaff, request.user.id]);
 
         // Count stats
         const stats = await db.get(`
@@ -1319,7 +1334,8 @@ module.exports = async function(fastify) {
                     cr.material_name AS unclaimed_material,
                     cr.fabric_color AS unclaimed_color,
                     cr.cut_warning,
-                    cr.id AS cutting_record_id
+                    cr.id AS cutting_record_id,
+                    (SELECT cutter_id FROM cutting_records r WHERE r.order_item_id = doi.id AND r.is_cut_done = true LIMIT 1) AS original_cutter_id
                 FROM dht_order_items doi
                 LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
                 WHERE doi.dht_order_id = ANY($1)
@@ -1361,6 +1377,12 @@ module.exports = async function(fastify) {
             }
             let itemIdx = 0;
             for (const it of itsArr) {
+                if (it.cut_warning && it.cut_warning.indexOf('Cắt bù') >= 0) {
+                    const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
+                    if (!isManager && it.original_cutter_id && it.original_cutter_id !== request.user.id) {
+                        continue;
+                    }
+                }
                 itemIdx++;
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
@@ -1384,7 +1406,8 @@ module.exports = async function(fastify) {
                             color_name: phoi.color_name || null,
                             item_qty: it.quantity,
                             cut_warning: it.cut_warning,
-                            cutting_record_id: it.cutting_record_id
+                            cutting_record_id: it.cutting_record_id,
+                            original_cutter_id: it.original_cutter_id
                         });
                     }
                 } else {
@@ -1395,7 +1418,8 @@ module.exports = async function(fastify) {
                         total_items_in_order: totalItemsInOrder,
                         material_name: null, color_name: null, item_qty: it.quantity,
                         cut_warning: it.cut_warning,
-                        cutting_record_id: it.cutting_record_id
+                        cutting_record_id: it.cutting_record_id,
+                        original_cutter_id: it.original_cutter_id
                     });
                 }
             }
