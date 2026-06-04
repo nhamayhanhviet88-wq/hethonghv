@@ -1269,7 +1269,10 @@ module.exports = async function(fastify) {
             WHERE EXISTS (
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
-                AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+                AND (
+                    NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+                    OR EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false)
+                )
             )
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
@@ -1291,10 +1294,22 @@ module.exports = async function(fastify) {
         let items = [], allItemCounts = {};
         if (orderIds.length > 0) {
             items = await db.all(`
-                SELECT dht_order_id, id, description, material_pairs, quantity
-                FROM dht_order_items WHERE dht_order_id = ANY($1)
-                AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = dht_order_items.id)
-                ORDER BY dht_order_id, id
+                SELECT 
+                    doi.dht_order_id, 
+                    doi.id, 
+                    doi.description, 
+                    doi.material_pairs,
+                    COALESCE(cr.order_quantity, doi.quantity) AS quantity,
+                    cr.material_name AS unclaimed_material,
+                    cr.fabric_color AS unclaimed_color
+                FROM dht_order_items doi
+                LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
+                WHERE doi.dht_order_id = ANY($1)
+                AND (
+                    NOT EXISTS (SELECT 1 FROM cutting_records r WHERE r.order_item_id = doi.id)
+                    OR cr.id IS NOT NULL
+                )
+                ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
             // Total items in order (including already claimed) for display logic
             const countRows = await db.all(`
@@ -1333,13 +1348,22 @@ module.exports = async function(fastify) {
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
                 if (pairs.length > 0) {
                     for (let pi = 0; pi < pairs.length; pi++) {
+                        const phoi = pairs[pi];
+                        // If it is a compensation ticket, only include the coordination matching the ticket details
+                        if (it.unclaimed_material && it.unclaimed_color) {
+                            const pMat = (phoi.material_name || '').trim().toLowerCase();
+                            const pCol = (phoi.color_name || '').trim().toLowerCase();
+                            const uMat = (it.unclaimed_material || '').trim().toLowerCase();
+                            const uCol = (it.unclaimed_color || '').trim().toLowerCase();
+                            if (pMat !== uMat || pCol !== uCol) continue;
+                        }
                         rows.push({
                             ...o, item_id: it.id, item_desc: it.description,
                             phoi_index: 0, phoi_pair_index: pi,
                             item_index: itemIdx, phoi_in_item: pi + 1, total_phoi: totalPhoi,
                             total_items_in_order: totalItemsInOrder,
-                            material_name: pairs[pi].material_name || null,
-                            color_name: pairs[pi].color_name || null,
+                            material_name: phoi.material_name || null,
+                            color_name: phoi.color_name || null,
                             item_qty: it.quantity
                         });
                     }
@@ -1386,13 +1410,13 @@ module.exports = async function(fastify) {
         // Lookup product's cutting_category for each item
         let items;
         if (order_item_id) {
-            // Per-phiếu: check this specific item not already claimed
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [order_item_id]);
+            // Per-phiếu: check if there's any active claimed ticket
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [order_item_id]);
             if (existing) return reply.code(409).send({ error: 'Phiếu này đã được nhận bởi người khác' });
             items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
         } else {
-            // Legacy: claim all unclaimed items
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 LIMIT 1`, [dht_order_id]);
+            // Legacy: check if there's any active claimed ticket
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [dht_order_id]);
             if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
             items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
         }
@@ -1426,11 +1450,31 @@ module.exports = async function(fastify) {
         }
 
         const createdIds = [];
+        const isCompensations = {};
         if (items.length > 0) {
             for (const it of items) {
                 const itemIdx = allItems.findIndex(a => a.id === it.id) + 1;
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+
+                // Check if there is an existing unassigned ticket for this item
+                const unassignedRecs = await db.all(`
+                    SELECT id FROM cutting_records 
+                    WHERE order_item_id = $1 AND cutter_id IS NULL AND is_cut_done = false
+                `, [it.id]);
+
+                if (unassignedRecs.length > 0) {
+                    for (const ur of unassignedRecs) {
+                        await db.run(`
+                            UPDATE cutting_records 
+                            SET cutter_id = $1, created_by = $1, created_at = $2 
+                            WHERE id = $3
+                        `, [userId, now, ur.id]);
+                        createdIds.push(ur.id);
+                        isCompensations[ur.id] = true;
+                    }
+                    continue;
+                }
 
                 if (pairs.length > 0) {
                     for (let pi = 0; pi < pairs.length; pi++) {
@@ -1475,8 +1519,9 @@ module.exports = async function(fastify) {
         }
 
         for (const cid of createdIds) {
+            const actionText = isCompensations[cid] ? 'Thợ cắt nhận đơn bù' : ('Thợ cắt nhận đơn' + (order_item_id ? ' (phiếu)' : ''));
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [cid, 'claim', 'Thợ cắt nhận đơn' + (order_item_id ? ' (phiếu)' : ''), userId, now]);
+                [cid, 'claim', actionText, userId, now]);
         }
 
         return { success: true, created: createdIds.length, ids: createdIds };
@@ -1506,7 +1551,9 @@ module.exports = async function(fastify) {
 
         // Find unclaimed order_items whose material_pairs match the selected material+color
         const allItems = await db.all(`
-            SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
+            SELECT oi.id AS order_item_id, oi.description, 
+                   COALESCE(cr.order_quantity, oi.quantity) AS quantity, 
+                   oi.material_pairs,
                    o.id AS dht_order_id, o.order_code, o.customer_name,
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived,
                    EXISTS(SELECT 1 FROM qlx_assignments qa
@@ -1517,7 +1564,11 @@ module.exports = async function(fastify) {
             JOIN dht_orders o ON o.id = oi.dht_order_id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+            LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
+            WHERE (
+                NOT EXISTS (SELECT 1 FROM cutting_records r WHERE r.order_item_id = oi.id)
+                OR cr.id IS NOT NULL
+            )
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
@@ -1725,8 +1776,8 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Một số phiếu không tồn tại' });
 
         for (const it of items) {
-            // Check not already claimed
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 LIMIT 1`, [it.order_item_id]);
+            // Check not already claimed by someone else
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [it.order_item_id]);
             if (existing) return reply.code(409).send({ error: 'Phiếu "' + (it.description || it.order_code) + '" đã được nhận bởi người khác' });
             if (it.shipping_status === 'shipped') return reply.code(400).send({ error: 'Phiếu thuộc đơn hàng "' + it.order_code + '" đã được gửi đi rồi' });
             if (!it.fabric_arrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
@@ -1745,9 +1796,27 @@ module.exports = async function(fastify) {
             if (productMatch) cuttingCategory = productMatch.cutting_category_name;
         }
 
-        // Auto-claim: create cutting_records for each item
+        // Auto-claim: create/update cutting_records for each item
         const createdIds = [];
         for (const it of items) {
+            // Check if there is an existing unassigned ticket for this item
+            const unassignedRecs = await db.all(`
+                SELECT id FROM cutting_records 
+                WHERE order_item_id = $1 AND cutter_id IS NULL AND is_cut_done = false
+            `, [it.order_item_id]);
+
+            if (unassignedRecs.length > 0) {
+                for (const ur of unassignedRecs) {
+                    await db.run(`
+                        UPDATE cutting_records 
+                        SET cutter_id = $1, created_by = $1, created_at = $2
+                        WHERE id = $3
+                    `, [userId, now, ur.id]);
+                    createdIds.push(ur.id);
+                }
+                continue;
+            }
+
             let pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
 
