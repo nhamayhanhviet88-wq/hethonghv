@@ -926,9 +926,6 @@ module.exports = async function(fastify) {
                 [request.body.error_order_id || null, now, id]);
             detail = '⚠️ Báo đơn lỗi nội bộ';
         } else if (action === 'cancel_compensation') {
-            if (!['giam_doc', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
-                return reply.code(403).send({ error: 'Chỉ Quản lý hoặc Giám đốc mới có quyền hủy cắt bù!' });
-            }
             if (rec.is_cutting || rec.is_cut_done) {
                 return reply.code(400).send({ error: 'Đơn đang cắt hoặc đã cắt xong, không thể hủy!' });
             }

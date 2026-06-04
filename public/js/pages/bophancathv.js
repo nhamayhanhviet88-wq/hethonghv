@@ -306,8 +306,7 @@ function _bpcRenderRows(paged) {
         if (r.cut_warning) {
             warnHtml = '<span style="color:#dc2626;font-weight:700">' + r.cut_warning + '</span>';
             var isComp = r.cut_warning.indexOf('Cắt bù') >= 0;
-            var isStaff = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
-            if (isComp && !r.is_cutting && !r.is_cut_done && isStaff) {
+            if (isComp && !r.is_cutting && !r.is_cut_done) {
                 warnHtml += ' <button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;margin-left:8px;font-weight:bold;height:auto;line-height:1;display:inline-block;vertical-align:middle;width:auto">❌ Hủy Cắt Bù</button>';
             }
         }
@@ -538,8 +537,7 @@ function _bpcRenderUnassigned() {
                     claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
                 }
                 if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                    var isStaff = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
-                    if (isStaff && r.cutting_record_id) {
+                    if (r.cutting_record_id) {
                         claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
                     }
                 }
