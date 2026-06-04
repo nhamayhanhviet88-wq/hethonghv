@@ -345,7 +345,10 @@ module.exports = async function(fastify) {
             JOIN dht_order_items i ON i.dht_order_id = o.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            WHERE NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id)
+            WHERE (
+                NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id)
+                OR EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false)
+            )
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
