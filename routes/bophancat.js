@@ -708,8 +708,10 @@ module.exports = async function(fastify) {
                 const sibling = await db.get(
                     `SELECT cut_quantity FROM cutting_records 
                      WHERE dht_order_id = $1 AND order_item_id = $2 
-                       AND is_cut_done = true AND id != $3 LIMIT 1`,
-                    [rec.dht_order_id, rec.order_item_id, id]
+                       AND is_cut_done = true AND id != $3
+                       AND ((COALESCE($4, '') LIKE '%Cắt bù%') = (COALESCE(cut_warning, '') LIKE '%Cắt bù%'))
+                     LIMIT 1`,
+                    [rec.dht_order_id, rec.order_item_id, id, rec.cut_warning]
                 );
                 if (sibling && sibling.cut_quantity !== null) {
                     cutQty = Number(sibling.cut_quantity);
