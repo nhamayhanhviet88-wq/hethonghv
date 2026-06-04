@@ -443,8 +443,8 @@ function mRenderUncut(){
         const saleName = o.cskh_name || o.created_by_name || '';
         if(saleName) h+='<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>';
         h+='<div class="m-row"><span class="m-lbl">📅 Ngày Ra Đơn</span><span class="m-val">'+mFmt(o.expected_ship_date)+'</span></div>';
-        var itemQtySum = 0; g.phois.forEach(p=>{ itemQtySum += Number(p.item_qty)||0; });
-        h+='<div class="m-row"><span class="m-lbl">📦 Số Lượng Sản Phẩm</span><span class="m-val" style="color:#60a5fa">'+(itemQtySum||o.total_quantity||'—')+'</span></div>';
+        var itemQty = o.item_qty || o.total_quantity || 0;
+        h+='<div class="m-row"><span class="m-lbl">📦 Số Lượng Sản Phẩm</span><span class="m-val" style="color:#60a5fa">'+(itemQty||'—')+'</span></div>';
         h+='<div class="m-divider"></div>';
 
         // Render each phối with full name
