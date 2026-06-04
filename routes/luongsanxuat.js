@@ -322,7 +322,8 @@ module.exports = async function(fastify) {
                     lh.details AS last_update_detail,
                     lh.performed_at AS last_update_at,
                     lh_u.full_name AS last_update_by,
-                    cr.created_at
+                    cr.created_at,
+                    cr.cut_warning
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
@@ -364,7 +365,8 @@ module.exports = async function(fastify) {
                     lh.details AS last_update_detail,
                     lh.performed_at AS last_update_at,
                     lh_u.full_name AS last_update_by,
-                    pr.created_at
+                    pr.created_at,
+                    NULL::text AS cut_warning
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
                 LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
@@ -401,7 +403,8 @@ module.exports = async function(fastify) {
                     lh.details AS last_update_detail,
                     lh.performed_at AS last_update_at,
                     lh_u.full_name AS last_update_by,
-                    sr.created_at
+                    sr.created_at,
+                    NULL::text AS cut_warning
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id

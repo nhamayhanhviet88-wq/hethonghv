@@ -343,15 +343,26 @@ function _lsxRenderTable() {
 
         var orderQty = r.order_quantity !== undefined ? r.order_quantity : (r.quantity || 0);
 
+        var codeCell = r.order_code || '—';
+        if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+            codeCell = `<span class="lsx-badge cut" style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; text-transform: none;">Cắt bù</span>` + codeCell;
+        }
+
+        var displayName = r.product_name || '—';
+        var match = displayName.match(/^(.*?\s*[-—]\s*Phiếu\s+\d+)/i);
+        if (match) {
+            displayName = match[1];
+        }
+
         return `<tr>`
             + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
             + `<td style="font-size:10px">${_lsxFD(r.work_date)}</td>`
             + `<td>${deptBadge}</td>`
             + `<td style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</td>`
-            + `<td style="font-weight:700;color:#1e3a8a">${r.order_code || '—'}</td>`
+            + `<td style="font-weight:700;color:#1e3a8a">${codeCell}</td>`
             + `<td style="text-align:center;font-weight:700;color:#64748b">${orderQty}</td>`
             + `<td style="text-align:center;font-weight:700;color:#0d9488">${r.quantity || 0}</td>`
-            + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${r.product_name || '—'}</td>`
+            + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
             + priceCell
             + salCell
             + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
