@@ -474,14 +474,6 @@ async function _bpcReportError(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + (r.order_quantity || 0) + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpc-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
 
-        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
-        h += '<select id="bpcE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#fff">';
-        h += '<option value="">-- Chọn lỗi thường gặp (nếu có) --</option>';
-        commonErrors.forEach(function(ce) {
-            h += '<option value="' + ce.name + '">' + ce.name + '</option>';
-        });
-        h += '</select></div>';
-
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
         h += '<input type="number" id="bpcE_qty" min="1" max="' + (r.order_quantity || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626" placeholder="Nhập số lượng lỗi...">';
         h += '</div>';
@@ -491,7 +483,7 @@ async function _bpcReportError(recordId) {
         h += '</div>';
 
         h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:2px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
-        h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px">(Nhấp vào modal rồi bấm Ctrl+V để dán ảnh, hoặc chọn tệp dưới)</div>';
+        h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px">(Bấm Ctrl+V tại bất kỳ đâu trên trang này để dán ảnh, hoặc chọn tệp dưới)</div>';
         h += '<input type="file" id="bpcE_images" multiple accept="image/*" style="font-size:11px;width:100%;margin-bottom:8px" onchange="_bpcOnErrorImagesChange(event)">';
         h += '<div id="bpcE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
         h += '</div>';
@@ -522,6 +514,10 @@ async function _bpcReportError(recordId) {
 function _bpcCloseErrorModal() {
     var m = document.getElementById('_bpcErrorModal');
     if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+    if (window._bpcPasteHandler) {
+        document.removeEventListener('paste', window._bpcPasteHandler);
+        window._bpcPasteHandler = null;
+    }
 }
 
 function _bpcOnErrorImagesChange(e) {
@@ -559,9 +555,11 @@ function _bpcRemoveErrorImage(index) {
 }
 
 function _bpcSetupPasteListener() {
-    var modal = document.getElementById('_bpcErrorModal');
-    if (!modal) return;
-    modal.addEventListener('paste', function(e) {
+    if (window._bpcPasteHandler) {
+        document.removeEventListener('paste', window._bpcPasteHandler);
+    }
+    window._bpcPasteHandler = function(e) {
+        if (!document.getElementById('_bpcErrorModal')) return;
         var items = (e.clipboardData || e.originalEvent.clipboardData).items;
         for (var i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') === 0) {
@@ -569,7 +567,8 @@ function _bpcSetupPasteListener() {
                 _bpcAddErrorImage(blob);
             }
         }
-    });
+    };
+    document.addEventListener('paste', window._bpcPasteHandler);
 }
 
 function dataURLtoBlob(dataurl) {
@@ -617,7 +616,7 @@ async function _bpcSubmitError(recordId) {
 
         var body = {
             report_date: today,
-            common_error_type: document.getElementById('bpcE_common').value,
+            common_error_type: document.getElementById('bpcE_common') ? document.getElementById('bpcE_common').value : '',
             order_code: r.order_code,
             cskh_name: reporterName,
             error_quantity: qty,
