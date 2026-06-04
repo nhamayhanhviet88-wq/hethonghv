@@ -1301,7 +1301,8 @@ module.exports = async function(fastify) {
                     doi.material_pairs,
                     COALESCE(cr.order_quantity, doi.quantity) AS quantity,
                     cr.material_name AS unclaimed_material,
-                    cr.fabric_color AS unclaimed_color
+                    cr.fabric_color AS unclaimed_color,
+                    cr.cut_warning
                 FROM dht_order_items doi
                 LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
                 WHERE doi.dht_order_id = ANY($1)
@@ -1364,7 +1365,8 @@ module.exports = async function(fastify) {
                             total_items_in_order: totalItemsInOrder,
                             material_name: phoi.material_name || null,
                             color_name: phoi.color_name || null,
-                            item_qty: it.quantity
+                            item_qty: it.quantity,
+                            cut_warning: it.cut_warning
                         });
                     }
                 } else {
@@ -1373,7 +1375,8 @@ module.exports = async function(fastify) {
                         phoi_index: 0, phoi_pair_index: 0,
                         item_index: itemIdx, phoi_in_item: 1, total_phoi: totalPhoi,
                         total_items_in_order: totalItemsInOrder,
-                        material_name: null, color_name: null, item_qty: it.quantity
+                        material_name: null, color_name: null, item_qty: it.quantity,
+                        cut_warning: it.cut_warning
                     });
                 }
             }
