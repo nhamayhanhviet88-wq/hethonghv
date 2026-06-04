@@ -432,6 +432,9 @@ module.exports = async function(fastify) {
                          AND sub.order_item_id = cr.order_item_id 
                          AND sub.is_cut_done = true 
                          AND sub.id != cr.id
+                         AND (
+                             (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%')
+                         )
                        LIMIT 1
                    ) AS ticket_completed_quantity,
                    (
@@ -497,6 +500,9 @@ module.exports = async function(fastify) {
                          AND sub.order_item_id = cr.order_item_id 
                          AND sub.is_cut_done = true 
                          AND sub.id != cr.id
+                         AND (
+                             (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%')
+                         )
                        LIMIT 1
                    ) AS ticket_completed_quantity,
                    (
