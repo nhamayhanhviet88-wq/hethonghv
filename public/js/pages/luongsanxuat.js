@@ -68,7 +68,25 @@ function renderLuongSanXuatPage(content) {
                 <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
                     <div id="lsxInfo" style="font-size:12px"></div>
                     <div id="lsxStats" style="display:flex;gap:12px;flex:1;justify-content:center"></div>
-                    <div style="display:flex;gap:6px;align-items:center">
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                        <select id="lsxYearFilter" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none" onchange="_lsxChangeYear(this.value)">
+                            <option value="">Năm: Tất cả</option>
+                        </select>
+                        <select id="lsxMonthFilter" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none" onchange="_lsxChangeMonth(this.value)">
+                            <option value="">Tháng: Tất cả</option>
+                            <option value="1">Tháng 01</option>
+                            <option value="2">Tháng 02</option>
+                            <option value="3">Tháng 03</option>
+                            <option value="4">Tháng 04</option>
+                            <option value="5">Tháng 05</option>
+                            <option value="6">Tháng 06</option>
+                            <option value="7">Tháng 07</option>
+                            <option value="8">Tháng 08</option>
+                            <option value="9">Tháng 09</option>
+                            <option value="10">Tháng 10</option>
+                            <option value="11">Tháng 11</option>
+                            <option value="12">Tháng 12</option>
+                        </select>
                         <select id="lsxStatusFilter" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none" onchange="_lsxChangeStatus(this.value)">
                             <option value="">Status: Tất cả</option>
                             <option value="pending">Chưa duyệt</option>
@@ -92,7 +110,11 @@ function renderLuongSanXuatPage(content) {
                                     <th>Tên Sản Phẩm</th>
                                     <th style="text-align:right">Đơn Giá (đ)</th>
                                     <th style="text-align:right">Thành Tiền (đ)</th>
-                                    <th style="text-align:center">Kiểm Tra</th>
+                                    <th style="text-align:center">
+                                        Kiểm Tra
+                                        <br>
+                                        <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:none;">Duyệt hết</button>
+                                    </th>
                                     <th>Lịch Sử Cập Nhật</th>
                                     <th style="text-align:right;font-weight:bold;color:#0d9488">Cộng dồn (đ)</th>
                                 </tr>
@@ -125,6 +147,29 @@ async function _lsxLoadAll() {
         _lsx.tree = res.tree;
         _lsx.is_manager = res.is_manager || false;
         
+        // Pre-open the latest year and its departments by default on first load
+        if (Object.keys(_lsxOpen).length === 0 && _lsx.tree && _lsx.tree.length > 0) {
+            var latestYear = _lsx.tree[0];
+            _lsxOpen['y_' + latestYear.year] = true;
+            if (latestYear.depts) {
+                latestYear.depts.forEach(function(dp) {
+                    _lsxOpen[`d_${latestYear.year}_${dp.dept}`] = true;
+                });
+            }
+        }
+        
+        // Populate Year dropdown dynamically
+        var yEl = document.getElementById('lsxYearFilter');
+        if (yEl && _lsx.tree) {
+            var selectedY = _lsx.filter.year || '';
+            var h = '<option value="">Năm: Tất cả</option>';
+            _lsx.tree.forEach(function(yr) {
+                h += `<option value="${yr.year}">Năm ${yr.year}</option>`;
+            });
+            yEl.innerHTML = h;
+            yEl.value = selectedY;
+        }
+
         // Render left sidebar tree
         _lsxRenderSb();
         
@@ -242,6 +287,15 @@ function _lsxChangeStatus(st) {
 
 async function _lsxLoadRecs() {
     var f = _lsx.filter;
+    
+    // Sync dropdown values
+    var yEl = document.getElementById('lsxYearFilter');
+    if (yEl) yEl.value = f.year || '';
+    var mEl = document.getElementById('lsxMonthFilter');
+    if (mEl) mEl.value = f.month || '';
+    var sEl = document.getElementById('lsxStatusFilter');
+    if (sEl) sEl.value = f.status || '';
+
     var qs = '?_=1';
     if (f.year) qs += '&year=' + f.year;
     if (f.month) qs += '&month=' + f.month;
@@ -371,6 +425,13 @@ function _lsxRenderTable() {
             + `</tr>`;
     }).join('');
 
+    // Show/hide bulk approve button
+    var showApproveAll = _lsx.is_manager && all.some(function(r) { return !r.is_approved; });
+    var btnApproveAll = document.getElementById('lsxBtnApproveAll');
+    if (btnApproveAll) {
+        btnApproveAll.style.display = showApproveAll ? 'inline-block' : 'none';
+    }
+
     _lsxRenderInfo(all.length);
 }
 
@@ -452,4 +513,52 @@ function _lsxStartEdit(id, dept, field, currentVal, cell) {
             cell.innerHTML = _lsxFN(currentVal);
         }
     };
+}
+
+function _lsxChangeYear(val) {
+    _lsx.filter.year = val ? Number(val) : null;
+    _lsxRenderSb();
+    _lsxLoadRecs();
+}
+
+function _lsxChangeMonth(val) {
+    _lsx.filter.month = val ? Number(val) : null;
+    _lsxRenderSb();
+    _lsxLoadRecs();
+}
+
+async function _lsxApproveAllVisible() {
+    var unapproved = _lsx.records.slice();
+    if (_lsx.search) {
+        var q = _lsx.search.toLowerCase();
+        unapproved = unapproved.filter(function(r) {
+            return (r.product_name || '').toLowerCase().indexOf(q) >= 0 
+                || (r.order_code || '').toLowerCase().indexOf(q) >= 0
+                || (r.worker_name || '').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+    unapproved = unapproved.filter(function(r) { return !r.is_approved; });
+
+    if (!unapproved.length) {
+        showToast('Không có bản ghi nào cần duyệt', 'info');
+        return;
+    }
+
+    if (!confirm('Bạn có chắc chắn muốn duyệt tất cả ' + unapproved.length + ' bản ghi đang hiển thị?')) {
+        return;
+    }
+
+    try {
+        var payload = {
+            records: unapproved.map(function(r) {
+                return { id: r.id, dept: r.dept };
+            })
+        };
+        await apiCall('/api/production-salary/approve-bulk', 'POST', payload);
+        showToast('Đã duyệt thành công ' + unapproved.length + ' bản ghi');
+        await _lsxLoadAll();
+    } catch(e) {
+        console.error(e);
+        showToast(e.message || 'Lỗi khi duyệt hàng loạt', 'error');
+    }
 }

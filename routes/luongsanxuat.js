@@ -426,6 +426,108 @@ module.exports = async function(fastify) {
         return { records, is_manager: isMgr };
     });
 
+    // ========== BULK APPROVAL ==========
+    fastify.post('/api/production-salary/approve-bulk', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isSalaryManager(req))) {
+            return reply.code(403).send({ error: 'Không có quyền duyệt lương' });
+        }
+
+        const { records } = req.body || {}; // array of { id, dept }
+        if (!Array.isArray(records) || records.length === 0) {
+            return { success: true, count: 0 };
+        }
+
+        const now = vnNow();
+        
+        // Group by department to run updates efficiently
+        const cuttingIds = [];
+        const pressingIds = [];
+        const sewingIds = [];
+
+        for (const r of records) {
+            const id = Number(r.id);
+            if (!id) continue;
+            if (r.dept === 'cutting') cuttingIds.push(id);
+            else if (r.dept === 'pressing') pressingIds.push(id);
+            else if (r.dept === 'sewing') sewingIds.push(id);
+        }
+
+        let updatedCount = 0;
+
+        if (cuttingIds.length > 0) {
+            // For cutting, we need to approve all coordinates in the same cycle for these ids.
+            const items = await db.all(`
+                SELECT DISTINCT order_item_id, cut_warning 
+                FROM cutting_records 
+                WHERE id IN (${cuttingIds.join(',')})
+            `);
+            
+            for (const item of items) {
+                await db.run(`
+                    UPDATE cutting_records 
+                    SET 
+                        salary_approved = true, 
+                        salary_approved_at = $1, 
+                        salary_approved_by = $2, 
+                        updated_at = $1 
+                    WHERE order_item_id = $3
+                      AND ((COALESCE(cut_warning, '') LIKE '%Cắt bù%') = (COALESCE($4, '') LIKE '%Cắt bù%'))
+                `, [now, req.user.id, item.order_item_id, item.cut_warning]);
+            }
+
+            // Insert into history
+            for (const id of cuttingIds) {
+                await db.run(`
+                    INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'approve_salary', '💰 Duyệt lương sản xuất (Hàng loạt)', $2, $3)
+                `, [id, req.user.id, now]);
+            }
+            updatedCount += cuttingIds.length;
+        }
+
+        if (pressingIds.length > 0) {
+            await db.run(`
+                UPDATE pressing_records 
+                SET 
+                    salary_approved = true, 
+                    salary_approved_at = $1, 
+                    salary_approved_by = $2, 
+                    updated_at = $1 
+                WHERE id IN (${pressingIds.join(',')})
+            `, [now, req.user.id]);
+
+            for (const id of pressingIds) {
+                await db.run(`
+                    INSERT INTO pressing_history (pressing_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'approve_salary', '💰 Duyệt lương sản xuất (Hàng loạt)', $2, $3)
+                `, [id, req.user.id, now]);
+            }
+            updatedCount += pressingIds.length;
+        }
+
+        if (sewingIds.length > 0) {
+            await db.run(`
+                UPDATE sewing_records 
+                SET 
+                    salary_approved = true, 
+                    salary_approved_at = $1, 
+                    salary_approved_by = $2, 
+                    updated_at = $1 
+                WHERE id IN (${sewingIds.join(',')})
+            `, [now, req.user.id]);
+
+            for (const id of sewingIds) {
+                await db.run(`
+                    INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'approve_salary', '💰 Duyệt lương sản xuất (Hàng loạt)', $2, $3)
+                `, [id, req.user.id, now]);
+            }
+            updatedCount += sewingIds.length;
+        }
+
+        return { success: true, count: updatedCount };
+    });
+
     // ========== TOGGLE APPROVAL ==========
     fastify.post('/api/production-salary/toggle/:dept/:id', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isSalaryManager(req))) {
