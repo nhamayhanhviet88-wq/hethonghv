@@ -1470,13 +1470,13 @@ module.exports = async function(fastify) {
         // Lookup product's cutting_category for each item
         let items;
         if (order_item_id) {
-            // Per-phiếu: check if there's any active claimed ticket
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [order_item_id]);
+            // Per-phiếu: check if there's any active claimed ticket by a different user
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND cutter_id != $2 AND is_cut_done = false LIMIT 1`, [order_item_id, userId]);
             if (existing) return reply.code(409).send({ error: 'Phiếu này đã được nhận bởi người khác' });
             items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
         } else {
-            // Legacy: check if there's any active claimed ticket
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [dht_order_id]);
+            // Legacy: check if there's any active claimed ticket by a different user
+            const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 AND cutter_id IS NOT NULL AND cutter_id != $2 AND is_cut_done = false LIMIT 1`, [dht_order_id, userId]);
             if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
             items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
         }
