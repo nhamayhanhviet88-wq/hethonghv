@@ -509,7 +509,11 @@ function _bpcRenderUnassigned() {
             var bg = isNew ? '' : 'background:#f0f9ff;';
             var ready = r.fabric_arrived && r.has_pc_in;
             var priColor = r.shipping_priority === 'GẤP' ? 'background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,0.35)' : r.shipping_priority === 'GỬI' ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,0.35)' : 'background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.4)';
-            var spName = (r.total_phoi > 1) ? (r.order_code + ' — Phiếu ' + r.item_index + ' — P' + r.phoi_in_item + (r.item_desc ? ' — ' + r.item_desc : '')) : (r.order_code + (r.item_desc ? ' — ' + r.item_desc : ''));
+            var compBadge = r.cut_warning ? '<span style="background:#ea580c;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>' : '';
+            var spName = compBadge + ((r.total_phoi > 1) ? (r.order_code + ' — Phiếu ' + r.item_index + ' — P' + r.phoi_in_item + (r.item_desc ? ' — ' + r.item_desc : '')) : (r.order_code + (r.item_desc ? ' — ' + r.item_desc : '')));
+            if (r.cut_warning) {
+                spName += '<div style="color:#ea580c;font-size:10px;margin-top:2px;font-weight:bold">⚠️ ' + r.cut_warning + '</div>';
+            }
             // Status badges
             var statusHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap">'
                 + (r.fabric_arrived ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ Vải</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ Vải</span>')
@@ -522,12 +526,22 @@ function _bpcRenderUnassigned() {
                 var rs = groupRowCount[groupKey] || 1;
                 var claimHtml;
                 if (ready) {
-                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                    if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                    } else {
+                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                    }
                 } else {
                     var missing = [];
                     if (!r.fabric_arrived) missing.push('Vải');
                     if (!r.has_pc_in) missing.push('PC In');
                     claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
+                }
+                if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+                    var isStaff = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
+                    if (isStaff && r.cutting_record_id) {
+                        claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
+                    }
                 }
                 claimTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
                 priTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle"><span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;letter-spacing:0.5px;font-family:Inter,system-ui,sans-serif;'+priColor+'">'+(r.shipping_priority||'CHUẨN')+'</span></td>';

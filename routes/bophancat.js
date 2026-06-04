@@ -1317,7 +1317,8 @@ module.exports = async function(fastify) {
                     COALESCE(cr.order_quantity, doi.quantity) AS quantity,
                     cr.material_name AS unclaimed_material,
                     cr.fabric_color AS unclaimed_color,
-                    cr.cut_warning
+                    cr.cut_warning,
+                    cr.id AS cutting_record_id
                 FROM dht_order_items doi
                 LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
                 WHERE doi.dht_order_id = ANY($1)
@@ -1347,7 +1348,7 @@ module.exports = async function(fastify) {
             const itsArr = itemMap[o.id] || [];
             const totalItemsInOrder = allItemCounts[o.id] || 1;
             if (!itsArr.length) {
-                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity });
+                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity, cutting_record_id: null });
                 continue;
             }
             // Calculate total phối for this order (for naming)
@@ -1381,7 +1382,8 @@ module.exports = async function(fastify) {
                             material_name: phoi.material_name || null,
                             color_name: phoi.color_name || null,
                             item_qty: it.quantity,
-                            cut_warning: it.cut_warning
+                            cut_warning: it.cut_warning,
+                            cutting_record_id: it.cutting_record_id
                         });
                     }
                 } else {
@@ -1391,7 +1393,8 @@ module.exports = async function(fastify) {
                         item_index: itemIdx, phoi_in_item: 1, total_phoi: totalPhoi,
                         total_items_in_order: totalItemsInOrder,
                         material_name: null, color_name: null, item_qty: it.quantity,
-                        cut_warning: it.cut_warning
+                        cut_warning: it.cut_warning,
+                        cutting_record_id: it.cutting_record_id
                     });
                 }
             }
