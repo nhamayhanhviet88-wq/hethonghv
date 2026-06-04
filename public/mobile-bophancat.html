@@ -927,7 +927,12 @@ function mOpenDoneModal(recordId){
     h+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(r.cutting_category||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
     // Số Lượng Cắt
-    h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+(r.order_quantity||'')+'" oninput="mDoneValidQty(this,'+(r.order_quantity||9999)+')" style="width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)"></span></div>';
+    const hasSiblingQty = r.ticket_completed_quantity !== null && r.ticket_completed_quantity !== undefined;
+    const initialQty = hasSiblingQty ? r.ticket_completed_quantity : (r.order_quantity || '');
+    const disAttr = hasSiblingQty ? ' readonly' : '';
+    const qtyStyle = hasSiblingQty ? 'width:70px;padding:8px;border:2px solid #4b5563;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#9ca3af;background:rgba(255,255,255,0.1);cursor:not-allowed' : 'width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)';
+    const siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#f87171;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
+    h+='<div class="mm-row"><span class="mm-lbl">✏️ Số Lượng Cắt <span style="color:#ef4444">*</span></span><span class="mm-val"><input id="_mDoneQty" type="number" inputmode="numeric" min="1" max="'+(r.order_quantity||9999)+'" value="'+initialQty+'" '+disAttr+' oninput="mDoneValidQty(this,'+(r.order_quantity||9999)+')" style="'+qtyStyle+'">'+siblingNote+'</span></div>';
     // Rolls
     h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#93c5fd;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -1169,10 +1174,13 @@ function mOpenGroupDoneModal(groupId){
         h+='<div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px">'+shortName+'</div>';
         h+='<div style="display:flex;align-items:center;justify-content:space-between">';
         h+='<span style="font-size:11px;color:#a5b4fc">SL Đơn: <b style="color:#c4b5fd">'+gr.order_quantity+'</b></span>';
-        h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;font-weight:600">SL Cắt:</span>';
-        const defaultQty = gr.cut_quantity || gr.order_quantity || '';
-        h+='<input id="_mGQ_'+gr.id+'" type="number" inputmode="numeric" min="1" max="'+(gr.order_quantity||9999)+'" value="'+defaultQty+'" oninput="mGDoneValidQty(this,'+gr.order_quantity+')" style="width:65px;padding:7px;border:2px solid #8b5cf6;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)">';
-        h+='</div></div></div>';
+        const hasSiblingQty = gr.ticket_completed_quantity !== null && gr.ticket_completed_quantity !== undefined;
+        const defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : (gr.cut_quantity || gr.order_quantity || '');
+        const disAttr = hasSiblingQty ? ' readonly' : '';
+        const qtyStyle = hasSiblingQty ? 'width:65px;padding:7px;border:2px solid #4b5563;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#9ca3af;background:rgba(255,255,255,0.1);cursor:not-allowed' : 'width:65px;padding:7px;border:2px solid #8b5cf6;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)';
+        const siblingNote = hasSiblingQty ? '<div style="font-size:9px;color:#fca5a5;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + '</div>' : '';
+        h+='<div style="display:flex;flex-direction:column;align-items:flex-end"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;font-weight:600">SL Cắt:</span>';
+        h+='<input id="_mGQ_'+gr.id+'" type="number" inputmode="numeric" min="1" max="'+(gr.order_quantity||9999)+'" value="'+defaultQty+'" '+disAttr+' oninput="mGDoneValidQty(this,'+gr.order_quantity+')" style="'+qtyStyle+'"></div>'+siblingNote+'</div></div></div>';
     });
     h+='</div>';
     // Rolls section

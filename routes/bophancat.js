@@ -387,6 +387,15 @@ module.exports = async function(fastify) {
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary,
+                   (
+                       SELECT sub.cut_quantity 
+                       FROM cutting_records sub 
+                       WHERE sub.dht_order_id = cr.dht_order_id 
+                         AND sub.order_item_id = cr.order_item_id 
+                         AND sub.is_cut_done = true 
+                         AND sub.id != cr.id
+                       LIMIT 1
+                   ) AS ticket_completed_quantity,
                    u_cutter.full_name AS cutter_name,
                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
@@ -436,6 +445,15 @@ module.exports = async function(fastify) {
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary,
+                   (
+                       SELECT sub.cut_quantity 
+                       FROM cutting_records sub 
+                       WHERE sub.dht_order_id = cr.dht_order_id 
+                         AND sub.order_item_id = cr.order_item_id 
+                         AND sub.is_cut_done = true 
+                         AND sub.id != cr.id
+                       LIMIT 1
+                   ) AS ticket_completed_quantity,
                    (cr.ratio_image IS NOT NULL AND cr.ratio_image != '') AS has_ratio_image,
                    u_cutter.full_name AS cutter_name,
                    u_done.full_name AS cut_done_by_name,
@@ -626,8 +644,21 @@ module.exports = async function(fastify) {
             if (!rec.is_cutting) return reply.code(400).send({ error: 'Chưa bấm Cắt — không thể bấm Cắt Xong' });
             if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong' });
             const { cut_quantity, roll_remains, ratio_reason, ratio_image } = b;
-            if (!cut_quantity) return reply.code(400).send({ error: 'Thiếu SL Cắt' });
-            const cutQty = Number(cut_quantity);
+            let cutQty = Number(cut_quantity);
+
+            if (rec.dht_order_id && rec.order_item_id) {
+                const sibling = await db.get(
+                    `SELECT cut_quantity FROM cutting_records 
+                     WHERE dht_order_id = $1 AND order_item_id = $2 
+                       AND is_cut_done = true AND id != $3 LIMIT 1`,
+                    [rec.dht_order_id, rec.order_item_id, id]
+                );
+                if (sibling && sibling.cut_quantity !== null) {
+                    cutQty = Number(sibling.cut_quantity);
+                }
+            }
+
+            if (!cutQty) return reply.code(400).send({ error: 'Thiếu SL Cắt' });
             if (rec.order_quantity && cutQty > Number(rec.order_quantity))
                 return reply.code(400).send({ error: 'SL Cắt (' + cutQty + ') không thể lớn hơn SL Đơn (' + rec.order_quantity + ')' });
 

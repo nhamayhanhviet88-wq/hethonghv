@@ -844,7 +844,12 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ SP Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px;font-weight:900">' + (r.order_quantity||'—') + '</span></div>';
     // SL Cắt input
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✏️ SL Cắt <span style="color:#dc2626">*</span></span><span class="bpc-modal-val"><input id="_bpcDoneQty" type="number" min="1" max="' + (r.order_quantity||9999) + '" value="' + (r.order_quantity||'') + '" oninput="_bpcDoneRecalc()" style="width:80px;padding:6px 10px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#1e40af"></span></div>';
+    var hasSiblingQty = r.ticket_completed_quantity !== null && r.ticket_completed_quantity !== undefined;
+    var initialQty = hasSiblingQty ? r.ticket_completed_quantity : (r.order_quantity || '');
+    var disAttr = hasSiblingQty ? ' readonly' : '';
+    var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#1e40af';
+    var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✏️ SL Cắt <span style="color:#dc2626">*</span></span><span class="bpc-modal-val"><input id="_bpcDoneQty" type="number" min="1" max="' + (r.order_quantity||9999) + '" value="' + initialQty + '" ' + disAttr + ' oninput="_bpcDoneRecalc()" style="' + qtyStyle + '">' + siblingNote + '</span></div>';
     // Rolls section
     h += '<div style="border-top:2px solid #e2e8f0;margin:10px 0;padding-top:10px">';
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:1px">📦 CÂY CÒN LẠI</span>';
@@ -1114,9 +1119,13 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px">' + (gr.product_name||gr.order_code||'Đơn '+(i+1)) + '</div>';
         h += '<div style="display:flex;align-items:center;justify-content:space-between">';
         h += '<span style="font-size:11px;color:#7c3aed">SL Đơn: <b>' + gr.order_quantity + '</b></span>';
-        h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#64748b;font-weight:600">SL Cắt:</span>';
-        const defaultQty = gr.cut_quantity || gr.order_quantity || '';
-        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + defaultQty + '" oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed"></div></div></div>';
+        var hasSiblingQty = gr.ticket_completed_quantity !== null && gr.ticket_completed_quantity !== undefined;
+        var defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : (gr.cut_quantity || gr.order_quantity || '');
+        var disAttr = hasSiblingQty ? ' readonly' : '';
+        var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed';
+        var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + '</div>' : '';
+        h += '<div style="display:flex;flex-direction:column;align-items:flex-end"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#64748b;font-weight:600">SL Cắt:</span>';
+        h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + defaultQty + '" ' + disAttr + ' oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="' + qtyStyle + '"></div>' + siblingNote + '</div></div></div>';
     });
     h += '</div>';
     // Rolls
