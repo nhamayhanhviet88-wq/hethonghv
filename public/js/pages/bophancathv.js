@@ -347,7 +347,7 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
             +'<td style="text-align:center">'+cutBtnHtml+'</td>'
             +'<td style="text-align:center">'+doneBtnHtml+'</td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+washCls+'" onclick="_bpcToggleAction('+r.id+',\''+washAct+'\')" title="Giặt vải">'+washIcon+'</button></td>'
+            +'<td style="text-align:center"><button class="bpc-icon-btn'+washCls+'" onclick="_bpcOpenWashModal('+r.id+')" title="Giặt vải">'+washIcon+'</button></td>'
             +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
@@ -976,6 +976,198 @@ function _bpcDoneImgFile(e) {
         var prev = document.getElementById('_bpcDoneImgPreview');
         if (prev) prev.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:120px;border-radius:6px">';
     });
+}
+
+// ========== WASH MODAL: Form báo giặt vải khi ấn 🫧 ==========
+async function _bpcOpenWashModal(recordId) {
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    var r = _bpc.records.find(function(x) { return x.id === recordId; });
+    if (!r) { showToast('Không tìm thấy record', 'error'); window._bpcBusy = false; return; }
+
+    // Fetch latest record info to make sure we have the latest wash details
+    try {
+        var res = await apiCall('/api/cutting/records/' + recordId);
+        if (res) {
+            r = res;
+            var localIdx = _bpc.records.findIndex(function(x) { return x.id === recordId; });
+            if (localIdx >= 0) _bpc.records[localIdx] = r;
+        }
+    } catch(e) {
+        console.error('Error fetching record detail for wash:', e);
+    }
+
+    var washItems = [];
+    try {
+        washItems = typeof r.wash_items === 'string' ? JSON.parse(r.wash_items) : (r.wash_items || []);
+    } catch(e) {}
+    if (!Array.isArray(washItems)) washItems = [];
+
+    window._bpcWashData = { recordId: recordId, wash_items: washItems, imgData: r.wash_market_image || null };
+
+    var title = (r.order_code || '') + (r.product_name ? ' - ' + r.product_name : '');
+    var todayStr = new Date().toLocaleDateString('vi-VN');
+    if (typeof vnNow === 'function') {
+        todayStr = vnDateStr(vnNow());
+    }
+
+    var isReported = !!r.wash_reported;
+    var h = '<div class="bpc-modal-overlay" id="_bpcWashModal" onclick="if(event.target===this)_bpcCloseWashModal()">';
+    h += '<div class="bpc-modal" style="width:520px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">';
+    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🫧</div><div><div class="m-title">' + (isReported ? 'CHI TIẾT BÁO GIẶT VẢI' : 'BÁO GIẶT VẢI') + '</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+    h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1">';
+
+    // Read-only parameters
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 ID</span><span class="bpc-modal-val" style="font-weight:700">#' + r.id + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày giặt</span><span class="bpc-modal-val" style="color:#475569;font-weight:700">' + (isReported && r.wash_reported_at ? (typeof vnFormat === 'function' ? vnDateStr(r.wash_reported_at) : new Date(r.wash_reported_at).toLocaleDateString('vi-VN')) : todayStr) + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Nhân viên cắt</span><span class="bpc-modal-val" style="color:#059669;font-weight:700">' + (isReported ? (r.wash_reported_by_name || '—') : (window._currentUser ? window._currentUser.full_name : '—')) + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👕 Tên SP</span><span class="bpc-modal-val" style="font-weight:700;font-size:11px">' + title + '</span></div>';
+
+    // Market Image Area
+    h += '<div class="bpc-modal-row" style="flex-direction:column;align-items:stretch;gap:6px;border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">';
+    h += '<span class="bpc-modal-lbl" style="margin-bottom:4px">🖼️ Market Thiết Kế</span>';
+    if (isReported) {
+        if (r.wash_market_image) {
+            h += '<div style="text-align:center;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">';
+            h += '<img src="' + r.wash_market_image + '" style="max-width:100%;max-height:220px;border-radius:6px">';
+            h += '</div>';
+        } else {
+            h += '<div style="text-align:center;padding:16px;color:#94a3b8;border:1.5px dashed #cbd5e1;border-radius:8px;font-size:12px;font-style:italic">📷 Không có ảnh Market được lưu</div>';
+        }
+    } else {
+        h += '<div id="_bpcWashImgArea" style="border:2px dashed #7c3aed;border-radius:8px;padding:20px;text-align:center;cursor:pointer;min-height:80px;position:relative;background:#faf5ff" onclick="document.getElementById(\'_bpcWashImgInput\').click()">';
+        if (window._bpcWashData.imgData) {
+            h += '<img src="' + window._bpcWashData.imgData + '" style="max-width:100%;max-height:160px;border-radius:6px">';
+        } else {
+            h += '<div id="_bpcWashImgPreview" style="font-size:11px;color:#7c3aed;font-weight:600">📷 Ctrl+V paste ảnh hoặc click để chọn ảnh Market</div>';
+        }
+        h += '<input type="file" id="_bpcWashImgInput" accept="image/*" style="display:none" onchange="_bpcWashImgFile(event)"></div>';
+    }
+    h += '</div>';
+
+    // Wash Items Checklist
+    var itemsList = ["Nẹp", "Vải Áo", "Bo Cổ", "Vải Tay", "Bo Tay", "Phối", "Khác"];
+    h += '<div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">';
+    h += '<div style="font-size:11px;font-weight:800;color:#4f46e5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🫧 GIẶT (Bắt buộc chọn nhiều) <span style="color:#ef4444">*</span></div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
+    itemsList.forEach(function(item) {
+        var checked = washItems.indexOf(item) >= 0 ? ' checked' : '';
+        var disabled = isReported ? ' disabled' : '';
+        h += '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;cursor:' + (isReported ? 'not-allowed' : 'pointer') + ';background:#fff">';
+        h += '<input type="checkbox" class="_bpcWashItemCb" value="' + item + '"' + checked + disabled + ' style="width:18px;height:18px;accent-color:#7c3aed">';
+        h += '<span style="font-size:12px;font-weight:700;color:#1e293b">' + item + '</span>';
+        h += '</label>';
+    });
+    h += '</div></div>';
+
+    h += '</div>'; // End of bpc-modal-body
+
+    // Actions
+    h += '<div class="bpc-modal-actions" style="margin-top:0">';
+    h += '<button class="bpc-modal-btn cancel" onclick="_bpcCloseWashModal()">Hủy</button>';
+    if (isReported) {
+        var canUndo = (window._currentUser && (window._currentUser.id === r.wash_reported_by || ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role)));
+        if (canUndo) {
+            h += '<button class="bpc-modal-btn confirm" style="background:linear-gradient(135deg,#dc2626,#ef4444)" onclick="_bpcUndoWash(' + recordId + ')">↩️ HỦY BÁO GIẶT</button>';
+        }
+    } else {
+        h += '<button class="bpc-modal-btn confirm" id="_bpcWashSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)" onclick="_bpcSubmitWash(' + recordId + ')">🫧 XÁC NHẬN BÁO GIẶT</button>';
+    }
+    h += '</div>';
+
+    h += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(function() { document.getElementById('_bpcWashModal').classList.add('show'); });
+
+    if (!isReported) {
+        document.addEventListener('paste', _bpcWashPasteHandler);
+    }
+    window._bpcBusy = false;
+}
+
+function _bpcCloseWashModal() {
+    document.removeEventListener('paste', _bpcWashPasteHandler);
+    var m = document.getElementById('_bpcWashModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+}
+
+function _bpcWashPasteHandler(e) {
+    if (!document.getElementById('_bpcWashModal')) { document.removeEventListener('paste', _bpcWashPasteHandler); return; }
+    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            var blob = items[i].getAsFile();
+            _bpcCompressImage(blob, function(compressed) {
+                if (!compressed) return;
+                window._bpcWashData.imgData = compressed;
+                var preview = document.getElementById('_bpcWashImgArea');
+                if (preview) {
+                    preview.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:160px;border-radius:6px">';
+                }
+            });
+            e.preventDefault();
+            break;
+        }
+    }
+}
+
+function _bpcWashImgFile(e) {
+    var f = e.target.files[0]; if (!f) return;
+    _bpcCompressImage(f, function(compressed) {
+        if (!compressed) return;
+        window._bpcWashData.imgData = compressed;
+        var preview = document.getElementById('_bpcWashImgArea');
+        if (preview) {
+            preview.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:160px;border-radius:6px">';
+        }
+    });
+}
+
+async function _bpcSubmitWash(recordId) {
+    if (window._bpcSubmitBusy) return;
+    var cbs = document.querySelectorAll('._bpcWashItemCb:checked');
+    if (!cbs.length) {
+        showToast('⚠️ Vui lòng chọn ít nhất 1 bộ phận cần giặt!', 'error');
+        return;
+    }
+    var washItems = [];
+    cbs.forEach(function(cb) { washItems.push(cb.value); });
+
+    window._bpcSubmitBusy = true;
+    var btn = document.getElementById('_bpcWashSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
+
+    try {
+        await apiCall('/api/cutting/toggle/' + recordId, 'POST', {
+            action: 'report_wash',
+            wash_items: washItems,
+            wash_market_image: window._bpcWashData.imgData
+        });
+        _bpcCloseWashModal();
+        showToast('✅ Báo giặt vải thành công!');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🫧 XÁC NHẬN BÁO GIẶT'; }
+    } finally {
+        window._bpcSubmitBusy = false;
+    }
+}
+
+async function _bpcUndoWash(recordId) {
+    if (!confirm('Bạn có chắc chắn muốn hủy trạng thái báo giặt vải của đơn này không?')) return;
+    if (window._bpcSubmitBusy) return;
+    window._bpcSubmitBusy = true;
+    try {
+        await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'undo_wash' });
+        _bpcCloseWashModal();
+        showToast('✅ Đã hủy báo giặt vải!');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._bpcSubmitBusy = false;
+    }
 }
 
 function _bpcDoneToggleRoll(idx) {

@@ -93,6 +93,9 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPC] kv_material_cutting_targets:', e.message); }
     // Add ratio_image to cutting_records
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_image TEXT`); } catch(e) {}
+    // Add wash_items and wash_market_image to cutting_records
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS wash_items JSONB DEFAULT '[]'`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS wash_market_image TEXT`); } catch(e) {}
     // Backfill cutting_category for existing records
     try {
         await db.exec(`
@@ -424,7 +427,7 @@ module.exports = async function(fastify) {
                    cr.material_name, cr.fabric_color, cr.order_quantity, cr.cut_quantity, cr.kg_cut,
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
-                   cr.multi_cut_group_id, cr.unit_price, cr.salary,
+                   cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
                    (
                        SELECT sub.cut_quantity 
                        FROM cutting_records sub 
@@ -492,7 +495,7 @@ module.exports = async function(fastify) {
                    cr.material_name, cr.fabric_color, cr.order_quantity, cr.cut_quantity, cr.kg_cut,
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
-                   cr.multi_cut_group_id, cr.unit_price, cr.salary,
+                   cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
                    (
                        SELECT sub.cut_quantity 
                        FROM cutting_records sub 
@@ -951,11 +954,15 @@ module.exports = async function(fastify) {
                 [now, id]);
             detail = '↩️ Hoàn tác duyệt lương';
         } else if (action === 'report_wash') {
-            await db.run(`UPDATE cutting_records SET wash_reported = true, wash_reported_at = $1, wash_reported_by = $2, updated_at = $1 WHERE id = $3`,
-                [now, request.user.id, id]);
-            detail = '🫧 Báo giặt vải';
+            const { wash_items, wash_market_image } = request.body || {};
+            if (!wash_items || !Array.isArray(wash_items) || wash_items.length === 0) {
+                return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất 1 bộ phận cần giặt!' });
+            }
+            await db.run(`UPDATE cutting_records SET wash_reported = true, wash_reported_at = $1, wash_reported_by = $2, wash_items = $3, wash_market_image = $4, updated_at = $1 WHERE id = $5`,
+                [now, request.user.id, JSON.stringify(wash_items), wash_market_image || null, id]);
+            detail = '🫧 Báo giặt vải: ' + wash_items.join(', ');
         } else if (action === 'undo_wash') {
-            await db.run(`UPDATE cutting_records SET wash_reported = false, wash_reported_at = NULL, wash_reported_by = NULL, updated_at = $1 WHERE id = $2`,
+            await db.run(`UPDATE cutting_records SET wash_reported = false, wash_reported_at = NULL, wash_reported_by = NULL, wash_items = '[]', wash_market_image = NULL, updated_at = $1 WHERE id = $2`,
                 [now, id]);
             detail = '↩️ Hoàn tác báo giặt';
         } else if (action === 'report_error') {

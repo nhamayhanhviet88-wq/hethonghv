@@ -526,6 +526,10 @@ function mRenderMine(){
         const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         const compBadge=r.cut_warning?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>':'';
+        const washBtnHtml = r.wash_reported
+            ? '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(139,92,246,0.15);border:1.5px solid rgba(139,92,246,0.35);color:#c084fc;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">🫧 Đã báo giặt</button>'
+            : '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⬜ Báo giặt</button>';
+        const washRowHtml = '<div class="m-row"><span class="m-lbl">🫧 Giặt vải</span><span class="m-val">'+washBtnHtml+'</span></div>';
         
         // Cut/Done button visibility
         let actionHtml='';
@@ -590,6 +594,7 @@ function mRenderMine(){
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
+            +washRowHtml
             +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+mFmtKg(r.kg_start)+'</span></div>':'')
             +metricsHtml
             +sharedHtml
@@ -759,6 +764,228 @@ async function mToggle(id,action){
     }
     catch(e){mToast(e.message||'Lỗi',false);}
     finally{window._mSubmitBusy=false;}
+}
+
+// ========== WASH MODAL ON MOBILE ==========
+async function mOpenWashModal(recordId) {
+    if (window._mBusy) return;
+    window._mBusy = true;
+    let rec = mMine.find(r => r.id === recordId);
+    if (!rec) {
+        // Try finding in all records
+        rec = mAllRecords.find(r => r.id === recordId);
+    }
+    if (!rec) {
+        mToast('Không tìm thấy record', false);
+        window._mBusy = false;
+        return;
+    }
+
+    try {
+        const updated = await mApi('/api/cutting/records/' + recordId);
+        if (updated) {
+            rec = updated;
+            // update in mMine or mAllRecords
+            let idx = mMine.findIndex(r => r.id === recordId);
+            if (idx >= 0) mMine[idx] = updated;
+            idx = mAllRecords.findIndex(r => r.id === recordId);
+            if (idx >= 0) mAllRecords[idx] = updated;
+        }
+    } catch(e) {
+        console.error('Error fetching record detail:', e);
+    }
+
+    let washItems = [];
+    try {
+        washItems = typeof rec.wash_items === 'string' ? JSON.parse(rec.wash_items) : (rec.wash_items || []);
+    } catch(e) {}
+    if (!Array.isArray(washItems)) washItems = [];
+
+    window._mWashData = { recordId: recordId, wash_items: washItems, imgData: rec.wash_market_image || null };
+
+    const isReported = !!rec.wash_reported;
+    const title = (rec.order_code || '') + (rec.product_name ? ' - ' + rec.product_name : '');
+    
+    let todayStr = new Date().toLocaleDateString('vi-VN');
+    if (typeof vnNow === 'function') {
+        todayStr = vnDateStr(vnNow());
+    }
+
+    let h = '<div class="mm-overlay" id="_mmWashModal" onclick="if(event.target===this)mCloseWashModal()">';
+    h += '<div class="mm-sheet" style="max-height:85vh;overflow-y:auto">';
+    h += '<div class="mm-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="mm-icon">🫧</div><div><div class="mm-title">' + (isReported ? 'CHI TIẾT BÁO GIẶT VẢI' : 'BÁO GIẶT VẢI') + '</div><div class="mm-sub">' + (rec.order_code || '') + '</div></div></div>';
+    h += '<div class="mm-body">';
+
+    // Fields
+    h += '<div class="mm-row"><span class="mm-lbl">📋 ID</span><span class="mm-val" style="font-weight:700">#' + rec.id + '</span></div>';
+    h += '<div class="mm-row"><span class="mm-lbl">📅 Ngày giặt</span><span class="mm-val" style="color:#a5b4fc;font-weight:700">' + (isReported && rec.wash_reported_at ? (typeof vnFormat === 'function' ? vnDateStr(rec.wash_reported_at) : new Date(rec.wash_reported_at).toLocaleDateString('vi-VN')) : todayStr) + '</span></div>';
+    h += '<div class="mm-row"><span class="mm-lbl">👤 Nhân viên cắt</span><span class="mm-val" style="color:#4ade80;font-weight:700">' + (isReported ? (rec.wash_reported_by_name || '—') : (mUser ? mUser.full_name : '—')) + '</span></div>';
+    h += '<div class="mm-row"><span class="mm-lbl">👕 Tên SP</span><span class="mm-val" style="font-weight:700;font-size:11px">' + title + '</span></div>';
+
+    // Market Image
+    h += '<div class="mm-row" style="flex-direction:column;align-items:stretch;gap:6px;border-top:1px solid rgba(255,255,255,0.06);margin-top:12px;padding-top:12px">';
+    h += '<span class="mm-lbl" style="margin-bottom:4px">🖼️ Market Thiết Kế</span>';
+    if (isReported) {
+        if (rec.wash_market_image) {
+            h += '<div style="text-align:center;padding:8px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;background:rgba(255,255,255,0.02)">';
+            h += '<img src="' + rec.wash_market_image + '" style="max-width:100%;max-height:200px;border-radius:6px">';
+            h += '</div>';
+        } else {
+            h += '<div style="text-align:center;padding:16px;color:#94a3b8;border:1.5px dashed rgba(255,255,255,0.15);border-radius:8px;font-size:12px;font-style:italic">📷 Không có ảnh Market được lưu</div>';
+        }
+    } else {
+        h += '<div id="_mmWashImgArea" style="border:2px dashed #7c3aed;border-radius:8px;padding:20px;text-align:center;cursor:pointer;min-height:80px;position:relative;background:rgba(124,58,237,0.1)" onclick="document.getElementById(\'_mmWashImgInput\').click()">';
+        if (window._mWashData.imgData) {
+            h += '<img src="' + window._mWashData.imgData + '" style="max-width:100%;max-height:150px;border-radius:6px">';
+        } else {
+            h += '<div id="_mmWashImgPreview" style="font-size:11px;color:#a5b4fc;font-weight:600">📷 Click để chụp/chọn ảnh Market</div>';
+        }
+        h += '<input type="file" id="_mmWashImgInput" accept="image/*" style="display:none" onchange="mWashImgFile(event)"></div>';
+    }
+    h += '</div>';
+
+    // Checklist
+    const itemsList = ["Nẹp", "Vải Áo", "Bo Cổ", "Vải Tay", "Bo Tay", "Phối", "Khác"];
+    h += '<div style="border-top:1px solid rgba(255,255,255,0.06);margin-top:12px;padding-top:12px">';
+    h += '<div style="font-size:11px;font-weight:800;color:#c084fc;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🫧 GIẶT (Bắt buộc chọn nhiều) <span style="color:#f87171">*</span></div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
+    itemsList.forEach(item => {
+        const checked = washItems.indexOf(item) >= 0 ? ' checked' : '';
+        const disabled = isReported ? ' disabled' : '';
+        h += '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid rgba(255,255,255,0.12);border-radius:8px;cursor:' + (isReported ? 'not-allowed' : 'pointer') + ';background:rgba(255,255,255,0.02)">';
+        h += '<input type="checkbox" class="_mmWashItemCb" value="' + item + '"' + checked + disabled + ' style="width:18px;height:18px;accent-color:#7c3aed">';
+        h += '<span style="font-size:12px;font-weight:700;color:#e2e8f0">' + item + '</span>';
+        h += '</label>';
+    });
+    h += '</div></div>';
+
+    h += '</div>'; // End of mm-body
+
+    // Actions
+    h += '<div class="mm-actions">';
+    h += '<button class="mm-btn mm-btn-no" onclick="mCloseWashModal()">Hủy</button>';
+    if (isReported) {
+        const canUndo = (mUser && (mUser.id === rec.wash_reported_by || ['giam_doc', 'quan_ly', 'truong_phong'].includes(mUser.role)));
+        if (canUndo) {
+            h += '<button class="mm-btn mm-btn-ok" style="background:linear-gradient(135deg,#dc2626,#ef4444)" onclick="mUndoWash(' + recordId + ')">↩️ HỦY BÁO GIẶT</button>';
+        }
+    } else {
+        h += '<button class="mm-btn mm-btn-ok" id="_mmWashSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)" onclick="mSubmitWash(' + recordId + ')">🫧 XÁC NHẬN BÁO GIẶT</button>';
+    }
+    h += '</div>';
+
+    h += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(() => document.getElementById('_mmWashModal').classList.add('show'));
+
+    window._mBusy = false;
+}
+
+function mCloseWashModal() {
+    const m = document.getElementById('_mmWashModal');
+    if (m) { m.classList.remove('show'); setTimeout(() => m.remove(), 300); }
+}
+
+function mWashImgFile(e) {
+    const f = e.target.files[0]; if (!f) return;
+    mCompressImage(f, compressed => {
+        if (!compressed) return;
+        window._mWashData.imgData = compressed;
+        const preview = document.getElementById('_mmWashImgArea');
+        if (preview) {
+            preview.innerHTML = '<img src="' + compressed + '" style="max-width:100%;max-height:150px;border-radius:6px">';
+        }
+    });
+}
+
+async function mSubmitWash(recordId) {
+    if (window._mSubmitBusy) return;
+    const cbs = document.querySelectorAll('._mmWashItemCb:checked');
+    if (!cbs.length) {
+        mToast('⚠️ Vui lòng chọn ít nhất 1 bộ phận cần giặt!', false);
+        return;
+    }
+    const washItems = [];
+    cbs.forEach(cb => washItems.push(cb.value));
+
+    window._mSubmitBusy = true;
+    const btn = document.getElementById('_mmWashSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
+
+    try {
+        await mApi('/api/cutting/toggle/' + recordId, 'POST', {
+            action: 'report_wash',
+            wash_items: washItems,
+            wash_market_image: window._mWashData.imgData
+        });
+        mCloseWashModal();
+        mToast('✅ Báo giặt vải thành công!');
+        await mLoadAll();
+    } catch(e) {
+        mToast(e.message || 'Lỗi', false);
+        if (btn) { btn.disabled = false; btn.textContent = '🫧 XÁC NHẬN BÁO GIẶT'; }
+    } finally {
+        window._mSubmitBusy = false;
+    }
+}
+
+async function mUndoWash(recordId) {
+    if (!confirm('Bạn có chắc chắn muốn hủy trạng thái báo giặt vải của đơn này không?')) return;
+    if (window._mSubmitBusy) return;
+    window._mSubmitBusy = true;
+    try {
+        await mApi('/api/cutting/toggle/' + recordId, 'POST', { action: 'undo_wash' });
+        mCloseWashModal();
+        mToast('✅ Đã hủy báo giặt vải!');
+        await mLoadAll();
+    } catch(e) {
+        mToast(e.message || 'Lỗi', false);
+    } finally {
+        window._mSubmitBusy = false;
+    }
+}
+
+function mCompressImage(file, callback) {
+    if (!file) return callback(null);
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxWidth = 800;
+            var maxHeight = 800;
+            var width = img.width;
+            var height = img.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = Math.round((width * maxHeight) / height);
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            var compressed = canvas.toDataURL('image/jpeg', 0.7);
+            callback(compressed);
+        };
+        img.onerror = function() {
+            callback(e.target.result);
+        };
+        img.src = e.target.result;
+    };
+    reader.onerror = function() {
+        callback(null);
+    };
+    reader.readAsDataURL(file);
 }
 
 async function mOpenCutModal(recordId){
