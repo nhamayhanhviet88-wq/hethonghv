@@ -15,10 +15,10 @@ module.exports = async function(fastify) {
                 order_quantity, cut_quantity, kg_cut, cut_ratio,
                 ratio_reason, kg_start, kg_end, cut_warning, cut_shared,
                 created_by, created_at, cutting_category, selected_roll_ids
-            ) VALUES ($1, $2, CURRENT_DATE, NULL, $3, $4, $5, $6, 0, 0, 0, NULL, 0, 0, $7, NULL, $8, $9, $10, '[]')
+            ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, 0, 0, 0, NULL, 0, 0, $8, NULL, $9, $10, $11, '[]')
             RETURNING id
         `, [
-            rec.dht_order_id, rec.order_item_id, rec.product_name, rec.material_name, rec.fabric_color,
+            rec.dht_order_id, rec.order_item_id, rec.cutter_id, rec.product_name, rec.material_name, rec.fabric_color,
             remQty, `Cắt bù phần thiếu: ${remQty} áo`, performedBy, timeStr, rec.cutting_category
         ]);
         await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
@@ -931,6 +931,10 @@ module.exports = async function(fastify) {
             }
             if (!rec.cut_warning || !rec.cut_warning.includes('Cắt bù')) {
                 return reply.code(400).send({ error: 'Đây không phải là đơn cắt bù!' });
+            }
+            const isManager = ['giam_doc', 'quan_ly', 'truong_phong'].includes(request.user.role);
+            if (!isManager && rec.cutter_id !== request.user.id) {
+                return reply.code(403).send({ error: 'Chỉ thợ cắt của đơn này hoặc Quản lý mới có quyền hủy cắt bù!' });
             }
             await db.run('DELETE FROM cutting_records WHERE id = $1', [id]);
             return { success: true };

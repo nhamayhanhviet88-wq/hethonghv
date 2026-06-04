@@ -538,7 +538,11 @@ function _bpcRenderUnassigned() {
                 }
                 if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
                     if (r.cutting_record_id) {
-                        claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
+                        var isManager = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
+                        var isAssignedCutter = window._currentUser && r.cutter_id && r.cutter_id === window._currentUser.id;
+                        if (isManager || isAssignedCutter) {
+                            claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
+                        }
                     }
                 }
                 claimTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
