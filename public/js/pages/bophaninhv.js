@@ -53,7 +53,7 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody id="bpiTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
         clearTimeout(_t); _t = setTimeout(function() { _bpi.search = document.getElementById('bpiSearch').value || ''; _bpi.page = 1; _bpiRender(); }, 300);
@@ -303,6 +303,7 @@ function _bpiRender() {
             var bg = '#f1f5f9', fg = '#475569';
             var fUpper = r.print_field.toUpperCase();
             if (fUpper.includes('PET')) { bg = '#ede9fe'; fg = '#7c3aed'; }
+            else if (fUpper.includes('TEM')) { bg = '#ccfbf1'; fg = '#0d9488'; }
             else if (fUpper.includes('DECAL')) { bg = '#e0f2fe'; fg = '#0369a1'; }
             else if (fUpper.includes('THÊU')) { bg = '#fef3c7'; fg = '#b45309'; }
             else if (fUpper.includes('3D')) { bg = '#dcfce7'; fg = '#15803d'; }
@@ -337,6 +338,7 @@ function _bpiRender() {
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
         +'<td style="text-align:center">' + errBtnHtml + '</td>'
+        +'<td style="text-align:center">'+fieldBadge+'</td>'
         +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
         +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
@@ -347,7 +349,6 @@ function _bpiRender() {
         +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_end_qty||'—')+'</td>'
-        +'<td style="text-align:center">'+fieldBadge+'</td>'
         +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.shared_process||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
