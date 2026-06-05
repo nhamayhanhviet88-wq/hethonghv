@@ -534,7 +534,6 @@ module.exports = async function(fastify) {
         const formattedRecords = records.map(r => {
             const items = itemsByOrder[r.dht_order_id] || [];
             const isPetOrTem = (r.category_id === 8 || r.category_id === 9 || 
-                                r.print_field === 'IN PET' || r.print_field === 'IN TEM' ||
                                 (r.order_code && (r.order_code.includes('GCPET') || r.order_code.includes('GCTEM'))));
             
             let finalProdName = r.product_name;
@@ -577,7 +576,15 @@ module.exports = async function(fastify) {
                     const itemIdx = sortedItems.findIndex(it => it.id === r.order_item_id) + 1;
                     const item = sortedItems.find(it => it.id === r.order_item_id);
                     const itemDesc = item ? (item.description || '') : '';
-                    if (sortedItems.length > 1) {
+                    
+                    let totalRows = 0;
+                    for (const it of sortedItems) {
+                        let pairs = [];
+                        try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+                        totalRows += pairs.length > 0 ? pairs.length : 1;
+                    }
+
+                    if (totalRows > 1) {
                         finalProdName = `${r.order_code} — Phiếu ${itemIdx} — P1 — ${itemDesc}`;
                     } else {
                         finalProdName = `${r.order_code} — ${itemDesc}`;

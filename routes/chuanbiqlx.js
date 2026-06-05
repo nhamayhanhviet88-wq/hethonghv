@@ -902,9 +902,15 @@ module.exports = async function(fastify) {
                         prodName = `${it.quantity || 0} ${desc}`;
                     }
                 } else {
-                    const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
+                    const items = await db.all(`SELECT id, material_pairs FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
                     const itemIdx = items.findIndex(item => item.id === itemId) + 1;
-                    if (items.length > 1) {
+                    let totalRows = 0;
+                    for (const item of items) {
+                        let pairs = [];
+                        try { pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
+                        totalRows += pairs.length > 0 ? pairs.length : 1;
+                    }
+                    if (totalRows > 1) {
                         prodName = `${orderInfo.order_code || ''} — Phiếu ${itemIdx} — P1 — ${it.description || ''}`;
                     } else {
                         prodName = `${orderInfo.order_code || ''} — ${it.description || ''}`;
