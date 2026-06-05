@@ -685,9 +685,20 @@ function _dhtRenderOrderRows(filtered) {
         const prodTotal = Number(o.prod_total) || 0;
         const nextStepName = o.next_step_name || '';
         const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
-        const prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;padding:2px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;min-width:75px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.05);">'
-            + formatCurrentStep(nextStepName, prodDone, prodTotal, o.order_code, o.category_name, isShipped)
-            + '</span>';
+        const prodBadge = '<button onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" '
+            + 'style="border:none;background:#e0f2fe;color:#0284c7;width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.05);" '
+            + 'title="Xem quy trình sản xuất" '
+            + 'onmouseover="this.style.background=\'#bae6fd\';this.style.color=\'#0369a1\';" '
+            + 'onmouseout="this.style.background=\'#e0f2fe\';this.style.color=\'#0284c7\';">'
+            + '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+            + '<line x1="8" y1="6" x2="21" y2="6"></line>'
+            + '<line x1="8" y1="12" x2="21" y2="12"></line>'
+            + '<line x1="8" y1="18" x2="21" y2="18"></line>'
+            + '<line x1="3" y1="6" x2="3.01" y2="6"></line>'
+            + '<line x1="3" y1="12" x2="3.01" y2="12"></line>'
+            + '<line x1="3" y1="18" x2="3.01" y2="18"></line>'
+            + '</svg>'
+            + '</button>';
         const priColors = { 'GẤP': 'background:#dc2626;color:#fff;', 'GỬI': 'background:#2563eb;color:#fff;', 'CHUẨN': 'background:#7c3aed;color:#fff;' };
         const priStyle = priColors[o.shipping_priority] || priColors['CHUẨN'];
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
