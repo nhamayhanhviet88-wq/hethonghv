@@ -12,8 +12,14 @@ module.exports = async function(fastify) {
     try { await db.exec(`CREATE TABLE IF NOT EXISTS import_sources (
         id SERIAL PRIMARY KEY, name TEXT NOT NULL, phone TEXT, notes TEXT,
         is_active BOOLEAN DEFAULT true, display_order INTEGER DEFAULT 0,
+        source_type VARCHAR(20) DEFAULT 'fabric',
         created_by INTEGER REFERENCES users(id), created_at TIMESTAMPTZ DEFAULT NOW()
     )`); } catch(e) { console.error('[BNH] sources:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE import_sources ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) DEFAULT 'fabric'`);
+        await db.exec(`UPDATE import_sources SET source_type = 'material' WHERE name ILIKE '%SBC%'`);
+    } catch(e) { console.error('[BNH] sources source_type column:', e.message); }
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS import_records (
         id SERIAL PRIMARY KEY,
@@ -159,16 +165,24 @@ module.exports = async function(fastify) {
     });
 
     // ========== SOURCES CRUD ==========
-    fastify.get('/api/import/sources', { preHandler: [authenticate] }, async () => {
+    fastify.get('/api/import/sources', { preHandler: [authenticate] }, async (req) => {
+        const { source_type } = req.query || {};
+        let whereClause = 's.is_active=true';
+        let params = [];
+        if (source_type) {
+            whereClause += ' AND s.source_type = $1';
+            params.push(source_type);
+        }
         return { sources: await db.all(`SELECT s.*, COALESCE(SUM(r.total_amount),0)::numeric AS sum_total, COUNT(r.id)::int AS rec_count
             FROM import_sources s LEFT JOIN import_records r ON s.id=r.source_id
-            WHERE s.is_active=true GROUP BY s.id ORDER BY s.display_order, s.name`) };
+            WHERE ${whereClause} GROUP BY s.id ORDER BY s.display_order, s.name`, params) };
     });
     fastify.post('/api/import/sources', { preHandler: [authenticate] }, async (req, reply) => {
         if (!MGMT.includes(req.user.role)) return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo nguồn NCC' });
-        const { name, phone, notes } = req.body || {};
+        const { name, phone, notes, source_type } = req.body || {};
         if (!name) return reply.code(400).send({ error: 'Tên nguồn bắt buộc' });
-        const r = await db.get(`INSERT INTO import_sources (name,phone,notes,created_by) VALUES ($1,$2,$3,$4) RETURNING id`, [name, phone||null, notes||null, req.user.id]);
+        const type = source_type === 'material' ? 'material' : 'fabric';
+        const r = await db.get(`INSERT INTO import_sources (name,phone,notes,source_type,created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [name, phone||null, notes||null, type, req.user.id]);
         return { success: true, id: r.id };
     });
     fastify.put('/api/import/sources/:id', { preHandler: [authenticate] }, async (req, reply) => {
@@ -199,6 +213,10 @@ module.exports = async function(fastify) {
         let idx = 1;
         if (record_type) {
             sourcesQuery += ` AND r.record_type = $${idx}`;
+            params.push(record_type);
+            idx++;
+            // Filter sources list to match the record_type
+            whereSources.push(`s.source_type = $${idx}`);
             params.push(record_type);
             idx++;
         }

@@ -34,8 +34,8 @@ function renderBillnhaphangPage(content){
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260606c';document.head.appendChild(s);}
-    try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree?record_type=fabric'),apiCall('/api/import/sources'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260606d';document.head.appendChild(s);}
+    try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree?record_type=fabric'),apiCall('/api/import/sources?source_type=fabric'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
     // Check fabric permission
     setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
     }catch(e){console.error('[BNH]',e);}}
@@ -67,7 +67,7 @@ if(t&&t.totals){var tt=t.totals;
 h+='<div class="bnh-sb-total" onclick="_bnhFilter()"><div style="display:flex;justify-content:space-between;align-items:center"><span>📦 Tất cả</span><span class="tv">'+(tt.total||0)+'</span></div><div class="ts">🌲 Cây vải: '+(tt.total_trees||0)+' &nbsp;|&nbsp; 💰 '+_bnhFM(tt.sum_total)+' ₫'+(Number(tt.sum_debt)>0?' &nbsp;|&nbsp; 🔴 Nợ: '+_bnhFM(tt.sum_debt)+' ₫':'')+'</div></div>';}
 var u=window._currentUser||{};if(u.role==='giam_doc'||u.role==='quan_ly_cap_cao')h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
 if(t&&t.sources)t.sources.forEach(function(s){var active=f.source_id==s.id;
-h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')"><span class="sn">🏪 '+s.name+'</span><span class="sc">['+s.count+']</span><span class="sm">'+_bnhFM(s.sum_total)+'₫</span></div>';});
+h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')"><span class="sn">🏪 '+s.name+'</span><span class="sc">['+s.count+']</span><span class="sm">'+_bnhFM(s.sum_total)+'₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bnhDelSrc('+s.id+', \''+s.name+'\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';});
 sb.innerHTML=h;}
 
 function _bnhFilter(sid){_bnh.filter.source_id=sid||null;_bnhRenderSb();_bnhLoadRecs();}
@@ -152,7 +152,17 @@ function _bnhRender(){
 async function _bnhTog(id,action){if(action==='check'&&!confirm('Xác nhận duyệt bill này?'))return;try{await apiCall('/api/import/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bnhLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
 
 function _bnhAddSrc(){var name=prompt('Nhập tên nguồn cung cấp:');if(!name)return;
-apiCall('/api/import/sources','POST',{name}).then(function(){showToast('✅ Đã thêm nguồn: '+name);_bnhLoadAll();}).catch(function(e){showToast(e.message||'Lỗi','error');});}
+apiCall('/api/import/sources','POST',{name, source_type: 'fabric'}).then(function(){showToast('✅ Đã thêm nguồn: '+name);_bnhLoadAll();}).catch(function(e){showToast(e.message||'Lỗi','error');});}
+
+function _bnhDelSrc(sid, name){
+    if(!confirm('Bạn có chắc chắn muốn xóa nguồn "'+name+'" không?')) return;
+    apiCall('/api/import/sources/'+sid, 'DELETE').then(function(){
+        showToast('✅ Đã xóa nguồn: '+name);
+        _bnhLoadAll();
+    }).catch(function(e){
+        showToast(e.message||'Lỗi','error');
+    });
+}
 
 // ========== PAYMENT MODAL ==========
 var _bnhPay={importId:null,imageData:null};

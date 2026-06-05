@@ -83,7 +83,7 @@ async function _bvlLoadAll() {
 
         var [tR, sR, dR, setupRes] = await Promise.all([
             apiCall('/api/import/tree' + treeQs),
-            apiCall('/api/import/sources'),
+            apiCall('/api/import/sources?source_type=material'),
             apiCall('/api/import/check-duyet-perm'),
             apiCall('/api/material-setup/data').catch(function () { return { warehouses: [], materials: [], warehouse_sources: [] }; })
         ]);
@@ -183,7 +183,7 @@ function _bvlRenderSb() {
     if (t && t.sources) {
         t.sources.forEach(function (s) {
             var active = f.source_id == s.id;
-            h += '<div class="bvl-sb-src' + (active ? ' active' : '') + '" onclick="_bvlFilter(' + s.id + ')"><span class="sn">🏪 ' + s.name + '</span><span class="sc">[' + s.count + ']</span><span class="sm">' + _bvlFM(s.sum_total) + '₫</span></div>';
+            h += '<div class="bvl-sb-src' + (active ? ' active' : '') + '" onclick="_bvlFilter(' + s.id + ')"><span class="sn">🏪 ' + s.name + '</span><span class="sc">[' + s.count + ']</span><span class="sm">' + _bvlFM(s.sum_total) + '₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bvlDelSrc(' + s.id + ', \'' + s.name + '\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';
         });
     }
     sb.innerHTML = h;
@@ -355,8 +355,18 @@ async function _bvlTog(id, action) {
 function _bvlAddSrc() {
     var name = prompt('Nhập tên nguồn cung cấp:');
     if (!name) return;
-    apiCall('/api/import/sources', 'POST', { name }).then(function () {
+    apiCall('/api/import/sources', 'POST', { name, source_type: 'material' }).then(function () {
         showToast('✅ Đã thêm nguồn: ' + name);
+        _bvlLoadAll();
+    }).catch(function (e) {
+        showToast(e.message || 'Lỗi', 'error');
+    });
+}
+
+function _bvlDelSrc(sid, name) {
+    if (!confirm('Bạn có chắc chắn muốn xóa nguồn "' + name + '" không?')) return;
+    apiCall('/api/import/sources/' + sid, 'DELETE').then(function () {
+        showToast('✅ Đã xóa nguồn: ' + name);
         _bvlLoadAll();
     }).catch(function (e) {
         showToast(e.message || 'Lỗi', 'error');

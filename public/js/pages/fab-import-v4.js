@@ -9,7 +9,7 @@ async function _bnhOpenFabric() {
     _bnhFab = { calls: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0 };
     // Load pending calls + sources
     try {
-        var [cr, sr] = await Promise.all([apiCall('/api/import/fabric-pending-calls'), apiCall('/api/import/sources')]);
+        var [cr, sr] = await Promise.all([apiCall('/api/import/fabric-pending-calls'), apiCall('/api/import/sources?source_type=fabric')]);
         _bnhFab.groups = cr.groups || [];
         _bnhFab.availSources = sr.sources || [];
     } catch (e) { showToast(e.message || 'Lỗi tải dữ liệu', 'error'); return; }
