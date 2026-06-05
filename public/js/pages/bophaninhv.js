@@ -148,6 +148,21 @@ function _bpiFT(d) {
     }
 }
 
+function _bpiGetQtyDisplay(r) {
+    if (!r.order_quantity) return '—';
+    var code = (r.order_code || '').toUpperCase();
+    var isTarget = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0;
+    if (isTarget) {
+        var prod = (r.product_name || '').toLowerCase();
+        if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
+            return r.order_quantity + ' Tờ';
+        } else if (prod.indexOf('mét') >= 0 || prod.indexOf('met') >= 0) {
+            return r.order_quantity + ' Mét';
+        }
+    }
+    return r.order_quantity;
+}
+
 function _bpiRender() {
     var all = _bpi.records.slice();
     if (_bpi.search) { var q=_bpi.search.toLowerCase(); all=all.filter(function(r){return (r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.customer_name||'').toLowerCase().indexOf(q)>=0;}); }
@@ -206,7 +221,7 @@ function _bpiRender() {
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+(r.product_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.order_quantity||'—')+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+_bpiGetQtyDisplay(r)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_end_qty||'—')+'</td>'
