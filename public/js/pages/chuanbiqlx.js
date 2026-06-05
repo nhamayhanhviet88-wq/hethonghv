@@ -387,11 +387,20 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-size:10px;color:#475569">' + matName + '</td>';
         h += '<td style="font-size:10px">' + (colorName ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:3px;vertical-align:middle"></span>' + colorName : '') + '</td>';
         // SL: P1 (phối chính mỗi phiếu) = xanh đậm, P2+ = xanh nhạt; hiển thị SL của item, không phải tổng đơn
-        var itemQty = it ? (it.quantity || o.total_quantity || '') : (o.total_quantity || '');
+        var rawQty = it ? (it.quantity || o.total_quantity || '') : (o.total_quantity || '');
+        var itemQtyLabel = rawQty;
+        if (rawQty !== '') {
+            if (r.phoiInItem === 1) {
+                var suffix = (it && it.cutting_category_name) ? (' ' + it.cutting_category_name) : '';
+                itemQtyLabel = rawQty + suffix;
+            } else if (r.phoiInItem > 1) {
+                itemQtyLabel = rawQty + ' Phối';
+            }
+        }
         if (r.phoiInItem === 1 || isNew) {
-            h += '<td style="text-align:center;font-weight:700;color:#0369a1">' + itemQty + '</td>';
+            h += '<td style="text-align:center;font-weight:700;color:#0369a1">' + itemQtyLabel + '</td>';
         } else {
-            h += '<td style="text-align:center;font-weight:700;color:#93c5fd;font-size:10px">' + itemQty + '</td>';
+            h += '<td style="text-align:center;font-weight:700;color:#93c5fd;font-size:10px">' + itemQtyLabel + '</td>';
         }
         h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.expected_ship_date) : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? '<span class="qlx-priority" style="' + priColor + '">' + (o.shipping_priority || 'CHUẨN') + '</span>' : '') + '</td>';

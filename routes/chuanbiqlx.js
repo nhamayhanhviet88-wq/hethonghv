@@ -405,6 +405,7 @@ module.exports = async function(fastify) {
         if (orderIds.length > 0) {
             items = await db.all(`
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
+                       cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
                        COALESCE(
@@ -451,6 +452,8 @@ module.exports = async function(fastify) {
                 LEFT JOIN printing_contractors pc_in_ord ON qa_in_ord.assigned_contractor_id = pc_in_ord.id
                 LEFT JOIN qlx_assignments qa_may_ord ON qa_may_ord.dht_order_id = doi.dht_order_id AND qa_may_ord.assignment_type = 'may' AND qa_may_ord.item_id IS NULL
                 LEFT JOIN users a_may_ord_u ON qa_may_ord.assigned_user_id = a_may_ord_u.id
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 WHERE doi.dht_order_id = ANY($1)
                 ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
