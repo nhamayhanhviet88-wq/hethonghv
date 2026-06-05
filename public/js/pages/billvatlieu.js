@@ -459,6 +459,7 @@ function _bvlRemoveExtraCostRow(index) {
 
 function _bvlOpenMat() {
     _bvl.uploadImg = null;
+    _bvl.uploadShipImg = null;
     _bvl.addedMaterials = [];
     _bvl.addedExtraCosts = [];
     var now = new Date();
@@ -553,12 +554,17 @@ function _bvlOpenMat() {
     + '<div style="font-size: 12px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
     + '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">'
     + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Số tiền ship (Bỏ trống = không)</label>'
-    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
-    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship</label>'
+    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." oninput="_bvlToggleShipFields()" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
+    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship *</label>'
     + '<select id="_bvlShipPayer" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:600; color:#1e293b">'
+    + '<option value="">— Chọn bên trả ship —</option>'
     + '<option value="congty">🏢 Công Ty Mất Ship</option>'
     + '<option value="cophanmay">🧵 Cổ Phần May Mất Ship</option>'
     + '</select></div>'
+    + '<div id="_bvlShipImgGroup" style="display:none; margin-top:12px; grid-column: span 2">'
+    + '<label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Ảnh Hóa Đơn Ship (Ctrl+V) *</label>'
+    + '<div id="_bvlShipPasteArea" style="border:2px dashed #3b82f6;border-radius:10px;padding:20px;text-align:center;color:#9ca3af;cursor:pointer;font-size:11px;background:#fff" tabindex="0">📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn ship</div>'
+    + '</div>'
     + '</div>'
     + '</div>'
 
@@ -584,6 +590,25 @@ function _bvlOpenMat() {
         }
         e.preventDefault();
     });
+
+    var shipArea = document.getElementById('_bvlShipPasteArea');
+    if (shipArea) {
+        shipArea.addEventListener('paste', function (e) {
+            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    var blob = items[i].getAsFile();
+                    _bvlCompressAndUpload(blob, shipArea, function (data) {
+                        _bvl.uploadShipImg = { url: data.url, path: data.path };
+                        shipArea.innerHTML = '<img src="' + data.url + '" style="max-height:100px;border-radius:8px"><div style="font-size:10px;color:#3b82f6;margin-top:4px;font-weight:600">✅ Đã tải lên ảnh ship</div>';
+                        shipArea.style.borderColor = '#3b82f6';
+                    });
+                    break;
+                }
+            }
+            e.preventDefault();
+        });
+    }
 }
 
 function _bvlMatWhChange(whId) {
@@ -749,6 +774,13 @@ async function _bvlSubmitMat() {
     if (!_bvl.addedMaterials || _bvl.addedMaterials.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật liệu', 'error'); return; }
     if (!_bvl.uploadImg) { showToast('Ảnh bill bắt buộc', 'error'); return; }
 
+    var shipCostVal = Number(document.getElementById('_bvlShipCost').value) || 0;
+    var shipPayerVal = document.getElementById('_bvlShipPayer').value;
+    if (shipCostVal > 0) {
+        if (!shipPayerVal) { showToast('Vui lòng chọn bên trả ship', 'error'); return; }
+        if (!_bvl.uploadShipImg) { showToast('Vui lòng dán ảnh hóa đơn ship', 'error'); return; }
+    }
+
     var btn = document.getElementById('_bvlSubmitBtn');
     btn.disabled = true;
     btn.textContent = '⏳ Đang lưu...';
@@ -764,8 +796,6 @@ async function _bvlSubmitMat() {
 
     var firstItem = _bvl.addedMaterials[0];
     var vatVal = Number(document.getElementById('_bvlVatAmount').value) || 0;
-    var shipCostVal = Number(document.getElementById('_bvlShipCost').value) || 0;
-    var shipPayerVal = document.getElementById('_bvlShipPayer').value;
 
     var extraCostsVal = _bvl.addedExtraCosts.filter(function (c) {
         return c.content.trim() !== '' && Number(c.amount) > 0;
@@ -782,7 +812,9 @@ async function _bvlSubmitMat() {
         vat_amount: vatVal,
         extra_costs: extraCostsVal,
         ship_cost: shipCostVal,
-        ship_payer: shipPayerVal,
+        ship_payer: shipPayerVal || null,
+        ship_image_url: (_bvl.uploadShipImg && shipCostVal > 0) ? _bvl.uploadShipImg.url : null,
+        ship_image_path: (_bvl.uploadShipImg && shipCostVal > 0) ? _bvl.uploadShipImg.path : null,
         cost_notes: notesVal,
         bill_image_url: _bvl.uploadImg ? _bvl.uploadImg.url : null,
         bill_image_path: _bvl.uploadImg ? _bvl.uploadImg.path : null,
@@ -938,6 +970,13 @@ async function _bvlDetail(id) {
         h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;background:#f8fafc;margin-top:12px">'
             + '<div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:8px">📸 ẢNH HÓA ĐƠN BILL</div>'
             + '<div style="text-align:center"><img src="' + r.bill_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
+            + '</div>';
+    }
+
+    if (r.ship_image_url) {
+        h += '<div style="border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;background:#eff6ff;margin-top:12px">'
+            + '<div style="font-size:11px;font-weight:800;color:#1e40af;margin-bottom:8px">📸 ẢNH HÓA ĐƠN SHIP</div>'
+            + '<div style="text-align:center"><img src="' + r.ship_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
             + '</div>';
     }
 
@@ -1205,3 +1244,12 @@ async function _bvlSaveWarehouseSources() {
         showToast(e.message || 'Lỗi', 'error');
     }
 }
+
+function _bvlToggleShipFields() {
+    var cost = Number(document.getElementById('_bvlShipCost').value) || 0;
+    var group = document.getElementById('_bvlShipImgGroup');
+    if (group) {
+        group.style.display = cost > 0 ? 'block' : 'none';
+    }
+}
+window._bvlToggleShipFields = _bvlToggleShipFields;

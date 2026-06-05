@@ -327,9 +327,9 @@ module.exports = async function(fastify) {
                     
                     // Insert into cashflow_records only
                     const cfResult = await client.query(
-                        `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by)
-                         VALUES ($1, 'CHI', $2, $3, $4, $5, 'cophanmay', $6) RETURNING id, cashflow_code`,
-                        [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id]
+                        `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by, image_url)
+                         VALUES ($1, 'CHI', $2, $3, $4, $5, 'cophanmay', $6, $7) RETURNING id, cashflow_code`,
+                        [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id, b.ship_image_url || null]
                     );
                     shipCfId = cfResult.rows[0].id;
                     shipCfCode = cfResult.rows[0].cashflow_code;
@@ -357,9 +357,9 @@ module.exports = async function(fastify) {
                     
                     // Insert into cashflow_records
                     const cfResult = await client.query(
-                        `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by)
-                         VALUES ($1, 'CHI', $2, $3, $4, $5, 'congty', $6) RETURNING id, cashflow_code`,
-                        [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id]
+                        `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by, image_url)
+                         VALUES ($1, 'CHI', $2, $3, $4, $5, 'congty', $6, $7) RETURNING id, cashflow_code`,
+                        [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id, b.ship_image_url || null]
                     );
                     shipCfId = cfResult.rows[0].id;
                     shipCfCode = cfResult.rows[0].cashflow_code;
@@ -373,14 +373,16 @@ module.exports = async function(fastify) {
                     material_name, material_quantity, cost, refund, total_amount, paid, debt,
                     cost_notes, bill_image_url, bill_image_path, created_by, created_at,
                     warehouse_id, material_item_id, fabric_items, record_type,
-                    vat_amount, extra_costs, ship_cost, ship_payer, ship_cashflow_id, ship_cashflow_code
+                    vat_amount, extra_costs, ship_cost, ship_payer, ship_cashflow_id, ship_cashflow_code,
+                    ship_image_url, ship_image_path
                 )
                 VALUES (
                     $1, $2, $3, $4, $5,
                     $6, $7, $8, $9, $10, $11, $12,
                     $13, $14, $15, $16, $17,
                     $18, $19, $20::jsonb, 'general',
-                    $21, $22::jsonb, $23, $24, $25, $26
+                    $21, $22::jsonb, $23, $24, $25, $26,
+                    $27, $28
                 ) RETURNING id`,
                 [
                     b.import_date || null, b.source_id || null, b.importer_id || req.user.id, b.fabric_material || null,
@@ -388,7 +390,8 @@ module.exports = async function(fastify) {
                     baseCost, 0, totalAmount, 0, debt,
                     b.cost_notes || null, b.bill_image_url || null, b.bill_image_path || null, req.user.id, now,
                     b.warehouse_id || null, b.material_item_id || null, b.fabric_items ? JSON.stringify(b.fabric_items) : '[]',
-                    vatAmount, JSON.stringify(extraCosts), shipCost, shipPayer || null, shipCfId, shipCfCode
+                    vatAmount, JSON.stringify(extraCosts), shipCost, shipPayer || null, shipCfId, shipCfCode,
+                    b.ship_image_url || null, b.ship_image_path || null
                 ]
             );
             const importId = result.rows[0].id;
@@ -413,34 +416,46 @@ module.exports = async function(fastify) {
                     if (shipPayer === 'cophanmay') {
                         // Notify Sổ Thu Chi Telegram group
                         if (tgRow && tgRow.value) {
-                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
                             const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
                             const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
                             const runBal = Number(thuSum.t) - Number(chiSum.t);
                             const balStr = runBal.toLocaleString('vi-VN');
                             const caption = `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship nhập vật liệu + ${srcName} (CP May trả) 👤 ${req.user.full_name || req.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
-                            await sendTelegramMessage(tgRow.value, caption);
+                            if (b.ship_image_path) {
+                                await sendTelegramPhoto(tgRow.value, b.ship_image_path, caption);
+                            } else {
+                                await sendTelegramMessage(tgRow.value, caption);
+                            }
                         }
                         
                         // Notify Sổ Cổ Phần May Telegram group
                         const cpmTgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cpmay_group'");
                         if (cpmTgRow && cpmTgRow.value) {
-                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
                             const cpmTotal = await db.get("SELECT COALESCE(SUM(CASE WHEN cashflow_type='THU' THEN amount ELSE -amount END),0) AS t FROM cashflow_records WHERE money_source='cophanmay' AND is_closed=false");
                             const cpmTotalStr = Number(cpmTotal.t).toLocaleString('vi-VN');
                             const cpmCaption = `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship nhập vật liệu + ${srcName} (CP May trả) 👤 ${req.user.full_name || req.user.username}\n\n🔗Tổng CP May : <b>${cpmTotalStr}đ</b>`;
-                            await sendTelegramMessage(cpmTgRow.value, cpmCaption);
+                            if (b.ship_image_path) {
+                                await sendTelegramPhoto(cpmTgRow.value, b.ship_image_path, cpmCaption);
+                            } else {
+                                await sendTelegramMessage(cpmTgRow.value, cpmCaption);
+                            }
                         }
                     } else if (shipPayer === 'congty') {
                         // Notify Sổ Thu Chi Telegram group
                         if (tgRow && tgRow.value) {
-                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
                             const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
                             const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
                             const runBal = Number(thuSum.t) - Number(chiSum.t);
                             const balStr = runBal.toLocaleString('vi-VN');
                             const caption = `🔴CHI TM <b>CÔNG TY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship nhập vật liệu + ${srcName} (Công Ty trả) 👤 ${req.user.full_name || req.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
-                            await sendTelegramMessage(tgRow.value, caption);
+                            if (b.ship_image_path) {
+                                await sendTelegramPhoto(tgRow.value, b.ship_image_path, caption);
+                            } else {
+                                await sendTelegramMessage(tgRow.value, caption);
+                            }
                         }
                     }
                 } catch(tgErr) { console.error('[BNH Material Ship TG]', tgErr.message); }
