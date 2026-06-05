@@ -259,7 +259,19 @@ function _bpiRender() {
     tb.innerHTML=paged.map(function(r,i){
         var tI=r.is_test_print?'🧪':'⬜',tC=r.is_test_print?' on-test':'',tA=r.is_test_print?'undo_test':'start_test';
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
-        var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
+        
+        var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(window._currentUser.role) !== -1;
+        var errBtnHtml = '';
+        if (r.error_reported) {
+            if (isManager) {
+                errBtnHtml = '<button class="bpi-ib on-err" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi tiếp">⚠️</button>';
+            } else {
+                errBtnHtml = '<span style="font-size:12px;display:inline-block;width:26px;text-align:center;line-height:26px">⚠️</span>';
+            }
+        } else {
+            errBtnHtml = '<button class="bpi-ib" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">⬜</button>';
+        }
+
         var nvName=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia công'):(r.printer_name||'—');
         var fieldBadge = '—';
         if (r.print_field) {
@@ -299,7 +311,7 @@ function _bpiRender() {
         + auditCell
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">'+eI+'</button></td>'
+        +'<td style="text-align:center">' + errBtnHtml + '</td>'
         +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
         +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'

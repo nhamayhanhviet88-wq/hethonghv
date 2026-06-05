@@ -88,6 +88,17 @@ if (r.print_field) {
 }
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const tA=r.is_test_print?'undo_test':'start_test',dA=r.is_print_done?'undo_done':'print_done';
+const isManager = cu && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(cu.role) !== -1;
+let errBtn = '';
+if (r.error_reported) {
+    if (isManager) {
+        errBtn = '<button class="ab on" onclick="mErr('+r.id+')"><span class="ai">⚠️</span><span class="al">LỖI TIẾP</span></button>';
+    } else {
+        errBtn = '<div class="ab on" style="opacity:0.7;cursor:default"><span class="ai">⚠️</span><span class="al">ĐÃ BÁO</span></div>';
+    }
+} else {
+    errBtn = '<button class="ab" onclick="mErr('+r.id+')"><span class="ai">⬜</span><span class="al">LỖI</span></button>';
+}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Ngày in</span><span class="cv">'+fd(r.print_date)+'</span></div>'
@@ -105,7 +116,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="ca">'
 +'<button class="ab'+(r.is_test_print?' on':'')+'" onclick="mTog('+r.id+',\''+tA+'\')"><span class="ai">🧪</span><span class="al">TEST</span></button>'
 +'<button class="ab'+(r.is_print_done?' on':'')+'" onclick="mTog('+r.id+',\''+dA+'\')"><span class="ai">✅</span><span class="al">XONG</span></button>'
-+'<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr('+r.id+')"><span class="ai">⚠️</span><span class="al">LỖI</span></button>'
++errBtn
 +'</div>'
 +(hl?'<div class="ch">'+hl+'</div>':'')
 +'</div>'}).join('')}
