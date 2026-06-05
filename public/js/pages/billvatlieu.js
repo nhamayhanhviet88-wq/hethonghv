@@ -298,6 +298,13 @@ function _bvlRender() {
                 qtyHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(r.fabric_quantity) + '</div>';
             }
 
+            var paidCellHtml = '';
+            if (Number(r.paid) > 0) {
+                paidCellHtml = '<td style="text-align:right;color:#059669;font-weight:700;vertical-align:middle;cursor:pointer;text-decoration:underline dashed" onclick="event.stopPropagation();_bvlShowPaymentHistoryModal(' + r.id + ')" title="Xem chi tiết lịch sử thanh toán">' + _bvlFM(r.paid) + '</td>';
+            } else {
+                paidCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">' + _bvlFM(r.paid) + '</td>';
+            }
+
             return '<tr style="cursor:pointer" onclick="_bvlDetail(' + r.id + ')"><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">' + (i + 1) + '</td>'
                 + '<td style="text-align:center;vertical-align:middle">' + duyetHtml + '</td>'
                 + '<td style="text-align:center;vertical-align:middle">' + payHtml + '</td>'
@@ -309,7 +316,7 @@ function _bvlRender() {
                 + '<td style="text-align:right;font-weight:600;vertical-align:middle">' + _bvlFM(r.cost) + '</td>'
                 + '<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">' + _bvlFM(r.refund) + '</td>'
                 + '<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">' + _bvlFM(r.total_amount) + '</td>'
-                + '<td style="text-align:right;color:#059669;font-weight:700;vertical-align:middle">' + _bvlFM(r.paid) + '</td>'
+                + paidCellHtml
                 + '<td style="text-align:center;vertical-align:middle">' + _bvlDebt(runDebt[i]) + '</td>'
                 + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">' + (r.cost_notes || '—') + '</td>'
                 + '<td style="font-size:9px;color:#6b7280;vertical-align:middle">' + upd + '</td></tr>';
@@ -422,6 +429,56 @@ async function _bvlPaySubmit() {
         showToast(e.message || 'Lỗi', 'error');
         btn.disabled = false;
         btn.textContent = '💳 XÁC NHẬN THANH TOÁN';
+    }
+}
+
+async function _bvlShowPaymentHistoryModal(importId) {
+    try {
+        var payRes = await apiCall('/api/import/payments/' + importId);
+        var payments = payRes.payments || [];
+        
+        var ov = document.createElement('div');
+        ov.id = '_bvlPayHistOv';
+        ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+        ov.onclick = function() { ov.remove(); };
+        
+        var h = '<div style="background:#fff;border-radius:16px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
+            + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#059669,#10b981);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
+            + '<div style="font-size:15px;font-weight:800">💳 Lịch Sử Thanh Toán (' + payments.length + ' lần)</div>'
+            + '<button onclick="document.getElementById(\'_bvlPayHistOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
+            + '<div style="padding:20px">';
+            
+        if (!payments.length) {
+            h += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;font-weight:600">Chưa có lịch sử thanh toán cho bill này.</div>';
+        } else {
+            payments.forEach(function (p, pi) {
+                h += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02)">'
+                    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px dashed #e2e8f0;padding-bottom:8px">'
+                    + '<div><span style="font-size:12px;font-weight:800;color:#1e293b;background:#e2e8f0;padding:2px 8px;border-radius:6px">Lần ' + (payments.length - pi) + '</span></div>'
+                    + '<div style="font-size:15px;font-weight:900;color:#059669">' + _bvlFM(p.amount) + '₫</div></div>'
+                    
+                    + '<div style="font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="color:#6b7280;font-weight:600">🕰️ Ngày giờ:</span><b style="color:#374151">' + vnFormat(p.paid_at) + '</b></div>'
+                    + '<div style="font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="color:#6b7280;font-weight:600">👤 Người trả:</span><b style="color:#0d9488">' + (p.paid_by_name || '—') + '</b></div>';
+                    
+                if (p.note) {
+                    h += '<div style="font-size:12px;margin-bottom:10px;display:flex;justify-content:space-between"><span style="color:#6b7280;font-weight:600">📝 Ghi chú:</span><b style="color:#374151;max-width:200px;text-align:right">' + p.note + '</b></div>';
+                }
+                
+                if (p.image_url) {
+                    h += '<div style="margin-top:10px;text-align:center;border-top:1px solid #f1f5f9;padding-top:10px">'
+                        + '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-align:left">📸 BILL THANH TOÁN</div>'
+                        + '<img src="' + p.image_url + '" style="max-width:100%;max-height:240px;border-radius:10px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1.5px solid #e2e8f0" onclick="window.open(this.src)"></div>';
+                }
+                h += '</div>';
+            });
+        }
+        
+        h += '</div></div>';
+        ov.innerHTML = h;
+        document.body.appendChild(ov);
+    } catch (e) {
+        console.error('[BVL] Show payment history error:', e);
+        showToast('Không tải được lịch sử thanh toán', 'error');
     }
 }
 
