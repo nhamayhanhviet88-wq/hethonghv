@@ -917,6 +917,16 @@ async function _bvlDetail(id) {
         h += '</div>';
     }
 
+    // Show VAT (below 📋 CHI PHÍ KHÁC and above 💰 TỔNG CỘNG TIỀN BILL)
+    if (Number(r.vat_amount) > 0) {
+        h += '<div style="border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;background:#eff6ff">'
+            + '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700">'
+            + '<span>Tiền VAT:</span>'
+            + '<b style="color:#1e3a8a">' + _bvlFM(r.vat_amount) + '₫</b>'
+            + '</div>'
+            + '</div>';
+    }
+
     // New 💰 TỔNG CỘNG TIỀN BILL bar
     h += '<style>'
         + '@keyframes bvlGlow {'
@@ -934,31 +944,32 @@ async function _bvlDetail(id) {
         + '<span style="font-size:18px;text-shadow:0 1px 3px rgba(0,0,0,0.35)">' + _bvlFM(r.total_amount) + '₫</span>'
         + '</div>';
 
-    // Show VAT & Ship Cost
-    if (Number(r.vat_amount) > 0 || Number(r.ship_cost) > 0) {
-        h += '<div style="border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;background:#eff6ff">'
-            + '<div style="font-size:11px;font-weight:800;color:#1e40af;margin-bottom:8px">🚚 THÔNG TIN VAT & VẬN CHUYỂN</div>';
-        if (Number(r.vat_amount) > 0) {
-            h += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">'
-                + '<span>Tiền VAT:</span>'
-                + '<b style="color:#1e3a8a">' + _bvlFM(r.vat_amount) + '₫</b>'
-                + '</div>';
-        }
-        if (Number(r.ship_cost) > 0) {
-            var payerLabel = r.ship_payer === 'cophanmay' ? 'Cổ Phần May' : 'Công Ty';
-            var codeLabel = r.ship_cashflow_code ? ' &nbsp; (Mã: <b style="color:#0284c7">' + r.ship_cashflow_code + '</b>)' : '';
-            h += '<div style="display:flex;justify-content:space-between;font-size:12px">'
-                + '<span>Phí Ship:</span>'
-                + '<b style="color:#1e3a8a">' + _bvlFM(r.ship_cost) + '₫ <span style="font-weight:normal;color:#6b7280">(' + payerLabel + ' trả)' + codeLabel + '</span></b>'
-                + '</div>';
-        }
-        h += '</div>';
+    // Show Bill Image (above shipping info and below total bill)
+    if (r.bill_image_url) {
+        h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;background:#f8fafc;margin-top:12px">'
+            + '<div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:8px">📸 ẢNH HÓA ĐƠN BILL</div>'
+            + '<div style="text-align:center"><img src="' + r.bill_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
+            + '</div>';
     }
+
+    // Show Shipping Cost (under bill image)
+    if (Number(r.ship_cost) > 0) {
+        var payerLabel = r.ship_payer === 'cophanmay' ? 'Cổ Phần May' : 'Công Ty';
+        var codeLabel = r.ship_cashflow_code ? ' &nbsp; (Mã: <b style="color:#0284c7">' + r.ship_cashflow_code + '</b>)' : '';
+        h += '<div style="border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;background:#eff6ff">'
+            + '<div style="font-size:11px;font-weight:800;color:#1e40af;margin-bottom:8px">🚚 THÔNG TIN VẬN CHUYỂN</div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:12px">'
+            + '<span>Phí Ship:</span>'
+            + '<b style="color:#1e3a8a">' + _bvlFM(r.ship_cost) + '₫ <span style="font-weight:normal;color:#6b7280">(' + payerLabel + ' trả)' + codeLabel + '</span></b>'
+            + '</div>'
+            + '</div>';
+    }
+
     try {
         var payRes = await apiCall('/api/import/payments/' + id);
         var payments = payRes.payments || [];
         if (payments.length) {
-            h += '<div style="border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;background:#ecfdf5;margin-top:12px">'
+            h += '<div style="border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;background:#ecfdf5;margin-top:12px;margin-bottom:12px">'
                 + '<div style="font-size:11px;font-weight:800;color:#059669;margin-bottom:8px">💳 LỊCH SỬ THANH TOÁN (' + payments.length + ' lần)</div>';
             payments.forEach(function (p, pi) {
                 h += '<div style="background:#fff;border:1px solid #d1fae5;border-radius:8px;padding:10px;margin-bottom:6px">'
@@ -975,13 +986,6 @@ async function _bvlDetail(id) {
         }
     } catch (e) {
         console.error('[BVL] payments details error:', e);
-    }
-
-    if (r.bill_image_url) {
-        h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;background:#f8fafc;margin-top:12px">'
-            + '<div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:8px">📸 ẢNH HÓA ĐƠN BILL</div>'
-            + '<div style="text-align:center"><img src="' + r.bill_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
-            + '</div>';
     }
 
     if (r.ship_image_url) {
