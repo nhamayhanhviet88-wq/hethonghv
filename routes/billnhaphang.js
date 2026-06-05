@@ -279,13 +279,13 @@ module.exports = async function(fastify) {
         const b = req.body || {}, now = vnNow();
         const fin = calcFinance(b.cost, b.refund, b.paid);
         const r = await db.get(`INSERT INTO import_records (import_date,source_id,importer_id,fabric_material,fabric_quantity,
-            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,bill_image_url,bill_image_path,created_by,created_at,warehouse_id,material_item_id)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
+            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,bill_image_url,bill_image_path,created_by,created_at,warehouse_id,material_item_id,fabric_items)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb) RETURNING id`,
             [b.import_date||null, b.source_id||null, b.importer_id||null, b.fabric_material||null,
              Number(b.fabric_quantity)||0, b.material_name||null, Number(b.material_quantity)||0,
              Number(b.cost)||0, Number(b.refund)||0, fin.total_amount, Number(b.paid)||0, fin.debt,
              b.cost_notes||null, b.bill_image_url||null, b.bill_image_path||null, req.user.id, now,
-             b.warehouse_id||null, b.material_item_id||null]);
+             b.warehouse_id||null, b.material_item_id||null, b.fabric_items ? JSON.stringify(b.fabric_items) : '[]']);
         await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', 'Tạo bill nhập hàng mới', req.user.id, now]);
         return { success: true, id: r.id };
