@@ -239,10 +239,12 @@ function _bvlRender() {
         tb.innerHTML = '<tr><td colspan="15"><div class="empty-state"><div class="icon">📦</div><h3>Chưa có bill nhập vật liệu</h3></div></td></tr>';
     } else {
         var runDebt = new Array(all.length);
-        var cumDebt = 0;
+        var srcCumDebt = {};
         for (var ri = all.length - 1; ri >= 0; ri--) {
-            cumDebt += Number(all[ri].debt) || 0;
-            runDebt[ri] = cumDebt;
+            var sid = all[ri].source_id || 0;
+            if (!srcCumDebt[sid]) srcCumDebt[sid] = 0;
+            srcCumDebt[sid] += Number(all[ri].debt) || 0;
+            runDebt[ri] = srcCumDebt[sid];
         }
         var srcDebtMap = {};
         all.forEach(function (r) {

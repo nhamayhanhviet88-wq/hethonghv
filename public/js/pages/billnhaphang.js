@@ -95,9 +95,9 @@ function _bnhRender(){
 
     var tb=document.getElementById('bnhTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
-    // Compute running cumulative debt (oldest → newest, bottom → top)
-    var runDebt=new Array(all.length);var cumDebt=0;
-    for(var ri=all.length-1;ri>=0;ri--){cumDebt+=Number(all[ri].debt)||0;runDebt[ri]=cumDebt;}
+    // Compute running cumulative debt per source (oldest → newest, bottom → top)
+    var runDebt=new Array(all.length);var srcCumDebt={};
+    for(var ri=all.length-1;ri>=0;ri--){var sid=all[ri].source_id||0;if(!srcCumDebt[sid])srcCumDebt[sid]=0;srcCumDebt[sid]+=Number(all[ri].debt)||0;runDebt[ri]=srcCumDebt[sid];}
     // Compute per-source debt map
     var srcDebtMap={};all.forEach(function(r){var sid=r.source_id||0;if(!srcDebtMap[sid])srcDebtMap[sid]=0;srcDebtMap[sid]+=Number(r.debt)||0;});
     tb.innerHTML=all.map(function(r,i){
