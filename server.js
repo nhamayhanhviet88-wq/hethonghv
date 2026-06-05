@@ -928,6 +928,42 @@ async function start() {
         return fs.createReadStream(filePath);
     });
 
+    // Serve payment uploads with automatic MIME sniffing (fixes webp files saved as png/jpg)
+    fastify.get('/uploads/bill-nhap-hang/payments/:filename', async (request, reply) => {
+        const fs = require('fs');
+        const filePath = path.join(__dirname, 'uploads', 'bill-nhap-hang', 'payments', request.params.filename);
+        if (!fs.existsSync(filePath)) return reply.code(404).send('Not found');
+        
+        // Read first 12 bytes to sniff format
+        let mime = 'application/octet-stream';
+        try {
+            const fd = fs.openSync(filePath, 'r');
+            const buffer = Buffer.alloc(12);
+            fs.readSync(fd, buffer, 0, 12, 0);
+            fs.closeSync(fd);
+            
+            if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+                mime = 'image/png';
+            } else if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+                mime = 'image/jpeg';
+            } else if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+                       buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+                mime = 'image/webp';
+            } else {
+                const ext = path.extname(filePath).toLowerCase();
+                const mimeMap = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp' };
+                mime = mimeMap[ext] || 'application/octet-stream';
+            }
+        } catch(e) {
+            const ext = path.extname(filePath).toLowerCase();
+            const mimeMap = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp' };
+            mime = mimeMap[ext] || 'application/octet-stream';
+        }
+        
+        reply.type(mime);
+        return fs.createReadStream(filePath);
+    });
+
     // ★ Smart caching: JS/CSS files use ?v= cache-busting (auto-inject uses Date.now()),
     // so browser can cache them safely. HTML must always be fresh.
     fastify.addHook('onSend', (request, reply, payload, done) => {
