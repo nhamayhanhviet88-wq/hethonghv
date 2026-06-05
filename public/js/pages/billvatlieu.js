@@ -240,6 +240,23 @@ function _bvlGetSourceColor(sourceName) {
     return colors[idx];
 }
 
+function _bvlGetWarehouseColor(warehouseName) {
+    if (!warehouseName) return '#2563eb';
+    var name = String(warehouseName).trim();
+    var colors = [
+        '#0f766e', '#6d28d9', '#1d4ed8', '#b91c1c', '#047857', '#c2410c', '#a21caf', '#78350f',
+        '#4338ca', '#9f1239', '#1e3a8a', '#3f6212', '#155e75', '#86198f', '#9a3412', '#1e293b',
+        '#166534', '#0369a1', '#be185d', '#581c87', '#b45309', '#0e7490', '#881337', '#475569',
+        '#115e59', '#6b21a8', '#1e40af', '#991b1b', '#065f46', '#92400e', '#701a75', '#0f172a'
+    ];
+    var hash = 5381;
+    for (var i = 0; i < name.length; i++) {
+        hash = ((hash * 101) + name.charCodeAt(i)) & 0xFFFFFFFF;
+    }
+    var idx = Math.abs(hash) % colors.length;
+    return colors[idx];
+}
+
 function _bvlDebt(d) {
     var n = Number(d) || 0;
     if (n > 0) return '<span class="bvl-debt red">🔴 ' + _bvlFM(n) + '</span>';
@@ -348,7 +365,7 @@ function _bvlRender() {
                 + '<td style="text-align:center;vertical-align:middle">' + payHtml + '</td>'
                 + '<td style="font-size:10px;vertical-align:middle">' + _bvlFD(r.import_date) + '</td>'
                 + '<td style="font-size:10px;color:' + _bvlGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">' + (r.source_name || '—') + '</td>'
-                + '<td style="font-size:10px;color:#2563eb;font-weight:700;vertical-align:middle">' + (r.warehouse_name ? '📦 ' + r.warehouse_name : '—') + '</td>'
+                + '<td style="font-size:10px;color:' + _bvlGetWarehouseColor(r.warehouse_name) + ';font-weight:700;vertical-align:middle">' + (r.warehouse_name ? '📦 ' + r.warehouse_name : '—') + '</td>'
                 + '<td style="font-size:10px;color:#059669;font-weight:600;vertical-align:middle">' + (r.importer_name || '—') + '</td>'
                 + '<td style="font-weight:600;color:#1e293b;max-width:260px;vertical-align:middle">' + nameHtml + '</td>'
                 + '<td style="text-align:center;font-weight:700;color:#0d9488;vertical-align:middle">' + qtyHtml + '</td>'
@@ -1031,7 +1048,7 @@ async function _bvlDetail(id) {
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600">' + _bvlFD(r.import_date) + '</div></div>'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600">' + (r.importer_name || '—') + '</div></div></div>';
 
-    var whHtml = r.warehouse_name ? ' &nbsp; ➔ &nbsp; <b style="color:#2563eb">🏢 ' + r.warehouse_name + '</b>' : '';
+    var whHtml = r.warehouse_name ? ' &nbsp; ➔ &nbsp; <b style="color:' + _bvlGetWarehouseColor(r.warehouse_name) + '">🏢 ' + r.warehouse_name + '</b>' : '';
     h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC & KHO</div><div style="font-size:12px;font-weight:700;color:' + _bvlGetSourceColor(r.source_name) + '">🏪 ' + (r.source_name || '—') + whHtml + '</div></div>';
 
     var items = [];
