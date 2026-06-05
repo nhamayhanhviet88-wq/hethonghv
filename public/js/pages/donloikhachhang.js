@@ -173,9 +173,9 @@ function _ceoRenderTable() {
             // Calculate reporter name
             var reporter = '—';
             if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
-                reporter = item.cskh_name.substring('Người Báo Lỗi: '.length);
-            } else if (item.created_by_dept_name) {
-                reporter = item.created_by_dept_name + ' - ' + (item.created_by_name || '');
+                var raw = item.cskh_name.substring('Người Báo Lỗi: '.length);
+                var idx = raw.lastIndexOf(' - ');
+                reporter = idx !== -1 ? raw.substring(idx + 3) : raw;
             } else {
                 reporter = item.created_by_name || '—';
             }
@@ -241,9 +241,9 @@ async function _ceoViewDetail(id) {
     // Calculate reporter name
     var reporter = '—';
     if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
-        reporter = item.cskh_name.substring('Người Báo Lỗi: '.length);
-    } else if (item.created_by_dept_name) {
-        reporter = item.created_by_dept_name + ' - ' + (item.created_by_name || '');
+        var raw = item.cskh_name.substring('Người Báo Lỗi: '.length);
+        var idx = raw.lastIndexOf(' - ');
+        reporter = idx !== -1 ? raw.substring(idx + 3) : raw;
     } else {
         reporter = item.created_by_name || '—';
     }
