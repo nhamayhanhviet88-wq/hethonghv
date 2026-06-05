@@ -198,7 +198,7 @@ function _bvlRenderSb() {
     if (t && t.sources) {
         t.sources.forEach(function (s) {
             var active = f.source_id == s.id;
-            h += '<div class="bvl-sb-src' + (active ? ' active' : '') + '" onclick="_bvlFilter(' + s.id + ')"><span class="sn">🏪 ' + s.name + '</span><span class="sc">[' + s.count + ']</span><span class="sm">' + _bvlFM(s.sum_total) + '₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bvlDelSrc(' + s.id + ', \'' + s.name + '\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';
+            h += '<div class="bvl-sb-src' + (active ? ' active' : '') + '" onclick="_bvlFilter(' + s.id + ')"><span class="sn" style="color:' + _bvlGetSourceColor(s.name) + ';font-weight:700">🏪 ' + s.name + '</span><span class="sc" style="color:' + _bvlGetSourceColor(s.name) + '">[' + s.count + ']</span><span class="sm">' + _bvlFM(s.sum_total) + '₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bvlDelSrc(' + s.id + ', \'' + s.name + '\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';
         });
     }
     sb.innerHTML = h;
@@ -221,6 +221,23 @@ async function _bvlLoadRecs() {
     } catch (e) {
         console.error('[BVL]', e);
     }
+}
+
+function _bvlGetSourceColor(sourceName) {
+    if (!sourceName) return '#0d9488';
+    var name = String(sourceName).trim();
+    var hash = 0;
+    for (var i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    var hue = Math.abs(hash) % 360;
+    if (hue >= 50 && hue <= 150) {
+        hue = (hue + 110) % 360;
+    }
+    if (hue >= 170 && hue <= 190) {
+        hue = (hue + 40) % 360;
+    }
+    return 'hsl(' + hue + ', 85%, 32%)';
 }
 
 function _bvlDebt(d) {
@@ -330,7 +347,7 @@ function _bvlRender() {
                 + '<td style="text-align:center;vertical-align:middle">' + duyetHtml + '</td>'
                 + '<td style="text-align:center;vertical-align:middle">' + payHtml + '</td>'
                 + '<td style="font-size:10px;vertical-align:middle">' + _bvlFD(r.import_date) + '</td>'
-                + '<td style="font-size:10px;color:#0d9488;font-weight:700;vertical-align:middle">' + (r.source_name || '—') + '</td>'
+                + '<td style="font-size:10px;color:' + _bvlGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">' + (r.source_name || '—') + '</td>'
                 + '<td style="font-size:10px;color:#2563eb;font-weight:700;vertical-align:middle">' + (r.warehouse_name ? '📦 ' + r.warehouse_name : '—') + '</td>'
                 + '<td style="font-size:10px;color:#059669;font-weight:600;vertical-align:middle">' + (r.importer_name || '—') + '</td>'
                 + '<td style="font-weight:600;color:#1e293b;max-width:260px;vertical-align:middle">' + nameHtml + '</td>'
@@ -623,13 +640,15 @@ function _bvlOpenMat() {
         + '<div id="_bvlMatAddedList" style="margin-bottom:12px;font-size:12px;max-height:150px;overflow-y:auto">'
         + '<div style="text-align:center;color:#9ca3af;padding:10px;font-style:italic">Chưa chọn vật liệu nào</div>'
         + '</div>'
-        + '<div style="display:grid;grid-template-columns:1.8fr 0.8fr 1.2fr 1fr 0.8fr;gap:8px;align-items:end;border-top:1px dashed #0d9488;padding-top:12px">'
+        + '<div style="display:grid;grid-template-columns:1.8fr 0.8fr 0.6fr 1.2fr 1fr 0.8fr;gap:8px;align-items:end;border-top:1px dashed #0d9488;padding-top:12px">'
         + '<div><label style="font-size:10px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Vật Liệu *</label>'
-        + '<select id="_bvlMatItemSelect" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none" disabled>'
+        + '<select id="_bvlMatItemSelect" onchange="_bvlMatItemSelectChanged()" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none" disabled>'
         + '<option value="">— Chọn Kho trước —</option>'
         + '</select></div>'
         + '<div><label style="font-size:10px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Số Lượng *</label>'
         + '<input id="_bvlQty" type="number" placeholder="SL..." oninput="_bvlCalcRowTotal()" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"></div>'
+        + '<div><label style="font-size:10px;font-weight:700;color:#374151;display:block;margin-bottom:4px">ĐL</label>'
+        + '<input id="_bvlMatUnit" type="text" placeholder="ĐL" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;background:#f1f5f9;color:#6b7280;text-align:center" disabled></div>'
         + '<div><label style="font-size:10px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Đơn Giá *</label>'
         + '<input id="_bvlPrice" type="number" placeholder="Đơn giá..." oninput="_bvlCalcRowTotal()" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"></div>'
         + '<div><label style="font-size:10px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Thành Tiền</label>'
@@ -740,6 +759,9 @@ function _bvlOpenMat() {
 function _bvlMatWhChange(whId) {
     var srcSelect = document.getElementById('_bvlSrc');
     var matSelect = document.getElementById('_bvlMatItemSelect');
+    var unitInput = document.getElementById('_bvlMatUnit');
+    if (unitInput) unitInput.value = '';
+
     if (!whId) {
         srcSelect.disabled = true;
         srcSelect.innerHTML = '<option value="">— Chọn Kho trước —</option>';
@@ -787,6 +809,19 @@ function _bvlMatWhChange(whId) {
         matSelect.innerHTML = matHtml;
         matSelect.disabled = false;
     }
+}
+
+function _bvlMatItemSelectChanged() {
+    var select = document.getElementById('_bvlMatItemSelect');
+    var unitInput = document.getElementById('_bvlMatUnit');
+    if (!select || !unitInput) return;
+    var itemId = Number(select.value);
+    if (!itemId) {
+        unitInput.value = '';
+        return;
+    }
+    var matItem = _bvl.materials.find(function (m) { return m.id === itemId; });
+    unitInput.value = matItem ? (matItem.unit || '—') : '';
 }
 
 function _bvlAddMatRow() {
@@ -846,6 +881,8 @@ function _bvlAddMatRow() {
     qtyInput.value = '';
     priceInput.value = '';
     costInput.value = '';
+    var unitInput = document.getElementById('_bvlMatUnit');
+    if (unitInput) unitInput.value = '';
 
     _bvlRenderAddedMats();
 }
@@ -995,7 +1032,7 @@ async function _bvlDetail(id) {
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600">' + (r.importer_name || '—') + '</div></div></div>';
 
     var whHtml = r.warehouse_name ? ' &nbsp; ➔ &nbsp; <b style="color:#2563eb">🏢 ' + r.warehouse_name + '</b>' : '';
-    h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC & KHO</div><div style="font-size:12px;font-weight:700;color:#0d9488">🏪 ' + (r.source_name || '—') + whHtml + '</div></div>';
+    h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC & KHO</div><div style="font-size:12px;font-weight:700;color:' + _bvlGetSourceColor(r.source_name) + '">🏪 ' + (r.source_name || '—') + whHtml + '</div></div>';
 
     var items = [];
     try {

@@ -458,7 +458,8 @@ async function _bnhFabDetail(id) {
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600">' + _bnhFD(r.import_date) + '</div></div>'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600">' + (r.importer_name||'—') + '</div></div></div>';
 
-    h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC</div><div style="font-size:12px;font-weight:700;color:#4f46e5">' + (r.source_name||'—') + '</div></div>';
+    var sourceColor = typeof _bnhGetSourceColor === 'function' ? _bnhGetSourceColor(r.source_name) : '#4f46e5';
+    h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC</div><div style="font-size:12px;font-weight:700;color:' + sourceColor + '">🏪 ' + (r.source_name||'—') + '</div></div>';
 
     // ===== Fabric items TABLE =====
     h += '<div style="border:1.5px solid #ede9fe;border-radius:10px;padding:10px;margin-bottom:12px;background:#faf5ff">'
