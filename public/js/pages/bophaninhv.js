@@ -1,6 +1,6 @@
 // ========== BỘ PHẬN IN — Desktop SPA ==========
 var currentYear = new Date().getFullYear();
-var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, search: '', page: 1, ps: 100, contractors: [] };
+var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, search: '', page: 1, ps: 200, contractors: [] };
 var _bpiOpen = {};
 _bpiOpen['y' + currentYear] = true;
 _bpiOpen['p' + currentYear] = true;
@@ -303,6 +303,50 @@ function _bpiRender() {
         +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🧪 TEST</div><div style="font-size:15px;font-weight:900">'+testing+'</div></div>'
         +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
         +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #dc262630"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div><div style="font-size:15px;font-weight:900">'+errs+'</div></div>';
+    }
+    
+    // Render pagination
+    var pagEl = document.getElementById('bpiPagination');
+    if (!pagEl) {
+        var card = document.querySelector('.bpi-main .card');
+        if (card) {
+            pagEl = document.createElement('div');
+            pagEl.id = 'bpiPagination';
+            pagEl.style.cssText = 'padding:12px;border-top:1px solid #f1f5f9;display:flex;justify-content:center;align-items:center;gap:16px;background:#fff;border-bottom-left-radius:8px;border-bottom-right-radius:8px';
+            card.appendChild(pagEl);
+        }
+    }
+    if (pagEl) {
+        if (tp <= 1) {
+            pagEl.style.display = 'none';
+        } else {
+            pagEl.style.display = 'flex';
+            pagEl.innerHTML = 
+                '<button onclick="_bpiPrevPage()" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;font-size:11px;font-weight:700;color:#475569;cursor:pointer;transition:all 0.15s' + (_bpi.page === 1 ? ';opacity:0.5;cursor:not-allowed' : '') + '"' + (_bpi.page === 1 ? ' disabled' : '') + '>◀ Trang trước</button>'
+                + '<span style="font-size:11px;font-weight:700;color:#1e293b">Trang ' + _bpi.page + ' / ' + tp + '</span>'
+                + '<button onclick="_bpiNextPage()" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;font-size:11px;font-weight:700;color:#475569;cursor:pointer;transition:all 0.15s' + (_bpi.page === tp ? ';opacity:0.5;cursor:not-allowed' : '') + '"' + (_bpi.page === tp ? ' disabled' : '') + '>Trang sau ▶</button>';
+        }
+    }
+}
+
+function _bpiPrevPage() {
+    if (_bpi.page > 1) {
+        _bpi.page--;
+        _bpiRender();
+    }
+}
+function _bpiNextPage() {
+    var all = _bpi.records.slice();
+    if (_bpi.search) { 
+        var q = _bpi.search.toLowerCase(); 
+        all = all.filter(function(r){
+            return (r.product_name||'').toLowerCase().indexOf(q)>=0 || (r.cskh_name||'').toLowerCase().indexOf(q)>=0 || (r.order_code||'').toLowerCase().indexOf(q)>=0 || (r.customer_name||'').toLowerCase().indexOf(q)>=0;
+        }); 
+    }
+    var tp = Math.ceil(all.length / _bpi.ps) || 1;
+    if (_bpi.page < tp) {
+        _bpi.page++;
+        _bpiRender();
     }
 }
 
