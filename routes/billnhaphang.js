@@ -144,14 +144,30 @@ module.exports = async function(fastify) {
     });
 
     // ========== TREE ==========
-    fastify.get('/api/import/tree', { preHandler: [authenticate] }, async () => {
-        const sources = await db.all(`SELECT s.id, s.name, COUNT(r.id)::int AS count, COALESCE(SUM(r.total_amount),0)::numeric AS sum_total,
+    fastify.get('/api/import/tree', { preHandler: [authenticate] }, async (req) => {
+        const { record_type } = req.query;
+        let sourcesQuery = `
+            SELECT s.id, s.name, COUNT(r.id)::int AS count, COALESCE(SUM(r.total_amount),0)::numeric AS sum_total,
             COALESCE(SUM(r.debt),0)::numeric AS sum_debt
-            FROM import_sources s LEFT JOIN import_records r ON s.id=r.source_id
-            WHERE s.is_active=true GROUP BY s.id, s.name ORDER BY s.display_order, s.name`);
-        const totals = await db.get(`SELECT COUNT(*)::int AS total, COALESCE(SUM(total_amount),0)::numeric AS sum_total,
+            FROM import_sources s 
+            LEFT JOIN import_records r ON s.id=r.source_id
+        `;
+        let totalsQuery = `
+            SELECT COUNT(*)::int AS total, COALESCE(SUM(total_amount),0)::numeric AS sum_total,
             COALESCE(SUM(debt),0)::numeric AS sum_debt, COALESCE(SUM(paid),0)::numeric AS sum_paid
-            FROM import_records`);
+            FROM import_records
+        `;
+        let params = [];
+        if (record_type) {
+            sourcesQuery += ` AND r.record_type = $1`;
+            totalsQuery += ` WHERE record_type = $1`;
+            params.push(record_type);
+        }
+        sourcesQuery += ` WHERE s.is_active=true GROUP BY s.id, s.name ORDER BY s.display_order, s.name`;
+
+        const sources = await db.all(sourcesQuery, params);
+        const totals = await db.get(totalsQuery, params);
+
         // Count total fabric trees from JSONB
         let total_trees = 0;
         try {
@@ -168,8 +184,9 @@ module.exports = async function(fastify) {
 
     // ========== LIST ==========
     fastify.get('/api/import/records', { preHandler: [authenticate] }, async (req) => {
-        const { source_id, year, month, status, search } = req.query;
+        const { source_id, year, month, status, search, record_type } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
+        if (record_type) { where += ` AND ir.record_type=$${idx++}`; params.push(record_type); }
         if (source_id) { where += ` AND ir.source_id=$${idx++}`; params.push(Number(source_id)); }
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(ir.import_date,ir.created_at))=$${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(ir.import_date,ir.created_at))=$${idx++}`; params.push(Number(month)); }
@@ -194,12 +211,12 @@ module.exports = async function(fastify) {
         const b = req.body || {}, now = vnNow();
         const fin = calcFinance(b.cost, b.refund, b.paid);
         const r = await db.get(`INSERT INTO import_records (import_date,source_id,importer_id,fabric_material,fabric_quantity,
-            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,created_by,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
+            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,bill_image_url,bill_image_path,created_by,created_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
             [b.import_date||null, b.source_id||null, b.importer_id||null, b.fabric_material||null,
              Number(b.fabric_quantity)||0, b.material_name||null, Number(b.material_quantity)||0,
              Number(b.cost)||0, Number(b.refund)||0, fin.total_amount, Number(b.paid)||0, fin.debt,
-             b.cost_notes||null, req.user.id, now]);
+             b.cost_notes||null, b.bill_image_url||null, b.bill_image_path||null, req.user.id, now]);
         await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', 'Tạo bill nhập hàng mới', req.user.id, now]);
         return { success: true, id: r.id };
@@ -448,7 +465,7 @@ module.exports = async function(fastify) {
     // ========== FABRIC DETAIL ==========
     fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const rec = await db.get('SELECT ir.*, s.name AS source_name, u.full_name AS importer_name FROM import_records ir LEFT JOIN import_sources s ON ir.source_id=s.id LEFT JOIN users u ON ir.importer_id=u.id WHERE ir.id=$1', [Number(req.params.id)]);
-        if (!rec || rec.record_type !== 'fabric') return reply.code(404).send({ error: 'Không tìm thấy bill vải' });
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bill nhập' });
         // Calculate total source debt for displaying Tổng Công Nợ
         let total_source_debt = Number(rec.debt) || 0;
         if (rec.source_id) {

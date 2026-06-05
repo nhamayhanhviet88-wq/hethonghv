@@ -35,7 +35,7 @@ function renderBillnhaphangPage(content){
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
     if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260603a';document.head.appendChild(s);}
-    try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree'),apiCall('/api/import/sources'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
+    try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree?record_type=fabric'),apiCall('/api/import/sources'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
     // Check fabric permission
     setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
     }catch(e){console.error('[BNH]',e);}}
@@ -72,7 +72,7 @@ sb.innerHTML=h;}
 
 function _bnhFilter(sid){_bnh.filter.source_id=sid||null;_bnhRenderSb();_bnhLoadRecs();}
 
-async function _bnhLoadRecs(){var f=_bnh.filter,qs='?_=1';
+async function _bnhLoadRecs(){var f=_bnh.filter,qs='?record_type=fabric';
 if(f.source_id)qs+='&source_id='+f.source_id;
 try{var res=await apiCall('/api/import/records'+qs);_bnh.records=res.records||[];_bnhRender();}catch(e){console.error('[BNH]',e);}}
 
