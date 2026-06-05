@@ -303,11 +303,20 @@ function _qlxRenderRows(paged) {
 
         var itemDesc = it ? (it.description || '') : '';
         var totalRows = rowCountPerOrder[o.id] || 1;
+        var priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        var priBadge = '';
+        if (priority === 'GẤP') {
+            priBadge = '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
+        } else if (priority === 'GỬI') {
+            priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
+        } else {
+            priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
+        }
         var spName;
         if (totalRows > 1) {
-            spName = o.order_code + ' \u2014 Phi\u1ebfu ' + r.itemIdx + ' \u2014 P' + r.phoiInItem + (itemDesc ? ' \u2014 ' + itemDesc : '');
+            spName = priBadge + o.order_code + ' \u2014 Phi\u1ebfu ' + r.itemIdx + ' \u2014 P' + r.phoiInItem + (itemDesc ? ' \u2014 ' + itemDesc : '');
         } else {
-            spName = o.order_code + (itemDesc ? ' \u2014 ' + itemDesc : '');
+            spName = priBadge + o.order_code + (itemDesc ? ' \u2014 ' + itemDesc : '');
         }
         var phoiTag = '';
         var matName = p ? (p.material_name || '') : (it ? (it.material_name || '') : '');
