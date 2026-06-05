@@ -557,7 +557,6 @@ async function _ceoOpenQLX(id){
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
   h+='</div></div>';
   ov.innerHTML=h;document.body.appendChild(ov);
-  ov.onclick=function(e){if(e.target===ov)ov.remove();};
   _ceo._selectedViolators=[];
   if(item.violator_name){item.violator_name.split(',').forEach(function(n){var t=n.trim();if(t)_ceo._selectedViolators.push(t);});}
   _ceoRenderViolatorChips();
@@ -627,7 +626,6 @@ async function _ceoOpenPhat(id){
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
   h+='</div></div>';
   ov.innerHTML=h;document.body.appendChild(ov);
-  ov.onclick=function(e){if(e.target===ov)ov.remove();};
   setTimeout(function(){_ceoPhatCalcSX();_ceoPhatCalcShip();},50);
   // ★ Load repair orders async
   if(item.order_code) _ceoLoadRepairOrders(item.order_code, 'ceoRepairPhat');
@@ -704,7 +702,6 @@ async function _ceoOpenNVP(id){
   h+='<button onclick="document.getElementById(\'ceoUpdateOv\').remove()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">Hủy</button></div>';
   h+='</div></div>';
   ov.innerHTML=h;document.body.appendChild(ov);
-  ov.onclick=function(e){if(e.target===ov)ov.remove();};
   // ★ Load repair orders async
   if(item.order_code) _ceoLoadRepairOrders(item.order_code, 'ceoRepairNVP');
 }
