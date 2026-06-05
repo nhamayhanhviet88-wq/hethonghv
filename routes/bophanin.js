@@ -392,6 +392,23 @@ module.exports = async function(fastify) {
             idx++;
         }
 
+        let orderBy = 'ORDER BY up.print_date DESC NULLS LAST, up.created_at DESC';
+        if (status === 'pending') {
+            orderBy = `ORDER BY 
+                CASE 
+                    WHEN (COALESCE(up.order_code, '') ILIKE '%GCPET%' 
+                       OR COALESCE(up.order_code, '') ILIKE '%GCTEM%' 
+                       OR COALESCE(up.order_code, '') ILIKE '%SUAGCPET%' 
+                       OR COALESCE(up.order_code, '') ILIKE '%SUAPET%' 
+                       OR COALESCE(up.order_code, '') ILIKE '%SUAGCTEM%' 
+                       OR COALESCE(up.order_code, '') ILIKE '%SUATEM%') THEN 0 
+                    ELSE 1 
+                END ASC,
+                up.expected_ship_date ASC NULLS LAST,
+                up.print_date DESC NULLS LAST, 
+                up.created_at DESC`;
+        }
+
         const records = await db.all(`
             WITH unified_printing AS (
                 SELECT 
@@ -515,7 +532,7 @@ module.exports = async function(fastify) {
             ) lh ON up.record_type = 'real'
             LEFT JOIN users lhu ON lh.performed_by = lhu.id
             ${where}
-            ORDER BY up.print_date DESC NULLS LAST, up.created_at DESC
+            ${orderBy}
         `, params);
 
         const orderIds = [...new Set(records.map(r => r.dht_order_id).filter(Boolean))];
