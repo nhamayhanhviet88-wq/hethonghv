@@ -1,5 +1,5 @@
 // ========== BỘ PHẬN CẮT — Desktop SPA Page ==========
-var _bpc = { records: [], tree: null, unassignedOrders: [], filter: { year: null, month: null, cutter_id: null, status: null, view: 'records' }, search: '', page: 1, pageSize: 100 };
+var _bpc = { records: [], tree: null, unassignedOrders: [], filter: { year: null, month: null, cutter_id: null, status: null, view: 'records' }, search: '', page: 1, pageSize: 200 };
 var _bpcOpen = {};
 
 function _bpcFmtKg(val) {
