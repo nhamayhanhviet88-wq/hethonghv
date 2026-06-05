@@ -284,9 +284,10 @@ module.exports = async function(fastify) {
         else if (status === 'paid') where += ` AND ir.debt <= 0`;
         if (search) { where += ` AND (ir.fabric_material ILIKE $${idx} OR s.name ILIKE $${idx} OR ir.fabric_import_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
-            SELECT ir.*, s.name AS source_name, u.full_name AS importer_name, u_ck.full_name AS checked_by_name,
+            SELECT ir.*, s.name AS source_name, wh.name AS warehouse_name, u.full_name AS importer_name, u_ck.full_name AS checked_by_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
             FROM import_records ir LEFT JOIN import_sources s ON ir.source_id=s.id
+            LEFT JOIN material_warehouses wh ON ir.warehouse_id=wh.id
             LEFT JOIN users u ON ir.importer_id=u.id LEFT JOIN users u_ck ON ir.checked_by=u_ck.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM import_history h WHERE h.import_id=ir.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
