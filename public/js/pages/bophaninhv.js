@@ -894,11 +894,6 @@ async function _bpiSubmitError(recordId) {
         showToast('✅ Đã báo đơn lỗi thành công!');
         _bpiCloseErrorModal();
         await _bpiLoadAll();
-        
-        // Redirect to don-loi-khach-hang menu after reporting
-        if (typeof navigate === 'function') {
-            navigate('don-loi-khach-hang');
-        }
     } catch(e) {
         showToast('Lỗi: ' + e.message, 'error');
         if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
