@@ -1104,7 +1104,8 @@ async function mSubmitError(recordId) {
 
     try {
         const updated = await mApi('/api/cutting/records/' + recordId);
-        if (!updated) throw new Error('Không tìm thấy record gốc');
+        if (!updated || !updated.record) throw new Error('Không tìm thấy record gốc');
+        const origRecord = updated.record;
 
         let today = new Date().toISOString().split('T')[0];
         if (typeof vnNow === 'function') {
@@ -1118,13 +1119,13 @@ async function mSubmitError(recordId) {
         const body = {
             report_date: today,
             common_error_type: document.getElementById('mmE_common') ? document.getElementById('mmE_common').value : '',
-            order_code: updated.order_code,
+            order_code: origRecord.order_code,
             cskh_name: reporterName,
             error_quantity: qty,
             error_content: content,
-            dht_order_id: updated.dht_order_id,
-            customer_name: updated.customer_name,
-            production_quantity: updated.order_quantity,
+            dht_order_id: origRecord.dht_order_id,
+            customer_name: origRecord.customer_name,
+            production_quantity: origRecord.order_quantity,
             error_department: 'Cắt',
             error_type: 'Nội Bộ'
         };
