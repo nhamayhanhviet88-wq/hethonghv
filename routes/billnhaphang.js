@@ -1320,10 +1320,12 @@ module.exports = async function(fastify) {
         const includeInactive = req.user.role === 'giam_doc';
         const whWhere = includeInactive ? '' : 'WHERE is_active=true';
         const miWhere = includeInactive ? '' : 'WHERE is_active=true';
+        const unWhere = includeInactive ? '' : 'WHERE is_active=true';
         const warehouses = await db.all(`SELECT * FROM material_warehouses ${whWhere} ORDER BY display_order, id`);
         const materials = await db.all(`SELECT * FROM material_items ${miWhere} ORDER BY warehouse_id, display_order, id`);
         const warehouse_sources = await db.all(`SELECT * FROM material_warehouse_sources`);
-        return { warehouses, materials, warehouse_sources };
+        const units = await db.all(`SELECT * FROM material_units ${unWhere} ORDER BY display_order, id`);
+        return { warehouses, materials, warehouse_sources, units };
     });
 
     fastify.post('/api/material-setup/warehouses', { preHandler: [authenticate] }, async (req, reply) => {
@@ -1403,6 +1405,33 @@ module.exports = async function(fastify) {
             return reply.code(500).send({ error: 'Lỗi đồng bộ nhà cung cấp: ' + e.message });
         } finally {
             client.release();
+        }
+    });
+
+    fastify.post('/api/material-setup/units', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { name, display_order, is_active } = req.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên định lượng không được để trống' });
+        try {
+            const r = await db.get(`INSERT INTO material_units (name, display_order, is_active) VALUES ($1, $2, $3) RETURNING id`,
+                [name.trim(), Number(display_order)||0, is_active !== false]);
+            return { success: true, id: r.id };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Tên định lượng đã tồn tại hoặc không hợp lệ' });
+        }
+    });
+
+    fastify.put('/api/material-setup/units/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { name, display_order, is_active } = req.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên định lượng không được để trống' });
+        const id = Number(req.params.id);
+        try {
+            await db.run(`UPDATE material_units SET name=$1, display_order=$2, is_active=$3 WHERE id=$4`,
+                [name.trim(), Number(display_order)||0, is_active !== false, id]);
+            return { success: true };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Lỗi cập nhật hoặc tên định lượng đã trùng lặp' });
         }
     });
 };

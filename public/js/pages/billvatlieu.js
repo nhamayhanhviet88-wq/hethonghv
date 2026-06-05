@@ -95,6 +95,7 @@ async function _bvlLoadAll() {
         _bvl.warehouses = setupRes.warehouses || [];
         _bvl.materials = setupRes.materials || [];
         _bvl.warehouse_sources = setupRes.warehouse_sources || [];
+        _bvl.units = setupRes.units || [];
 
         _bvlRenderSb();
         _bvlRenderWhFilter();
@@ -1120,6 +1121,7 @@ function _bvlOpenSetup() {
         + '<button class="bvl-tab-btn active" onclick="_bvlSwitchTab(\'wh\')" id="_bvlTabWh">🏢 Kho Vật Liệu</button>'
         + '<button class="bvl-tab-btn" onclick="_bvlSwitchTab(\'mat\')" id="_bvlTabMat">📦 Loại Vật Liệu</button>'
         + '<button class="bvl-tab-btn" onclick="_bvlSwitchTab(\'src\')" id="_bvlTabSrc">🏪 Nhà Cung Cấp</button>'
+        + '<button class="bvl-tab-btn" onclick="_bvlSwitchTab(\'unit\')" id="_bvlTabUnit">📐 Định Lượng</button>'
         + '</div>'
         
         + '<div style="flex:1;overflow-y:auto;padding:20px" id="_bvlSetupContent">'
@@ -1133,7 +1135,7 @@ function _bvlOpenSetup() {
 }
 
 function _bvlSwitchTab(tabName) {
-    var tabs = ['wh', 'mat', 'src'];
+    var tabs = ['wh', 'mat', 'src', 'unit'];
     tabs.forEach(function (t) {
         var btn = document.getElementById('_bvlTab' + t.charAt(0).toUpperCase() + t.slice(1));
         if (btn) {
@@ -1154,6 +1156,8 @@ function _bvlSwitchTab(tabName) {
         _bvlRenderMatTab(content);
     } else if (tabName === 'src') {
         _bvlRenderSrcTab(content);
+    } else if (tabName === 'unit') {
+        _bvlRenderUnitTab(content);
     }
 }
 
@@ -1234,29 +1238,20 @@ function _bvlRenderMatTab(content) {
         return;
     }
 
-    // Prepare units datalist
-    var defaultUnits = ['Mét', 'Chai', 'Cái', 'Kg'];
-    var extraUnits = [];
-    if (_bvl.materials) {
-        _bvl.materials.forEach(function (m) {
-            if (m.unit && !defaultUnits.includes(m.unit) && !extraUnits.includes(m.unit)) {
-                extraUnits.push(m.unit);
+    // Build unit select options for "Thêm Vật Tư Mới"
+    var unitOptionsHtml = '<option value="">-- Chọn định lượng --</option>';
+    if (_bvl.units) {
+        _bvl.units.forEach(function (u) {
+            if (u.is_active) {
+                unitOptionsHtml += '<option value="' + u.name + '">' + u.name + '</option>';
             }
         });
     }
-    var allUnits = defaultUnits.concat(extraUnits);
-    var datalistHtml = '<datalist id="_matUnitsList">';
-    allUnits.forEach(function (u) {
-        datalistHtml += '<option value="' + u + '">';
-    });
-    datalistHtml += '</datalist>';
-
-    html += datalistHtml;
 
     html += '<h4 style="margin:0 0 12px 0;font-size:13px;color:#1e293b">➕ Thêm Vật Tư Mới</h4>'
         + '<div style="display:flex;gap:10px;margin-bottom:20px">'
         + '<input id="_newMatName" placeholder="Tên vật tư (ví dụ: Mực in PET, Cúc áo)..." style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
-        + '<input id="_newMatUnit" list="_matUnitsList" placeholder="Định lượng (Mét, Kg...)" style="width:180px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
+        + '<select id="_newMatUnit" style="width:180px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">' + unitOptionsHtml + '</select>'
         + '<input id="_newMatOrder" type="number" placeholder="Sắp xếp..." style="width:80px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
         + '<button onclick="_bvlAddMatSubmit()" style="padding:8px 16px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Thêm Vật Tư</button>'
         + '</div>';
@@ -1272,10 +1267,24 @@ function _bvlRenderMatTab(content) {
     } else {
         filteredmats.forEach(function (m) {
             var uVal = m.unit || '';
+            
+            // Build unit select options for this row
+            var rowUnitSelect = '<select id="_matUnit_' + m.id + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:120px;font-size:12px">';
+            rowUnitSelect += '<option value="">-- Chọn --</option>';
+            if (_bvl.units) {
+                _bvl.units.forEach(function (u) {
+                    if (u.is_active || u.name === uVal) {
+                        var sel = u.name === uVal ? ' selected' : '';
+                        rowUnitSelect += '<option value="' + u.name + '"' + sel + '>' + u.name + '</option>';
+                    }
+                });
+            }
+            rowUnitSelect += '</select>';
+
             html += '<tr style="border-bottom:1px solid #f1f5f9">'
                 + '<td style="padding:8px;color:#64748b">' + m.id + '</td>'
                 + '<td style="padding:8px"><input id="_matName_' + m.id + '" value="' + m.name + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:95%;font-size:12px"></td>'
-                + '<td style="padding:8px"><input id="_matUnit_' + m.id + '" list="_matUnitsList" value="' + uVal + '" placeholder="Mét, Kg..." style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:120px;font-size:12px"></td>'
+                + '<td style="padding:8px">' + rowUnitSelect + '</td>'
                 + '<td style="padding:8px"><input id="_matOrder_' + m.id + '" type="number" value="' + m.display_order + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:50px;font-size:12px"></td>'
                 + '<td style="padding:8px;text-align:center"><input id="_matActive_' + m.id + '" type="checkbox"' + (m.is_active ? ' checked' : '') + '></td>'
                 + '<td style="padding:8px;text-align:right"><button onclick="_bvlUpdateMatSubmit(' + m.id + ')" style="padding:4px 8px;background:#334155;color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer">Lưu</button></td>'
@@ -1297,7 +1306,7 @@ async function _bvlAddMatSubmit() {
     var order = Number(document.getElementById('_newMatOrder').value) || 0;
     if (!name.trim()) { showToast('Vui lòng nhập tên vật tư', 'error'); return; }
     try {
-        await apiCall('/api/material-setup/items', 'POST', { warehouse_id: _selectedSetupWhIdForMat, name: name.trim(), display_order: order, is_active: true, unit: unit.trim() });
+        await apiCall('/api/material-setup/items', 'POST', { warehouse_id: _selectedSetupWhIdForMat, name: name.trim(), display_order: order, is_active: true, unit: unit });
         showToast('✅ Đã thêm vật tư');
         await _bvlLoadAll();
         _bvlSwitchTab('mat');
@@ -1313,10 +1322,68 @@ async function _bvlUpdateMatSubmit(id) {
     var active = document.getElementById('_matActive_' + id).checked;
     if (!name.trim()) { showToast('Vui lòng nhập tên vật tư', 'error'); return; }
     try {
-        await apiCall('/api/material-setup/items/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active, unit: unit.trim() });
+        await apiCall('/api/material-setup/items/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active, unit: unit });
         showToast('✅ Đã cập nhật vật tư');
         await _bvlLoadAll();
         _bvlSwitchTab('mat');
+    } catch (e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+function _bvlRenderUnitTab(content) {
+    var html = '<h4 style="margin:0 0 12px 0;font-size:14px;color:#1e293b">➕ Thêm Định Lượng Mới</h4>'
+        + '<div style="display:flex;gap:10px;margin-bottom:20px">'
+        + '<input id="_newUnitName" placeholder="Tên định lượng (ví dụ: Mét, Kg, Chai)..." style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
+        + '<input id="_newUnitOrder" type="number" placeholder="Sắp xếp..." style="width:100px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
+        + '<button onclick="_bvlAddUnitSubmit()" style="padding:8px 16px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Thêm Định Lượng</button>'
+        + '</div>';
+
+    html += '<h4 style="margin:0 0 10px 0;font-size:14px;color:#1e293b">📋 Danh Sách Định Lượng</h4>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<thead><tr style="background:#f1f5f9;text-align:left"><th style="padding:8px">ID</th><th style="padding:8px">Tên Định Lượng</th><th style="padding:8px">Sắp xếp</th><th style="padding:8px;text-align:center">Hoạt động</th><th style="padding:8px;text-align:right">Thao tác</th></tr></thead><tbody>';
+
+    if (!_bvl.units || _bvl.units.length === 0) {
+        html += '<tr><td colspan="5" style="padding:20px;text-align:center;color:#64748b">Chưa có định lượng nào.</td></tr>';
+    } else {
+        _bvl.units.forEach(function (u) {
+            html += '<tr style="border-bottom:1px solid #f1f5f9">'
+                + '<td style="padding:8px;color:#64748b">' + u.id + '</td>'
+                + '<td style="padding:8px"><input id="_unitName_' + u.id + '" value="' + u.name + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:90%;font-size:12px"></td>'
+                + '<td style="padding:8px"><input id="_unitOrder_' + u.id + '" type="number" value="' + u.display_order + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:60px;font-size:12px"></td>'
+                + '<td style="padding:8px;text-align:center"><input id="_unitActive_' + u.id + '" type="checkbox"' + (u.is_active ? ' checked' : '') + '></td>'
+                + '<td style="padding:8px;text-align:right"><button onclick="_bvlUpdateUnitSubmit(' + u.id + ')" style="padding:4px 8px;background:#334155;color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer">Lưu</button></td>'
+                + '</tr>';
+        });
+    }
+    html += '</tbody></table>';
+    content.innerHTML = html;
+}
+
+async function _bvlAddUnitSubmit() {
+    var name = document.getElementById('_newUnitName').value || '';
+    var order = Number(document.getElementById('_newUnitOrder').value) || 0;
+    if (!name.trim()) { showToast('Vui lòng nhập tên định lượng', 'error'); return; }
+    try {
+        await apiCall('/api/material-setup/units', 'POST', { name: name.trim(), display_order: order, is_active: true });
+        showToast('✅ Đã thêm định lượng');
+        await _bvlLoadAll();
+        _bvlSwitchTab('unit');
+    } catch (e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function _bvlUpdateUnitSubmit(id) {
+    var name = document.getElementById('_unitName_' + id).value || '';
+    var order = Number(document.getElementById('_unitOrder_' + id).value) || 0;
+    var active = document.getElementById('_unitActive_' + id).checked;
+    if (!name.trim()) { showToast('Vui lòng nhập tên định lượng', 'error'); return; }
+    try {
+        await apiCall('/api/material-setup/units/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active });
+        showToast('✅ Đã cập nhật định lượng');
+        await _bvlLoadAll();
+        _bvlSwitchTab('unit');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
     }
