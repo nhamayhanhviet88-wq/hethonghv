@@ -110,7 +110,25 @@ module.exports = async function(fastify) {
             if (!order) throw new Error('Không tìm thấy đơn hàng gốc');
 
             const items = await db.all('SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1', [dhtOrderId]);
-            const prodName = items.map(i => `${i.description} (SL: ${i.quantity})`).join('; ') || '—';
+            
+            const isPetOrTem = order.category_id === 8 || order.category_id === 9 ||
+                               (order.order_code && (order.order_code.includes('GCPET') || order.order_code.includes('GCTEM')));
+            let prodName;
+            if (isPetOrTem) {
+                const filteredItems = items.filter(item => {
+                    const desc = (item.description || '').toLowerCase().trim();
+                    return !desc.includes('thiết kế') && !desc.includes('thiet ke') && desc !== 'tk';
+                });
+                prodName = filteredItems.map(item => {
+                    let desc = (item.description || '').trim();
+                    if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                    else if (/mét|met/i.test(desc)) desc = 'Mét';
+                    return `${item.quantity || 0} ${desc}`;
+                }).join('; ') || '—';
+            } else {
+                prodName = items.map(i => `${i.description} (SL: ${i.quantity})`).join('; ') || '—';
+            }
+
             const orderQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
             const cskh = await db.get('SELECT u.full_name FROM dht_orders o LEFT JOIN users u ON o.cskh_user_id = u.id WHERE o.id = $1', [dhtOrderId]);
             const cskhName = cskh ? cskh.full_name : '—';
@@ -417,7 +435,9 @@ module.exports = async function(fastify) {
                     CASE 
                         WHEN pr.contractor_id IS NOT NULL THEN true
                         ELSE pr.is_print_done 
-                    END AS is_completed
+                    END AS is_completed,
+                    pr.order_item_id AS order_item_id,
+                    o.category_id AS category_id
                 FROM printing_records pr
                 LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -468,7 +488,9 @@ module.exports = async function(fastify) {
                     NULL AS printer_name,
                     NULL AS test_by_name,
                     NULL AS done_by_name,
-                    false AS is_completed
+                    false AS is_completed,
+                    NULL::int AS order_item_id,
+                    o.category_id AS category_id
                 FROM dht_orders o
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
                 WHERE (
@@ -494,10 +516,89 @@ module.exports = async function(fastify) {
             ORDER BY up.print_date DESC NULLS LAST, up.created_at DESC
         `, params);
 
-        const formattedRecords = records.map(r => ({
-            ...r,
-            id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)
-        }));
+        const orderIds = [...new Set(records.map(r => r.dht_order_id).filter(Boolean))];
+        const orderItems = orderIds.length ? await db.all(`
+            SELECT id, dht_order_id, description, quantity, material_pairs 
+            FROM dht_order_items 
+            WHERE dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
+        `, orderIds) : [];
+
+        const itemsByOrder = {};
+        orderItems.forEach(item => {
+            if (!itemsByOrder[item.dht_order_id]) {
+                itemsByOrder[item.dht_order_id] = [];
+            }
+            itemsByOrder[item.dht_order_id].push(item);
+        });
+
+        const formattedRecords = records.map(r => {
+            const items = itemsByOrder[r.dht_order_id] || [];
+            const isPetOrTem = (r.category_id === 8 || r.category_id === 9 || 
+                                r.print_field === 'IN PET' || r.print_field === 'IN TEM' ||
+                                (r.order_code && (r.order_code.includes('GCPET') || r.order_code.includes('GCTEM'))));
+            
+            let finalProdName = r.product_name;
+
+            if (isPetOrTem) {
+                const filteredItems = items.filter(item => {
+                    const desc = (item.description || '').toLowerCase().trim();
+                    return !desc.includes('thiết kế') && !desc.includes('thiet ke') && desc !== 'tk';
+                });
+
+                if (r.order_item_id) {
+                    const item = filteredItems.find(it => it.id === r.order_item_id);
+                    if (item) {
+                        let desc = (item.description || '').trim();
+                        if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                        else if (/mét|met/i.test(desc)) desc = 'Mét';
+                        finalProdName = `${item.quantity || 0} ${desc}`;
+                    } else {
+                        const rawItem = items.find(it => it.id === r.order_item_id);
+                        if (rawItem) {
+                            let desc = (rawItem.description || '').trim();
+                            if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                            else if (/mét|met/i.test(desc)) desc = 'Mét';
+                            finalProdName = `${rawItem.quantity || 0} ${desc}`;
+                        } else {
+                            finalProdName = '—';
+                        }
+                    }
+                } else {
+                    finalProdName = filteredItems.map(item => {
+                        let desc = (item.description || '').trim();
+                        if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                        else if (/mét|met/i.test(desc)) desc = 'Mét';
+                        return `${item.quantity || 0} ${desc}`;
+                    }).join('; ') || '—';
+                }
+            } else {
+                if (r.order_item_id) {
+                    const sortedItems = [...items].sort((a, b) => a.id - b.id);
+                    const itemIdx = sortedItems.findIndex(it => it.id === r.order_item_id) + 1;
+                    const item = sortedItems.find(it => it.id === r.order_item_id);
+                    const itemDesc = item ? (item.description || '') : '';
+                    if (sortedItems.length > 1) {
+                        finalProdName = `${r.order_code} — Phiếu ${itemIdx} — P1 — ${itemDesc}`;
+                    } else {
+                        finalProdName = `${r.order_code} — ${itemDesc}`;
+                    }
+                } else {
+                    if (items.length === 1) {
+                        finalProdName = `${r.order_code} — ${items[0].description || ''}`;
+                    } else if (items.length > 1) {
+                        finalProdName = `${r.order_code} — ${items.map(it => it.description || '').join('; ')}`;
+                    } else {
+                        finalProdName = r.order_code || '—';
+                    }
+                }
+            }
+
+            return {
+                ...r,
+                product_name: finalProdName,
+                id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)
+            };
+        });
 
         return { records: formattedRecords };
     });

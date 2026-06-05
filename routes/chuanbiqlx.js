@@ -875,7 +875,7 @@ module.exports = async function(fastify) {
 
         // Sync to printing_records
         const orderInfo = await db.get(`
-            SELECT o.total_quantity, u.full_name AS cskh_name
+            SELECT o.total_quantity, o.category_id, o.order_code, u.full_name AS cskh_name
             FROM dht_orders o
             LEFT JOIN users u ON o.cskh_user_id = u.id
             WHERE o.id = $1
@@ -883,16 +883,51 @@ module.exports = async function(fastify) {
         
         let prodName = 'Sản phẩm';
         let orderQty = 0;
+
+        const isPetOrTem = orderInfo && (orderInfo.category_id === 8 || orderInfo.category_id === 9 ||
+                           (orderInfo.order_code && (orderInfo.order_code.includes('GCPET') || orderInfo.order_code.includes('GCTEM'))));
+
         if (itemId) {
             const it = await db.get(`SELECT description, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
             if (it) {
-                prodName = (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')';
                 orderQty = it.quantity || 0;
+                if (isPetOrTem) {
+                    const descLower = (it.description || '').toLowerCase().trim();
+                    if (descLower.includes('thiết kế') || descLower.includes('thiet ke') || descLower === 'tk') {
+                        prodName = '';
+                    } else {
+                        let desc = (it.description || '').trim();
+                        if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                        else if (/mét|met/i.test(desc)) desc = 'Mét';
+                        prodName = `${it.quantity || 0} ${desc}`;
+                    }
+                } else {
+                    const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
+                    const itemIdx = items.findIndex(item => item.id === itemId) + 1;
+                    if (items.length > 1) {
+                        prodName = `${orderInfo.order_code || ''} — Phiếu ${itemIdx} — P1 — ${it.description || ''}`;
+                    } else {
+                        prodName = `${orderInfo.order_code || ''} — ${it.description || ''}`;
+                    }
+                }
             }
         } else {
-            const items = await db.all(`SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
-            prodName = items.map(it => (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')').filter(Boolean).join(', ') || 'Sản phẩm';
+            const items = await db.all(`SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
             orderQty = orderInfo ? orderInfo.total_quantity : 0;
+            if (isPetOrTem) {
+                const filteredItems = items.filter(it => {
+                    const desc = (it.description || '').toLowerCase().trim();
+                    return !desc.includes('thiết kế') && !desc.includes('thiet ke') && desc !== 'tk';
+                });
+                prodName = filteredItems.map(it => {
+                    let desc = (it.description || '').trim();
+                    if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                    else if (/mét|met/i.test(desc)) desc = 'Mét';
+                    return `${it.quantity || 0} ${desc}`;
+                }).join('; ') || 'Sản phẩm';
+            } else {
+                prodName = items.map(it => (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')').filter(Boolean).join(', ') || 'Sản phẩm';
+            }
         }
         
         const cskhName = orderInfo ? orderInfo.cskh_name : '';
