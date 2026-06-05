@@ -44,9 +44,11 @@ async function routes(fastify) {
         const rows = await db.all(`
             SELECT ceo.*,
                    u.full_name AS created_by_name,
+                   d.name AS created_by_dept_name,
                    u_qlx.full_name AS qlx_updated_by_name
             FROM customer_error_orders ceo
             LEFT JOIN users u ON u.id = ceo.created_by
+            LEFT JOIN departments d ON d.id = u.department_id
             LEFT JOIN users u_qlx ON u_qlx.id = ceo.qlx_updated_by
             WHERE 1=1 ${where}
             ORDER BY ceo.report_date DESC, ceo.id DESC
@@ -113,9 +115,11 @@ async function routes(fastify) {
         const row = await db.get(`
             SELECT ceo.*,
                    u.full_name AS created_by_name,
+                   d.name AS created_by_dept_name,
                    u_qlx.full_name AS qlx_updated_by_name
             FROM customer_error_orders ceo
             LEFT JOIN users u ON u.id = ceo.created_by
+            LEFT JOIN departments d ON d.id = u.department_id
             LEFT JOIN users u_qlx ON u_qlx.id = ceo.qlx_updated_by
             WHERE ceo.id = $1
         `, [request.params.id]);
@@ -676,10 +680,12 @@ async function routes(fastify) {
         const items = await db.all(`
             SELECT ceo.*,
                    u.full_name AS created_by_name,
+                   d.name AS created_by_dept_name,
                    u2.full_name AS resolved_by_name,
                    COUNT(*) OVER (PARTITION BY ceo.common_error_type, ceo.error_department)::int AS repeat_count
             FROM customer_error_orders ceo
             LEFT JOIN users u ON u.id = ceo.created_by
+            LEFT JOIN departments d ON d.id = u.department_id
             LEFT JOIN users u2 ON u2.id = ceo.resolved_by
             ${where}
             ORDER BY ceo.report_date DESC, ceo.id DESC

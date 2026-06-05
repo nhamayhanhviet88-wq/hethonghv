@@ -138,9 +138,9 @@ function _ceoRenderTable() {
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Ngày','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
+    var cols = ['Ngày','Người Báo Lỗi','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
         'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Đã Phạt'];
-    var colW={'Ngày':'40px','Đơn Lỗi':'55px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
+    var colW={'Ngày':'40px','Người Báo Lỗi':'95px','Đơn Lỗi':'55px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
@@ -151,7 +151,7 @@ function _ceoRenderTable() {
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="15" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="16" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -170,8 +170,19 @@ function _ceoRenderTable() {
             // Video column
             var videoHtml = item.error_video ? '<a href="' + item.error_video + '" target="_blank" style="color:#2563eb;font-weight:700;font-size:11px" title="Xem video">🎬 Xem</a>' : '<span style="color:#d1d5db">—</span>';
 
+            // Calculate reporter name
+            var reporter = '—';
+            if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
+                reporter = item.cskh_name.substring('Người Báo Lỗi: '.length);
+            } else if (item.created_by_dept_name) {
+                reporter = item.created_by_dept_name + ' - ' + (item.created_by_name || '');
+            } else {
+                reporter = item.created_by_name || '—';
+            }
+
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'" onclick="_ceoViewDetail(' + item.id + ')">';
             h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc;font-size:11px">' + rd + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;font-weight:700;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + reporter.replace(/"/g, '&quot;') + '">' + reporter + '</td>';
             h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;color:' + etColor + ';background:' + etBg + '">' + errorType + '</span></td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:4px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc;font-size:10px">' + (item.order_code || '—') + '</td>';
@@ -227,8 +238,19 @@ async function _ceoViewDetail(id) {
     h+='<button onclick="document.getElementById(\'ceoDetailModal\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button></div></div>';
     // BODY
     h+='<div style="padding:20px">';
+    // Calculate reporter name
+    var reporter = '—';
+    if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
+        reporter = item.cskh_name.substring('Người Báo Lỗi: '.length);
+    } else if (item.created_by_dept_name) {
+        reporter = item.created_by_dept_name + ' - ' + (item.created_by_name || '');
+    } else {
+        reporter = item.created_by_name || '—';
+    }
+    var cleanCskh = item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ') ? '—' : (item.cskh_name || '—');
+
     // Info grid
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:14px;background:#f8fafc;border-radius:10px;margin-bottom:16px">'+field('Mã Đơn',item.order_code,'#ea580c')+field('Lĩnh Vực',item.linh_vuc,'#7c3aed')+field('Lỗi Thường Gặp',item.common_error_type)+field('Tên Khách Hàng',item.customer_name)+field('CSKH',item.cskh_name)+field('Người Vi Phạm',item.violator_name,'#dc2626')+'</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:14px;background:#f8fafc;border-radius:10px;margin-bottom:16px">'+field('Mã Đơn',item.order_code,'#ea580c')+field('Lĩnh Vực',item.linh_vuc,'#7c3aed')+field('Lỗi Thường Gặp',item.common_error_type)+field('Tên Khách Hàng',item.customer_name)+field('Người Báo Lỗi',reporter,'#2563eb')+field('CSKH',cleanCskh)+field('Bộ Phận Gây Lỗi',item.error_department,'#059669')+field('Người Vi Phạm',item.violator_name,'#dc2626')+'</div>';
     // Quantities
     h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">';
     h+='<div style="background:#f0fdf4;padding:10px;border-radius:8px;text-align:center;border:1px solid #bbf7d0"><div style="font-size:9px;font-weight:700;color:#166534;text-transform:uppercase">SL Sản Xuất</div><div style="font-size:20px;font-weight:800;color:#166534;margin-top:2px">'+(Number(item.production_quantity)||0)+'</div></div>';
