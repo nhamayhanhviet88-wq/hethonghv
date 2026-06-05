@@ -272,21 +272,47 @@ function _bvlRender() {
 
             var whLabel = r.warehouse_name ? '<br><span style="font-size:8px;color:#3b82f6;font-weight:800;background:#dbeafe;padding:1px 4px;border-radius:4px;display:inline-block;margin-top:2px">📦 ' + r.warehouse_name + '</span>' : '';
 
-            return '<tr style="cursor:pointer" onclick="_bvlDetail(' + r.id + ')"><td style="text-align:center;font-weight:700;color:#94a3b8">' + (i + 1) + '</td>'
-                + '<td style="text-align:center">' + duyetHtml + '</td>'
-                + '<td style="text-align:center">' + payHtml + '</td>'
-                + '<td style="font-size:10px">' + _bvlFD(r.import_date) + '</td>'
-                + '<td style="font-size:10px;color:#0d9488;font-weight:700">' + (r.source_name || '—') + whLabel + '</td>'
-                + '<td style="font-size:10px;color:#059669;font-weight:600">' + (r.importer_name || '—') + '</td>'
-                + '<td style="font-weight:600;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis">' + (r.material_item_name || r.fabric_material || '—') + '</td>'
-                + '<td style="text-align:center;font-weight:700;color:#0d9488">' + _bvlFM(r.fabric_quantity) + '</td>'
-                + '<td style="text-align:right;font-weight:600">' + _bvlFM(r.cost) + '</td>'
-                + '<td style="text-align:right;color:#f59e0b;font-weight:600">' + _bvlFM(r.refund) + '</td>'
-                + '<td style="text-align:right;font-weight:800;color:#1e293b">' + _bvlFM(r.total_amount) + '</td>'
-                + '<td style="text-align:right;color:#059669;font-weight:700">' + _bvlFM(r.paid) + '</td>'
-                + '<td style="text-align:center">' + _bvlDebt(runDebt[i]) + '</td>'
-                + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">' + (r.cost_notes || '—') + '</td>'
-                + '<td style="font-size:9px;color:#6b7280">' + upd + '</td></tr>';
+            var items = [];
+            try {
+                items = typeof r.fabric_items === 'string' ? JSON.parse(r.fabric_items) : (r.fabric_items || []);
+            } catch(e) {}
+
+            var badgeHtml = '';
+            if (Number(r.ship_cost) > 0 && r.ship_payer === 'congty') {
+                badgeHtml = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">CTy Mất Ship</span>';
+            }
+
+            var nameHtml = '';
+            var qtyHtml = '';
+
+            if (items && items.length > 0) {
+                nameHtml = items.map(function(item, idx) {
+                    var prefix = idx === 0 ? badgeHtml : '';
+                    return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center">' + prefix + '<span>' + (item.material_item_name || '—') + '</span></div>';
+                }).join('');
+                qtyHtml = items.map(function(item) {
+                    return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(item.quantity) + '</div>';
+                }).join('');
+            } else {
+                nameHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center">' + badgeHtml + '<span>' + (r.material_item_name || r.fabric_material || '—') + '</span></div>';
+                qtyHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(r.fabric_quantity) + '</div>';
+            }
+
+            return '<tr style="cursor:pointer" onclick="_bvlDetail(' + r.id + ')"><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">' + (i + 1) + '</td>'
+                + '<td style="text-align:center;vertical-align:middle">' + duyetHtml + '</td>'
+                + '<td style="text-align:center;vertical-align:middle">' + payHtml + '</td>'
+                + '<td style="font-size:10px;vertical-align:middle">' + _bvlFD(r.import_date) + '</td>'
+                + '<td style="font-size:10px;color:#0d9488;font-weight:700;vertical-align:middle">' + (r.source_name || '—') + whLabel + '</td>'
+                + '<td style="font-size:10px;color:#059669;font-weight:600;vertical-align:middle">' + (r.importer_name || '—') + '</td>'
+                + '<td style="font-weight:600;color:#1e293b;max-width:260px;vertical-align:middle">' + nameHtml + '</td>'
+                + '<td style="text-align:center;font-weight:700;color:#0d9488;vertical-align:middle">' + qtyHtml + '</td>'
+                + '<td style="text-align:right;font-weight:600;vertical-align:middle">' + _bvlFM(r.cost) + '</td>'
+                + '<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">' + _bvlFM(r.refund) + '</td>'
+                + '<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">' + _bvlFM(r.total_amount) + '</td>'
+                + '<td style="text-align:right;color:#059669;font-weight:700;vertical-align:middle">' + _bvlFM(r.paid) + '</td>'
+                + '<td style="text-align:center;vertical-align:middle">' + _bvlDebt(runDebt[i]) + '</td>'
+                + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">' + (r.cost_notes || '—') + '</td>'
+                + '<td style="font-size:9px;color:#6b7280;vertical-align:middle">' + upd + '</td></tr>';
         }).join('');
     }
 
