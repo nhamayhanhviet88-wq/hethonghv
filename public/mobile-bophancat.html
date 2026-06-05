@@ -144,6 +144,21 @@ function mFmtKg(val) {
     return parts[0];
 }
 
+function mFormatOrderQty(qty, productName, cuttingCategory) {
+    if (qty === null || qty === undefined || qty === '' || qty === '—') return '—';
+    var phoiInItem = 1;
+    if (productName) {
+        var match = productName.match(/— P(\d+)/);
+        if (match) phoiInItem = parseInt(match[1]);
+    }
+    if (phoiInItem === 1) {
+        var suffix = cuttingCategory ? (' ' + cuttingCategory) : '';
+        return qty + suffix;
+    } else {
+        return qty + ' Phối';
+    }
+}
+
 
 function mConfirm(msg, onOk, onCancel){
     const d=document.createElement('div');
@@ -461,10 +476,11 @@ function mRenderUncut(){
                 spName = o.order_code + (p.item_desc ? ' — ' + p.item_desc : '');
             }
             const itemQty = p.item_qty || '';
+            const qtyLabel = mFormatOrderQty(itemQty, spName, p.cutting_category_name);
             h+='<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
             h+='<div style="display:flex;justify-content:space-between;align-items:center">';
             h+='<div style="font-size:12px;font-weight:700;color:#e2e8f0;flex:1">'+spName+'</div>';
-            if(itemQty) h+='<div style="font-size:12px;font-weight:800;color:#60a5fa;margin-left:8px">SL: '+itemQty+'</div>';
+            if(itemQty) h+='<div style="font-size:12px;font-weight:800;color:#60a5fa;margin-left:8px">SL: '+qtyLabel+'</div>';
             h+='</div>';
             h+='<div style="display:flex;gap:8px;margin-top:4px;font-size:11px">';
             h+='<span style="color:#94a3b8">🧵 '+(p.material_name||'—')+'</span>';
@@ -597,7 +613,7 @@ function mRenderMine(){
             +saleHtml
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
-            +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+(r.order_quantity||'—')+'</span></div>'
+            +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+mFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</span></div>'
             +washRowHtml+errRowHtml
             +(r.kg_start?'<div class="m-row"><span class="m-lbl">⚖️ Kg Đầu</span><span class="m-val" style="color:#fbbf24;font-size:16px">'+mFmtKg(r.kg_start)+'</span></div>':'')
             +metricsHtml
@@ -665,7 +681,7 @@ function mRenderHist(){
         +'<div class="m-row"><span class="m-lbl">📅 Ngày</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">🧵 Chất Liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">📦 Số Lượng Cắt</span><span class="m-val">'+(r.cut_quantity||r.order_quantity||'—')+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">📦 Số Lượng Cắt</span><span class="m-val">'+mFormatOrderQty(r.cut_quantity||r.order_quantity, r.product_name, r.cutting_category)+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cuối</span><span class="m-val">'+kgEndVal+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">✂️ Kg Cắt</span><span class="m-val" style="color:#fbbf24">'+kgCutVal+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ Cắt Thực Tế</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>'
@@ -984,7 +1000,7 @@ async function mOpenErrorModal(recordId) {
         h += '<div class="mm-row"><span class="mm-lbl">👕 Nội Dung Đơn</span><span class="mm-val" style="font-weight:700">' + (rec.product_name || '—') + '</span></div>';
         h += '<div class="mm-row"><span class="mm-lbl">👤 Khách Hàng</span><span class="mm-val" style="font-weight:700">' + (rec.customer_name || '—') + '</span></div>';
         h += '<div class="mm-row"><span class="mm-lbl">💼 CSKH</span><span class="mm-val" style="font-weight:700">' + saleName + '</span></div>';
-        h += '<div class="mm-row"><span class="mm-lbl">📦 SL Sản Xuất</span><span class="mm-val" style="font-weight:700;color:#10b981">' + (rec.order_quantity || 0) + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">📦 SL Sản Xuất</span><span class="mm-val" style="font-weight:700;color:#10b981">' + mFormatOrderQty(rec.order_quantity, rec.product_name, rec.cutting_category) + '</span></div>';
         h += '<div class="mm-row"><span class="mm-lbl">✍️ Người Báo Lỗi</span><span class="mm-val" style="font-weight:700;color:#c084fc">' + reporterName + '</span></div>';
 
         h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
@@ -1305,7 +1321,7 @@ async function mOpenDetail(recordId){
         h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(r.fabric_color||'—')+'</span></div>';
         h+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(r.cutting_category||'—')+'</span></div>';
         h+='<div class="mm-row"><span class="mm-lbl">👤 Nhân Viên Cắt</span><span class="mm-val" style="color:#4ade80">'+(r.cutter_name||'—')+'</span></div>';
-        h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
+        h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+mFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</span></div>';
 
         // Wash reported details
         if (r.wash_reported) {
@@ -1452,7 +1468,7 @@ function mOpenDoneModal(recordId){
     h+='<div class="mm-row"><span class="mm-lbl">🎨 Màu</span><span class="mm-val">'+(r.fabric_color||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">👤 Nhân Viên Cắt</span><span class="mm-val" style="color:#4ade80">'+(r.cutter_name||'—')+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">🏷️ Sản Phẩm Cắt</span><span class="mm-val" style="color:#a5b4fc">'+(r.cutting_category||'—')+'</span></div>';
-    h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+mFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</span></div>';
     // Số Lượng Cắt
     const hasSiblingQty = r.ticket_completed_quantity !== null && r.ticket_completed_quantity !== undefined;
     const initialQty = hasSiblingQty ? r.ticket_completed_quantity : '';
@@ -1729,7 +1745,7 @@ function mOpenGroupDoneModal(groupId){
         h+='<div style="border:1.5px solid rgba(167,139,250,0.25);border-radius:12px;padding:12px;margin-bottom:8px;background:rgba(124,58,237,0.08)">';
         h+='<div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px">'+shortName+'</div>';
         h+='<div style="display:flex;align-items:center;justify-content:space-between">';
-        h+='<span style="font-size:11px;color:#a5b4fc">SL Đơn: <b style="color:#c4b5fd">'+gr.order_quantity+'</b></span>';
+        h+='<span style="font-size:11px;color:#a5b4fc">SL Đơn: <b style="color:#c4b5fd">'+mFormatOrderQty(gr.order_quantity, gr.product_name, gr.cutting_category)+'</b></span>';
         const hasSiblingQty = gr.ticket_completed_quantity !== null && gr.ticket_completed_quantity !== undefined;
         const defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : '';
         const disAttr = hasSiblingQty ? ' readonly' : '';

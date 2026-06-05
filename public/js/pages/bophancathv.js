@@ -14,6 +14,21 @@ function _bpcFmtKg(val) {
     return parts[0];
 }
 
+function _bpcFormatOrderQty(qty, productName, cuttingCategory) {
+    if (qty === null || qty === undefined || qty === '' || qty === '—') return '—';
+    var phoiInItem = 1;
+    if (productName) {
+        var match = productName.match(/— P(\d+)/);
+        if (match) phoiInItem = parseInt(match[1]);
+    }
+    if (phoiInItem === 1) {
+        var suffix = cuttingCategory ? (' ' + cuttingCategory) : '';
+        return qty + suffix;
+    } else {
+        return qty + ' Phối';
+    }
+}
+
 
 function renderBophancatPage(content) {
     if (!document.getElementById('_bpcFontLink')) {
@@ -362,8 +377,8 @@ function _bpcRenderRows(paged) {
             +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#0369a1">'+(r.order_quantity||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.cut_quantity||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#0369a1">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#dc2626">'+_bpcFmtKg(r.kg_cut)+'</td>'
             +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio ? r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') : '—')+'</td>'
             +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
@@ -479,7 +494,7 @@ async function _bpcReportError(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Mã Đơn</span><span class="bpc-modal-val" style="font-weight:700">' + (r.order_code || '—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Khách Hàng</span><span class="bpc-modal-val" style="font-weight:700">' + (r.customer_name || '—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">💼 CSKH</span><span class="bpc-modal-val" style="font-weight:700">' + saleName + '</span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + (r.order_quantity || 0) + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpc-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
 
         h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
@@ -781,7 +796,7 @@ function _bpcRenderUnassigned() {
             }
             // SL: P1 (phối chính mỗi phiếu) = xanh đậm, P2+ = xanh nhạt
             var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
-            var qtyVal = r.item_qty || r.total_quantity || '';
+            var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
             var showTitle = (r.total_items_in_order > 1) ? r.order_code + ' — Phiếu ' + r.item_index : r.order_code;
 
             th += '<tr style="'+bg+'">'
@@ -1007,7 +1022,7 @@ async function _bpcOpenDetail(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + _bpcFmtDate(r.cut_date) + '</span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + (r.order_quantity||'—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
 
         // Wash reported details
         if (r.wash_reported) {
@@ -1152,13 +1167,13 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ SP Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px;font-weight:900">' + (r.order_quantity||'—') + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px;font-weight:900">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
     // SL Cắt input
     var hasSiblingQty = r.ticket_completed_quantity !== null && r.ticket_completed_quantity !== undefined;
     var initialQty = hasSiblingQty ? r.ticket_completed_quantity : '';
     var disAttr = hasSiblingQty ? ' readonly' : '';
     var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#1e40af';
-    var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
+    var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' ' + (r.cutting_category || 'phối').toLowerCase() + '</div>' : '';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✏️ SL Cắt <span style="color:#dc2626">*</span></span><span class="bpc-modal-val"><input id="_bpcDoneQty" type="number" min="1" max="' + (r.order_quantity||9999) + '" value="' + initialQty + '" ' + disAttr + ' oninput="_bpcDoneRecalc()" style="' + qtyStyle + '">' + siblingNote + '</span></div>';
     h += '<div id="_bpcDoneCompensateArea" style="display:none;border-top:1.5px dashed #e2e8f0;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box">';
@@ -1647,12 +1662,12 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<div style="border:1.5px solid #e9d5ff;border-radius:10px;padding:12px;margin-bottom:8px;background:#faf5ff">';
         h += '<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px">' + (gr.product_name||gr.order_code||'Đơn '+(i+1)) + '</div>';
         h += '<div style="display:flex;align-items:center;justify-content:space-between">';
-        h += '<span style="font-size:11px;color:#7c3aed">SL Đơn: <b>' + gr.order_quantity + '</b></span>';
+        h += '<span style="font-size:11px;color:#7c3aed">SL Đơn: <b>' + _bpcFormatOrderQty(gr.order_quantity, gr.product_name, gr.cutting_category) + '</b></span>';
         var hasSiblingQty = gr.ticket_completed_quantity !== null && gr.ticket_completed_quantity !== undefined;
         var defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : '';
         var disAttr = hasSiblingQty ? ' readonly' : '';
         var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed';
-        var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + '</div>' : '';
+        var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + ' ' + (gr.cutting_category || 'phối').toLowerCase() + '</div>' : '';
         h += '<div style="display:flex;flex-direction:column;align-items:flex-end"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#64748b;font-weight:600">SL Cắt:</span>';
         h += '<input id="_bpcGQ_' + gr.id + '" type="number" min="1" max="' + (gr.order_quantity||9999) + '" value="' + defaultQty + '" ' + disAttr + ' oninput="_bpcGDoneValidQty(this,' + gr.order_quantity + ')" style="' + qtyStyle + '"></div>' + siblingNote;
         h += '<div id="_bpcGroupCompensate_' + gr.id + '" style="display:none;margin-top:6px;padding-top:6px;width:100%;border-top:1px dashed #d8b4fe">';

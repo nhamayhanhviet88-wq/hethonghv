@@ -1372,6 +1372,7 @@ module.exports = async function(fastify) {
                     cr.fabric_color AS unclaimed_color,
                     cr.cut_warning,
                     cr.id AS cutting_record_id,
+                    cc.name AS cutting_category_name,
                     (SELECT cutter_id FROM cutting_records r WHERE r.order_item_id = doi.id AND r.is_cut_done = true LIMIT 1) AS original_cutter_id,
                     EXISTS(
                         SELECT 1 FROM qlx_assignments qa
@@ -1381,6 +1382,8 @@ module.exports = async function(fastify) {
                     ) AS has_pc_in
                 FROM dht_order_items doi
                 LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 WHERE doi.dht_order_id = ANY($1)
                 AND (
                     NOT EXISTS (SELECT 1 FROM cutting_records r WHERE r.order_item_id = doi.id)
@@ -1408,7 +1411,7 @@ module.exports = async function(fastify) {
             const itsArr = itemMap[o.id] || [];
             const totalItemsInOrder = allItemCounts[o.id] || 1;
             if (!itsArr.length) {
-                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity, cutting_record_id: null });
+                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity, cutting_category_name: null, cutting_record_id: null });
                 continue;
             }
             // Calculate total phối for this order (for naming)
@@ -1448,6 +1451,7 @@ module.exports = async function(fastify) {
                             material_name: phoi.material_name || null,
                             color_name: phoi.color_name || null,
                             item_qty: it.quantity,
+                            cutting_category_name: it.cutting_category_name || null,
                             cut_warning: it.cut_warning,
                             cutting_record_id: it.cutting_record_id,
                             original_cutter_id: it.original_cutter_id,
@@ -1461,6 +1465,7 @@ module.exports = async function(fastify) {
                         item_index: itemIdx, phoi_in_item: 1, total_phoi: totalPhoi,
                         total_items_in_order: totalItemsInOrder,
                         material_name: null, color_name: null, item_qty: it.quantity,
+                        cutting_category_name: it.cutting_category_name || null,
                         cut_warning: it.cut_warning,
                         cutting_record_id: it.cutting_record_id,
                         original_cutter_id: it.original_cutter_id,
