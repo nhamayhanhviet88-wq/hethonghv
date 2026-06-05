@@ -527,11 +527,11 @@ function mRenderMine(){
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         const compBadge=r.cut_warning?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>':'';
         const washBtnHtml = r.wash_reported
-            ? '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(139,92,246,0.15);border:1.5px solid rgba(139,92,246,0.35);color:#c084fc;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">🫧 Đã báo giặt</button>'
+            ? '<button style="background:rgba(139,92,246,0.15);border:1.5px solid rgba(139,92,246,0.35);color:#c084fc;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:default;font-family:Inter,sans-serif" disabled>🫧 Đã báo giặt</button>'
             : '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⬜ Báo giặt</button>';
         const washRowHtml = '<div class="m-row"><span class="m-lbl">🫧 Giặt vải</span><span class="m-val">'+washBtnHtml+'</span></div>';
         const errBtnHtml = r.error_reported
-            ? '<button onclick="mOpenErrorModal('+r.id+')" style="background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">🚨 Đã báo lỗi</button>'
+            ? '<button style="background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:default;font-family:Inter,sans-serif" disabled>🚨 Đã báo lỗi</button>'
             : '<button onclick="mOpenErrorModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⚠️ Báo lỗi</button>';
         const errRowHtml = '<div class="m-row"><span class="m-lbl">⚠️ Báo lỗi</span><span class="m-val">'+errBtnHtml+'</span></div>';
         

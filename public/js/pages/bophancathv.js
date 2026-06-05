@@ -347,8 +347,16 @@ function _bpcRenderRows(paged) {
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
             +'<td style="text-align:center">'+cutBtnHtml+'</td>'
             +'<td style="text-align:center">'+doneBtnHtml+'</td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+washCls+'" onclick="_bpcOpenWashModal('+r.id+')" title="Giặt vải">'+washIcon+'</button></td>'
-            +'<td style="text-align:center"><button class="bpc-icon-btn'+errCls+'" onclick="_bpcReportError('+r.id+')" title="Báo lỗi">'+errIcon+'</button></td>'
+            +'<td style="text-align:center">'
+                + (r.wash_reported
+                    ? '<button class="bpc-icon-btn ' + washCls + '" disabled title="Đã báo giặt vải" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + washIcon + '</button>'
+                    : '<button class="bpc-icon-btn' + washCls + '" onclick="_bpcOpenWashModal(' + r.id + ')" title="Giặt vải">' + washIcon + '</button>')
+            +'</td>'
+            +'<td style="text-align:center">'
+                + (r.error_reported
+                    ? '<button class="bpc-icon-btn ' + errCls + '" disabled title="Đã báo lỗi" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + errIcon + '</button>'
+                    : '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>')
+            +'</td>'
             +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
             +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
@@ -474,7 +482,7 @@ async function _bpcReportError(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + (r.order_quantity || 0) + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpc-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
 
-        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+        h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
         h += '<select id="bpcE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc">';
         h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
         commonErrors.forEach(function(ce){
@@ -1268,8 +1276,8 @@ async function _bpcOpenWashModal(recordId) {
     // Fetch latest record info to make sure we have the latest wash details
     try {
         var res = await apiCall('/api/cutting/records/' + recordId);
-        if (res) {
-            r = res;
+        if (res && res.record) {
+            r = res.record;
             var localIdx = _bpc.records.findIndex(function(x) { return x.id === recordId; });
             if (localIdx >= 0) _bpc.records[localIdx] = r;
         }
