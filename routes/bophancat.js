@@ -479,7 +479,7 @@ module.exports = async function(fastify) {
             ) lh ON true
             LEFT JOIN users lh_user ON lh.performed_by = lh_user.id
             ${where}
-            ORDER BY cr.is_cutting DESC, COALESCE(cr.multi_cut_group_id, 'ZZZ') ASC, o.order_code ASC NULLS LAST, cr.product_name ASC, cr.created_at DESC
+            ORDER BY cr.is_cutting DESC, COALESCE(cr.multi_cut_group_id, 'ZZZ') ASC, o.order_code ASC NULLS LAST, (CASE WHEN COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%' THEN 1 ELSE 0 END) ASC, cr.product_name ASC, cr.created_at DESC
         `, params);
 
         return { records };

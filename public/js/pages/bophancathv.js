@@ -239,10 +239,17 @@ async function _bpcLoadRecords() {
             groups[key].items.push(r);
         });
         
-        // Sort each group's items by product_name ASC
+        // Sort each group's items: Standard first, then Cắt Bù, both ordered by product_name ASC
         Object.keys(groups).forEach(function(key) {
             groups[key].items.sort(function(a, b) {
-                return (a.product_name || '').localeCompare(b.product_name || '');
+                var aIsComp = (a.cut_warning || '').indexOf('Cắt bù') >= 0 ? 1 : 0;
+                var bIsComp = (b.cut_warning || '').indexOf('Cắt bù') >= 0 ? 1 : 0;
+                if (aIsComp !== bIsComp) {
+                    return aIsComp - bIsComp;
+                }
+                var cmp = (a.product_name || '').localeCompare(b.product_name || '');
+                if (cmp !== 0) return cmp;
+                return b.id - a.id;
             });
         });
         
