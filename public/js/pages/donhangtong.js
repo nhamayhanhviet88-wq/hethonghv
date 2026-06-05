@@ -65,19 +65,28 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
     return parts.join(' , ');
 }
 
-function formatCurrentStep(stepName, doneCount, totalCount, orderCode) {
+function formatCurrentStep(stepName, doneCount, totalCount, orderCode, categoryName, isShipped) {
+    const code = (orderCode || '').toUpperCase();
+    const cat = (categoryName || '').toUpperCase();
+    const isPetTem = cat === 'PET' || cat === 'TEM' ||
+                     code.includes('PET') || code.includes('TEM');
+
+    if (isPetTem) {
+        if (isShipped) {
+            return '<span style="color:#059669;font-weight:800;font-size:10px;">✅ Gửi Hàng</span>';
+        }
+        if (stepName === 'Kế toán gửi hàng') {
+            return '<span style="color:#2563eb;font-weight:800;font-size:10px;">Kế Toán Gửi Hàng</span>';
+        }
+        return '<span style="color:#ea580c;font-weight:800;font-size:10px;">Chờ In</span>';
+    }
+
     if (totalCount > 0 && doneCount >= totalCount) {
         return '<span style="color:#059669;font-weight:800;font-size:10px;">✅ XONG</span>';
     }
     if (!stepName) {
         return '<span style="color:#64748b;font-weight:700;font-size:10px;">Chờ SX</span>';
     }
-
-    const code = (orderCode || '').toUpperCase();
-    const isPetTem = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || 
-                     code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || 
-                     code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0 || 
-                     code.indexOf('PET') >= 0 || code.indexOf('TEM') >= 0;
 
     let displayName = stepName;
     if (stepName === 'Chuẩn Bị QLX') {
@@ -675,8 +684,9 @@ function _dhtRenderOrderRows(filtered) {
         const prodDone = Number(o.prod_done) || 0;
         const prodTotal = Number(o.prod_total) || 0;
         const nextStepName = o.next_step_name || '';
+        const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
         const prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;padding:2px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;min-width:75px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.05);">'
-            + formatCurrentStep(nextStepName, prodDone, prodTotal, o.order_code)
+            + formatCurrentStep(nextStepName, prodDone, prodTotal, o.order_code, o.category_name, isShipped)
             + '</span>';
         const priColors = { 'GẤP': 'background:#dc2626;color:#fff;', 'GỬI': 'background:#2563eb;color:#fff;', 'CHUẨN': 'background:#7c3aed;color:#fff;' };
         const priStyle = priColors[o.shipping_priority] || priColors['CHUẨN'];
@@ -897,11 +907,13 @@ async function _dhtShowProduction(orderId, orderCode) {
         switch(stepName) {
             case 'Chuẩn Bị QLX': return 'Quản Lý Xưởng';
             case 'Cắt': return 'Tổ Cắt';
-            case 'In': return 'Tổ In';
+            case 'In':
+            case 'Chờ in': return 'Tổ In';
             case 'Ép': return 'Tổ Ép';
             case 'May': return 'Tổ May';
             case 'Kiểm Tra Chất Lượng': return 'Bộ phận Kiểm Tra (QC)';
             case 'Cắt Chi & Hoàn Thiện': return 'Tổ Hoàn Thiện';
+            case 'Kế toán gửi hàng': return 'Phòng Kế Toán';
             default: return 'Bộ Phận Sản Xuất';
         }
     }

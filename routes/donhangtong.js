@@ -350,6 +350,7 @@ module.exports = async function(fastify) {
                 prod_progress.next_step_name AS next_step_name,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order,
+                COALESCE((SELECT op_in.is_completed FROM dht_order_production op_in WHERE op_in.dht_order_id = o.id AND op_in.step_id = 3), false) AS is_print_done,
                 order_items.items AS items
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
@@ -403,7 +404,29 @@ module.exports = async function(fastify) {
             ORDER BY o.order_date DESC, o.id DESC
         `, params);
 
-        return { orders };
+        const processedOrders = orders.map(o => {
+            const code = (o.order_code || '').toUpperCase();
+            const catName = (o.category_name || '').toUpperCase();
+            const isPetTem = catName === 'PET' || catName === 'TEM' ||
+                             code.includes('PET') || code.includes('TEM');
+            if (isPetTem) {
+                const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
+                o.prod_total = 2;
+                if (isShipped) {
+                    o.prod_done = 2;
+                    o.next_step_name = '';
+                } else if (o.is_print_done) {
+                    o.prod_done = 1;
+                    o.next_step_name = 'Kế toán gửi hàng';
+                } else {
+                    o.prod_done = 0;
+                    o.next_step_name = 'Chờ in';
+                }
+            }
+            return o;
+        });
+
+        return { orders: processedOrders };
     });
 
     // ========== ORDERS: Create ==========
@@ -1899,11 +1922,58 @@ module.exports = async function(fastify) {
 
     // ========== PRODUCTION WORKFLOW — Quy Trình Sản Xuất ==========
 
+    function getOrderStepsHelper(order, opSteps, stepsList) {
+        const code = (order.order_code || '').toUpperCase();
+        const catName = (order.category_name || '').toUpperCase();
+        const isPetTem = catName === 'PET' || catName === 'TEM' ||
+                         code.includes('PET') || code.includes('TEM');
+
+        if (isPetTem) {
+            const opPrint = opSteps.find(s => s.step_id === 3);
+            return [
+                {
+                    step_id: 3,
+                    name: 'Chờ in',
+                    short_name: 'IN',
+                    display_order: 1,
+                    page_link: '/bophaninhv',
+                    is_completed: opPrint ? opPrint.is_completed : false,
+                    completed_at: opPrint ? opPrint.completed_at : null,
+                    completed_by: opPrint ? opPrint.completed_by : null,
+                    completed_by_name: opPrint ? opPrint.completed_by_name : null
+                },
+                {
+                    step_id: -1,
+                    name: 'Kế toán gửi hàng',
+                    short_name: 'GỬI',
+                    display_order: 2,
+                    page_link: null,
+                    is_completed: order.shipping_status === 'shipped' || !!order.shipped_at,
+                    completed_at: order.shipped_at,
+                    completed_by: order.shipped_by,
+                    completed_by_name: order.shipped_by_name
+                }
+            ];
+        }
+
+        return stepsList;
+    }
+
     // GET production status for a specific order
     fastify.get('/api/dht/orders/:orderId/production', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.orderId);
-        // Get all steps with their completion status for this order
-        const steps = await db.all(`
+        const order = await db.get(`
+            SELECT o.id, o.order_code, o.shipping_status, o.shipped_at, o.shipped_by,
+                   c.name AS category_name,
+                   u_shipped.full_name AS shipped_by_name
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
+            WHERE o.id = $1
+        `, [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Đơn hàng không tồn tại' });
+
+        const stepsList = await db.all(`
             SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order, ps.page_link,
                    COALESCE(op.is_completed, false) AS is_completed,
                    op.completed_at, op.completed_by, op.notes,
@@ -1914,6 +1984,8 @@ module.exports = async function(fastify) {
             WHERE ps.is_active = true
             ORDER BY ps.display_order
         `, [orderId]);
+
+        const steps = getOrderStepsHelper(order, stepsList, stepsList);
         return { steps };
     });
 
@@ -1925,24 +1997,62 @@ module.exports = async function(fastify) {
         const { vnNow } = require('./utils/timezone');
         const now = vnNow();
 
-        // Check if record exists
-        const existing = await db.get('SELECT * FROM dht_order_production WHERE dht_order_id = $1 AND step_id = $2', [orderId, stepId]);
+        const order = await db.get(`
+            SELECT o.id, o.order_code, o.shipping_status, o.shipped_at, o.shipped_by,
+                   c.name AS category_name,
+                   u_shipped.full_name AS shipped_by_name
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
+            WHERE o.id = $1
+        `, [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Đơn hàng không tồn tại' });
 
-        if (existing) {
-            // Toggle: if completed → uncomplete, if not → complete
-            if (existing.is_completed) {
-                await db.run('UPDATE dht_order_production SET is_completed = false, completed_at = NULL, completed_by = NULL WHERE id = $1', [existing.id]);
+        if (stepId === -1) {
+            const isShipped = order.shipping_status === 'shipped';
+            if (isShipped) {
+                await db.run(`
+                    UPDATE dht_orders 
+                    SET shipping_status = 'pending', shipped_at = NULL, shipped_by = NULL 
+                    WHERE id = $1
+                `, [orderId]);
             } else {
-                await db.run('UPDATE dht_order_production SET is_completed = true, completed_at = $1, completed_by = $2 WHERE id = $3', [now, userId, existing.id]);
+                await db.run(`
+                    UPDATE dht_orders 
+                    SET shipping_status = 'shipped', shipped_at = $1, shipped_by = $2 
+                    WHERE id = $3
+                `, [now, userId, orderId]);
             }
         } else {
-            // Create new as completed
-            await db.run(`INSERT INTO dht_order_production (dht_order_id, step_id, is_completed, completed_at, completed_by)
-                VALUES ($1, $2, true, $3, $4)`, [orderId, stepId, now, userId]);
+            // Check if record exists
+            const existing = await db.get('SELECT * FROM dht_order_production WHERE dht_order_id = $1 AND step_id = $2', [orderId, stepId]);
+
+            if (existing) {
+                // Toggle: if completed → uncomplete, if not → complete
+                if (existing.is_completed) {
+                    await db.run('UPDATE dht_order_production SET is_completed = false, completed_at = NULL, completed_by = NULL WHERE id = $1', [existing.id]);
+                } else {
+                    await db.run('UPDATE dht_order_production SET is_completed = true, completed_at = $1, completed_by = $2 WHERE id = $3', [now, userId, existing.id]);
+                }
+            } else {
+                // Create new as completed
+                await db.run(`INSERT INTO dht_order_production (dht_order_id, step_id, is_completed, completed_at, completed_by)
+                    VALUES ($1, $2, true, $3, $4)`, [orderId, stepId, now, userId]);
+            }
         }
 
+        const updatedOrder = await db.get(`
+            SELECT o.id, o.order_code, o.shipping_status, o.shipped_at, o.shipped_by,
+                   c.name AS category_name,
+                   u_shipped.full_name AS shipped_by_name
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
+            WHERE o.id = $1
+        `, [orderId]);
+
         // Return updated steps
-        const steps = await db.all(`
+        const stepsList = await db.all(`
             SELECT ps.id AS step_id, ps.name, ps.short_name, ps.display_order, ps.page_link,
                    COALESCE(op.is_completed, false) AS is_completed,
                    op.completed_at, op.completed_by, op.notes,
@@ -1953,6 +2063,8 @@ module.exports = async function(fastify) {
             WHERE ps.is_active = true
             ORDER BY ps.display_order
         `, [orderId]);
+
+        const steps = getOrderStepsHelper(updatedOrder, stepsList, stepsList);
         return { success: true, steps };
     });
 
