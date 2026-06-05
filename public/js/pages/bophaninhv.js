@@ -29,8 +29,8 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
         clearTimeout(_t); _t = setTimeout(function() { _bpi.search = document.getElementById('bpiSearch').value || ''; _bpi.page = 1; _bpiRender(); }, 300);
     });
@@ -172,6 +172,35 @@ function _bpiGetProductNameDisplay(r) {
     return r.product_name || '—';
 }
 
+function _bpiGetProgressDisplay(r) {
+    if (r.is_completed) {
+        return '<span style="color:#059669;font-weight:700">✅ Xong</span>';
+    }
+    if (!r.expected_ship_date) {
+        return '<span style="color:#94a3b8">—</span>';
+    }
+    try {
+        var today = vnNow();
+        today.setHours(0,0,0,0);
+        
+        var expected = new Date(r.expected_ship_date);
+        expected.setHours(0,0,0,0);
+        
+        var diffTime = expected.getTime() - today.getTime();
+        var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+            return '<span style="color:#dc2626;font-weight:800;animation:dhtBlink 1s infinite">🔥 Quá hạn ' + Math.abs(diffDays) + ' ngày</span>';
+        } else if (diffDays === 0) {
+            return '<span style="color:#d97706;font-weight:800">📦 Hôm nay!</span>';
+        } else {
+            return '<span style="color:#2563eb;font-weight:700">⏳ Còn ' + diffDays + ' ngày</span>';
+        }
+    } catch(e) {
+        return '<span style="color:#94a3b8">—</span>';
+    }
+}
+
 function _bpiRender() {
     var all = _bpi.records.slice();
     if (_bpi.search) { var q=_bpi.search.toLowerCase(); all=all.filter(function(r){return (r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.customer_name||'').toLowerCase().indexOf(q)>=0;}); }
@@ -179,7 +208,7 @@ function _bpiRender() {
     var s=(_bpi.page-1)*_bpi.ps, paged=all.slice(s,s+_bpi.ps);
     // Render rows
     var tb=document.getElementById('bpiTb'); if(!tb)return;
-    if(!paged.length){tb.innerHTML='<tr><td colspan="18"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
+    if(!paged.length){tb.innerHTML='<tr><td colspan="19"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
     tb.innerHTML=paged.map(function(r,i){
         var tI=r.is_test_print?'🧪':'⬜',tC=r.is_test_print?' on-test':'',tA=r.is_test_print?'undo_test':'start_test';
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
@@ -225,6 +254,7 @@ function _bpiRender() {
         +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
+        +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+_bpiGetProductNameDisplay(r)+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
