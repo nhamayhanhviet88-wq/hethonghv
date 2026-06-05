@@ -3,6 +3,59 @@ var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, active
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 function _dhtFmtCount(n) { return Number(n||0).toLocaleString('vi-VN') + ' đơn'; }
 
+function formatDetailedQuantity(items, totalQuantity, orderCode) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return totalQuantity || 0;
+    }
+
+    const code = (orderCode || '').toUpperCase();
+    const isPetTem = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || 
+                     code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || 
+                     code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0 || 
+                     code.indexOf('PET') >= 0 || code.indexOf('TEM') >= 0;
+
+    const parts = items.map(item => {
+        const qty = Number(item.quantity) || 0;
+        if (qty <= 0) return null;
+
+        if (isPetTem) {
+            const prod = (item.product_name || item.description || '').toLowerCase();
+            if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
+                return `${qty} Tờ`;
+            }
+            if (prod.indexOf('mét') >= 0 || prod.indexOf('met') >= 0) {
+                return `${qty} Mét`;
+            }
+            const name = item.product_name || item.description || '';
+            const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
+            return shortName ? `${qty} ${shortName}` : `${qty}`;
+        } else {
+            let cat = item.cutting_category_name;
+            if (!cat) {
+                const descLower = (item.product_name || item.description || '').toLowerCase();
+                if (descLower.includes('áo gió')) cat = 'Áo Gió';
+                else if (descLower.includes('áo')) cat = 'Áo';
+                else if (descLower.includes('quần')) cat = 'Quần';
+                else if (descLower.includes('váy')) cat = 'Váy';
+                else if (descLower.includes('tạp dề')) cat = 'Tạp Dề';
+                else if (descLower.includes('túi')) cat = 'Túi';
+            }
+            if (cat) {
+                return `${qty} ${cat}`;
+            }
+            const name = item.product_name || item.description || '';
+            const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
+            return shortName ? `${qty} ${shortName}` : `${qty}`;
+        }
+    }).filter(Boolean);
+
+    if (parts.length === 0) {
+        return totalQuantity || 0;
+    }
+
+    return parts.join(' , ');
+}
+
 // ========== FILTER CHIPS ==========
 var _dhtFilterDefs = [
     { key: 'vat',  label: 'VAT',         bg: '#fef3c7', color: '#92400e', activeBg: '#f59e0b', activeColor: '#fff' },
@@ -658,7 +711,7 @@ function _dhtRenderOrderRows(filtered) {
             <td>${o.province || '—'}</td>
             <td>${o.cskh_name || '—'}</td>
             <td>${o.source || '—'}</td>
-            <td style="text-align:center;font-weight:800;">${o.total_quantity || 0}</td>
+            <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
             <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
             <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
             <td><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;${priStyle}">${o.shipping_priority || 'CHUẨN'}</span></td>

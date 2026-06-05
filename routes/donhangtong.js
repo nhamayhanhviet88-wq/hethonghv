@@ -4,6 +4,60 @@ const { authenticate, requireRole, requirePerm } = require('../middleware/auth')
 const fs = require('fs');
 const path = require('path');
 
+// ========== HELPERS ==========
+function formatDetailedQuantity(items, totalQuantity, orderCode) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return totalQuantity || 0;
+    }
+
+    const code = (orderCode || '').toUpperCase();
+    const isPetTem = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || 
+                     code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || 
+                     code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0 || 
+                     code.indexOf('PET') >= 0 || code.indexOf('TEM') >= 0;
+
+    const parts = items.map(item => {
+        const qty = Number(item.quantity) || 0;
+        if (qty <= 0) return null;
+
+        if (isPetTem) {
+            const prod = (item.product_name || item.description || '').toLowerCase();
+            if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
+                return `${qty} Tờ`;
+            }
+            if (prod.indexOf('mét') >= 0 || prod.indexOf('met') >= 0) {
+                return `${qty} Mét`;
+            }
+            const name = item.product_name || item.description || '';
+            const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
+            return shortName ? `${qty} ${shortName}` : `${qty}`;
+        } else {
+            let cat = item.cutting_category_name;
+            if (!cat) {
+                const descLower = (item.product_name || item.description || '').toLowerCase();
+                if (descLower.includes('áo gió')) cat = 'Áo Gió';
+                else if (descLower.includes('áo')) cat = 'Áo';
+                else if (descLower.includes('quần')) cat = 'Quần';
+                else if (descLower.includes('váy')) cat = 'Váy';
+                else if (descLower.includes('tạp dề')) cat = 'Tạp Dề';
+                else if (descLower.includes('túi')) cat = 'Túi';
+            }
+            if (cat) {
+                return `${qty} ${cat}`;
+            }
+            const name = item.product_name || item.description || '';
+            const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
+            return shortName ? `${qty} ${shortName}` : `${qty}`;
+        }
+    }).filter(Boolean);
+
+    if (parts.length === 0) {
+        return totalQuantity || 0;
+    }
+
+    return parts.join(' , ');
+}
+
 module.exports = async function(fastify) {
 
     // Auto-migrate: add ship_count if not exists
@@ -285,7 +339,8 @@ module.exports = async function(fastify) {
                 COALESCE(prod_progress.total_steps, 0) AS prod_total,
                 prod_progress.current_step_short AS prod_current,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
-                COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order
+                COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order,
+                order_items.items AS items
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -317,6 +372,18 @@ module.exports = async function(fastify) {
                 FROM dht_orders ro
                 WHERE ro.parent_order_id = o.id
             ) repair_check ON true
+            LEFT JOIN LATERAL (
+                SELECT json_agg(json_build_object(
+                    'product_name', i.product_name,
+                    'description', i.description,
+                    'quantity', i.quantity,
+                    'cutting_category_name', cc.name
+                )) AS items
+                FROM dht_order_items i
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(i.product_name, i.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                WHERE i.dht_order_id = o.id
+            ) order_items ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
         `, params);
@@ -1417,7 +1484,8 @@ module.exports = async function(fastify) {
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
+                order_items.items AS items
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -1427,6 +1495,18 @@ module.exports = async function(fastify) {
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
+            LEFT JOIN LATERAL (
+                SELECT json_agg(json_build_object(
+                    'product_name', i.product_name,
+                    'description', i.description,
+                    'quantity', i.quantity,
+                    'cutting_category_name', cc.name
+                )) AS items
+                FROM dht_order_items i
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(i.product_name, i.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                WHERE i.dht_order_id = o.id
+            ) order_items ON true
             ${where}
             ORDER BY o.order_date DESC, o.id DESC
         `, params);
@@ -1436,6 +1516,15 @@ module.exports = async function(fastify) {
         const csvRows = [headers.join(',')];
 
         for (const o of orders) {
+            let qtyDisplay = o.total_quantity || 0;
+            if (o.items) {
+                let itemsList = o.items;
+                if (typeof itemsList === 'string') {
+                    try { itemsList = JSON.parse(itemsList); } catch(e) {}
+                }
+                qtyDisplay = formatDetailedQuantity(itemsList, o.total_quantity, o.order_code);
+            }
+
             const row = [
                 o.order_date || '',
                 o.shipping_status === 'shipped' ? 'Đã gửi' : '',
@@ -1446,7 +1535,7 @@ module.exports = async function(fastify) {
                 o.customer_phone || '',
                 `"${(o.cskh_name || '').replace(/"/g, '""')}"`,
                 `"${(o.province || '').replace(/"/g, '""')}"`,
-                o.total_quantity || 0,
+                `"${String(qtyDisplay).replace(/"/g, '""')}"`,
                 Number(o.total_amount) || 0,
                 Number(o.discount_amount) || 0,
                 Number(o.deposit_amount) || 0,
