@@ -563,36 +563,10 @@ async function _ceoOpenQLX(id){
 }
 
 function _ceoOnCommonErrorChange(el) {
-  var txt = document.getElementById('ceoU_saleRes');
-  if (!txt) return;
-  var prevVal = el.getAttribute('data-prev-val') || '';
-  var currentContent = txt.value.trim();
-  var prevGuide = '';
-  if (prevVal) {
-    var prevTpl = _ceo.commonErrors.find(function(x) { return x.error_name === prevVal; });
-    if (prevTpl) prevGuide = (prevTpl.sale_guide || '').trim();
-  }
-  var newTpl = _ceo.commonErrors.find(function(x) { return x.error_name === el.value; });
-  var newGuide = newTpl ? (newTpl.sale_guide || '').trim() : '';
-  var canOverwrite = !currentContent || currentContent === '1.' || currentContent === '1. ' || currentContent === prevGuide;
-  if (canOverwrite) {
-    txt.value = newGuide || '1. ';
-    el.setAttribute('data-prev-val', el.value);
-    var respContainer = document.getElementById('ceoU_respContainer');
-    if (respContainer) {
-      respContainer.innerHTML = _ceoRespSection({common_error_type: el.value});
-    }
-  } else {
-    if (confirm('Bạn có muốn áp dụng Cách Xử Lý Mẫu cho lỗi này không? (Nội dung cũ sẽ bị ghi đè)')) {
-      txt.value = newGuide || '1. ';
-      el.setAttribute('data-prev-val', el.value);
-      var respContainer = document.getElementById('ceoU_respContainer');
-      if (respContainer) {
-        respContainer.innerHTML = _ceoRespSection({common_error_type: el.value});
-      }
-    } else {
-      el.value = prevVal;
-    }
+  el.setAttribute('data-prev-val', el.value);
+  var respContainer = document.getElementById('ceoU_respContainer');
+  if (respContainer) {
+    respContainer.innerHTML = _ceoRespSection({common_error_type: el.value});
   }
 }
 
