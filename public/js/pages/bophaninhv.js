@@ -174,7 +174,30 @@ function _bpiGetProductNameDisplay(r) {
 
 function _bpiGetProgressDisplay(r) {
     if (r.is_completed) {
-        return '<span style="color:#059669;font-weight:700">✅ Xong</span>';
+        if (!r.expected_ship_date) {
+            return '<span style="color:#059669;font-weight:700">✅ Xong</span>';
+        }
+        try {
+            var expected = new Date(r.expected_ship_date);
+            expected.setHours(0,0,0,0);
+            
+            var actual = r.print_done_at ? new Date(r.print_done_at) : null;
+            if (!actual) {
+                actual = r.updated_at ? new Date(r.updated_at) : new Date();
+            }
+            actual.setHours(0,0,0,0);
+            
+            var diffTime = actual.getTime() - expected.getTime();
+            var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= 0) {
+                return '<span style="color:#059669;font-weight:700">✅ Kịp tiến độ</span>';
+            } else {
+                return '<span style="color:#ea580c;font-weight:700">✅ Trễ ' + diffDays + ' ngày</span>';
+            }
+        } catch(e) {
+            return '<span style="color:#059669;font-weight:700">✅ Xong</span>';
+        }
     }
     if (!r.expected_ship_date) {
         return '<span style="color:#94a3b8">—</span>';
