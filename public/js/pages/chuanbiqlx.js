@@ -1,5 +1,5 @@
 // ========== CHUẨN BỊ QLX — White Sidebar + Blue Theme ==========
-var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 100 };
+var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 200 };
 var _qlxOpen = { inc: true };
 function _qlxFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 function _qlxFmtDate(v) { if (!v) return '—'; try { var d = new Date(v); if (isNaN(d.getTime())) return '—'; return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch(e) { return '—'; } }
@@ -278,7 +278,7 @@ function _qlxRenderRows(paged) {
     var rowCountPerOrder = {};
     rows.forEach(function(r) { rowCountPerOrder[r.order.id] = (rowCountPerOrder[r.order.id] || 0) + 1; });
 
-    var lastId = null, stt = 0;
+    var lastId = null, stt = (_qlx.page - 1) * _qlx.pageSize;
     tbody.innerHTML = rows.map(function(r) {
         var o = r.order, p = r.phoi, it = r.item;
         var isNew = o.id !== lastId;
