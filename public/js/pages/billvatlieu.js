@@ -291,7 +291,6 @@ function _bvlPayModal(importId, billDebt, sourceDebt) {
     var ov = document.createElement('div');
     ov.id = '_bvlPayOv';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.onclick = function () { ov.remove(); };
     ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
         + '<div style="font-size:15px;font-weight:800">💳 Thanh Toán Nguồn</div>'
@@ -372,7 +371,7 @@ function _bvlOpenMat() {
     var ov = document.createElement('div');
     ov.id = '_bvlMatOv';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.onclick = function () { ov.remove(); };
+
 
     var h = '<div style="background:#fff;border-radius:16px;width:100%;max-width:550px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
@@ -642,7 +641,6 @@ async function _bvlDetail(id) {
     var ov = document.createElement('div');
     ov.id = '_bvlDetailOv';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.onclick = function () { ov.remove(); };
     ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:100%;max-width:550px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:16px 16px 0 0;color:#fff">'
         + '<div style="font-size:15px;font-weight:800">📦 Chi Tiết Bill Vật Liệu</div>'
@@ -656,7 +654,7 @@ function _bvlOpenSetup() {
     var ov = document.createElement('div');
     ov.id = '_bvlSetupOv';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.onclick = function () { ov.remove(); };
+
 
     var h = '<div style="background:#fff;border-radius:16px;width:100%;max-width:650px;max-height:90vh;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,.25);display:flex;flex-direction:column" onclick="event.stopPropagation()">'
         + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#334155,#475569);color:#fff;display:flex;justify-content:space-between;align-items:center">'
