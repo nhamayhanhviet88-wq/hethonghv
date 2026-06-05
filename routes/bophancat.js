@@ -525,7 +525,14 @@ module.exports = async function(fastify) {
                    u_cskh.full_name AS cskh_name,
                    u_created.full_name AS created_by_name,
                    t.target_ratio AS target_cut_ratio,
-                   w.unit AS fabric_unit
+                   w.unit AS fabric_unit,
+                   ceo.report_date AS error_report_date,
+                   ceo.created_at AS error_reported_at,
+                   ceo.cskh_name AS error_reporter_name,
+                   ceo.error_quantity AS error_quantity_reported,
+                   ceo.error_content AS error_content_reported,
+                   ceo.common_error_type AS error_common_type,
+                   ceo.error_images AS error_images_json
             FROM cutting_records cr
             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
@@ -537,6 +544,7 @@ module.exports = async function(fastify) {
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
+            LEFT JOIN customer_error_orders ceo ON cr.error_order_id = ceo.id
             WHERE cr.id = $1
         `, [Number(request.params.id)]);
 

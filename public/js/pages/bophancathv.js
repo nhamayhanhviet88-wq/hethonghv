@@ -1000,6 +1000,58 @@ async function _bpcOpenDetail(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + _bpcFmtDate(r.cut_date) + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + (r.order_quantity||'—') + '</span></div>';
+
+        // Wash reported details
+        if (r.wash_reported) {
+            h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+            h += '<div style="font-size:11px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🫧 CHI TIẾT GIẶT VẢI</div>';
+            var washTimeStr = r.wash_reported_at ? (typeof vnFormat === 'function' ? vnFormat(r.wash_reported_at) : _bpcFmtDate(r.wash_reported_at)) : '—';
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Thời gian báo giặt</span><span class="bpc-modal-val">' + washTimeStr + '</span></div>';
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Người báo giặt</span><span class="bpc-modal-val" style="color:#6366f1">' + (r.wash_reported_by_name || '—') + '</span></div>';
+            
+            var washItems = [];
+            try { washItems = typeof r.wash_items === 'string' ? JSON.parse(r.wash_items) : (r.wash_items || []); } catch(e) {}
+            if (Array.isArray(washItems) && washItems.length > 0) {
+                h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👕 Bộ phận cần giặt</span><span class="bpc-modal-val">';
+                washItems.forEach(function(item) {
+                    h += '<span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-left:4px;display:inline-block">' + item + '</span>';
+                });
+                h += '</span></div>';
+            }
+
+            h += '</div>';
+        }
+
+        // Error reported details
+        if (r.error_reported) {
+            h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+            h += '<div style="font-size:11px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🚨 CHI TIẾT BÁO LỖI</div>';
+            var errDateStr = r.error_reported_at ? (typeof vnFormat === 'function' ? vnFormat(r.error_reported_at) : _bpcFmtDate(r.error_reported_at)) : (r.error_report_date ? _bpcFmtDate(r.error_report_date) : '—');
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Thời gian báo lỗi</span><span class="bpc-modal-val">' + errDateStr + '</span></div>';
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Người báo lỗi</span><span class="bpc-modal-val" style="color:#dc2626">' + (r.error_reporter_name || '—') + '</span></div>';
+            if (r.error_common_type) {
+                h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Loại lỗi</span><span class="bpc-modal-val" style="color:#d97706">' + r.error_common_type + '</span></div>';
+            }
+            h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 Số lượng lỗi</span><span class="bpc-modal-val" style="color:#dc2626;font-weight:800">' + (r.error_quantity_reported || 0) + ' sp</span></div>';
+            h += '<div style="margin-top:6px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px">';
+            h += '<span style="font-weight:700;color:#991b1b">📝 Nội dung lỗi:</span>';
+            h += '<div style="white-space:pre-wrap;color:#374151;margin-top:4px;font-weight:500;text-align:left">' + (r.error_content_reported || '—') + '</div>';
+            h += '</div>';
+
+            var errImages = [];
+            try { errImages = typeof r.error_images_json === 'string' ? JSON.parse(r.error_images_json) : (r.error_images_json || []); } catch(e) {}
+            if (Array.isArray(errImages) && errImages.length > 0) {
+                h += '<div style="margin-top:8px;">';
+                h += '<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-align:left">📷 Hình ảnh lỗi:</div>';
+                h += '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+                errImages.forEach(function(imgUrl) {
+                    h += '<img src="' + imgUrl + '" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer" onclick="window.open(\'' + imgUrl + '\',\'_blank\')">';
+                });
+                h += '</div>';
+                h += '</div>';
+            }
+            h += '</div>';
+        }
         // Selected rolls
         h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px"><div style="font-size:11px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CÂY VẢI ĐÃ CHỌN (' + rolls.length + ')</div>';
         if (rolls.length) {
