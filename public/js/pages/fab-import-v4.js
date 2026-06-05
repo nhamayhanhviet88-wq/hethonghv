@@ -6,7 +6,7 @@ async function _bnhCheckFabPerm() {
 }
 
 async function _bnhOpenFabric() {
-    _bnhFab = { calls: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false };
+    _bnhFab = { calls: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0 };
     // Load pending calls + sources
     try {
         var [cr, sr] = await Promise.all([apiCall('/api/import/fabric-pending-calls'), apiCall('/api/import/sources')]);
@@ -139,14 +139,22 @@ function _bnhFabRenderBody() {
         if (!f.extraCosts.length) h += '<div style="text-align:center;padding:8px;color:#d97706;font-size:11px;opacity:.6">Không có chi phí khác</div>';
         h += '</div>';
 
-        // Auto total summary (TỔNG KẾT BILL — includes fabric + extra costs)
+        // --- TIỀN VAT ---
+        h += '<div style="border:1.5px solid #bae6fd;border-radius:10px;padding:10px;margin-top:8px;margin-bottom:8px;background:#f0f9ff">'
+            + '<label style="font-size:11px;font-weight:800;color:#374151;margin-bottom:6px;display:block">Tiền VAT</label>'
+            + '<input type="number" id="_fabVat" placeholder="Tự điền số tiền VAT..." value="' + (f.vat || '') + '" oninput="_bnhFabUpdateSummary()" style="width:100%;padding:8px 12px;border:1px solid #7dd3fc;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none">'
+            + '</div>';
+
+        // Auto total summary (TỔNG KẾ LA BILL — includes fabric + extra costs + VAT)
         var extraTotal = f.extraCosts.reduce(function(s,ec){return s+(Number(ec.amount)||0);},0);
-        var grandTotal = totalFabCost + extraTotal;
+        var vatTotal = Number(f.vat) || 0;
+        var grandTotal = totalFabCost + extraTotal + vatTotal;
         h += '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;margin-top:8px">'
             + '<div style="font-size:10px;font-weight:800;color:#059669;margin-bottom:4px">📊 TỔNG KẾT BILL</div>'
             + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b>'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
         if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b>'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
-        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span>'+grandTotal.toLocaleString('vi-VN')+'đ</span></div>';
+        h += '<div id="_fabVatRow" style="display:' + (vatTotal > 0 ? 'flex' : 'none') + ';justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📊 Tiền VAT:</span><b id="_fabVatVal">'+vatTotal.toLocaleString('vi-VN')+'đ</b></div>';
+        h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span id="_fabGrandTotalVal">'+grandTotal.toLocaleString('vi-VN')+'đ</span></div>';
 
         // --- HÌNH ẢNH BILL ---
         h += '<div style="border-top:1.5px dashed #fca5a5;margin-top:10px;padding-top:10px">'
@@ -323,6 +331,39 @@ function _bnhFabTreeW(idx, ti, val) {
     _bnhFabRenderBody();
 }
 
+function _bnhFabUpdateSummary() {
+    var f = _bnhFab;
+    var vatVal = Number(document.getElementById('_fabVat')?.value) || 0;
+    f.vat = vatVal;
+
+    // Calculate total fabric cost
+    var totalFabCost = f.items.reduce(function(sum, it) {
+        var itCost = (it.trees || []).reduce(function(s, t) { return s + (Number(t.weight) || 0); }, 0) * (Number(it.unit_price) || 0);
+        return sum + itCost;
+    }, 0);
+
+    var extraTotal = f.extraCosts.reduce(function(s, ec) { return s + (Number(ec.amount) || 0); }, 0);
+    var grandTotal = totalFabCost + extraTotal + vatVal;
+
+    // Update VAT row
+    var vatRow = document.getElementById('_fabVatRow');
+    var vatValEl = document.getElementById('_fabVatVal');
+    if (vatRow && vatValEl) {
+        if (vatVal > 0) {
+            vatRow.style.display = 'flex';
+            vatValEl.textContent = vatVal.toLocaleString('vi-VN') + 'đ';
+        } else {
+            vatRow.style.display = 'none';
+        }
+    }
+
+    // Update Grand Total
+    var grandTotalEl = document.getElementById('_fabGrandTotalVal');
+    if (grandTotalEl) {
+        grandTotalEl.textContent = grandTotal.toLocaleString('vi-VN') + 'đ';
+    }
+}
+
 function _bnhFabAddCost() { _bnhFab.extraCosts.push({ content: '', amount: '' }); _bnhFabRenderBody(); }
 function _bnhFabRemCost(i) { _bnhFab.extraCosts.splice(i, 1); _bnhFabRenderBody(); }
 function _bnhFabEC(i, f, v) { if (f === 'c') _bnhFab.extraCosts[i].content = v; else { _bnhFab.extraCosts[i].amount = Number(v) || 0; _bnhFabRenderBody(); } }
@@ -366,6 +407,7 @@ async function _bnhFabSubmit() {
             ship_image_path: f.shipImg ? f.shipImg.path : null,
             bill_image_url: f.billImg.url,
             bill_image_path: f.billImg.path,
+            vat_amount: Number(f.vat) || 0,
             cost_notes: document.getElementById('_fabNotes')?.value || ''
         };
         var res = await apiCall('/api/import/fabric-submit', 'POST', body);
@@ -383,7 +425,7 @@ async function _bnhFabSubmit() {
 
 // ========== beforeunload warning ==========
 function _bnhFabWarnUnsaved() {
-    window._bnhFabUnsaved = (_bnhFab.items && _bnhFab.items.length > 0) || (_bnhFab.billImg) || (_bnhFab.shipImg);
+    window._bnhFabUnsaved = (_bnhFab.items && _bnhFab.items.length > 0) || (_bnhFab.billImg) || (_bnhFab.shipImg) || (_bnhFab.vat > 0);
 }
 window.addEventListener('beforeunload', function(e) {
     if (window._bnhFabUnsaved && document.getElementById('_fabOv')) {
@@ -505,6 +547,12 @@ async function _bnhFabDetail(id) {
             h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #fef3c7;font-size:11px"><span>' + _escAttr(ec.content) + '</span><span style="font-weight:700;color:#d97706">' + _bnhFM(ec.amount) + 'đ</span></div>';
         });
         h += '</div>';
+    }
+
+    if (Number(r.vat_amount) > 0) {
+        h += '<div style="border:1.5px solid #bae6fd;border-radius:10px;padding:10px;margin-bottom:12px;background:#f0f9ff">'
+            + '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="font-weight:800;color:#0284c7">📊 TIỀN VAT</span><span style="font-weight:700;color:#0284c7">' + _bnhFM(r.vat_amount) + 'đ</span></div>'
+            + '</div>';
     }
 
     // Ship

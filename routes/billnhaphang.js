@@ -1182,7 +1182,8 @@ module.exports = async function(fastify) {
             // 5. Calculate financials (auto from unit_price × weight)
             const fabricCost = fabricItemsResult.reduce((s, fi) => s + (fi.item_cost || 0), 0);
             const extraCostTotal = extraCosts.reduce((s, ec) => s + (Number(ec.amount) || 0), 0);
-            const totalCost = fabricCost + extraCostTotal;
+            const vatAmount = Number(b.vat_amount) || 0;
+            const totalCost = fabricCost + extraCostTotal + vatAmount;
             const paid = 0; // Payment handled in separate module
             const totalDebt = totalCost;
 
@@ -1234,19 +1235,19 @@ module.exports = async function(fastify) {
                     fabric_material, fabric_quantity, fabric_items, extra_costs,
                     cost, total_amount, paid, debt,
                     ship_cost, ship_image_url, ship_image_path, ship_cashflow_id, ship_cashflow_code,
-                    bill_image_url, bill_image_path, cost_notes,
+                    bill_image_url, bill_image_path, cost_notes, vat_amount,
                     created_by, created_at)
                  VALUES ('fabric', $1, $2, $3, $4,
                     $5, $6, $7::jsonb, $8::jsonb,
                     $9, $10, $11, $12,
                     $13, $14, $15, $16, $17,
-                    $18, $19, $20,
-                    $21, $22) RETURNING id`,
+                    $18, $19, $20, $21,
+                    $22, $23) RETURNING id`,
                 [fabricCode, now, b.source_id, req.user.id,
                  fabricMaterialNames.join(', '), totalFabricQty, JSON.stringify(fabricItemsResult), JSON.stringify(extraCosts),
                  totalCost, totalCost, paid, totalDebt,
                  shipCost, b.ship_image_url || null, b.ship_image_path || null, shipCfId, shipCfCode,
-                 b.bill_image_url, b.bill_image_path || null, b.cost_notes || null,
+                 b.bill_image_url, b.bill_image_path || null, b.cost_notes || null, vatAmount,
                  req.user.id, now]
             );
             const importId = importResult.rows[0].id;
