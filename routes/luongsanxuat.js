@@ -82,9 +82,11 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 WHERE ${whereCutting}
                   AND cr.id = (
-                      SELECT MIN(sub.id) FROM cutting_records sub
+                      SELECT sub.id FROM cutting_records sub
                       WHERE sub.order_item_id = cr.order_item_id
                         AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
+                      ORDER BY COALESCE(NULLIF(SUBSTRING(sub.product_name FROM '— P([0-9]+)'), ''), '1')::integer ASC, sub.id ASC
+                      LIMIT 1
                   )
 
                 UNION ALL
@@ -202,9 +204,11 @@ module.exports = async function(fastify) {
                 SELECT cutter_id AS worker_id, salary, salary_approved AS is_approved 
                 FROM cutting_records cr
                 WHERE cr.id = (
-                    SELECT MIN(sub.id) FROM cutting_records sub
+                    SELECT sub.id FROM cutting_records sub
                     WHERE sub.order_item_id = cr.order_item_id
                       AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
+                    ORDER BY COALESCE(NULLIF(SUBSTRING(sub.product_name FROM '— P([0-9]+)'), ''), '1')::integer ASC, sub.id ASC
+                    LIMIT 1
                 )
                 UNION ALL
                 SELECT presser_id AS worker_id, salary, salary_approved AS is_approved FROM pressing_records
@@ -337,9 +341,11 @@ module.exports = async function(fastify) {
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
                 WHERE ${whereCutting}
                   AND cr.id = (
-                      SELECT MIN(sub.id) FROM cutting_records sub
+                      SELECT sub.id FROM cutting_records sub
                       WHERE sub.order_item_id = cr.order_item_id
                         AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
+                      ORDER BY COALESCE(NULLIF(SUBSTRING(sub.product_name FROM '— P([0-9]+)'), ''), '1')::integer ASC, sub.id ASC
+                      LIMIT 1
                   )
             `);
         }
