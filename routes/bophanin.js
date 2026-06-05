@@ -15,6 +15,49 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPI] contractors:', e.message); }
 
     try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS printing_fields (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            display_order INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        
+        // Pre-populate defaults if empty
+        const countRes = await db.get(`SELECT COUNT(*)::int AS cnt FROM printing_fields`);
+        if (countRes.cnt === 0) {
+            const defaults = ['IN PET', 'IN DECAL', 'THÊU', 'IN 3D', 'IN LƯỚI', 'IN KHÁC'];
+            for (let i = 0; i < defaults.length; i++) {
+                await db.run(`INSERT INTO printing_fields (name, display_order) VALUES ($1, $2)`, [defaults[i], i]);
+            }
+            console.log('[BPI] Pre-populated default printing fields');
+        }
+    } catch(e) { console.error('[BPI] printing_fields migrate:', e.message); }
+
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS printing_field_operators (
+            id SERIAL PRIMARY KEY,
+            field_id INTEGER NOT NULL REFERENCES printing_fields(id) ON DELETE CASCADE,
+            operator_type VARCHAR(20) NOT NULL, -- 'user' or 'contractor'
+            operator_id INTEGER NOT NULL,
+            UNIQUE(field_id, operator_type, operator_id)
+        )`);
+    } catch(e) { console.error('[BPI] printing_field_operators migrate:', e.message); }
+
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_order_print_assignments (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            field_id INTEGER NOT NULL REFERENCES printing_fields(id) ON DELETE CASCADE,
+            operator_type VARCHAR(20) NOT NULL, -- 'user' or 'contractor'
+            operator_id INTEGER NOT NULL,
+            assigned_by INTEGER REFERENCES users(id),
+            assigned_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(dht_order_id, field_id, operator_type, operator_id)
+        )`);
+    } catch(e) { console.error('[BPI] qlx_order_print_assignments migrate:', e.message); }
+
+    try {
         await db.exec(`CREATE TABLE IF NOT EXISTS printing_records (
             id SERIAL PRIMARY KEY, dht_order_id INTEGER,
             is_test_print BOOLEAN DEFAULT false, test_print_at TIMESTAMPTZ, test_print_by INTEGER REFERENCES users(id),
@@ -256,5 +299,91 @@ module.exports = async function(fastify) {
     fastify.get('/api/printing/staff', { preHandler: [authenticate] }, async () => {
         const staff = await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`);
         return { staff };
+    });
+
+    // ========== PRINT FIELDS CRUD ==========
+    fastify.get('/api/printing/fields', { preHandler: [authenticate] }, async () => {
+        const rows = await db.all(`SELECT * FROM printing_fields WHERE is_active=true ORDER BY display_order, name`);
+        return { fields: rows };
+    });
+
+    fastify.post('/api/printing/fields', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isPrintManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        const { name, display_order } = req.body || {};
+        if (!name) return reply.code(400).send({ error: 'Tên lĩnh vực là bắt buộc' });
+        try {
+            const r = await db.get(`
+                INSERT INTO printing_fields (name, display_order)
+                VALUES ($1, $2)
+                RETURNING id
+            `, [name.trim(), Number(display_order) || 0]);
+            return { success: true, id: r.id };
+        } catch (e) {
+            return reply.code(400).send({ error: 'Lĩnh vực đã tồn tại hoặc không hợp lệ' });
+        }
+    });
+
+    fastify.put('/api/printing/fields/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isPrintManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        const { name, display_order } = req.body || {};
+        if (!name) return reply.code(400).send({ error: 'Tên lĩnh vực là bắt buộc' });
+        try {
+            await db.run(`
+                UPDATE printing_fields
+                SET name = $1, display_order = $2
+                WHERE id = $3
+            `, [name.trim(), Number(display_order) || 0, req.params.id]);
+            return { success: true };
+        } catch (e) {
+            return reply.code(400).send({ error: 'Lĩnh vực đã tồn tại hoặc không hợp lệ' });
+        }
+    });
+
+    fastify.delete('/api/printing/fields/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isPrintManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        await db.run(`UPDATE printing_fields SET is_active=false WHERE id=$1`, [req.params.id]);
+        return { success: true };
+    });
+
+    fastify.get('/api/printing/fields/:id/operators', { preHandler: [authenticate] }, async (req) => {
+        const fieldId = Number(req.params.id);
+        const staff = await db.all(`
+            SELECT u.id, u.full_name FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')
+              AND (d.code = 'phongin' OR UPPER(COALESCE(d.name,'')) = 'PHONG IN')
+            ORDER BY u.full_name
+        `);
+        const contractors = await db.all(`
+            SELECT id, name FROM printing_contractors
+            WHERE is_active=true
+            ORDER BY display_order, name
+        `);
+        const assigned = await db.all(`
+            SELECT operator_type, operator_id
+            FROM printing_field_operators
+            WHERE field_id = $1
+        `, [fieldId]);
+
+        return { staff, contractors, assigned };
+    });
+
+    fastify.post('/api/printing/fields/:id/operators', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isPrintManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        const fieldId = Number(req.params.id);
+        const { operators } = req.body || {};
+        if (!Array.isArray(operators)) return reply.code(400).send({ error: 'Operators must be an array' });
+
+        await db.run(`DELETE FROM printing_field_operators WHERE field_id = $1`, [fieldId]);
+        for (const op of operators) {
+            if (['user', 'contractor'].includes(op.operator_type) && op.operator_id) {
+                await db.run(`
+                    INSERT INTO printing_field_operators (field_id, operator_type, operator_id)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT DO NOTHING
+                `, [fieldId, op.operator_type, Number(op.operator_id)]);
+            }
+        }
+        return { success: true };
     });
 };

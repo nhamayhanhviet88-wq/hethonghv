@@ -1009,159 +1009,167 @@ async function _qlxDoAssign(orderId, type) {
 async function _qlxAssignIn(orderId) {
     try {
         var data = await apiCall('/api/qlx/print-assignment/' + orderId);
-        var o = data.order, cp = data.current_printer, citc = data.current_itc || [];
-        var staff = data.staff || [], cons = data.contractors || [];
-        // Store for save
-        window._qlxPAData = { orderId: orderId, staff: staff, cons: cons };
+        var o = data.order;
+        var fields = data.fields || [];
+        var assignments = data.assignments || [];
+        
+        // Store in global/window context for saving
+        window._qlxPAData = { orderId: orderId, fields: fields };
 
-        // Build SẢN PHẨM display
         var spLabel = o.order_code + (o.items_desc ? ' — ' + o.items_desc : '');
-
-        // Build PHÂN CÔNG IN dropdown (optgroup: NV + Gia Công)
-        var selVal = cp ? (cp.type + '_' + cp.id) : '';
-        var optHtml = '<option value="">-- Gỡ phân công --</option>';
-        if (staff.length) {
-            optHtml += '<optgroup label="👤 NV Phòng In">';
-            staff.forEach(function(s) { optHtml += '<option value="user_' + s.id + '"' + (selVal === 'user_' + s.id ? ' selected' : '') + '>' + s.full_name + '</option>'; });
-            optHtml += '</optgroup>';
-        }
-        if (cons.length) {
-            optHtml += '<optgroup label="🏭 Gia Công In">';
-            cons.forEach(function(c) { optHtml += '<option value="contractor_' + c.id + '"' + (selVal === 'contractor_' + c.id ? ' selected' : '') + '>' + c.name + '</option>'; });
-            optHtml += '</optgroup>';
-        }
-
-        // Build ITC set for pre-check
-        var itcSet = {};
-        citc.forEach(function(x) { itcSet[x.type + '_' + x.id] = true; });
 
         var html = '<div style="padding:0">';
         // Header
-        html += '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f,#0369a1);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0">';
-        html += '<h3 style="margin:0;font-size:16px;font-weight:800">🖨️ Phân Công In</h3>';
+        html += '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f,#0ea5e9);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0">';
+        html += '<h3 style="margin:0;font-size:16px;font-weight:800">🖨️ Phân Công Lĩnh Vực In</h3>';
         html += '<p style="margin:4px 0 0;font-size:11px;opacity:0.8">Đơn #' + o.order_code + ' — ' + (o.customer_name || '') + '</p></div>';
 
-        html += '<div style="padding:20px 24px">';
+        html += '<div style="padding:20px 24px;max-height:50vh;overflow-y:auto">';
         // SẢN PHẨM
-        html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#0f172a;display:block;margin-bottom:6px">SẢN PHẨM</label>';
+        html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:6px">SẢN PHẨM</label>';
         html += '<input type="text" value="' + spLabel.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
 
-        // PHÂN CÔNG IN
-        html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#0f172a;display:block;margin-bottom:6px">PHÂN CÔNG IN <span style="color:#dc2626">*</span></label>';
-        html += '<select id="_qlxPASelect" onchange="_qlxPAFilterITC()" class="form-control" style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:600">' + optHtml + '</select></div>';
-
-        // IN/THÊU CHUNG (multi-select checkboxes)
-        var _itcDisabled = !selVal;
-        html += '<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:800;color:#0f172a;display:block;margin-bottom:6px">IN / THÊU CHUNG <span style="font-size:9px;color:#6b7280;font-weight:600">(không bắt buộc)</span></label>';
-        html += '<div id="_qlxPAITC" style="max-height:180px;overflow-y:auto;border:1.5px solid ' + (_itcDisabled ? '#f1f5f9' : '#e2e8f0') + ';border-radius:10px;padding:10px;' + (_itcDisabled ? 'opacity:0.4;pointer-events:none;' : '') + '">';
-        html += _qlxBuildITCCheckboxes(staff, cons, selVal, itcSet);
-        html += '</div>';
-        html += '<div id="_qlxPAITCHint" style="font-size:10px;color:#f59e0b;font-weight:600;margin-top:4px;' + (_itcDisabled ? '' : 'display:none;') + '">⚠️ Vui lòng chọn Phân Công In trước</div>';
-        html += '</div>';
-        html += '</div>';
+        // LĨNH VỰC IN
+        html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:6px">LĨNH VỰC IN & PHÂN CÔNG <span style="color:#dc2626">*</span></label>';
+        
+        if (fields.length === 0) {
+            html += '<div style="text-align:center;padding:20px;border:1.5px dashed #cbd5e1;border-radius:10px;color:#64748b;font-size:12px">Chưa có Lĩnh Vực In nào được cấu hình trong Bộ Phận In.</div>';
+        } else {
+            html += '<div style="display:flex;flex-direction:column;gap:12px">';
+            fields.forEach(function(f) {
+                // Check if this field is currently assigned
+                var isFieldAssigned = assignments.some(function(a) { return a.field_id === f.id; });
+                var displayOpsStyle = isFieldAssigned ? 'display:block;' : 'display:none;';
+                
+                // Mapped operators
+                var fieldStaff = f.staff || [];
+                var fieldCons = f.contractors || [];
+                
+                html += '<div style="border:1.5px solid ' + (isFieldAssigned ? '#0ea5e9' : '#e2e8f0') + ';border-radius:12px;overflow:hidden;background:#fff;transition:border-color 0.15s" class="field-card-item" id="field_card_' + f.id + '">';
+                
+                // Card Header (Field check)
+                html += '<label style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin:0;cursor:pointer;background:#f8fafc;user-select:none">';
+                html += '<input type="checkbox" class="field-checkbox" data-field-id="' + f.id + '" ' + (isFieldAssigned ? 'checked' : '') + ' onchange="_qlxToggleFieldOps(' + f.id + ')" style="width:18px;height:18px;accent-color:#0ea5e9;cursor:pointer">';
+                html += '<span style="font-weight:700;font-size:13px;color:#1e293b">' + f.name + '</span>';
+                html += '</label>';
+                
+                // Card Body (Operators list)
+                html += '<div id="field_ops_' + f.id + '" style="border-top:1px solid #f1f5f9;padding:12px 16px;background:#fff;' + displayOpsStyle + '">';
+                
+                if (fieldStaff.length === 0 && fieldCons.length === 0) {
+                    html += '<div style="color:#94a3b8;font-size:11px;text-align:center;padding:10px">Chưa gán nhân sự cho lĩnh vực này. Vui lòng cấu hình ở Bộ Phận In.</div>';
+                } else {
+                    html += '<div style="font-size:10px;font-weight:800;color:#64748b;margin-bottom:8px">CHỌN NGƯỜI THỰC HIỆN:</div>';
+                    html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;padding-right:4px">';
+                    
+                    // Staff checkboxes
+                    fieldStaff.forEach(function(s) {
+                        var isOpAssigned = assignments.some(function(a) { return a.field_id === f.id && a.operator_type === 'user' && a.operator_id === s.id; });
+                        html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'">';
+                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="user" data-id="' + s.id + '" ' + (isOpAssigned ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#0ea5e9;cursor:pointer">';
+                        html += '<span style="font-weight:600;color:#334155">👤 ' + s.name + '</span>';
+                        html += '</label>';
+                    });
+                    
+                    // Contractor checkboxes
+                    fieldCons.forEach(function(c) {
+                        var isOpAssigned = assignments.some(function(a) { return a.field_id === f.id && a.operator_type === 'contractor' && a.operator_id === c.id; });
+                        html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'#faf5ff\'" onmouseout="this.style.background=\'\'">';
+                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="contractor" data-id="' + c.id + '" ' + (isOpAssigned ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer">';
+                        html += '<span style="font-weight:600;color:#334155">🏭 ' + c.name + '</span>';
+                        html += '</label>';
+                    });
+                    
+                    html += '</div>';
+                }
+                
+                html += '</div>'; // close Card Body
+                html += '</div>'; // close Card Item
+            });
+            html += '</div>';
+        }
+        
+        html += '</div>'; // close Lĩnh Vực In container
+        html += '</div>'; // close main padding container
 
         // Footer
-        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">';
-        html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#f1f5f9;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Hủy bỏ</button>';
-        html += '<button onclick="_qlxPASave()" style="padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer">💾 Lưu</button>';
+        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 16px 16px">';
+        html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;transition:all 0.15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">Hủy bỏ</button>';
+        html += '<button onclick="_qlxPASave()" style="padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,0.15)">💾 Lưu Phân Công</button>';
         html += '</div></div>';
 
         var old = document.getElementById('_qlxPAOverlay'); if (old) old.remove();
         var ov = document.createElement('div');
         ov.className = 'qlx-cl-overlay'; ov.id = '_qlxPAOverlay';
         ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
-        ov.innerHTML = '<div class="qlx-cl-popup" style="width:500px">' + html + '</div>';
+        ov.innerHTML = '<div class="qlx-cl-popup" style="width:500px;max-height:85vh">' + html + '</div>';
         document.body.appendChild(ov);
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxBuildITCCheckboxes(staff, cons, excludeVal, checkedSet) {
-    var h = '';
-    if (staff.length) {
-        h += '<div style="font-size:9px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f0f0f0">── NV PHÒNG IN ──</div>';
-        staff.forEach(function(s) {
-            var val = 'user_' + s.id;
-            var hidden = val === excludeVal ? ' style="display:none"' : '';
-            var chk = checkedSet[val] ? ' checked' : '';
-            h += '<label' + hidden + ' data-itc-val="' + val + '" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:#334155;transition:background .15s" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'"><input type="checkbox" value="' + val + '"' + chk + ' style="width:16px;height:16px;accent-color:#0369a1"> 👤 ' + s.full_name + '</label>';
-        });
-    }
-    if (cons.length) {
-        h += '<div style="font-size:9px;font-weight:800;color:#64748b;letter-spacing:1px;margin:8px 0 6px;padding-bottom:4px;border-bottom:1px solid #f0f0f0">── GIA CÔNG IN ──</div>';
-        cons.forEach(function(c) {
-            var val = 'contractor_' + c.id;
-            var hidden = val === excludeVal ? ' style="display:none"' : '';
-            var chk = checkedSet[val] ? ' checked' : '';
-            h += '<label' + hidden + ' data-itc-val="' + val + '" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:#334155;transition:background .15s" onmouseover="this.style.background=\'#faf5ff\'" onmouseout="this.style.background=\'\'"><input type="checkbox" value="' + val + '"' + chk + ' style="width:16px;height:16px;accent-color:#7c3aed"> 🏭 ' + c.name + '</label>';
-        });
-    }
-    if (!staff.length && !cons.length) h = '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Chưa có nhân viên Phòng In hoặc Gia Công In</div>';
-    return h;
-}
-
-function _qlxPAFilterITC() {
-    var sel = document.getElementById('_qlxPASelect');
-    var selVal = sel ? sel.value : '';
-    var itcBox = document.getElementById('_qlxPAITC');
-    var itcHint = document.getElementById('_qlxPAITCHint');
-    // Disable ITC when no printer selected
-    if (!selVal) {
-        if (itcBox) { itcBox.style.opacity = '0.4'; itcBox.style.pointerEvents = 'none'; itcBox.style.borderColor = '#f1f5f9'; }
-        if (itcHint) itcHint.style.display = '';
-        // Uncheck all
-        var allCbs = document.querySelectorAll('#_qlxPAITC input[type="checkbox"]');
-        allCbs.forEach(function(cb) { cb.checked = false; });
-        return;
-    }
-    // Enable ITC
-    if (itcBox) { itcBox.style.opacity = '1'; itcBox.style.pointerEvents = 'auto'; itcBox.style.borderColor = '#e2e8f0'; }
-    if (itcHint) itcHint.style.display = 'none';
-    var labels = document.querySelectorAll('#_qlxPAITC label[data-itc-val]');
-    labels.forEach(function(lbl) {
-        var val = lbl.getAttribute('data-itc-val');
-        if (val === selVal) {
-            lbl.style.display = 'none';
-            var cb = lbl.querySelector('input[type="checkbox"]');
-            if (cb) cb.checked = false;
-        } else {
-            lbl.style.display = 'flex';
+function _qlxToggleFieldOps(fieldId) {
+    var cb = document.querySelector('.field-checkbox[data-field-id="' + fieldId + '"]');
+    var opsDiv = document.getElementById('field_ops_' + fieldId);
+    var card = document.getElementById('field_card_' + fieldId);
+    
+    if (cb && cb.checked) {
+        if (opsDiv) {
+            opsDiv.style.display = 'block';
+            opsDiv.style.animation = 'qlxSlideDown 0.2s ease';
         }
-    });
+        if (card) card.style.borderColor = '#0ea5e9';
+    } else {
+        if (opsDiv) opsDiv.style.display = 'none';
+        if (card) card.style.borderColor = '#e2e8f0';
+        
+        // Also uncheck all operators inside this field
+        var opCbs = document.querySelectorAll('.operator-checkbox[data-field-id="' + fieldId + '"]');
+        opCbs.forEach(function(opCb) { opCb.checked = false; });
+    }
 }
 
 async function _qlxPASave() {
     if (window._qlxPABusy) return;
+    
+    // Collect all assignments
+    var assignments = [];
+    var fieldCards = document.querySelectorAll('.field-card-item');
+    var validationError = null;
+    
+    fieldCards.forEach(function(card) {
+        var fieldCb = card.querySelector('.field-checkbox');
+        if (fieldCb && fieldCb.checked) {
+            var fieldId = Number(fieldCb.getAttribute('data-field-id'));
+            var opCbs = card.querySelectorAll('.operator-checkbox:checked');
+            
+            if (opCbs.length === 0) {
+                var fieldName = card.querySelector('span').textContent || 'Lĩnh vực';
+                validationError = 'Vui lòng chọn ít nhất một người thực hiện cho lĩnh vực: ' + fieldName;
+            }
+            
+            opCbs.forEach(function(opCb) {
+                assignments.push({
+                    field_id: fieldId,
+                    operator_type: opCb.getAttribute('data-type'),
+                    operator_id: Number(opCb.getAttribute('data-id'))
+                });
+            });
+        }
+    });
+    
+    if (assignments.length === 0) {
+        return showToast('Bắt buộc chọn ít nhất một Lĩnh Vực In và người thực hiện!', 'error');
+    }
+    
+    if (validationError) {
+        return showToast(validationError, 'error');
+    }
+    
     window._qlxPABusy = true;
     try {
         var d = window._qlxPAData;
-        var sel = document.getElementById('_qlxPASelect');
-        var selVal = sel ? sel.value : '';
-        var printerType = null, printerId = null;
-        if (selVal) {
-            var parts = selVal.split('_');
-            printerType = parts[0];
-            printerId = Number(parts[1]);
-        }
-
-        // Collect In/Thêu Chung checkboxes
-        var itcArr = [];
-        var cbs = document.querySelectorAll('#_qlxPAITC input[type="checkbox"]:checked');
-        cbs.forEach(function(cb) {
-            var v = cb.value.split('_');
-            itcArr.push({ type: v[0], id: Number(v[1]) });
-        });
-
-        // Validate: must select printer
-        if (!selVal) {
-            // Allow gỡ phân công
-        }
-
-        await apiCall('/api/qlx/print-assignment/' + d.orderId, 'POST', {
-            printer_type: printerType,
-            printer_id: printerId,
-            in_theu_chung: itcArr
-        });
-
+        await apiCall('/api/qlx/print-assignment/' + d.orderId, 'POST', { assignments: assignments });
+        
         var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
         showToast('✅ Đã lưu Phân Công In');
         await _qlxLoadAll();

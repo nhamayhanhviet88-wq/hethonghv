@@ -293,14 +293,30 @@ module.exports = async function(fastify) {
                     ),
                     a_cat.full_name
                 ) AS nguoi_cat,
-                COALESCE(a_in.full_name, pc_in.name) AS nguoi_in,
-                (SELECT string_agg(
-                    CASE WHEN itc.target_type = 'user' THEN u_itc.full_name ELSE pc_itc.name END, ', ')
-                 FROM qlx_in_theu_chung itc
-                 LEFT JOIN users u_itc ON itc.target_type = 'user' AND u_itc.id = itc.target_id
-                 LEFT JOIN printing_contractors pc_itc ON itc.target_type = 'contractor' AND pc_itc.id = itc.target_id
-                 WHERE itc.dht_order_id = o.id
-                ) AS in_theu_chung_names,
+                COALESCE(
+                    (SELECT string_agg(pf.name || ': ' || op_names.names, '; ' ORDER BY pf.display_order)
+                     FROM (
+                         SELECT opa.dht_order_id, opa.field_id,
+                                string_agg(CASE WHEN opa.operator_type = 'user' THEN u.full_name ELSE pc.name END, ', ') AS names
+                         FROM qlx_order_print_assignments opa
+                         LEFT JOIN users u ON opa.operator_type = 'user' AND opa.operator_id = u.id
+                         LEFT JOIN printing_contractors pc ON opa.operator_type = 'contractor' AND opa.operator_id = pc.id
+                         GROUP BY opa.dht_order_id, opa.field_id
+                     ) op_names
+                     JOIN printing_fields pf ON op_names.field_id = pf.id
+                     WHERE op_names.dht_order_id = o.id
+                    ),
+                    COALESCE(a_in.full_name, pc_in.name)
+                ) AS nguoi_in,
+                CASE WHEN EXISTS (SELECT 1 FROM qlx_order_print_assignments WHERE dht_order_id = o.id) THEN NULL
+                     ELSE (SELECT string_agg(
+                        CASE WHEN itc.target_type = 'user' THEN u_itc.full_name ELSE pc_itc.name END, ', ')
+                      FROM qlx_in_theu_chung itc
+                      LEFT JOIN users u_itc ON itc.target_type = 'user' AND u_itc.id = itc.target_id
+                      LEFT JOIN printing_contractors pc_itc ON itc.target_type = 'contractor' AND pc_itc.id = itc.target_id
+                      WHERE itc.dht_order_id = o.id
+                     )
+                END AS in_theu_chung_names,
                 a_ep.full_name AS nguoi_ep,
                 a_may.full_name AS nguoi_may,
                 -- Last history
@@ -541,48 +557,52 @@ module.exports = async function(fastify) {
         const items = await db.all(`SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
         const itemDesc = items.map(it => it.description || '').filter(Boolean).join(', ');
 
-        // Current print assignment
-        const qa = await db.get(`SELECT assigned_user_id, assigned_contractor_id FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
-        let currentPrinter = null;
-        if (qa) {
-            if (qa.assigned_user_id) {
-                const u = await db.get('SELECT full_name FROM users WHERE id=$1', [qa.assigned_user_id]);
-                currentPrinter = { type: 'user', id: qa.assigned_user_id, name: u ? u.full_name : '' };
-            } else if (qa.assigned_contractor_id) {
-                const c = await db.get('SELECT name FROM printing_contractors WHERE id=$1', [qa.assigned_contractor_id]);
-                currentPrinter = { type: 'contractor', id: qa.assigned_contractor_id, name: c ? c.name : '' };
+        // Active print fields
+        const activeFields = await db.all(`SELECT id, name FROM printing_fields WHERE is_active=true ORDER BY display_order, name`);
+        
+        // Mapped operators per field
+        const opMappings = await db.all(`
+            SELECT fo.field_id, fo.operator_type, fo.operator_id,
+                   CASE WHEN fo.operator_type = 'user' THEN u.full_name ELSE c.name END AS name
+            FROM printing_field_operators fo
+            LEFT JOIN users u ON fo.operator_type = 'user' AND fo.operator_id = u.id
+            LEFT JOIN printing_contractors c ON fo.operator_type = 'contractor' AND fo.operator_id = c.id
+            WHERE (fo.operator_type = 'user' AND u.status = 'active') OR (fo.operator_type = 'contractor' AND c.is_active = true)
+        `);
+        
+        // Group mappings by field_id
+        const mappingsByField = {};
+        for (const f of activeFields) {
+            mappingsByField[f.id] = { staff: [], contractors: [] };
+        }
+        for (const op of opMappings) {
+            if (mappingsByField[op.field_id]) {
+                if (op.operator_type === 'user') {
+                    mappingsByField[op.field_id].staff.push({ id: op.operator_id, name: op.name });
+                } else {
+                    mappingsByField[op.field_id].contractors.push({ id: op.operator_id, name: op.name });
+                }
             }
         }
 
-        // Current In/Thêu Chung
-        const itcRows = await db.all(`
-            SELECT itc.target_type, itc.target_id,
-                   CASE WHEN itc.target_type='user' THEN u.full_name ELSE pc.name END AS name
-            FROM qlx_in_theu_chung itc
-            LEFT JOIN users u ON itc.target_type='user' AND u.id=itc.target_id
-            LEFT JOIN printing_contractors pc ON itc.target_type='contractor' AND pc.id=itc.target_id
-            WHERE itc.dht_order_id = $1
+        const fieldsWithOps = activeFields.map(f => ({
+            id: f.id,
+            name: f.name,
+            staff: mappingsByField[f.id].staff,
+            contractors: mappingsByField[f.id].contractors
+        }));
+
+        // Current assignments for this order
+        const currentAssigns = await db.all(`
+            SELECT field_id, operator_type, operator_id
+            FROM qlx_order_print_assignments
+            WHERE dht_order_id = $1
         `, [orderId]);
-        const currentITC = itcRows.map(r => ({ type: r.target_type, id: r.target_id, name: r.name }));
-
-        // Available staff (Phòng In) — exact match to avoid "KINH DOANH" false positive
-        const staff = await db.all(`
-            SELECT u.id, u.full_name FROM users u
-            LEFT JOIN departments d ON u.department_id = d.id
-            WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')
-              AND (d.code = 'phongin' OR UPPER(COALESCE(d.name,'')) = 'PHONG IN')
-            ORDER BY u.full_name
-        `);
-
-        // Available contractors (Gia Công In)
-        const contractors = await db.all(`SELECT id, name FROM printing_contractors WHERE is_active=true ORDER BY display_order, name`);
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, items_desc: itemDesc },
-            current_printer: currentPrinter,
-            current_itc: currentITC,
-            staff,
-            contractors
+            fields: fieldsWithOps,
+            assignments: currentAssigns
         };
     });
 
@@ -591,55 +611,153 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const orderId = Number(request.params.orderId);
-        const { printer_type, printer_id, in_theu_chung } = request.body || {};
+        const { assignments } = request.body || {}; // array of { field_id, operator_type, operator_id }
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        // Validate mutual exclusion
-        if (printer_type && printer_id && Array.isArray(in_theu_chung)) {
-            const conflict = in_theu_chung.some(itc => itc.type === printer_type && itc.id === printer_id);
-            if (conflict) return reply.code(400).send({ error: 'Người In chính không thể đồng thời ở In/Thêu Chung!' });
+        if (!Array.isArray(assignments) || assignments.length === 0) {
+            return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
         }
 
-        // Save Phân Công In
-        if (printer_type && printer_id) {
-            const userId = printer_type === 'user' ? Number(printer_id) : null;
-            const conId = printer_type === 'contractor' ? Number(printer_id) : null;
+        // Save order print assignments (replace all)
+        await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1`, [orderId]);
+
+        // Keep legacy qlx_assignments / qlx_in_theu_chung populated for compatibility
+        let firstOp = null;
+        const otherOps = [];
+
+        for (const assign of assignments) {
+            const fieldId = Number(assign.field_id);
+            const opType = assign.operator_type;
+            const opId = Number(assign.operator_id);
+
+            if (fieldId && ['user', 'contractor'].includes(opType) && opId) {
+                await db.run(`
+                    INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (dht_order_id, field_id, operator_type, operator_id) DO NOTHING
+                `, [orderId, fieldId, opType, opId, request.user.id, now]);
+
+                if (!firstOp) {
+                    firstOp = { type: opType, id: opId };
+                } else {
+                    if (!otherOps.some(o => o.type === opType && o.id === opId)) {
+                        otherOps.push({ type: opType, id: opId });
+                    }
+                }
+            }
+        }
+
+        // Sync to legacy qlx_assignments (type = 'in')
+        if (firstOp) {
+            const userId = firstOp.type === 'user' ? Number(firstOp.id) : null;
+            const conId = firstOp.type === 'contractor' ? Number(firstOp.id) : null;
             await db.run(`
                 INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
                 VALUES ($1, 'in', $2, $3, $4, $5)
                 ON CONFLICT (dht_order_id, assignment_type)
                 DO UPDATE SET assigned_user_id = $2, assigned_contractor_id = $3, assigned_by = $4, assigned_at = $5
             `, [orderId, userId, conId, request.user.id, now]);
-
-            let pName = '';
-            if (userId) { const u = await db.get('SELECT full_name FROM users WHERE id=$1', [userId]); pName = u ? u.full_name : ''; }
-            else if (conId) { const c = await db.get('SELECT name FROM printing_contractors WHERE id=$1', [conId]); pName = c ? '🏭 ' + c.name : ''; }
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [orderId, 'assign_in', 'Phân công In: ' + pName, request.user.id, now]);
         } else {
-            // Remove assignment
             await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [orderId, 'unassign_in', 'Gỡ phân công In', request.user.id, now]);
         }
 
-        // Save In/Thêu Chung (replace all)
+        // Sync to legacy qlx_in_theu_chung
         await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
-        const itcList = Array.isArray(in_theu_chung) ? in_theu_chung : [];
-        const itcNames = [];
-        for (const itc of itcList) {
-            if (!itc.type || !itc.id) continue;
-            await db.run(`INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at) VALUES ($1,$2,$3,$4,$5)
-                ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING`,
-                [orderId, itc.type, Number(itc.id), request.user.id, now]);
-            if (itc.type === 'user') { const u = await db.get('SELECT full_name FROM users WHERE id=$1', [itc.id]); itcNames.push(u ? u.full_name : ''); }
-            else { const c = await db.get('SELECT name FROM printing_contractors WHERE id=$1', [itc.id]); itcNames.push(c ? '🏭 ' + c.name : ''); }
+        for (const op of otherOps) {
+            await db.run(`
+                INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING
+            `, [orderId, op.type, Number(op.id), request.user.id, now]);
         }
-        if (itcNames.length) {
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [orderId, 'assign_itc', 'In/Thêu Chung: ' + itcNames.join(', '), request.user.id, now]);
+
+        // Sync to printing_records
+        const orderInfo = await db.get(`
+            SELECT o.total_quantity, u.full_name AS cskh_name
+            FROM dht_orders o
+            LEFT JOIN users u ON o.cskh_user_id = u.id
+            WHERE o.id = $1
+        `, [orderId]);
+        const items = await db.all(`SELECT description FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+        const prodName = items.map(it => it.description || '').filter(Boolean).join(', ') || 'Sản phẩm';
+        const orderQty = orderInfo ? orderInfo.total_quantity : 0;
+        const cskhName = orderInfo ? orderInfo.cskh_name : '';
+
+        const allUsers = await db.all(`SELECT id, full_name FROM users`);
+        const allContractors = await db.all(`SELECT id, name FROM printing_contractors`);
+        const userMap = {}; allUsers.forEach(u => userMap[u.id] = u.full_name);
+        const conMap = {}; allContractors.forEach(c => conMap[c.id] = c.name);
+
+        const getOpName = (type, id) => {
+            return type === 'user' ? (userMap[id] || '') : (conMap[id] ? '🏭 ' + conMap[id] : '');
+        };
+
+        const fieldAssignments = {};
+        for (const assign of assignments) {
+            const fid = Number(assign.field_id);
+            if (!fieldAssignments[fid]) fieldAssignments[fid] = [];
+            fieldAssignments[fid].push(assign);
         }
+
+        const allFields = await db.all(`SELECT id, name FROM printing_fields`);
+        const fieldNameMap = {}; allFields.forEach(f => fieldNameMap[f.id] = f.name);
+
+        const existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1`, [orderId]);
+        const existingFMap = {}; existingRecs.forEach(r => existingFMap[r.print_field] = r.id);
+
+        const currentFieldNames = [];
+        for (const fid of Object.keys(fieldAssignments)) {
+            const fieldName = fieldNameMap[fid];
+            if (!fieldName) continue;
+            currentFieldNames.push(fieldName);
+
+            const ops = fieldAssignments[fid];
+            const primaryOp = ops[0];
+            const printerId = primaryOp.operator_type === 'user' ? primaryOp.operator_id : null;
+            const contractorId = primaryOp.operator_type === 'contractor' ? primaryOp.operator_id : null;
+            const sharedNames = ops.slice(1).map(o => getOpName(o.operator_type, o.operator_id)).filter(Boolean).join(', ');
+
+            const existingId = existingFMap[fieldName];
+            if (existingId) {
+                await db.run(`
+                    UPDATE printing_records
+                    SET printer_id = $1, contractor_id = $2, shared_process = $3, updated_at = $4
+                    WHERE id = $5
+                `, [printerId, contractorId, sharedNames || null, now, existingId]);
+            } else {
+                await db.run(`
+                    INSERT INTO printing_records (
+                        dht_order_id, printer_id, contractor_id, shared_process, print_field,
+                        product_name, cskh_name, order_quantity, created_by, created_at, updated_at
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+                `, [
+                    orderId, printerId, contractorId, sharedNames || null, fieldName,
+                    prodName, cskhName, orderQty, request.user.id, now
+                ]);
+            }
+        }
+
+        for (const rec of existingRecs) {
+            if (!currentFieldNames.includes(rec.print_field)) {
+                await db.run(`DELETE FROM printing_records WHERE id = $1`, [rec.id]);
+            }
+        }
+
+        // QLX audit history
+        const assignedDetails = [];
+        for (const fid of Object.keys(fieldAssignments)) {
+            const fieldName = fieldNameMap[fid];
+            const ops = fieldAssignments[fid];
+            const opNames = ops.map(o => getOpName(o.operator_type, o.operator_id)).join(', ');
+            assignedDetails.push(`${fieldName}: ${opNames}`);
+        }
+        const historyDetails = 'Phân công In mới - ' + assignedDetails.join('; ');
+        await db.run(`
+            INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+            VALUES ($1, 'assign_in_new', $2, $3, $4)
+        `, [orderId, historyDetails, request.user.id, now]);
 
         return { success: true };
     });

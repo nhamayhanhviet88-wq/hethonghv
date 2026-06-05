@@ -74,7 +74,17 @@ function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHT
 c.innerHTML=mr.map(r=>{
 const ic=r.is_print_done?'✅':r.is_test_print?'🧪':'📋';
 const nv=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia công'):(r.printer_name||'—');
-const fb=r.print_field==='tem'?'<span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:800">TEM</span>':r.print_field==='pet'?'<span style="background:#ede9fe;color:#7c3aed;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:800">PET</span>':'—';
+let fb = '—';
+if (r.print_field) {
+    let bg = 'rgba(255,255,255,0.08)', fg = '#94a3b8';
+    let fUpper = r.print_field.toUpperCase();
+    if (fUpper.includes('PET')) { bg = 'rgba(124,58,237,0.15)'; fg = '#c4b5fd'; }
+    else if (fUpper.includes('DECAL')) { bg = 'rgba(14,165,233,0.15)'; fg = '#38bdf8'; }
+    else if (fUpper.includes('THÊU')) { bg = 'rgba(245,158,11,0.15)'; fg = '#fde68a'; }
+    else if (fUpper.includes('3D')) { bg = 'rgba(34,197,94,0.15)'; fg = '#86efac'; }
+    else if (fUpper.includes('LƯỚI')) { bg = 'rgba(239,68,68,0.15)'; fg = '#fca5a5'; }
+    fb = '<span style="background:'+bg+';color:'+fg+';padding:2px 10px;border-radius:6px;font-size:12px;font-weight:800">'+r.print_field+'</span>';
+}
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const tA=r.is_test_print?'undo_test':'start_test',dA=r.is_print_done?'undo_done':'print_done';
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'

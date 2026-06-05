@@ -22,7 +22,8 @@ function renderBophaninPage(content) {
     }
     content.innerHTML = '<div class="bpi-wrap"><div class="bpi-sb" id="bpiSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpi-main">'
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpiInfo" style="font-size:12px"></div><div id="bpiStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpiSearch" placeholder="🔍 Tìm SP, CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
-        +(currentUser && currentUser.role === 'giam_doc' ? '<button onclick="_bpiManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công In</button>' : '')
+        +(currentUser && currentUser.role === 'giam_doc' ? '<button onclick="_bpiManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công In</button>'
+        +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>NV In</th><th>Tên SP</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
@@ -91,7 +92,17 @@ function _bpiRender() {
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         var nvName=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia công'):(r.printer_name||'—');
-        var fieldBadge=r.print_field==='tem'?'<span style="background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:4px;font-size:9px;font-weight:800">TEM</span>':r.print_field==='pet'?'<span style="background:#ede9fe;color:#7c3aed;padding:1px 8px;border-radius:4px;font-size:9px;font-weight:800">PET</span>':'—';
+        var fieldBadge = '—';
+        if (r.print_field) {
+            var bg = '#f1f5f9', fg = '#475569';
+            var fUpper = r.print_field.toUpperCase();
+            if (fUpper.includes('PET')) { bg = '#ede9fe'; fg = '#7c3aed'; }
+            else if (fUpper.includes('DECAL')) { bg = '#e0f2fe'; fg = '#0369a1'; }
+            else if (fUpper.includes('THÊU')) { bg = '#fef3c7'; fg = '#b45309'; }
+            else if (fUpper.includes('3D')) { bg = '#dcfce7'; fg = '#15803d'; }
+            else if (fUpper.includes('LƯỚI')) { bg = '#fee2e2'; fg = '#b91c1c'; }
+            fieldBadge = '<span style="background:'+bg+';color:'+fg+';padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800">'+r.print_field+'</span>';
+        }
         var upd=''; if(r.last_update_at){upd=_bpiFD(r.last_update_at); if(r.last_update_by)upd+='<br><span style="color:#7c3aed;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog('+r.id+',\''+tA+'\')" title="In test">'+tI+'</button></td>'
@@ -197,4 +208,187 @@ async function _bpiConDel(id) {
         showToast('✅ Đã xóa');
         _bpiManageContractors();
     } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ========== MANAGE PRINT FIELDS & STAFF ==========
+var _bpFields = [];
+var _bpSelFieldId = null;
+
+async function _bpiManageFields() {
+    try {
+        var res = await apiCall('/api/printing/fields');
+        _bpFields = res.fields || [];
+        if (_bpFields.length && !_bpSelFieldId) {
+            _bpSelFieldId = _bpFields[0].id;
+        }
+        _bpiRenderFieldsModal();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _bpiRenderFieldsModal() {
+    var html = '<div style="padding:20px;font-family:\'Inter\',sans-serif">';
+    html += '<h3 style="margin:0 0 16px;color:#0f172a;display:flex;align-items:center;gap:8px">⚙️ Quản Lý Lĩnh Vực In & Nhân Sự</h3>';
+    
+    html += '<div style="display:flex;gap:20px;min-height:450px">';
+    
+    // LEFT PANEL: Fields List
+    html += '<div style="width:250px;border-right:1px solid #e2e8f0;padding-right:16px;display:flex;flex-direction:column">';
+    html += '<div style="font-weight:800;font-size:12px;color:#475569;margin-bottom:8px">LĨNH VỰC IN</div>';
+    
+    // Add new field input
+    html += '<div style="display:flex;gap:4px;margin-bottom:12px">';
+    html += '<input id="_bpNewFieldName" placeholder="Tên lĩnh vực..." style="flex:1;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px">';
+    html += '<button onclick="_bpiFieldAdd()" style="padding:6px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">Thêm</button>';
+    html += '</div>';
+    
+    html += '<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px">';
+    if (_bpFields.length) {
+        _bpFields.forEach(function(f) {
+            var activeStyle = f.id === _bpSelFieldId 
+                ? 'background:#e0f2fe;color:#0369a1;border-color:#bae6fd;font-weight:700' 
+                : 'background:#f8fafc;color:#334155;border-color:#e2e8f0';
+            html += '<div onclick="_bpiSelectField(' + f.id + ')" style="padding:8px 12px;border:1px solid;border-radius:8px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;' + activeStyle + '">';
+            html += '<span>🎨 ' + f.name + '</span>';
+            html += '<button onclick="event.stopPropagation();_bpiFieldDel(' + f.id + ')" style="padding:2px 6px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px" title="Xóa">🗑️</button>';
+            html += '</div>';
+        });
+    } else {
+        html += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:11px">Chưa có lĩnh vực nào</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+    
+    // RIGHT PANEL: Operator Config
+    html += '<div style="flex:1;display:flex;flex-direction:column" id="_bpFieldOpsContainer">';
+    html += '<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:12px">Đang tải cấu hình nhân sự...</div>';
+    html += '</div>';
+    
+    html += '</div>'; // close display flex
+    
+    html += '<div style="padding:16px 0 0;text-align:right;border-top:1px solid #e2e8f0;margin-top:16px"><button onclick="document.getElementById(\'_bpFieldsOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button></div>';
+    html += '</div>';
+
+    var old = document.getElementById('_bpFieldsOverlay'); if (old) old.remove();
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:qlxFadeIn .2s';
+    ov.id = '_bpFieldsOverlay';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:750px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s">' + html + '</div>';
+    document.body.appendChild(ov);
+    
+    if (_bpSelFieldId) {
+        _bpiLoadFieldOperators(_bpSelFieldId);
+    }
+}
+
+function _bpiSelectField(id) {
+    _bpSelFieldId = id;
+    _bpiRenderFieldsModal();
+}
+
+async function _bpiFieldAdd() {
+    var name = (document.getElementById('_bpNewFieldName') || {}).value || '';
+    if (!name.trim()) return showToast('Nhập tên lĩnh vực', 'error');
+    try {
+        var displayOrder = _bpFields.length;
+        await apiCall('/api/printing/fields', 'POST', { name: name.trim(), display_order: displayOrder });
+        showToast('✅ Đã thêm Lĩnh Vực In');
+        _bpiManageFields();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bpiFieldDel(id) {
+    if (!confirm('Xóa Lĩnh Vực In này? Tất cả phân công liên quan sẽ bị ảnh hưởng.')) return;
+    try {
+        await apiCall('/api/printing/fields/' + id, 'DELETE');
+        showToast('✅ Đã xóa');
+        if (_bpSelFieldId === id) _bpSelFieldId = null;
+        _bpiManageFields();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bpiLoadFieldOperators(fieldId) {
+    var container = document.getElementById('_bpFieldOpsContainer');
+    if (!container) return;
+    try {
+        var res = await apiCall('/api/printing/fields/' + fieldId + '/operators');
+        var staff = res.staff || [];
+        var contractors = res.contractors || [];
+        var assigned = res.assigned || [];
+        
+        var isAssigned = function(type, id) {
+            return assigned.some(function(a) { return a.operator_type === type && a.operator_id === id; });
+        };
+        
+        var selectedField = _bpFields.find(function(f) { return f.id === fieldId; });
+        var fieldName = selectedField ? selectedField.name : '';
+        
+        var h = '<div style="font-weight:800;font-size:12px;color:#475569;margin-bottom:12px">CẤU HÌNH NHÂN SỰ CHO: <span style="color:#0ea5e9">' + fieldName + '</span></div>';
+        
+        h += '<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-right:8px;max-height:350px">';
+        
+        // Staff Section
+        h += '<div>';
+        h += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;background:#f8fafc;padding:4px 8px;border-radius:4px">👤 NHÂN VIÊN PHÒNG IN</div>';
+        if (staff.length) {
+            h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+            staff.forEach(function(s) {
+                var ch = isAssigned('user', s.id) ? 'checked' : '';
+                h += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">';
+                h += '<input type="checkbox" class="_bpOpCheck" data-type="user" data-id="' + s.id + '" ' + ch + ' style="cursor:pointer">';
+                h += '<span>' + s.full_name + '</span>';
+                h += '</label>';
+            });
+            h += '</div>';
+        } else {
+            h += '<div style="color:#94a3b8;font-size:11px;padding-left:8px">Không có nhân viên trong Phòng In</div>';
+        }
+        h += '</div>';
+        
+        // Contractors Section
+        h += '<div>';
+        h += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;background:#f8fafc;padding:4px 8px;border-radius:4px">🏭 BÊN GIA CÔNG IN</div>';
+        if (contractors.length) {
+            h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+            contractors.forEach(function(c) {
+                var ch = isAssigned('contractor', c.id) ? 'checked' : '';
+                h += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">';
+                h += '<input type="checkbox" class="_bpOpCheck" data-type="contractor" data-id="' + c.id + '" ' + ch + ' style="cursor:pointer">';
+                h += '<span>🏭 ' + c.name + '</span>';
+                h += '</label>';
+            });
+            h += '</div>';
+        } else {
+            h += '<div style="color:#94a3b8;font-size:11px;padding-left:8px">Không có nhà gia công in nào. Hãy tạo ở "Quản Lý Gia Công In"</div>';
+        }
+        h += '</div>';
+        
+        h += '</div>'; // close scroll container
+        
+        // Save button
+        h += '<div style="margin-top:auto;padding-top:12px;border-top:1px solid #f1f5f9;text-align:right">';
+        h += '<button onclick="_bpiSaveFieldOperators(' + fieldId + ')" style="padding:8px 24px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 6px rgba(16,185,129,0.2)">💾 Lưu Cấu Hình</button>';
+        h += '</div>';
+        
+        container.innerHTML = h;
+    } catch(e) { container.innerHTML = '<div style="color:#ef4444;text-align:center;padding:40px;font-size:12px">Lỗi: ' + e.message + '</div>'; }
+}
+
+async function _bpiSaveFieldOperators(fieldId) {
+    var checks = document.querySelectorAll('._bpOpCheck');
+    var operators = [];
+    checks.forEach(function(ch) {
+        if (ch.checked) {
+            operators.push({
+                operator_type: ch.getAttribute('data-type'),
+                operator_id: Number(ch.getAttribute('data-id'))
+            });
+        }
+    });
+    
+    try {
+        await apiCall('/api/printing/fields/' + fieldId + '/operators', 'POST', { operators: operators });
+        showToast('✅ Đã lưu cấu hình nhân sự');
+        _bpiLoadFieldOperators(fieldId);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
