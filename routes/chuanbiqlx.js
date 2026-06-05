@@ -151,6 +151,33 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS linked_call_id INTEGER REFERENCES qlx_fabric_reservations(id)`);
     } catch(e) { /* column likely exists */ }
 
+    // Ticket-level (phiếu) migration updates
+    try {
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+        await db.exec(`ALTER TABLE qlx_preparation DROP CONSTRAINT IF EXISTS qlx_preparation_dht_order_id_key`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_prep_item_id ON qlx_preparation(item_id) WHERE item_id IS NOT NULL`);
+    } catch(e) { console.error('[QLX] migration qlx_preparation:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE qlx_assignments ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+        await db.exec(`ALTER TABLE qlx_assignments DROP CONSTRAINT IF EXISTS qlx_assignments_dht_order_id_assignment_type_key`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_assign_item_type ON qlx_assignments(item_id, assignment_type) WHERE item_id IS NOT NULL`);
+    } catch(e) { console.error('[QLX] migration qlx_assignments:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE qlx_order_print_assignments ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+        await db.exec(`ALTER TABLE qlx_order_print_assignments DROP CONSTRAINT IF EXISTS qlx_order_print_assignments_dht_order_id_field_id_operat_key`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_print_assign_item_field ON qlx_order_print_assignments(item_id, field_id, operator_type, operator_id) WHERE item_id IS NOT NULL`);
+    } catch(e) { console.error('[QLX] migration qlx_order_print_assignments:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+    } catch(e) { console.error('[QLX] migration printing_records:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE qlx_history ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+    } catch(e) { console.error('[QLX] migration qlx_history:', e.message); }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -301,6 +328,7 @@ module.exports = async function(fastify) {
                          FROM qlx_order_print_assignments opa
                          LEFT JOIN users u ON opa.operator_type = 'user' AND opa.operator_id = u.id
                          LEFT JOIN printing_contractors pc ON opa.operator_type = 'contractor' AND opa.operator_id = pc.id
+                         WHERE opa.item_id IS NULL
                          GROUP BY opa.dht_order_id, opa.field_id
                      ) op_names
                      JOIN printing_fields pf ON op_names.field_id = pf.id
@@ -308,7 +336,7 @@ module.exports = async function(fastify) {
                     ),
                     COALESCE(a_in.full_name, pc_in.name)
                 ) AS nguoi_in,
-                CASE WHEN EXISTS (SELECT 1 FROM qlx_order_print_assignments WHERE dht_order_id = o.id) THEN NULL
+                CASE WHEN EXISTS (SELECT 1 FROM qlx_order_print_assignments WHERE dht_order_id = o.id AND item_id IS NULL) THEN NULL
                      ELSE (SELECT string_agg(
                         CASE WHEN itc.target_type = 'user' THEN u_itc.full_name ELSE pc_itc.name END, ', ')
                       FROM qlx_in_theu_chung itc
@@ -327,16 +355,16 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             -- Assignments join
-            LEFT JOIN qlx_assignments qa_cat ON qa_cat.dht_order_id = o.id AND qa_cat.assignment_type = 'cat'
+            LEFT JOIN qlx_assignments qa_cat ON qa_cat.dht_order_id = o.id AND qa_cat.assignment_type = 'cat' AND qa_cat.item_id IS NULL
             LEFT JOIN users a_cat ON qa_cat.assigned_user_id = a_cat.id
-            LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in'
+            LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in' AND qa_in.item_id IS NULL
             LEFT JOIN users a_in ON qa_in.assigned_user_id = a_in.id
             LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
-            LEFT JOIN qlx_assignments qa_ep ON qa_ep.dht_order_id = o.id AND qa_ep.assignment_type = 'ep'
+            LEFT JOIN qlx_assignments qa_ep ON qa_ep.dht_order_id = o.id AND qa_ep.assignment_type = 'ep' AND qa_ep.item_id IS NULL
             LEFT JOIN users a_ep ON qa_ep.assigned_user_id = a_ep.id
-            LEFT JOIN qlx_assignments qa_may ON qa_may.dht_order_id = o.id AND qa_may.assignment_type = 'may'
+            LEFT JOIN qlx_assignments qa_may ON qa_may.dht_order_id = o.id AND qa_may.assignment_type = 'may' AND qa_may.item_id IS NULL
             LEFT JOIN users a_may ON qa_may.assigned_user_id = a_may.id
             -- Last history entry
             LEFT JOIN LATERAL (
@@ -354,10 +382,55 @@ module.exports = async function(fastify) {
         let items = [];
         if (orderIds.length > 0) {
             items = await db.all(`
-                SELECT dht_order_id, id, description, material_pairs, quantity
-                FROM dht_order_items
-                WHERE dht_order_id = ANY($1)
-                ORDER BY dht_order_id, id
+                SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
+                       COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
+                       COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
+                       COALESCE(
+                           (SELECT string_agg(DISTINCT u_c.full_name, ', ')
+                            FROM cutting_records cr_c
+                            JOIN users u_c ON cr_c.cutter_id = u_c.id
+                            WHERE cr_c.order_item_id = doi.id
+                           ),
+                           a_cat_item.full_name, a_cat_ord.full_name
+                       ) AS nguoi_cat,
+                       COALESCE(
+                           (SELECT string_agg(pf.name || ': ' || op_names.names, '; ' ORDER BY pf.display_order)
+                            FROM (
+                                SELECT opa.item_id, opa.field_id,
+                                       string_agg(CASE WHEN opa.operator_type = 'user' THEN u.full_name ELSE pc.name END, ', ') AS names
+                                FROM qlx_order_print_assignments opa
+                                LEFT JOIN users u ON opa.operator_type = 'user' AND opa.operator_id = u.id
+                                LEFT JOIN printing_contractors pc ON opa.operator_type = 'contractor' AND opa.operator_id = pc.id
+                                GROUP BY opa.item_id, opa.field_id
+                            ) op_names
+                            JOIN printing_fields pf ON op_names.field_id = pf.id
+                            WHERE op_names.item_id = doi.id
+                           ),
+                           COALESCE(a_in_item_u.full_name, pc_in_item.name),
+                           COALESCE(a_in_ord_u.full_name, pc_in_ord.name)
+                       ) AS nguoi_in,
+                       COALESCE(a_may_item_u.full_name, a_may_ord_u.full_name) AS nguoi_may
+                FROM dht_order_items doi
+                -- Item-level joins
+                LEFT JOIN qlx_preparation p_item ON p_item.item_id = doi.id
+                LEFT JOIN qlx_assignments qa_cat_item ON qa_cat_item.item_id = doi.id AND qa_cat_item.assignment_type = 'cat'
+                LEFT JOIN users a_cat_item ON qa_cat_item.assigned_user_id = a_cat_item.id
+                LEFT JOIN qlx_assignments qa_in_item ON qa_in_item.item_id = doi.id AND qa_in_item.assignment_type = 'in'
+                LEFT JOIN users a_in_item_u ON qa_in_item.assigned_user_id = a_in_item_u.id
+                LEFT JOIN printing_contractors pc_in_item ON qa_in_item.assigned_contractor_id = pc_in_item.id
+                LEFT JOIN qlx_assignments qa_may_item ON qa_may_item.item_id = doi.id AND qa_may_item.assignment_type = 'may'
+                LEFT JOIN users a_may_item_u ON qa_may_item.assigned_user_id = a_may_item_u.id
+                -- Order-level joins (fallback for legacy)
+                LEFT JOIN qlx_preparation p_order ON p_order.dht_order_id = doi.dht_order_id AND p_order.item_id IS NULL
+                LEFT JOIN qlx_assignments qa_cat_ord ON qa_cat_ord.dht_order_id = doi.dht_order_id AND qa_cat_ord.assignment_type = 'cat' AND qa_cat_ord.item_id IS NULL
+                LEFT JOIN users a_cat_ord ON qa_cat_ord.assigned_user_id = a_cat_ord.id
+                LEFT JOIN qlx_assignments qa_in_ord ON qa_in_ord.dht_order_id = doi.dht_order_id AND qa_in_ord.assignment_type = 'in' AND qa_in_ord.item_id IS NULL
+                LEFT JOIN users a_in_ord_u ON qa_in_ord.assigned_user_id = a_in_ord_u.id
+                LEFT JOIN printing_contractors pc_in_ord ON qa_in_ord.assigned_contractor_id = pc_in_ord.id
+                LEFT JOIN qlx_assignments qa_may_ord ON qa_may_ord.dht_order_id = doi.dht_order_id AND qa_may_ord.assignment_type = 'may' AND qa_may_ord.item_id IS NULL
+                LEFT JOIN users a_may_ord_u ON qa_may_ord.assigned_user_id = a_may_ord_u.id
+                WHERE doi.dht_order_id = ANY($1)
+                ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
         }
 
@@ -440,44 +513,70 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const orderId = Number(request.params.orderId);
-        const { action } = request.body || {};
+        const { action, item_id } = request.body || {};
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+        if (item_id) {
+            const itemId = Number(item_id);
+            await db.run(`INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2) ON CONFLICT (item_id) DO NOTHING`, [orderId, itemId]);
 
-        if (action === 'call') {
-            await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                [now, request.user.id, orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_called', 'Đã gọi vật liệu', $2, $3)`,
-                [orderId, request.user.id, now]);
-        } else if (action === 'arrive') {
-            await db.run(`UPDATE qlx_preparation SET material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                [now, request.user.id, orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrived', 'Vật liệu đã về', $2, $3)`,
-                [orderId, request.user.id, now]);
-        } else if (action === 'reset_call') {
-            await db.run(`UPDATE qlx_preparation SET material_called = false, material_called_at = NULL, material_called_by = NULL, material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                [now, orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_reset', 'Đã reset trạng thái vật liệu', $2, $3)`,
-                [orderId, request.user.id, now]);
-        } else if (action === 'reset_arrive') {
-            await db.run(`UPDATE qlx_preparation SET material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                [now, orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrive_reset', 'Đã reset vật liệu về', $2, $3)`,
-                [orderId, request.user.id, now]);
+            if (action === 'call') {
+                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE item_id = $3`,
+                    [now, request.user.id, itemId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_called', 'Đã gọi vật liệu (theo phiếu)', $3, $4)`,
+                    [orderId, itemId, request.user.id, now]);
+            } else if (action === 'arrive') {
+                await db.run(`UPDATE qlx_preparation SET material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE item_id = $3`,
+                    [now, request.user.id, itemId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_arrived', 'Vật liệu đã về (theo phiếu)', $3, $4)`,
+                    [orderId, itemId, request.user.id, now]);
+            } else if (action === 'reset_call') {
+                await db.run(`UPDATE qlx_preparation SET material_called = false, material_called_at = NULL, material_called_by = NULL, material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
+                    [now, itemId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_reset', 'Đã reset trạng thái vật liệu (theo phiếu)', $3, $4)`,
+                    [orderId, itemId, request.user.id, now]);
+            } else if (action === 'reset_arrive') {
+                await db.run(`UPDATE qlx_preparation SET material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
+                    [now, itemId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_arrive_reset', 'Đã reset vật liệu về (theo phiếu)', $3, $4)`,
+                    [orderId, itemId, request.user.id, now]);
+            }
+        } else {
+            await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+
+            if (action === 'call') {
+                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                    [now, request.user.id, orderId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_called', 'Đã gọi vật liệu', $2, $3)`,
+                    [orderId, request.user.id, now]);
+            } else if (action === 'arrive') {
+                await db.run(`UPDATE qlx_preparation SET material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                    [now, request.user.id, orderId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrived', 'Vật liệu đã về', $2, $3)`,
+                    [orderId, request.user.id, now]);
+            } else if (action === 'reset_call') {
+                await db.run(`UPDATE qlx_preparation SET material_called = false, material_called_at = NULL, material_called_by = NULL, material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                    [now, orderId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_reset', 'Đã reset trạng thái vật liệu', $2, $3)`,
+                    [orderId, request.user.id, now]);
+            } else if (action === 'reset_arrive') {
+                await db.run(`UPDATE qlx_preparation SET material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                    [now, orderId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrive_reset', 'Đã reset vật liệu về', $2, $3)`,
+                    [orderId, request.user.id, now]);
+            }
         }
 
         return { success: true };
     });
 
-    // ========== ASSIGN: Phân công người ==========
     fastify.post('/api/qlx/assign/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const orderId = Number(request.params.orderId);
-        const { type, user_id } = request.body || {};
+        const { type, user_id, item_id } = request.body || {};
         const validTypes = ['cat', 'in', 'ep', 'may'];
         if (!validTypes.includes(type)) return reply.code(400).send({ error: 'Loại phân công không hợp lệ' });
 
@@ -485,12 +584,16 @@ module.exports = async function(fastify) {
         if (type === 'in' || type === 'may') {
             const orderStatus = await db.get(`
                 SELECT COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
+                       COALESCE(p.qlx_reviewed, false) AS qlx_reviewed,
                        COALESCE(p.qlx_received_phieu, false) AS qlx_received_phieu
-                FROM dht_orders o LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+                FROM dht_orders o LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
                 WHERE o.id = $1
             `, [orderId]);
             if (!orderStatus || !orderStatus.sx_print_confirmed) {
                 return reply.code(400).send({ error: 'Chưa In Phiếu SX. Không thể phân công In/May.' });
+            }
+            if (!orderStatus.qlx_reviewed) {
+                return reply.code(400).send({ error: 'Chưa duyệt checklist. Không thể phân công In/May.' });
             }
             if (!orderStatus.qlx_received_phieu) {
                 return reply.code(400).send({ error: 'QLX chưa xác nhận nhận Phiếu SX.' });
@@ -502,22 +605,42 @@ module.exports = async function(fastify) {
 
         const typeLabels = { cat: 'Cắt', in: 'In', ep: 'Ép', may: 'May' };
 
-        if (user_id) {
-            const staff = await db.get('SELECT full_name FROM users WHERE id = $1', [Number(user_id)]);
-            await db.run(`
-                INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_by, assigned_at)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (dht_order_id, assignment_type)
-                DO UPDATE SET assigned_user_id = $3, assigned_by = $4, assigned_at = $5
-            `, [orderId, type, Number(user_id), request.user.id, now]);
+        if (item_id) {
+            const itemId = Number(item_id);
+            if (user_id) {
+                const staff = await db.get('SELECT full_name FROM users WHERE id = $1', [Number(user_id)]);
+                await db.run(`
+                    INSERT INTO qlx_assignments (dht_order_id, item_id, assignment_type, assigned_user_id, assigned_by, assigned_at)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (item_id, assignment_type)
+                    DO UPDATE SET assigned_user_id = $4, assigned_by = $5, assigned_at = $6
+                `, [orderId, itemId, type, Number(user_id), request.user.id, now]);
 
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
-                [orderId, 'assign_' + type, `Phân công ${typeLabels[type]}: ${staff?.full_name || 'N/A'}`, request.user.id, now]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [orderId, itemId, 'assign_' + type, `Phân công ${typeLabels[type]} (theo phiếu): ${staff?.full_name || 'N/A'}`, request.user.id, now]);
+            } else {
+                await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = $2`, [itemId, type]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [orderId, itemId, 'unassign_' + type, `Gỡ phân công ${typeLabels[type]} (theo phiếu)`, request.user.id, now]);
+            }
         } else {
-            // Remove assignment
-            await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = $2`, [orderId, type]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
-                [orderId, 'unassign_' + type, `Gỡ phân công ${typeLabels[type]}`, request.user.id, now]);
+            if (user_id) {
+                const staff = await db.get('SELECT full_name FROM users WHERE id = $1', [Number(user_id)]);
+                await db.run(`
+                    INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_by, assigned_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (dht_order_id, assignment_type)
+                    DO UPDATE SET assigned_user_id = $3, assigned_by = $4, assigned_at = $5
+                `, [orderId, type, Number(user_id), request.user.id, now]);
+
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+                    [orderId, 'assign_' + type, `Phân công ${typeLabels[type]}: ${staff?.full_name || 'N/A'}`, request.user.id, now]);
+            } else {
+                // Remove assignment
+                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = $2 AND item_id IS NULL`, [orderId, type]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+                    [orderId, 'unassign_' + type, `Gỡ phân công ${typeLabels[type]}`, request.user.id, now]);
+            }
         }
 
         return { success: true };
@@ -550,12 +673,21 @@ module.exports = async function(fastify) {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
         const orderId = Number(request.params.orderId);
+        const { item_id } = request.query || {};
+        const itemId = item_id ? Number(item_id) : null;
 
         // Order info
         const order = await db.get(`SELECT o.id, o.order_code, o.customer_name FROM dht_orders o WHERE o.id = $1`, [orderId]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
-        const items = await db.all(`SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
-        const itemDesc = items.map(it => it.description || '').filter(Boolean).join(', ');
+        
+        let itemDesc = '';
+        if (itemId) {
+            const it = await db.get(`SELECT description, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
+            if (it) itemDesc = (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')';
+        } else {
+            const items = await db.all(`SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
+            itemDesc = items.map(it => (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')').filter(Boolean).join(', ');
+        }
 
         // Active print fields
         const activeFields = await db.all(`SELECT id, name FROM printing_fields WHERE is_active=true ORDER BY display_order, name`);
@@ -592,12 +724,21 @@ module.exports = async function(fastify) {
             contractors: mappingsByField[f.id].contractors
         }));
 
-        // Current assignments for this order
-        const currentAssigns = await db.all(`
-            SELECT field_id, operator_type, operator_id
-            FROM qlx_order_print_assignments
-            WHERE dht_order_id = $1
-        `, [orderId]);
+        // Current assignments for this order/item
+        let currentAssigns = [];
+        if (itemId) {
+            currentAssigns = await db.all(`
+                SELECT field_id, operator_type, operator_id
+                FROM qlx_order_print_assignments
+                WHERE item_id = $1
+            `, [itemId]);
+        } else {
+            currentAssigns = await db.all(`
+                SELECT field_id, operator_type, operator_id
+                FROM qlx_order_print_assignments
+                WHERE dht_order_id = $1 AND item_id IS NULL
+            `, [orderId]);
+        }
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, items_desc: itemDesc },
@@ -611,7 +752,8 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const orderId = Number(request.params.orderId);
-        const { assignments } = request.body || {}; // array of { field_id, operator_type, operator_id }
+        const { assignments, item_id } = request.body || {}; // array of { field_id, operator_type, operator_id }
+        const itemId = item_id ? Number(item_id) : null;
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
@@ -619,8 +761,12 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
         }
 
-        // Save order print assignments (replace all)
-        await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1`, [orderId]);
+        // Save order print assignments (replace all for this order/item)
+        if (itemId) {
+            await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+        } else {
+            await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+        }
 
         // Keep legacy qlx_assignments / qlx_in_theu_chung populated for compatibility
         let firstOp = null;
@@ -632,11 +778,19 @@ module.exports = async function(fastify) {
             const opId = Number(assign.operator_id);
 
             if (fieldId && ['user', 'contractor'].includes(opType) && opId) {
-                await db.run(`
-                    INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (dht_order_id, field_id, operator_type, operator_id) DO NOTHING
-                `, [orderId, fieldId, opType, opId, request.user.id, now]);
+                if (itemId) {
+                    await db.run(`
+                        INSERT INTO qlx_order_print_assignments (dht_order_id, item_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        ON CONFLICT (item_id, field_id, operator_type, operator_id) DO NOTHING
+                    `, [orderId, itemId, fieldId, opType, opId, request.user.id, now]);
+                } else {
+                    await db.run(`
+                        INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        ON CONFLICT (dht_order_id, field_id, operator_type, operator_id) DO NOTHING
+                    `, [orderId, fieldId, opType, opId, request.user.id, now]);
+                }
 
                 if (!firstOp) {
                     firstOp = { type: opType, id: opId };
@@ -652,24 +806,42 @@ module.exports = async function(fastify) {
         if (firstOp) {
             const userId = firstOp.type === 'user' ? Number(firstOp.id) : null;
             const conId = firstOp.type === 'contractor' ? Number(firstOp.id) : null;
-            await db.run(`
-                INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
-                VALUES ($1, 'in', $2, $3, $4, $5)
-                ON CONFLICT (dht_order_id, assignment_type)
-                DO UPDATE SET assigned_user_id = $2, assigned_contractor_id = $3, assigned_by = $4, assigned_at = $5
-            `, [orderId, userId, conId, request.user.id, now]);
+            if (itemId) {
+                await db.run(`
+                    INSERT INTO qlx_assignments (dht_order_id, item_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
+                    VALUES ($1, $2, 'in', $3, $4, $5, $6)
+                    ON CONFLICT (item_id, assignment_type)
+                    DO UPDATE SET assigned_user_id = $3, assigned_contractor_id = $4, assigned_by = $5, assigned_at = $6
+                `, [orderId, itemId, userId, conId, request.user.id, now]);
+            } else {
+                await db.run(`
+                    INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
+                    VALUES ($1, 'in', $2, $3, $4, $5)
+                    ON CONFLICT (dht_order_id, assignment_type)
+                    DO UPDATE SET assigned_user_id = $2, assigned_contractor_id = $3, assigned_by = $4, assigned_at = $5
+                `, [orderId, userId, conId, request.user.id, now]);
+            }
         } else {
-            await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
+            if (itemId) {
+                await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+            } else {
+                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
+            }
         }
 
         // Sync to legacy qlx_in_theu_chung
-        await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
-        for (const op of otherOps) {
-            await db.run(`
-                INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING
-            `, [orderId, op.type, Number(op.id), request.user.id, now]);
+        if (itemId) {
+            // For ticket-level, we don't necessarily sync multiple operators to legacy qlx_in_theu_chung
+            // or we can optionally delete existing and recreate
+        } else {
+            await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+            for (const op of otherOps) {
+                await db.run(`
+                    INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING
+                `, [orderId, op.type, Number(op.id), request.user.id, now]);
+            }
         }
 
         // Sync to printing_records
@@ -679,9 +851,21 @@ module.exports = async function(fastify) {
             LEFT JOIN users u ON o.cskh_user_id = u.id
             WHERE o.id = $1
         `, [orderId]);
-        const items = await db.all(`SELECT description FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
-        const prodName = items.map(it => it.description || '').filter(Boolean).join(', ') || 'Sản phẩm';
-        const orderQty = orderInfo ? orderInfo.total_quantity : 0;
+        
+        let prodName = 'Sản phẩm';
+        let orderQty = 0;
+        if (itemId) {
+            const it = await db.get(`SELECT description, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
+            if (it) {
+                prodName = (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')';
+                orderQty = it.quantity || 0;
+            }
+        } else {
+            const items = await db.all(`SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+            prodName = items.map(it => (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')').filter(Boolean).join(', ') || 'Sản phẩm';
+            orderQty = orderInfo ? orderInfo.total_quantity : 0;
+        }
+        
         const cskhName = orderInfo ? orderInfo.cskh_name : '';
 
         const allUsers = await db.all(`SELECT id, full_name FROM users`);
@@ -703,7 +887,12 @@ module.exports = async function(fastify) {
         const allFields = await db.all(`SELECT id, name FROM printing_fields`);
         const fieldNameMap = {}; allFields.forEach(f => fieldNameMap[f.id] = f.name);
 
-        const existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1`, [orderId]);
+        let existingRecs = [];
+        if (itemId) {
+            existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE order_item_id = $1`, [itemId]);
+        } else {
+            existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+        }
         const existingFMap = {}; existingRecs.forEach(r => existingFMap[r.print_field] = r.id);
 
         const currentFieldNames = [];
@@ -726,16 +915,29 @@ module.exports = async function(fastify) {
                     WHERE id = $5
                 `, [printerId, contractorId, sharedNames || null, now, existingId]);
             } else {
-                await db.run(`
-                    INSERT INTO printing_records (
-                        dht_order_id, printer_id, contractor_id, shared_process, print_field,
-                        product_name, cskh_name, order_quantity, created_by, created_at, updated_at
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
-                `, [
-                    orderId, printerId, contractorId, sharedNames || null, fieldName,
-                    prodName, cskhName, orderQty, request.user.id, now
-                ]);
+                if (itemId) {
+                    await db.run(`
+                        INSERT INTO printing_records (
+                            dht_order_id, order_item_id, printer_id, contractor_id, shared_process, print_field,
+                            product_name, cskh_name, order_quantity, created_by, created_at, updated_at
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+                    `, [
+                        orderId, itemId, printerId, contractorId, sharedNames || null, fieldName,
+                        prodName, cskhName, orderQty, request.user.id, now
+                    ]);
+                } else {
+                    await db.run(`
+                        INSERT INTO printing_records (
+                            dht_order_id, printer_id, contractor_id, shared_process, print_field,
+                            product_name, cskh_name, order_quantity, created_by, created_at, updated_at
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+                    `, [
+                        orderId, printerId, contractorId, sharedNames || null, fieldName,
+                        prodName, cskhName, orderQty, request.user.id, now
+                    ]);
+                }
             }
         }
 
@@ -753,11 +955,19 @@ module.exports = async function(fastify) {
             const opNames = ops.map(o => getOpName(o.operator_type, o.operator_id)).join(', ');
             assignedDetails.push(`${fieldName}: ${opNames}`);
         }
-        const historyDetails = 'Phân công In mới - ' + assignedDetails.join('; ');
-        await db.run(`
-            INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
-            VALUES ($1, 'assign_in_new', $2, $3, $4)
-        `, [orderId, historyDetails, request.user.id, now]);
+        
+        const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Phân công In mới - ' + assignedDetails.join('; ');
+        if (itemId) {
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, 'assign_in_new', $3, $4, $5)
+            `, [orderId, itemId, historyDetails, request.user.id, now]);
+        } else {
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                VALUES ($1, 'assign_in_new', $2, $3, $4)
+            `, [orderId, historyDetails, request.user.id, now]);
+        }
 
         return { success: true };
     });

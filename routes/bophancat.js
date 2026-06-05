@@ -1327,11 +1327,11 @@ module.exports = async function(fastify) {
                    ) AS has_pc_in,
                    COALESCE(a_in.full_name, pc_in.name) AS nguoi_in
             FROM dht_orders o
-            JOIN qlx_preparation p ON p.dht_order_id = o.id
+            JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
-            LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in'
+            LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in' AND qa_in.item_id IS NULL
             LEFT JOIN users a_in ON qa_in.assigned_user_id = a_in.id
             LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
             WHERE EXISTS (
@@ -1372,7 +1372,13 @@ module.exports = async function(fastify) {
                     cr.fabric_color AS unclaimed_color,
                     cr.cut_warning,
                     cr.id AS cutting_record_id,
-                    (SELECT cutter_id FROM cutting_records r WHERE r.order_item_id = doi.id AND r.is_cut_done = true LIMIT 1) AS original_cutter_id
+                    (SELECT cutter_id FROM cutting_records r WHERE r.order_item_id = doi.id AND r.is_cut_done = true LIMIT 1) AS original_cutter_id,
+                    EXISTS(
+                        SELECT 1 FROM qlx_assignments qa
+                        WHERE qa.assignment_type = 'in'
+                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                          AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                    ) AS has_pc_in
                 FROM dht_order_items doi
                 LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
                 WHERE doi.dht_order_id = ANY($1)
@@ -1444,7 +1450,8 @@ module.exports = async function(fastify) {
                             item_qty: it.quantity,
                             cut_warning: it.cut_warning,
                             cutting_record_id: it.cutting_record_id,
-                            original_cutter_id: it.original_cutter_id
+                            original_cutter_id: it.original_cutter_id,
+                            has_pc_in: it.has_pc_in
                         });
                     }
                 } else {
@@ -1456,7 +1463,8 @@ module.exports = async function(fastify) {
                         material_name: null, color_name: null, item_qty: it.quantity,
                         cut_warning: it.cut_warning,
                         cutting_record_id: it.cutting_record_id,
-                        original_cutter_id: it.original_cutter_id
+                        original_cutter_id: it.original_cutter_id,
+                        has_pc_in: it.has_pc_in
                     });
                 }
             }
@@ -1478,7 +1486,7 @@ module.exports = async function(fastify) {
             SELECT o.id, o.order_code, o.total_quantity, o.shipping_status,
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived
             FROM dht_orders o
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             WHERE o.id = $1
         `, [dht_order_id]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
@@ -1486,8 +1494,14 @@ module.exports = async function(fastify) {
         if (!order.fabric_arrived) return reply.code(400).send({ error: 'Chưa có vải về — không thể nhận đơn cắt' });
 
         const hasPcIn = await db.get(`
-            SELECT 1 FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
-        `, [dht_order_id]);
+            SELECT 1 FROM qlx_assignments
+            WHERE assignment_type = 'in'
+              AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
+              AND (
+                  (item_id = $1)
+                  OR (dht_order_id = $2 AND item_id IS NULL)
+              )
+        `, [order_item_id ? Number(order_item_id) : -1, dht_order_id]);
         if (!hasPcIn) return reply.code(400).send({ error: 'Chưa Phân Công In — không thể nhận đơn cắt' });
 
         // Lookup product's cutting_category for each item
