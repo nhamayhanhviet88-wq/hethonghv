@@ -703,7 +703,7 @@ async function _bpiReportError(recordId) {
 
         h += '<div class="bpi-modal-actions" style="margin-top:0">';
         h += '<button class="bpi-modal-btn cancel" onclick="_bpiCloseErrorModal()">Hủy</button>';
-        h += '<button class="bpi-modal-btn confirm" id="_bpiErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="_bpiSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '<button class="bpi-modal-btn confirm" id="_bpiErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="_bpiSubmitError(\'' + recordId + '\')">🚨 BÁO LỖI</button>';
         h += '</div>';
 
         h += '</div></div>';
