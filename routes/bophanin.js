@@ -537,9 +537,17 @@ module.exports = async function(fastify) {
 
         const orderIds = [...new Set(records.map(r => r.dht_order_id).filter(Boolean))];
         const orderItems = orderIds.length ? await db.all(`
-            SELECT id, dht_order_id, description, quantity, material_pairs 
-            FROM dht_order_items 
-            WHERE dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
+            SELECT 
+                it.id, 
+                it.dht_order_id, 
+                it.description, 
+                it.quantity, 
+                it.material_pairs,
+                cc.name AS cutting_category_name
+            FROM dht_order_items it
+            LEFT JOIN dht_products p ON TRIM(it.description) = p.name AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+            WHERE it.dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
         `, orderIds) : [];
 
         const allPrRecs = orderIds.length ? await db.all(`
@@ -664,10 +672,22 @@ module.exports = async function(fastify) {
                 calculatedSharedProcess = otherOps.join(', ') || null;
             }
 
+            // Determine cutting category
+            let cuttingCategory = null;
+            if (r.order_item_id) {
+                const item = items.find(it => it.id === r.order_item_id);
+                if (item) cuttingCategory = item.cutting_category_name || null;
+            } else {
+                if (items.length > 0) {
+                    cuttingCategory = items[0].cutting_category_name || null;
+                }
+            }
+
             return {
                 ...r,
                 product_name: finalProdName,
                 shared_process: calculatedSharedProcess,
+                cutting_category: cuttingCategory,
                 id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)
             };
         });

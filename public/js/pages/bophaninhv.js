@@ -172,19 +172,44 @@ function _bpiFT(d) {
     }
 }
 
+function _bpiGetQtyColor(r) {
+    var code = (r.order_code || '').toUpperCase();
+    var isTarget = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0;
+    if (isTarget) {
+        return '#0284c7'; // Nice blue/sky-blue for PET/TEM quantities
+    }
+    var isPhoi = false;
+    if (r.product_name) {
+        var match = r.product_name.match(/— P(\d+)/);
+        if (match && parseInt(match[1]) > 1) isPhoi = true;
+    }
+    return isPhoi ? '#c084fc' : '#7c3aed'; // Lighter purple for coordination, purple for main uniform
+}
+
 function _bpiGetQtyDisplay(r) {
-    if (!r.order_quantity) return '—';
+    if (!r.order_quantity && r.order_quantity !== 0) return '—';
     var code = (r.order_code || '').toUpperCase();
     var isTarget = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0;
     if (isTarget) {
         var prod = (r.product_name || '').toLowerCase();
         if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
-            return r.order_quantity + ' Tờ';
+            return r.order_quantity.toLocaleString('vi-VN') + ' Tờ';
         } else if (prod.indexOf('mét') >= 0 || prod.indexOf('met') >= 0) {
-            return r.order_quantity + ' Mét';
+            return r.order_quantity.toLocaleString('vi-VN') + ' Mét';
         }
+        return r.order_quantity.toLocaleString('vi-VN');
     }
-    return r.order_quantity;
+    var isPhoi = false;
+    if (r.product_name) {
+        var match = r.product_name.match(/— P(\d+)/);
+        if (match && parseInt(match[1]) > 1) isPhoi = true;
+    }
+    if (isPhoi) {
+        return r.order_quantity.toLocaleString('vi-VN') + ' Phối';
+    } else {
+        var category = r.cutting_category || 'Áo';
+        return r.order_quantity.toLocaleString('vi-VN') + ' ' + category;
+    }
 }
 
 function _bpiGetProductNameDisplay(r) {
@@ -318,7 +343,7 @@ function _bpiRender() {
         +'<td style="font-weight:600;color:#1e293b">'+_bpiGetProductNameDisplay(r)+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+_bpiGetQtyDisplay(r)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_end_qty||'—')+'</td>'

@@ -64,7 +64,39 @@
 let cu=null,mr=[];
 async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
-function mQty(r){if(!r.order_quantity)return'—';const code=(r.order_code||'').toUpperCase();const isTarget=code.indexOf('GCPET')>=0||code.indexOf('GCTEM')>=0||code.indexOf('SUAGCPET')>=0||code.indexOf('SUAGCTEM')>=0||code.indexOf('SUAPET')>=0||code.indexOf('SUATEM')>=0;if(isTarget){const prod=(r.product_name||'').toLowerCase();if(prod.indexOf('tờ')>=0||prod.indexOf('to')>=0)return r.order_quantity+' Tờ';if(prod.indexOf('mét')>=0||prod.indexOf('met')>=0)return r.order_quantity+' Mét'}return r.order_quantity}
+function mQtyColor(r){
+    const code = (r.order_code || '').toUpperCase();
+    const isTarget = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0;
+    if (isTarget) return '#60a5fa'; // Light blue for dark mode on mobile
+    let isPhoi = false;
+    if (r.product_name) {
+        const match = r.product_name.match(/— P(\d+)/);
+        if (match && parseInt(match[1]) > 1) isPhoi = true;
+    }
+    return isPhoi ? '#c084fc' : '#a78bfa'; // Lighter purple / purple
+}
+function mQty(r){
+    if(!r.order_quantity && r.order_quantity !== 0) return '—';
+    const code=(r.order_code||'').toUpperCase();
+    const isTarget=code.indexOf('GCPET')>=0||code.indexOf('GCTEM')>=0||code.indexOf('SUAGCPET')>=0||code.indexOf('SUAGCTEM')>=0||code.indexOf('SUAPET')>=0||code.indexOf('SUATEM')>=0;
+    if(isTarget){
+        const prod=(r.product_name||'').toLowerCase();
+        if(prod.indexOf('tờ')>=0||prod.indexOf('to')>=0) return r.order_quantity.toLocaleString('vi-VN')+' Tờ';
+        if(prod.indexOf('mét')>=0||prod.indexOf('met')>=0) return r.order_quantity.toLocaleString('vi-VN')+' Mét';
+        return r.order_quantity.toLocaleString('vi-VN');
+    }
+    let isPhoi = false;
+    if (r.product_name) {
+        const match = r.product_name.match(/— P(\d+)/);
+        if (match && parseInt(match[1]) > 1) isPhoi = true;
+    }
+    if (isPhoi) {
+        return r.order_quantity.toLocaleString('vi-VN') + ' Phối';
+    } else {
+        const category = r.cutting_category || 'Áo';
+        return r.order_quantity.toLocaleString('vi-VN') + ' ' + category;
+    }
+}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
@@ -106,7 +138,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="cr"><span class="cl">👨‍💼 CSKH</span><span class="cv" style="color:#60a5fa">'+(r.cskh_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">🏷️ Lĩnh vực</span><span class="cv">'+fb+'</span></div>'
 +'<div class="cd"></div>'
-+'<div class="cr"><span class="cl">📦 SL Đơn</span><span class="cv" style="color:#a78bfa">'+mQty(r)+'</span></div>'
++'<div class="cr"><span class="cl">📦 SL Đơn</span><span class="cv" style="color:\'+mQtyColor(r)+\'">\'+mQty(r)+\'</span></div>'
 +'<div class="cr"><span class="cl">📐 Mét in</span><span class="cv" style="color:#fbbf24;font-size:16px">'+(r.print_meters||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">'+(r.roll_start_qty||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">'+(r.roll_end_qty||'—')+'</span></div>'
