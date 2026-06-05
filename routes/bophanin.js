@@ -77,6 +77,12 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPI] records:', e.message); }
 
     try {
+        await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked BOOLEAN DEFAULT FALSE`);
+        await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked_at TIMESTAMPTZ DEFAULT NULL`);
+        await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked_by INTEGER DEFAULT NULL REFERENCES users(id)`);
+    } catch(e) { console.error('[BPI] audit columns migration error:', e.message); }
+
+    try {
         await db.exec(`CREATE TABLE IF NOT EXISTS printing_history (
             id SERIAL PRIMARY KEY, printing_id INTEGER NOT NULL REFERENCES printing_records(id) ON DELETE CASCADE,
             action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
@@ -108,7 +114,8 @@ module.exports = async function(fastify) {
             const orderQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
             const cskh = await db.get('SELECT u.full_name FROM dht_orders o LEFT JOIN users u ON o.cskh_user_id = u.id WHERE o.id = $1', [dhtOrderId]);
             const cskhName = cskh ? cskh.full_name : '—';
-            const fieldName = order.category_id === 8 ? 'IN PET' : 'IN TEM';
+            const isPet = order.category_id === 8 || (order.order_code && order.order_code.includes('GCPET'));
+            const fieldName = isPet ? 'IN PET' : 'IN TEM';
             const now = vnNow();
 
             const r = await db.get(`
@@ -187,15 +194,17 @@ module.exports = async function(fastify) {
                     o.order_date AS print_date,
                     NULL::int AS printer_id,
                     NULL::int AS contractor_id,
-                    CASE WHEN o.category_id = 8 THEN 'IN PET' ELSE 'IN TEM' END AS print_field,
+                    CASE WHEN o.category_id = 8 OR o.order_code LIKE '%GCPET%' THEN 'IN PET' ELSE 'IN TEM' END AS print_field,
                     false AS is_print_done,
                     false AS is_test_print,
                     false AS error_reported,
                     o.created_at,
                     false AS is_completed
                 FROM dht_orders o
-                WHERE o.category_id IN (8, 9)
-                  AND o.parent_order_id IS NULL
+                WHERE (
+                    (o.category_id IN (8, 9) AND o.parent_order_id IS NULL)
+                    OR (o.parent_order_id IS NOT NULL AND (o.order_code LIKE '%GCPET%' OR o.order_code LIKE '%GCTEM%'))
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM printing_records pr 
                       WHERE pr.dht_order_id = o.id
@@ -210,6 +219,63 @@ module.exports = async function(fastify) {
             FROM unified_printing
         `, params);
 
+        const doneRows = await db.all(`
+            SELECT 
+                EXTRACT(YEAR FROM COALESCE(pr.print_done_at, pr.print_date, o.order_date, pr.created_at))::int AS year,
+                EXTRACT(MONTH FROM COALESCE(pr.print_done_at, pr.print_date, o.order_date, pr.created_at))::int AS month,
+                pr.printer_id,
+                pr.contractor_id,
+                u.full_name AS printer_name,
+                c.name AS contractor_name,
+                COUNT(*)::int AS count
+            FROM printing_records pr
+            LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
+            LEFT JOIN users u ON pr.printer_id = u.id
+            LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+            WHERE (
+                CASE 
+                    WHEN pr.contractor_id IS NOT NULL THEN true
+                    ELSE pr.is_print_done 
+                END
+            ) = true
+            ${userFilter}
+            GROUP BY year, month, pr.printer_id, pr.contractor_id, u.full_name, c.name
+            ORDER BY year DESC, month DESC
+        `, params);
+
+        const doneYearMap = {};
+        for (const dr of doneRows) {
+            const yr = dr.year || new Date().getFullYear();
+            const mo = dr.month || 1;
+            
+            if (!doneYearMap[yr]) doneYearMap[yr] = {};
+            if (!doneYearMap[yr][mo]) doneYearMap[yr][mo] = [];
+            
+            let opName = '—';
+            let opType = null;
+            let opId = null;
+            if (dr.contractor_id) {
+                opName = '🏭 ' + (dr.contractor_name || 'Gia công');
+                opType = 'contractor';
+                opId = dr.contractor_id;
+            } else if (dr.printer_id) {
+                opName = dr.printer_name || 'Nhân viên';
+                opType = 'user';
+                opId = dr.printer_id;
+            } else {
+                opName = 'Chưa phân công';
+                opType = 'user';
+                opId = 0;
+            }
+            
+            doneYearMap[yr][mo].push({
+                operator_name: opName,
+                operator_type: opType,
+                operator_id: opId,
+                count: dr.count
+            });
+        }
+
         const yearMap = {};
         for (const r of rows) {
             const yr = r.year || new Date().getFullYear();
@@ -223,7 +289,8 @@ module.exports = async function(fastify) {
                         decal: 0,
                         tem: 0
                     },
-                    done: 0
+                    done: 0,
+                    doneMonths: {}
                 };
             }
             
@@ -244,6 +311,10 @@ module.exports = async function(fastify) {
                 }
             }
         }
+
+        for (const yr in yearMap) {
+            yearMap[yr].doneMonths = doneYearMap[yr] || {};
+        }
         
         const tree = Object.values(yearMap).sort((a, b) => b.year - a.year);
         const total = tree.reduce((sum, y) => sum + y.count, 0);
@@ -258,7 +329,7 @@ module.exports = async function(fastify) {
     // ========== LIST ==========
     fastify.get('/api/printing/records', { preHandler: [authenticate] }, async (req) => {
         const isManager = await isPrintManager(req);
-        const { year, status, field, search } = req.query;
+        const { year, status, field, search, month, operator_type, operator_id } = req.query;
         
         let userFilter = '';
         let params = [];
@@ -273,6 +344,10 @@ module.exports = async function(fastify) {
             where += ` AND EXTRACT(YEAR FROM up.print_date) = $${idx++}`;
             params.push(Number(year));
         }
+        if (month) {
+            where += ` AND EXTRACT(MONTH FROM COALESCE(up.print_done_at, up.print_date)) = $${idx++}`;
+            params.push(Number(month));
+        }
         if (status) {
             if (status === 'pending') {
                 where += ` AND up.is_completed = false`;
@@ -284,8 +359,17 @@ module.exports = async function(fastify) {
             where += ` AND up.print_field = $${idx++}`;
             params.push(field);
         }
+        if (operator_type) {
+            if (operator_type === 'user') {
+                where += ` AND up.printer_id = $${idx++} AND up.contractor_id IS NULL`;
+                params.push(Number(operator_id));
+            } else if (operator_type === 'contractor') {
+                where += ` AND up.contractor_id = $${idx++}`;
+                params.push(Number(operator_id));
+            }
+        }
         if (search) {
-            where += ` AND (up.product_name ILIKE $${idx} OR up.cskh_name ILIKE $${idx} OR up.order_code ILIKE $${idx})`;
+            where += ` AND (up.product_name ILIKE $${idx} OR up.cskh_name ILIKE $${idx} OR up.order_code ILIKE $${idx} OR up.customer_name ILIKE $${idx})`;
             params.push(`%${search}%`);
             idx++;
         }
@@ -302,12 +386,17 @@ module.exports = async function(fastify) {
                     pr.is_print_done,
                     pr.print_done_at,
                     pr.print_done_by,
+                    pr.audit_checked,
+                    pr.audit_checked_at,
+                    pr.audit_checked_by,
+                    u_audit.full_name AS audit_checked_by_name,
                     pr.error_reported,
                     pr.error_order_id,
                     COALESCE(pr.print_date, o.order_date) AS print_date,
                     pr.printer_id,
                     pr.contractor_id,
-                    COALESCE(pr.product_name, o.customer_name) AS product_name,
+                    o.customer_name AS customer_name,
+                    COALESCE(pr.product_name, (SELECT string_agg(description || ' (SL: ' || quantity || ')', '; ') FROM dht_order_items WHERE dht_order_id = o.id)) AS product_name,
                     COALESCE(pr.cskh_name, u_cskh.full_name) AS cskh_name,
                     COALESCE(pr.order_quantity, o.total_quantity, 0) AS order_quantity,
                     pr.print_meters,
@@ -336,6 +425,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u_pr ON pr.printer_id = u_pr.id
                 LEFT JOIN users u_test ON pr.test_print_by = u_test.id
                 LEFT JOIN users u_done ON pr.print_done_by = u_done.id
+                LEFT JOIN users u_audit ON pr.audit_checked_by = u_audit.id
                 WHERE 1=1 ${userFilter}
 
                 UNION ALL
@@ -350,19 +440,24 @@ module.exports = async function(fastify) {
                     false AS is_print_done,
                     NULL::timestamptz AS print_done_at,
                     NULL::int AS print_done_by,
+                    false AS audit_checked,
+                    NULL::timestamptz AS audit_checked_at,
+                    NULL::int AS audit_checked_by,
+                    NULL AS audit_checked_by_name,
                     false AS error_reported,
                     NULL::int AS error_order_id,
                     o.order_date AS print_date,
                     NULL::int AS printer_id,
                     NULL::int AS contractor_id,
-                    o.customer_name AS product_name,
+                    o.customer_name AS customer_name,
+                    (SELECT string_agg(description || ' (SL: ' || quantity || ')', '; ') FROM dht_order_items WHERE dht_order_id = o.id) AS product_name,
                     u_cskh.full_name AS cskh_name,
                     COALESCE(o.total_quantity, 0) AS order_quantity,
                     0::numeric AS print_meters,
                     0 AS roll_start_qty,
                     0 AS roll_end_qty,
                     NULL AS current_roll,
-                    CASE WHEN o.category_id = 8 THEN 'IN PET' ELSE 'IN TEM' END AS print_field,
+                    CASE WHEN o.category_id = 8 OR o.order_code LIKE '%GCPET%' THEN 'IN PET' ELSE 'IN TEM' END AS print_field,
                     NULL AS shared_process,
                     o.notes,
                     o.created_by,
@@ -376,8 +471,10 @@ module.exports = async function(fastify) {
                     false AS is_completed
                 FROM dht_orders o
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
-                WHERE o.category_id IN (8, 9)
-                  AND o.parent_order_id IS NULL
+                WHERE (
+                    (o.category_id IN (8, 9) AND o.parent_order_id IS NULL)
+                    OR (o.parent_order_id IS NOT NULL AND (o.order_code LIKE '%GCPET%' OR o.order_code LIKE '%GCTEM%'))
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM printing_records pr 
                       WHERE pr.dht_order_id = o.id
@@ -454,6 +551,36 @@ module.exports = async function(fastify) {
         return { success: true, id };
     });
 
+    // ========== AUDIT ==========
+    fastify.post('/api/printing/records/:id/audit', { preHandler: [authenticate] }, async (req, reply) => {
+        const isAuditor = req.user.role === 'giam_doc' || req.user.username === 'trinh';
+        if (!isAuditor) return reply.code(403).send({ error: 'Không có quyền thực hiện chức năng kiểm tra' });
+
+        const idStr = req.params.id, now = vnNow();
+        let id;
+        try {
+            id = await getOrCreatePrintingRecord(idStr, req.user.id);
+        } catch (err) {
+            return reply.code(400).send({ error: err.message });
+        }
+
+        const rec = await db.get('SELECT audit_checked FROM printing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
+
+        const newChecked = !rec.audit_checked;
+        if (newChecked) {
+            await db.run(`UPDATE printing_records SET audit_checked=true, audit_checked_at=$1, audit_checked_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+        } else {
+            await db.run(`UPDATE printing_records SET audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+        }
+
+        const detail = newChecked ? '🔍 Đã kiểm tra' : '↩️ Hủy kiểm tra';
+        await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'audit', detail, req.user.id, now]);
+
+        return { success: true, id, audit_checked: newChecked };
+    });
+
     // ========== UPDATE ==========
     fastify.put('/api/printing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const idStr = req.params.id, b = req.body || {}, now = vnNow();
@@ -466,15 +593,30 @@ module.exports = async function(fastify) {
 
         const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        let auditSql = '';
+        if (b.printer_id !== undefined && Number(b.printer_id) !== Number(rec.printer_id)) {
+            auditSql = `, audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL`;
+        }
+        if (b.contractor_id !== undefined && Number(b.contractor_id) !== Number(rec.contractor_id)) {
+            auditSql = `, audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL`;
+        }
+
         await db.run(`UPDATE printing_records SET print_date=$1, printer_id=$2, contractor_id=$3, product_name=$4, cskh_name=$5,
             order_quantity=$6, print_meters=$7, roll_start_qty=$8, roll_end_qty=$9, current_roll=$10,
-            print_field=$11, shared_process=$12, notes=$13, updated_at=$14 WHERE id=$15`,
+            print_field=$11, shared_process=$12, notes=$13, updated_at=$14 ${auditSql} WHERE id=$15`,
             [b.print_date||rec.print_date, b.printer_id||rec.printer_id, b.contractor_id!==undefined?b.contractor_id:rec.contractor_id,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              Number(b.order_quantity)||rec.order_quantity, Number(b.print_meters)||rec.print_meters,
              Number(b.roll_start_qty)||rec.roll_start_qty, Number(b.roll_end_qty)||rec.roll_end_qty,
              b.current_roll!==undefined?b.current_roll:rec.current_roll, b.print_field!==undefined?b.print_field:rec.print_field,
              b.shared_process!==undefined?b.shared_process:rec.shared_process, b.notes!==undefined?b.notes:rec.notes, now, id]);
+
+        if (auditSql) {
+            await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [id, 'audit_reset', 'Tự động hủy kiểm tra do đổi người in/gia công', req.user.id, now]);
+        }
+
         await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin in', req.user.id, now]);
         return { success: true, id };
@@ -490,12 +632,30 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: err.message });
         }
 
+        const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
+
         const ALLOWED = ['print_date','printer_id','contractor_id','product_name','cskh_name','order_quantity','print_meters',
             'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
         const numF = ['order_quantity','print_meters','roll_start_qty','roll_end_qty','printer_id','contractor_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
-        await db.run(`UPDATE printing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+
+        let auditSql = '';
+        if (field === 'printer_id' || field === 'contractor_id') {
+            const currentVal = rec[field];
+            if (Number(fv) !== Number(currentVal)) {
+                auditSql = `, audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL`;
+            }
+        }
+
+        await db.run(`UPDATE printing_records SET ${field}=$1, updated_at=$2 ${auditSql} WHERE id=$3`, [fv, now, id]);
+
+        if (auditSql) {
+            await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [id, 'audit_reset', 'Tự động hủy kiểm tra do đổi người in/gia công', req.user.id, now]);
+        }
+
         await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'inline_update', `${field}: ${value}`, req.user.id, now]);
         return { success: true, id };

@@ -19,7 +19,7 @@ function renderBophaninPage(content) {
 +'.bpi-sb-label{padding:4px 16px 4px 36px;font-size:9px;font-weight:800;color:#a78bfa;letter-spacing:1px;background:#faf5ff}'
 +'.bpi-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
 +'.bpi-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
-+'.bpi-ib.on-test{background:#fef3c7;border-color:#f59e0b}.bpi-ib.on-done{background:#dcfce7;border-color:#22c55e}.bpi-ib.on-err{background:#fee2e2;border-color:#ef4444}'
++'.bpi-ib.on-test{background:#fef3c7;border-color:#f59e0b}.bpi-ib.on-done{background:#dcfce7;border-color:#22c55e}.bpi-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpi-ib.on-audit{background:#e0f2fe;border-color:#0ea5e9;color:#0284c7}'
 +'@media(max-width:768px){.bpi-sb{display:none}}';
         document.head.appendChild(st);
     }
@@ -29,8 +29,8 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>NV In</th><th>Mã Đơn</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>NV In</th><th>Mã Đơn</th><th>Tên Khách</th><th>Tên SP/Phối</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
         clearTimeout(_t); _t = setTimeout(function() { _bpi.search = document.getElementById('bpiSearch').value || ''; _bpi.page = 1; _bpiRender(); }, 300);
     });
@@ -82,36 +82,80 @@ function _bpiRenderSb() {
             }
             
             // "Đã in xong" folder
-            var doneActive = f.year == yr.year && f.status === 'done';
-            h += '<div class="bpi-sb-month'+(doneActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null)" style="color:#059669">'
-              + '<span>✅ Đã in xong</span>'
+            var doneActive = f.year == yr.year && f.status === 'done' && !f.month;
+            var doneKey = 'd' + yr.year;
+            var doOpen = !!_bpiOpen[doneKey];
+            h += '<div class="bpi-sb-month'+(doneActive?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+doneKey+'\');_bpiFilter('+yr.year+',\'done\',null)" style="color:#059669">'
+              + '<span>'+(doOpen?'▼':'▶')+' ✅ Đã in xong</span>'
               + '<span>'+yr.done+'</span></div>';
+
+            if (doOpen && yr.doneMonths) {
+                var months = Object.keys(yr.doneMonths).map(Number).sort(function(a,b){return b-a;});
+                months.forEach(function(m) {
+                    var mKey = 'm_' + yr.year + '_' + m;
+                    var moOpen = !!_bpiOpen[mKey];
+                    var monthActive = f.year == yr.year && f.status === 'done' && f.month == m && !f.operator_id;
+                    var monthQty = yr.doneMonths[m].reduce(function(sum, op){return sum + op.count;}, 0);
+                    
+                    h += '<div class="bpi-sb-item'+(monthActive?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+mKey+'\');_bpiFilter('+yr.year+',\'done\',null,'+m+')" style="padding-left:36px;font-weight:700;color:#059669">'
+                      + '<span>'+(moOpen?'▼':'▶')+' 📅 Tháng '+String(m).padStart(2,'0')+'</span>'
+                      + '<span>'+monthQty+'</span></div>';
+                      
+                    if (moOpen) {
+                        yr.doneMonths[m].forEach(function(op) {
+                            var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.operator_type === op.operator_type && f.operator_id == op.operator_id;
+                            h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null,'+m+',\''+op.operator_type+'\','+op.operator_id+')" style="padding-left:48px;font-size:10px">'
+                              + '<span>'+op.operator_name+'</span>'
+                              + '<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                        });
+                    }
+                });
+            }
         }
     });
     sb.innerHTML = h;
 }
 
 function _bpiTgl(k) { _bpiOpen[k] = !_bpiOpen[k]; _bpiRenderSb(); }
-function _bpiFilter(y,s,f) { _bpi.filter = { year:y||null, status:s||null, field:f||null }; _bpi.page=1; _bpiRenderSb(); _bpiLoadRecs(); }
+function _bpiFilter(y,s,f,m,opType,opId) { _bpi.filter = { year:y||null, status:s||null, field:f||null, month:m||null, operator_type:opType||null, operator_id:opId||null }; _bpi.page=1; _bpiRenderSb(); _bpiLoadRecs(); }
 
 async function _bpiLoadRecs() {
     var f = _bpi.filter, qs = '?_=1';
     if (f.year) qs += '&year='+f.year;
     if (f.status) qs += '&status='+f.status;
     if (f.field) qs += '&field='+encodeURIComponent(f.field);
+    if (f.month) qs += '&month='+f.month;
+    if (f.operator_type) qs += '&operator_type='+f.operator_type;
+    if (f.operator_id) qs += '&operator_id='+f.operator_id;
     try { var res = await apiCall('/api/printing/records'+qs); _bpi.records = res.records||[]; _bpi.page=1; _bpiRender(); } catch(e) { console.error('[BPI]',e); }
 }
 
 function _bpiFD(d) { if (!d) return '—'; try { var p=d.split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } catch(e) { return d; } }
 
+function _bpiCanAudit() {
+    return currentUser && (currentUser.role === 'giam_doc' || currentUser.username === 'trinh');
+}
+
+function _bpiFT(d) {
+    if (!d) return '';
+    try {
+        var dt = new Date(d);
+        var timeStr = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+        var dateStr = String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+        return timeStr + ' ' + dateStr;
+    } catch(e) {
+        return '';
+    }
+}
+
 function _bpiRender() {
     var all = _bpi.records.slice();
-    if (_bpi.search) { var q=_bpi.search.toLowerCase(); all=all.filter(function(r){return (r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;}); }
+    if (_bpi.search) { var q=_bpi.search.toLowerCase(); all=all.filter(function(r){return (r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.customer_name||'').toLowerCase().indexOf(q)>=0;}); }
     var tot=all.length, tp=Math.ceil(tot/_bpi.ps)||1; if(_bpi.page>tp)_bpi.page=tp; if(_bpi.page<1)_bpi.page=1;
     var s=(_bpi.page-1)*_bpi.ps, paged=all.slice(s,s+_bpi.ps);
     // Render rows
     var tb=document.getElementById('bpiTb'); if(!tb)return;
-    if(!paged.length){tb.innerHTML='<tr><td colspan="17"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
+    if(!paged.length){tb.innerHTML='<tr><td colspan="19"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
     tb.innerHTML=paged.map(function(r,i){
         var tI=r.is_test_print?'🧪':'⬜',tC=r.is_test_print?' on-test':'',tA=r.is_test_print?'undo_test':'start_test';
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
@@ -129,13 +173,37 @@ function _bpiRender() {
             fieldBadge = '<span style="background:'+bg+';color:'+fg+';padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800">'+r.print_field+'</span>';
         }
         var upd=''; if(r.last_update_at){upd=_bpiFD(r.last_update_at); if(r.last_update_by)upd+='<br><span style="color:#7c3aed;font-size:9px">'+r.last_update_by+'</span>';}
+        
+        // Build the Audit (Kiểm tra) column cell
+        var auditCell = '';
+        var canAudit = _bpiCanAudit();
+        if (canAudit) {
+            var aI = r.audit_checked ? '✓' : '⬜';
+            var aC = r.audit_checked ? ' on-audit' : '';
+            var auditDetails = '';
+            if (r.audit_checked && r.audit_checked_by_name) {
+                var shName = r.audit_checked_by_name.split(' ').pop(); // last name
+                auditDetails = '<div style="font-size:8px;color:#0284c7;margin-top:2px;line-height:1">' + shName + '<br>' + _bpiFT(r.audit_checked_at) + '</div>';
+            }
+            auditCell = '<td style="text-align:center"><button class="bpi-ib' + aC + '" onclick="_bpiAudit(\'' + r.id + '\')" title="Kiểm tra">' + aI + '</button>' + auditDetails + '</td>';
+        } else {
+            if (r.audit_checked) {
+                var shName = (r.audit_checked_by_name || '').split(' ').pop() || 'Duyệt';
+                auditCell = '<td style="text-align:center;color:#0284c7;font-weight:700;font-size:9.5px"><span style="background:#e0f2fe;padding:2px 4px;border-radius:4px">✓ ' + shName + '<br>' + _bpiFT(r.audit_checked_at) + '</span></td>';
+            } else {
+                auditCell = '<td style="text-align:center;color:#94a3b8">—</td>';
+            }
+        }
+
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
+        + auditCell
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bpiFD(r.print_date)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
         +'<td style="font-weight:700;color:#0284c7">'+(r.order_code||'—')+'</td>'
+        +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+(r.product_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.order_quantity||'—')+'</td>'
@@ -163,6 +231,15 @@ function _bpiRender() {
 }
 
 async function _bpiTog(id, action) { try { await apiCall('/api/printing/toggle/'+id,'POST',{action}); showToast('✅ Cập nhật'); await _bpiLoadAll(); } catch(e) { showToast(e.message||'Lỗi','error'); } }
+async function _bpiAudit(id) {
+    try {
+        await apiCall('/api/printing/records/' + id + '/audit', 'POST');
+        showToast('✅ Cập nhật trạng thái kiểm tra');
+        await _bpiLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
 function _bpiErr(id) { if(typeof navigate==='function'){navigate('don-loi-khach-hang');showToast('📋 Chuyển sang Đơn Lỗi — tạo báo cáo lỗi nội bộ');} }
 
 // ========== GIA CÔNG IN MANAGEMENT (Giám Đốc only) ==========
