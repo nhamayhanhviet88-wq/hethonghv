@@ -46,6 +46,8 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_cashflow_code TEXT`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS bill_image_url TEXT`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS bill_image_path TEXT`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS vat_amount NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_payer VARCHAR(20) DEFAULT NULL`);
         await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ir_fabric_code ON import_records(fabric_import_code) WHERE fabric_import_code IS NOT NULL`);
     } catch(e) { console.error('[BNH] fabric cols:', e.message); }
 
@@ -275,20 +277,183 @@ module.exports = async function(fastify) {
     });
 
     // ========== CREATE ==========
-    fastify.post('/api/import/records', { preHandler: [authenticate] }, async (req) => {
+    fastify.post('/api/import/records', { preHandler: [authenticate] }, async (req, reply) => {
         const b = req.body || {}, now = vnNow();
-        const fin = calcFinance(b.cost, b.refund, b.paid);
-        const r = await db.get(`INSERT INTO import_records (import_date,source_id,importer_id,fabric_material,fabric_quantity,
-            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,bill_image_url,bill_image_path,created_by,created_at,warehouse_id,material_item_id,fabric_items)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb) RETURNING id`,
-            [b.import_date||null, b.source_id||null, b.importer_id||null, b.fabric_material||null,
-             Number(b.fabric_quantity)||0, b.material_name||null, Number(b.material_quantity)||0,
-             Number(b.cost)||0, Number(b.refund)||0, fin.total_amount, Number(b.paid)||0, fin.debt,
-             b.cost_notes||null, b.bill_image_url||null, b.bill_image_path||null, req.user.id, now,
-             b.warehouse_id||null, b.material_item_id||null, b.fabric_items ? JSON.stringify(b.fabric_items) : '[]']);
-        await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [r.id, 'create', 'Tạo bill nhập hàng mới', req.user.id, now]);
-        return { success: true, id: r.id };
+        
+        // 1. Calculations
+        const baseCost = Number(b.cost) || 0;
+        const vatAmount = Number(b.vat_amount) || 0;
+        const extraCosts = Array.isArray(b.extra_costs) ? b.extra_costs : [];
+        const extraTotal = extraCosts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        const totalAmount = baseCost + vatAmount + extraTotal;
+        const debt = totalAmount; // paid = 0, refund = 0
+        
+        const shipCost = Number(b.ship_cost) || 0;
+        const shipPayer = b.ship_payer; // 'congty' or 'cophanmay'
+        const importDate = b.import_date || now.toISOString().split('T')[0];
+
+        const pool = db.getDB();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            let shipCfId = null;
+            let shipCfCode = null;
+
+            if (shipCost > 0 && (shipPayer === 'congty' || shipPayer === 'cophanmay')) {
+                // Get supplier/source name
+                const srcRes = await client.query('SELECT name FROM import_sources WHERE id = $1', [b.source_id]);
+                const srcName = srcRes.rows[0]?.name || 'N/A';
+                
+                // Format transaction date components in Vietnam timezone
+                const dateParts = importDate.split('-');
+                const yyyy = Number(dateParts[0]);
+                const mm = Number(dateParts[1]);
+                const dd = Number(dateParts[2]);
+                const yy = String(yyyy).slice(-2);
+                
+                const cfDate = importDate;
+                
+                if (shipPayer === 'cophanmay') {
+                    // CPMAY code prefix
+                    // 1. Get next seq for CPMAY on this date
+                    const cfRow = await client.query(
+                        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1 AND cashflow_code LIKE 'CPMAY-%'`,
+                        [cfDate]
+                    );
+                    const seq = Number(cfRow.rows[0].max_seq) + 1;
+                    const cfCode = `CPMAY-TM-${seq}-${dd}-${mm}-Y${yy}`;
+                    const cfDesc = `Chi ship nhập vật liệu + ${srcName} (CP May trả)`;
+                    
+                    // Insert into cashflow_records only
+                    const cfResult = await client.query(
+                        `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by)
+                         VALUES ($1, 'CHI', $2, $3, $4, $5, 'cophanmay', $6) RETURNING id, cashflow_code`,
+                        [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id]
+                    );
+                    shipCfId = cfResult.rows[0].id;
+                    shipCfCode = cfResult.rows[0].cashflow_code;
+                } else {
+                    // Company (congty) code prefix
+                    // 1. Get next seq for TM on this date
+                    const prRow = await client.query(
+                        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM payment_records WHERE payment_date = $1 AND payment_method = 'TM'`,
+                        [cfDate]
+                    );
+                    const cfRow = await client.query(
+                        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1 AND cashflow_code LIKE 'TM%'`,
+                        [cfDate]
+                    );
+                    const seq = Math.max(Number(prRow.rows[0].max_seq), Number(cfRow.rows[0].max_seq)) + 1;
+                    const cfCode = `TM${seq}-${dd}-${mm}-Y${yy}`;
+                    const cfDesc = `Chi ship nhập vật liệu + ${srcName} (Công Ty trả)`;
+                    
+                    // Insert into payment_records
+                    await client.query(
+                        `INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                         VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)`,
+                        [cfCode, seq, shipCost, cfDesc, 'congty', cfDate, req.user.id]
+                    );
+                    
+                    // Insert into cashflow_records
+                    const cfResult = await client.query(
+                        `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by)
+                         VALUES ($1, 'CHI', $2, $3, $4, $5, 'congty', $6) RETURNING id, cashflow_code`,
+                        [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id]
+                    );
+                    shipCfId = cfResult.rows[0].id;
+                    shipCfCode = cfResult.rows[0].cashflow_code;
+                }
+            }
+
+            // Insert into import_records
+            const result = await client.query(
+                `INSERT INTO import_records (
+                    import_date, source_id, importer_id, fabric_material, fabric_quantity,
+                    material_name, material_quantity, cost, refund, total_amount, paid, debt,
+                    cost_notes, bill_image_url, bill_image_path, created_by, created_at,
+                    warehouse_id, material_item_id, fabric_items, record_type,
+                    vat_amount, extra_costs, ship_cost, ship_payer, ship_cashflow_id, ship_cashflow_code
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5,
+                    $6, $7, $8, $9, $10, $11, $12,
+                    $13, $14, $15, $16, $17,
+                    $18, $19, $20::jsonb, 'general',
+                    $21, $22::jsonb, $23, $24, $25, $26
+                ) RETURNING id`,
+                [
+                    b.import_date || null, b.source_id || null, b.importer_id || null, b.fabric_material || null,
+                    Number(b.fabric_quantity) || 0, b.material_name || null, Number(b.material_quantity) || 0,
+                    baseCost, 0, totalAmount, 0, debt,
+                    b.cost_notes || null, b.bill_image_url || null, b.bill_image_path || null, req.user.id, now,
+                    b.warehouse_id || null, b.material_item_id || null, b.fabric_items ? JSON.stringify(b.fabric_items) : '[]',
+                    vatAmount, JSON.stringify(extraCosts), shipCost, shipPayer || null, shipCfId, shipCfCode
+                ]
+            );
+            const importId = result.rows[0].id;
+
+            // History
+            await client.query(
+                `INSERT INTO import_history (import_id, action, details, performed_by, performed_at)
+                 VALUES ($1, 'create', 'Tạo bill nhập hàng mới', $2, $3)`,
+                [importId, req.user.id, now]
+            );
+
+            await client.query('COMMIT');
+
+            // 2. Send Telegram notifications (outside the main db transaction for safety)
+            if (shipCost > 0 && shipCfCode) {
+                try {
+                    const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
+                    const amtStr = shipCost.toLocaleString('vi-VN');
+                    const src = await db.get('SELECT name FROM import_sources WHERE id=$1', [b.source_id]);
+                    const srcName = src?.name || '';
+                    
+                    if (shipPayer === 'cophanmay') {
+                        // Notify Sổ Thu Chi Telegram group
+                        if (tgRow && tgRow.value) {
+                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
+                            const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
+                            const runBal = Number(thuSum.t) - Number(chiSum.t);
+                            const balStr = runBal.toLocaleString('vi-VN');
+                            const caption = `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship nhập vật liệu + ${srcName} (CP May trả) 👤 ${req.user.full_name || req.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
+                            await sendTelegramMessage(tgRow.value, caption);
+                        }
+                        
+                        // Notify Sổ Cổ Phần May Telegram group
+                        const cpmTgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cpmay_group'");
+                        if (cpmTgRow && cpmTgRow.value) {
+                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const cpmTotal = await db.get("SELECT COALESCE(SUM(CASE WHEN cashflow_type='THU' THEN amount ELSE -amount END),0) AS t FROM cashflow_records WHERE money_source='cophanmay' AND is_closed=false");
+                            const cpmTotalStr = Number(cpmTotal.t).toLocaleString('vi-VN');
+                            const cpmCaption = `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship nhập vật liệu + ${srcName} (CP May trả) 👤 ${req.user.full_name || req.user.username}\n\n🔗Tổng CP May : <b>${cpmTotalStr}đ</b>`;
+                            await sendTelegramMessage(cpmTgRow.value, cpmCaption);
+                        }
+                    } else if (shipPayer === 'congty') {
+                        // Notify Sổ Thu Chi Telegram group
+                        if (tgRow && tgRow.value) {
+                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
+                            const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
+                            const runBal = Number(thuSum.t) - Number(chiSum.t);
+                            const balStr = runBal.toLocaleString('vi-VN');
+                            const caption = `🔴CHI TM <b>CÔNG TY</b> :\n💰${shipCfCode} : <b>${amtStr}đ</b> Chi ship nhập vật liệu + ${srcName} (Công Ty trả) 👤 ${req.user.full_name || req.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
+                            await sendTelegramMessage(tgRow.value, caption);
+                        }
+                    }
+                } catch(tgErr) { console.error('[BNH Material Ship TG]', tgErr.message); }
+            }
+
+            return { success: true, id: importId };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('[BNH Material Insert]', err.message);
+            return reply.code(400).send({ error: err.message || 'Lỗi khi nhập vật liệu' });
+        } finally {
+            client.release();
+        }
     });
 
     // ========== TOGGLE CHECK ==========
