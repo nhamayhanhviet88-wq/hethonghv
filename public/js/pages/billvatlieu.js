@@ -804,7 +804,7 @@ async function _bvlDetail(id) {
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600">' + _bvlFD(r.import_date) + '</div></div>'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600">' + (r.importer_name || '—') + '</div></div></div>';
 
-    var whHtml = r.warehouse_name ? ' &nbsp; $\\rightarrow$ &nbsp; <b style="color:#2563eb">🏢 ' + r.warehouse_name + '</b>' : '';
+    var whHtml = r.warehouse_name ? ' &nbsp; ➔ &nbsp; <b style="color:#2563eb">🏢 ' + r.warehouse_name + '</b>' : '';
     h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC & KHO</div><div style="font-size:12px;font-weight:700;color:#0d9488">🏪 ' + (r.source_name || '—') + whHtml + '</div></div>';
 
     var items = [];
@@ -823,10 +823,6 @@ async function _bvlDetail(id) {
                 + '<span>SL: <b>' + _bvlFM(item.quantity) + '</b>' + priceStr + ' &nbsp;|&nbsp; Chi phí: <b style="color:#0d9488">' + _bvlFM(item.cost) + '₫</b></span>'
                 + '</div>';
         });
-        h += '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-top:8px;padding-top:4px;border-top:1px solid #ccfbf1">'
-            + '<span>Tổng Cộng Vật Tư:</span>'
-            + '<span style="color:#0d9488">SL: ' + _bvlFM(r.fabric_quantity) + ' &nbsp;|&nbsp; ' + _bvlFM(r.cost) + '₫</span>'
-            + '</div>';
     } else {
         h += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span>Tên vật liệu:</span><b style="color:#1e293b">' + (r.material_item_name || r.fabric_material || '—') + '</b></div>'
             + '<div style="display:flex;justify-content:space-between;font-size:12px"><span>Số lượng:</span><b style="color:#0d9488">' + _bvlFM(r.fabric_quantity) + '</b></div>';
@@ -849,6 +845,12 @@ async function _bvlDetail(id) {
         });
         h += '</div>';
     }
+
+    // New 💰 TỔNG CỘNG TIỀN BILL bar
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;background:#e2e8f0;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:800;font-size:13px;color:#1e293b">'
+        + '<span>💰 TỔNG CỘNG TIỀN BILL:</span>'
+        + '<span style="color:#0d9488;font-size:16px">' + _bvlFM(r.total_amount) + '₫</span>'
+        + '</div>';
 
     // Show VAT & Ship Cost
     if (Number(r.vat_amount) > 0 || Number(r.ship_cost) > 0) {

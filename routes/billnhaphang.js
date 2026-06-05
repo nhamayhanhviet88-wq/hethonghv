@@ -383,7 +383,7 @@ module.exports = async function(fastify) {
                     $21, $22::jsonb, $23, $24, $25, $26
                 ) RETURNING id`,
                 [
-                    b.import_date || null, b.source_id || null, b.importer_id || null, b.fabric_material || null,
+                    b.import_date || null, b.source_id || null, b.importer_id || req.user.id, b.fabric_material || null,
                     Number(b.fabric_quantity) || 0, b.material_name || null, Number(b.material_quantity) || 0,
                     baseCost, 0, totalAmount, 0, debt,
                     b.cost_notes || null, b.bill_image_url || null, b.bill_image_path || null, req.user.id, now,
@@ -703,11 +703,12 @@ module.exports = async function(fastify) {
     // ========== FABRIC DETAIL ==========
     fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const rec = await db.get(`
-            SELECT ir.*, s.name AS source_name, u.full_name AS importer_name,
+            SELECT ir.*, s.name AS source_name, COALESCE(u.full_name, uc.full_name) AS importer_name,
                    w.name AS warehouse_name, mi.name AS material_item_name
             FROM import_records ir 
             LEFT JOIN import_sources s ON ir.source_id=s.id 
             LEFT JOIN users u ON ir.importer_id=u.id 
+            LEFT JOIN users uc ON ir.created_by=uc.id
             LEFT JOIN material_warehouses w ON ir.warehouse_id=w.id
             LEFT JOIN material_items mi ON ir.material_item_id=mi.id
             WHERE ir.id=$1`, [Number(req.params.id)]);
