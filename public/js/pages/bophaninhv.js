@@ -1,6 +1,9 @@
 // ========== BỘ PHẬN IN — Desktop SPA ==========
-var _bpi = { records: [], tree: null, filter: { year: null, status: null, field: null }, search: '', page: 1, ps: 100, contractors: [] };
+var currentYear = new Date().getFullYear();
+var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, search: '', page: 1, ps: 100, contractors: [] };
 var _bpiOpen = {};
+_bpiOpen['y' + currentYear] = true;
+_bpiOpen['p' + currentYear] = true;
 
 function renderBophaninPage(content) {
     if (!document.getElementById('_bpiS')) {
@@ -26,8 +29,8 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>NV In</th><th>Tên SP</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<th>STT</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Ngày In</th><th>NV In</th><th>Mã Đơn</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>Lĩnh Vực</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
         clearTimeout(_t); _t = setTimeout(function() { _bpi.search = document.getElementById('bpiSearch').value || ''; _bpi.page = 1; _bpiRender(); }, 300);
     });
@@ -108,7 +111,7 @@ function _bpiRender() {
     var s=(_bpi.page-1)*_bpi.ps, paged=all.slice(s,s+_bpi.ps);
     // Render rows
     var tb=document.getElementById('bpiTb'); if(!tb)return;
-    if(!paged.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
+    if(!paged.length){tb.innerHTML='<tr><td colspan="17"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
     tb.innerHTML=paged.map(function(r,i){
         var tI=r.is_test_print?'🧪':'⬜',tC=r.is_test_print?' on-test':'',tA=r.is_test_print?'undo_test':'start_test';
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
@@ -132,8 +135,9 @@ function _bpiRender() {
         +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bpiFD(r.print_date)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+( r.product_name||r.order_code||'—')+'</td>'
-        +'<td style="font-size:10px;color:#0369a1">'+( r.cskh_name||'—')+'</td>'
+        +'<td style="font-weight:700;color:#0284c7">'+(r.order_code||'—')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b">'+(r.product_name||'—')+'</td>'
+        +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+(r.order_quantity||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'—')+'</td>'
