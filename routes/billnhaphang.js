@@ -494,8 +494,7 @@ module.exports = async function(fastify) {
             FROM import_payments p 
             LEFT JOIN users u ON p.paid_by=u.id 
             WHERE p.import_id=$1 
-               OR p.allocations::text LIKE '%"bill_id":' || $1 || ',%'
-               OR p.allocations::text LIKE '%"bill_id":' || $1 || '}%'
+               OR p.allocations @> jsonb_build_array(jsonb_build_object('bill_id', $1::int))
             ORDER BY p.paid_at DESC`, [importId]);
         return { payments };
     });
