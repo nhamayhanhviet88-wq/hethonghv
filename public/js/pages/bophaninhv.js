@@ -655,7 +655,7 @@ async function _bpiReportError(recordId) {
 
         var old = document.getElementById('_bpiErrorModal'); if (old) old.remove();
 
-        var printerName = window.currentUser ? window.currentUser.full_name : 'Nhân viên in';
+        var printerName = window._currentUser ? (window._currentUser.username || window._currentUser.full_name) : 'Nhân viên in';
         var reporterName = 'Người Báo Lỗi: Bộ Phận In - ' + printerName;
         var saleName = r.cskh_name || '—';
 
@@ -852,7 +852,7 @@ async function _bpiSubmitError(recordId) {
             today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
         }
 
-        var printerName = window.currentUser ? window.currentUser.full_name : 'Nhân viên in';
+        var printerName = window._currentUser ? (window._currentUser.username || window._currentUser.full_name) : 'Nhân viên in';
         var reporterName = 'Người Báo Lỗi: Bộ Phận In - ' + printerName;
 
         var body = {
