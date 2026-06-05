@@ -536,9 +536,20 @@ function _bvlOpenMat() {
     + '<input id="_bvlVatAmount" type="number" placeholder="Tự điền số tiền VAT..." oninput="_bvlCalculateTotal()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:700;color:#1e293b"></div>'
 
     // 5. Total bill cost
-    + '<div style="display:flex;justify-content:space-between;align-items:center;background:#e2e8f0;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:800;font-size:13px;color:#1e293b">'
+    + '<style>'
+    + '@keyframes bvlGlow {'
+    + '  0% { box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25), 0 0 4px rgba(217, 119, 6, 0.15); }'
+    + '  50% { box-shadow: 0 8px 25px rgba(245, 158, 11, 0.65), 0 0 15px rgba(245, 158, 11, 0.35); }'
+    + '  100% { box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25), 0 0 4px rgba(217, 119, 6, 0.15); }'
+    + '}'
+    + '</style>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;'
+    + 'background:linear-gradient(135deg, #d97706, #f59e0b, #b45309);'
+    + 'color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:12px;'
+    + 'font-weight:900;font-size:14px;border:1px solid rgba(255,255,255,0.2);'
+    + 'animation: bvlGlow 2.5s infinite ease-in-out">'
     + '<span>💰 TỔNG CỘNG TIỀN BILL:</span>'
-    + '<span id="_bvlTotalBillCost" style="color:#0d9488;font-size:16px">0₫</span>'
+    + '<span id="_bvlTotalBillCost" style="font-size:18px;text-shadow:0 1px 3px rgba(0,0,0,0.35)">0₫</span>'
     + '</div>'
 
     // 7. Ảnh Bill
