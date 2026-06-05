@@ -6,6 +6,11 @@ _bpiOpen['y' + currentYear] = true;
 _bpiOpen['p' + currentYear] = true;
 
 function renderBophaninPage(content) {
+    if (!document.getElementById('_bpiFontLink')) {
+        var fl = document.createElement('link'); fl.id = '_bpiFontLink'; fl.rel = 'stylesheet';
+        fl.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap';
+        document.head.appendChild(fl);
+    }
     if (!document.getElementById('_bpiS')) {
         var st = document.createElement('style'); st.id = '_bpiS';
         st.textContent = '.bpi-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}.bpi-sb{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto}.bpi-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.bpi-main>*{flex-shrink:0}'
@@ -20,7 +25,26 @@ function renderBophaninPage(content) {
 +'.bpi-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
 +'.bpi-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
 +'.bpi-ib.on-test{background:#fef3c7;border-color:#f59e0b}.bpi-ib.on-done{background:#dcfce7;border-color:#22c55e}.bpi-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpi-ib.on-audit{background:#e0f2fe;border-color:#0ea5e9;color:#0284c7}'
-+'@media(max-width:768px){.bpi-sb{display:none}}';
++'@media(max-width:768px){.bpi-sb{display:none}}'
++ '.bpi-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s ease}'
++ '.bpi-modal-overlay.show{opacity:1}'
++ '.bpi-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}'
++ '.bpi-modal-overlay.show .bpi-modal{transform:scale(1)}'
++ '.bpi-modal-header{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px}'
++ '.bpi-modal-header .m-icon{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))}'
++ '.bpi-modal-header .m-title{font-size:16px;font-weight:800;letter-spacing:0.3px;font-family:Inter,system-ui,sans-serif}'
++ '.bpi-modal-header .m-sub{font-size:11px;opacity:0.85;margin-top:2px}'
++ '.bpi-modal-body{padding:20px 24px}'
++ '.bpi-modal-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-family:Inter,system-ui,sans-serif}'
++ '.bpi-modal-row:last-child{border-bottom:none}'
++ '.bpi-modal-lbl{font-size:12px;color:#64748b;font-weight:600}'
++ '.bpi-modal-val{font-size:13px;color:#1e293b;font-weight:700;text-align:right;max-width:60%}'
++ '.bpi-modal-actions{display:flex;gap:10px;padding:16px 24px;border-top:1px solid #f1f5f9}'
++ '.bpi-modal-btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,system-ui,sans-serif;transition:all .15s}'
++ '.bpi-modal-btn.confirm{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;box-shadow:0 4px 15px rgba(124,58,237,0.3)}'
++ '.bpi-modal-btn.confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(124,58,237,0.4)}'
++ '.bpi-modal-btn.cancel{background:#f1f5f9;color:#475569}'
++ '.bpi-modal-btn.cancel:hover{background:#e2e8f0}';
         document.head.appendChild(st);
     }
     content.innerHTML = '<div class="bpi-wrap"><div class="bpi-sb" id="bpiSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpi-main">'
@@ -360,7 +384,7 @@ async function _bpiAudit(id) {
         showToast(e.message || 'Lỗi', 'error');
     }
 }
-function _bpiErr(id) { if(typeof navigate==='function'){navigate('don-loi-khach-hang');showToast('📋 Chuyển sang Đơn Lỗi — tạo báo cáo lỗi nội bộ');} }
+function _bpiErr(id) { _bpiReportError(id); }
 
 // ========== GIA CÔNG IN MANAGEMENT (Giám Đốc only) ==========
 async function _bpiManageContractors() {
@@ -615,4 +639,270 @@ async function _bpiSaveFieldOperators(fieldId) {
         showToast('✅ Đã lưu cấu hình nhân sự');
         _bpiLoadFieldOperators(fieldId);
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ========== REPORT ERROR MODAL ==========
+async function _bpiReportError(recordId) {
+    if (window._bpiBusy) return;
+    window._bpiBusy = true;
+
+    try {
+        var r = _bpi.records.find(function(x) { return x.id == recordId; });
+        if (!r) { showToast('Không tìm thấy đơn in', 'error'); window._bpiBusy = false; return; }
+
+        var ce = await apiCall('/api/common-errors-tpl');
+        var commonErrors = ce.items || [];
+
+        var old = document.getElementById('_bpiErrorModal'); if (old) old.remove();
+
+        var printerName = window.currentUser ? window.currentUser.full_name : 'Nhân viên in';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận In - ' + printerName;
+        var saleName = r.cskh_name || '—';
+
+        window._bpiErrorImages = [];
+
+        var h = '<div class="bpi-modal-overlay" id="_bpiErrorModal" onclick="if(event.target===this)_bpiCloseErrorModal()">';
+        h += '<div class="bpi-modal" style="width:520px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
+        h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea)"><div class="m-icon">🚨</div><div><div class="m-title">BÁO ĐƠN LỖI</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+        h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
+
+        h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">📋 Mã Đơn</span><span class="bpi-modal-val" style="font-weight:700">' + (r.order_code || '—') + '</span></div>';
+        h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">👤 Khách Hàng</span><span class="bpi-modal-val" style="font-weight:700">' + (r.customer_name || '—') + '</span></div>';
+        h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">💼 CSKH</span><span class="bpi-modal-val" style="font-weight:700">' + saleName + '</span></div>';
+        h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">📦 SL Sản Xuất</span><span class="bpi-modal-val" style="font-weight:700;color:#059669">' + (r.order_quantity || 0) + '</span></div>';
+        h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpi-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
+
+        h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+        h += '<select id="bpiE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc">';
+        h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
+        commonErrors.forEach(function(ce){
+            h += '<option value="' + ce.error_name + '">' + ce.error_name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
+        h += '<input type="number" id="bpiE_qty" min="1" max="' + (r.order_quantity || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626" placeholder="Nhập số lượng lỗi...">';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
+        h += '<textarea id="bpiE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div style="border:1.5px dashed #7c3aed;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(124,58,237,0.03);color:#7c3aed;font-size:13px;font-weight:700;">';
+        h += '    Bấm <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> tại bất kỳ đâu trên trang này để dán ảnh';
+        h += '</div>';
+        h += '<div id="bpiE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="bpiE_video" accept="video/*" style="font-size:11px;width:100%">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="bpi-modal-actions" style="margin-top:0">';
+        h += '<button class="bpi-modal-btn cancel" onclick="_bpiCloseErrorModal()">Hủy</button>';
+        h += '<button class="bpi-modal-btn confirm" id="_bpiErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="_bpiSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+        requestAnimationFrame(function() { document.getElementById('_bpiErrorModal').classList.add('show'); });
+
+        _bpiSetupPasteListener();
+        window._bpiBusy = false;
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        window._bpiBusy = false;
+    }
+}
+
+function _bpiCloseErrorModal() {
+    var m = document.getElementById('_bpiErrorModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+    if (window._bpiPasteHandler) {
+        window.removeEventListener('paste', window._bpiPasteHandler);
+        window._bpiPasteHandler = null;
+    }
+}
+
+function _bpiAddErrorImage(file) {
+    _bpiCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._bpiErrorImages.push(compressed);
+        _bpiRenderErrorImagePreviews();
+    });
+}
+
+function _bpiRenderErrorImagePreviews() {
+    var area = document.getElementById('bpiE_previews');
+    if (!area) return;
+    var h = '';
+    window._bpiErrorImages.forEach(function(imgData, index) {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1">';
+        h += '<span onclick="_bpiRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function _bpiRemoveErrorImage(index) {
+    window._bpiErrorImages.splice(index, 1);
+    _bpiRenderErrorImagePreviews();
+}
+
+function _bpiSetupPasteListener() {
+    if (window._bpiPasteHandler) {
+        window.removeEventListener('paste', window._bpiPasteHandler);
+    }
+    window._bpiPasteHandler = function(e) {
+        if (!document.getElementById('_bpiErrorModal')) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                var blob = items[i].getAsFile();
+                _bpiAddErrorImage(blob);
+            }
+        }
+    };
+    window.addEventListener('paste', window._bpiPasteHandler);
+}
+
+function _bpiDataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
+function _bpiCompressImage(file, callback) {
+    if (!file) return callback(null);
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxWidth = 1000;
+            var maxHeight = 1000;
+            var width = img.width;
+            var height = img.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = Math.round((width * maxHeight) / height);
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            var compressed = canvas.toDataURL('image/jpeg', 0.7);
+            callback(compressed);
+        };
+        img.onerror = function() {
+            callback(e.target.result);
+        };
+        img.src = e.target.result;
+    };
+    reader.onerror = function() {
+        callback(null);
+    };
+    reader.readAsDataURL(file);
+}
+
+async function _bpiSubmitError(recordId) {
+    if (window._bpiSubmitBusy) return;
+
+    var qtyEl = document.getElementById('bpiE_qty');
+    var qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { showToast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    var contentEl = document.getElementById('bpiE_content');
+    var content = contentEl.value.trim();
+    if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._bpiErrorImages || window._bpiErrorImages.length === 0) {
+        showToast('Vui lòng dán hoặc chọn ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
+
+    window._bpiSubmitBusy = true;
+    var btn = document.getElementById('_bpiErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        var r = _bpi.records.find(function(x) { return x.id == recordId; });
+        if (!r) { throw new Error('Không tìm thấy record gốc'); }
+
+        var today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            var n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+        }
+
+        var printerName = window.currentUser ? window.currentUser.full_name : 'Nhân viên in';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận In - ' + printerName;
+
+        var body = {
+            report_date: today,
+            common_error_type: document.getElementById('bpiE_common') ? document.getElementById('bpiE_common').value : '',
+            order_code: r.order_code,
+            cskh_name: reporterName,
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: r.dht_order_id,
+            customer_name: r.customer_name,
+            production_quantity: r.order_quantity,
+            linh_vuc: r.print_field,
+            error_department: 'In',
+            error_type: 'Nội Bộ'
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { throw new Error(result.error); }
+
+        if (window._bpiErrorImages && window._bpiErrorImages.length > 0 && result.id) {
+            var fd = new FormData();
+            window._bpiErrorImages.forEach(function(imgData, index) {
+                var blob = _bpiDataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        var videoInput = document.getElementById('bpiE_video');
+        if (videoInput && videoInput.files.length > 0 && result.id) {
+            var fdv = new FormData();
+            fdv.append('video', videoInput.files[0]);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
+        }
+
+        await apiCall('/api/printing/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+        showToast('✅ Đã báo đơn lỗi thành công!');
+        _bpiCloseErrorModal();
+        await _bpiLoadAll();
+        
+        // Redirect to don-loi-khach-hang menu after reporting
+        if (typeof navigate === 'function') {
+            navigate('don-loi-khach-hang');
+        }
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._bpiSubmitBusy = false;
+    }
 }
