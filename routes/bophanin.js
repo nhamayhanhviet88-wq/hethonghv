@@ -94,6 +94,37 @@ module.exports = async function(fastify) {
         return false;
     }
 
+    async function getOrCreatePrintingRecord(idStr, userId) {
+        if (typeof idStr === 'string' && idStr.startsWith('dht_')) {
+            const dhtOrderId = Number(idStr.replace('dht_', ''));
+            const existing = await db.get('SELECT id FROM printing_records WHERE dht_order_id = $1', [dhtOrderId]);
+            if (existing) return existing.id;
+
+            const order = await db.get('SELECT * FROM dht_orders WHERE id=$1', [dhtOrderId]);
+            if (!order) throw new Error('Không tìm thấy đơn hàng gốc');
+
+            const items = await db.all('SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1', [dhtOrderId]);
+            const prodName = items.map(i => `${i.description} (SL: ${i.quantity})`).join('; ') || '—';
+            const orderQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+            const cskh = await db.get('SELECT u.full_name FROM dht_orders o LEFT JOIN users u ON o.cskh_user_id = u.id WHERE o.id = $1', [dhtOrderId]);
+            const cskhName = cskh ? cskh.full_name : '—';
+            const fieldName = order.category_id === 8 ? 'IN PET' : 'IN TEM';
+            const now = vnNow();
+
+            const r = await db.get(`
+                INSERT INTO printing_records (dht_order_id, print_date, product_name, cskh_name, order_quantity, print_field, created_by, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8) RETURNING id`,
+                [dhtOrderId, order.order_date, prodName, cskhName, orderQty, fieldName, userId, now]
+            );
+
+            await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [r.id, 'create', 'Tạo đơn in từ Đơn Hàng Tổng', userId, now]);
+
+            return r.id;
+        }
+        return Number(idStr);
+    }
+
     // ========== CONTRACTORS CRUD ==========
     fastify.get('/api/printing/contractors', { preHandler: [authenticate] }, async (req) => {
         const rows = await db.all(`SELECT * FROM printing_contractors WHERE is_active=true ORDER BY display_order, name`);
@@ -124,87 +155,254 @@ module.exports = async function(fastify) {
     // ========== TREE ==========
     fastify.get('/api/printing/tree', { preHandler: [authenticate] }, async (req) => {
         const isManager = await isPrintManager(req);
-        let where = '', params = [];
+        let userFilter = '';
+        let params = [];
         if (!isManager && !['quan_ly', 'truong_phong'].includes(req.user.role)) {
-            where = ' AND pr.printer_id = $1'; params.push(req.user.id);
+            userFilter = 'AND (pr.printer_id = $1 OR (pr.printer_id IS NULL AND pr.contractor_id IS NULL))';
+            params.push(req.user.id);
         }
+
         const rows = await db.all(`
-            SELECT EXTRACT(YEAR FROM COALESCE(pr.print_date, pr.created_at))::int AS year,
-                   EXTRACT(MONTH FROM COALESCE(pr.print_date, pr.created_at))::int AS month,
-                   pr.printer_id, u.full_name AS printer_name,
-                   pr.contractor_id, c.name AS contractor_name,
-                   COUNT(*)::int AS count
-            FROM printing_records pr
-            LEFT JOIN users u ON pr.printer_id = u.id
-            LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
-            WHERE 1=1 ${where}
-            GROUP BY year, month, pr.printer_id, u.full_name, pr.contractor_id, c.name
-            ORDER BY year DESC, month DESC, u.full_name, c.name
+            WITH unified_printing AS (
+                SELECT 
+                    COALESCE(pr.print_date, o.order_date) AS print_date,
+                    pr.printer_id,
+                    pr.contractor_id,
+                    pr.print_field,
+                    pr.is_print_done,
+                    pr.is_test_print,
+                    pr.error_reported,
+                    pr.created_at,
+                    CASE 
+                        WHEN pr.contractor_id IS NOT NULL THEN true
+                        ELSE pr.is_print_done 
+                    END AS is_completed
+                FROM printing_records pr
+                LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
+                WHERE 1=1 ${userFilter}
+
+                UNION ALL
+
+                SELECT 
+                    o.order_date AS print_date,
+                    NULL::int AS printer_id,
+                    NULL::int AS contractor_id,
+                    CASE WHEN o.category_id = 8 THEN 'IN PET' ELSE 'IN TEM' END AS print_field,
+                    false AS is_print_done,
+                    false AS is_test_print,
+                    false AS error_reported,
+                    o.created_at,
+                    false AS is_completed
+                FROM dht_orders o
+                WHERE o.category_id IN (8, 9)
+                  AND o.parent_order_id IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM printing_records pr 
+                      WHERE pr.dht_order_id = o.id
+                  )
+            )
+            SELECT 
+                EXTRACT(YEAR FROM COALESCE(print_date, created_at))::int AS year,
+                is_completed,
+                is_test_print,
+                error_reported,
+                print_field
+            FROM unified_printing
         `, params);
-        const total = rows.reduce((s, r) => s + r.count, 0);
-        // Build tree
+
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, months: {} };
-            if (!yearMap[r.year].months[r.month]) yearMap[r.year].months[r.month] = { month: r.month, count: 0, printers: [], contractors: [] };
-            const mo = yearMap[r.year].months[r.month];
-            if (r.contractor_id) {
-                const existing = mo.contractors.find(c => c.id === r.contractor_id);
-                if (existing) existing.count += r.count;
-                else mo.contractors.push({ id: r.contractor_id, name: r.contractor_name || 'Gia công', count: r.count });
-            } else if (r.printer_id) {
-                const existing = mo.printers.find(p => p.id === r.printer_id);
-                if (existing) existing.count += r.count;
-                else mo.printers.push({ id: r.printer_id, name: r.printer_name || 'Chưa PC', count: r.count });
-            } else {
-                const existing = mo.printers.find(p => p.id === null);
-                if (existing) existing.count += r.count;
-                else mo.printers.push({ id: null, name: 'Chưa phân công', count: r.count });
+            const yr = r.year || new Date().getFullYear();
+            if (!yearMap[yr]) {
+                yearMap[yr] = {
+                    year: yr,
+                    count: 0,
+                    pending: {
+                        total: 0,
+                        pet: 0,
+                        decal: 0,
+                        tem: 0
+                    },
+                    done: 0
+                };
             }
-            mo.count += r.count; yearMap[r.year].count += r.count;
+            
+            const item = yearMap[yr];
+            item.count++;
+            
+            if (r.is_completed) {
+                item.done++;
+            } else {
+                item.pending.total++;
+                const fUpper = (r.print_field || '').toUpperCase();
+                if (fUpper.includes('PET')) {
+                    item.pending.pet++;
+                } else if (fUpper.includes('DECAL')) {
+                    item.pending.decal++;
+                } else if (fUpper.includes('TEM')) {
+                    item.pending.tem++;
+                }
+            }
         }
-        const tree = Object.values(yearMap).map(y => ({ ...y, months: Object.values(y.months) }));
-        const stats = await db.get(`
-            SELECT COUNT(*)::int AS total,
-                   COUNT(*) FILTER (WHERE is_test_print AND NOT is_print_done)::int AS testing,
-                   COUNT(*) FILTER (WHERE is_print_done)::int AS done,
-                   COUNT(*) FILTER (WHERE error_reported)::int AS errors
-            FROM printing_records pr WHERE 1=1 ${where}`, params);
-        return { tree, total, stats: stats || { total: 0, testing: 0, done: 0, errors: 0 } };
+        
+        const tree = Object.values(yearMap).sort((a, b) => b.year - a.year);
+        const total = tree.reduce((sum, y) => sum + y.count, 0);
+        
+        const testing = rows.filter(r => r.is_test_print && !r.is_completed).length;
+        const done = rows.filter(r => r.is_completed).length;
+        const errors = rows.filter(r => r.error_reported).length;
+        
+        return { tree, total, stats: { total, testing, done, errors } };
     });
 
     // ========== LIST ==========
     fastify.get('/api/printing/records', { preHandler: [authenticate] }, async (req) => {
         const isManager = await isPrintManager(req);
-        const { year, month, printer_id, contractor_id, status, search } = req.query;
-        let where = 'WHERE 1=1', params = [], idx = 1;
+        const { year, status, field, search } = req.query;
+        
+        let userFilter = '';
+        let params = [];
+        let idx = 1;
         if (!isManager && !['quan_ly', 'truong_phong'].includes(req.user.role)) {
-            where += ` AND pr.printer_id = $${idx++}`; params.push(req.user.id);
+            userFilter = `AND (pr.printer_id = $${idx++} OR (pr.printer_id IS NULL AND pr.contractor_id IS NULL))`;
+            params.push(req.user.id);
         }
-        if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(pr.print_date, pr.created_at))=$${idx++}`; params.push(Number(year)); }
-        if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(pr.print_date, pr.created_at))=$${idx++}`; params.push(Number(month)); }
-        if (printer_id) { where += ` AND pr.printer_id=$${idx++}`; params.push(Number(printer_id)); }
-        if (contractor_id) { where += ` AND pr.contractor_id=$${idx++}`; params.push(Number(contractor_id)); }
-        if (status === 'testing') where += ` AND pr.is_test_print=true AND pr.is_print_done=false`;
-        else if (status === 'done') where += ` AND pr.is_print_done=true`;
-        else if (status === 'error') where += ` AND pr.error_reported=true`;
-        if (search) { where += ` AND (pr.product_name ILIKE $${idx} OR pr.cskh_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+
+        let where = 'WHERE 1=1';
+        if (year) {
+            where += ` AND EXTRACT(YEAR FROM up.print_date) = $${idx++}`;
+            params.push(Number(year));
+        }
+        if (status) {
+            if (status === 'pending') {
+                where += ` AND up.is_completed = false`;
+            } else if (status === 'done') {
+                where += ` AND up.is_completed = true`;
+            }
+        }
+        if (field) {
+            where += ` AND up.print_field = $${idx++}`;
+            params.push(field);
+        }
+        if (search) {
+            where += ` AND (up.product_name ILIKE $${idx} OR up.cskh_name ILIKE $${idx} OR up.order_code ILIKE $${idx})`;
+            params.push(`%${search}%`);
+            idx++;
+        }
+
         const records = await db.all(`
-            SELECT pr.*, u.full_name AS printer_name, c.name AS contractor_name,
-                   u_test.full_name AS test_by_name, u_done.full_name AS done_by_name,
-                   o.order_code,
+            WITH unified_printing AS (
+                SELECT 
+                    pr.id AS id,
+                    pr.dht_order_id,
+                    o.order_code,
+                    pr.is_test_print,
+                    pr.test_print_at,
+                    pr.test_print_by,
+                    pr.is_print_done,
+                    pr.print_done_at,
+                    pr.print_done_by,
+                    pr.error_reported,
+                    pr.error_order_id,
+                    COALESCE(pr.print_date, o.order_date) AS print_date,
+                    pr.printer_id,
+                    pr.contractor_id,
+                    COALESCE(pr.product_name, o.customer_name) AS product_name,
+                    COALESCE(pr.cskh_name, u_cskh.full_name) AS cskh_name,
+                    COALESCE(pr.order_quantity, o.total_quantity, 0) AS order_quantity,
+                    pr.print_meters,
+                    pr.roll_start_qty,
+                    pr.roll_end_qty,
+                    pr.current_roll,
+                    pr.print_field,
+                    pr.shared_process,
+                    pr.notes,
+                    pr.created_by,
+                    pr.created_at,
+                    pr.updated_at,
+                    'real' AS record_type,
+                    c.name AS contractor_name,
+                    u_pr.full_name AS printer_name,
+                    u_test.full_name AS test_by_name,
+                    u_done.full_name AS done_by_name,
+                    CASE 
+                        WHEN pr.contractor_id IS NOT NULL THEN true
+                        ELSE pr.is_print_done 
+                    END AS is_completed
+                FROM printing_records pr
+                LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+                LEFT JOIN users u_pr ON pr.printer_id = u_pr.id
+                LEFT JOIN users u_test ON pr.test_print_by = u_test.id
+                LEFT JOIN users u_done ON pr.print_done_by = u_done.id
+                WHERE 1=1 ${userFilter}
+
+                UNION ALL
+
+                SELECT 
+                    NULL::int AS id,
+                    o.id AS dht_order_id,
+                    o.order_code,
+                    false AS is_test_print,
+                    NULL::timestamptz AS test_print_at,
+                    NULL::int AS test_print_by,
+                    false AS is_print_done,
+                    NULL::timestamptz AS print_done_at,
+                    NULL::int AS print_done_by,
+                    false AS error_reported,
+                    NULL::int AS error_order_id,
+                    o.order_date AS print_date,
+                    NULL::int AS printer_id,
+                    NULL::int AS contractor_id,
+                    o.customer_name AS product_name,
+                    u_cskh.full_name AS cskh_name,
+                    COALESCE(o.total_quantity, 0) AS order_quantity,
+                    0::numeric AS print_meters,
+                    0 AS roll_start_qty,
+                    0 AS roll_end_qty,
+                    NULL AS current_roll,
+                    CASE WHEN o.category_id = 8 THEN 'IN PET' ELSE 'IN TEM' END AS print_field,
+                    NULL AS shared_process,
+                    o.notes,
+                    o.created_by,
+                    o.created_at,
+                    o.created_at AS updated_at,
+                    'virtual' AS record_type,
+                    NULL AS contractor_name,
+                    NULL AS printer_name,
+                    NULL AS test_by_name,
+                    NULL AS done_by_name,
+                    false AS is_completed
+                FROM dht_orders o
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                WHERE o.category_id IN (8, 9)
+                  AND o.parent_order_id IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM printing_records pr 
+                      WHERE pr.dht_order_id = o.id
+                  )
+            )
+            SELECT up.*,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
-            FROM printing_records pr
-            LEFT JOIN users u ON pr.printer_id=u.id
-            LEFT JOIN printing_contractors c ON pr.contractor_id=c.id
-            LEFT JOIN users u_test ON pr.test_print_by=u_test.id
-            LEFT JOIN users u_done ON pr.print_done_by=u_done.id
-            LEFT JOIN dht_orders o ON pr.dht_order_id=o.id
-            LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM printing_history h WHERE h.printing_id=pr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
-            LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY pr.print_date DESC NULLS LAST, pr.created_at DESC
+            FROM unified_printing up
+            LEFT JOIN LATERAL (
+                SELECT h.details, h.performed_at, h.performed_by 
+                FROM printing_history h 
+                WHERE h.printing_id = up.id 
+                ORDER BY h.performed_at DESC LIMIT 1
+            ) lh ON up.record_type = 'real'
+            LEFT JOIN users lhu ON lh.performed_by = lhu.id
+            ${where}
+            ORDER BY up.print_date DESC NULLS LAST, up.created_at DESC
         `, params);
-        return { records };
+
+        const formattedRecords = records.map(r => ({
+            ...r,
+            id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)
+        }));
+
+        return { records: formattedRecords };
     });
 
     // ========== CREATE ==========
@@ -225,7 +423,14 @@ module.exports = async function(fastify) {
 
     // ========== TOGGLE ==========
     fastify.post('/api/printing/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
+        const idStr = req.params.id, { action } = req.body || {}, now = vnNow();
+        let id;
+        try {
+            id = await getOrCreatePrintingRecord(idStr, req.user.id);
+        } catch (err) {
+            return reply.code(400).send({ error: err.message });
+        }
+
         const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         let detail = '';
@@ -246,12 +451,19 @@ module.exports = async function(fastify) {
             detail = '⚠️ Báo đơn lỗi nội bộ';
         } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
         await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, action, detail, req.user.id, now]);
-        return { success: true };
+        return { success: true, id };
     });
 
     // ========== UPDATE ==========
     fastify.put('/api/printing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), b = req.body || {}, now = vnNow();
+        const idStr = req.params.id, b = req.body || {}, now = vnNow();
+        let id;
+        try {
+            id = await getOrCreatePrintingRecord(idStr, req.user.id);
+        } catch (err) {
+            return reply.code(400).send({ error: err.message });
+        }
+
         const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         await db.run(`UPDATE printing_records SET print_date=$1, printer_id=$2, contractor_id=$3, product_name=$4, cskh_name=$5,
@@ -265,12 +477,19 @@ module.exports = async function(fastify) {
              b.shared_process!==undefined?b.shared_process:rec.shared_process, b.notes!==undefined?b.notes:rec.notes, now, id]);
         await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin in', req.user.id, now]);
-        return { success: true };
+        return { success: true, id };
     });
 
     // ========== INLINE FIELD ==========
     fastify.patch('/api/printing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), { field, value } = req.body || {}, now = vnNow();
+        const idStr = req.params.id, { field, value } = req.body || {}, now = vnNow();
+        let id;
+        try {
+            id = await getOrCreatePrintingRecord(idStr, req.user.id);
+        } catch (err) {
+            return reply.code(400).send({ error: err.message });
+        }
+
         const ALLOWED = ['print_date','printer_id','contractor_id','product_name','cskh_name','order_quantity','print_meters',
             'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
@@ -279,7 +498,7 @@ module.exports = async function(fastify) {
         await db.run(`UPDATE printing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
         await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'inline_update', `${field}: ${value}`, req.user.id, now]);
-        return { success: true };
+        return { success: true, id };
     });
 
     // ========== DELETE ==========

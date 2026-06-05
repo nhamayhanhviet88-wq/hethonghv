@@ -1,5 +1,5 @@
 // ========== BỘ PHẬN IN — Desktop SPA ==========
-var _bpi = { records: [], tree: null, filter: { year: null, month: null, printer_id: null, contractor_id: null }, search: '', page: 1, ps: 100, contractors: [] };
+var _bpi = { records: [], tree: null, filter: { year: null, status: null, field: null }, search: '', page: 1, ps: 100, contractors: [] };
 var _bpiOpen = {};
 
 function renderBophaninPage(content) {
@@ -47,33 +47,55 @@ function _bpiRenderSb() {
     var sb = document.getElementById('bpiSb'); if (!sb || !_bpi.tree) return;
     var t = _bpi.tree, f = _bpi.filter;
     var h = '<div class="bpi-sb-title">───── 🖨️ Bộ Phận In ─────</div>';
-    h += '<div class="bpi-sb-total" onclick="_bpiFilter()"><span>📦 Tổng đơn in</span><span style="font-size:16px">'+(t.total||0)+'</span></div>';
+    h += '<div class="bpi-sb-total" onclick="_bpiFilter(null,null,null)"><span>📦 Tổng đơn in</span><span style="font-size:16px">'+(t.total||0)+'</span></div>';
     if (t.tree) t.tree.forEach(function(yr) {
-        var yo = !!_bpiOpen['y'+yr.year];
-        h += '<div class="bpi-sb-year" onclick="_bpiTgl(\'y'+yr.year+'\')"><span>'+(yo?'▼':'▶')+' 📆 '+yr.year+'</span><span style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
-        if (yo && yr.months) yr.months.forEach(function(mo) {
-            var mk = 'm'+yr.year+'_'+mo.month, mo2 = !!_bpiOpen[mk], mA = f.year==yr.year && f.month==mo.month && !f.printer_id && !f.contractor_id;
-            h += '<div class="bpi-sb-month'+(mA?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+mk+'\');_bpiFilter('+yr.year+','+mo.month+')"><span>'+(mo2?'▼':'▶')+' T'+String(mo.month).padStart(2,'0')+'</span><span>'+mo.count+'</span></div>';
-            if (mo2) {
-                if (mo.printers && mo.printers.length) { h += '<div class="bpi-sb-label">── NV NỘI BỘ ──</div>';
-                    mo.printers.forEach(function(p) { var pA = f.year==yr.year && f.month==mo.month && f.printer_id==p.id;
-                        h += '<div class="bpi-sb-item'+(pA?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+','+mo.month+','+p.id+')"><span>👤 '+(p.name||'Chưa PC')+'</span><span>'+p.count+'</span></div>'; }); }
-                if (mo.contractors && mo.contractors.length) { h += '<div class="bpi-sb-label">── GIA CÔNG ──</div>';
-                    mo.contractors.forEach(function(c) { var cA = f.year==yr.year && f.month==mo.month && f.contractor_id==c.id;
-                        h += '<div class="bpi-sb-item'+(cA?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+','+mo.month+',null,'+c.id+')"><span>🏭 '+c.name+'</span><span>'+c.count+'</span></div>'; }); }
+        var yKey = 'y' + yr.year;
+        var yo = !!_bpiOpen[yKey];
+        h += '<div class="bpi-sb-year" onclick="_bpiTgl(\''+yKey+'\')"><span>'+(yo?'▼':'▶')+' 📆 '+yr.year+'</span><span style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
+        if (yo) {
+            // "Chưa in xong" folder
+            var pendingKey = 'p' + yr.year;
+            var po = _bpiOpen[pendingKey] !== false; // expanded by default
+            var pendingActive = f.year == yr.year && f.status === 'pending' && !f.field;
+            h += '<div class="bpi-sb-month'+(pendingActive?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+pendingKey+'\');_bpiFilter('+yr.year+',\'pending\',null)">'
+              + '<span>'+(po?'▼':'▶')+' ⏳ Chưa in xong</span>'
+              + '<span>'+yr.pending.total+'</span></div>';
+              
+            if (po) {
+                // IN PET
+                var petActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN PET';
+                h += '<div class="bpi-sb-item'+(petActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN PET\')">'
+                  + '<span>🟣 IN PET</span><span>'+yr.pending.pet+'</span></div>';
+                
+                // IN DECAL
+                var decalActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN DECAL';
+                h += '<div class="bpi-sb-item'+(decalActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN DECAL\')">'
+                  + '<span>🔵 IN DECAL</span><span>'+yr.pending.decal+'</span></div>';
+                  
+                // IN TEM
+                var temActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN TEM';
+                h += '<div class="bpi-sb-item'+(temActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN TEM\')">'
+                  + '<span>🟢 IN TEM</span><span>'+yr.pending.tem+'</span></div>';
             }
-        });
+            
+            // "Đã in xong" folder
+            var doneActive = f.year == yr.year && f.status === 'done';
+            h += '<div class="bpi-sb-month'+(doneActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null)" style="color:#059669">'
+              + '<span>✅ Đã in xong</span>'
+              + '<span>'+yr.done+'</span></div>';
+        }
     });
     sb.innerHTML = h;
 }
 
 function _bpiTgl(k) { _bpiOpen[k] = !_bpiOpen[k]; _bpiRenderSb(); }
-function _bpiFilter(y,m,p,c) { _bpi.filter = { year:y||null, month:m||null, printer_id:p||null, contractor_id:c||null }; _bpi.page=1; _bpiRenderSb(); _bpiLoadRecs(); }
+function _bpiFilter(y,s,f) { _bpi.filter = { year:y||null, status:s||null, field:f||null }; _bpi.page=1; _bpiRenderSb(); _bpiLoadRecs(); }
 
 async function _bpiLoadRecs() {
     var f = _bpi.filter, qs = '?_=1';
-    if (f.year) qs += '&year='+f.year; if (f.month) qs += '&month='+f.month;
-    if (f.printer_id) qs += '&printer_id='+f.printer_id; if (f.contractor_id) qs += '&contractor_id='+f.contractor_id;
+    if (f.year) qs += '&year='+f.year;
+    if (f.status) qs += '&status='+f.status;
+    if (f.field) qs += '&field='+encodeURIComponent(f.field);
     try { var res = await apiCall('/api/printing/records'+qs); _bpi.records = res.records||[]; _bpi.page=1; _bpiRender(); } catch(e) { console.error('[BPI]',e); }
 }
 
@@ -105,9 +127,9 @@ function _bpiRender() {
         }
         var upd=''; if(r.last_update_at){upd=_bpiFD(r.last_update_at); if(r.last_update_by)upd+='<br><span style="color:#7c3aed;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
-        +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog('+r.id+',\''+tA+'\')" title="In test">'+tI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog('+r.id+',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
+        +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
+        +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
+        +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bpiFD(r.print_date)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+( r.product_name||r.order_code||'—')+'</td>'
@@ -123,7 +145,8 @@ function _bpiRender() {
     }).join(''); }
     // Stats
     var el=document.getElementById('bpiInfo'); if(el){
-        var parts=['🖨️ Bộ Phận In']; if(_bpi.filter.year)parts.push('📆 '+_bpi.filter.year); if(_bpi.filter.month)parts.push('🗓️ T'+_bpi.filter.month);
+        var parts=['🖨️ Bộ Phận In']; if(_bpi.filter.year)parts.push('📆 '+_bpi.filter.year); if(_bpi.filter.status==='pending')parts.push('⏳ Chưa in'); else if(_bpi.filter.status==='done')parts.push('✅ Đã in');
+        if(_bpi.filter.field)parts.push(_bpi.filter.field);
         el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#c4b5fd;font-weight:900">'+tot+'</span> đơn</div>';
     }
     var sc=document.getElementById('bpiStats'); if(sc){
