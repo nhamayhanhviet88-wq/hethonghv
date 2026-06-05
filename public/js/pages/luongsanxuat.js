@@ -408,14 +408,22 @@ function _lsxRenderTable() {
             displayName = match[1];
         }
 
+        var isPhoi = false;
+        if (r.dept === 'cutting' && r.product_name) {
+            var match = r.product_name.match(/— P(\d+)/);
+            if (match && parseInt(match[1]) > 1) isPhoi = true;
+        }
+        var qtyColor = isPhoi ? '#94a3b8' : '#64748b';
+        var cutColor = isPhoi ? '#2dd4bf' : '#0d9488';
+
         return `<tr>`
             + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
             + `<td style="font-size:10px">${_lsxFD(r.work_date)}</td>`
             + `<td>${deptBadge}</td>`
             + `<td style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</td>`
             + `<td style="font-weight:700;color:#1e3a8a">${codeCell}</td>`
-            + `<td style="text-align:center;font-weight:700;color:#64748b">${orderQty}</td>`
-            + `<td style="text-align:center;font-weight:700;color:#0d9488">${r.quantity || 0}</td>`
+            + `<td style="text-align:center;font-weight:700;color:${qtyColor}">${_lsxFormatOrderQty(orderQty, r.product_name, r.cutting_category, r.dept)}</td>`
+            + `<td style="text-align:center;font-weight:700;color:${cutColor}">${_lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, r.dept)}</td>`
             + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
             + priceCell
             + salCell
@@ -561,4 +569,22 @@ async function _lsxApproveAllVisible() {
         console.error(e);
         showToast(e.message || 'Lỗi khi duyệt hàng loạt', 'error');
     }
+}
+
+function _lsxFormatOrderQty(qty, prodName, category, dept) {
+    if (!qty && qty !== 0) return '0';
+    if (dept === 'cutting') {
+        var isPhoi = false;
+        if (prodName) {
+            var match = prodName.match(/— P(\d+)/);
+            if (match && parseInt(match[1]) > 1) isPhoi = true;
+        }
+        if (isPhoi) {
+            return qty.toLocaleString('vi-VN') + ' Phối';
+        } else {
+            var catName = category || 'Áo';
+            return qty.toLocaleString('vi-VN') + ' ' + catName;
+        }
+    }
+    return qty.toLocaleString('vi-VN');
 }
