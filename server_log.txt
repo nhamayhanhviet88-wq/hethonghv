@@ -178,3 +178,73 @@
   ⚠️ [CV Khóa] Phạt NV id=57 — Không nộp: Đăng Bản Thân & Sản Phẩm ngày 2026-06-05 (1x50000đ, cần 1 lần)
 [EmailChecker] 🔍 Checking emails...
 [EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+  🔄 [CV Chuỗi] Tạo 2 bản ghi phạt chồng hàng ngày
+  🔄 [Cấp cứu] Phạt chồng QL id=47 — Vẫn chưa xử lý cấp cứu: chuyendoiafìliate (thêm 50000đ)
+  ✅ Tổng: 7 lỗi vi phạm
+  📝 [Auto-Log] Ghi 112 dòng lịch sử "Không xử lý" cho KH chưa được tư vấn hôm nay
+  📋 [KH Xử Lý Trễ] Kiểm tra khách xử lý trễ...
+  ⚠️ [KH Xử Lý Trễ] Phạt user=9 — menu nhu_cau (3 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=47 — menu ctv_hoa_hong (2 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=47 — menu nhu_cau (4 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu ctv (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu ctv_hoa_hong (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu koc_tiktok (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=51 — menu nhu_cau (3 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=52 — menu ctv_hoa_hong (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=52 — menu koc_tiktok (1 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=57 — menu ctv_hoa_hong (7 KH trễ chưa xử lý) 100,000đ
+  ⚠️ [KH Xử Lý Trễ] Phạt user=57 — menu nhu_cau (2 KH trễ chưa xử lý) 100,000đ
+  📋 [KH Xử Lý Trễ] Tổng: 11 vi phạm
+  🔒 [Access Block] Bắt đầu khóa TK cho vi phạm ngày 2026-06-05 (hôm qua)...
+  🚫 [Access Block] Chặn user id=47 (11 vi phạm, 650000đ)
+  🚫 [Access Block] Chặn user id=60 (1 vi phạm, 100000đ)
+  🚫 [Access Block] Chặn user id=16 (1 vi phạm, 100000đ)
+  🚫 [Access Block] Chặn user id=8 (15 vi phạm, 750000đ)
+  🚫 [Access Block] Chặn user id=52 (27 vi phạm, 1450000đ)
+  🚫 [Access Block] Chặn user id=57 (17 vi phạm, 950000đ)
+  🚫 [Access Block] Chặn user id=9 (2 vi phạm, 150000đ)
+  🚫 [Access Block] Chặn user id=51 (5 vi phạm, 450000đ)
+  🚫 [Access Block 00:00] Tổng: 8 user bị chặn truy cập
+⏰ Deadline check hoàn thành sau 18567ms (18.6s
+[EmailChecker] ✅ IMAP connected
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1668 emails, imported 0, skipped 1092 duplicates, 0 negative
+⚠️ [Pool Health] get: total=24, idle=23, active=1, waiting=1, max=30
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+⚠️ [Pool Health] get: total=20, idle=20, active=0, waiting=1, max=30
+[EmailChecker] ✅ IMAP connected
+[ImageCompressor] 51KB -> 8KB (giam 85%)
+[ImageCompressor] 37KB -> 5KB (giam 85%)
+[Telegram] ✅ Photo sent to -5172027826
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+⚠️ [Pool Health] get: total=18, idle=18, active=0, waiting=1, max=30
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ⏭️ Already running, skip
+[EmailChecker] ✅ Done: checked 1668 emails, imported 0, skipped 1092 duplicates, 0 negative
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+🔄 Pages dir changed (fab-import-v4.js), rebuilding dashboard HTML...
+📦 Auto-injecting 34 page scripts: baocaohoahonghv.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, luongsanxuat.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tongdoansosale.js, tulieuxuongvp.js, vatlieutempet.js
+[EmailChecker] ✅ IMAP connected
+🔄 Pages dir changed (khovai.js), rebuilding dashboard HTML...
+📦 Auto-injecting 34 page scripts: baocaohoahonghv.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, luongsanxuat.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tongdoansosale.js, tulieuxuongvp.js, vatlieutempet.js
+🔄 Pages dir changed (billnhaphang.js), rebuilding dashboard HTML...
+📦 Auto-injecting 34 page scripts: baocaohoahonghv.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, luongsanxuat.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tongdoansosale.js, tulieuxuongvp.js, vatlieutempet.js
+✅ PostgreSQL connected
+⚠️ Schema warning: there is no unique or exclusion constraint matching the ON CONFLICT specification
+[Migration] Fixed handover_status: 0 → chua_bangiao, 1 → thu_quy_nhan
+📦 Auto-injecting 34 page scripts: baocaohoahonghv.js, bophancathv.js, bophanephv.js, bophanhoanthienhv.js, bophaninhv.js, bophanmayhv.js, camketcuochop.js, chapnhanctvaffliate.js, chuanbiqlx.js, congviecqlx-phieu.js, congviecqlx.js, dashboardkdoanh.js, dht_create.js, donguiaomau.js, donhangthietke.js, donhangtong.js, donloikhachhang.js, donloinoibo.js, huongdansudung.js, khovai.js, kiemkho.js, kpikdoanh.js, luongsanxuat.js, mokhoatkphat.js, nhapxuathoanvai.js, notifications.js, socophanmay.js, soghinhantien.js, sothuchi.js, taophieuxulycv.js, timkiem-khachhang.js, tongdoansosale.js, tulieuxuongvp.js, vatlieutempet.js
+[Migration] zalo_daily_tasks unique constraint updated
+🚀 Đồng Phục HV CRM đang chạy tại http://localhost:11000
+⏰ Deadline checker khởi động (mỗi 15 phút)
+[Reminder] ✅ Cron nhắc nhở đã khởi động (mỗi 1 phút) — 4 loại
+⚠️ [Pool Health] get: total=1, idle=1, active=0, waiting=1, max=30
+[Retry] ✅ Notification retry cron started (every 5 min)
+[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)
+[EmailChecker] ✅ Started (every 2 min)
+[Telesale Sync] Gọi Điện: 4 users, Tự Tìm Kiếm: 3 users
+[Telesale Cleanup] No ghost assignments found ✅
+⏰ [VN: 2026-06-06 01:42] Đang kiểm tra deadline... (FULL CHECK - khởi động)

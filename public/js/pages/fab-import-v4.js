@@ -532,13 +532,6 @@ async function _bnhFabDetail(id) {
 
     h += '</tbody></table></div>';
 
-    // Financials — use totalSourceDebt for CÔNG NỢ
-    var hasSourceDebt = totalSourceDebt > 0;
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
-        + '<div style="background:#f1f5f9;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#6b7280;font-weight:700">💰 CHI PHÍ</div><div style="font-size:14px;font-weight:900">' + _bnhFM(r.cost) + '</div></div>'
-        + '<div style="background:#d1fae5;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:#059669;font-weight:700">✅ ĐÃ TT</div><div style="font-size:14px;font-weight:900;color:#059669">' + _bnhFM(r.paid) + '</div></div>'
-        + '<div style="background:' + (hasSourceDebt?'#fee2e2':'#d1fae5') + ';padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;color:' + (hasSourceDebt?'#dc2626':'#059669') + ';font-weight:700">📊 TỔNG CÔNG NỢ</div><div style="font-size:14px;font-weight:900;color:' + (hasSourceDebt?'#dc2626':'#059669') + '">' + _bnhFM(totalSourceDebt) + '</div></div></div>';
-
     // Extra costs
     if (extras.length) {
         h += '<div style="border:1.5px solid #fde68a;border-radius:10px;padding:10px;margin-bottom:12px;background:#fffbeb">'
@@ -555,6 +548,21 @@ async function _bnhFabDetail(id) {
             + '</div>';
     }
 
+    // Orange banner for total cost
+    var totalCostVal = grandTotalCost + extras.reduce(function(s, ec) { return s + (Number(ec.amount) || 0); }, 0) + (Number(r.vat_amount) || 0);
+    h += '<div style="background:linear-gradient(135deg, #d97706, #ea580c);color:#fff;border-radius:10px;padding:12px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(234,88,12,0.15)">'
+        + '<span style="font-weight:800;font-size:13px;letter-spacing:0.5px">💰 TỔNG CỘNG TIỀN BILL:</span>'
+        + '<span style="font-weight:900;font-size:16px">' + _bnhFM(totalCostVal) + '<span style="text-decoration:underline">đ</span></span>'
+        + '</div>';
+
+    // Bill image
+    if (r.bill_image_url) {
+        h += '<div style="border:1.5px solid #fca5a5;border-radius:10px;padding:10px;margin-bottom:12px;background:#fef2f2">'
+            + '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px">📸 ẢNH HÓA ĐƠN BILL</div>'
+            + '<img src="' + r.bill_image_url + '" style="max-height:200px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">'
+            + '</div>';
+    }
+
     // Ship
     if (Number(r.ship_cost) > 0) {
         h += '<div style="border:1.5px solid #bae6fd;border-radius:10px;padding:10px;margin-bottom:12px;background:#f0f9ff">'
@@ -562,14 +570,6 @@ async function _bnhFabDetail(id) {
         if (r.ship_cashflow_code) h += '<div style="font-size:10px;color:#0284c7">📝 Mã Sổ Thu Chi: <b>' + r.ship_cashflow_code + '</b></div>';
         if (r.ship_image_url) h += '<div style="margin-top:6px"><img src="' + r.ship_image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)"></div>';
         h += '</div>';
-    }
-
-    // Bill image
-    if (r.bill_image_url) {
-        h += '<div style="border:1.5px solid #fca5a5;border-radius:10px;padding:10px;background:#fef2f2">'
-            + '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px">📸 ẢNH BILL</div>'
-            + '<img src="' + r.bill_image_url + '" style="max-height:200px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">'
-            + '</div>';
     }
 
     // Notes
