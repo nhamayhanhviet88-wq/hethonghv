@@ -414,7 +414,7 @@ module.exports = async function(fastify) {
                 SELECT 
                     pr.id AS id,
                     pr.dht_order_id,
-                    o.order_code,
+                    o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     pr.is_test_print,
                     pr.test_print_at,
@@ -471,7 +471,7 @@ module.exports = async function(fastify) {
                 SELECT 
                     NULL::int AS id,
                     o.id AS dht_order_id,
-                    o.order_code,
+                    o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     false AS is_test_print,
                     NULL::timestamptz AS test_print_at,

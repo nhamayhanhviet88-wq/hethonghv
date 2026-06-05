@@ -121,6 +121,15 @@ if (r.print_field) {
 }
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const tA=r.is_test_print?'undo_test':'start_test',dA=r.is_print_done?'undo_done':'print_done';
+const priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
+let priBadge = '';
+if (priority === 'GẤP') {
+    priBadge = '<span style="margin-right: 6px; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
+} else if (priority === 'GỬI') {
+    priBadge = '<span style="margin-right: 6px; background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
+} else {
+    priBadge = '<span style="margin-right: 6px; background: rgba(167,139,250,0.15); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
+}
 const isManager = cu && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(cu.role) !== -1;
 let errBtn = '';
 if (r.error_reported) {
@@ -132,7 +141,7 @@ if (r.error_reported) {
 } else {
     errBtn = '<button class="ab" onclick="mErr('+r.id+')"><span class="ai">⬜</span><span class="al">LỖI</span></button>';
 }
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
+return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Ngày in</span><span class="cv">'+fd(r.print_date)+'</span></div>'
 +'<div class="cr"><span class="cl">👤 NV In</span><span class="cv" style="color:#4ade80">'+nv+'</span></div>'

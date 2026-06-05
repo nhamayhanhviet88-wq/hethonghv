@@ -282,6 +282,15 @@ function _bpiRender() {
     var tb=document.getElementById('bpiTb'); if(!tb)return;
     if(!paged.length){tb.innerHTML='<tr><td colspan="19"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
     tb.innerHTML=paged.map(function(r,i){
+        var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
+        var priBadge = '';
+        if (priority === 'GẤP') {
+            priBadge = '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
+        } else if (priority === 'GỬI') {
+            priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
+        } else {
+            priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
+        }
         var tI=r.is_test_print?'🧪':'⬜',tC=r.is_test_print?' on-test':'',tA=r.is_test_print?'undo_test':'start_test';
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
         
@@ -342,7 +351,7 @@ function _bpiRender() {
         +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
         +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+_bpiGetProductNameDisplay(r)+'</td>'
+        +'<td style="font-weight:600;color:#1e293b">'+priBadge+_bpiGetProductNameDisplay(r)+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'

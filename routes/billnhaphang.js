@@ -56,6 +56,44 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS fabric_arrived_by INTEGER`);
     } catch(e) { console.error('[BNH] qlx_prep fabric_arrived:', e.message); }
 
+    // ===== Material Warehouse & Items tables =====
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS material_warehouses (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            is_active BOOLEAN DEFAULT true,
+            display_order INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+    } catch(e) { console.error('[BNH] material_warehouses:', e.message); }
+
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS material_items (
+            id SERIAL PRIMARY KEY,
+            warehouse_id INTEGER NOT NULL REFERENCES material_warehouses(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT true,
+            display_order INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(warehouse_id, name)
+        )`);
+    } catch(e) { console.error('[BNH] material_items:', e.message); }
+
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS material_warehouse_sources (
+            warehouse_id INTEGER NOT NULL REFERENCES material_warehouses(id) ON DELETE CASCADE,
+            source_id INTEGER NOT NULL REFERENCES import_sources(id) ON DELETE CASCADE,
+            PRIMARY KEY (warehouse_id, source_id)
+        )`);
+    } catch(e) { console.error('[BNH] material_warehouse_sources:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS warehouse_id INTEGER REFERENCES material_warehouses(id) ON DELETE SET NULL`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS material_item_id INTEGER REFERENCES material_items(id) ON DELETE SET NULL`);
+    } catch(e) { console.error('[BNH] import_records alter:', e.message); }
+
     try { await db.exec(`CREATE TABLE IF NOT EXISTS import_history (
         id SERIAL PRIMARY KEY, import_id INTEGER NOT NULL REFERENCES import_records(id) ON DELETE CASCADE,
         action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
@@ -145,28 +183,57 @@ module.exports = async function(fastify) {
 
     // ========== TREE ==========
     fastify.get('/api/import/tree', { preHandler: [authenticate] }, async (req) => {
-        const { record_type } = req.query;
+        const { record_type, warehouse_id } = req.query;
         let sourcesQuery = `
-            SELECT s.id, s.name, COUNT(r.id)::int AS count, COALESCE(SUM(r.total_amount),0)::numeric AS sum_total,
-            COALESCE(SUM(r.debt),0)::numeric AS sum_debt
+            SELECT s.id, s.name, 
+                   COUNT(r.id) FILTER (WHERE r.id IS NOT NULL)::int AS count, 
+                   COALESCE(SUM(r.total_amount),0)::numeric AS sum_total,
+                   COALESCE(SUM(r.debt),0)::numeric AS sum_debt
             FROM import_sources s 
             LEFT JOIN import_records r ON s.id=r.source_id
         `;
+        let whereSources = ['s.is_active=true'];
+        let params = [];
+        let idx = 1;
+        if (record_type) {
+            sourcesQuery += ` AND r.record_type = $${idx}`;
+            params.push(record_type);
+            idx++;
+        }
+        if (warehouse_id) {
+            sourcesQuery += ` AND r.warehouse_id = $${idx}`;
+            params.push(Number(warehouse_id));
+            idx++;
+            // Only return suppliers linked to this warehouse
+            whereSources.push(`s.id IN (SELECT source_id FROM material_warehouse_sources WHERE warehouse_id = $${idx - 1})`);
+        }
+        sourcesQuery += ` WHERE ${whereSources.join(' AND ')} GROUP BY s.id, s.name ORDER BY s.display_order, s.name`;
+
+        const sources = await db.all(sourcesQuery, params);
+
         let totalsQuery = `
             SELECT COUNT(*)::int AS total, COALESCE(SUM(total_amount),0)::numeric AS sum_total,
             COALESCE(SUM(debt),0)::numeric AS sum_debt, COALESCE(SUM(paid),0)::numeric AS sum_paid
             FROM import_records
         `;
-        let params = [];
+        let totalsParams = [];
+        let tIdx = 1;
+        let totalsWhere = [];
         if (record_type) {
-            sourcesQuery += ` AND r.record_type = $1`;
-            totalsQuery += ` WHERE record_type = $1`;
-            params.push(record_type);
+            totalsWhere.push(`record_type = $${tIdx}`);
+            totalsParams.push(record_type);
+            tIdx++;
         }
-        sourcesQuery += ` WHERE s.is_active=true GROUP BY s.id, s.name ORDER BY s.display_order, s.name`;
+        if (warehouse_id) {
+            totalsWhere.push(`warehouse_id = $${tIdx}`);
+            totalsParams.push(Number(warehouse_id));
+            tIdx++;
+        }
+        if (totalsWhere.length) {
+            totalsQuery += ` WHERE ` + totalsWhere.join(' AND ');
+        }
 
-        const sources = await db.all(sourcesQuery, params);
-        const totals = await db.get(totalsQuery, params);
+        const totals = await db.get(totalsQuery, totalsParams);
 
         // Count total fabric trees from JSONB
         let total_trees = 0;
@@ -184,9 +251,10 @@ module.exports = async function(fastify) {
 
     // ========== LIST ==========
     fastify.get('/api/import/records', { preHandler: [authenticate] }, async (req) => {
-        const { source_id, year, month, status, search, record_type } = req.query;
+        const { source_id, year, month, status, search, record_type, warehouse_id } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
         if (record_type) { where += ` AND ir.record_type=$${idx++}`; params.push(record_type); }
+        if (warehouse_id) { where += ` AND ir.warehouse_id=$${idx++}`; params.push(Number(warehouse_id)); }
         if (source_id) { where += ` AND ir.source_id=$${idx++}`; params.push(Number(source_id)); }
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(ir.import_date,ir.created_at))=$${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(ir.import_date,ir.created_at))=$${idx++}`; params.push(Number(month)); }
@@ -211,12 +279,13 @@ module.exports = async function(fastify) {
         const b = req.body || {}, now = vnNow();
         const fin = calcFinance(b.cost, b.refund, b.paid);
         const r = await db.get(`INSERT INTO import_records (import_date,source_id,importer_id,fabric_material,fabric_quantity,
-            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,bill_image_url,bill_image_path,created_by,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+            material_name,material_quantity,cost,refund,total_amount,paid,debt,cost_notes,bill_image_url,bill_image_path,created_by,created_at,warehouse_id,material_item_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
             [b.import_date||null, b.source_id||null, b.importer_id||null, b.fabric_material||null,
              Number(b.fabric_quantity)||0, b.material_name||null, Number(b.material_quantity)||0,
              Number(b.cost)||0, Number(b.refund)||0, fin.total_amount, Number(b.paid)||0, fin.debt,
-             b.cost_notes||null, b.bill_image_url||null, b.bill_image_path||null, req.user.id, now]);
+             b.cost_notes||null, b.bill_image_url||null, b.bill_image_path||null, req.user.id, now,
+             b.warehouse_id||null, b.material_item_id||null]);
         await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', 'Tạo bill nhập hàng mới', req.user.id, now]);
         return { success: true, id: r.id };
@@ -354,14 +423,18 @@ module.exports = async function(fastify) {
         const paid = b.paid!==undefined ? Number(b.paid)||0 : Number(rec.paid)||0;
         const fin = calcFinance(cost, refund, paid);
         await db.run(`UPDATE import_records SET import_date=$1,source_id=$2,importer_id=$3,fabric_material=$4,fabric_quantity=$5,
-            material_name=$6,material_quantity=$7,cost=$8,refund=$9,total_amount=$10,paid=$11,debt=$12,cost_notes=$13,updated_at=$14 WHERE id=$15`,
+            material_name=$6,material_quantity=$7,cost=$8,refund=$9,total_amount=$10,paid=$11,debt=$12,cost_notes=$13,updated_at=$14,
+            warehouse_id=$15,material_item_id=$16 WHERE id=$17`,
             [b.import_date!==undefined?b.import_date:rec.import_date, b.source_id!==undefined?b.source_id:rec.source_id,
              b.importer_id!==undefined?b.importer_id:rec.importer_id, b.fabric_material!==undefined?b.fabric_material:rec.fabric_material,
              b.fabric_quantity!==undefined?Number(b.fabric_quantity):rec.fabric_quantity,
              b.material_name!==undefined?b.material_name:rec.material_name,
              b.material_quantity!==undefined?Number(b.material_quantity):rec.material_quantity,
              cost, refund, fin.total_amount, paid, fin.debt,
-             b.cost_notes!==undefined?b.cost_notes:rec.cost_notes, now, id]);
+             b.cost_notes!==undefined?b.cost_notes:rec.cost_notes, now,
+             b.warehouse_id!==undefined?b.warehouse_id:rec.warehouse_id,
+             b.material_item_id!==undefined?b.material_item_id:rec.material_item_id,
+             id]);
         await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật bill nhập hàng', req.user.id, now]);
         return { success: true, total_amount: fin.total_amount, debt: fin.debt };
@@ -464,7 +537,15 @@ module.exports = async function(fastify) {
 
     // ========== FABRIC DETAIL ==========
     fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const rec = await db.get('SELECT ir.*, s.name AS source_name, u.full_name AS importer_name FROM import_records ir LEFT JOIN import_sources s ON ir.source_id=s.id LEFT JOIN users u ON ir.importer_id=u.id WHERE ir.id=$1', [Number(req.params.id)]);
+        const rec = await db.get(`
+            SELECT ir.*, s.name AS source_name, u.full_name AS importer_name,
+                   w.name AS warehouse_name, mi.name AS material_item_name
+            FROM import_records ir 
+            LEFT JOIN import_sources s ON ir.source_id=s.id 
+            LEFT JOIN users u ON ir.importer_id=u.id 
+            LEFT JOIN material_warehouses w ON ir.warehouse_id=w.id
+            LEFT JOIN material_items mi ON ir.material_item_id=mi.id
+            WHERE ir.id=$1`, [Number(req.params.id)]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bill nhập' });
         // Calculate total source debt for displaying Tổng Công Nợ
         let total_source_debt = Number(rec.debt) || 0;
@@ -1003,4 +1084,96 @@ module.exports = async function(fastify) {
             client.release();
         }
     });
+
+    // ========== MATERIAL SETUP APIS ==========
+    fastify.get('/api/material-setup/data', { preHandler: [authenticate] }, async (req) => {
+        const includeInactive = req.user.role === 'giam_doc';
+        const whWhere = includeInactive ? '' : 'WHERE is_active=true';
+        const miWhere = includeInactive ? '' : 'WHERE is_active=true';
+        const warehouses = await db.all(`SELECT * FROM material_warehouses ${whWhere} ORDER BY display_order, id`);
+        const materials = await db.all(`SELECT * FROM material_items ${miWhere} ORDER BY warehouse_id, display_order, id`);
+        const warehouse_sources = await db.all(`SELECT * FROM material_warehouse_sources`);
+        return { warehouses, materials, warehouse_sources };
+    });
+
+    fastify.post('/api/material-setup/warehouses', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { name, display_order, is_active } = req.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên kho không được để trống' });
+        try {
+            const r = await db.get(`INSERT INTO material_warehouses (name, display_order, is_active) VALUES ($1, $2, $3) RETURNING id`,
+                [name.trim(), Number(display_order)||0, is_active !== false]);
+            return { success: true, id: r.id };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Tên kho đã tồn tại hoặc không hợp lệ' });
+        }
+    });
+
+    fastify.put('/api/material-setup/warehouses/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { name, display_order, is_active } = req.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên kho không được để trống' });
+        const id = Number(req.params.id);
+        try {
+            await db.run(`UPDATE material_warehouses SET name=$1, display_order=$2, is_active=$3, updated_at=NOW() WHERE id=$4`,
+                [name.trim(), Number(display_order)||0, is_active !== false, id]);
+            return { success: true };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Lỗi cập nhật hoặc tên kho đã trùng lặp' });
+        }
+    });
+
+    fastify.post('/api/material-setup/items', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { warehouse_id, name, display_order, is_active } = req.body || {};
+        if (!warehouse_id) return reply.code(400).send({ error: 'Vui lòng chọn kho' });
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên vật liệu không được để trống' });
+        try {
+            const r = await db.get(`INSERT INTO material_items (warehouse_id, name, display_order, is_active) VALUES ($1, $2, $3, $4) RETURNING id`,
+                [Number(warehouse_id), name.trim(), Number(display_order)||0, is_active !== false]);
+            return { success: true, id: r.id };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Tên vật liệu đã tồn tại trong kho này' });
+        }
+    });
+
+    fastify.put('/api/material-setup/items/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { name, display_order, is_active } = req.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên vật liệu không được để trống' });
+        const id = Number(req.params.id);
+        try {
+            await db.run(`UPDATE material_items SET name=$1, display_order=$2, is_active=$3, updated_at=NOW() WHERE id=$4`,
+                [name.trim(), Number(display_order)||0, is_active !== false, id]);
+            return { success: true };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Lỗi cập nhật hoặc tên vật liệu đã trùng lặp trong kho' });
+        }
+    });
+
+    fastify.post('/api/material-setup/warehouse-sources', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
+        const { warehouse_id, source_ids } = req.body || {};
+        if (!warehouse_id) return reply.code(400).send({ error: 'Vui lòng chọn kho' });
+        const wid = Number(warehouse_id);
+        const sids = Array.isArray(source_ids) ? source_ids.map(Number).filter(n => n > 0) : [];
+        
+        const pool = db.getDB();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('DELETE FROM material_warehouse_sources WHERE warehouse_id = $1', [wid]);
+            for (const sid of sids) {
+                await client.query('INSERT INTO material_warehouse_sources (warehouse_id, source_id) VALUES ($1, $2)', [wid, sid]);
+            }
+            await client.query('COMMIT');
+            return { success: true };
+        } catch(e) {
+            await client.query('ROLLBACK');
+            return reply.code(500).send({ error: 'Lỗi đồng bộ nhà cung cấp: ' + e.message });
+        } finally {
+            client.release();
+        }
+    });
 };
+
