@@ -18,17 +18,26 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
         const qty = Number(item.quantity) || 0;
         if (qty <= 0) return null;
 
+        // Skip "Thiết Kế"
+        const nameLower = (item.product_name || item.description || '').toLowerCase();
+        if (nameLower.indexOf('thiết kế') >= 0 || nameLower.indexOf('thiet ke') >= 0) {
+            return null;
+        }
+        if (item.cutting_category_name === 'Thiết Kế') {
+            return null;
+        }
+
         if (isPetTem) {
             const prod = (item.product_name || item.description || '').toLowerCase();
             if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
-                return `${qty} Tờ`;
+                return `<span style="color:#d97706;font-weight:800;">${qty} Tờ</span>`; // Amber/Orange for Tờ
             }
             if (prod.indexOf('mét') >= 0 || prod.indexOf('met') >= 0) {
-                return `${qty} Mét`;
+                return `<span style="color:#059669;font-weight:800;">${qty} Mét</span>`; // Green for Mét
             }
             const name = item.product_name || item.description || '';
             const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
-            return shortName ? `${qty} ${shortName}` : `${qty}`;
+            return shortName ? `<span style="color:#475569;font-weight:800;">${qty} ${shortName}</span>` : `<span style="color:#475569;font-weight:800;">${qty}</span>`;
         } else {
             let cat = item.cutting_category_name;
             if (!cat) {
@@ -41,11 +50,11 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
                 else if (descLower.includes('túi')) cat = 'Túi';
             }
             if (cat) {
-                return `${qty} ${cat}`;
+                return `<span style="color:#4f46e5;font-weight:800;">${qty} ${cat}</span>`; // Indigo for garments
             }
             const name = item.product_name || item.description || '';
             const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
-            return shortName ? `${qty} ${shortName}` : `${qty}`;
+            return shortName ? `<span style="color:#475569;font-weight:800;">${qty} ${shortName}</span>` : `<span style="color:#475569;font-weight:800;">${qty}</span>`;
         }
     }).filter(Boolean);
 
@@ -54,6 +63,44 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
     }
 
     return parts.join(' , ');
+}
+
+function formatCurrentStep(stepName, doneCount, totalCount, orderCode) {
+    if (totalCount > 0 && doneCount >= totalCount) {
+        return '<span style="color:#059669;font-weight:800;font-size:10px;">✅ XONG</span>';
+    }
+    if (!stepName) {
+        return '<span style="color:#64748b;font-weight:700;font-size:10px;">Chờ SX</span>';
+    }
+
+    const code = (orderCode || '').toUpperCase();
+    const isPetTem = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || 
+                     code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || 
+                     code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0 || 
+                     code.indexOf('PET') >= 0 || code.indexOf('TEM') >= 0;
+
+    let displayName = stepName;
+    if (stepName === 'Chuẩn Bị QLX') {
+        displayName = isPetTem ? 'Gọi Vật Liệu' : 'Gọi Vải';
+    } else if (stepName === 'Kiểm Tra Chất Lượng') {
+        displayName = 'Kiểm Tra';
+    } else if (stepName === 'Cắt Chi & Hoàn Thiện') {
+        displayName = 'Hoàn Thiện';
+    }
+
+    const colors = {
+        'Gọi Vải': '#64748b',
+        'Gọi Vật Liệu': '#64748b',
+        'Cắt': '#0891b2',
+        'In': '#2563eb',
+        'Ép': '#d97706',
+        'May': '#c026d3',
+        'Kiểm Tra': '#0d9488',
+        'Hoàn Thiện': '#ea580c'
+    };
+    const color = colors[displayName] || '#4f46e5';
+
+    return `<span style="color:${color};font-weight:800;font-size:10px;">${displayName}</span>`;
 }
 
 // ========== FILTER CHIPS ==========
@@ -627,24 +674,10 @@ function _dhtRenderOrderRows(filtered) {
         const remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
         const prodDone = Number(o.prod_done) || 0;
         const prodTotal = Number(o.prod_total) || 0;
-        const prodCurrent = o.prod_current || '';
-        let prodBadge;
-        if (prodTotal === 0) {
-            // No production steps assigned yet
-            prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;color:#94a3b8;font-size:10px;padding:2px 6px;border:1px dashed #cbd5e1;border-radius:4px;" title="Chưa có quy trình">⚙️</span>';
-        } else if (prodDone >= 8) {
-            // All done
-            prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:800;box-shadow:0 2px 6px #05966940;" title="Hoàn thành">✅ XONG</span>';
-        } else {
-            // In progress
-            var pctProd = Math.round((prodDone / 8) * 100);
-            var prodColor = pctProd < 30 ? '#dc2626' : pctProd < 60 ? '#f59e0b' : '#059669';
-            prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:2px;" title="' + prodDone + '/8 — ' + (prodCurrent || 'Xem') + '">'
-                + '<span style="font-size:9px;font-weight:800;color:' + prodColor + ';">' + prodDone + '/8</span>'
-                + '<span style="width:40px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><span style="display:block;width:' + pctProd + '%;height:100%;background:' + prodColor + ';border-radius:2px;"></span></span>'
-                + (prodCurrent ? '<span style="font-size:7px;font-weight:700;color:#64748b;">' + prodCurrent + '</span>' : '')
-                + '</span>';
-        }
+        const nextStepName = o.next_step_name || '';
+        const prodBadge = '<span onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;padding:2px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;min-width:75px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.05);">'
+            + formatCurrentStep(nextStepName, prodDone, prodTotal, o.order_code)
+            + '</span>';
         const priColors = { 'GẤP': 'background:#dc2626;color:#fff;', 'GỬI': 'background:#2563eb;color:#fff;', 'CHUẨN': 'background:#7c3aed;color:#fff;' };
         const priStyle = priColors[o.shipping_priority] || priColors['CHUẨN'];
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
@@ -665,8 +698,19 @@ function _dhtRenderOrderRows(filtered) {
         const _catColors = ['#7c3aed','#0891b2','#059669','#d97706','#dc2626','#2563eb','#c026d3','#0d9488','#ea580c','#4f46e5'];
         const _catBgs = ['#ede9fe','#cffafe','#d1fae5','#fef3c7','#fee2e2','#dbeafe','#fae8ff','#ccfbf1','#ffedd5','#e0e7ff'];
         const _catHash = (o.category_name || '').split('').reduce(function(a,c){return a + c.charCodeAt(0);}, 0) % _catColors.length;
-        const _catColor = _catColors[_catHash];
-        const _catBg = _catBgs[_catHash];
+        let _catColor = _catColors[_catHash];
+        let _catBg = _catBgs[_catHash];
+
+        if (o.category_name === 'CÔNG TY') {
+            _catColor = '#d97706'; // Amber/Yellow
+            _catBg = '#fef3c7';
+        } else if (o.category_name === 'PET') {
+            _catColor = '#2563eb'; // Blue
+            _catBg = '#dbeafe';
+        } else if (o.category_name === 'TEM') {
+            _catColor = '#7c3aed'; // Purple
+            _catBg = '#ede9fe';
+        }
 
         // ★ Tiến Độ calculation: today vs expected_ship_date
         let tienDo = '';
@@ -846,8 +890,22 @@ async function _dhtShowProduction(orderId, orderCode) {
     body += '</div>';
 
     // Steps list
-    body += '<div style="display:flex;flex-direction:column;gap:4px">';
+    body += '<div style="display:flex;flex-direction:column;gap:6px">';
     var _stepColors = ['#7c3aed','#0891b2','#2563eb','#d97706','#c026d3','#059669','#ea580c','#dc2626'];
+    
+    function getDepartmentName(stepName) {
+        switch(stepName) {
+            case 'Chuẩn Bị QLX': return 'Quản Lý Xưởng';
+            case 'Cắt': return 'Tổ Cắt';
+            case 'In': return 'Tổ In';
+            case 'Ép': return 'Tổ Ép';
+            case 'May': return 'Tổ May';
+            case 'Kiểm Tra Chất Lượng': return 'Bộ phận Kiểm Tra (QC)';
+            case 'Cắt Chi & Hoàn Thiện': return 'Tổ Hoàn Thiện';
+            default: return 'Bộ Phận Sản Xuất';
+        }
+    }
+
     for (var i = 0; i < steps.length; i++) {
         var s = steps[i];
         var isDone = s.is_completed;
@@ -860,19 +918,22 @@ async function _dhtShowProduction(orderId, orderCode) {
             timeStr = vnFormat(s.completed_at);
         }
 
-        body += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:' + bg + ';border:' + border + ';border-radius:10px;transition:all .15s" '
+        var deptName = getDepartmentName(s.name);
+        var workerStr = isDone && s.completed_by_name ? s.completed_by_name : '—';
+        var timeValue = isDone && timeStr ? timeStr : '—';
+
+        body += '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:' + bg + ';border:' + border + ';border-radius:10px;transition:all .15s" '
             + 'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
         // Step number badge
         body += '<div style="min-width:28px;height:28px;border-radius:6px;background:' + stepColor + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800">' + s.short_name + '</div>';
-        // Step name
+        // Step name and details
         body += '<div style="flex:1">';
         body += '<div style="font-size:12px;font-weight:700;color:' + (isDone ? '#059669' : '#1e293b') + '">' + s.name + '</div>';
-        if (isDone) {
-            body += '<div style="font-size:10px;color:#64748b;margin-top:2px">';
-            if (s.completed_by_name) body += '👤 ' + s.completed_by_name;
-            if (timeStr) body += ' · 🕐 ' + timeStr;
-            body += '</div>';
-        }
+        body += '<div style="font-size:10px;color:#64748b;margin-top:4px;display:grid;grid-template-columns:80px 1fr;gap:2px 8px;">';
+        body += '  <span>Bộ phận:</span> <strong style="color:#334155;">' + deptName + '</strong>';
+        body += '  <span>Người làm:</span> <strong style="color:#334155;">👤 ' + workerStr + '</strong>';
+        body += '  <span>Thời gian:</span> <strong style="color:#334155;">🕐 ' + timeValue + '</strong>';
+        body += '</div>';
         body += '</div>';
         // Toggle button
         body += '<button onclick="_dhtToggleProdStep(' + orderId + ',' + s.step_id + ',\'' + orderCode + '\')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px" title="' + (isDone ? 'Bỏ hoàn thành' : 'Đánh dấu hoàn thành') + '">' + icon + '</button>';

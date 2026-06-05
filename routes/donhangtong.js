@@ -20,6 +20,15 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
         const qty = Number(item.quantity) || 0;
         if (qty <= 0) return null;
 
+        // Skip "Thiết Kế"
+        const nameLower = (item.product_name || item.description || '').toLowerCase();
+        if (nameLower.indexOf('thiết kế') >= 0 || nameLower.indexOf('thiet ke') >= 0) {
+            return null;
+        }
+        if (item.cutting_category_name === 'Thiết Kế') {
+            return null;
+        }
+
         if (isPetTem) {
             const prod = (item.product_name || item.description || '').toLowerCase();
             if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
@@ -338,6 +347,7 @@ module.exports = async function(fastify) {
                 COALESCE(prod_progress.done_steps, 0) AS prod_done,
                 COALESCE(prod_progress.total_steps, 0) AS prod_total,
                 prod_progress.current_step_short AS prod_current,
+                prod_progress.next_step_name AS next_step_name,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order,
                 order_items.items AS items
@@ -353,12 +363,17 @@ module.exports = async function(fastify) {
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
             LEFT JOIN LATERAL (
-                SELECT COUNT(*) FILTER (WHERE op.is_completed) AS done_steps,
-                       COUNT(*) AS total_steps,
-                       (SELECT ps2.short_name FROM dht_order_production op2
-                        JOIN dht_process_steps ps2 ON op2.step_id = ps2.id
-                        WHERE op2.dht_order_id = o.id AND op2.is_completed
-                        ORDER BY ps2.display_order DESC LIMIT 1) AS current_step_short
+                SELECT 
+                    COUNT(*) FILTER (WHERE op.is_completed) AS done_steps,
+                    (SELECT COUNT(*)::int FROM dht_process_steps WHERE is_active = true) AS total_steps,
+                    (SELECT ps2.short_name FROM dht_order_production op2
+                     JOIN dht_process_steps ps2 ON op2.step_id = ps2.id
+                     WHERE op2.dht_order_id = o.id AND op2.is_completed
+                     ORDER BY ps2.display_order DESC LIMIT 1) AS current_step_short,
+                    (SELECT ps3.name FROM dht_process_steps ps3
+                     LEFT JOIN dht_order_production op3 ON op3.step_id = ps3.id AND op3.dht_order_id = o.id
+                     WHERE ps3.is_active = true AND COALESCE(op3.is_completed, false) = false
+                     ORDER BY ps3.display_order ASC LIMIT 1) AS next_step_name
                 FROM dht_order_production op
                 WHERE op.dht_order_id = o.id
             ) prod_progress ON true
