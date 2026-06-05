@@ -704,6 +704,16 @@ function _dhtRenderOrderRows(filtered) {
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
 
+        const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        let priBadge = '';
+        if (priority === 'GẤP') {
+            priBadge = `<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>`;
+        } else if (priority === 'GỬI') {
+            priBadge = `<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>`;
+        } else {
+            priBadge = `<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>`;
+        }
+
         // Mini status badges
         let badges = '';
         const bStyle = 'display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:0.3px;line-height:14px;';
@@ -770,7 +780,7 @@ function _dhtRenderOrderRows(filtered) {
             <td>${tienDo}</td>
             <td style="text-align:center;">${prodBadge}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
+            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
