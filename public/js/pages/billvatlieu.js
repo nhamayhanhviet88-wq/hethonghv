@@ -226,18 +226,18 @@ async function _bvlLoadRecs() {
 function _bvlGetSourceColor(sourceName) {
     if (!sourceName) return '#0d9488';
     var name = String(sourceName).trim();
-    var hash = 0;
+    var colors = [
+        '#0f766e', '#6d28d9', '#1d4ed8', '#b91c1c', '#047857', '#c2410c', '#a21caf', '#78350f',
+        '#4338ca', '#9f1239', '#1e3a8a', '#3f6212', '#155e75', '#86198f', '#9a3412', '#1e293b',
+        '#166534', '#0369a1', '#be185d', '#581c87', '#b45309', '#0e7490', '#881337', '#475569',
+        '#115e59', '#6b21a8', '#1e40af', '#991b1b', '#065f46', '#92400e', '#701a75', '#0f172a'
+    ];
+    var hash = 5381;
     for (var i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        hash = ((hash * 101) + name.charCodeAt(i)) & 0xFFFFFFFF;
     }
-    var hue = Math.abs(hash) % 360;
-    if (hue >= 50 && hue <= 150) {
-        hue = (hue + 110) % 360;
-    }
-    if (hue >= 170 && hue <= 190) {
-        hue = (hue + 40) % 360;
-    }
-    return 'hsl(' + hue + ', 85%, 32%)';
+    var idx = Math.abs(hash) % colors.length;
+    return colors[idx];
 }
 
 function _bvlDebt(d) {
