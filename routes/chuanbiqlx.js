@@ -155,19 +155,22 @@ module.exports = async function(fastify) {
     try {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
         await db.exec(`ALTER TABLE qlx_preparation DROP CONSTRAINT IF EXISTS qlx_preparation_dht_order_id_key`);
-        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_prep_item_id ON qlx_preparation(item_id) WHERE item_id IS NOT NULL`);
+        await db.exec(`DROP INDEX IF EXISTS idx_qlx_prep_item_id`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_prep_item_id ON qlx_preparation(item_id)`);
     } catch(e) { console.error('[QLX] migration qlx_preparation:', e.message); }
 
     try {
         await db.exec(`ALTER TABLE qlx_assignments ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
         await db.exec(`ALTER TABLE qlx_assignments DROP CONSTRAINT IF EXISTS qlx_assignments_dht_order_id_assignment_type_key`);
-        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_assign_item_type ON qlx_assignments(item_id, assignment_type) WHERE item_id IS NOT NULL`);
+        await db.exec(`DROP INDEX IF EXISTS idx_qlx_assign_item_type`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_assign_item_type ON qlx_assignments(item_id, assignment_type)`);
     } catch(e) { console.error('[QLX] migration qlx_assignments:', e.message); }
 
     try {
         await db.exec(`ALTER TABLE qlx_order_print_assignments ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
         await db.exec(`ALTER TABLE qlx_order_print_assignments DROP CONSTRAINT IF EXISTS qlx_order_print_assignments_dht_order_id_field_id_operat_key`);
-        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_print_assign_item_field ON qlx_order_print_assignments(item_id, field_id, operator_type, operator_id) WHERE item_id IS NOT NULL`);
+        await db.exec(`DROP INDEX IF EXISTS idx_qlx_print_assign_item_field`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_print_assign_item_field ON qlx_order_print_assignments(item_id, field_id, operator_type, operator_id)`);
     } catch(e) { console.error('[QLX] migration qlx_order_print_assignments:', e.message); }
 
     try {
@@ -177,6 +180,25 @@ module.exports = async function(fastify) {
     try {
         await db.exec(`ALTER TABLE qlx_history ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
     } catch(e) { console.error('[QLX] migration qlx_history:', e.message); }
+
+    // ========== HELPERS FOR PREPARATION ROWS ==========
+    async function ensureOrderPrepRow(orderId) {
+        const row = await db.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
+        if (!row) {
+            try {
+                await db.run('INSERT INTO qlx_preparation (dht_order_id) VALUES ($1)', [orderId]);
+            } catch(e) { /* parallel safety */ }
+        }
+    }
+
+    async function ensureItemPrepRow(orderId, itemId) {
+        const row = await db.get('SELECT 1 FROM qlx_preparation WHERE item_id = $1', [itemId]);
+        if (!row) {
+            try {
+                await db.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]);
+            } catch(e) { /* parallel safety */ }
+        }
+    }
 
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
@@ -480,7 +502,7 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         // Ensure prep row exists
-        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+        await ensureOrderPrepRow(orderId);
 
         if (action === 'call') {
             await db.run(`UPDATE qlx_preparation SET fabric_called = true, fabric_called_at = $1, fabric_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
@@ -519,7 +541,7 @@ module.exports = async function(fastify) {
 
         if (item_id) {
             const itemId = Number(item_id);
-            await db.run(`INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2) ON CONFLICT (item_id) DO NOTHING`, [orderId, itemId]);
+            await ensureItemPrepRow(orderId, itemId);
 
             if (action === 'call') {
                 await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE item_id = $3`,
@@ -543,7 +565,7 @@ module.exports = async function(fastify) {
                     [orderId, itemId, request.user.id, now]);
             }
         } else {
-            await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+            await ensureOrderPrepRow(orderId);
 
             if (action === 'call') {
                 await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
@@ -626,11 +648,10 @@ module.exports = async function(fastify) {
         } else {
             if (user_id) {
                 const staff = await db.get('SELECT full_name FROM users WHERE id = $1', [Number(user_id)]);
+                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = $2 AND item_id IS NULL`, [orderId, type]);
                 await db.run(`
                     INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_by, assigned_at)
                     VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (dht_order_id, assignment_type)
-                    DO UPDATE SET assigned_user_id = $3, assigned_by = $4, assigned_at = $5
                 `, [orderId, type, Number(user_id), request.user.id, now]);
 
                 await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
@@ -761,6 +782,17 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
         }
 
+        // De-duplicate assignments in JS
+        const seen = new Set();
+        const uniqueAssignments = [];
+        for (const assign of assignments) {
+            const key = `${assign.field_id}_${assign.operator_type}_${assign.operator_id}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniqueAssignments.push(assign);
+            }
+        }
+
         // Save order print assignments (replace all for this order/item)
         if (itemId) {
             await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
@@ -772,7 +804,7 @@ module.exports = async function(fastify) {
         let firstOp = null;
         const otherOps = [];
 
-        for (const assign of assignments) {
+        for (const assign of uniqueAssignments) {
             const fieldId = Number(assign.field_id);
             const opType = assign.operator_type;
             const opId = Number(assign.operator_id);
@@ -782,13 +814,11 @@ module.exports = async function(fastify) {
                     await db.run(`
                         INSERT INTO qlx_order_print_assignments (dht_order_id, item_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
                         VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        ON CONFLICT (item_id, field_id, operator_type, operator_id) DO NOTHING
                     `, [orderId, itemId, fieldId, opType, opId, request.user.id, now]);
                 } else {
                     await db.run(`
                         INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
                         VALUES ($1, $2, $3, $4, $5, $6)
-                        ON CONFLICT (dht_order_id, field_id, operator_type, operator_id) DO NOTHING
                     `, [orderId, fieldId, opType, opId, request.user.id, now]);
                 }
 
@@ -814,18 +844,17 @@ module.exports = async function(fastify) {
                     DO UPDATE SET assigned_user_id = $3, assigned_contractor_id = $4, assigned_by = $5, assigned_at = $6
                 `, [orderId, itemId, userId, conId, request.user.id, now]);
             } else {
+                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
                 await db.run(`
                     INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
                     VALUES ($1, 'in', $2, $3, $4, $5)
-                    ON CONFLICT (dht_order_id, assignment_type)
-                    DO UPDATE SET assigned_user_id = $2, assigned_contractor_id = $3, assigned_by = $4, assigned_at = $5
                 `, [orderId, userId, conId, request.user.id, now]);
             }
         } else {
             if (itemId) {
                 await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
             } else {
-                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in'`, [orderId]);
+                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
             }
         }
 
@@ -996,7 +1025,7 @@ module.exports = async function(fastify) {
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+        await ensureOrderPrepRow(orderId);
 
         const prep = await db.get('SELECT is_completed FROM qlx_preparation WHERE dht_order_id = $1', [orderId]);
         const newVal = !prep?.is_completed;
@@ -1070,7 +1099,7 @@ module.exports = async function(fastify) {
         const now = new Date().toISOString();
 
         // Ensure prep row exists
-        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+        await ensureOrderPrepRow(orderId);
 
         // Save individual checks
         if (checks && checks.length) {
@@ -1366,18 +1395,16 @@ module.exports = async function(fastify) {
         }
 
         // Update fabric_called status
-        await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_called, fabric_called_at, fabric_called_by)
-            VALUES ($1, true, $2, $3)
-            ON CONFLICT (dht_order_id) DO UPDATE SET fabric_called = true, fabric_called_at = $2, fabric_called_by = $3, updated_at = $2`,
-            [dht_order_id, now, request.user.id]);
+        await ensureOrderPrepRow(dht_order_id);
+        await db.run(`UPDATE qlx_preparation SET fabric_called = true, fabric_called_at = $1, fabric_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+            [now, request.user.id, dht_order_id]);
 
         // Auto-check: if ALL reservations for this order are 'arrived' → set fabric_arrived = true
         const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [dht_order_id]);
         if (pending && pending.cnt === 0) {
-            await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
-                VALUES ($1, true, $2, $3)
-                ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = $2, fabric_arrived_by = $3, updated_at = $2`,
-                [dht_order_id, now, request.user.id]);
+            await ensureOrderPrepRow(dht_order_id);
+            await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                [now, request.user.id, dht_order_id]);
         }
 
         return { success: true };
@@ -1499,10 +1526,9 @@ module.exports = async function(fastify) {
         for (const oid of affectedOrderIds) {
             const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [oid]);
             if (pending && pending.cnt === 0) {
-                await db.run(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
-                    VALUES ($1, true, $2, $3)
-                    ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = $2, fabric_arrived_by = $3, updated_at = $2`,
-                    [oid, now, request.user.id]);
+                await ensureOrderPrepRow(oid);
+                await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                    [now, request.user.id, oid]);
             }
         }
 
@@ -1573,7 +1599,7 @@ module.exports = async function(fastify) {
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        await db.run(`INSERT INTO qlx_preparation (dht_order_id) VALUES ($1) ON CONFLICT (dht_order_id) DO NOTHING`, [orderId]);
+        await ensureOrderPrepRow(orderId);
         await db.run(`UPDATE qlx_preparation SET qlx_received_phieu = true, qlx_received_phieu_at = $1, qlx_received_phieu_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
             [now, request.user.id, orderId]);
 
