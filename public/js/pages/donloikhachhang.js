@@ -546,6 +546,7 @@ async function _ceoOpenQLX(id){
   h+='<option value="">-- Chọn loại lỗi --</option>';
   _ceo.commonErrors.forEach(function(ce){h+='<option value="'+ce.error_name+'"'+(item.common_error_type===ce.error_name?' selected':'')+'>'+ce.error_name+'</option>';});
   h+='</select></div>';
+  h+='<div id="ceoU_guideContainer">'+_ceoBuildGuideSection(item.common_error_type)+'</div>';
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:800;color:#c2410c;margin-bottom:4px">Cách Xử Lý Lỗi QLX <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px;font-weight:500">(Enter = thêm dòng mới có số)</span></label>';
   h+='<textarea id="ceoU_saleRes" rows="4" onkeydown="_ceoAutoNumber(event,this)" style="width:100%;padding:8px 12px;border:2px solid #ea580c;border-radius:8px;font-size:13px;resize:vertical;line-height:1.6;background:#fff7ed">'+(item.sale_resolution||'1. ')+'</textarea></div>';
   h+='<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Người Vi Phạm <span style="color:#dc2626">*</span> <span style="color:#9ca3af;font-size:10px;font-weight:400">(chọn nhiều người vi phạm)</span></label>';
@@ -567,6 +568,10 @@ function _ceoOnCommonErrorChange(el) {
   var respContainer = document.getElementById('ceoU_respContainer');
   if (respContainer) {
     respContainer.innerHTML = _ceoRespSection({common_error_type: el.value});
+  }
+  var guideContainer = document.getElementById('ceoU_guideContainer');
+  if (guideContainer) {
+    guideContainer.innerHTML = _ceoBuildGuideSection(el.value);
   }
 }
 
@@ -987,6 +992,35 @@ function _ceoRespSection(item){
     h+='</div>';
   });
   h+='</div></div>';
+  return h;
+}
+
+// ===== GUIDE SECTION — Read-only template guide context =====
+function _ceoBuildGuideSection(errorName) {
+  if (!errorName) return '';
+  var tpl = (_ceo.commonErrors || []).find(function(x) { return x.error_name === errorName; });
+  if (!tpl) return '';
+  
+  var h = '<div style="margin-bottom:14px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">';
+  h += '<div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">💡 Gợi ý xử lý mẫu:</div>';
+  
+  var subSec = function(icon, label, content, color, bg, border) {
+    if (!content) return '';
+    var trimmed = content.trim();
+    if (trimmed === '1.' || trimmed === '1. ' || trimmed === '') return '';
+    var formatted = trimmed.split('\n').map(function(l) { return '<div style="padding:1px 0">' + l + '</div>'; }).join('');
+    return '<div style="margin-bottom:8px">' +
+      '<div style="font-size:11px;font-weight:700;color:' + color + ';margin-bottom:3px;display:flex;align-items:center;gap:4px">' + icon + ' ' + label + '</div>' +
+      '<div style="padding:6px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;font-size:12px;color:#334155;line-height:1.4">' + formatted + '</div>' +
+    '</div>';
+  };
+  
+  h += subSec('🔧', 'Cách Khắc Phục / Xử Lý Lỗi', tpl.fix_guide, '#0ea5e9', '#f0f9ff', '#e0f2fe');
+  h += subSec('💬', 'Hướng Dẫn Sale Tư Vấn', tpl.sale_guide, '#7c3aed', '#f5f3ff', '#ede9fe');
+  h += subSec('🏭', 'Cam Kết Quản Lý Xưởng', tpl.commit_factory, '#ea580c', '#fff7ed', '#ffedd5');
+  h += subSec('⚠️', 'Cam Kết Bộ Phận Lỗi', tpl.commit_department, '#b45309', '#fefbeb', '#fef3c7');
+  
+  h += '</div>';
   return h;
 }
 
