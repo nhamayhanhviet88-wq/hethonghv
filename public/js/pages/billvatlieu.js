@@ -121,6 +121,52 @@ function _bvlRenderWhFilter() {
 function _bvlFM(n) { if (!n && n !== 0) return '0'; return Number(n).toLocaleString('vi-VN'); }
 function _bvlFD(d) { if (!d) return '—'; try { var p = d.split('T')[0].split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return d; } }
 
+function _bvlCompressAndUpload(blob, targetArea, callback) {
+    var img = new Image();
+    img.src = URL.createObjectURL(blob);
+    img.onload = function () {
+        URL.revokeObjectURL(img.src);
+        var maxWidth = 1200;
+        var maxHeight = 1200;
+        var width = img.width;
+        var height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            } else {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+            }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(function (compressedBlob) {
+            var fd = new FormData();
+            fd.append('file', compressedBlob, 'bill.jpg');
+            targetArea.innerHTML = '⏳ Đang upload ảnh (đã nén)...';
+            fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        callback(data);
+                    } else {
+                        targetArea.innerHTML = '❌ Lỗi: ' + (data.error || 'không rõ');
+                    }
+                }).catch(function (err) {
+                    targetArea.innerHTML = '❌ Lỗi kết nối';
+                    showToast(err.message, 'error');
+                });
+        }, 'image/jpeg', 0.75);
+    };
+    img.onerror = function () {
+        targetArea.innerHTML = '❌ Không thể đọc hình ảnh';
+    };
+}
+
 function _bvlRenderSb() {
     var sb = document.getElementById('bvlSb');
     if (!sb) return;
@@ -314,17 +360,11 @@ function _bvlPayModal(importId, billDebt, sourceDebt) {
         for (var i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
                 var blob = items[i].getAsFile();
-                var fd = new FormData();
-                fd.append('file', blob, 'paste.png');
-                fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            _bvlPay.imageData = data.url;
-                            imgArea.innerHTML = '<img src="' + data.url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã dán hình ảnh</div>';
-                            imgArea.style.borderColor = '#0d9488';
-                        }
-                    }).catch(err => showToast(err.message, 'error'));
+                _bvlCompressAndUpload(blob, imgArea, function (data) {
+                    _bvlPay.imageData = data.url;
+                    imgArea.innerHTML = '<img src="' + data.url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã dán hình ảnh</div>';
+                    imgArea.style.borderColor = '#0d9488';
+                });
                 break;
             }
         }
@@ -494,20 +534,6 @@ function _bvlOpenMat() {
     + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Tiền VAT</label>'
     + '<input id="_bvlVatAmount" type="number" placeholder="Tự điền số tiền VAT..." oninput="_bvlCalculateTotal()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:700;color:#1e293b"></div>'
 
-    // Phí Ship
-    + '<div style="border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; background: #eff6ff; margin-bottom: 12px">'
-    + '<div style="font-size: 12px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
-    + '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">'
-    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Số tiền ship (Bỏ trống = không)</label>'
-    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." oninput="_bvlCalculateTotal()" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
-    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship</label>'
-    + '<select id="_bvlShipPayer" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:600; color:#1e293b">'
-    + '<option value="congty">🏢 Công Ty Mất Ship</option>'
-    + '<option value="cophanmay">🧵 Cổ Phần May Mất Ship</option>'
-    + '</select></div>'
-    + '</div>'
-    + '</div>'
-
     // 5. Total bill cost
     + '<div style="display:flex;justify-content:space-between;align-items:center;background:#e2e8f0;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:800;font-size:13px;color:#1e293b">'
     + '<span>💰 TỔNG CỘNG TIỀN BILL:</span>'
@@ -522,6 +548,20 @@ function _bvlOpenMat() {
     + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ghi Chú</label>'
     + '<textarea id="_bvlNotes" placeholder="Ghi chú chi phí..." rows="2" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;resize:none"></textarea></div>'
 
+    // Phí Ship
+    + '<div style="border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; background: #eff6ff; margin-bottom: 12px">'
+    + '<div style="font-size: 12px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
+    + '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">'
+    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Số tiền ship (Bỏ trống = không)</label>'
+    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
+    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship</label>'
+    + '<select id="_bvlShipPayer" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:600; color:#1e293b">'
+    + '<option value="congty">🏢 Công Ty Mất Ship</option>'
+    + '<option value="cophanmay">🧵 Cổ Phần May Mất Ship</option>'
+    + '</select></div>'
+    + '</div>'
+    + '</div>'
+
     + '<button id="_bvlSubmitBtn" onclick="_bvlSubmitMat()" style="width:100%;padding:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">💾 LƯU PHIẾU NHẬP</button>'
     + '</div></div>';
 
@@ -534,23 +574,11 @@ function _bvlOpenMat() {
         for (var i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
                 var blob = items[i].getAsFile();
-                var fd = new FormData();
-                fd.append('file', blob, 'paste.png');
-                area.innerHTML = '⏳ Đang upload ảnh...';
-                fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            _bvl.uploadImg = { url: data.url, path: data.path };
-                            area.innerHTML = '<img src="' + data.url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã tải lên hóa đơn</div>';
-                            area.style.borderColor = '#0d9488';
-                        } else {
-                            area.innerHTML = '❌ Lỗi: ' + (data.error || 'không rõ');
-                        }
-                    }).catch(err => {
-                        area.innerHTML = '❌ Lỗi kết nối';
-                        showToast(err.message, 'error');
-                    });
+                _bvlCompressAndUpload(blob, area, function (data) {
+                    _bvl.uploadImg = { url: data.url, path: data.path };
+                    area.innerHTML = '<img src="' + data.url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã tải lên hóa đơn</div>';
+                    area.style.borderColor = '#0d9488';
+                });
                 break;
             }
         }
@@ -904,6 +932,13 @@ async function _bvlDetail(id) {
         }
     } catch (e) {
         console.error('[BVL] payments details error:', e);
+    }
+
+    if (r.bill_image_url) {
+        h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;background:#f8fafc;margin-top:12px">'
+            + '<div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:8px">📸 ẢNH HÓA ĐƠN BILL</div>'
+            + '<div style="text-align:center"><img src="' + r.bill_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
+            + '</div>';
     }
 
     var ov = document.createElement('div');
