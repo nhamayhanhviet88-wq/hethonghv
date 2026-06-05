@@ -15,6 +15,20 @@ var _bvl = {
 var _selectedSetupWhIdForMat = null;
 var _selectedSetupWhIdForSrc = null;
 
+function _bvlGetUnitForMaterial(materialId, fallbackUnit) {
+    if (!materialId) return fallbackUnit || '';
+    if (!_bvl.materials) return fallbackUnit || '';
+    var found = _bvl.materials.find(function (m) { return m.id == materialId; });
+    return found ? (found.unit || '') : (fallbackUnit || '');
+}
+
+function _bvlGetUnitByName(name) {
+    if (!name) return '';
+    if (!_bvl.materials) return '';
+    var found = _bvl.materials.find(function (m) { return m.name.toLowerCase() === name.toLowerCase(); });
+    return found ? (found.unit || '') : '';
+}
+
 function renderBillvatlieuPage(content) {
     if (!document.getElementById('_bvlS')) {
         var st = document.createElement('style');
@@ -294,11 +308,15 @@ function _bvlRender() {
                     return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center">' + prefix + '<span>' + (item.material_item_name || '—') + '</span></div>';
                 }).join('');
                 qtyHtml = items.map(function(item) {
-                    return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(item.quantity) + '</div>';
+                    var unit = item.unit || _bvlGetUnitForMaterial(item.material_item_id, _bvlGetUnitByName(item.material_item_name));
+                    var unitStr = unit ? ' ' + unit : '';
+                    return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(item.quantity) + unitStr + '</div>';
                 }).join('');
             } else {
                 nameHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center">' + badgeHtml + '<span>' + (r.material_item_name || r.fabric_material || '—') + '</span></div>';
-                qtyHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(r.fabric_quantity) + '</div>';
+                var unit = _bvlGetUnitForMaterial(r.material_item_id, _bvlGetUnitByName(r.material_item_name || r.fabric_material));
+                var unitStr = unit ? ' ' + unit : '';
+                qtyHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(r.fabric_quantity) + unitStr + '</div>';
             }
 
             var paidCellHtml = '';
@@ -807,6 +825,7 @@ function _bvlAddMatRow() {
     var itemId = Number(matSelect.value);
     var matItem = _bvl.materials.find(function (m) { return m.id === itemId; });
     var itemName = matItem ? matItem.name : '';
+    var itemUnit = matItem ? (matItem.unit || '') : '';
 
     var existingIdx = _bvl.addedMaterials.findIndex(function (m) { return m.id === itemId; });
     if (existingIdx !== -1) {
@@ -818,7 +837,8 @@ function _bvlAddMatRow() {
             name: itemName,
             qty: qty,
             price: price,
-            cost: cost
+            cost: cost,
+            unit: itemUnit
         });
     }
 
@@ -854,10 +874,11 @@ function _bvlRenderAddedMats() {
 
     var html = '';
     _bvl.addedMaterials.forEach(function (item, index) {
+        var unitStr = item.unit ? ' ' + item.unit : '';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:4px">'
             + '<div style="flex:1">'
             + '<b style="color:#1e293b">' + item.name + '</b>'
-            + '<span style="color:#6b7280;margin-left:8px">(SL: <b>' + _bvlFM(item.qty) + '</b> × ' + _bvlFM(item.price) + '₫)</span>'
+            + '<span style="color:#6b7280;margin-left:8px">(SL: <b>' + _bvlFM(item.qty) + unitStr + '</b> × ' + _bvlFM(item.price) + '₫)</span>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:12px">'
             + '<b style="color:#0d9488">' + _bvlFM(item.cost) + '₫</b>'
@@ -932,7 +953,8 @@ async function _bvlSubmitMat() {
                 material_item_name: m.name,
                 quantity: m.qty,
                 price: m.price,
-                cost: m.cost
+                cost: m.cost,
+                unit: m.unit || ''
             };
         })
     };
@@ -986,14 +1008,18 @@ async function _bvlDetail(id) {
     if (items && items.length > 0) {
         items.forEach(function(item) {
             var priceStr = item.price ? ' × ' + _bvlFM(item.price) + '₫' : '';
+            var unit = item.unit || _bvlGetUnitForMaterial(item.material_item_id, _bvlGetUnitByName(item.material_item_name));
+            var unitStr = unit ? ' ' + unit : '';
             h += '<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px dashed #ccfbf1;padding:6px 0">'
                 + '<span>🔹 <b>' + (item.material_item_name || '—') + '</b></span>'
-                + '<span>SL: <b>' + _bvlFM(item.quantity) + '</b>' + priceStr + ' &nbsp;|&nbsp; Chi phí: <b style="color:#0d9488">' + _bvlFM(item.cost) + '₫</b></span>'
+                + '<span>SL: <b>' + _bvlFM(item.quantity) + unitStr + '</b>' + priceStr + ' &nbsp;|&nbsp; Chi phí: <b style="color:#0d9488">' + _bvlFM(item.cost) + '₫</b></span>'
                 + '</div>';
         });
     } else {
+        var unit = _bvlGetUnitForMaterial(r.material_item_id, _bvlGetUnitByName(r.material_item_name || r.fabric_material));
+        var unitStr = unit ? ' ' + unit : '';
         h += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span>Tên vật liệu:</span><b style="color:#1e293b">' + (r.material_item_name || r.fabric_material || '—') + '</b></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:12px"><span>Số lượng:</span><b style="color:#0d9488">' + _bvlFM(r.fabric_quantity) + '</b></div>';
+            + '<div style="display:flex;justify-content:space-between;font-size:12px"><span>Số lượng:</span><b style="color:#0d9488">' + _bvlFM(r.fabric_quantity) + unitStr + '</b></div>';
     }
     h += '</div>';
 
