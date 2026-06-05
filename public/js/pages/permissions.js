@@ -76,6 +76,7 @@ const PERM_FEATURES = [
     { key: 'quan_ly_xuong_qlx', label: 'Quản Lý Xưởng', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_cat', label: 'Bộ Phận Cắt', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_in', label: 'Bộ Phận In', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET Tem', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_ep', label: 'Bộ Phận Ép', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_may', label: 'Bộ Phận May', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_hoan_thien', label: 'Bộ Phận Hoàn Thiện', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
@@ -87,7 +88,6 @@ const PERM_FEATURES = [
     { key: 'kho_vat_lieu', label: 'Kho Vật Liệu', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'nhap_xuat_hoan_vai', label: 'Nhập Xuất Hoàn Vải', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'nhap_xuat_hoan_vat_lieu', label: 'Nhập Xuất Hoàn Vật Liệu', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET Tem', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'thong_so_ao_mau', label: 'Thông Số Mẫu Áo', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
 
     // ===== QUẢN LÝ XƯỞNG =====
