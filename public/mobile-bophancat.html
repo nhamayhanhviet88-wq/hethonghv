@@ -1455,7 +1455,7 @@ function mOpenDoneModal(recordId){
     h+='<div class="mm-row"><span class="mm-lbl">📦 Số Lượng Sản Phẩm</span><span class="mm-val" style="color:#60a5fa;font-size:16px">'+(r.order_quantity||'—')+'</span></div>';
     // Số Lượng Cắt
     const hasSiblingQty = r.ticket_completed_quantity !== null && r.ticket_completed_quantity !== undefined;
-    const initialQty = hasSiblingQty ? r.ticket_completed_quantity : (r.order_quantity || '');
+    const initialQty = hasSiblingQty ? r.ticket_completed_quantity : '';
     const disAttr = hasSiblingQty ? ' readonly' : '';
     const qtyStyle = hasSiblingQty ? 'width:70px;padding:8px;border:2px solid #4b5563;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#9ca3af;background:rgba(255,255,255,0.1);cursor:not-allowed' : 'width:70px;padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:16px;font-weight:900;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)';
     const siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#f87171;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' áo</div>' : '';
@@ -1731,7 +1731,7 @@ function mOpenGroupDoneModal(groupId){
         h+='<div style="display:flex;align-items:center;justify-content:space-between">';
         h+='<span style="font-size:11px;color:#a5b4fc">SL Đơn: <b style="color:#c4b5fd">'+gr.order_quantity+'</b></span>';
         const hasSiblingQty = gr.ticket_completed_quantity !== null && gr.ticket_completed_quantity !== undefined;
-        const defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : (gr.cut_quantity || gr.order_quantity || '');
+        const defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : '';
         const disAttr = hasSiblingQty ? ' readonly' : '';
         const qtyStyle = hasSiblingQty ? 'width:65px;padding:7px;border:2px solid #4b5563;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#9ca3af;background:rgba(255,255,255,0.1);cursor:not-allowed' : 'width:65px;padding:7px;border:2px solid #8b5cf6;border-radius:8px;font-size:15px;font-weight:900;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)';
         const siblingNote = hasSiblingQty ? '<div style="font-size:9px;color:#fca5a5;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + '</div>' : '';
