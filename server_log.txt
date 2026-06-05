@@ -538,3 +538,18 @@
 🔓 [Access Block] Mở khóa Lê Công Thực (id=8) bởi Giám Đốc (id=1)
 🔓 [Access Block] Mở khóa Kế Toán (id=16) bởi Giám Đốc (id=1)
 🔓 [Access Block] Mở khóa ketoan1 (id=60) bởi Giám Đốc (id=1)
+⚠️ [Pool Health] get: total=16, idle=15, active=1, waiting=1, max=30
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+⚠️ [Pool Health] get: total=18, idle=18, active=0, waiting=1, max=30
+[EmailChecker] ✅ IMAP connected
+📊 [Pool Stats] active=1, idle=5, waiting=0, total=6/30
+[EmailChecker] 🔎 Searching emails for: Sacombank (filter: sacombank)
+[EmailChecker] ⏭️ Already running, skip
+⚠️ [Pool Health] get: total=7, idle=2, active=5, waiting=1, max=30
+[EmailChecker] 🔎 Searching emails for: ACB Công Ty (filter: acb.com.vn)
+[EmailChecker] ✅ Done: checked 1668 emails, imported 0, skipped 1092 duplicates, 0 negative
+[EmailChecker] 🔍 Checking emails...
+[EmailChecker] 🏦 Active banks: Sacombank, ACB Công Ty
+[EmailChecker] ✅ IMAP connected
+⚠️ [Pool Health] get: total=6, idle=4, active=2, waiting=1, max=30

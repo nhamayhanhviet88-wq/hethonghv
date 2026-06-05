@@ -217,7 +217,7 @@ module.exports = async function(fastify) {
             idx++;
             // Filter sources list to match the record_type
             whereSources.push(`s.source_type = $${idx}`);
-            params.push(record_type);
+            params.push(record_type === 'general' ? 'material' : 'fabric');
             idx++;
         }
         if (warehouse_id) {
