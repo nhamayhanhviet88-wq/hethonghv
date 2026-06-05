@@ -325,7 +325,7 @@ function _bpcRenderRows(paged) {
         }
         var updateStr = '';
         if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
-        var ccBadge = r.cutting_category ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-right:4px">' + r.cutting_category + '</span>' : '';
+        var ccBadge = '';
         var sharedBadge = '';
         if (r.multi_cut_group_id) {
             var label = 'CẮT CHUNG';
@@ -358,6 +358,15 @@ function _bpcRenderRows(paged) {
             var firstLine = r.cut_shared.split('\n')[0].replace(':', '');
             sharedCol = '<span title="' + r.cut_shared.replace(/"/g, '&quot;') + '" style="cursor:help;border-bottom:1px dashed #ea580c;font-weight:700;color:#ea580c">' + firstLine + '</span>';
         }
+        
+        var isPhoi = false;
+        if (r.product_name) {
+            var match = r.product_name.match(/— P(\d+)/);
+            if (match && parseInt(match[1]) > 1) isPhoi = true;
+        }
+        var qtyColor = isPhoi ? '#60a5fa' : '#0369a1';
+        var cutColor = isPhoi ? '#c084fc' : '#7c3aed';
+
         return '<tr>'
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpc.page-1)*_bpc.pageSize)+'</td>'
             +'<td style="text-align:center">'+cutBtnHtml+'</td>'
@@ -377,8 +386,8 @@ function _bpcRenderRows(paged) {
             +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#0369a1">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#dc2626">'+_bpcFmtKg(r.kg_cut)+'</td>'
             +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio ? r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') : '—')+'</td>'
             +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
