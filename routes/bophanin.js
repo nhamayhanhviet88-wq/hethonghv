@@ -523,6 +523,41 @@ module.exports = async function(fastify) {
             WHERE dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
         `, orderIds) : [];
 
+        const allPrRecs = orderIds.length ? await db.all(`
+            SELECT pr.id, pr.dht_order_id, pr.order_item_id, pr.print_field, pr.printer_id, pr.contractor_id,
+                   u.full_name AS printer_name, c.name AS contractor_name, pr.shared_process
+            FROM printing_records pr
+            LEFT JOIN users u ON pr.printer_id = u.id
+            LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+            WHERE pr.dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
+        `, orderIds) : [];
+
+        const getRecordOpName = (pr) => {
+            if (pr.contractor_id) {
+                return pr.contractor_name ? '🏭 ' + pr.contractor_name : '🏭 Gia công';
+            }
+            return pr.printer_name || '';
+        };
+
+        const ticketOperators = {};
+        allPrRecs.forEach(pr => {
+            const key = pr.order_item_id ? `item_${pr.order_item_id}` : `order_${pr.dht_order_id}`;
+            if (!ticketOperators[key]) {
+                ticketOperators[key] = [];
+            }
+            const opName = getRecordOpName(pr);
+            if (opName) ticketOperators[key].push(opName);
+            
+            if (pr.shared_process) {
+                const parts = pr.shared_process.split(',').map(s => s.trim()).filter(Boolean);
+                ticketOperators[key].push(...parts);
+            }
+        });
+
+        for (const key of Object.keys(ticketOperators)) {
+            ticketOperators[key] = [...new Set(ticketOperators[key])];
+        }
+
         const itemsByOrder = {};
         orderItems.forEach(item => {
             if (!itemsByOrder[item.dht_order_id]) {
@@ -600,9 +635,20 @@ module.exports = async function(fastify) {
                 }
             }
 
+            // Dynamic shared process calculation
+            let calculatedSharedProcess = r.shared_process;
+            if (r.record_type === 'real') {
+                const key = r.order_item_id ? `item_${r.order_item_id}` : `order_${r.dht_order_id}`;
+                const allOps = ticketOperators[key] || [];
+                const currentOp = getRecordOpName(r);
+                const otherOps = allOps.filter(op => op !== currentOp);
+                calculatedSharedProcess = otherOps.join(', ') || null;
+            }
+
             return {
                 ...r,
                 product_name: finalProdName,
+                shared_process: calculatedSharedProcess,
                 id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)
             };
         });

@@ -200,7 +200,7 @@ function _bpiRender() {
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
         +'<td style="text-align:center"><button class="bpi-ib'+eC+'" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">'+eI+'</button></td>'
-        +'<td style="font-size:10px">'+_bpiFD(r.print_date)+'</td>'
+        +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
         +'<td style="font-weight:700;color:#0284c7">'+(r.order_code||'—')+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
