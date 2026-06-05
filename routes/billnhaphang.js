@@ -1355,12 +1355,12 @@ module.exports = async function(fastify) {
 
     fastify.post('/api/material-setup/items', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
-        const { warehouse_id, name, display_order, is_active } = req.body || {};
+        const { warehouse_id, name, display_order, is_active, unit } = req.body || {};
         if (!warehouse_id) return reply.code(400).send({ error: 'Vui lòng chọn kho' });
         if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên vật liệu không được để trống' });
         try {
-            const r = await db.get(`INSERT INTO material_items (warehouse_id, name, display_order, is_active) VALUES ($1, $2, $3, $4) RETURNING id`,
-                [Number(warehouse_id), name.trim(), Number(display_order)||0, is_active !== false]);
+            const r = await db.get(`INSERT INTO material_items (warehouse_id, name, display_order, is_active, unit) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+                [Number(warehouse_id), name.trim(), Number(display_order)||0, is_active !== false, unit ? unit.trim() : null]);
             return { success: true, id: r.id };
         } catch(e) {
             return reply.code(400).send({ error: 'Tên vật liệu đã tồn tại trong kho này' });
@@ -1369,12 +1369,12 @@ module.exports = async function(fastify) {
 
     fastify.put('/api/material-setup/items/:id', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được cấu hình' });
-        const { name, display_order, is_active } = req.body || {};
+        const { name, display_order, is_active, unit } = req.body || {};
         if (!name || !name.trim()) return reply.code(400).send({ error: 'Tên vật liệu không được để trống' });
         const id = Number(req.params.id);
         try {
-            await db.run(`UPDATE material_items SET name=$1, display_order=$2, is_active=$3, updated_at=NOW() WHERE id=$4`,
-                [name.trim(), Number(display_order)||0, is_active !== false, id]);
+            await db.run(`UPDATE material_items SET name=$1, display_order=$2, is_active=$3, unit=$4, updated_at=NOW() WHERE id=$5`,
+                [name.trim(), Number(display_order)||0, is_active !== false, unit ? unit.trim() : null, id]);
             return { success: true };
         } catch(e) {
             return reply.code(400).send({ error: 'Lỗi cập nhật hoặc tên vật liệu đã trùng lặp trong kho' });

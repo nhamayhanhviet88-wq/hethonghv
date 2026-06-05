@@ -1234,26 +1234,48 @@ function _bvlRenderMatTab(content) {
         return;
     }
 
+    // Prepare units datalist
+    var defaultUnits = ['Mét', 'Chai', 'Cái', 'Kg'];
+    var extraUnits = [];
+    if (_bvl.materials) {
+        _bvl.materials.forEach(function (m) {
+            if (m.unit && !defaultUnits.includes(m.unit) && !extraUnits.includes(m.unit)) {
+                extraUnits.push(m.unit);
+            }
+        });
+    }
+    var allUnits = defaultUnits.concat(extraUnits);
+    var datalistHtml = '<datalist id="_matUnitsList">';
+    allUnits.forEach(function (u) {
+        datalistHtml += '<option value="' + u + '">';
+    });
+    datalistHtml += '</datalist>';
+
+    html += datalistHtml;
+
     html += '<h4 style="margin:0 0 12px 0;font-size:13px;color:#1e293b">➕ Thêm Vật Tư Mới</h4>'
         + '<div style="display:flex;gap:10px;margin-bottom:20px">'
         + '<input id="_newMatName" placeholder="Tên vật tư (ví dụ: Mực in PET, Cúc áo)..." style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
+        + '<input id="_newMatUnit" list="_matUnitsList" placeholder="Định lượng (Mét, Kg...)" style="width:180px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
         + '<input id="_newMatOrder" type="number" placeholder="Sắp xếp..." style="width:80px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none">'
         + '<button onclick="_bvlAddMatSubmit()" style="padding:8px 16px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Thêm Vật Tư</button>'
         + '</div>';
 
     html += '<h4 style="margin:0 0 10px 0;font-size:13px;color:#1e293b">📋 Danh Sách Vật Tư Thuộc Kho</h4>'
         + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
-        + '<thead><tr style="background:#f1f5f9;text-align:left"><th style="padding:8px">ID</th><th style="padding:8px">Tên Vật Tư</th><th style="padding:8px">Sắp xếp</th><th style="padding:8px;text-align:center">Hoạt động</th><th style="padding:8px;text-align:right">Thao tác</th></tr></thead><tbody>';
+        + '<thead><tr style="background:#f1f5f9;text-align:left"><th style="padding:8px">ID</th><th style="padding:8px">Tên Vật Tư</th><th style="padding:8px">Định lượng</th><th style="padding:8px">Sắp xếp</th><th style="padding:8px;text-align:center">Hoạt động</th><th style="padding:8px;text-align:right">Thao tác</th></tr></thead><tbody>';
 
     var filteredmats = _bvl.materials.filter(function (m) { return m.warehouse_id == _selectedSetupWhIdForMat; });
 
     if (filteredmats.length === 0) {
-        html += '<tr><td colspan="5" style="padding:20px;text-align:center;color:#64748b">Kho này chưa có vật tư nào.</td></tr>';
+        html += '<tr><td colspan="6" style="padding:20px;text-align:center;color:#64748b">Kho này chưa có vật tư nào.</td></tr>';
     } else {
         filteredmats.forEach(function (m) {
+            var uVal = m.unit || '';
             html += '<tr style="border-bottom:1px solid #f1f5f9">'
                 + '<td style="padding:8px;color:#64748b">' + m.id + '</td>'
-                + '<td style="padding:8px"><input id="_matName_' + m.id + '" value="' + m.name + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:90%;font-size:12px"></td>'
+                + '<td style="padding:8px"><input id="_matName_' + m.id + '" value="' + m.name + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:95%;font-size:12px"></td>'
+                + '<td style="padding:8px"><input id="_matUnit_' + m.id + '" list="_matUnitsList" value="' + uVal + '" placeholder="Mét, Kg..." style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:120px;font-size:12px"></td>'
                 + '<td style="padding:8px"><input id="_matOrder_' + m.id + '" type="number" value="' + m.display_order + '" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;width:50px;font-size:12px"></td>'
                 + '<td style="padding:8px;text-align:center"><input id="_matActive_' + m.id + '" type="checkbox"' + (m.is_active ? ' checked' : '') + '></td>'
                 + '<td style="padding:8px;text-align:right"><button onclick="_bvlUpdateMatSubmit(' + m.id + ')" style="padding:4px 8px;background:#334155;color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer">Lưu</button></td>'
@@ -1271,10 +1293,11 @@ function _bvlSetupMatWhChange(val) {
 
 async function _bvlAddMatSubmit() {
     var name = document.getElementById('_newMatName').value || '';
+    var unit = document.getElementById('_newMatUnit').value || '';
     var order = Number(document.getElementById('_newMatOrder').value) || 0;
     if (!name.trim()) { showToast('Vui lòng nhập tên vật tư', 'error'); return; }
     try {
-        await apiCall('/api/material-setup/items', 'POST', { warehouse_id: _selectedSetupWhIdForMat, name: name.trim(), display_order: order, is_active: true });
+        await apiCall('/api/material-setup/items', 'POST', { warehouse_id: _selectedSetupWhIdForMat, name: name.trim(), display_order: order, is_active: true, unit: unit.trim() });
         showToast('✅ Đã thêm vật tư');
         await _bvlLoadAll();
         _bvlSwitchTab('mat');
@@ -1285,11 +1308,12 @@ async function _bvlAddMatSubmit() {
 
 async function _bvlUpdateMatSubmit(id) {
     var name = document.getElementById('_matName_' + id).value || '';
+    var unit = document.getElementById('_matUnit_' + id).value || '';
     var order = Number(document.getElementById('_matOrder_' + id).value) || 0;
     var active = document.getElementById('_matActive_' + id).checked;
     if (!name.trim()) { showToast('Vui lòng nhập tên vật tư', 'error'); return; }
     try {
-        await apiCall('/api/material-setup/items/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active });
+        await apiCall('/api/material-setup/items/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active, unit: unit.trim() });
         showToast('✅ Đã cập nhật vật tư');
         await _bvlLoadAll();
         _bvlSwitchTab('mat');
