@@ -110,6 +110,11 @@ function _bnhRender(){
         if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+srcDebt+')" title="Thanh toán">💳</button>';}
         else{payHtml='<span style="font-size:11px" title="Đã thanh toán đủ">✅</span>';}
         
+        var badgeHtml = '';
+        if (Number(r.ship_cost) > 0 && r.ship_payer === 'congty') {
+            badgeHtml = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">CTy Mất Ship</span>';
+        }
+
         var paidCellHtml = '';
         if (Number(r.paid) > 0) {
             paidCellHtml = '<td style="text-align:right;color:#059669;font-weight:700;cursor:pointer;text-decoration:underline dashed" onclick="event.stopPropagation();_bnhShowPaymentHistoryModal(' + r.id + ')" title="Xem chi tiết lịch sử thanh toán">' + _bnhFM(r.paid) + '</td>';
@@ -123,7 +128,7 @@ function _bnhRender(){
         +'<td style="font-size:10px">'+_bnhFD(r.import_date)+'</td>'
         +'<td style="font-size:10px;color:#4f46e5;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.importer_name||'—')+'</td>'
-        +'<td style="font-weight:600;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis">'+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis">'+badgeHtml+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#4f46e5">'+_bnhFM(info.trees)+'</td>'
         +'<td style="text-align:center;font-weight:600;color:#7c3aed;font-size:10px">'+info.qty+'</td>'
         +'<td style="text-align:right;font-weight:600">'+_bnhFM(r.cost)+'</td>'
