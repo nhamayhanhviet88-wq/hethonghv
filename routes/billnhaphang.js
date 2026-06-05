@@ -488,7 +488,15 @@ module.exports = async function(fastify) {
 
     // ========== PAYMENTS ==========
     fastify.get('/api/import/payments/:importId', { preHandler: [authenticate] }, async (req) => {
-        const payments = await db.all(`SELECT p.*, u.full_name AS paid_by_name FROM import_payments p LEFT JOIN users u ON p.paid_by=u.id WHERE p.import_id=$1 ORDER BY p.paid_at DESC`, [Number(req.params.importId)]);
+        const importId = Number(req.params.importId);
+        const payments = await db.all(`
+            SELECT p.*, u.full_name AS paid_by_name 
+            FROM import_payments p 
+            LEFT JOIN users u ON p.paid_by=u.id 
+            WHERE p.import_id=$1 
+               OR p.allocations::text LIKE '%"bill_id":' || $1 || ',%'
+               OR p.allocations::text LIKE '%"bill_id":' || $1 || '}%'
+            ORDER BY p.paid_at DESC`, [importId]);
         return { payments };
     });
 
@@ -511,43 +519,65 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Số tiền vượt Tổng Công Nợ còn lại (' + totalSourceDebt.toLocaleString('vi-VN') + '₫). Vui lòng kiểm tra lại!' });
         }
 
-        // Save image
-        const dir = path.join(__dirname, '../uploads/bill-nhap-hang/payments');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        const fname = `pay_${importId}_${Date.now()}.png`;
-        const fpath = path.join(dir, fname);
-        const base64 = image_data.replace(/^data:image\/\w+;base64,/, '');
-        fs.writeFileSync(fpath, Buffer.from(base64, 'base64'));
-        const imageUrl = `/uploads/bill-nhap-hang/payments/${fname}`;
+        // Save or resolve image
+        let imageUrl = '';
+        let fpath = '';
+        if (image_data.startsWith('/uploads/')) {
+            imageUrl = image_data;
+            fpath = path.join(__dirname, '..', image_data);
+        } else {
+            const dir = path.join(__dirname, '../uploads/bill-nhap-hang/payments');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const fname = `pay_${importId}_${Date.now()}.png`;
+            fpath = path.join(dir, fname);
+            const base64 = image_data.replace(/^data:image\/\w+;base64,/, '');
+            fs.writeFileSync(fpath, Buffer.from(base64, 'base64'));
+            imageUrl = `/uploads/bill-nhap-hang/payments/${fname}`;
+        }
 
         const now = vnNow();
 
-        // Get all bills with debt > 0 for this source, oldest first (FIFO)
-        const billsWithDebt = await db.all(
-            'SELECT id, total_amount, paid, debt FROM import_records WHERE source_id=$1 AND debt > 0 ORDER BY import_date ASC NULLS LAST, created_at ASC',
-            [rec.source_id]
-        );
-
-        // Distribute payment across bills FIFO
+        // Distribute payment: Prioritize the active bill first, then distribute remainder FIFO
         let remaining = payAmt;
         const allocations = [];
-        for (const bill of billsWithDebt) {
-            if (remaining <= 0) break;
-            const billDebt = Number(bill.debt) || 0;
-            const allocated = Math.min(remaining, billDebt);
+
+        // 1. Allocate to the primary (clicked) bill first
+        const primaryDebt = Number(rec.debt) || 0;
+        if (primaryDebt > 0) {
+            const allocated = Math.min(remaining, primaryDebt);
             remaining -= allocated;
-            allocations.push({ bill_id: bill.id, amount: allocated });
+            allocations.push({ bill_id: rec.id, amount: allocated });
 
-            const newPaid = Number(bill.paid) + allocated;
-            const newDebt = Number(bill.total_amount) - newPaid;
-            await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, bill.id]);
+            const newPaid = Number(rec.paid) + allocated;
+            const newDebt = Number(rec.total_amount) - newPaid;
+            await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, rec.id]);
 
-            // Log history for each affected bill
-            const histDetail = bill.id === importId
-                ? '💳 Thanh toán ' + allocated.toLocaleString('vi-VN') + '₫' + (allocations.length > 1 || payAmt > allocated ? ' (phân bổ từ TT tổng ' + payAmt.toLocaleString('vi-VN') + '₫)' : '')
-                : '💳 Phân bổ ' + allocated.toLocaleString('vi-VN') + '₫ từ TT nguồn (tổng ' + payAmt.toLocaleString('vi-VN') + '₫)';
+            const histDetail = '💳 Thanh toán ' + allocated.toLocaleString('vi-VN') + '₫' + (payAmt > allocated ? ' (phân bổ từ TT tổng ' + payAmt.toLocaleString('vi-VN') + '₫)' : '');
             await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [bill.id, 'payment', histDetail, req.user.id, now]);
+                [rec.id, 'payment', histDetail, req.user.id, now]);
+        }
+
+        // 2. Distribute remainder FIFO to other bills of the same source
+        if (remaining > 0) {
+            const otherBills = await db.all(
+                'SELECT id, total_amount, paid, debt FROM import_records WHERE source_id=$1 AND id!=$2 AND debt > 0 ORDER BY import_date ASC NULLS LAST, created_at ASC',
+                [rec.source_id, rec.id]
+            );
+            for (const bill of otherBills) {
+                if (remaining <= 0) break;
+                const billDebt = Number(bill.debt) || 0;
+                const allocated = Math.min(remaining, billDebt);
+                remaining -= allocated;
+                allocations.push({ bill_id: bill.id, amount: allocated });
+
+                const newPaid = Number(bill.paid) + allocated;
+                const newDebt = Number(bill.total_amount) - newPaid;
+                await db.run('UPDATE import_records SET paid=$1, debt=$2, updated_at=$3 WHERE id=$4', [newPaid, newDebt, now, bill.id]);
+
+                const histDetail = '💳 Phân bổ ' + allocated.toLocaleString('vi-VN') + '₫ từ TT nguồn của bill #' + rec.id + ' (tổng ' + payAmt.toLocaleString('vi-VN') + '₫)';
+                await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                    [bill.id, 'payment', histDetail, req.user.id, now]);
+            }
         }
 
         // Create payment record with allocations

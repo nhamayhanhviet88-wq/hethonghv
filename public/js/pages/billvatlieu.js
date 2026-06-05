@@ -991,6 +991,15 @@ async function _bvlDetail(id) {
             + '</div>';
     }
 
+    // Show Shipping Image (under shipping info)
+    if (r.ship_image_url) {
+        h += '<div style="border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;background:#eff6ff;margin-top:12px">'
+            + '<div style="font-size:11px;font-weight:800;color:#1e40af;margin-bottom:8px">📸 ẢNH HÓA ĐƠN SHIP</div>'
+            + '<div style="text-align:center"><img src="' + r.ship_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
+            + '</div>';
+    }
+
+    // Show Payment History (under shipping image)
     try {
         var payRes = await apiCall('/api/import/payments/' + id);
         var payments = payRes.payments || [];
@@ -1005,20 +1014,13 @@ async function _bvlDetail(id) {
                     + '<span style="font-size:10px;color:#0d9488;margin-left:8px;font-weight:600">' + (p.paid_by_name || '') + '</span></div>'
                     + '<div style="font-size:14px;font-weight:900;color:#059669">' + _bvlFM(p.amount) + '₫</div></div>';
                 if (p.note) h += '<div style="font-size:10px;color:#6b7280;margin-bottom:4px">📝 ' + p.note + '</div>';
-                if (p.image_url) h += '<div><img src="' + p.image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)"></div>';
+                if (p.image_url) h += '<div style="margin-top:8px"><img src="' + p.image_url + '" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:1px solid #e2e8f0" onclick="window.open(this.src)"></div>';
                 h += '</div>';
             });
             h += '</div>';
         }
     } catch (e) {
         console.error('[BVL] payments details error:', e);
-    }
-
-    if (r.ship_image_url) {
-        h += '<div style="border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px;background:#eff6ff;margin-top:12px">'
-            + '<div style="font-size:11px;font-weight:800;color:#1e40af;margin-bottom:8px">📸 ẢNH HÓA ĐƠN SHIP</div>'
-            + '<div style="text-align:center"><img src="' + r.ship_image_url + '" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open(this.src)"></div>'
-            + '</div>';
     }
 
     var ov = document.createElement('div');
