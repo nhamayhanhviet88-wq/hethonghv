@@ -503,15 +503,22 @@ function _bpiRender() {
 
         var rollDisplay = '—';
         var parts = [];
-        if (r.material_tx_id) {
+        if (r.pettem_roll_id) {
+            var txId = '';
+            if (r.pettem_roll_notes) {
+                var txMatch = r.pettem_roll_notes.match(/\(Giao dịch\s*#(\d+)\)/);
+                if (txMatch) txId = txMatch[1];
+            }
+            if (txId) {
+                parts.push('<span style="color:#7c3aed;font-weight:700" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + txId + '</span>');
+            }
+            var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
+            parts.push('<span style="color:#059669;font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 Cây ' + typeLabel + ' #' + r.pettem_roll_id + '</span>');
+        } else if (r.material_tx_id) {
             parts.push('<span style="color:#7c3aed;font-weight:700" title="' + (r.material_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + r.material_tx_id + '</span>');
             if (r.material_roll_supplier) {
                 parts.push('<span style="font-size:8px;color:#64748b;display:block">🏭 ' + r.material_roll_supplier.replace(/"/g, '&quot;') + '</span>');
             }
-        }
-        if (r.pettem_roll_id) {
-            var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
-            parts.push('<span style="color:#059669;font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 Cây ' + typeLabel + ' #' + r.pettem_roll_id + '</span>');
         }
         if (parts.length > 0) {
             rollDisplay = parts.join('');

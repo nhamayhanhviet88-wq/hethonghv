@@ -282,7 +282,18 @@ if (r.error_reported) {
     errBtn = '<button class="ab" onclick="mErr('+r.id+')"><span class="ai">⬜</span><span class="al">LỖI</span></button>';
 }
 const isReal = !!r.id;
-const rollDisp = r.material_tx_id ? ('🌀 Lô #' + r.material_tx_id + (r.material_roll_supplier ? ' (' + r.material_roll_supplier + ')' : '')) : '—';
+let rollDisp = '—';
+if (r.pettem_roll_id) {
+    let txId = '';
+    if (r.pettem_roll_notes) {
+        const txMatch = r.pettem_roll_notes.match(/\(Giao dịch\s*#(\d+)\)/);
+        if (txMatch) txId = txMatch[1];
+    }
+    const typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
+    rollDisp = (txId ? '🌀 Lô #' + txId + ' | ' : '') + '🌲 Cây ' + typeLabel + ' #' + r.pettem_roll_id;
+} else if (r.material_tx_id) {
+    rollDisp = '🌀 Lô #' + r.material_tx_id + (r.material_roll_supplier ? ' (' + r.material_roll_supplier + ')' : '');
+}
 
 const metersHtml = isReal 
   ? '<div class="cr" onclick="mEditCell('+r.id+',\'print_meters\','+(r.print_meters||0)+',\'Nhập số mét in:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">📐 Mét in</span><span class="cv" style="color:#fbbf24;font-size:16px">'+(r.print_meters||'0')+'</span></div>'
