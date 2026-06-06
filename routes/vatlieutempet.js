@@ -128,6 +128,15 @@ module.exports = async function(fastify) {
         const numF = ['qty_imported','qty_waste','qty_error','qty_printed','confirmed_by'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         await db.run(`UPDATE pettem_rolls SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+        
+        // Propagate qty_imported change to corresponding XUAT transaction in warehouse
+        if (field === 'qty_imported') {
+            const roll = await db.get('SELECT material_tx_id FROM pettem_rolls WHERE id = $1', [id]);
+            if (roll && roll.material_tx_id) {
+                await db.run('UPDATE material_transactions SET quantity = $1 WHERE parent_tx_id = $2 AND tx_type = \'XUAT\'', [fv, roll.material_tx_id]);
+            }
+        }
+
         // Recalc remaining
         if (['qty_imported','qty_waste','qty_error','qty_printed'].includes(field)) {
             const rec = await db.get('SELECT qty_imported,qty_waste,qty_error,qty_printed FROM pettem_rolls WHERE id=$1', [id]);
@@ -148,6 +157,15 @@ module.exports = async function(fastify) {
             [b.roll_type, b.import_date||null, b.field_name||null,
              Number(b.qty_imported)||0, Number(b.qty_waste)||0, Number(b.qty_error)||0, Number(b.qty_printed)||0,
              rem, b.confirmed_by||null, b.notes||null, now, id]);
+
+        // Propagate qty_imported change to corresponding XUAT transaction in warehouse
+        if (b.qty_imported !== undefined) {
+            const roll = await db.get('SELECT material_tx_id FROM pettem_rolls WHERE id = $1', [id]);
+            if (roll && roll.material_tx_id) {
+                await db.run('UPDATE material_transactions SET quantity = $1 WHERE parent_tx_id = $2 AND tx_type = \'XUAT\'', [Number(b.qty_imported) || 0, roll.material_tx_id]);
+            }
+        }
+
         await db.run(`INSERT INTO pettem_history (roll_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật cây', req.user.id, now]);
         return { success: true };
@@ -155,7 +173,12 @@ module.exports = async function(fastify) {
 
     // ========== DELETE ==========
     fastify.delete('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req) => {
-        await db.run('DELETE FROM pettem_rolls WHERE id=$1', [Number(req.params.id)]);
+        const id = Number(req.params.id);
+        const roll = await db.get('SELECT material_tx_id FROM pettem_rolls WHERE id = $1', [id]);
+        if (roll && roll.material_tx_id) {
+            await db.run('DELETE FROM material_transactions WHERE parent_tx_id = $1 AND tx_type = \'XUAT\'', [roll.material_tx_id]);
+        }
+        await db.run('DELETE FROM pettem_rolls WHERE id=$1', [id]);
         return { success: true };
     });
 

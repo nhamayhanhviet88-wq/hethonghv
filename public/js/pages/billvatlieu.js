@@ -333,13 +333,23 @@ function _bvlRender() {
                 badgeHtml = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">CTy Mất Ship</span>';
             }
 
+            var txs = [];
+            try {
+                txs = typeof r.txs === 'string' ? JSON.parse(r.txs) : (r.txs || []);
+            } catch(e) {}
+
             var nameHtml = '';
             var qtyHtml = '';
 
             if (items && items.length > 0) {
                 nameHtml = items.map(function(item, idx) {
                     var prefix = idx === 0 ? badgeHtml : '';
-                    return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center">' + prefix + '<span>' + (item.material_item_name || '—') + '</span></div>';
+                    var foundTx = txs.find(function(t) { return t && t.material_item_id == item.material_item_id; });
+                    var lotLabel = foundTx ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+                    var displayName = item.material_item_name || '—';
+                    if (displayName === 'PET') displayName = 'Màng In Pet';
+                    if (displayName === 'TEM') displayName = 'Màng In Tem';
+                    return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center">' + prefix + lotLabel + '<span>' + displayName + '</span></div>';
                 }).join('');
                 qtyHtml = items.map(function(item) {
                     var unit = item.unit || _bvlGetUnitForMaterial(item.material_item_id, _bvlGetUnitByName(item.material_item_name));
@@ -347,7 +357,12 @@ function _bvlRender() {
                     return '<div style="line-height:1.6;margin-bottom:2px;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(item.quantity) + unitStr + '</div>';
                 }).join('');
             } else {
-                nameHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center">' + badgeHtml + '<span>' + (r.material_item_name || r.fabric_material || '—') + '</span></div>';
+                var foundTx = txs.find(function(t) { return t && t.material_item_id == r.material_item_id; });
+                var lotLabel = foundTx ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+                var displayName = r.material_item_name || r.fabric_material || '—';
+                if (displayName === 'PET') displayName = 'Màng In Pet';
+                if (displayName === 'TEM') displayName = 'Màng In Tem';
+                nameHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center">' + badgeHtml + lotLabel + '<span>' + displayName + '</span></div>';
                 var unit = _bvlGetUnitForMaterial(r.material_item_id, _bvlGetUnitByName(r.material_item_name || r.fabric_material));
                 var unitStr = unit ? ' ' + unit : '';
                 qtyHtml = '<div style="line-height:1.6;min-height:18px;display:flex;align-items:center;justify-content:center">' + _bvlFM(r.fabric_quantity) + unitStr + '</div>';
@@ -1064,15 +1079,39 @@ async function _bvlDetail(id) {
             var priceStr = item.price ? ' × ' + _bvlFM(item.price) + '₫' : '';
             var unit = item.unit || _bvlGetUnitForMaterial(item.material_item_id, _bvlGetUnitByName(item.material_item_name));
             var unitStr = unit ? ' ' + unit : '';
+            
+            var txs = [];
+            try {
+                txs = typeof r.txs === 'string' ? JSON.parse(r.txs) : (r.txs || []);
+            } catch(e) {}
+            var foundTx = txs.find(function(t) { return t && t.material_item_id == item.material_item_id; });
+            var lotLabel = foundTx ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+            
+            var displayName = item.material_item_name || '—';
+            if (displayName === 'PET') displayName = 'Màng In Pet';
+            if (displayName === 'TEM') displayName = 'Màng In Tem';
+
             h += '<div style="display:flex;justify-content:space-between;font-size:12px;border-bottom:1px dashed #ccfbf1;padding:6px 0">'
-                + '<span>🔹 <b>' + (item.material_item_name || '—') + '</b></span>'
+                + '<span style="display:flex;align-items:center">🔹 ' + lotLabel + '<b>' + displayName + '</b></span>'
                 + '<span>SL: <b>' + _bvlFM(item.quantity) + unitStr + '</b>' + priceStr + ' &nbsp;|&nbsp; Chi phí: <b style="color:#0d9488">' + _bvlFM(item.cost) + '₫</b></span>'
                 + '</div>';
         });
     } else {
         var unit = _bvlGetUnitForMaterial(r.material_item_id, _bvlGetUnitByName(r.material_item_name || r.fabric_material));
         var unitStr = unit ? ' ' + unit : '';
-        h += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span>Tên vật liệu:</span><b style="color:#1e293b">' + (r.material_item_name || r.fabric_material || '—') + '</b></div>'
+        
+        var txs = [];
+        try {
+            txs = typeof r.txs === 'string' ? JSON.parse(r.txs) : (r.txs || []);
+        } catch(e) {}
+        var foundTx = txs.find(function(t) { return t && t.material_item_id == r.material_item_id; });
+        var lotLabel = foundTx ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+
+        var displayName = r.material_item_name || r.fabric_material || '—';
+        if (displayName === 'PET') displayName = 'Màng In Pet';
+        if (displayName === 'TEM') displayName = 'Màng In Tem';
+
+        h += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;align-items:center"><span>Tên vật liệu:</span><span style="display:flex;align-items:center">' + lotLabel + '<b style="color:#1e293b">' + displayName + '</b></span></div>'
             + '<div style="display:flex;justify-content:space-between;font-size:12px"><span>Số lượng:</span><b style="color:#0d9488">' + _bvlFM(r.fabric_quantity) + unitStr + '</b></div>';
     }
     h += '</div>';

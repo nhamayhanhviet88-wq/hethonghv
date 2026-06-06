@@ -301,6 +301,9 @@ async function onPtImpFieldChange() {
     }
     
     try {
+    var selectEl = document.getElementById('ptImpLotSelect');
+    
+    try {
         var activeRes = await apiCall('/api/pettem/active-rolls?roll_type=' + field);
         var activeRolls = activeRes.rolls || [];
         var unconfirmedRoll = activeRolls.find(function(r) { return !r.confirmed_by; });
@@ -315,20 +318,29 @@ async function onPtImpFieldChange() {
                 warningEl.style.display = 'block';
                 submitBtn.disabled = true;
             }
+            if (selectEl) {
+                selectEl.innerHTML = '<option value="">⚠️ Vui lòng chốt cuộn ' + field + ' hiện tại trước</option>';
+                selectEl.disabled = true;
+            }
+            document.getElementById('ptImpQty').value = '';
+            document.getElementById('ptImpEndBal').value = '';
+            return;
         }
     } catch(e) {
         console.error('[PT] Check active rolls failed:', e);
     }
     
-    var selectEl = document.getElementById('ptImpLotSelect');
-    selectEl.innerHTML = '<option value="">⏳ Đang tải danh sách lô...</option>';
+    if (selectEl) {
+        selectEl.disabled = false;
+        selectEl.innerHTML = '<option value="">⏳ Đang tải danh sách lô...</option>';
+    }
     
     try {
         var res = await apiCall('/api/khovatlieu/available-rolls?material_item_id=' + materialItemId);
         _ptAvailableLots = res.rolls || [];
         
         if (_ptAvailableLots.length === 0) {
-            selectEl.innerHTML = '<option value="">⚠️ Không có lô nào còn tồn trong kho</option>';
+            if (selectEl) selectEl.innerHTML = '<option value="">⚠️ Không có lô nào còn tồn trong kho</option>';
             document.getElementById('ptImpQty').value = '0 mét';
             document.getElementById('ptImpEndBal').value = '';
             return;
@@ -337,12 +349,13 @@ async function onPtImpFieldChange() {
         var h = '<option value="">-- Chọn lô để xuất nguyên lô --</option>';
         _ptAvailableLots.forEach(function(lot) {
             var dateStr = _ptFD(lot.performed_at.split('T')[0]);
-            h += '<option value="' + lot.id + '">Lô #' + lot.id + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
+            var materialName = field === 'PET' ? 'Màng In Pet' : 'Màng In Tem';
+            h += '<option value="' + lot.id + '">Lô #' + lot.id + ' - ' + materialName + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
         });
-        selectEl.innerHTML = h;
+        if (selectEl) selectEl.innerHTML = h;
     } catch(e) {
         console.error('[PT] Load available rolls failed:', e);
-        selectEl.innerHTML = '<option value="">❌ Lỗi tải danh sách lô</option>';
+        if (selectEl) selectEl.innerHTML = '<option value="">❌ Lỗi tải danh sách lô</option>';
     }
     
     document.getElementById('ptImpQty').value = '';

@@ -45,12 +45,11 @@ module.exports = async function(fastify) {
             RETURNS TRIGGER AS $$
             DECLARE
                 item RECORD;
+                existing_ids INT[] := '{}';
+                tx_id INT;
             BEGIN
-                IF (TG_OP = 'UPDATE' OR TG_OP = 'DELETE') THEN
-                    DELETE FROM material_transactions WHERE import_record_id = OLD.id AND tx_type = 'NHAP';
-                END IF;
-
                 IF (TG_OP = 'DELETE') THEN
+                    DELETE FROM material_transactions WHERE import_record_id = OLD.id AND tx_type = 'NHAP';
                     RETURN OLD;
                 END IF;
 
@@ -59,22 +58,48 @@ module.exports = async function(fastify) {
                     IF NEW.fabric_items IS NOT NULL AND jsonb_typeof(NEW.fabric_items) = 'array' THEN
                         FOR item IN SELECT * FROM jsonb_to_recordset(NEW.fabric_items) AS x(material_item_id INT, quantity NUMERIC, price NUMERIC, cost NUMERIC) LOOP
                             IF item.material_item_id IS NOT NULL THEN
-                                INSERT INTO material_transactions (
-                                    material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, import_record_id, notes
-                                ) VALUES (
-                                    item.material_item_id,
-                                    'NHAP',
-                                    COALESCE(item.quantity, 0),
-                                    COALESCE(item.price, 0),
-                                    COALESCE(item.cost, 0),
-                                    NEW.importer_id,
-                                    COALESCE(NEW.import_date::timestamptz, NEW.created_at),
-                                    NEW.id,
-                                    NEW.cost_notes
-                                );
+                                -- Check if transaction already exists
+                                SELECT id INTO tx_id FROM material_transactions 
+                                WHERE import_record_id = NEW.id AND material_item_id = item.material_item_id AND tx_type = 'NHAP'
+                                LIMIT 1;
+
+                                IF tx_id IS NOT NULL THEN
+                                    -- Update existing transaction to preserve ID
+                                    UPDATE material_transactions 
+                                    SET quantity = COALESCE(item.quantity, 0),
+                                        price = COALESCE(item.price, 0),
+                                        total_amount = COALESCE(item.cost, 0),
+                                        performed_at = COALESCE(NEW.import_date::timestamptz, NEW.created_at),
+                                        performed_by = NEW.importer_id,
+                                        notes = NEW.cost_notes
+                                    WHERE id = tx_id;
+                                    
+                                    existing_ids := array_append(existing_ids, tx_id);
+                                ELSE
+                                    -- Insert new transaction
+                                    INSERT INTO material_transactions (
+                                        material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, import_record_id, notes
+                                    ) VALUES (
+                                        item.material_item_id,
+                                        'NHAP',
+                                        COALESCE(item.quantity, 0),
+                                        COALESCE(item.price, 0),
+                                        COALESCE(item.cost, 0),
+                                        NEW.importer_id,
+                                        COALESCE(NEW.import_date::timestamptz, NEW.created_at),
+                                        NEW.id,
+                                        NEW.cost_notes
+                                    ) RETURNING id INTO tx_id;
+                                    
+                                    existing_ids := array_append(existing_ids, tx_id);
+                                END IF;
                             END IF;
                         END LOOP;
                     END IF;
+                    
+                    -- Clean up any general NHAP transactions that were deleted from fabric_items
+                    DELETE FROM material_transactions 
+                    WHERE import_record_id = NEW.id AND tx_type = 'NHAP' AND NOT (id = ANY(existing_ids));
                 END IF;
 
                 RETURN NEW;

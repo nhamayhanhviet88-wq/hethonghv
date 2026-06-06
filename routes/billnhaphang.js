@@ -285,12 +285,18 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (ir.fabric_material ILIKE $${idx} OR s.name ILIKE $${idx} OR ir.fabric_import_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT ir.*, s.name AS source_name, wh.name AS warehouse_name, u.full_name AS importer_name, u_ck.full_name AS checked_by_name,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   mt_list.txs
             FROM import_records ir LEFT JOIN import_sources s ON ir.source_id=s.id
             LEFT JOIN material_warehouses wh ON ir.warehouse_id=wh.id
             LEFT JOIN users u ON ir.importer_id=u.id LEFT JOIN users u_ck ON ir.checked_by=u_ck.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM import_history h WHERE h.import_id=ir.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
+            LEFT JOIN LATERAL (
+                SELECT json_agg(json_build_object('material_item_id', mt.material_item_id, 'tx_id', mt.id)) AS txs
+                FROM material_transactions mt 
+                WHERE mt.import_record_id = ir.id AND mt.tx_type = 'NHAP'
+            ) mt_list ON true
             ${where} ORDER BY ir.import_date DESC NULLS LAST, ir.created_at DESC`, params);
         return { records };
     });
@@ -652,7 +658,7 @@ module.exports = async function(fastify) {
         const fin = calcFinance(cost, refund, paid);
         await db.run(`UPDATE import_records SET import_date=$1,source_id=$2,importer_id=$3,fabric_material=$4,fabric_quantity=$5,
             material_name=$6,material_quantity=$7,cost=$8,refund=$9,total_amount=$10,paid=$11,debt=$12,cost_notes=$13,updated_at=$14,
-            warehouse_id=$15,material_item_id=$16 WHERE id=$17`,
+            warehouse_id=$15,material_item_id=$16,fabric_items=$17 WHERE id=$18`,
             [b.import_date!==undefined?b.import_date:rec.import_date, b.source_id!==undefined?b.source_id:rec.source_id,
              b.importer_id!==undefined?b.importer_id:rec.importer_id, b.fabric_material!==undefined?b.fabric_material:rec.fabric_material,
              b.fabric_quantity!==undefined?Number(b.fabric_quantity):rec.fabric_quantity,
@@ -662,6 +668,7 @@ module.exports = async function(fastify) {
              b.cost_notes!==undefined?b.cost_notes:rec.cost_notes, now,
              b.warehouse_id!==undefined?b.warehouse_id:rec.warehouse_id,
              b.material_item_id!==undefined?b.material_item_id:rec.material_item_id,
+             b.fabric_items!==undefined ? (typeof b.fabric_items === 'string' ? b.fabric_items : JSON.stringify(b.fabric_items)) : rec.fabric_items,
              id]);
         await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật bill nhập hàng', req.user.id, now]);
@@ -677,6 +684,30 @@ module.exports = async function(fastify) {
         const numF = ['source_id','importer_id','fabric_quantity','material_quantity','cost','refund','paid'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         await db.run(`UPDATE import_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+
+        // Keep fabric_items in sync with fabric_quantity and cost during inline updates
+        if (field === 'fabric_quantity' || field === 'cost') {
+            const rec = await db.get('SELECT fabric_items FROM import_records WHERE id = $1', [id]);
+            if (rec && rec.fabric_items) {
+                let items = [];
+                try {
+                    items = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
+                } catch(e) {}
+                if (items && items.length === 1) {
+                    if (field === 'fabric_quantity') {
+                        items[0].quantity = Number(value) || 0;
+                        items[0].cost = (items[0].price || 0) * items[0].quantity;
+                    } else if (field === 'cost') {
+                        items[0].cost = Number(value) || 0;
+                        if (items[0].quantity > 0) {
+                            items[0].price = items[0].cost / items[0].quantity;
+                        }
+                    }
+                    await db.run('UPDATE import_records SET fabric_items = $1 WHERE id = $2', [JSON.stringify(items), id]);
+                }
+            }
+        }
+
         // Recalc if financial field changed
         if (['cost','refund','paid'].includes(field)) {
             const rec = await db.get('SELECT cost, refund, paid FROM import_records WHERE id=$1', [id]);
@@ -767,13 +798,18 @@ module.exports = async function(fastify) {
     fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const rec = await db.get(`
             SELECT ir.*, s.name AS source_name, COALESCE(u.full_name, uc.full_name) AS importer_name,
-                   w.name AS warehouse_name, mi.name AS material_item_name
+                   w.name AS warehouse_name, mi.name AS material_item_name, mt_list.txs
             FROM import_records ir 
             LEFT JOIN import_sources s ON ir.source_id=s.id 
             LEFT JOIN users u ON ir.importer_id=u.id 
             LEFT JOIN users uc ON ir.created_by=uc.id
             LEFT JOIN material_warehouses w ON ir.warehouse_id=w.id
             LEFT JOIN material_items mi ON ir.material_item_id=mi.id
+            LEFT JOIN LATERAL (
+                SELECT json_agg(json_build_object('material_item_id', mt.material_item_id, 'tx_id', mt.id)) AS txs
+                FROM material_transactions mt 
+                WHERE mt.import_record_id = ir.id AND mt.tx_type = 'NHAP'
+            ) mt_list ON true
             WHERE ir.id=$1`, [Number(req.params.id)]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bill nhập' });
         // Calculate total source debt for displaying Tổng Công Nợ
