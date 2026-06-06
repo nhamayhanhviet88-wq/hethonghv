@@ -28,7 +28,6 @@ function renderBophaninPage(content) {
 +'@media(max-width:768px){.bpi-sb{display:none}}'
 + '.bpi-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;opacity:0;transition:opacity .25s ease}'
 + '.bpi-modal-overlay.show{opacity:1}'
-+ '.bpi-modal-overlay.dimmed{opacity:0.15 !important}'
 + '.bpi-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden;margin-bottom:40px}'
 + '.bpi-modal-overlay.show .bpi-modal{transform:scale(1)}'
 + '.bpi-modal-header{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px}'
@@ -480,20 +479,6 @@ async function _bpiTog(id, action) {
     }
 }
 
-function _bpiSetupModalDismiss(overlayId, closeFn) {
-    var ov = document.getElementById(overlayId);
-    if (!ov) return;
-    ov.onclick = null;
-    ov.addEventListener('click', function(e) {
-        if (e.target.closest('input, select, button, textarea, option, .bpi-modal-btn, [onclick]')) return;
-        ov.classList.toggle('dimmed');
-    });
-    ov.addEventListener('dblclick', function(e) {
-        if (e.target.closest('input, select, button, textarea, option, .bpi-modal-btn, [onclick]')) return;
-        closeFn();
-    });
-}
-
 // Modal functions for printing completion
 async function _bpiShowDoneModal(r) {
     var old = document.getElementById('_bpiDoneModal'); if (old) old.remove();
@@ -580,7 +565,6 @@ async function _bpiShowDoneModal(r) {
     
     h += '</div></div>';
     document.body.insertAdjacentHTML('beforeend', h);
-    _bpiSetupModalDismiss('_bpiDoneModal', _bpiCloseDoneModal);
     
     // Setup paste listener
     window._bpiDoneHandlePaste = function(e) {
@@ -840,7 +824,6 @@ async function _bpiManageContractors() {
         ov.id = '_bpiConOverlay';
         ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s;margin-bottom:40px">' + html + '</div>';
         document.body.appendChild(ov);
-        _bpiSetupModalDismiss('_bpiConOverlay', function() { ov.remove(); });
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
@@ -929,7 +912,6 @@ async function _bpiRenderFieldsModal() {
     ov.id = '_bpFieldsOverlay';
     ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:750px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s;margin-bottom:40px">' + html + '</div>';
     document.body.appendChild(ov);
-    _bpiSetupModalDismiss('_bpFieldsOverlay', function() { ov.remove(); });
     
     if (_bpSelFieldId) {
         _bpiLoadFieldOperators(_bpSelFieldId);
@@ -1115,7 +1097,6 @@ async function _bpiReportError(recordId) {
 
         h += '</div></div>';
         document.body.insertAdjacentHTML('beforeend', h);
-        _bpiSetupModalDismiss('_bpiErrorModal', _bpiCloseErrorModal);
         requestAnimationFrame(function() { document.getElementById('_bpiErrorModal').classList.add('show'); });
 
         _bpiSetupPasteListener();
