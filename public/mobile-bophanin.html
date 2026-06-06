@@ -270,7 +270,7 @@ if (priority === 'GẤP') {
 } else {
     priBadge = '<span style="margin-right: 6px; background: rgba(167,139,250,0.15); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
 }
-const isManager = cu && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(cu.role) !== -1;
+const isManager = cu && ['giam_doc', 'quan_ly_xuong', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(cu.role) !== -1;
 let errBtn = '';
 if (r.error_reported) {
     if (isManager) {
@@ -320,17 +320,60 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 + '</div>'
 + '<div class="ca">'
 + (r.contractor_id ? '<div class="ab" style="opacity:0.5;cursor:default"><span class="ai">—</span><span class="al">TEST</span></div>' : '<button class="ab'+(r.is_test_print?' on':'')+'" onclick="mTog('+r.id+',\''+tA+'\')"><span class="ai">🧪</span><span class="al">TEST</span></button>')
-+ (r.contractor_id ? '<div class="ab on" style="opacity:0.7;cursor:default"><span class="ai">✅</span><span class="al">XONG</span></div>' : '<button class="ab'+(r.is_print_done?' on':'')+'" onclick="mTog('+r.id+',\''+dA+'\')"><span class="ai">✅</span><span class="al">XONG</span></button>')
++ (r.contractor_id ? '<div class="ab on" style="opacity:0.7;cursor:default"><span class="ai">✅</span><span class="al">XONG</span></div>' : (r.is_print_done && !isManager ? '<div class="ab on" style="opacity:0.7;cursor:not-allowed"><span class="ai">✅</span><span class="al">XONG</span></div>' : '<button class="ab'+(r.is_print_done?' on':'')+'" onclick="mTog('+r.id+',\''+dA+'\')"><span class="ai">✅</span><span class="al">XONG</span></button>'))
 + errBtn
 + '</div>'
 + (hl?'<div class="ch">'+hl+'</div>':'')
 + '</div>'}).join('')}
 async function mTog(id,a){
+    const isManager = cu && ['giam_doc', 'quan_ly_xuong', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(cu.role) !== -1;
+    if (a === 'undo_done') {
+        if (!isManager) {
+            toast('Chỉ Giám đốc hoặc Quản lý mới được phép sửa đổi/báo cáo lại đơn đã in xong!', 'error');
+            return;
+        }
+        const r = mr.find(x => String(x.id) === String(id));
+        if (!r) return;
+        const fUpper = (r.print_field || '').toUpperCase();
+        const isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM') || fUpper.includes('DECAL');
+        if (isPetOrTem) {
+            mShowDoneModal(r);
+            return;
+        } else {
+            const inputVal = prompt('Nhập lại số lượng mét in cho đơn hàng này (Nhập 0 nếu bạn muốn HỦY xác nhận in xong):', r.print_meters || 0);
+            if (inputVal === null) return;
+            const newMeters = Number(inputVal);
+            if (isNaN(newMeters) || newMeters < 0) {
+                toast('Số mét in phải là số không âm!', 'error');
+                return;
+            }
+            if (newMeters === 0) {
+                if (confirm('Bạn có muốn hủy xác nhận in xong cho đơn này không?')) {
+                    try {
+                        await api('/api/printing/toggle/'+id,'POST',{action: 'undo_done'});
+                        toast('✅ Đã hủy xác nhận');
+                        await mLoad();
+                    } catch(e) {
+                        toast(e.message||'Lỗi','error');
+                    }
+                }
+            } else {
+                try {
+                    await api('/api/printing/toggle/'+id,'POST',{action: 'undo_done', print_meters: newMeters});
+                    toast('✅ Đã cập nhật số mét in');
+                    await mLoad();
+                } catch(e) {
+                    toast(e.message||'Lỗi','error');
+                }
+            }
+            return;
+        }
+    }
     if (a === 'print_done') {
         const r = mr.find(x => String(x.id) === String(id));
         if (r) {
             const fUpper = (r.print_field || '').toUpperCase();
-            const isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM');
+            const isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM') || fUpper.includes('DECAL');
             if (isPetOrTem) {
                 mShowDoneModal(r);
                 return;

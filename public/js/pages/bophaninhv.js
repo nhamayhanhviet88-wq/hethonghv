@@ -442,7 +442,7 @@ function _bpiRender() {
         var tI=r.is_test_print?'🧪':'⬜',tC=r.is_test_print?' on-test':'',tA=r.is_test_print?'undo_test':'start_test';
         var dI=r.is_print_done?'✅':'⬜',dC=r.is_print_done?' on-done':'',dA=r.is_print_done?'undo_done':'print_done';
         
-        var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(window._currentUser.role) !== -1;
+        var isManager = window._currentUser && ['giam_doc', 'quan_ly_xuong', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].indexOf(window._currentUser.role) !== -1;
         var errBtnHtml = '';
         if (r.error_reported) {
             if (isManager) {
@@ -555,10 +555,20 @@ function _bpiRender() {
                 printDateVal = '<span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">' + text + '</span>';
             }
         }
+        var doneBtnHtml = '';
+        if (r.contractor_id) {
+            doneBtnHtml = '<span style="color:#059669;font-weight:700">✓ Xong</span>';
+        } else {
+            if (r.is_print_done && !isManager) {
+                doneBtnHtml = '<button class="bpi-ib' + dC + '" style="opacity:0.75;cursor:not-allowed" disabled>' + dI + '</button>';
+            } else {
+                doneBtnHtml = '<button class="bpi-ib' + dC + '" onclick="_bpiTog(\'' + r.id + '\',\'' + dA + '\')" title="In xong">' + dI + '</button>';
+            }
+        }
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
-        +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#059669;font-weight:700">✓ Xong</span>' : '<button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button>')+'</td>'
+        +'<td style="text-align:center">'+doneBtnHtml+'</td>'
         +'<td style="text-align:center">' + errBtnHtml + '</td>'
         +'<td style="text-align:center">'+fieldBadge+'</td>'
         +'<td style="font-size:10px">'+printDateVal+'</td>'
@@ -639,7 +649,7 @@ async function _bpiTog(id, action) {
     var r = _bpi.records.find(function(rec) { return String(rec.id) === String(id); });
     if (!r) return;
 
-    var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
+    var isManager = window._currentUser && ['giam_doc', 'quan_ly_xuong', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
 
     if (action === 'undo_done') {
         if (!isManager) {
@@ -651,10 +661,27 @@ async function _bpiTog(id, action) {
         if (isPetOrTem) {
             _bpiShowDoneModal(r);
         } else {
-            if (confirm('Bạn có muốn hủy xác nhận in xong cho đơn này không?')) {
+            var inputVal = prompt('Nhập lại số lượng mét in cho đơn hàng này (Nhập 0 nếu bạn muốn HỦY xác nhận in xong):', r.print_meters || 0);
+            if (inputVal === null) return;
+            var newMeters = Number(inputVal);
+            if (isNaN(newMeters) || newMeters < 0) {
+                showToast('Số mét in phải là số không âm!', 'error');
+                return;
+            }
+            if (newMeters === 0) {
+                if (confirm('Bạn có muốn hủy xác nhận in xong cho đơn này không?')) {
+                    try {
+                        await apiCall('/api/printing/toggle/'+id,'POST',{action: 'undo_done'});
+                        showToast('✅ Đã hủy xác nhận');
+                        await _bpiLoadAll();
+                    } catch(e) {
+                        showToast(e.message||'Lỗi','error');
+                    }
+                }
+            } else {
                 try {
-                    await apiCall('/api/printing/toggle/'+id,'POST',{action: 'undo_done'});
-                    showToast('✅ Đã hủy xác nhận');
+                    await apiCall('/api/printing/toggle/'+id,'POST',{action: 'undo_done', print_meters: newMeters});
+                    showToast('✅ Đã cập nhật số mét in');
                     await _bpiLoadAll();
                 } catch(e) {
                     showToast(e.message||'Lỗi','error');

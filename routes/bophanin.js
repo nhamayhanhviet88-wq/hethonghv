@@ -101,7 +101,7 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPI] history:', e.message); }
 
     // ========== HELPERS ==========
-    const MGMT_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+    const MGMT_ROLES = ['giam_doc', 'quan_ly_xuong', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
     async function isPrintManager(req) {
         if (MGMT_ROLES.includes(req.user.role)) return true;
         const dept = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
@@ -898,12 +898,21 @@ module.exports = async function(fastify) {
             }
             detail = '✅ In xong';
         } else if (action === 'undo_done') {
-            const oldRollId = rec.pettem_roll_id;
-            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, pettem_roll_id=NULL, roll_start_qty=0, roll_end_qty=0, print_meters=0, image_url=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
-            if (oldRollId) {
-                await syncPettemRollMeters(oldRollId);
+            const { print_meters } = req.body || {};
+            if (print_meters !== undefined && Number(print_meters) > 0) {
+                await db.run(`UPDATE printing_records SET print_meters=$1, updated_at=$2 WHERE id=$3`, [Number(print_meters), now, id]);
+                if (rec.pettem_roll_id) {
+                    await syncPettemRollMeters(rec.pettem_roll_id);
+                }
+                detail = `📝 Cập nhật số mét in xong: ${print_meters}m`;
+            } else {
+                const oldRollId = rec.pettem_roll_id;
+                await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, pettem_roll_id=NULL, roll_start_qty=0, roll_end_qty=0, print_meters=0, image_url=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+                if (oldRollId) {
+                    await syncPettemRollMeters(oldRollId);
+                }
+                detail = '↩️ Hoàn tác in xong';
             }
-            detail = '↩️ Hoàn tác in xong';
         } else if (action === 'report_error') {
             await db.run(`UPDATE printing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
             detail = '⚠️ Báo đơn lỗi nội bộ';
