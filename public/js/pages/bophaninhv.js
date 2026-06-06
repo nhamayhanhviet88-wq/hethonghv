@@ -5,7 +5,66 @@ var _bpiOpen = {};
 _bpiOpen['y' + currentYear] = true;
 _bpiOpen['p' + currentYear] = true;
 
+function _bpiSaveUrlState() {
+    var f = _bpi.filter;
+    var params = new URLSearchParams();
+    if (f.year) params.set('year', f.year);
+    if (f.status) params.set('status', f.status);
+    if (f.field) params.set('field', f.field);
+    if (f.month) params.set('month', f.month);
+    if (f.operator_type) params.set('operator_type', f.operator_type);
+    if (f.operator_id) params.set('operator_id', f.operator_id);
+    if (_bpi.search) params.set('search', _bpi.search);
+    
+    var openKeys = Object.keys(_bpiOpen).filter(function(k) { return _bpiOpen[k]; });
+    if (openKeys.length) params.set('open', openKeys.join(','));
+    
+    var searchStr = params.toString();
+    var newUrl = window.location.pathname + (searchStr ? '?' + searchStr : '');
+    window.history.replaceState(null, '', newUrl);
+}
+
+function _bpiRestoreUrlState() {
+    var params = new URLSearchParams(window.location.search);
+    var currentYear = new Date().getFullYear();
+    
+    if (params.has('year') || params.has('status') || params.has('field') || params.has('month') || params.has('operator_id') || params.has('search')) {
+        var year = params.get('year');
+        var status = params.get('status');
+        var field = params.get('field');
+        var month = params.get('month');
+        var operator_type = params.get('operator_type');
+        var operator_id = params.get('operator_id');
+        var search = params.get('search');
+        
+        _bpi.filter = {
+            year: year ? Number(year) : null,
+            status: status || null,
+            field: field || null,
+            month: month ? Number(month) : null,
+            operator_type: operator_type || null,
+            operator_id: operator_id ? Number(operator_id) : null
+        };
+        _bpi.search = search || '';
+        
+        var openStr = params.get('open');
+        _bpiOpen = {};
+        if (openStr) {
+            openStr.split(',').forEach(function(k) {
+                if (k) _bpiOpen[k] = true;
+            });
+        }
+    } else {
+        _bpi.filter = { year: currentYear, status: 'pending', field: null };
+        _bpi.search = '';
+        _bpiOpen = {};
+        _bpiOpen['y' + currentYear] = true;
+        _bpiOpen['p' + currentYear] = true;
+    }
+}
+
 function renderBophaninPage(content) {
+    _bpiRestoreUrlState();
     if (!document.getElementById('_bpiFontLink')) {
         var fl = document.createElement('link'); fl.id = '_bpiFontLink'; fl.rel = 'stylesheet';
         fl.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap';
@@ -55,8 +114,14 @@ function renderBophaninPage(content) {
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>Cuộn Vật Liệu</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody id="bpiTb"><tr><td colspan="20" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    document.getElementById('bpiSearch').value = _bpi.search || '';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
-        clearTimeout(_t); _t = setTimeout(function() { _bpi.search = document.getElementById('bpiSearch').value || ''; _bpi.page = 1; _bpiRender(); }, 300);
+        clearTimeout(_t); _t = setTimeout(function() {
+            _bpi.search = document.getElementById('bpiSearch').value || '';
+            _bpi.page = 1;
+            _bpiSaveUrlState();
+            _bpiRender();
+        }, 300);
     });
     _bpiLoadAll();
 }
@@ -223,8 +288,8 @@ function _bpiRenderSb() {
     sb.innerHTML = h;
 }
 
-function _bpiTgl(k) { _bpiOpen[k] = !_bpiOpen[k]; _bpiRenderSb(); }
-function _bpiFilter(y,s,f,m,opType,opId) { _bpi.filter = { year:y||null, status:s||null, field:f||null, month:m||null, operator_type:opType||null, operator_id:opId||null }; _bpi.page=1; _bpiRenderSb(); _bpiLoadRecs(); }
+function _bpiTgl(k) { _bpiOpen[k] = !_bpiOpen[k]; _bpiSaveUrlState(); _bpiRenderSb(); }
+function _bpiFilter(y,s,f,m,opType,opId) { _bpi.filter = { year:y||null, status:s||null, field:f||null, month:m||null, operator_type:opType||null, operator_id:opId||null }; _bpi.page=1; _bpiSaveUrlState(); _bpiRenderSb(); _bpiLoadRecs(); }
 
 async function _bpiLoadRecs() {
     var f = _bpi.filter, qs = '?_=1';

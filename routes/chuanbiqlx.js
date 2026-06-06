@@ -778,8 +778,9 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.orderId);
         const { assignments, item_id } = request.body || {}; // array of { field_id, operator_type, operator_id }
         const itemId = item_id ? Number(item_id) : null;
-        const { vnNow } = require('../utils/timezone');
+        const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();
+        const todayStr = vnDateStr(now);
 
         if (!Array.isArray(assignments) || assignments.length === 0) {
             return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
@@ -981,34 +982,35 @@ module.exports = async function(fastify) {
             const sharedNames = ops.slice(1).map(o => getOpName(o.operator_type, o.operator_id)).filter(Boolean).join(', ');
 
             const existingId = existingFMap[fieldName];
+            const pDate = contractorId ? todayStr : null;
             if (existingId) {
                 await db.run(`
                     UPDATE printing_records
-                    SET printer_id = $1, contractor_id = $2, shared_process = $3, updated_at = $4
-                    WHERE id = $5
-                `, [printerId, contractorId, sharedNames || null, now, existingId]);
+                    SET printer_id = $1, contractor_id = $2, shared_process = $3, print_date = $4, updated_at = $5
+                    WHERE id = $6
+                `, [printerId, contractorId, sharedNames || null, pDate, now, existingId]);
             } else {
                 if (itemId) {
                     await db.run(`
                         INSERT INTO printing_records (
                             dht_order_id, order_item_id, printer_id, contractor_id, shared_process, print_field,
-                            product_name, cskh_name, order_quantity, created_by, created_at, updated_at
+                            product_name, cskh_name, order_quantity, print_date, created_by, created_at, updated_at
                         )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
                     `, [
                         orderId, itemId, printerId, contractorId, sharedNames || null, fieldName,
-                        prodName, cskhName, orderQty, request.user.id, now
+                        prodName, cskhName, orderQty, pDate, request.user.id, now
                     ]);
                 } else {
                     await db.run(`
                         INSERT INTO printing_records (
                             dht_order_id, printer_id, contractor_id, shared_process, print_field,
-                            product_name, cskh_name, order_quantity, created_by, created_at, updated_at
+                            product_name, cskh_name, order_quantity, print_date, created_by, created_at, updated_at
                         )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
                     `, [
                         orderId, printerId, contractorId, sharedNames || null, fieldName,
-                        prodName, cskhName, orderQty, request.user.id, now
+                        prodName, cskhName, orderQty, pDate, request.user.id, now
                     ]);
                 }
             }
