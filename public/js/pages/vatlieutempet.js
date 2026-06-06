@@ -148,12 +148,16 @@ function _ptRender(){
         
         var colType = r.roll_type ? r.roll_type.toUpperCase() : '';
         var colLabel = 'Cây' + (colType ? ' ' + colType : '');
+        var lotPrefix = r.material_tx_id ? 'Lô #' + r.material_tx_id + ' - ' : '';
+        var displayFieldName = r.field_name || '—';
+        if (displayFieldName === 'PET') displayFieldName = 'Màng In Pet';
+        if (displayFieldName === 'TEM') displayFieldName = 'Màng In Tem';
         
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + colLabel + ' #'+(r.material_tx_id || r.id)+'</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
         +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
-        +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+(r.field_name||'—')+'</td>'
+        +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+lotPrefix+displayFieldName+'</td>'
         +'<td style="text-align:center;font-weight:800;color:#e11d48;font-size:13px">'+_ptFN(r.qty_imported)+'</td>'
         +'<td style="text-align:center;color:#f59e0b;font-weight:600">'+_ptFN(r.qty_waste)+'</td>'
         +'<td style="text-align:center;color:#dc2626;font-weight:600">'+_ptFN(r.qty_error)+'</td>'
