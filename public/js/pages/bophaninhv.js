@@ -632,15 +632,40 @@ function _bpiNextPage() {
 }
 
 async function _bpiTog(id, action) {
-    if (action === 'print_done') {
-        var r = _bpi.records.find(function(rec) { return String(rec.id) === String(id); });
-        if (r) {
-            var fUpper = (r.print_field || '').toUpperCase();
-            var isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM');
-            if (isPetOrTem) {
-                _bpiShowDoneModal(r);
-                return;
+    var r = _bpi.records.find(function(rec) { return String(rec.id) === String(id); });
+    if (!r) return;
+
+    var isManager = currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
+
+    if (action === 'undo_done') {
+        if (!isManager) {
+            showToast('Chỉ Giám đốc hoặc Quản lý mới được phép sửa đổi/báo cáo lại đơn đã in xong!', 'error');
+            return;
+        }
+        var fUpper = (r.print_field || '').toUpperCase();
+        var isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM') || fUpper.includes('DECAL');
+        if (isPetOrTem) {
+            _bpiShowDoneModal(r);
+        } else {
+            if (confirm('Bạn có muốn hủy xác nhận in xong cho đơn này không?')) {
+                try {
+                    await apiCall('/api/printing/toggle/'+id,'POST',{action: 'undo_done'});
+                    showToast('✅ Đã hủy xác nhận');
+                    await _bpiLoadAll();
+                } catch(e) {
+                    showToast(e.message||'Lỗi','error');
+                }
             }
+        }
+        return;
+    }
+
+    if (action === 'print_done') {
+        var fUpper = (r.print_field || '').toUpperCase();
+        var isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM') || fUpper.includes('DECAL');
+        if (isPetOrTem) {
+            _bpiShowDoneModal(r);
+            return;
         }
     }
     try {
@@ -675,13 +700,27 @@ async function _bpiShowDoneModal(r) {
     // Sort rolls to show active first
     activeRolls = activeRolls.filter(function(x) { return !x.confirmed_by; });
 
+    var isEditing = r.is_print_done;
+    if (isEditing && r.pettem_roll_id) {
+        var found = activeRolls.some(function(x) { return String(x.id) === String(r.pettem_roll_id); });
+        if (!found) {
+            activeRolls.unshift({
+                id: r.pettem_roll_id,
+                roll_type: r.pettem_roll_type || rollType,
+                qty_remaining: Number(r.roll_start_qty) || 0
+            });
+        }
+    }
+
     var opName = window._currentUser ? (window._currentUser.full_name || window._currentUser.username) : 'Nhân viên in';
     var progressHtml = _bpiGetProgressDisplay(r);
     var qtyDisplay = _bpiGetQtyDisplay(r);
 
     var h = '<div class="bpi-modal-overlay" id="_bpiDoneModal" tabindex="-1" style="outline:none">';
     h += '<div class="bpi-modal" style="width:480px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
-    h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">🖨️</div><div><div class="m-title">XÁC NHẬN IN XONG</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+    
+    var titleText = isEditing ? 'CẬP NHẬT BÁO CÁO IN XONG' : 'XÁC NHẬN IN XONG';
+    h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">🖨️</div><div><div class="m-title">' + titleText + '</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
     h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
     
     h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Tên SP/Phối</span><span class="bpi-modal-val">' + _bpiGetProductNameDisplay(r) + '</span></div>';
@@ -703,6 +742,9 @@ async function _bpiShowDoneModal(r) {
     
     // Auto-select the oldest active roll (FIFO)
     var defaultSelectId = activeRolls.length > 0 ? activeRolls[0].id : '';
+    if (isEditing && r.pettem_roll_id) {
+        defaultSelectId = r.pettem_roll_id;
+    }
     
     activeRolls.forEach(function(roll) {
         var selectedStr = String(roll.id) === String(defaultSelectId) ? ' selected' : '';
@@ -717,8 +759,9 @@ async function _bpiShowDoneModal(r) {
     h += '<input type="text" id="bpiDone_start_qty" readonly value="0" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700">';
     h += '</div>';
     
+    var initMeters = isEditing ? (r.print_meters || '') : '';
     h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Số Mét In (m) <span style="color:#ef4444">*</span></label>';
-    h += '<input type="number" id="bpiDone_meters" step="any" min="0.01" value="" oninput="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444" placeholder="Nhập số mét...">';
+    h += '<input type="number" id="bpiDone_meters" step="any" min="0.01" value="' + initMeters + '" oninput="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444" placeholder="Nhập số mét...">';
     h += '</div>';
     h += '</div>';
     
@@ -734,15 +777,25 @@ async function _bpiShowDoneModal(r) {
     h += '    Bấm <span style="background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> để dán ảnh';
     h += '</div>';
     h += '<input type="file" id="bpiDone_file_input" accept="image/*" onchange="_bpiDoneHandleFileSelect(event)" style="display:none">';
-    h += '<input type="hidden" id="bpiDone_image_url">';
-    h += '<div id="bpiDone_preview_zone" style="text-align:center;margin-top:8px"></div>';
+    
+    var initImgUrl = isEditing ? (r.image_url || '') : '';
+    h += '<input type="hidden" id="bpiDone_image_url" value="' + initImgUrl + '">';
+    var initPreview = '';
+    if (isEditing && r.image_url) {
+        initPreview = '<div style="position:relative;display:inline-block">' +
+            '<img src="' + r.image_url + '" style="max-width:150px;max-height:150px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;margin-top:6px">' +
+            '<span onclick="_bpiDoneRemoveImage()" style="position:absolute;top:2px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:11px;font-weight:900;text-align:center;line-height:18px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>' +
+            '</div>';
+    }
+    h += '<div id="bpiDone_preview_zone" style="text-align:center;margin-top:8px">' + initPreview + '</div>';
     h += '</div>';
     
     h += '</div>'; // End body
     
     h += '<div class="bpi-modal-actions" style="margin-top:0">';
     h += '<button class="bpi-modal-btn cancel" onclick="_bpiCloseDoneModal()">Hủy</button>';
-    h += '<button class="bpi-modal-btn confirm" id="_bpiDoneSubmitBtn" disabled style="background:linear-gradient(135deg,#059669,#10b981);opacity:0.5" onclick="_bpiSubmitDone(\'' + r.id + '\')">✅ HOÀN THÀNH</button>';
+    var btnText = isEditing ? '✅ CẬP NHẬT' : '✅ HOÀN THÀNH';
+    h += '<button class="bpi-modal-btn confirm" id="_bpiDoneSubmitBtn" disabled style="background:linear-gradient(135deg,#059669,#10b981);opacity:0.5" onclick="_bpiSubmitDone(\'' + r.id + '\')">' + btnText + '</button>';
     h += '</div>';
     
     h += '</div></div>';

@@ -786,6 +786,12 @@ module.exports = async function(fastify) {
 
         const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const isManager = await isPrintManager(req);
+        if (rec.is_print_done && !isManager) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Quản lý mới được phép sửa đổi/báo cáo lại đơn đã in xong.' });
+        }
+
         let detail = '';
         if (action === 'start_test') {
             await db.run(`UPDATE printing_records SET is_test_print=true, test_print_at=$1, test_print_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
@@ -805,15 +811,20 @@ module.exports = async function(fastify) {
                 const roll = await db.get(`SELECT qty_remaining, roll_type FROM pettem_rolls WHERE id = $1`, [Number(pettem_roll_id)]);
                 if (!roll) return reply.code(400).send({ error: 'Cây in không tồn tại' });
 
-                const calculatedEndQty = Number(roll.qty_remaining) - Number(print_meters);
+                let currentRollQty = Number(roll.qty_remaining);
+                if (rec.is_print_done && Number(rec.pettem_roll_id) === Number(pettem_roll_id)) {
+                    currentRollQty += Number(rec.print_meters || 0);
+                }
+
+                const calculatedEndQty = currentRollQty - Number(print_meters);
                 if (calculatedEndQty < 0) {
                     return reply.code(400).send({ error: 'Số lượng cuối cuộn bị âm. Vui lòng chọn cây in khác hoặc nhập thêm vật liệu.' });
                 }
 
                 await db.run(`UPDATE printing_records SET 
                     is_print_done=true, 
-                    print_done_at=$1, 
-                    print_done_by=$2, 
+                    print_done_at=COALESCE(print_done_at,$1), 
+                    print_done_by=COALESCE(print_done_by,$2), 
                     is_test_print=true, 
                     test_print_at=COALESCE(test_print_at,$1), 
                     updated_at=$1,
@@ -822,13 +833,16 @@ module.exports = async function(fastify) {
                     print_meters=$5,
                     roll_end_qty=$6,
                     image_url=$7,
-                    printer_id=$2
+                    printer_id=COALESCE(printer_id,$2)
                     WHERE id=$8`, 
-                    [now, req.user.id, Number(pettem_roll_id), Number(roll.qty_remaining), Number(print_meters), calculatedEndQty, image_url, id]);
+                    [now, req.user.id, Number(pettem_roll_id), currentRollQty, Number(print_meters), calculatedEndQty, image_url, id]);
 
                 await syncPettemRollMeters(pettem_roll_id);
+                if (rec.pettem_roll_id && Number(rec.pettem_roll_id) !== Number(pettem_roll_id)) {
+                    await syncPettemRollMeters(rec.pettem_roll_id);
+                }
             } else {
-                await db.run(`UPDATE printing_records SET is_print_done=true, print_done_at=$1, print_done_by=$2, is_test_print=true, test_print_at=COALESCE(test_print_at,$1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+                await db.run(`UPDATE printing_records SET is_print_done=true, print_done_at=COALESCE(print_done_at,$1), print_done_by=COALESCE(print_done_by,$2), is_test_print=true, test_print_at=COALESCE(test_print_at,$1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
                 // Auto FIFO assignment if not set
                 if (!rec.material_tx_id) {
                     const fUpper = (rec.print_field || '').toUpperCase();
