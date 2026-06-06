@@ -414,6 +414,7 @@ module.exports = async function(fastify) {
                 SELECT 
                     pr.id AS id,
                     pr.dht_order_id,
+                    pr.material_tx_id,
                     o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     pr.is_test_print,
@@ -471,6 +472,7 @@ module.exports = async function(fastify) {
                 SELECT 
                     NULL::int AS id,
                     o.id AS dht_order_id,
+                    NULL::int AS material_tx_id,
                     o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     false AS is_test_print,
@@ -522,7 +524,9 @@ module.exports = async function(fastify) {
                   )
             )
             SELECT up.*,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   mt.notes AS material_roll_notes, mt.quantity AS material_roll_qty,
+                   COALESCE(src.name, 'Nguồn khác') AS material_roll_supplier
             FROM unified_printing up
             LEFT JOIN LATERAL (
                 SELECT h.details, h.performed_at, h.performed_by 
@@ -531,6 +535,9 @@ module.exports = async function(fastify) {
                 ORDER BY h.performed_at DESC LIMIT 1
             ) lh ON up.record_type = 'real'
             LEFT JOIN users lhu ON lh.performed_by = lhu.id
+            LEFT JOIN material_transactions mt ON up.material_tx_id = mt.id
+            LEFT JOIN import_records ir ON mt.import_record_id = ir.id
+            LEFT JOIN import_sources src ON ir.source_id = src.id
             ${where}
             ${orderBy}
         `, params);
@@ -732,9 +739,28 @@ module.exports = async function(fastify) {
             detail = '↩️ Hoàn tác in test';
         } else if (action === 'print_done') {
             await db.run(`UPDATE printing_records SET is_print_done=true, print_done_at=$1, print_done_by=$2, is_test_print=true, test_print_at=COALESCE(test_print_at,$1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+            // Auto FIFO assignment if not set
+            if (!rec.material_tx_id) {
+                const fUpper = (rec.print_field || '').toUpperCase();
+                let matId = null;
+                if (fUpper.includes('PET')) matId = 4; // Màng In Pet
+                else if (fUpper.includes('TEM') || fUpper.includes('DECAL')) matId = 11; // Màng In Tem
+                
+                if (matId) {
+                    const oldestRoll = await db.get(`
+                        SELECT id FROM material_transactions mt
+                        WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
+                          AND (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0)) > 0
+                        ORDER BY mt.performed_at ASC, mt.id ASC LIMIT 1
+                    `, [matId]);
+                    if (oldestRoll) {
+                        await db.run(`UPDATE printing_records SET material_tx_id = $1 WHERE id = $2`, [oldestRoll.id, id]);
+                    }
+                }
+            }
             detail = '✅ In xong';
         } else if (action === 'undo_done') {
-            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác in xong';
         } else if (action === 'report_error') {
             await db.run(`UPDATE printing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
@@ -797,13 +823,14 @@ module.exports = async function(fastify) {
 
         await db.run(`UPDATE printing_records SET print_date=$1, printer_id=$2, contractor_id=$3, product_name=$4, cskh_name=$5,
             order_quantity=$6, print_meters=$7, roll_start_qty=$8, roll_end_qty=$9, current_roll=$10,
-            print_field=$11, shared_process=$12, notes=$13, updated_at=$14 ${auditSql} WHERE id=$15`,
+            print_field=$11, shared_process=$12, notes=$13, material_tx_id=$14, updated_at=$15 ${auditSql} WHERE id=$16`,
             [b.print_date||rec.print_date, b.printer_id||rec.printer_id, b.contractor_id!==undefined?b.contractor_id:rec.contractor_id,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              Number(b.order_quantity)||rec.order_quantity, Number(b.print_meters)||rec.print_meters,
              Number(b.roll_start_qty)||rec.roll_start_qty, Number(b.roll_end_qty)||rec.roll_end_qty,
              b.current_roll!==undefined?b.current_roll:rec.current_roll, b.print_field!==undefined?b.print_field:rec.print_field,
-             b.shared_process!==undefined?b.shared_process:rec.shared_process, b.notes!==undefined?b.notes:rec.notes, now, id]);
+             b.shared_process!==undefined?b.shared_process:rec.shared_process, b.notes!==undefined?b.notes:rec.notes,
+             b.material_tx_id!==undefined?b.material_tx_id:rec.material_tx_id, now, id]);
 
         if (auditSql) {
             await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
@@ -829,10 +856,18 @@ module.exports = async function(fastify) {
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
 
         const ALLOWED = ['print_date','printer_id','contractor_id','product_name','cskh_name','order_quantity','print_meters',
-            'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes'];
+            'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes','material_tx_id'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
-        const numF = ['order_quantity','print_meters','roll_start_qty','roll_end_qty','printer_id','contractor_id'];
-        const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
+        const numF = ['order_quantity','print_meters','roll_start_qty','roll_end_qty','printer_id','contractor_id','material_tx_id'];
+        let fv;
+        if (value === null || value === undefined || value === '') {
+            fv = null;
+        } else if (numF.includes(field)) {
+            fv = Number(value);
+            if (isNaN(fv)) fv = 0;
+        } else {
+            fv = value;
+        }
 
         let auditSql = '';
         if (field === 'printer_id' || field === 'contractor_id') {

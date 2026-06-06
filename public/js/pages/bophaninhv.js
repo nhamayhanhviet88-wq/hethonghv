@@ -53,8 +53,8 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>Cuộn Vật Liệu</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="20" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
         clearTimeout(_t); _t = setTimeout(function() { _bpi.search = document.getElementById('bpiSearch').value || ''; _bpi.page = 1; _bpiRender(); }, 300);
     });
@@ -280,7 +280,7 @@ function _bpiRender() {
     var s=(_bpi.page-1)*_bpi.ps, paged=all.slice(s,s+_bpi.ps);
     // Render rows
     var tb=document.getElementById('bpiTb'); if(!tb)return;
-    if(!paged.length){tb.innerHTML='<tr><td colspan="19"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
+    if(!paged.length){tb.innerHTML='<tr><td colspan="20"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
     tb.innerHTML=paged.map(function(r,i){
         var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
         var priBadge = '';
@@ -342,6 +342,31 @@ function _bpiRender() {
             }
         }
 
+        var rollDisplay = '—';
+        if (r.material_tx_id) {
+            rollDisplay = '<span style="color:#7c3aed;font-weight:700" title="' + (r.material_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + r.material_tx_id + '</span>';
+            if (r.material_roll_supplier) {
+                rollDisplay += '<br><span style="font-size:8px;color:#64748b">🏭 ' + r.material_roll_supplier.replace(/"/g, '&quot;') + '</span>';
+            }
+        }
+
+        var metersCell = '';
+        var startCell = '';
+        var endCell = '';
+        var rollCell = '';
+        
+        if (r.id) {
+            metersCell = '<td style="text-align:center;font-weight:700;color:#dc2626;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'print_meters\','+(r.print_meters||0)+',\'number\')">'+(r.print_meters||'0')+'</td>';
+            rollCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.material_tx_id||'')+'\')">'+rollDisplay+'</td>';
+            startCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'roll_start_qty\','+(r.roll_start_qty||0)+',\'number\')">'+(r.roll_start_qty||'0')+'</td>';
+            endCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'roll_end_qty\','+(r.roll_end_qty||0)+',\'number\')">'+(r.roll_end_qty||'0')+'</td>';
+        } else {
+            metersCell = '<td style="text-align:center;color:#94a3b8">—</td>';
+            rollCell = '<td style="text-align:center;color:#94a3b8">—</td>';
+            startCell = '<td style="text-align:center;color:#94a3b8">—</td>';
+            endCell = '<td style="text-align:center;color:#94a3b8">—</td>';
+        }
+
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
@@ -355,9 +380,10 @@ function _bpiRender() {
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:600">'+(r.roll_end_qty||'—')+'</td>'
+        + metersCell
+        + rollCell
+        + startCell
+        + endCell
         +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.shared_process||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
@@ -948,3 +974,105 @@ async function _bpiSubmitError(recordId) {
         window._bpiSubmitBusy = false;
     }
 }
+
+window._bpiEditCell = function(cell, id, field, val, type) {
+    if (cell.querySelector('input')) return; // already editing
+    var input = document.createElement('input');
+    input.type = type || 'text';
+    input.value = val || '';
+    input.style.width = '70px';
+    input.style.fontSize = '11px';
+    input.style.padding = '2px';
+    input.style.textAlign = 'center';
+    
+    var originalHTML = cell.innerHTML;
+    cell.innerHTML = '';
+    cell.appendChild(input);
+    input.focus();
+    
+    var save = async function() {
+        var newVal = input.value.trim();
+        if (newVal === String(val)) {
+            cell.innerHTML = originalHTML;
+            return;
+        }
+        try {
+            await apiCall('/api/printing/records/' + id + '/field', 'PATCH', { field: field, value: newVal });
+            showToast('✅ Đã lưu');
+            await _bpiLoadAll();
+        } catch(e) {
+            showToast(e.message || 'Lỗi', 'error');
+            cell.innerHTML = originalHTML;
+        }
+    };
+    
+    input.onblur = save;
+    input.onkeydown = function(e) {
+        if (e.key === 'Enter') save();
+        if (e.key === 'Escape') cell.innerHTML = originalHTML;
+    };
+};
+
+window._bpiEditRollCell = async function(cell, id, printField, selectedTxId) {
+    if (cell.querySelector('select')) return; // already editing
+    
+    // Map printField to material_item_id
+    var matItemId = 4; // default Màng Pet
+    var fieldUpper = (printField || '').toUpperCase();
+    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+        matItemId = 11; // Màng Tem
+    }
+    
+    try {
+        var res = await apiCall('/api/khovatlieu/available-rolls?material_item_id=' + matItemId);
+        var rolls = res.rolls || [];
+        
+        var select = document.createElement('select');
+        select.style.fontSize = '11px';
+        select.style.width = '140px';
+        
+        var optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = '— Chọn cuộn/lô —';
+        select.appendChild(optNone);
+        
+        rolls.forEach(function(r) {
+            var opt = document.createElement('option');
+            opt.value = r.id;
+            opt.textContent = 'Lô #' + r.id + ' (Còn ' + r.remaining_qty + 'm) - ' + (r.notes || r.source_name || '');
+            if (String(r.id) === String(selectedTxId)) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+        
+        var originalHTML = cell.innerHTML;
+        cell.innerHTML = '';
+        cell.appendChild(select);
+        select.focus();
+        
+        var save = async function() {
+            var newVal = select.value;
+            if (newVal === String(selectedTxId)) {
+                cell.innerHTML = originalHTML;
+                return;
+            }
+            try {
+                await apiCall('/api/printing/records/' + id + '/field', 'PATCH', { field: 'material_tx_id', value: newVal || null });
+                showToast('✅ Đã chọn cuộn vật liệu');
+                await _bpiLoadAll();
+            } catch(e) {
+                showToast(e.message || 'Lỗi', 'error');
+                cell.innerHTML = originalHTML;
+            }
+        };
+        
+        select.onblur = save;
+        select.onchange = save;
+        select.onkeydown = function(e) {
+            if (e.key === 'Escape') cell.innerHTML = originalHTML;
+        };
+    } catch(e) {
+        showToast('Lỗi tải cuộn vật liệu: ' + e.message, 'error');
+    }
+};

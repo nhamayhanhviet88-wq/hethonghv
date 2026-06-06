@@ -141,6 +141,25 @@ if (r.error_reported) {
 } else {
     errBtn = '<button class="ab" onclick="mErr('+r.id+')"><span class="ai">⬜</span><span class="al">LỖI</span></button>';
 }
+const isReal = !!r.id;
+const rollDisp = r.material_tx_id ? ('🌀 Lô #' + r.material_tx_id + (r.material_roll_supplier ? ' (' + r.material_roll_supplier + ')' : '')) : '—';
+
+const metersHtml = isReal 
+  ? '<div class="cr" onclick="mEditCell('+r.id+',\'print_meters\','+(r.print_meters||0)+',\'Nhập số mét in:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">📐 Mét in</span><span class="cv" style="color:#fbbf24;font-size:16px">'+(r.print_meters||'0')+'</span></div>'
+  : '<div class="cr"><span class="cl">📐 Mét in</span><span class="cv">—</span></div>';
+
+const rollHtml = isReal
+  ? '<div class="cr" onclick="mEditRoll('+r.id+',\''+(r.print_field||'')+'\',\''+(r.material_tx_id||'')+'\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv" style="color:#c4b5fd">'+rollDisp+'</span></div>'
+  : '<div class="cr"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv">—</span></div>';
+
+const startHtml = isReal
+  ? '<div class="cr" onclick="mEditCell('+r.id+',\'roll_start_qty\','+(r.roll_start_qty||0)+',\'Nhập số lượng đầu cuộn:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">'+(r.roll_start_qty||'0')+'</span></div>'
+  : '<div class="cr"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">—</span></div>';
+
+const endHtml = isReal
+  ? '<div class="cr" onclick="mEditCell('+r.id+',\'roll_end_qty\','+(r.roll_end_qty||0)+',\'Nhập số lượng cuối cuộn:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">'+(r.roll_end_qty||'0')+'</span></div>'
+  : '<div class="cr"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">—</span></div>';
+
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Ngày in</span><span class="cv">'+fd(r.print_date)+'</span></div>'
@@ -148,10 +167,11 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="cr"><span class="cl">👨‍💼 CSKH</span><span class="cv" style="color:#60a5fa">'+(r.cskh_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">🏷️ Lĩnh vực</span><span class="cv">'+fb+'</span></div>'
 +'<div class="cd"></div>'
-+'<div class="cr"><span class="cl">📦 SL Đơn</span><span class="cv" style="color:\'+mQtyColor(r)+\'">\'+mQty(r)+\'</span></div>'
-+'<div class="cr"><span class="cl">📐 Mét in</span><span class="cv" style="color:#fbbf24;font-size:16px">'+(r.print_meters||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">'+(r.roll_start_qty||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">'+(r.roll_end_qty||'—')+'</span></div>'
++'<div class="cr"><span class="cl">📦 SL Đơn</span><span class="cv" style="color:'+mQtyColor(r)+'">'+mQty(r)+'</span></div>'
++ metersHtml
++ rollHtml
++ startHtml
++ endHtml
 +(r.shared_process?'<div class="cr"><span class="cl">🔗 In/Thêu chung</span><span class="cv" style="font-size:11px">'+r.shared_process+'</span></div>':'')
 +(r.notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.notes+'</span></div>':'')
 +'</div>'
@@ -163,6 +183,56 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +(hl?'<div class="ch">'+hl+'</div>':'')
 +'</div>'}).join('')}
 async function mTog(id,a){try{await api('/api/printing/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
+async function mEditCell(id, field, currentVal, title) {
+    const newVal = prompt(title, currentVal || '');
+    if (newVal === null) return;
+    try {
+        await api('/api/printing/records/' + id + '/field', 'PATCH', { field: field, value: newVal === '' ? null : newVal });
+        toast('✅ Cập nhật thành công');
+        await mLoad();
+    } catch(e) {
+        toast(e.message || 'Lỗi', 'error');
+    }
+}
+async function mEditRoll(id, printField, currentTxId) {
+    let matItemId = 4;
+    const fieldUpper = (printField || '').toUpperCase();
+    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+        matItemId = 11;
+    }
+    try {
+        const res = await api('/api/khovatlieu/available-rolls?material_item_id=' + matItemId);
+        const rolls = res.rolls || [];
+        if (!rolls.length) {
+            toast('Không có cuộn vật liệu nào khả dụng', 'error');
+            return;
+        }
+        
+        let msg = 'Chọn cuộn/lô vật liệu:\n';
+        rolls.forEach((r, idx) => {
+            msg += `${idx + 1}. Lô #${r.id} (Còn ${r.remaining_qty}m) - ${r.notes || r.source_name || ''}\n`;
+        });
+        msg += 'Nhập số thứ tự để chọn (hoặc 0 để hủy liên kết):';
+        
+        const ans = prompt(msg);
+        if (ans === null) return;
+        const num = parseInt(ans);
+        if (num === 0) {
+            await api('/api/printing/records/' + id + '/field', 'PATCH', { field: 'material_tx_id', value: null });
+            toast('✅ Đã hủy liên kết');
+            await mLoad();
+        } else if (num > 0 && num <= rolls.length) {
+            const selected = rolls[num - 1];
+            await api('/api/printing/records/' + id + '/field', 'PATCH', { field: 'material_tx_id', value: selected.id });
+            toast('✅ Đã liên kết cuộn vật liệu');
+            await mLoad();
+        } else {
+            toast('Lựa chọn không hợp lệ', 'error');
+        }
+    } catch(e) {
+        toast(e.message || 'Lỗi', 'error');
+    }
+}
 function mErr(id){location.href='/donloikhachhang'}
 mInit();
 </script>
