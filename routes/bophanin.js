@@ -83,6 +83,10 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPI] audit columns migration error:', e.message); }
 
     try {
+        await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT NULL`);
+    } catch(e) { console.error('[BPI] image_url column migration error:', e.message); }
+
+    try {
         await db.exec(`CREATE TABLE IF NOT EXISTS printing_history (
             id SERIAL PRIMARY KEY, printing_id INTEGER NOT NULL REFERENCES printing_records(id) ON DELETE CASCADE,
             action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
@@ -474,6 +478,7 @@ module.exports = async function(fastify) {
                     pr.created_by,
                     pr.created_at,
                     pr.updated_at,
+                    pr.image_url,
                     'real' AS record_type,
                     c.name AS contractor_name,
                     u_pr.full_name AS printer_name,
@@ -537,6 +542,7 @@ module.exports = async function(fastify) {
                     o.created_by,
                     o.created_at,
                     o.created_at AS updated_at,
+                    NULL::text AS image_url,
                     'virtual' AS record_type,
                     NULL AS contractor_name,
                     NULL AS printer_name,
@@ -771,50 +777,98 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE printing_records SET is_test_print=false, test_print_at=NULL, test_print_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác in test';
         } else if (action === 'print_done') {
-            await db.run(`UPDATE printing_records SET is_print_done=true, print_done_at=$1, print_done_by=$2, is_test_print=true, test_print_at=COALESCE(test_print_at,$1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
-            // Auto FIFO assignment if not set
-            if (!rec.material_tx_id) {
-                const fUpper = (rec.print_field || '').toUpperCase();
-                let matId = null;
-                if (fUpper.includes('PET')) matId = 4; // Màng In Pet
-                else if (fUpper.includes('TEM') || fUpper.includes('DECAL')) matId = 11; // Màng In Tem
-                
-                if (matId) {
-                    const oldestRoll = await db.get(`
-                        SELECT id FROM material_transactions mt
-                        WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
-                          AND (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0)) > 0
-                        ORDER BY mt.performed_at ASC, mt.id ASC LIMIT 1
-                    `, [matId]);
-                    if (oldestRoll) {
-                        await db.run(`UPDATE printing_records SET material_tx_id = $1 WHERE id = $2`, [oldestRoll.id, id]);
+            const fUpper = (rec.print_field || '').toUpperCase();
+            const isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM');
+            if (isPetOrTem) {
+                const { pettem_roll_id, roll_start_qty, print_meters, roll_end_qty, image_url } = req.body || {};
+                if (!pettem_roll_id) return reply.code(400).send({ error: 'Mã cây in là bắt buộc đối với đơn hàng PET/TEM' });
+                if (!print_meters || Number(print_meters) <= 0) return reply.code(400).send({ error: 'Số mét in phải lớn hơn 0' });
+                if (!image_url) return reply.code(400).send({ error: 'Hình ảnh file in là bắt buộc đối với đơn hàng PET/TEM' });
+
+                const roll = await db.get(`SELECT qty_remaining, roll_type FROM pettem_rolls WHERE id = $1`, [Number(pettem_roll_id)]);
+                if (!roll) return reply.code(400).send({ error: 'Cây in không tồn tại' });
+
+                const calculatedEndQty = Number(roll.qty_remaining) - Number(print_meters);
+                if (calculatedEndQty < 0) {
+                    return reply.code(400).send({ error: 'Số lượng cuối cuộn bị âm. Vui lòng chọn cây in khác hoặc nhập thêm vật liệu.' });
+                }
+
+                await db.run(`UPDATE printing_records SET 
+                    is_print_done=true, 
+                    print_done_at=$1, 
+                    print_done_by=$2, 
+                    is_test_print=true, 
+                    test_print_at=COALESCE(test_print_at,$1), 
+                    updated_at=$1,
+                    pettem_roll_id=$3,
+                    roll_start_qty=$4,
+                    print_meters=$5,
+                    roll_end_qty=$6,
+                    image_url=$7,
+                    printer_id=$2
+                    WHERE id=$8`, 
+                    [now, req.user.id, Number(pettem_roll_id), Number(roll.qty_remaining), Number(print_meters), calculatedEndQty, image_url, id]);
+
+                await syncPettemRollMeters(pettem_roll_id);
+            } else {
+                await db.run(`UPDATE printing_records SET is_print_done=true, print_done_at=$1, print_done_by=$2, is_test_print=true, test_print_at=COALESCE(test_print_at,$1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+                // Auto FIFO assignment if not set
+                if (!rec.material_tx_id) {
+                    const fUpper = (rec.print_field || '').toUpperCase();
+                    let matId = null;
+                    if (fUpper.includes('PET')) matId = 4; // Màng In Pet
+                    else if (fUpper.includes('TEM') || fUpper.includes('DECAL')) matId = 11; // Màng In Tem
+                    
+                    if (matId) {
+                        const oldestRoll = await db.get(`
+                            SELECT id FROM material_transactions mt
+                            WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
+                              AND (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0)) > 0
+                            ORDER BY mt.performed_at ASC, mt.id ASC LIMIT 1
+                        `, [matId]);
+                        if (oldestRoll) {
+                            await db.run(`UPDATE printing_records SET material_tx_id = $1 WHERE id = $2`, [oldestRoll.id, id]);
+                        }
+                    }
+                }
+                // Auto active roll assignment if not set
+                if (!rec.pettem_roll_id) {
+                    const fUpper = (rec.print_field || '').toUpperCase();
+                    let rollType = null;
+                    if (fUpper.includes('PET')) rollType = 'PET';
+                    else if (fUpper.includes('TEM')) rollType = 'TEM';
+                    else if (fUpper.includes('DECAL')) rollType = 'DECAL';
+                    
+                    if (rollType) {
+                        const activeRoll = await db.get(`
+                            SELECT id FROM pettem_rolls
+                            WHERE roll_type = $1 AND confirmed_by IS NULL
+                            ORDER BY import_date ASC, id ASC LIMIT 1
+                        `, [rollType]);
+                        if (activeRoll) {
+                            await db.run(`UPDATE printing_records SET pettem_roll_id = $1 WHERE id = $2`, [activeRoll.id, id]);
+                            await syncPettemRollMeters(activeRoll.id);
+                        }
                     }
                 }
             }
-            // Auto active roll assignment if not set
-            if (!rec.pettem_roll_id) {
-                const fUpper = (rec.print_field || '').toUpperCase();
-                let rollType = null;
-                if (fUpper.includes('PET')) rollType = 'PET';
-                else if (fUpper.includes('TEM')) rollType = 'TEM';
-                else if (fUpper.includes('DECAL')) rollType = 'DECAL';
-                
-                if (rollType) {
-                    const activeRoll = await db.get(`
-                        SELECT id FROM pettem_rolls
-                        WHERE roll_type = $1 AND confirmed_by IS NULL
-                        ORDER BY import_date ASC, id ASC LIMIT 1
-                    `, [rollType]);
-                    if (activeRoll) {
-                        await db.run(`UPDATE printing_records SET pettem_roll_id = $1 WHERE id = $2`, [activeRoll.id, id]);
-                        await syncPettemRollMeters(activeRoll.id);
-                    }
+            // Auto FIFO assignment if not set for PET/TEM also
+            if (isPetOrTem && !rec.material_tx_id) {
+                let matId = fUpper.includes('PET') ? 4 : 11;
+                const oldestRoll = await db.get(`
+                    SELECT id FROM material_transactions mt
+                    WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
+                      AND (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0)) > 0
+                    ORDER BY mt.performed_at ASC, mt.id ASC LIMIT 1
+                `, [matId]);
+                if (oldestRoll) {
+                    await db.run(`UPDATE printing_records SET material_tx_id = $1 WHERE id = $2`, [oldestRoll.id, id]);
                 }
             }
             detail = '✅ In xong';
         } else if (action === 'undo_done') {
             const oldRollId = rec.pettem_roll_id;
-            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, pettem_roll_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, pettem_roll_id=NULL, roll_start_qty=0, roll_end_qty=0, print_meters=0, image_url=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             if (oldRollId) {
                 await syncPettemRollMeters(oldRollId);
             }

@@ -374,6 +374,10 @@ function _bpiRender() {
             endCell = '<td style="text-align:center;color:#94a3b8">—</td>';
         }
 
+        var imgIcon = '';
+        if (r.image_url) {
+            imgIcon = ' <a href="' + r.image_url + '" target="_blank" style="margin-left:6px;font-size:12px;text-decoration:none" title="Xem hình ảnh file in">🖼️</a>';
+        }
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
@@ -383,7 +387,7 @@ function _bpiRender() {
         +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
         +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+priBadge+_bpiGetProductNameDisplay(r)+'</td>'
+        +'<td style="font-weight:600;color:#1e293b">'+priBadge+_bpiGetProductNameDisplay(r)+imgIcon+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
@@ -454,7 +458,314 @@ function _bpiNextPage() {
     }
 }
 
-async function _bpiTog(id, action) { try { await apiCall('/api/printing/toggle/'+id,'POST',{action}); showToast('✅ Cập nhật'); await _bpiLoadAll(); } catch(e) { showToast(e.message||'Lỗi','error'); } }
+async function _bpiTog(id, action) {
+    if (action === 'print_done') {
+        var r = _bpi.records.find(function(rec) { return String(rec.id) === String(id); });
+        if (r) {
+            var fUpper = (r.print_field || '').toUpperCase();
+            var isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM');
+            if (isPetOrTem) {
+                _bpiShowDoneModal(r);
+                return;
+            }
+        }
+    }
+    try {
+        await apiCall('/api/printing/toggle/'+id,'POST',{action});
+        showToast('✅ Cập nhật');
+        await _bpiLoadAll();
+    } catch(e) {
+        showToast(e.message||'Lỗi','error');
+    }
+}
+
+// Modal functions for printing completion
+async function _bpiShowDoneModal(r) {
+    var old = document.getElementById('_bpiDoneModal'); if (old) old.remove();
+    
+    var rollType = 'PET';
+    var fieldUpper = (r.print_field || '').toUpperCase();
+    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+        rollType = 'TEM';
+    }
+    
+    var activeRolls = [];
+    try {
+        var res = await apiCall('/api/pettem/active-rolls?roll_type=' + rollType);
+        activeRolls = res.rolls || [];
+    } catch (e) {
+        showToast('Lỗi tải cây in: ' + e.message, 'error');
+    }
+    
+    // Sort rolls to show active first
+    activeRolls = activeRolls.filter(function(x) { return !x.confirmed_by; });
+
+    var opName = window._currentUser ? (window._currentUser.full_name || window._currentUser.username) : 'Nhân viên in';
+    var progressHtml = _bpiGetProgressDisplay(r);
+    var qtyDisplay = _bpiGetQtyDisplay(r);
+
+    var h = '<div class="bpi-modal-overlay" id="_bpiDoneModal" onclick="if(event.target===this)_bpiCloseDoneModal()">';
+    h += '<div class="bpi-modal" style="width:480px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
+    h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">🖨️</div><div><div class="m-title">XÁC NHẬN IN XONG</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+    h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
+    
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Tên SP/Phối</span><span class="bpi-modal-val">' + _bpiGetProductNameDisplay(r) + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">CSKH</span><span class="bpi-modal-val">' + (r.cskh_name || '—') + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Nhân Viên In</span><span class="bpi-modal-val" style="color:#059669;font-weight:700">' + opName + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Tiến Độ</span><span class="bpi-modal-val">' + progressHtml + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Số Lượng Theo Đơn</span><span class="bpi-modal-val" style="font-weight:800;color:#7c3aed">' + qtyDisplay + '</span></div>';
+    
+    // Select roll
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Cây In <span style="color:#ef4444">*</span></label>';
+    h += '<select id="bpiDone_roll_id" onchange="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc">';
+    h += '<option value="">-- Chọn cây in --</option>';
+    
+    // Auto-select the oldest active roll (FIFO)
+    var defaultSelectId = activeRolls.length > 0 ? activeRolls[0].id : '';
+    
+    activeRolls.forEach(function(roll) {
+        var selectedStr = String(roll.id) === String(defaultSelectId) ? ' selected' : '';
+        h += '<option value="' + roll.id + '"' + selectedStr + '>Cây #' + roll.id + ' (Tồn: ' + Number(roll.qty_remaining).toFixed(2) + 'm)</option>';
+    });
+    h += '</select></div>';
+    
+    // Qty start & meters
+    h += '<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">SL Đầu Cuộn (m)</label>';
+    h += '<input type="text" id="bpiDone_start_qty" readonly value="0" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700">';
+    h += '</div>';
+    
+    h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Số Mét In (m) <span style="color:#ef4444">*</span></label>';
+    h += '<input type="number" id="bpiDone_meters" step="any" min="0.01" value="" oninput="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444" placeholder="Nhập số mét...">';
+    h += '</div>';
+    h += '</div>';
+    
+    // Qty end
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">SL Cuối Cuộn (m)</label>';
+    h += '<input type="text" id="bpiDone_end_qty" readonly value="0" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700">';
+    h += '<div id="bpiDone_warning" style="display:none;color:#dc2626;font-size:11px;font-weight:700;margin-top:4px"></div>';
+    h += '</div>';
+    
+    // Image upload / paste area
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Hình Ảnh File In <span style="color:#ef4444">*</span></label>';
+    h += '<div onclick="_bpiDoneTriggerUpload()" style="border:1.5px dashed #059669;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(5,150,105,0.03);color:#059669;font-size:13px;font-weight:700;cursor:pointer;">';
+    h += '    Click hoặc Kéo thả ảnh hoặc bấm <span style="background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> để dán ảnh';
+    h += '</div>';
+    h += '<input type="file" id="bpiDone_file_input" accept="image/*" onchange="_bpiDoneHandleFileSelect(event)" style="display:none">';
+    h += '<input type="hidden" id="bpiDone_image_url">';
+    h += '<div id="bpiDone_preview_zone" style="text-align:center;margin-top:8px"></div>';
+    h += '</div>';
+    
+    h += '</div>'; // End body
+    
+    h += '<div class="bpi-modal-actions" style="margin-top:0">';
+    h += '<button class="bpi-modal-btn cancel" onclick="_bpiCloseDoneModal()">Hủy</button>';
+    h += '<button class="bpi-modal-btn confirm" id="_bpiDoneSubmitBtn" disabled style="background:linear-gradient(135deg,#059669,#10b981);opacity:0.5" onclick="_bpiSubmitDone(\'' + r.id + '\')">✅ HOÀN THÀNH</button>';
+    h += '</div>';
+    
+    h += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', h);
+    
+    // Setup paste listener
+    window._bpiDoneHandlePaste = function(e) {
+        if (!document.getElementById('_bpiDoneModal')) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                e.preventDefault();
+                var blob = items[i].getAsFile();
+                _bpiDoneProcessAndUpload(blob);
+                break;
+            }
+        }
+    };
+    window.addEventListener('paste', window._bpiDoneHandlePaste);
+    
+    // Store active rolls locally
+    window._bpiActiveRolls = activeRolls;
+    
+    // Trigger initial calculation
+    _bpiUpdateDoneMeters();
+    
+    requestAnimationFrame(function() { document.getElementById('_bpiDoneModal').classList.add('show'); });
+}
+
+function _bpiCloseDoneModal() {
+    var m = document.getElementById('_bpiDoneModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+    if (window._bpiDoneHandlePaste) {
+        window.removeEventListener('paste', window._bpiDoneHandlePaste);
+        window._bpiDoneHandlePaste = null;
+    }
+}
+
+function _bpiUpdateDoneMeters() {
+    var selectEl = document.getElementById('bpiDone_roll_id');
+    var startEl = document.getElementById('bpiDone_start_qty');
+    var metersEl = document.getElementById('bpiDone_meters');
+    var endEl = document.getElementById('bpiDone_end_qty');
+    var confirmBtn = document.getElementById('_bpiDoneSubmitBtn');
+    
+    if (!selectEl || !startEl || !metersEl || !endEl) return;
+    
+    var rollId = selectEl.value;
+    if (!rollId) {
+        startEl.value = '0';
+        endEl.value = '0';
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+        return;
+    }
+    
+    var selectedRoll = (window._bpiActiveRolls || []).find(function(x) { return String(x.id) === String(rollId); });
+    var qtyStart = selectedRoll ? Number(selectedRoll.qty_remaining) : 0;
+    startEl.value = qtyStart.toFixed(2);
+    
+    var metersVal = Number(metersEl.value) || 0;
+    var qtyEnd = qtyStart - metersVal;
+    endEl.value = qtyEnd.toFixed(2);
+    
+    var warnEl = document.getElementById('bpiDone_warning');
+    if (qtyEnd < 0) {
+        endEl.style.color = '#dc2626';
+        if (warnEl) {
+            warnEl.style.display = 'block';
+            warnEl.textContent = '⚠️ Số lượng cuối cuộn bị âm! Không cho phép in quá tồn kho.';
+        }
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+    } else {
+        endEl.style.color = '#059669';
+        if (warnEl) {
+            warnEl.style.display = 'none';
+        }
+        
+        var imgUrl = document.getElementById('bpiDone_image_url')?.value;
+        if (metersVal > 0 && imgUrl) {
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+        } else {
+            confirmBtn.disabled = true;
+            confirmBtn.style.opacity = '0.5';
+        }
+    }
+}
+
+function _bpiDoneTriggerUpload() {
+    var input = document.getElementById('bpiDone_file_input');
+    if (input) input.click();
+}
+
+function _bpiDoneHandleFileSelect(e) {
+    var file = e.target.files[0];
+    if (file) {
+        _bpiDoneProcessAndUpload(file);
+    }
+}
+
+function _bpiDoneProcessAndUpload(file) {
+    var previewZone = document.getElementById('bpiDone_preview_zone');
+    if (previewZone) previewZone.innerHTML = '<div style="font-size:11px;color:#059669;font-weight:700">⏳ Đang nén và tải lên...</div>';
+    
+    _bpiCompressImage(file, async function(compressedDataURL) {
+        if (!compressedDataURL) {
+            if (previewZone) previewZone.innerHTML = '<div style="font-size:11px;color:#ef4444">❌ Không nén được ảnh</div>';
+            return;
+        }
+        try {
+            var blob = _bpiDataURLtoBlob(compressedDataURL);
+            var fd = new FormData();
+            fd.append('file', blob, 'print_file_' + Date.now() + '.jpg');
+            
+            var response = await fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' });
+            var data = await response.json();
+            if (data.success) {
+                var imgUrlInput = document.getElementById('bpiDone_image_url');
+                if (imgUrlInput) imgUrlInput.value = data.url;
+                
+                if (previewZone) {
+                    previewZone.innerHTML = '<div style="position:relative;display:inline-block">' +
+                        '<img src="' + data.url + '" style="max-width:150px;max-height:150px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;margin-top:6px">' +
+                        '<span onclick="_bpiDoneRemoveImage()" style="position:absolute;top:2px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:11px;font-weight:900;text-align:center;line-height:18px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>' +
+                        '</div>';
+                }
+                _bpiUpdateDoneMeters();
+            } else {
+                if (previewZone) previewZone.innerHTML = '<div style="font-size:11px;color:#ef4444">❌ Lỗi: ' + (data.error || 'không rõ') + '</div>';
+            }
+        } catch (err) {
+            if (previewZone) previewZone.innerHTML = '<div style="font-size:11px;color:#ef4444">❌ Lỗi tải lên</div>';
+            showToast(err.message, 'error');
+        }
+    });
+}
+
+function _bpiDoneRemoveImage() {
+    var imgUrlInput = document.getElementById('bpiDone_image_url');
+    if (imgUrlInput) imgUrlInput.value = '';
+    var previewZone = document.getElementById('bpiDone_preview_zone');
+    if (previewZone) previewZone.innerHTML = '';
+    _bpiUpdateDoneMeters();
+}
+
+async function _bpiSubmitDone(id) {
+    var selectEl = document.getElementById('bpiDone_roll_id');
+    var metersEl = document.getElementById('bpiDone_meters');
+    var startEl = document.getElementById('bpiDone_start_qty');
+    var endEl = document.getElementById('bpiDone_end_qty');
+    var imgUrlEl = document.getElementById('bpiDone_image_url');
+    var confirmBtn = document.getElementById('_bpiDoneSubmitBtn');
+    
+    if (!selectEl || !metersEl || !imgUrlEl) return;
+    
+    var rollId = selectEl.value;
+    var metersVal = Number(metersEl.value);
+    var startQty = Number(startEl.value) || 0;
+    var endQty = Number(endEl.value) || 0;
+    var imageUrl = imgUrlEl.value;
+    
+    if (!rollId) {
+        showToast('Vui lòng chọn cây in!', 'error');
+        return;
+    }
+    if (isNaN(metersVal) || metersVal <= 0) {
+        showToast('Số mét in phải lớn hơn 0!', 'error');
+        return;
+    }
+    if (endQty < 0) {
+        showToast('Số lượng cuối cuộn không được phép âm!', 'error');
+        return;
+    }
+    if (!imageUrl) {
+        showToast('Vui lòng tải lên hoặc dán hình ảnh file in!', 'error');
+        return;
+    }
+    
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '⏳ Đang lưu...';
+    }
+    
+    try {
+        await apiCall('/api/printing/toggle/' + id, 'POST', {
+            action: 'print_done',
+            pettem_roll_id: rollId,
+            roll_start_qty: startQty,
+            print_meters: metersVal,
+            roll_end_qty: endQty,
+            image_url: imageUrl
+        });
+        showToast('✅ Đã xác nhận in xong');
+        _bpiCloseDoneModal();
+        await _bpiLoadAll();
+    } catch (e) {
+        showToast(e.message || 'Lỗi', 'error');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '✅ HOÀN THÀNH';
+        }
+    }
+}
 async function _bpiAudit(id) {
     try {
         await apiCall('/api/printing/records/' + id + '/audit', 'POST');
