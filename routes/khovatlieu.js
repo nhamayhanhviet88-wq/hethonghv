@@ -34,6 +34,11 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[KVL] Add material_tx_id column error:', e.message); }
 
     try {
+        await db.exec(`ALTER TABLE material_transactions ADD COLUMN IF NOT EXISTS parent_tx_id INTEGER REFERENCES material_transactions(id) ON DELETE SET NULL`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_mt_parent_tx ON material_transactions(parent_tx_id)`);
+    } catch(e) { console.error('[KVL] Add parent_tx_id column error:', e.message); }
+
+    try {
         // 3. Create Trigger Function to sync import_records (general) to material_transactions
         await db.exec(`
             CREATE OR REPLACE FUNCTION sync_import_records_to_material_transactions()
@@ -104,14 +109,14 @@ module.exports = async function(fastify) {
                     RETURN OLD;
                 END IF;
 
-                -- If the printing is marked done AND linked to a roll/transaction
-                IF NEW.is_print_done = true AND NEW.material_tx_id IS NOT NULL THEN
+                -- If the printing is marked done AND linked to a roll/transaction AND NOT using a workshop roll (to avoid double-counting)
+                IF NEW.is_print_done = true AND NEW.material_tx_id IS NOT NULL AND NEW.pettem_roll_id IS NULL THEN
                     SELECT material_item_id, price INTO material_id, nhap_price 
                     FROM material_transactions WHERE id = NEW.material_tx_id;
                     
                     IF material_id IS NOT NULL THEN
                         INSERT INTO material_transactions (
-                            material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, printing_record_id, notes
+                            material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, printing_record_id, notes, parent_tx_id
                         ) VALUES (
                             material_id,
                             'XUAT',
@@ -121,7 +126,8 @@ module.exports = async function(fastify) {
                             COALESCE(NEW.print_done_by, NEW.printer_id, NEW.created_by),
                             COALESCE(NEW.print_done_at, NEW.updated_at, NOW()),
                             NEW.id,
-                            'Xuất in đơn ' || COALESCE((SELECT order_code FROM dht_orders WHERE id = NEW.dht_order_id), '') || ': ' || COALESCE(NEW.product_name, '')
+                            'Xuất in đơn ' || COALESCE((SELECT order_code FROM dht_orders WHERE id = NEW.dht_order_id), '') || ': ' || COALESCE(NEW.product_name, ''),
+                            NEW.material_tx_id
                         );
                     END IF;
                 END IF;
@@ -289,6 +295,7 @@ module.exports = async function(fastify) {
             SELECT 
                 mt.id, mt.tx_type, mt.quantity, mt.price, mt.total_amount, 
                 mt.performed_at, mt.notes, mt.import_record_id, mt.printing_record_id,
+                mt.parent_tx_id,
                 u.full_name AS performer_name,
                 s.name AS supplier_name
             FROM material_transactions mt
@@ -329,6 +336,7 @@ module.exports = async function(fastify) {
                 notes: tx.notes,
                 import_record_id: tx.import_record_id,
                 printing_record_id: tx.printing_record_id,
+                parent_tx_id: tx.parent_tx_id,
                 performer_name: tx.performer_name || 'Hệ thống',
                 supplier_name: tx.supplier_name || '',
                 running_balance: runningBalance
@@ -429,17 +437,20 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'material_item_id là bắt buộc' });
         }
 
-        // Fetch NHAP transactions for this item where they have positive remaining stock (original quantity minus printed meters)
+        // Fetch NHAP transactions for this item where they have positive remaining stock (original quantity minus exported quantities)
         const rolls = await db.all(`
-            SELECT 
-                mt.id, mt.performed_at, mt.quantity::numeric AS quantity, mt.price::numeric AS price, mt.notes,
-                s.name AS source_name,
-                (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0))::numeric AS remaining_qty
-            FROM material_transactions mt
-            LEFT JOIN import_records ir ON mt.import_record_id = ir.id
-            LEFT JOIN import_sources s ON ir.source_id = s.id
-            WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
-            ORDER BY mt.performed_at DESC, mt.id DESC
+            SELECT * FROM (
+                SELECT 
+                    mt.id, mt.performed_at, mt.quantity::numeric AS quantity, mt.price::numeric AS price, mt.notes,
+                    s.name AS source_name,
+                    (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
+                FROM material_transactions mt
+                LEFT JOIN import_records ir ON mt.import_record_id = ir.id
+                LEFT JOIN import_sources s ON ir.source_id = s.id
+                WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
+            ) x
+            WHERE x.remaining_qty > 0
+            ORDER BY x.performed_at DESC, x.id DESC
         `, [Number(material_item_id)]);
 
         const formatted = rolls.map(r => ({

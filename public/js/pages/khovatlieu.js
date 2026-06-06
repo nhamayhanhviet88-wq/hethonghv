@@ -343,7 +343,8 @@ async function openKvlHistoryModal(itemId, itemName) {
         + '      <table class="kvl-modal-table">'
         + '        <thead>'
         + '          <tr>'
-        + '            <th>Mã lô</th>'
+        + '            <th>Mã GD</th>'
+        + '            <th>Lô vật liệu</th>'
         + '            <th>Thời gian</th>'
         + '            <th>Loại</th>'
         + '            <th style="text-align:center">Số lượng</th>'
@@ -355,7 +356,7 @@ async function openKvlHistoryModal(itemId, itemName) {
         + '          </tr>'
         + '        </thead>'
         + '        <tbody id="kvlHistoryBody">'
-        + '          <tr><td colspan="9" style="text-align:center;padding:30px">⏳ Đang tải lịch sử...</td></tr>'
+        + '          <tr><td colspan="10" style="text-align:center;padding:30px">⏳ Đang tải lịch sử...</td></tr>'
         + '        </tbody>'
         + '      </table>'
         + '    </div>'
@@ -383,7 +384,7 @@ async function _kvlLoadHistory(itemId) {
         var list = res.history || [];
         var hb = document.getElementById('kvlHistoryBody');
         if (!list.length) {
-            hb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#64748b">📭 Chưa có giao dịch nào được ghi nhận.</td></tr>';
+            hb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#64748b">📭 Chưa có giao dịch nào được ghi nhận.</td></tr>';
             return;
         }
 
@@ -406,8 +407,16 @@ async function _kvlLoadHistory(itemId) {
                 printOrdersLink = '<span class="kvl-link-badge" onclick="event.stopPropagation(); _kvlTogglePrintedOrdersList(this, ' + tx.id + ')">📋 Xem ' + tx.printed_orders.length + ' đơn in</span>';
             }
 
+            var lotLabel = '—';
+            if (tx.tx_type === 'NHAP') {
+                lotLabel = '<span style="font-weight:800;color:#0ea5e9">Lô #' + tx.id + '</span>';
+            } else if (tx.parent_tx_id) {
+                lotLabel = '<span style="font-weight:800;color:#0ea5e9">Lô #' + tx.parent_tx_id + '</span>';
+            }
+
             var trHtml = '<tr>'
                 + '<td><span style="font-weight:700;color:#64748b">#' + tx.id + '</span></td>'
+                + '<td>' + lotLabel + '</td>'
                 + '<td style="font-size:10px;color:#475569">' + _kvlFormatDateTime(tx.performed_at) + '</td>'
                 + '<td><span class="kvl-badge ' + typeClass + '">' + typeLabel + '</span></td>'
                 + '<td style="text-align:center;font-weight:700;color:#0f172a">' + _kvlFormatNum(tx.quantity) + '</td>'
@@ -431,7 +440,7 @@ async function _kvlLoadHistory(itemId) {
                 }).join('');
 
                 trHtml += '<tr id="kvl-printed-orders-' + tx.id + '" style="display:none;background:rgba(124,58,237,0.02)">'
-                    + '  <td colspan="9" style="padding:10px 15px">'
+                    + '  <td colspan="10" style="padding:10px 15px">'
                     + '    <div class="kvl-nested-wrap">'
                     + '      <div style="font-weight:800;color:#6d28d9;font-size:11px;margin-bottom:6px">🌀 ĐƠN HÀNG IN THỰC TẾ TỪ LÔ NÀY (' + tx.printed_orders.length + ' đơn):</div>'
                     + '      <table class="kvl-nested-table">'
@@ -456,7 +465,7 @@ async function _kvlLoadHistory(itemId) {
 
     } catch(e) {
         console.error('[KVL] History load error:', e);
-        hb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#f43f5e">❌ Lỗi tải lịch sử giao dịch: ' + e.message + '</td></tr>';
+        hb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#f43f5e">❌ Lỗi tải lịch sử giao dịch: ' + e.message + '</td></tr>';
     }
 }
 

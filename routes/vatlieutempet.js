@@ -1,7 +1,7 @@
 // ========== VẬT LIỆU PET/TEM — Routes ==========
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
-const { vnNow } = require('../utils/timezone');
+const { vnNow, vnDateStr } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
@@ -18,9 +18,11 @@ module.exports = async function(fastify) {
         notes TEXT, created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
+    await db.exec(`ALTER TABLE pettem_rolls ADD COLUMN IF NOT EXISTS material_tx_id INTEGER REFERENCES material_transactions(id) ON DELETE SET NULL`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_type ON pettem_rolls(roll_type)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_date ON pettem_rolls(import_date)`);
-    } catch(e) { console.error('[PT] rolls:', e.message); }
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_material_tx ON pettem_rolls(material_tx_id)`);
+    } catch(e) { console.error('[PT] rolls migration error:', e.message); }
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS pettem_history (
         id SERIAL PRIMARY KEY, roll_id INTEGER NOT NULL REFERENCES pettem_rolls(id) ON DELETE CASCADE,
@@ -92,8 +94,8 @@ module.exports = async function(fastify) {
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(r.import_date,r.created_at))=$${idx++}`; params.push(Number(month)); }
         if (search) { where += ` AND (r.field_name ILIKE $${idx} OR r.notes ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const rolls = await db.all(`
-            SELECT r.*, uc.full_name AS confirmed_by_name,
-                   lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+            SELECT r.*, COALESCE(uc.full_name, uc.username) AS confirmed_by_name,
+                   lh.performed_at AS last_update_at, COALESCE(lhu.full_name, lhu.username) AS last_update_by
             FROM pettem_rolls r
             LEFT JOIN users uc ON r.confirmed_by=uc.id
             LEFT JOIN LATERAL (SELECT h.performed_at, h.performed_by FROM pettem_history h WHERE h.roll_id=r.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
@@ -104,13 +106,13 @@ module.exports = async function(fastify) {
 
     // ========== CREATE ==========
     fastify.post('/api/pettem/rolls', { preHandler: [authenticate] }, async (req) => {
-        const b = req.body || {}, now = vnNow();
+        const b = req.body || {}, now = new Date();
         if (!b.roll_type || !TYPES.includes(b.roll_type)) return { error: 'Loại không hợp lệ' };
         const rem = calcRemaining(b.qty_imported, b.qty_waste, b.qty_error, b.qty_printed);
         const r = await db.get(`INSERT INTO pettem_rolls
             (roll_type,import_date,field_name,qty_imported,qty_waste,qty_error,qty_printed,qty_remaining,confirmed_by,notes,created_by,created_at)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
-            [b.roll_type, b.import_date||null, b.field_name||null,
+            [b.roll_type, b.import_date||vnDateStr(now), b.field_name||null,
              Number(b.qty_imported)||0, Number(b.qty_waste)||0, Number(b.qty_error)||0, Number(b.qty_printed)||0,
              rem, b.confirmed_by||null, b.notes||null, req.user.id, now]);
         await db.run(`INSERT INTO pettem_history (roll_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
@@ -120,7 +122,7 @@ module.exports = async function(fastify) {
 
     // ========== INLINE FIELD ==========
     fastify.patch('/api/pettem/rolls/:id/field', { preHandler: [authenticate] }, async (req) => {
-        const id = Number(req.params.id), { field, value } = req.body || {}, now = vnNow();
+        const id = Number(req.params.id), { field, value } = req.body || {}, now = new Date();
         const ALLOWED = ['roll_type','import_date','field_name','qty_imported','qty_waste','qty_error','qty_printed','confirmed_by','notes'];
         if (!ALLOWED.includes(field)) return { error: 'Trường không hợp lệ' };
         const numF = ['qty_imported','qty_waste','qty_error','qty_printed','confirmed_by'];
@@ -139,7 +141,7 @@ module.exports = async function(fastify) {
 
     // ========== UPDATE ==========
     fastify.put('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req) => {
-        const id = Number(req.params.id), b = req.body || {}, now = vnNow();
+        const id = Number(req.params.id), b = req.body || {}, now = new Date();
         const rem = calcRemaining(b.qty_imported, b.qty_waste, b.qty_error, b.qty_printed);
         await db.run(`UPDATE pettem_rolls SET roll_type=$1,import_date=$2,field_name=$3,qty_imported=$4,qty_waste=$5,
             qty_error=$6,qty_printed=$7,qty_remaining=$8,confirmed_by=$9,notes=$10,updated_at=$11 WHERE id=$12`,
@@ -159,15 +161,15 @@ module.exports = async function(fastify) {
 
     // ========== IMPORT FROM WAREHOUSE ==========
     fastify.post('/api/pettem/rolls/import-from-warehouse', { preHandler: [authenticate] }, async (req, reply) => {
-        const b = req.body || {}, now = vnNow();
+        const b = req.body || {}, now = new Date();
         
         if (!b.roll_type || !['PET', 'TEM'].includes(b.roll_type)) {
             return reply.code(400).send({ error: 'Loại không hợp lệ (chỉ hỗ trợ PET hoặc TEM)' });
         }
         
-        const qty = Number(b.qty_imported);
-        if (isNaN(qty) || qty <= 0) {
-            return reply.code(400).send({ error: 'Số lượng xuất kho phải lớn hơn 0' });
+        const selectedTxId = Number(b.material_tx_id);
+        if (!selectedTxId || isNaN(selectedTxId)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn lô nhập từ Kho Vật Liệu' });
         }
 
         const materialItemId = b.roll_type === 'PET' ? 4 : 11;
@@ -194,42 +196,50 @@ module.exports = async function(fastify) {
                 });
             }
             
-            // 1. Get current stock from Kho Vật Liệu
-            const stockRes = await client.query(`
+            // 1. Get the selected NHAP lot and verify its remaining quantity
+            const lotRes = await client.query(`
                 SELECT 
-                    COALESCE(SUM(CASE WHEN tx_type = 'NHAP' THEN quantity ELSE 0 END), 0) -
-                    COALESCE(SUM(CASE WHEN tx_type = 'XUAT' THEN quantity ELSE 0 END), 0) -
-                    COALESCE(SUM(CASE WHEN tx_type = 'HOAN' THEN quantity ELSE 0 END), 0) AS remaining
-                FROM material_transactions
-                WHERE material_item_id = $1
-            `, [materialItemId]);
-            
-            const currentStock = Number(stockRes.rows[0]?.remaining) || 0;
-            if (qty > currentStock) {
+                    mt.id, mt.quantity::numeric AS quantity,
+                    (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
+                FROM material_transactions mt
+                WHERE mt.id = $1 AND mt.tx_type = 'NHAP' AND mt.material_item_id = $2
+            `, [selectedTxId, materialItemId]);
+
+            if (lotRes.rows.length === 0) {
                 await client.query('ROLLBACK');
                 client.release();
-                return reply.code(400).send({ error: `Không đủ tồn kho trong Kho Vật Liệu (Tồn hiện tại: ${currentStock.toLocaleString('vi-VN')} mét, Yêu cầu: ${qty.toLocaleString('vi-VN')} mét)` });
+                return reply.code(400).send({ error: 'Không tìm thấy lô nhập này trong Kho Vật Liệu' });
             }
 
+            const remainingQty = Number(lotRes.rows[0].remaining_qty);
+            if (remainingQty <= 0) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ error: `Lô nhập #${selectedTxId} đã hết hoặc đã được xuất hết sang bộ phận in.` });
+            }
+
+            // We take the ENTIRE remaining quantity of this lot to ensure 100% identity alignment
+            const qty = remainingQty;
+
             // 2. Insert into material_transactions (XUAT)
-            const notes = b.notes ? b.notes : `Xuất màng in sang bộ phận in PET/TEM (Lĩnh vực: ${b.roll_type})`;
+            const notes = b.notes ? b.notes : `Xuất màng in sang bộ phận in ${b.roll_type} (Lô nguồn: #${selectedTxId})`;
             const txRes = await client.query(`
                 INSERT INTO material_transactions 
-                (material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, notes, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7) RETURNING id
-            `, [materialItemId, 'XUAT', qty, 0, 0, req.user.id, now, notes]);
+                (material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, notes, created_at, parent_tx_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $9) RETURNING id
+            `, [materialItemId, 'XUAT', qty, 0, 0, req.user.id, now, notes, selectedTxId]);
             
             const materialTxId = txRes.rows[0].id;
 
             // 3. Insert into pettem_rolls
             const rollTypeLabel = b.roll_type === 'PET' ? 'PET' : 'TEM';
-            const rollNotes = `Nhập từ Kho Vật Liệu Màng In ${rollTypeLabel} (Giao dịch #${materialTxId})` + (b.notes ? ` - ${b.notes}` : '');
+            const rollNotes = `Nhập từ Kho Vật Liệu Màng In ${rollTypeLabel} (Giao dịch gốc #${selectedTxId})` + (b.notes ? ` - ${b.notes}` : '');
             
             const rollRes = await client.query(`
                 INSERT INTO pettem_rolls
-                (roll_type, import_date, field_name, qty_imported, qty_waste, qty_error, qty_printed, qty_remaining, notes, created_by, created_at)
-                VALUES ($1, $2, $3, $4, 0, 0, 0, $4, $5, $6, $7) RETURNING id
-            `, [b.roll_type, b.import_date || now.toISOString().split('T')[0], b.roll_type, qty, rollNotes, req.user.id, now]);
+                (roll_type, import_date, field_name, qty_imported, qty_waste, qty_error, qty_printed, qty_remaining, notes, created_by, created_at, material_tx_id)
+                VALUES ($1, $2, $3, $4, 0, 0, 0, $4, $5, $6, $7, $8) RETURNING id
+            `, [b.roll_type, b.import_date || vnDateStr(now), b.roll_type, qty, rollNotes, req.user.id, now, selectedTxId]);
             
             const rollId = rollRes.rows[0].id;
 
@@ -238,7 +248,7 @@ module.exports = async function(fastify) {
                 INSERT INTO pettem_history 
                 (roll_id, action, details, performed_by, performed_at)
                 VALUES ($1, $2, $3, $4, $5)
-            `, [rollId, 'create', `Nhập từ Kho Vật Liệu (Số lượng: ${qty}m, Lĩnh vực: ${b.roll_type})`, req.user.id, now]);
+            `, [rollId, 'create', `Nhập từ Kho Vật Liệu (Số lượng: ${qty}m, Lô nguồn: #${selectedTxId})`, req.user.id, now]);
 
             await client.query('COMMIT');
             client.release();
@@ -277,7 +287,7 @@ module.exports = async function(fastify) {
     // ========== GET INDIVIDUAL ROLL DETAILS ==========
     fastify.get('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const roll = await db.get(`
-            SELECT r.*, u.full_name AS created_by_name, uc.full_name AS confirmed_by_name
+            SELECT r.*, COALESCE(u.full_name, u.username) AS created_by_name, COALESCE(uc.full_name, uc.username) AS confirmed_by_name
             FROM pettem_rolls r
             LEFT JOIN users u ON r.created_by = u.id
             LEFT JOIN users uc ON r.confirmed_by = uc.id
@@ -290,7 +300,7 @@ module.exports = async function(fastify) {
     // ========== GET HISTORY OF INDIVIDUAL ROLL ==========
     fastify.get('/api/pettem/rolls/:id/history', { preHandler: [authenticate] }, async (req) => {
         const history = await db.all(`
-            SELECT h.*, u.full_name AS performer_name
+            SELECT h.*, COALESCE(u.full_name, u.username) AS performer_name
             FROM pettem_history h
             LEFT JOIN users u ON h.performed_by = u.id
             WHERE h.roll_id = $1
@@ -303,7 +313,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/pettem/rolls/:id/orders', { preHandler: [authenticate] }, async (req) => {
         const orders = await db.all(`
             SELECT pr.id, o.order_code, pr.order_quantity, pr.print_meters, pr.print_done_at,
-                   u.full_name AS printer_name, c.name AS contractor_name
+                   COALESCE(u.full_name, u.username) AS printer_name, c.name AS contractor_name
             FROM printing_records pr
             LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
             LEFT JOIN users u ON pr.printer_id = u.id

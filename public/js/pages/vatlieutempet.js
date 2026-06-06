@@ -71,7 +71,32 @@ function renderVatlieutempetPage(content){
 }
 
 async function _ptLoadAll(){try{var tR=await apiCall('/api/pettem/tree');_pt.tree=tR;_ptRenderSb();await _ptLoadRolls();}catch(e){console.error('[PT]',e);}}
-function _ptFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
+function getVNDateParts(d) {
+    var date = new Date(d);
+    if (isNaN(date.getTime())) return null;
+    var vnTime = date.getTime() + (7 * 3600000);
+    var vnDate = new Date(vnTime);
+    return {
+        hour: String(vnDate.getUTCHours()).padStart(2, '0'),
+        min: String(vnDate.getUTCMinutes()).padStart(2, '0'),
+        day: String(vnDate.getUTCDate()).padStart(2, '0'),
+        month: String(vnDate.getUTCMonth() + 1).padStart(2, '0'),
+        year: vnDate.getUTCFullYear()
+    };
+}
+function _ptFD(d) {
+    if (!d) return '—';
+    var p = getVNDateParts(d);
+    if (!p) {
+        try {
+            var parts = d.split('T')[0].split('-');
+            return parts[2] + '/' + parts[1] + '/' + parts[0];
+        } catch(e) {
+            return d;
+        }
+    }
+    return p.day + '/' + p.month + '/' + p.year;
+}
 function _ptFN(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
 
 function _ptRenderSb(){var sb=document.getElementById('ptSb');if(!sb||!_pt.tree)return;var t=_pt.tree,f=_pt.filter;
@@ -124,7 +149,7 @@ function _ptRender(){
         var colLabel = 'Cây' + (colType ? ' ' + colType : '');
         
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + colLabel + ' #'+r.id+'</button></td>'
+        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + colLabel + ' #'+(r.material_tx_id || r.id)+'</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
         +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
         +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+(r.field_name||'—')+'</td>'
@@ -146,6 +171,8 @@ function _ptRender(){
 }
 
 // ========== IMPORT FROM WAREHOUSE MODAL ==========
+var _ptAvailableLots = [];
+
 async function openPtImportModal() {
     var m = document.getElementById('ptImportModal');
     if (!m) {
@@ -182,15 +209,19 @@ async function openPtImportModal() {
             + '        <input type="text" id="ptImpMatName" readonly>'
             + '      </div>'
             + '      <div class="pt-form-group">'
-            + '        <label>Tồn đầu kho vật liệu</label>'
+            + '        <label>Tồn tổng kho vật liệu</label>'
             + '        <input type="text" id="ptImpStock" readonly>'
             + '      </div>'
             + '      <div class="pt-form-group">'
-            + '        <label>Xuất kho vật liệu (mét) <span style="color:#ef4444">*</span></label>'
-            + '        <input type="number" id="ptImpQty" min="0.01" step="0.01" required oninput="calcPtImpEndBal()">'
+            + '        <label>Chọn Lô Nhập Kho Vật Liệu <span style="color:#ef4444">*</span></label>'
+            + '        <select id="ptImpLotSelect" required onchange="onPtImpLotChange()"></select>'
             + '      </div>'
             + '      <div class="pt-form-group">'
-            + '        <label>Tồn cuối kho vật liệu</label>'
+            + '        <label>Số mét xuất kho (Xuất nguyên lô)</label>'
+            + '        <input type="text" id="ptImpQty" readonly style="background:#f1f5f9;font-weight:bold">'
+            + '      </div>'
+            + '      <div class="pt-form-group">'
+            + '        <label>Tồn cuối kho vật liệu (sau khi xuất)</label>'
             + '        <input type="text" id="ptImpEndBal" readonly>'
             + '      </div>'
             + '      <div class="pt-form-group">'
@@ -245,48 +276,94 @@ function closePtImportModal() {
     if (m) m.style.display = 'none';
 }
 
-function onPtImpFieldChange() {
+async function onPtImpFieldChange() {
     var field = document.getElementById('ptImpField').value;
     var name = field === 'PET' ? 'Màng In Pet' : 'Màng In Tem';
     var stock = _ptImpStocks[field] || 0;
+    var materialItemId = field === 'PET' ? 4 : 11;
     
     document.getElementById('ptImpMatName').value = name;
     document.getElementById('ptImpStock').value = _ptFN(stock) + ' mét';
-    calcPtImpEndBal();
+    
+    var selectEl = document.getElementById('ptImpLotSelect');
+    selectEl.innerHTML = '<option value="">⏳ Đang tải danh sách lô...</option>';
+    
+    try {
+        var res = await apiCall('/api/khovatlieu/available-rolls?material_item_id=' + materialItemId);
+        _ptAvailableLots = res.rolls || [];
+        
+        if (_ptAvailableLots.length === 0) {
+            selectEl.innerHTML = '<option value="">⚠️ Không có lô nào còn tồn trong kho</option>';
+            document.getElementById('ptImpQty').value = '0 mét';
+            document.getElementById('ptImpEndBal').value = '';
+            return;
+        }
+        
+        var h = '<option value="">-- Chọn lô để xuất nguyên lô --</option>';
+        _ptAvailableLots.forEach(function(lot) {
+            var dateStr = _ptFD(lot.performed_at.split('T')[0]);
+            h += '<option value="' + lot.id + '">Lô #' + lot.id + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
+        });
+        selectEl.innerHTML = h;
+    } catch(e) {
+        console.error('[PT] Load available rolls failed:', e);
+        selectEl.innerHTML = '<option value="">❌ Lỗi tải danh sách lô</option>';
+    }
+    
+    document.getElementById('ptImpQty').value = '';
+    document.getElementById('ptImpEndBal').value = '';
 }
 
-function calcPtImpEndBal() {
+function onPtImpLotChange() {
+    var selectEl = document.getElementById('ptImpLotSelect');
+    var lotId = Number(selectEl.value);
+    
+    var lot = _ptAvailableLots.find(function(l) { return l.id === lotId; });
+    if (!lot) {
+        document.getElementById('ptImpQty').value = '';
+        document.getElementById('ptImpEndBal').value = '';
+        return;
+    }
+    
+    var qty = lot.remaining_qty;
+    document.getElementById('ptImpQty').value = _ptFN(qty) + ' mét';
+    
     var field = document.getElementById('ptImpField').value;
-    var stock = _ptImpStocks[field] || 0;
-    var qty = Number(document.getElementById('ptImpQty').value) || 0;
-    var bal = stock - qty;
+    var totalStock = _ptImpStocks[field] || 0;
+    var bal = totalStock - qty;
     
     var balEl = document.getElementById('ptImpEndBal');
-    if (!balEl) return;
-    balEl.value = _ptFN(bal) + ' mét';
-    if (bal < 0) {
-        balEl.style.color = '#dc2626';
-        balEl.style.fontWeight = 'bold';
-    } else {
-        balEl.style.color = '';
-        balEl.style.fontWeight = '';
+    if (balEl) {
+        balEl.value = _ptFN(bal) + ' mét';
+        if (bal < 0) {
+            balEl.style.color = '#dc2626';
+            balEl.style.fontWeight = 'bold';
+        } else {
+            balEl.style.color = '';
+            balEl.style.fontWeight = '';
+        }
     }
 }
+
 async function submitPtImportForm(event) {
     event.preventDefault();
     var field = document.getElementById('ptImpField').value;
-    var qty = Number(document.getElementById('ptImpQty').value);
+    var selectEl = document.getElementById('ptImpLotSelect');
+    var lotId = Number(selectEl.value);
     var notes = document.getElementById('ptImpNotes').value;
     
-    var stock = _ptImpStocks[field] || 0;
-    if (qty <= 0) {
-        showToast('Số lượng xuất kho phải lớn hơn 0', 'error');
+    if (!lotId) {
+        showToast('Vui lòng chọn lô nhập từ Kho Vật Liệu', 'error');
         return;
     }
-    if (qty > stock) {
-        showToast('Không đủ tồn kho trong Kho Vật Liệu!', 'error');
+    
+    var lot = _ptAvailableLots.find(function(l) { return l.id === lotId; });
+    if (!lot) {
+        showToast('Lô vật liệu chọn không hợp lệ', 'error');
         return;
     }
+    
+    var qty = lot.remaining_qty;
     
     // Check if there are any unconfirmed active rolls of this type. If yes, prevent adding new roll.
     try {
@@ -306,6 +383,7 @@ async function submitPtImportForm(event) {
     try {
         var res = await apiCall('/api/pettem/rolls/import-from-warehouse', 'POST', {
             roll_type: field,
+            material_tx_id: lotId,
             qty_imported: qty,
             import_date: dateVal,
             notes: notes
@@ -326,31 +404,16 @@ async function submitPtImportForm(event) {
 // ========== ROLL DETAILS MODAL & ACTIONS ==========
 function _ptFDT(d) {
     if (!d) return '—';
-    try {
-        var date = new Date(d);
-        var hour = String(date.getHours()).padStart(2, '0');
-        var min = String(date.getMinutes()).padStart(2, '0');
-        var day = String(date.getDate()).padStart(2, '0');
-        var month = String(date.getMonth() + 1).padStart(2, '0');
-        var year = date.getFullYear();
-        return hour + ':' + min + ' ' + day + '/' + month + '/' + year;
-    } catch(e) {
-        return d;
-    }
+    var p = getVNDateParts(d);
+    if (!p) return d;
+    return p.hour + ':' + p.min + ' ' + p.day + '/' + p.month + '/' + p.year;
 }
 
 function _ptFDT_NoYear(d) {
     if (!d) return '—';
-    try {
-        var date = new Date(d);
-        var hour = String(date.getHours()).padStart(2, '0');
-        var min = String(date.getMinutes()).padStart(2, '0');
-        var day = String(date.getDate()).padStart(2, '0');
-        var month = String(date.getMonth() + 1).padStart(2, '0');
-        return hour + ':' + min + ' ' + day + '/' + month;
-    } catch(e) {
-        return d;
-    }
+    var p = getVNDateParts(d);
+    if (!p) return d;
+    return p.hour + ':' + p.min + ' ' + p.day + '/' + p.month;
 }
 
 async function openPtDetailsModal(rollId) {
@@ -416,22 +479,36 @@ async function openPtDetailsModal(rollId) {
             if (h.action === 'create') {
                 qtyStr = '+' + _ptFN(roll.qty_imported) + 'm';
                 reasonStr = 'nhập kho ' + (roll.roll_type || '').toLowerCase();
-            } else if (h.action === 'waste' && h.details) {
-                var qtyMatch = h.details.match(/Khai báo hao hụt:\s*([+-]?[\d.]+\w*)/);
+            } else if (h.action === 'waste') {
+                var qtyMatch = (h.details || '').match(/(?:hao hụt|waste):\s*([+-]?\s*\d+(?:\.\d+)?)/i);
+                if (!qtyMatch) qtyMatch = (h.details || '').match(/([+-]?\s*\d+(?:\.\d+)?)/);
                 if (qtyMatch) {
-                    qtyStr = qtyMatch[1].replace('+', '-');
-                    if (!qtyStr.startsWith('-')) qtyStr = '-' + qtyStr;
+                    var num = parseFloat(qtyMatch[1].replace(/\s+/g, ''));
+                    if (!isNaN(num)) {
+                        qtyStr = '-' + _ptFN(Math.abs(num)) + 'm';
+                    }
                 }
-                var reasonMatch = h.details.match(/\(Lý do:\s*([^)]+)\)/);
-                if (reasonMatch) reasonStr = reasonMatch[1];
-            } else if (h.action === 'error' && h.details) {
-                var qtyMatch = h.details.match(/Khai báo sản xuất lỗi:\s*([+-]?[\d.]+\w*)/);
+                var reasonMatch = (h.details || '').match(/\(Lý do:\s*([^)]+)\)/);
+                if (reasonMatch) {
+                    reasonStr = reasonMatch[1];
+                } else {
+                    reasonStr = (h.details || '').replace(/Khai báo hao hụt:\s*[+-]?\s*\d+(?:\.\d+)?\w*\s*/i, '').trim();
+                }
+            } else if (h.action === 'error') {
+                var qtyMatch = (h.details || '').match(/(?:sản xuất lỗi|lỗi|error):\s*([+-]?\s*\d+(?:\.\d+)?)/i);
+                if (!qtyMatch) qtyMatch = (h.details || '').match(/([+-]?\s*\d+(?:\.\d+)?)/);
                 if (qtyMatch) {
-                    qtyStr = qtyMatch[1].replace('+', '-');
-                    if (!qtyStr.startsWith('-')) qtyStr = '-' + qtyStr;
+                    var num = parseFloat(qtyMatch[1].replace(/\s+/g, ''));
+                    if (!isNaN(num)) {
+                        qtyStr = '-' + _ptFN(Math.abs(num)) + 'm';
+                    }
                 }
-                var reasonMatch = h.details.match(/\(Lý do:\s*([^)]+)\)/);
-                if (reasonMatch) reasonStr = reasonMatch[1];
+                var reasonMatch = (h.details || '').match(/\(Lý do:\s*([^)]+)\)/);
+                if (reasonMatch) {
+                    reasonStr = reasonMatch[1];
+                } else {
+                    reasonStr = (h.details || '').replace(/Khai báo sản xuất lỗi:\s*[+-]?\s*\d+(?:\.\d+)?\w*\s*/i, '').trim();
+                }
             }
             
             return '<tr>'
@@ -465,17 +542,17 @@ async function openPtDetailsModal(rollId) {
             orderRows = '<div style="text-align:center;color:#94a3b8;padding:40px 10px;font-size:11px">Chưa có đơn hàng nào được in từ cây này.</div>';
         }
         
-        var txId = '—';
-        if (roll.notes) {
-            var txMatch = roll.notes.match(/\(Giao dịch\s*#(\d+)\)/);
+        var txId = roll.material_tx_id || '—';
+        if (txId === '—' && roll.notes) {
+            var txMatch = roll.notes.match(/\(Giao dịch(?:\s*gốc)?\s*#(\d+)\)/i);
             if (txMatch) txId = txMatch[1];
         }
-        var displayNotes = (roll.notes || '—').replace(/Kho Vật Liệu/g, '<b>Kho Vật Liệu</b>');
+        var displayNotes = (roll.notes || '—').replace(/kho vật liệu/gi, '<b>$&</b>');
         
         m.innerHTML = 
             '<div class="pt-details-content">'
           + '  <div class="pt-modal-header" style="background:#f8fafc">'
-          + '    <h3>🌲 Chi Tiết Cây Vật Liệu #' + roll.id + ' (' + (roll.roll_type === 'PET' ? 'Màng In PET' : 'Màng In TEM') + ')</h3>'
+          + '    <h3>🌲 Chi Tiết Cây Vật Liệu #' + (roll.material_tx_id || roll.id) + ' (' + (roll.roll_type === 'PET' ? 'Màng In PET' : 'Màng In TEM') + ')</h3>'
           + '    <span class="pt-close-btn" onclick="closePtDetailsModal()">&times;</span>'
           + '  </div>'
           + '  <div class="pt-details-grid">'
@@ -507,7 +584,7 @@ async function openPtDetailsModal(rollId) {
           + '      <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:8px">LỊCH SỬ ĐIỀU CHỈNH HAO HỤT / LỖI</div>'
           + '      <div style="max-height:220px;overflow-y:auto">'
           + '        <table class="table" style="font-size:10px;white-space:nowrap">'
-          + '          <thead><tr style="background:#f1f5f9;color:#475569"><th>Thời gian</th><th>Hoạt động</th><th>Số Mét</th><th>Lý Do</th><th>Người thực hiện</th></tr></thead>'
+          + '          <thead><tr style="background:#f1f5f9;color:#475569"><th>Thời Gian</th><th>Hoạt động</th><th>Số Mét</th><th>Lý Do</th><th>Người thực hiện</th></tr></thead>'
           + '          <tbody>' + histRows + '</tbody>'
           + '        </table>'
           + '      </div>'

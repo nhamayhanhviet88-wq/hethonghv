@@ -830,6 +830,10 @@ module.exports = async function(fastify) {
                     return reply.code(400).send({ error: 'Số lượng cuối cuộn bị âm. Vui lòng chọn cây in khác hoặc nhập thêm vật liệu.' });
                 }
 
+                let txIdToSet = null;
+                const rollTx = await db.get(`SELECT material_tx_id FROM pettem_rolls WHERE id = $1`, [Number(pettem_roll_id)]);
+                if (rollTx) txIdToSet = rollTx.material_tx_id;
+
                 await db.run(`UPDATE printing_records SET 
                     is_print_done=true, 
                     print_done_at=COALESCE(print_done_at,$1), 
@@ -842,9 +846,10 @@ module.exports = async function(fastify) {
                     print_meters=$5,
                     roll_end_qty=$6,
                     image_url=$7,
-                    printer_id=COALESCE(printer_id,$2)
+                    printer_id=COALESCE(printer_id,$2),
+                    material_tx_id=$9
                     WHERE id=$8`, 
-                    [now, req.user.id, Number(pettem_roll_id), currentRollQty, Number(print_meters), calculatedEndQty, image_url, id]);
+                    [now, req.user.id, Number(pettem_roll_id), currentRollQty, Number(print_meters), calculatedEndQty, image_url, id, txIdToSet]);
 
                 await syncPettemRollMeters(pettem_roll_id);
                 if (rec.pettem_roll_id && Number(rec.pettem_roll_id) !== Number(pettem_roll_id)) {
@@ -852,25 +857,7 @@ module.exports = async function(fastify) {
                 }
             } else {
                 await db.run(`UPDATE printing_records SET is_print_done=true, print_done_at=COALESCE(print_done_at,$1), print_done_by=COALESCE(print_done_by,$2), is_test_print=true, test_print_at=COALESCE(test_print_at,$1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
-                // Auto FIFO assignment if not set
-                if (!rec.material_tx_id) {
-                    const fUpper = (rec.print_field || '').toUpperCase();
-                    let matId = null;
-                    if (fUpper.includes('PET')) matId = 4; // Màng In Pet
-                    else if (fUpper.includes('TEM') || fUpper.includes('DECAL')) matId = 11; // Màng In Tem
-                    
-                    if (matId) {
-                        const oldestRoll = await db.get(`
-                            SELECT id FROM material_transactions mt
-                            WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
-                              AND (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0)) > 0
-                            ORDER BY mt.performed_at ASC, mt.id ASC LIMIT 1
-                        `, [matId]);
-                        if (oldestRoll) {
-                            await db.run(`UPDATE printing_records SET material_tx_id = $1 WHERE id = $2`, [oldestRoll.id, id]);
-                        }
-                    }
-                }
+                
                 // Auto active roll assignment if not set
                 if (!rec.pettem_roll_id) {
                     const fUpper = (rec.print_field || '').toUpperCase();
@@ -881,24 +868,27 @@ module.exports = async function(fastify) {
                     
                     if (rollType) {
                         const activeRoll = await db.get(`
-                            SELECT id FROM pettem_rolls
+                            SELECT id, material_tx_id FROM pettem_rolls
                             WHERE roll_type = $1 AND confirmed_by IS NULL
                             ORDER BY import_date ASC, id ASC LIMIT 1
                         `, [rollType]);
                         if (activeRoll) {
-                            await db.run(`UPDATE printing_records SET pettem_roll_id = $1 WHERE id = $2`, [activeRoll.id, id]);
+                            const txIdToSet = activeRoll.material_tx_id;
+                            await db.run(`UPDATE printing_records SET pettem_roll_id = $1, material_tx_id = $2 WHERE id = $3`, [activeRoll.id, txIdToSet, id]);
                             await syncPettemRollMeters(activeRoll.id);
                         }
                     }
                 }
             }
-            // Auto FIFO assignment if not set for PET/TEM also
-            if (isPetOrTem && !rec.material_tx_id) {
+
+            // Fallback FIFO if material_tx_id is still not set
+            const currentRec = await db.get('SELECT material_tx_id FROM printing_records WHERE id = $1', [id]);
+            if (isPetOrTem && currentRec && !currentRec.material_tx_id) {
                 let matId = fUpper.includes('PET') ? 4 : 11;
                 const oldestRoll = await db.get(`
                     SELECT id FROM material_transactions mt
                     WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
-                      AND (mt.quantity - COALESCE((SELECT SUM(print_meters) FROM printing_records WHERE material_tx_id = mt.id), 0)) > 0
+                      AND (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)) > 0
                     ORDER BY mt.performed_at ASC, mt.id ASC LIMIT 1
                 `, [matId]);
                 if (oldestRoll) {
@@ -983,6 +973,14 @@ module.exports = async function(fastify) {
         }
 
         const newRollId = b.pettem_roll_id !== undefined ? (b.pettem_roll_id ? Number(b.pettem_roll_id) : null) : rec.pettem_roll_id;
+        let finalTxId = b.material_tx_id !== undefined ? b.material_tx_id : rec.material_tx_id;
+        
+        if (newRollId !== rec.pettem_roll_id && newRollId) {
+            const roll = await db.get(`SELECT material_tx_id FROM pettem_rolls WHERE id = $1`, [newRollId]);
+            if (roll && roll.material_tx_id) {
+                finalTxId = roll.material_tx_id;
+            }
+        }
 
         await db.run(`UPDATE printing_records SET print_date=$1, printer_id=$2, contractor_id=$3, product_name=$4, cskh_name=$5,
             order_quantity=$6, print_meters=$7, roll_start_qty=$8, roll_end_qty=$9, current_roll=$10,
@@ -993,7 +991,7 @@ module.exports = async function(fastify) {
              Number(b.roll_start_qty)||rec.roll_start_qty, Number(b.roll_end_qty)||rec.roll_end_qty,
              b.current_roll!==undefined?b.current_roll:rec.current_roll, b.print_field!==undefined?b.print_field:rec.print_field,
              b.shared_process!==undefined?b.shared_process:rec.shared_process, b.notes!==undefined?b.notes:rec.notes,
-             b.material_tx_id!==undefined?b.material_tx_id:rec.material_tx_id, newRollId, now, id]);
+             finalTxId, newRollId, now, id]);
 
         if (rec.pettem_roll_id) await syncPettemRollMeters(rec.pettem_roll_id);
         if (newRollId && newRollId !== rec.pettem_roll_id) await syncPettemRollMeters(newRollId);

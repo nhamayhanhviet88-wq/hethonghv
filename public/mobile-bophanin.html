@@ -284,9 +284,9 @@ if (r.error_reported) {
 const isReal = !!r.id;
 let rollDisp = '—';
 if (r.pettem_roll_id) {
-    let txId = '';
-    if (r.pettem_roll_notes) {
-        const txMatch = r.pettem_roll_notes.match(/\(Giao dịch\s*#(\d+)\)/);
+    let txId = r.material_tx_id || '';
+    if (!txId && r.pettem_roll_notes) {
+        const txMatch = r.pettem_roll_notes.match(/\(Giao dịch(?:\s*gốc)?\s*#(\d+)\)/i);
         if (txMatch) txId = txMatch[1];
     }
     const typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
