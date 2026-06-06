@@ -289,7 +289,9 @@ const metersHtml = isReal
   : '<div class="cr"><span class="cl">📐 Mét in</span><span class="cv">—</span></div>';
 
 const rollHtml = isReal
-  ? '<div class="cr" onclick="mEditRoll('+r.id+',\''+(r.print_field||'')+'\',\''+(r.material_tx_id||'')+'\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv" style="color:#c4b5fd">'+rollDisp+'</span></div>'
+  ? ((r.material_tx_id || r.pettem_roll_id)
+    ? '<div class="cr" style="padding:2px 0"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv" style="color:#c4b5fd">'+rollDisp+'</span></div>'
+    : '<div class="cr" onclick="mEditRoll('+r.id+',\''+(r.print_field||'')+'\',\''+(r.material_tx_id||'')+'\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv" style="color:#c4b5fd">'+rollDisp+'</span></div>')
   : '<div class="cr"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv">—</span></div>';
 
 const startHtml = isReal
