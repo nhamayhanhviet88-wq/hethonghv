@@ -57,14 +57,15 @@ function renderVatlieutempetPage(content){
         +'.pt-action-btn.close { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }'
         +'.pt-action-btn.close:hover { background: #a7f3d0; }'
         +'.pt-badge-closed { background: #e0f2fe; color: #0369a1; padding: 10px; border-radius: 8px; font-size: 11px; font-weight: 800; text-align: center; border: 1px solid #bae6fd; line-height: 1.4; }'
+        +'#ptTable th, #ptTable td { text-align: center !important; vertical-align: middle !important; }'
         +'@keyframes ptFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }'
         +'@media(max-width:768px){.pt-sb{display:none}}';
         document.head.appendChild(st);}
     content.innerHTML='<div class="pt-wrap"><div class="pt-sb" id="ptSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="pt-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="ptInfo" style="font-size:12px"></div><div id="ptStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button class="pt-btn pt-btn-primary" onclick="openPtImportModal()">➕ Thêm Vật Liệu</button><input id="ptSearch" placeholder="🔍 Tìm lĩnh vực, ghi chú..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="ptTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>Cây</th><th>Ngày Nhập</th><th>Lĩnh Vực</th><th>SL Nhập</th><th>Hao Hụt</th><th>SL Sai</th><th>Tồn Cuối</th><th>Đã In</th><th>Người Chốt</th><th>Ghi Chú</th><th>Lịch sử CN</th>'
-    +'</tr></thead><tbody id="ptTb"><tr><td colspan="12" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th>STT</th><th>Cây</th><th>Ngày Nhập</th><th>Lĩnh Vực</th><th>Tên Vật Liệu</th><th>SL Nhập</th><th>Hao Hụt</th><th>SL Sai</th><th>Tồn Cuối</th><th>Đã In</th><th>Người Chốt</th><th>Ghi Chú</th><th>Lịch sử CN</th>'
+    +'</tr></thead><tbody id="ptTb"><tr><td colspan="13" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('ptSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_pt.search=document.getElementById('ptSearch').value||'';_ptRender();},300);});
     _ptLoadAll();
 }
@@ -97,7 +98,7 @@ function _ptRender(){
     var tot=all.length,sumImp=0,sumPr=0,sumRem=0;
     all.forEach(function(r){sumImp+=Number(r.qty_imported)||0;sumPr+=Number(r.qty_printed)||0;sumRem+=Number(r.qty_remaining)||0;});
     var tb=document.getElementById('ptTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="12"><div class="empty-state"><div class="icon">🏷️</div><h3>Chưa có dữ liệu</h3><p>Chọn loại từ sidebar</p></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="13"><div class="empty-state"><div class="icon">🏷️</div><h3>Chưa có dữ liệu</h3><p>Chọn loại từ sidebar</p></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var cl=_ptCL[r.roll_type]||'#e11d48';
         var rem=Number(r.qty_remaining)||0;var rC=rem>0?'pos':rem===0?'zero':'neg';
