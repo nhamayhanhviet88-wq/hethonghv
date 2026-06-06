@@ -27,6 +27,7 @@ function renderVatlieutempetPage(content){
         +'.pt-rem{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800}'
         +'.pt-rem.pos{background:#d1fae5;color:#059669}.pt-rem.zero{background:#f1f5f9;color:#94a3b8}.pt-rem.neg{background:#fee2e2;color:#dc2626}'
         +'.pt-btn { padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; border: none; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }'
+        +'.pt-btn:disabled { background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important; }'
         +'.pt-btn-primary { background: #e11d48; color: #fff; }'
         +'.pt-btn-primary:hover { background: #be123c; }'
         +'.pt-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }'
@@ -228,9 +229,10 @@ async function openPtImportModal() {
             + '        <label>Ghi chú</label>'
             + '        <textarea id="ptImpNotes" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font-size:12px;outline:none" placeholder="Nhập ghi chú..."></textarea>'
             + '      </div>'
+            + '      <div id="ptImpWarning" style="display:none;background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;padding:10px 12px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:12px;line-height:1.4"></div>'
             + '      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">'
             + '        <button type="button" class="pt-btn" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1" onclick="closePtImportModal()">Hủy</button>'
-            + '        <button type="submit" class="pt-btn pt-btn-primary">Xác Nhận Xuất</button>'
+            + '        <button type="submit" id="submitPtImpBtn" class="pt-btn pt-btn-primary">Xác Nhận Xuất</button>'
             + '      </div>'
             + '    </div>'
             + '  </form>'
@@ -284,6 +286,35 @@ async function onPtImpFieldChange() {
     
     document.getElementById('ptImpMatName').value = name;
     document.getElementById('ptImpStock').value = _ptFN(stock) + ' mét';
+    
+    // Check if there are any unconfirmed active rolls of this type. If yes, show warning and disable submit.
+    var warningEl = document.getElementById('ptImpWarning');
+    var submitBtn = document.getElementById('submitPtImpBtn');
+    if (warningEl && submitBtn) {
+        warningEl.style.display = 'none';
+        warningEl.innerHTML = '';
+        submitBtn.disabled = false;
+    }
+    
+    try {
+        var activeRes = await apiCall('/api/pettem/active-rolls?roll_type=' + field);
+        var activeRolls = activeRes.rolls || [];
+        var unconfirmedRoll = activeRolls.find(function(r) { return !r.confirmed_by; });
+        if (unconfirmedRoll) {
+            if (warningEl && submitBtn) {
+                var rollCode = unconfirmedRoll.material_tx_id || unconfirmedRoll.id;
+                warningEl.innerHTML = '⚠️ Cần chốt cuộn ' + field + ' hiện tại trước khi thêm cuộn mới!<br>'
+                    + '• Cuộn chưa chốt: Cây ' + field + ' #' + rollCode + '<br>'
+                    + '• Nhập ngày: ' + _ptFD(unconfirmedRoll.import_date) + '<br>'
+                    + '• Tồn còn lại: ' + _ptFN(unconfirmedRoll.qty_remaining) + 'm.<br>'
+                    + 'Vui lòng chốt/xác nhận cây này ở bảng danh sách phía dưới trước.';
+                warningEl.style.display = 'block';
+                submitBtn.disabled = true;
+            }
+        }
+    } catch(e) {
+        console.error('[PT] Check active rolls failed:', e);
+    }
     
     var selectEl = document.getElementById('ptImpLotSelect');
     selectEl.innerHTML = '<option value="">⏳ Đang tải danh sách lô...</option>';
