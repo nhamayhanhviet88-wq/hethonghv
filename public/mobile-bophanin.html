@@ -180,7 +180,6 @@
             text-align: center;
             color: #34d399;
             font-weight: 700;
-            cursor: pointer;
             font-size: 12px;
             margin-top: 4px;
         }
@@ -243,10 +242,10 @@ function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
 try{const r=await api('/api/printing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.print_date&&r.print_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">⚠️</div><div>'+e.message+'</div></div>'}}
-function mStats(){const t=mr.length,te=mr.filter(r=>r.is_test_print&&!r.is_print_done).length,d=mr.filter(r=>r.is_print_done).length,er=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sE').textContent=te;document.getElementById('sD').textContent=d;document.getElementById('sR').textContent=er}
+function mStats(){const t=mr.length,te=mr.filter(r=>r.is_test_print&&!r.is_completed).length,d=mr.filter(r=>r.is_completed).length,er=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sE').textContent=te;document.getElementById('sD').textContent=d;document.getElementById('sR').textContent=er}
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">🖨️</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn in</div></div>';return}
 c.innerHTML=mr.map(r=>{
-const ic=r.is_print_done?'✅':r.is_test_print?'🧪':'📋';
+const ic=r.is_completed?'✅':r.is_test_print?'🧪':'📋';
 const nv=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia công'):(r.printer_name||'—');
 let fb = '—';
 if (r.print_field) {
@@ -318,8 +317,8 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 + (r.notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.notes+'</span></div>':'')
 + '</div>'
 + '<div class="ca">'
-+ '<button class="ab'+(r.is_test_print?' on':'')+'" onclick="mTog('+r.id+',\''+tA+'\')"><span class="ai">🧪</span><span class="al">TEST</span></button>'
-+ '<button class="ab'+(r.is_print_done?' on':'')+'" onclick="mTog('+r.id+',\''+dA+'\')"><span class="ai">✅</span><span class="al">XONG</span></button>'
++ (r.contractor_id ? '<div class="ab" style="opacity:0.5;cursor:default"><span class="ai">—</span><span class="al">TEST</span></div>' : '<button class="ab'+(r.is_test_print?' on':'')+'" onclick="mTog('+r.id+',\''+tA+'\')"><span class="ai">🧪</span><span class="al">TEST</span></button>')
++ (r.contractor_id ? '<div class="ab on" style="opacity:0.7;cursor:default"><span class="ai">✅</span><span class="al">XONG</span></div>' : '<button class="ab'+(r.is_print_done?' on':'')+'" onclick="mTog('+r.id+',\''+dA+'\')"><span class="ai">✅</span><span class="al">XONG</span></button>')
 + errBtn
 + '</div>'
 + (hl?'<div class="ch">'+hl+'</div>':'')
@@ -449,7 +448,7 @@ async function mShowDoneModal(r) {
     const progressHtml = mGetProgressDisplay(r);
     const qtyDisplay = mQty(r);
 
-    let h = '<div class="m-modal-overlay" id="mDoneModal" onclick="if(event.target===this)mCloseDoneModal()">';
+    let h = '<div class="m-modal-overlay" id="mDoneModal" tabindex="-1" style="outline:none">';
     h += '<div class="m-modal">';
     h += '<div class="m-modal-header">🖨️ Xác nhận in xong (' + (r.order_code || '') + ')</div>';
     h += '<div class="m-modal-body">';
@@ -486,8 +485,8 @@ async function mShowDoneModal(r) {
     h += '</div>';
     
     h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">Hình Ảnh File In <span style="color:#ef4444">*</span></label>';
-    h += '<div onclick="mDoneTriggerUpload()" class="m-paste-zone">';
-    h += '    Click / Chụp ảnh / Chọn file hoặc bấm <span style="background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;font-weight:800">Ctrl + V</span> để dán';
+    h += '<div class="m-paste-zone">';
+    h += '    Bấm <span style="background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;font-weight:800">Ctrl + V</span> để dán ảnh';
     h += '</div>';
     h += '<input type="file" id="mDone_file_input" accept="image/*" onchange="mDoneHandleFileSelect(event)" style="display:none">';
     h += '<input type="hidden" id="mDone_image_url">';

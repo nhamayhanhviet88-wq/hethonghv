@@ -271,6 +271,7 @@ module.exports = async function(fastify) {
                 EXTRACT(MONTH FROM COALESCE(pr.print_done_at, pr.print_date, o.order_date, pr.created_at))::int AS month,
                 pr.printer_id,
                 pr.contractor_id,
+                pr.print_field,
                 u.full_name AS printer_name,
                 c.name AS contractor_name,
                 COUNT(*)::int AS count
@@ -285,7 +286,7 @@ module.exports = async function(fastify) {
                 END
             ) = true
             ${userFilter}
-            GROUP BY year, month, pr.printer_id, pr.contractor_id, u.full_name, c.name
+            GROUP BY year, month, pr.printer_id, pr.contractor_id, pr.print_field, u.full_name, c.name
             ORDER BY year DESC, month DESC
         `, params);
 
@@ -295,31 +296,40 @@ module.exports = async function(fastify) {
             const mo = dr.month || 1;
             
             if (!doneYearMap[yr]) doneYearMap[yr] = {};
-            if (!doneYearMap[yr][mo]) doneYearMap[yr][mo] = [];
-            
-            let opName = '—';
-            let opType = null;
-            let opId = null;
-            if (dr.contractor_id) {
-                opName = '🏭 ' + (dr.contractor_name || 'Gia công');
-                opType = 'contractor';
-                opId = dr.contractor_id;
-            } else if (dr.printer_id) {
-                opName = dr.printer_name || 'Nhân viên';
-                opType = 'user';
-                opId = dr.printer_id;
-            } else {
-                opName = 'Chưa phân công';
-                opType = 'user';
-                opId = 0;
+            if (!doneYearMap[yr][mo]) {
+                doneYearMap[yr][mo] = {
+                    pet: [],
+                    tem: [],
+                    decal: [],
+                    contractors: []
+                };
             }
             
-            doneYearMap[yr][mo].push({
-                operator_name: opName,
-                operator_type: opType,
-                operator_id: opId,
-                count: dr.count
-            });
+            const monthData = doneYearMap[yr][mo];
+            
+            if (dr.contractor_id) {
+                monthData.contractors.push({
+                    operator_name: '🏭 ' + (dr.contractor_name || 'Gia công'),
+                    operator_type: 'contractor',
+                    operator_id: dr.contractor_id,
+                    count: dr.count
+                });
+            } else {
+                const worker = {
+                    operator_name: dr.printer_name || 'Chưa phân công',
+                    operator_type: 'user',
+                    operator_id: dr.printer_id || 0,
+                    count: dr.count
+                };
+                const fUpper = (dr.print_field || '').toUpperCase();
+                if (fUpper.includes('PET')) {
+                    monthData.pet.push(worker);
+                } else if (fUpper.includes('DECAL')) {
+                    monthData.decal.push(worker);
+                } else {
+                    monthData.tem.push(worker);
+                }
+            }
         }
 
         const yearMap = {};

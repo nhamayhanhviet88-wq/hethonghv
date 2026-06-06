@@ -78,14 +78,18 @@ function _bpiRenderSb() {
     if (t.tree) t.tree.forEach(function(yr) {
         var yKey = 'y' + yr.year;
         var yo = !!_bpiOpen[yKey];
-        h += '<div class="bpi-sb-year" onclick="_bpiTgl(\''+yKey+'\')"><span>'+(yo?'▼':'▶')+' 📆 '+yr.year+'</span><span style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
+        h += '<div class="bpi-sb-year" onclick="_bpiFilter('+yr.year+',null,null)">'
+          + '<span onclick="event.stopPropagation();_bpiTgl(\''+yKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px">'+(yo?'▼':'▶')+'</span>'
+          + '<span>📆 '+yr.year+'</span>'
+          + '<span style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
         if (yo) {
             // "Chưa in xong" folder
             var pendingKey = 'p' + yr.year;
-            var po = _bpiOpen[pendingKey] !== false; // expanded by default
+            var po = !!_bpiOpen[pendingKey];
             var pendingActive = f.year == yr.year && f.status === 'pending' && !f.field;
-            h += '<div class="bpi-sb-month'+(pendingActive?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+pendingKey+'\');_bpiFilter('+yr.year+',\'pending\',null)">'
-              + '<span>'+(po?'▼':'▶')+' ⏳ Chưa in xong</span>'
+            h += '<div class="bpi-sb-month'+(pendingActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',null)">'
+              + '<span onclick="event.stopPropagation();_bpiTgl(\''+pendingKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px">'+(po?'▼':'▶')+'</span>'
+              + '<span>⏳ Chưa in xong</span>'
               + '<span>'+yr.pending.total+'</span></div>';
               
             if (po) {
@@ -109,28 +113,113 @@ function _bpiRenderSb() {
             var doneActive = f.year == yr.year && f.status === 'done' && !f.month;
             var doneKey = 'd' + yr.year;
             var doOpen = !!_bpiOpen[doneKey];
-            h += '<div class="bpi-sb-month'+(doneActive?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+doneKey+'\');_bpiFilter('+yr.year+',\'done\',null)" style="color:#059669">'
-              + '<span>'+(doOpen?'▼':'▶')+' ✅ Đã in xong</span>'
+            h += '<div class="bpi-sb-month'+(doneActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null)" style="color:#059669">'
+              + '<span onclick="event.stopPropagation();_bpiTgl(\''+doneKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#059669">'+(doOpen?'▼':'▶')+'</span>'
+              + '<span>✅ Đã in xong</span>'
               + '<span>'+yr.done+'</span></div>';
-
+ 
             if (doOpen && yr.doneMonths) {
                 var months = Object.keys(yr.doneMonths).map(Number).sort(function(a,b){return b-a;});
                 months.forEach(function(m) {
                     var mKey = 'm_' + yr.year + '_' + m;
                     var moOpen = !!_bpiOpen[mKey];
                     var monthActive = f.year == yr.year && f.status === 'done' && f.month == m && !f.operator_id;
-                    var monthQty = yr.doneMonths[m].reduce(function(sum, op){return sum + op.count;}, 0);
                     
-                    h += '<div class="bpi-sb-item'+(monthActive?' active':'')+'" onclick="event.stopPropagation();_bpiTgl(\''+mKey+'\');_bpiFilter('+yr.year+',\'done\',null,'+m+')" style="padding-left:36px;font-weight:700;color:#059669">'
-                      + '<span>'+(moOpen?'▼':'▶')+' 📅 Tháng '+String(m).padStart(2,'0')+'</span>'
+                    var mData = yr.doneMonths[m];
+                    var monthQty = 0;
+                    if (mData) {
+                        monthQty += (mData.pet || []).reduce(function(sum, op){return sum + op.count;}, 0);
+                        monthQty += (mData.decal || []).reduce(function(sum, op){return sum + op.count;}, 0);
+                        monthQty += (mData.tem || []).reduce(function(sum, op){return sum + op.count;}, 0);
+                        monthQty += (mData.contractors || []).reduce(function(sum, op){return sum + op.count;}, 0);
+                    }
+                    
+                    h += '<div class="bpi-sb-item'+(monthActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null,'+m+')" style="padding-left:36px;font-weight:700;color:#059669">'
+                      + '<span onclick="event.stopPropagation();_bpiTgl(\''+mKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#059669">'+(moOpen?'▼':'▶')+'</span>'
+                      + '<span>📅 Tháng '+String(m).padStart(2,'0')+'</span>'
                       + '<span>'+monthQty+'</span></div>';
                       
-                    if (moOpen) {
-                        yr.doneMonths[m].forEach(function(op) {
-                            var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.operator_type === op.operator_type && f.operator_id == op.operator_id;
-                            h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null,'+m+',\''+op.operator_type+'\','+op.operator_id+')" style="padding-left:48px;font-size:10px">'
-                              + '<span>'+op.operator_name+'</span>'
-                              + '<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                    if (moOpen && mData) {
+                        // 1. IN PET
+                        if (mData.pet && mData.pet.length > 0) {
+                            var petFKey = 'mf_pet_' + yr.year + '_' + m;
+                            var petFOpen = !!_bpiOpen[petFKey];
+                            var petFActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN PET' && !f.operator_id;
+                            var petQty = mData.pet.reduce(function(sum, op){return sum + op.count;}, 0);
+                            
+                            h += '<div class="bpi-sb-item'+(petFActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN PET\','+m+')" style="padding-left:48px;font-weight:700;color:#7c3aed">'
+                              + '<span onclick="event.stopPropagation();_bpiTgl(\''+petFKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#7c3aed">'+(petFOpen?'▼':'▶')+'</span>'
+                              + '<span>🟣 IN PET</span>'
+                              + '<span>'+petQty+'</span></div>';
+                              
+                            if (petFOpen) {
+                                mData.pet.forEach(function(op) {
+                                    var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN PET' && f.operator_type === 'user' && f.operator_id == op.operator_id;
+                                    h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN PET\','+m+',\'user\','+op.operator_id+')" style="padding-left:64px;font-size:10px">'
+                                      + '<span>'+op.operator_name+'</span>'
+                                      + '<span style="background:#f3e8ff;color:#7e22ce;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                });
+                            }
+                        }
+                        
+                        // 2. IN DECAL
+                        if (mData.decal && mData.decal.length > 0) {
+                            var decalFKey = 'mf_decal_' + yr.year + '_' + m;
+                            var decalFOpen = !!_bpiOpen[decalFKey];
+                            var decalFActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN DECAL' && !f.operator_id;
+                            var decalQty = mData.decal.reduce(function(sum, op){return sum + op.count;}, 0);
+                            
+                            h += '<div class="bpi-sb-item'+(decalFActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN DECAL\','+m+')" style="padding-left:48px;font-weight:700;color:#0284c7">'
+                              + '<span onclick="event.stopPropagation();_bpiTgl(\''+decalFKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#0284c7">'+(decalFOpen?'▼':'▶')+'</span>'
+                              + '<span>🔵 IN DECAL</span>'
+                              + '<span>'+decalQty+'</span></div>';
+                              
+                            if (decalFOpen) {
+                                mData.decal.forEach(function(op) {
+                                    var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN DECAL' && f.operator_type === 'user' && f.operator_id == op.operator_id;
+                                    h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN DECAL\','+m+',\'user\','+op.operator_id+')" style="padding-left:64px;font-size:10px">'
+                                      + '<span>'+op.operator_name+'</span>'
+                                      + '<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                });
+                            }
+                        }
+ 
+                        // 3. IN TEM
+                        if (mData.tem && mData.tem.length > 0) {
+                            var temFKey = 'mf_tem_' + yr.year + '_' + m;
+                            var temFOpen = !!_bpiOpen[temFKey];
+                            var temFActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN TEM' && !f.operator_id;
+                            var temQty = mData.tem.reduce(function(sum, op){return sum + op.count;}, 0);
+                            
+                            h += '<div class="bpi-sb-item'+(temFActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN TEM\','+m+')" style="padding-left:48px;font-weight:700;color:#0d9488">'
+                              + '<span onclick="event.stopPropagation();_bpiTgl(\''+temFKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#0d9488">'+(temFOpen?'▼':'▶')+'</span>'
+                              + '<span>🟢 IN TEM</span>'
+                              + '<span>'+temQty+'</span></div>';
+                              
+                            if (temFOpen) {
+                                mData.tem.forEach(function(op) {
+                                    var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN TEM' && f.operator_type === 'user' && f.operator_id == op.operator_id;
+                                    h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN TEM\','+m+',\'user\','+op.operator_id+')" style="padding-left:64px;font-size:10px">'
+                                      + '<span>'+op.operator_name+'</span>'
+                                      + '<span style="background:#ccfbf1;color:#0f766e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                });
+                            }
+                        }
+ 
+                        // 4. Gia công
+                        if (mData.contractors && mData.contractors.length > 0) {
+                            mData.contractors.forEach(function(op) {
+                                var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.operator_type === 'contractor' && f.operator_id == op.operator_id;
+                                h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null,'+m+',\'contractor\','+op.operator_id+')" style="padding-left:48px;font-size:10px;font-weight:600;color:#374151">'
+                                  + '<span>'+op.operator_name+'</span>'
+                                  + '<span style="background:#e2e8f0;color:#334155;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                            });
+                        }
+                    }
+                });
+            }
+        }
+    });font-size:9px;font-weight:700">'+op.count+'</span></div>';
                         });
                     }
                 });
@@ -381,8 +470,8 @@ function _bpiRender() {
         }
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
-        +'<td style="text-align:center"><button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button></td>'
+        +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
+        +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#059669;font-weight:700">✓ Xong</span>' : '<button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button>')+'</td>'
         +'<td style="text-align:center">' + errBtnHtml + '</td>'
         +'<td style="text-align:center">'+fieldBadge+'</td>'
         +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
@@ -407,7 +496,7 @@ function _bpiRender() {
         el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#c4b5fd;font-weight:900">'+tot+'</span> đơn</div>';
     }
     var sc=document.getElementById('bpiStats'); if(sc){
-        var testing=all.filter(function(r){return r.is_test_print&&!r.is_print_done;}).length, done=all.filter(function(r){return r.is_print_done;}).length, errs=all.filter(function(r){return r.error_reported;}).length;
+        var testing=all.filter(function(r){return r.is_test_print&&!r.is_completed;}).length, done=all.filter(function(r){return r.is_completed;}).length, errs=all.filter(function(r){return r.error_reported;}).length;
         sc.innerHTML='<div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #7c3aed30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div><div style="font-size:15px;font-weight:900">'+tot+'</div></div>'
         +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🧪 TEST</div><div style="font-size:15px;font-weight:900">'+testing+'</div></div>'
         +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
@@ -507,7 +596,7 @@ async function _bpiShowDoneModal(r) {
     var progressHtml = _bpiGetProgressDisplay(r);
     var qtyDisplay = _bpiGetQtyDisplay(r);
 
-    var h = '<div class="bpi-modal-overlay" id="_bpiDoneModal">';
+    var h = '<div class="bpi-modal-overlay" id="_bpiDoneModal" tabindex="-1" style="outline:none">';
     h += '<div class="bpi-modal" style="width:480px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
     h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">🖨️</div><div><div class="m-title">XÁC NHẬN IN XONG</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
     h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
@@ -558,8 +647,8 @@ async function _bpiShowDoneModal(r) {
     
     // Image upload / paste area
     h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Hình Ảnh File In <span style="color:#ef4444">*</span></label>';
-    h += '<div onclick="_bpiDoneTriggerUpload()" style="border:1.5px dashed #059669;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(5,150,105,0.03);color:#059669;font-size:13px;font-weight:700;cursor:pointer;">';
-    h += '    Click hoặc Kéo thả ảnh hoặc bấm <span style="background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> để dán ảnh';
+    h += '<div style="border:1.5px dashed #059669;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(5,150,105,0.03);color:#059669;font-size:13px;font-weight:700;">';
+    h += '    Bấm <span style="background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> để dán ảnh';
     h += '</div>';
     h += '<input type="file" id="bpiDone_file_input" accept="image/*" onchange="_bpiDoneHandleFileSelect(event)" style="display:none">';
     h += '<input type="hidden" id="bpiDone_image_url">';
@@ -597,7 +686,13 @@ async function _bpiShowDoneModal(r) {
     // Trigger initial calculation
     _bpiUpdateDoneMeters();
     
-    requestAnimationFrame(function() { document.getElementById('_bpiDoneModal').classList.add('show'); });
+    requestAnimationFrame(function() {
+        var m = document.getElementById('_bpiDoneModal');
+        if (m) {
+            m.classList.add('show');
+            m.focus();
+        }
+    });
 }
 
 function _bpiCloseDoneModal() {
