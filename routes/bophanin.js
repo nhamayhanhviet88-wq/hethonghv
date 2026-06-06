@@ -778,7 +778,7 @@ module.exports = async function(fastify) {
             detail = '↩️ Hoàn tác in test';
         } else if (action === 'print_done') {
             const fUpper = (rec.print_field || '').toUpperCase();
-            const isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM');
+            const isPetOrTem = fUpper.includes('PET') || fUpper.includes('TEM') || fUpper.includes('DECAL');
             if (isPetOrTem) {
                 const { pettem_roll_id, roll_start_qty, print_meters, roll_end_qty, image_url } = req.body || {};
                 if (!pettem_roll_id) return reply.code(400).send({ error: 'Mã cây in là bắt buộc đối với đơn hàng PET/TEM' });

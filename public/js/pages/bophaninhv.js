@@ -351,7 +351,8 @@ function _bpiRender() {
             }
         }
         if (r.pettem_roll_id) {
-            parts.push('<span style="color:#059669;font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 Cây #' + r.pettem_roll_id + '</span>');
+            var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
+            parts.push('<span style="color:#059669;font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 Cây ' + typeLabel + ' #' + r.pettem_roll_id + '</span>');
         }
         if (parts.length > 0) {
             rollDisplay = parts.join('');
@@ -485,8 +486,10 @@ async function _bpiShowDoneModal(r) {
     
     var rollType = 'PET';
     var fieldUpper = (r.print_field || '').toUpperCase();
-    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+    if (fieldUpper.includes('TEM')) {
         rollType = 'TEM';
+    } else if (fieldUpper.includes('DECAL')) {
+        rollType = 'DECAL';
     }
     
     var activeRolls = [];
@@ -516,7 +519,12 @@ async function _bpiShowDoneModal(r) {
     h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Số Lượng Theo Đơn</span><span class="bpi-modal-val" style="font-weight:800;color:#7c3aed">' + qtyDisplay + '</span></div>';
     
     // Select roll
-    var rollLabel = rollType === 'TEM' ? 'Cây In Tem' : 'Cây In Pet';
+    var rollLabel = 'Cây In Pet';
+    if (rollType === 'TEM') {
+        rollLabel = 'Cây In Tem';
+    } else if (rollType === 'DECAL') {
+        rollLabel = 'Cây In Decal';
+    }
     h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">' + rollLabel + ' <span style="color:#ef4444">*</span></label>';
     h += '<select id="bpiDone_roll_id" onchange="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc">';
     h += '<option value="">-- Chọn ' + rollLabel.toLowerCase() + ' --</option>';
@@ -526,7 +534,8 @@ async function _bpiShowDoneModal(r) {
     
     activeRolls.forEach(function(roll) {
         var selectedStr = String(roll.id) === String(defaultSelectId) ? ' selected' : '';
-        h += '<option value="' + roll.id + '"' + selectedStr + '>Cây #' + roll.id + ' (Tồn: ' + Number(roll.qty_remaining).toFixed(2) + 'm)</option>';
+        var typeLabel = roll.roll_type ? roll.roll_type.toUpperCase() : 'PET';
+        h += '<option value="' + roll.id + '"' + selectedStr + '>Cây ' + typeLabel + ' #' + roll.id + ' (Tồn: ' + Number(roll.qty_remaining).toFixed(2) + 'm)</option>';
     });
     h += '</select></div>';
     
@@ -1343,8 +1352,10 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedRollId) {
     
     var rollType = 'PET';
     var fieldUpper = (printField || '').toUpperCase();
-    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+    if (fieldUpper.includes('TEM')) {
         rollType = 'TEM';
+    } else if (fieldUpper.includes('DECAL')) {
+        rollType = 'DECAL';
     }
     
     try {
@@ -1363,7 +1374,8 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedRollId) {
         rolls.forEach(function(r) {
             var opt = document.createElement('option');
             opt.value = r.id;
-            opt.textContent = 'Cây #' + r.id + ' (Còn ' + Number(r.qty_remaining).toFixed(2) + 'm)' + (r.confirmed_by ? ' [ĐÃ CHỐT]' : '');
+            var typeLabel = r.roll_type ? r.roll_type.toUpperCase() : 'PET';
+            opt.textContent = 'Cây ' + typeLabel + ' #' + r.id + ' (Còn ' + Number(r.qty_remaining).toFixed(2) + 'm)' + (r.confirmed_by ? ' [ĐÃ CHỐT]' : '');
             if (String(r.id) === String(selectedRollId)) {
                 opt.selected = true;
             }
