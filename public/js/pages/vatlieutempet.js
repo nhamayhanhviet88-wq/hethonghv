@@ -13,6 +13,7 @@ function renderVatlieutempetPage(content){
         st.id='_ptStyle';
         st.textContent='.pt-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden;font-family:"Inter",sans-serif}'
         +'.pt-sb{width:240px;min-width:240px;background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto;display:flex;flex-direction:column}'
+        +'.pt-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:20px;overflow-y:auto}'
         +'.pt-sb-title{padding:16px;font-size:11px;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px;text-align:center;border-bottom:1px solid #f0f0f0}'
         +'.pt-sb-total{padding:12px 16px;font-size:12px;font-weight:700;color:#1e293b;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}'
         +'.pt-sb-total:hover{background:#f8fafc}'
