@@ -538,13 +538,14 @@ function _bpiRender() {
         if (r.image_url) {
             imgIcon = ' <a href="' + r.image_url + '" target="_blank" style="margin-left:6px;font-size:12px;text-decoration:none" title="Xem hình ảnh file in">🖼️</a>';
         }
+        var printDateVal = r.contractor_id ? _bpiFD(r.print_date) : _bpiFT(r.print_done_at);
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
         +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#059669;font-weight:700">✓ Xong</span>' : '<button class="bpi-ib'+dC+'" onclick="_bpiTog(\''+r.id+'\',\''+dA+'\')" title="In xong">'+dI+'</button>')+'</td>'
         +'<td style="text-align:center">' + errBtnHtml + '</td>'
         +'<td style="text-align:center">'+fieldBadge+'</td>'
-        +'<td style="font-size:10px">'+_bpiFT(r.print_done_at)+'</td>'
+        +'<td style="font-size:10px">'+printDateVal+'</td>'
         +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+priBadge+_bpiGetProductNameDisplay(r)+imgIcon+'</td>'
