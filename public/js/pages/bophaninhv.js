@@ -516,9 +516,10 @@ async function _bpiShowDoneModal(r) {
     h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Số Lượng Theo Đơn</span><span class="bpi-modal-val" style="font-weight:800;color:#7c3aed">' + qtyDisplay + '</span></div>';
     
     // Select roll
-    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Cây In <span style="color:#ef4444">*</span></label>';
+    var rollLabel = rollType === 'TEM' ? 'Cây In Tem' : 'Cây In Pet';
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">' + rollLabel + ' <span style="color:#ef4444">*</span></label>';
     h += '<select id="bpiDone_roll_id" onchange="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc">';
-    h += '<option value="">-- Chọn cây in --</option>';
+    h += '<option value="">-- Chọn ' + rollLabel.toLowerCase() + ' --</option>';
     
     // Auto-select the oldest active roll (FIFO)
     var defaultSelectId = activeRolls.length > 0 ? activeRolls[0].id : '';
@@ -725,7 +726,15 @@ async function _bpiSubmitDone(id) {
     var imageUrl = imgUrlEl.value;
     
     if (!rollId) {
-        showToast('Vui lòng chọn cây in!', 'error');
+        var rollType = 'PET';
+        var r = _bpi.records.find(function(x) { return x.id == id; });
+        if (r) {
+            var fieldUpper = (r.print_field || '').toUpperCase();
+            if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+                rollType = 'TEM';
+            }
+        }
+        showToast('Vui lòng chọn cây in ' + (rollType === 'TEM' ? 'Tem' : 'Pet') + '!', 'error');
         return;
     }
     if (isNaN(metersVal) || metersVal <= 0) {
