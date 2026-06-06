@@ -64,7 +64,7 @@ function renderVatlieutempetPage(content){
     content.innerHTML='<div class="pt-wrap"><div class="pt-sb" id="ptSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="pt-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="ptInfo" style="font-size:12px"></div><div id="ptStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button class="pt-btn pt-btn-primary" onclick="openPtImportModal()">➕ Thêm Vật Liệu</button><input id="ptSearch" placeholder="🔍 Tìm lĩnh vực, ghi chú..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="ptTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>Cây</th><th>Ngày Nhập</th><th>Lĩnh Vực</th><th>Tên Vật Liệu</th><th>SL Nhập</th><th>Hao Hụt</th><th>SL Sai</th><th>Tồn Cuối</th><th>Đã In</th><th>Người Chốt</th><th>Ghi Chú</th><th>Lịch sử CN</th>'
+    +'<th>STT</th><th id="ptColCay">Cây</th><th>Ngày Nhập</th><th>Lĩnh Vực</th><th>Tên Vật Liệu</th><th>SL Nhập</th><th>Hao Hụt</th><th>SL Sai</th><th>Tồn Cuối</th><th>Đã In</th><th>Người Chốt</th><th>Ghi Chú</th><th>Lịch sử CN</th>'
     +'</tr></thead><tbody id="ptTb"><tr><td colspan="13" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('ptSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_pt.search=document.getElementById('ptSearch').value||'';_ptRender();},300);});
     _ptLoadAll();
@@ -98,14 +98,33 @@ function _ptRender(){
     var tot=all.length,sumImp=0,sumPr=0,sumRem=0;
     all.forEach(function(r){sumImp+=Number(r.qty_imported)||0;sumPr+=Number(r.qty_printed)||0;sumRem+=Number(r.qty_remaining)||0;});
     var tb=document.getElementById('ptTb');if(!tb)return;
+    
+    var colCay = document.getElementById('ptColCay');
+    if (colCay) {
+        var rollType = _pt.filter.roll_type;
+        if (rollType === 'PET') {
+            colCay.textContent = 'Cây PET';
+        } else if (rollType === 'TEM') {
+            colCay.textContent = 'Cây TEM';
+        } else if (rollType === 'DECAL') {
+            colCay.textContent = 'Cây DECAL';
+        } else {
+            colCay.textContent = 'Cây';
+        }
+    }
+
     if(!all.length){tb.innerHTML='<tr><td colspan="13"><div class="empty-state"><div class="icon">🏷️</div><h3>Chưa có dữ liệu</h3><p>Chọn loại từ sidebar</p></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var cl=_ptCL[r.roll_type]||'#e11d48';
         var rem=Number(r.qty_remaining)||0;var rC=rem>0?'pos':rem===0?'zero':'neg';
         var rL=rem>0?'🟢 '+_ptFN(rem):rem===0?'⚪ 0':'🔴 '+_ptFN(rem);
         var upd='';if(r.last_update_at){upd=_ptFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#e11d48;font-size:9px">'+r.last_update_by+'</span>';}
+        
+        var colType = r.roll_type ? r.roll_type.toUpperCase() : '';
+        var colLabel = 'Cây' + (colType ? ' ' + colType : '');
+        
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 Cây #'+r.id+'</button></td>'
+        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + colLabel + ' #'+r.id+'</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
         +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
         +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+(r.field_name||'—')+'</td>'
