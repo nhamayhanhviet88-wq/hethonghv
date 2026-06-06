@@ -413,13 +413,24 @@ function _bpiRender() {
             var auditDetails = '';
             if (r.audit_checked && r.audit_checked_by_name) {
                 var shName = r.audit_checked_by_name.split(' ').pop(); // last name
-                auditDetails = '<div style="font-size:8px;color:#0284c7;margin-top:2px;line-height:1">' + shName + '<br>' + _bpiFT(r.audit_checked_at) + '</div>';
+                var noteHtml = '';
+                if (r.audit_note) {
+                    var shNote = r.audit_note.length > 20 ? (r.audit_note.substring(0, 17) + '...') : r.audit_note;
+                    noteHtml = '<br><span style="font-style:italic;opacity:0.85" title="' + r.audit_note.replace(/"/g, '&quot;') + '">📝 ' + shNote + '</span>';
+                }
+                auditDetails = '<div style="font-size:8px;color:#0284c7;margin-top:2px;line-height:1">' + shName + '<br>' + _bpiFT(r.audit_checked_at) + noteHtml + '</div>';
             }
-            auditCell = '<td style="text-align:center"><button class="bpi-ib' + aC + '" onclick="_bpiAudit(\'' + r.id + '\')" title="Kiểm tra">' + aI + '</button>' + auditDetails + '</td>';
+            var titleText = r.audit_checked ? ('Đã kiểm tra: ' + (r.audit_note || '(Không có ghi chú)')) : 'Kiểm tra';
+            auditCell = '<td style="text-align:center"><button class="bpi-ib' + aC + '" onclick="_bpiAudit(\'' + r.id + '\')" title="' + titleText + '">' + aI + '</button>' + auditDetails + '</td>';
         } else {
             if (r.audit_checked) {
                 var shName = (r.audit_checked_by_name || '').split(' ').pop() || 'Duyệt';
-                auditCell = '<td style="text-align:center;color:#0284c7;font-weight:700;font-size:9.5px"><span style="background:#e0f2fe;padding:2px 4px;border-radius:4px">✓ ' + shName + '<br>' + _bpiFT(r.audit_checked_at) + '</span></td>';
+                var noteHtml = '';
+                if (r.audit_note) {
+                    var shNote = r.audit_note.length > 20 ? (r.audit_note.substring(0, 17) + '...') : r.audit_note;
+                    noteHtml = '<br><span style="font-style:italic;opacity:0.85;font-weight:normal" title="' + r.audit_note.replace(/"/g, '&quot;') + '">📝 ' + shNote + '</span>';
+                }
+                auditCell = '<td style="text-align:center;color:#0284c7;font-weight:700;font-size:9.5px"><span style="background:#e0f2fe;padding:2px 4px;border-radius:4px">✓ ' + shName + '<br>' + _bpiFT(r.audit_checked_at) + noteHtml + '</span></td>';
             } else {
                 auditCell = '<td style="text-align:center;color:#94a3b8">—</td>';
             }
@@ -874,12 +885,98 @@ async function _bpiSubmitDone(id) {
     }
 }
 async function _bpiAudit(id) {
+    var r = _bpi.records.find(function(item) { return item.id == id; });
+    if (!r) {
+        showToast('Không tìm thấy bản ghi', 'error');
+        return;
+    }
+    
+    // Create audit modal HTML
+    var h = '<div class="bpi-modal-overlay" id="_bpiAuditModal" tabindex="-1" style="outline:none">';
+    h += '<div class="bpi-modal" style="width:400px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
+    h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#0284c7,#0ea5e9)"><div class="m-icon">🔍</div><div><div class="m-title">KIỂM TRA ĐƠN IN</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+    h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
+    
+    h += '<div style="font-size:12px;color:#475569;margin-bottom:12px;line-height:1.5">';
+    h += '<div><strong>Mã đơn hàng:</strong> ' + (r.order_code || '') + '</div>';
+    h += '<div><strong>Sản phẩm/Phối:</strong> ' + (r.product_name || '') + '</div>';
+    if (r.audit_checked) {
+        h += '<div><strong>Trạng thái:</strong> <span style="color:#059669;font-weight:700">✓ Đã kiểm tra</span></div>';
+        h += '<div><strong>Người kiểm tra:</strong> ' + (r.audit_checked_by_name || '') + '</div>';
+        h += '<div><strong>Thời gian:</strong> ' + _bpiFT(r.audit_checked_at) + '</div>';
+    } else {
+        h += '<div><strong>Trạng thái:</strong> <span style="color:#64748b">Chưa kiểm tra</span></div>';
+    }
+    h += '</div>';
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Nội Dung Ghi Chú <span style="color:#ef4444">*</span></label>';
+    h += '<textarea id="bpiAudit_note" style="width:100%;height:100px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;resize:none" placeholder="Nhập ghi chú kiểm tra...">' + (r.audit_note || '') + '</textarea>';
+    h += '</div>';
+    
+    h += '</div>'; // End body
+    
+    h += '<div class="bpi-modal-footer" style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;background:#f8fafc">';
+    h += '<button class="bpi-btn" onclick="_bpiCloseAuditModal()" style="background:#e2e8f0;color:#475569">Đóng</button>';
+    if (r.audit_checked) {
+        h += '<button class="bpi-btn" id="_bpiCancelAuditBtn" onclick="_bpiSubmitAudit(\'' + id + '\', true)" style="background:#ef4444;color:#fff">Hủy kiểm tra</button>';
+    }
+    h += '<button class="bpi-btn" id="_bpiSaveAuditBtn" onclick="_bpiSubmitAudit(\'' + id + '\', false)" style="background:#0284c7;color:#fff;font-weight:700">💾 LƯU</button>';
+    h += '</div>'; // End footer
+    
+    h += '</div></div>';
+    
+    document.body.insertAdjacentHTML('beforeend', h);
+    
+    requestAnimationFrame(function() {
+        var m = document.getElementById('_bpiAuditModal');
+        if (m) {
+            m.classList.add('show');
+            m.focus();
+            var txt = document.getElementById('bpiAudit_note');
+            if (txt) {
+                txt.focus();
+                // move cursor to end of text
+                var val = txt.value;
+                txt.value = '';
+                txt.value = val;
+            }
+        }
+    });
+}
+
+function _bpiCloseAuditModal() {
+    var m = document.getElementById('_bpiAuditModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+}
+
+async function _bpiSubmitAudit(id, cancel) {
+    var note = '';
+    if (!cancel) {
+        var noteEl = document.getElementById('bpiAudit_note');
+        note = noteEl ? noteEl.value.trim() : '';
+        if (!note) {
+            showToast('Vui lòng nhập ghi chú kiểm tra', 'error');
+            return;
+        }
+    }
+    
+    var btnSave = document.getElementById('_bpiSaveAuditBtn');
+    var btnCancel = document.getElementById('_bpiCancelAuditBtn');
+    if (btnSave) btnSave.disabled = true;
+    if (btnCancel) btnCancel.disabled = true;
+    
     try {
-        await apiCall('/api/printing/records/' + id + '/audit', 'POST');
-        showToast('✅ Cập nhật trạng thái kiểm tra');
+        await apiCall('/api/printing/records/' + id + '/audit', 'POST', {
+            audit_note: note,
+            cancel: !!cancel
+        });
+        showToast(cancel ? '↩️ Đã hủy trạng thái kiểm tra' : '✅ Đã lưu kết quả kiểm tra');
+        _bpiCloseAuditModal();
         await _bpiLoadAll();
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
+        if (btnSave) btnSave.disabled = false;
+        if (btnCancel) btnCancel.disabled = false;
     }
 }
 function _bpiErr(id) { _bpiReportError(id); }

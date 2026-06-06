@@ -80,6 +80,7 @@ module.exports = async function(fastify) {
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked BOOLEAN DEFAULT FALSE`);
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked_at TIMESTAMPTZ DEFAULT NULL`);
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked_by INTEGER DEFAULT NULL REFERENCES users(id)`);
+        await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_note TEXT DEFAULT NULL`);
     } catch(e) { console.error('[BPI] audit columns migration error:', e.message); }
 
     try {
@@ -468,6 +469,7 @@ module.exports = async function(fastify) {
                     pr.audit_checked,
                     pr.audit_checked_at,
                     pr.audit_checked_by,
+                    pr.audit_note,
                     u_audit.full_name AS audit_checked_by_name,
                     pr.error_reported,
                     pr.error_order_id,
@@ -532,6 +534,7 @@ module.exports = async function(fastify) {
                     false AS audit_checked,
                     NULL::timestamptz AS audit_checked_at,
                     NULL::int AS audit_checked_by,
+                    NULL::text AS audit_note,
                     NULL AS audit_checked_by_name,
                     false AS error_reported,
                     NULL::int AS error_order_id,
@@ -897,6 +900,7 @@ module.exports = async function(fastify) {
         if (!isAuditor) return reply.code(403).send({ error: 'Không có quyền thực hiện chức năng kiểm tra' });
 
         const idStr = req.params.id, now = vnNow();
+        const { audit_note, cancel } = req.body || {};
         let id;
         try {
             id = await getOrCreatePrintingRecord(idStr, req.user.id);
@@ -907,18 +911,18 @@ module.exports = async function(fastify) {
         const rec = await db.get('SELECT audit_checked FROM printing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
 
-        const newChecked = !rec.audit_checked;
-        if (newChecked) {
-            await db.run(`UPDATE printing_records SET audit_checked=true, audit_checked_at=$1, audit_checked_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+        if (cancel) {
+            await db.run(`UPDATE printing_records SET audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL, audit_note=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [id, 'audit', '↩️ Hủy kiểm tra', req.user.id, now]);
+            return { success: true, id, audit_checked: false, audit_note: null };
         } else {
-            await db.run(`UPDATE printing_records SET audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`UPDATE printing_records SET audit_checked=true, audit_checked_at=$1, audit_checked_by=$2, audit_note=$3, updated_at=$1 WHERE id=$4`, [now, req.user.id, audit_note || '', id]);
+            const detail = '🔍 Đã kiểm tra: ' + (audit_note || '(Không có ghi chú)');
+            await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [id, 'audit', detail, req.user.id, now]);
+            return { success: true, id, audit_checked: true, audit_note };
         }
-
-        const detail = newChecked ? '🔍 Đã kiểm tra' : '↩️ Hủy kiểm tra';
-        await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'audit', detail, req.user.id, now]);
-
-        return { success: true, id, audit_checked: newChecked };
     });
 
     // ========== UPDATE ==========
