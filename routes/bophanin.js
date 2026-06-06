@@ -440,7 +440,9 @@ module.exports = async function(fastify) {
         }
 
         let orderBy = 'ORDER BY up.print_date DESC NULLS LAST, up.created_at DESC';
-        if (status === 'pending') {
+        if (status === 'done') {
+            orderBy = 'ORDER BY COALESCE(up.print_done_at, up.print_date) DESC NULLS LAST, up.created_at DESC';
+        } else if (status === 'pending') {
             orderBy = `ORDER BY 
                 CASE 
                     WHEN (COALESCE(up.order_code, '') ILIKE '%GCPET%' 
