@@ -367,7 +367,7 @@ module.exports = async function(fastify) {
                     item.pending.pet++;
                 } else if (fUpper.includes('DECAL')) {
                     item.pending.decal++;
-                } else if (fUpper.includes('TEM')) {
+                } else {
                     item.pending.tem++;
                 }
             }
@@ -417,8 +417,12 @@ module.exports = async function(fastify) {
             }
         }
         if (field) {
-            where += ` AND up.print_field = $${idx++}`;
-            params.push(field);
+            if (field.toUpperCase() === 'IN TEM') {
+                where += ` AND (up.print_field NOT ILIKE '%PET%' AND up.print_field NOT ILIKE '%DECAL%' OR up.print_field IS NULL)`;
+            } else {
+                where += ` AND up.print_field = $${idx++}`;
+                params.push(field);
+            }
         }
         if (operator_type) {
             if (operator_type === 'user') {
