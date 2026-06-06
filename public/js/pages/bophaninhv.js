@@ -219,12 +219,6 @@ function _bpiRenderSb() {
                 });
             }
         }
-    });font-size:9px;font-weight:700">'+op.count+'</span></div>';
-                        });
-                    }
-                });
-            }
-        }
     });
     sb.innerHTML = h;
 }
