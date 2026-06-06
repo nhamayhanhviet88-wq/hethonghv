@@ -26,9 +26,10 @@ function renderBophaninPage(content) {
 +'.bpi-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
 +'.bpi-ib.on-test{background:#fef3c7;border-color:#f59e0b}.bpi-ib.on-done{background:#dcfce7;border-color:#22c55e}.bpi-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpi-ib.on-audit{background:#e0f2fe;border-color:#0ea5e9;color:#0284c7}'
 +'@media(max-width:768px){.bpi-sb{display:none}}'
-+ '.bpi-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s ease}'
++ '.bpi-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;opacity:0;transition:opacity .25s ease}'
 + '.bpi-modal-overlay.show{opacity:1}'
-+ '.bpi-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}'
++ '.bpi-modal-overlay.dimmed{opacity:0.15 !important}'
++ '.bpi-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden;margin-bottom:40px}'
 + '.bpi-modal-overlay.show .bpi-modal{transform:scale(1)}'
 + '.bpi-modal-header{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px}'
 + '.bpi-modal-header .m-icon{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))}'
@@ -479,6 +480,20 @@ async function _bpiTog(id, action) {
     }
 }
 
+function _bpiSetupModalDismiss(overlayId, closeFn) {
+    var ov = document.getElementById(overlayId);
+    if (!ov) return;
+    ov.onclick = null;
+    ov.addEventListener('click', function(e) {
+        if (e.target.closest('input, select, button, textarea, option, .bpi-modal-btn, [onclick]')) return;
+        ov.classList.toggle('dimmed');
+    });
+    ov.addEventListener('dblclick', function(e) {
+        if (e.target.closest('input, select, button, textarea, option, .bpi-modal-btn, [onclick]')) return;
+        closeFn();
+    });
+}
+
 // Modal functions for printing completion
 async function _bpiShowDoneModal(r) {
     var old = document.getElementById('_bpiDoneModal'); if (old) old.remove();
@@ -504,7 +519,7 @@ async function _bpiShowDoneModal(r) {
     var progressHtml = _bpiGetProgressDisplay(r);
     var qtyDisplay = _bpiGetQtyDisplay(r);
 
-    var h = '<div class="bpi-modal-overlay" id="_bpiDoneModal" onclick="if(event.target===this)_bpiCloseDoneModal()">';
+    var h = '<div class="bpi-modal-overlay" id="_bpiDoneModal">';
     h += '<div class="bpi-modal" style="width:480px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
     h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">🖨️</div><div><div class="m-title">XÁC NHẬN IN XONG</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
     h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
@@ -565,6 +580,7 @@ async function _bpiShowDoneModal(r) {
     
     h += '</div></div>';
     document.body.insertAdjacentHTML('beforeend', h);
+    _bpiSetupModalDismiss('_bpiDoneModal', _bpiCloseDoneModal);
     
     // Setup paste listener
     window._bpiDoneHandlePaste = function(e) {
@@ -820,11 +836,11 @@ async function _bpiManageContractors() {
 
         var old = document.getElementById('_bpiConOverlay'); if (old) old.remove();
         var ov = document.createElement('div');
-        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:qlxFadeIn .2s';
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;animation:qlxFadeIn .2s;transition:opacity .25s ease';
         ov.id = '_bpiConOverlay';
-        ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
-        ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s">' + html + '</div>';
+        ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s;margin-bottom:40px">' + html + '</div>';
         document.body.appendChild(ov);
+        _bpiSetupModalDismiss('_bpiConOverlay', function() { ov.remove(); });
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
@@ -909,11 +925,11 @@ async function _bpiRenderFieldsModal() {
 
     var old = document.getElementById('_bpFieldsOverlay'); if (old) old.remove();
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:qlxFadeIn .2s';
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;animation:qlxFadeIn .2s;transition:opacity .25s ease';
     ov.id = '_bpFieldsOverlay';
-    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
-    ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:750px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s">' + html + '</div>';
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:750px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s;margin-bottom:40px">' + html + '</div>';
     document.body.appendChild(ov);
+    _bpiSetupModalDismiss('_bpFieldsOverlay', function() { ov.remove(); });
     
     if (_bpSelFieldId) {
         _bpiLoadFieldOperators(_bpSelFieldId);
@@ -1052,7 +1068,7 @@ async function _bpiReportError(recordId) {
 
         window._bpiErrorImages = [];
 
-        var h = '<div class="bpi-modal-overlay" id="_bpiErrorModal" onclick="if(event.target===this)_bpiCloseErrorModal()">';
+        var h = '<div class="bpi-modal-overlay" id="_bpiErrorModal">';
         h += '<div class="bpi-modal" style="width:520px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
         h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea)"><div class="m-icon">🚨</div><div><div class="m-title">BÁO ĐƠN LỖI</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
         h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
@@ -1099,6 +1115,7 @@ async function _bpiReportError(recordId) {
 
         h += '</div></div>';
         document.body.insertAdjacentHTML('beforeend', h);
+        _bpiSetupModalDismiss('_bpiErrorModal', _bpiCloseErrorModal);
         requestAnimationFrame(function() { document.getElementById('_bpiErrorModal').classList.add('show'); });
 
         _bpiSetupPasteListener();
