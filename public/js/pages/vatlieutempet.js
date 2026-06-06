@@ -339,6 +339,20 @@ function _ptFDT(d) {
     }
 }
 
+function _ptFDT_NoYear(d) {
+    if (!d) return '—';
+    try {
+        var date = new Date(d);
+        var hour = String(date.getHours()).padStart(2, '0');
+        var min = String(date.getMinutes()).padStart(2, '0');
+        var day = String(date.getDate()).padStart(2, '0');
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        return hour + ':' + min + ' ' + day + '/' + month;
+    } catch(e) {
+        return d;
+    }
+}
+
 async function openPtDetailsModal(rollId) {
     var m = document.getElementById('ptDetailsModal');
     if (!m) {
@@ -396,16 +410,32 @@ async function openPtDetailsModal(rollId) {
                 badge = '<span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-weight:700">Nhập kho</span>';
             }
             
+            var qtyStr = '—';
+            var reasonStr = h.details || '—';
+            
+            if (h.action === 'waste' && h.details) {
+                var qtyMatch = h.details.match(/Khai báo hao hụt:\s*([+-]?[\d.]+\w*)/);
+                if (qtyMatch) qtyStr = qtyMatch[1];
+                var reasonMatch = h.details.match(/\(Lý do:\s*([^)]+)\)/);
+                if (reasonMatch) reasonStr = reasonMatch[1];
+            } else if (h.action === 'error' && h.details) {
+                var qtyMatch = h.details.match(/Khai báo sản xuất lỗi:\s*([+-]?[\d.]+\w*)/);
+                if (qtyMatch) qtyStr = qtyMatch[1];
+                var reasonMatch = h.details.match(/\(Lý do:\s*([^)]+)\)/);
+                if (reasonMatch) reasonStr = reasonMatch[1];
+            }
+            
             return '<tr>'
-                 + '  <td>' + _ptFDT(h.performed_at) + '</td>'
+                 + '  <td>' + _ptFDT_NoYear(h.performed_at) + '</td>'
                  + '  <td>' + badge + '</td>'
-                 + '  <td style="white-space:normal;font-size:11px;color:#1e293b">' + (h.details || '—') + '</td>'
+                 + '  <td style="font-weight:700;color:#1e293b">' + qtyStr + '</td>'
+                 + '  <td style="white-space:normal;font-size:11px;color:#475569">' + reasonStr + '</td>'
                  + '  <td>' + (h.performer_name || '—') + '</td>'
                  + '</tr>';
         }).join('');
         
         if (!histRows) {
-            histRows = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:12px">Chưa có điều chỉnh hao hụt hay lỗi nào.</td></tr>';
+            histRows = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:12px">Chưa có điều chỉnh hao hụt hay lỗi nào.</td></tr>';
         }
         
         var orderRows = orders.map(function(o) {
@@ -461,7 +491,7 @@ async function openPtDetailsModal(rollId) {
           + '      <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:8px">LỊCH SỬ ĐIỀU CHỈNH HAO HỤT / LỖI</div>'
           + '      <div style="max-height:220px;overflow-y:auto">'
           + '        <table class="table" style="font-size:10px;white-space:nowrap">'
-          + '          <thead><tr style="background:#f1f5f9;color:#475569"><th>Thời gian</th><th>Hoạt động</th><th>Chi tiết</th><th>Người thực hiện</th></tr></thead>'
+          + '          <thead><tr style="background:#f1f5f9;color:#475569"><th>Thời gian</th><th>Hoạt động</th><th>Số Mét</th><th>Lý Do</th><th>Người thực hiện</th></tr></thead>'
           + '          <tbody>' + histRows + '</tbody>'
           + '        </table>'
           + '      </div>'
