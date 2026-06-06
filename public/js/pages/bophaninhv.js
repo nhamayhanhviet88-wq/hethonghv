@@ -112,7 +112,7 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>Cuộn Vật Liệu</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>Cuộn Vật Liệu</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody id="bpiTb"><tr><td colspan="20" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     document.getElementById('bpiSearch').value = _bpi.search || '';
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
@@ -541,7 +541,8 @@ function _bpiRender() {
         var printDateVal = '—';
         if (r.contractor_id) {
             if (r.print_date) {
-                printDateVal = 'Bàn giao: ' + _bpiFD(r.print_date);
+                var fd = _bpiFD(r.print_date);
+                printDateVal = 'Bàn giao: ' + (fd.includes('/') ? fd.substring(0, 5) : fd);
             }
         } else {
             if (r.print_done_at) {
