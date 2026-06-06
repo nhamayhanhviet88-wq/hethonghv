@@ -222,7 +222,8 @@ module.exports = async function(fastify) {
             const materialTxId = txRes.rows[0].id;
 
             // 3. Insert into pettem_rolls
-            const rollNotes = `Nhập từ Kho Vật Liệu (Giao dịch #${materialTxId})` + (b.notes ? ` - ${b.notes}` : '');
+            const rollTypeLabel = b.roll_type === 'PET' ? 'PET' : 'TEM';
+            const rollNotes = `Nhập từ Kho Vật Liệu Màng In ${rollTypeLabel} (Giao dịch #${materialTxId})` + (b.notes ? ` - ${b.notes}` : '');
             
             const rollRes = await client.query(`
                 INSERT INTO pettem_rolls

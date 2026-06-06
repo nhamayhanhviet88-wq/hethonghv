@@ -465,6 +465,13 @@ async function openPtDetailsModal(rollId) {
             orderRows = '<div style="text-align:center;color:#94a3b8;padding:40px 10px;font-size:11px">Chưa có đơn hàng nào được in từ cây này.</div>';
         }
         
+        var txId = '—';
+        if (roll.notes) {
+            var txMatch = roll.notes.match(/\(Giao dịch\s*#(\d+)\)/);
+            if (txMatch) txId = txMatch[1];
+        }
+        var displayNotes = (roll.notes || '—').replace(/Kho Vật Liệu/g, '<b>Kho Vật Liệu</b>');
+        
         m.innerHTML = 
             '<div class="pt-details-content">'
           + '  <div class="pt-modal-header" style="background:#f8fafc">'
@@ -482,10 +489,10 @@ async function openPtDetailsModal(rollId) {
           + '      <table class="table" style="font-size:11.5px;margin-bottom:20px">'
           + '        <tbody>'
           + '          <tr><td style="width:140px;color:#64748b;font-weight:600">Định lượng</td><td><b>Mét (m)</b></td></tr>'
-          + '          <tr><td style="color:#64748b;font-weight:600">Người nhập</td><td><b>' + (roll.importer_name || 'Hệ thống') + '</b></td></tr>'
-          + '          <tr><td style="color:#64748b;font-weight:600">Thời gian nhập</td><td><b>' + _ptFDT(roll.import_date) + '</b></td></tr>'
-          + '          <tr><td style="color:#64748b;font-weight:600">Nhập từ lô kho</td><td><span style="font-weight:800;color:#7c3aed">🌀 Lô #' + (roll.material_tx_id || '—') + '</span></td></tr>'
-          + '          <tr><td style="color:#64748b;font-weight:600">Ghi chú ban đầu</td><td style="white-space:normal">' + (roll.notes || '—') + '</td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Người nhập</td><td><b>' + (roll.created_by_name || 'Hệ thống') + '</b></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Thời gian nhập</td><td><b>' + _ptFDT(roll.created_at) + '</b></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Nhập từ lô kho</td><td><span style="font-weight:800;color:#7c3aed">🌀 Lô #' + txId + '</span></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Ghi chú ban đầu</td><td style="white-space:normal">' + displayNotes + '</td></tr>'
           + '        </tbody>'
           + '      </table>'
           + '      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:8px">'
