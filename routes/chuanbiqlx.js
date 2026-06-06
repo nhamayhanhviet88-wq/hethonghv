@@ -780,7 +780,7 @@ module.exports = async function(fastify) {
         const itemId = item_id ? Number(item_id) : null;
         const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();
-        const todayStr = vnDateStr(now);
+        const todayStr = vnDateStr();
 
         if (!Array.isArray(assignments) || assignments.length === 0) {
             return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
