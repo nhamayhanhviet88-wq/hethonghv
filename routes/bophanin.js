@@ -423,6 +423,9 @@ module.exports = async function(fastify) {
                 where += ` AND up.print_field = $${idx++}`;
                 params.push(field);
             }
+            if (status === 'done') {
+                where += ` AND up.contractor_id IS NULL`;
+            }
         }
         if (operator_type) {
             if (operator_type === 'user') {
