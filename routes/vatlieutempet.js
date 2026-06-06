@@ -1,4 +1,4 @@
-// ========== VẬT LIỆU PET TEM — Routes ==========
+// ========== VẬT LIỆU PET/TEM — Routes ==========
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const { vnNow } = require('../utils/timezone');
@@ -127,6 +127,82 @@ module.exports = async function(fastify) {
     fastify.delete('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req) => {
         await db.run('DELETE FROM pettem_rolls WHERE id=$1', [Number(req.params.id)]);
         return { success: true };
+    });
+
+    // ========== IMPORT FROM WAREHOUSE ==========
+    fastify.post('/api/pettem/rolls/import-from-warehouse', { preHandler: [authenticate] }, async (req, reply) => {
+        const b = req.body || {}, now = vnNow();
+        
+        if (!b.roll_type || !['PET', 'TEM'].includes(b.roll_type)) {
+            return reply.code(400).send({ error: 'Loại không hợp lệ (chỉ hỗ trợ PET hoặc TEM)' });
+        }
+        
+        const qty = Number(b.qty_imported);
+        if (isNaN(qty) || qty <= 0) {
+            return reply.code(400).send({ error: 'Số lượng xuất kho phải lớn hơn 0' });
+        }
+
+        const materialItemId = b.roll_type === 'PET' ? 4 : 11;
+        const pool = db.getDB();
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            // 1. Get current stock from Kho Vật Liệu
+            const stockRes = await client.query(`
+                SELECT 
+                    COALESCE(SUM(CASE WHEN tx_type = 'NHAP' THEN quantity ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN tx_type = 'XUAT' THEN quantity ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN tx_type = 'HOAN' THEN quantity ELSE 0 END), 0) AS remaining
+                FROM material_transactions
+                WHERE material_item_id = $1
+            `, [materialItemId]);
+            
+            const currentStock = Number(stockRes.rows[0]?.remaining) || 0;
+            if (qty > currentStock) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ error: `Không đủ tồn kho trong Kho Vật Liệu (Tồn hiện tại: ${currentStock.toLocaleString('vi-VN')} mét, Yêu cầu: ${qty.toLocaleString('vi-VN')} mét)` });
+            }
+
+            // 2. Insert into material_transactions (XUAT)
+            const notes = b.notes ? b.notes : `Xuất màng in sang bộ phận in PET/TEM (Lĩnh vực: ${b.roll_type})`;
+            const txRes = await client.query(`
+                INSERT INTO material_transactions 
+                (material_item_id, tx_type, quantity, price, total_amount, performed_by, performed_at, notes, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7) RETURNING id
+            `, [materialItemId, 'XUAT', qty, 0, 0, req.user.id, now, notes]);
+            
+            const materialTxId = txRes.rows[0].id;
+
+            // 3. Insert into pettem_rolls
+            const rollNotes = `Nhập từ Kho Vật Liệu (Giao dịch #${materialTxId})` + (b.notes ? ` - ${b.notes}` : '');
+            
+            const rollRes = await client.query(`
+                INSERT INTO pettem_rolls
+                (roll_type, import_date, field_name, qty_imported, qty_waste, qty_error, qty_printed, qty_remaining, notes, created_by, created_at)
+                VALUES ($1, $2, $3, $4, 0, 0, 0, $4, $5, $6, $7) RETURNING id
+            `, [b.roll_type, b.import_date || now.toISOString().split('T')[0], b.roll_type, qty, rollNotes, req.user.id, now]);
+            
+            const rollId = rollRes.rows[0].id;
+
+            // 4. Insert into pettem_history
+            await client.query(`
+                INSERT INTO pettem_history 
+                (roll_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [rollId, 'create', `Nhập từ Kho Vật Liệu (Số lượng: ${qty}m, Lĩnh vực: ${b.roll_type})`, req.user.id, now]);
+
+            await client.query('COMMIT');
+            client.release();
+            return { success: true, id: rollId };
+        } catch(e) {
+            await client.query('ROLLBACK');
+            client.release();
+            console.error('[PT] Import from warehouse failed:', e);
+            return reply.code(500).send({ error: 'Lỗi hệ thống khi xuất kho: ' + e.message });
+        }
     });
 
     // ========== STAFF ==========

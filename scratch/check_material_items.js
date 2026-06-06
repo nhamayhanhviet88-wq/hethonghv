@@ -1,13 +1,9 @@
 const db = require('../db/pool');
-
-async function run() {
+(async () => {
     try {
-        const rows = await db.all("SELECT id, name, warehouse_id, unit FROM material_items WHERE is_active=true");
+        console.log('=== material_transactions schema ===');
+        const rows = await db.all("SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'material_transactions'");
         console.log(JSON.stringify(rows, null, 2));
-    } catch(e) {
-        console.error(e);
-    } finally {
-        await db.close();
-    }
-}
-run();
+    } catch(e) { console.error(e.message); }
+    process.exit(0);
+})();

@@ -1190,7 +1190,7 @@ async function start() {
         return reply.sendFile('mobile-nhapxuathoanvai.html');
     });
 
-    // Mobile Vật Liệu PET Tem — standalone touch-optimized page
+    // Mobile Vật Liệu PET/TEM — standalone touch-optimized page
     fastify.get('/m/vatlieutempet', async (request, reply) => {
         return reply.sendFile('mobile-vatlieutempet.html');
     });
