@@ -542,11 +542,13 @@ function _bpiRender() {
         if (r.contractor_id) {
             if (r.print_date) {
                 var fd = _bpiFD(r.print_date);
-                printDateVal = 'Bàn giao: ' + (fd.includes('/') ? fd.substring(0, 5) : fd);
+                var text = 'Bàn giao: ' + (fd.includes('/') ? fd.substring(0, 5) : fd);
+                printDateVal = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">' + text + '</span>';
             }
         } else {
             if (r.print_done_at) {
-                printDateVal = 'In Xong: ' + _bpiFT(r.print_done_at);
+                var text = 'In Xong: ' + _bpiFT(r.print_done_at);
+                printDateVal = '<span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">' + text + '</span>';
             }
         }
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
