@@ -84,6 +84,10 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPI] audit columns migration error:', e.message); }
 
     try {
+        await db.exec(`ALTER TABLE printing_records ALTER COLUMN print_date TYPE TIMESTAMPTZ USING print_date::TIMESTAMPTZ`);
+    } catch(e) { console.warn('[BPI] print_date type migration warning:', e.message); }
+
+    try {
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT NULL`);
     } catch(e) { console.error('[BPI] image_url column migration error:', e.message); }
 

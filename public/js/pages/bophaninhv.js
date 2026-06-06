@@ -541,8 +541,8 @@ function _bpiRender() {
         var printDateVal = '—';
         if (r.contractor_id) {
             if (r.print_date) {
-                var fd = _bpiFD(r.print_date);
-                var text = 'Bàn giao: ' + (fd.includes('/') ? fd.substring(0, 5) : fd);
+                var fd = _bpiFT(r.print_date);
+                var text = 'Bàn giao: ' + fd;
                 printDateVal = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">' + text + '</span>';
             }
         } else {

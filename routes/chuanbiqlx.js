@@ -982,7 +982,7 @@ module.exports = async function(fastify) {
             const sharedNames = ops.slice(1).map(o => getOpName(o.operator_type, o.operator_id)).filter(Boolean).join(', ');
 
             const existingId = existingFMap[fieldName];
-            const pDate = contractorId ? todayStr : null;
+            const pDate = contractorId ? now : null;
             if (existingId) {
                 await db.run(`
                     UPDATE printing_records
