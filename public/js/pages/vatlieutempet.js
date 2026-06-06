@@ -41,6 +41,22 @@ function renderVatlieutempetPage(content){
         +'.pt-form-group input, .pt-form-group select, .pt-form-group textarea { width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; padding: 8px; font-size: 12px; outline: none; }'
         +'.pt-form-group input:focus, .pt-form-group select:focus, .pt-form-group textarea:focus { border-color: #e11d48; }'
         +'.pt-form-group input[readonly] { background: #f1f5f9; color: #64748b; cursor: not-allowed; }'
+        +'.pt-details-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1001; }'
+        +'.pt-details-content { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 1000px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); animation: ptFadeIn 0.2s ease-out; color: #0f172a; }'
+        +'.pt-details-grid { display: flex; flex-direction: row; flex: 1; overflow: hidden; min-height: 480px; }'
+        +'.pt-details-left { width: 220px; min-width: 220px; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }'
+        +'.pt-details-mid { flex: 1; padding: 20px; border-right: 1px solid #e2e8f0; overflow-y: auto; }'
+        +'.pt-details-right { width: 340px; min-width: 340px; padding: 20px; background: #fafbfe; overflow-y: auto; }'
+        +'.pt-action-btn { width: 100%; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }'
+        +'.pt-action-btn.waste { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }'
+        +'.pt-action-btn.waste:hover { background: #fde68a; }'
+        +'.pt-action-btn.error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }'
+        +'.pt-action-btn.error:hover { background: #fecaca; }'
+        +'.pt-action-btn.reset { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }'
+        +'.pt-action-btn.reset:hover { background: #e2e8f0; }'
+        +'.pt-action-btn.close { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }'
+        +'.pt-action-btn.close:hover { background: #a7f3d0; }'
+        +'.pt-badge-closed { background: #e0f2fe; color: #0369a1; padding: 10px; border-radius: 8px; font-size: 11px; font-weight: 800; text-align: center; border: 1px solid #bae6fd; line-height: 1.4; }'
         +'@keyframes ptFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }'
         +'@media(max-width:768px){.pt-sb{display:none}}';
         document.head.appendChild(st);}
@@ -88,8 +104,9 @@ function _ptRender(){
         var rL=rem>0?'🟢 '+_ptFN(rem):rem===0?'⚪ 0':'🔴 '+_ptFN(rem);
         var upd='';if(r.last_update_at){upd=_ptFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#e11d48;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
+        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 Cây #'+r.id+'</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
+        +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
         +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+(r.field_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:800;color:#e11d48;font-size:13px">'+_ptFN(r.qty_imported)+'</td>'
         +'<td style="text-align:center;color:#f59e0b;font-weight:600">'+_ptFN(r.qty_waste)+'</td>'
@@ -235,7 +252,6 @@ function calcPtImpEndBal() {
         balEl.style.fontWeight = '';
     }
 }
-
 async function submitPtImportForm(event) {
     event.preventDefault();
     var field = document.getElementById('ptImpField').value;
@@ -250,6 +266,19 @@ async function submitPtImportForm(event) {
     if (qty > stock) {
         showToast('Không đủ tồn kho trong Kho Vật Liệu!', 'error');
         return;
+    }
+    
+    // Check if there are any unconfirmed active rolls of this type. If yes, prevent adding new roll.
+    try {
+        var activeRes = await apiCall('/api/pettem/active-rolls?roll_type=' + field);
+        var activeRolls = activeRes.rolls || [];
+        var unconfirmedCount = activeRolls.filter(function(r) { return !r.confirmed_by; }).length;
+        if (unconfirmedCount > 0) {
+            showToast('⚠️ Cần chốt cuộn ' + field + ' hiện tại trước khi thêm cuộn mới!', 'error');
+            return;
+        }
+    } catch(e) {
+        console.error('[PT] Check active rolls failed:', e);
     }
     
     var dateVal = typeof vnISOStr === 'function' ? vnISOStr().split('T')[0] : new Date().toISOString().split('T')[0];
@@ -271,5 +300,244 @@ async function submitPtImportForm(event) {
     } catch(e) {
         console.error('[PT] submit import failed:', e);
         showToast('Có lỗi xảy ra khi xuất kho', 'error');
+    }
+}
+
+// ========== ROLL DETAILS MODAL & ACTIONS ==========
+function _ptFDT(d) {
+    if (!d) return '—';
+    try {
+        var date = new Date(d);
+        var hour = String(date.getHours()).padStart(2, '0');
+        var min = String(date.getMinutes()).padStart(2, '0');
+        var day = String(date.getDate()).padStart(2, '0');
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        var year = date.getFullYear();
+        return hour + ':' + min + ' ' + day + '/' + month + '/' + year;
+    } catch(e) {
+        return d;
+    }
+}
+
+async function openPtDetailsModal(rollId) {
+    var m = document.getElementById('ptDetailsModal');
+    if (!m) {
+        m = document.createElement('div');
+        m.id = 'ptDetailsModal';
+        m.className = 'pt-details-modal';
+        document.body.appendChild(m);
+    }
+    m.innerHTML = '<div class="pt-details-content" style="padding:40px;color:#475569;font-weight:700;text-align:center">⏳ Đang tải thông tin cây vật liệu...</div>';
+    m.style.display = 'flex';
+    
+    try {
+        var rollRes = await apiCall('/api/pettem/rolls/' + rollId);
+        var roll = rollRes.roll;
+        if (!roll) {
+            showToast('Không tìm thấy cây vật liệu', 'error');
+            closePtDetailsModal();
+            return;
+        }
+        
+        var ordersRes = await apiCall('/api/pettem/rolls/' + rollId + '/orders');
+        var orders = ordersRes.orders || [];
+        
+        var historyRes = await apiCall('/api/pettem/rolls/' + rollId + '/history');
+        var history = historyRes.history || [];
+        
+        var rem = Number(roll.qty_remaining) || 0;
+        var canClose = Math.abs(rem) <= 0.001 && !roll.confirmed_by;
+        
+        var actHtml = '';
+        if (roll.confirmed_by) {
+            actHtml = '<div class="pt-badge-closed">🔒 ĐÃ CHỐT CUỘN<br><span style="font-size:9px;font-weight:normal">Bởi ' + (roll.confirmed_by_name || 'Hệ thống') + '<br>' + _ptFDT(roll.confirmed_at) + '</span></div>';
+        } else {
+            actHtml = '<button class="pt-action-btn waste" onclick="ptDetailsAction(\'waste\', ' + roll.id + ')">⚠️ Hao hụt</button>'
+                    + '<button class="pt-action-btn error" style="margin-top:8px" onclick="ptDetailsAction(\'error\', ' + roll.id + ')">❌ Sản xuất lỗi</button>';
+            if (canClose) {
+                actHtml += '<button class="pt-action-btn close" style="margin-top:8px" onclick="ptDetailsCloseRoll(' + roll.id + ')">✅ Chốt cuộn</button>';
+            } else {
+                actHtml += '<div style="font-size:10px;color:#ef4444;background:#fef2f2;border:1px solid #fee2e2;padding:8px;border-radius:6px;font-weight:600;margin-top:8px;text-align:center">⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.</div>';
+            }
+            actHtml += '<button class="pt-action-btn reset" style="margin-top:12px" onclick="ptDetailsReset(' + roll.id + ')">🔄 Reset hao hụt & lỗi</button>';
+        }
+        
+        var histRows = history.map(function(h) {
+            var badge = '';
+            if (h.action === 'waste') {
+                badge = '<span style="background:#fef3c7;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700">Hao hụt</span>';
+            } else if (h.action === 'error') {
+                badge = '<span style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;font-weight:700">SX Lỗi</span>';
+            } else if (h.action === 'close') {
+                badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:4px;font-weight:700">Chốt cuộn</span>';
+            } else if (h.action === 'reset') {
+                badge = '<span style="background:#e2e8f0;color:#475569;padding:2px 6px;border-radius:4px;font-weight:700">Reset</span>';
+            } else {
+                badge = '<span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-weight:700">Nhập kho</span>';
+            }
+            
+            return '<tr>'
+                 + '  <td>' + _ptFDT(h.performed_at) + '</td>'
+                 + '  <td>' + badge + '</td>'
+                 + '  <td style="white-space:normal;font-size:11px;color:#1e293b">' + (h.details || '—') + '</td>'
+                 + '  <td>' + (h.performer_name || '—') + '</td>'
+                 + '</tr>';
+        }).join('');
+        
+        if (!histRows) {
+            histRows = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:12px">Chưa có điều chỉnh hao hụt hay lỗi nào.</td></tr>';
+        }
+        
+        var orderRows = orders.map(function(o) {
+            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,0.02)">'
+                 + '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+                 + '    <span style="font-weight:800;color:#0284c7;font-size:11.5px">#' + o.order_code + '</span>'
+                 + '    <span style="font-size:10px;color:#059669;font-weight:700">' + _ptFN(o.print_meters) + 'm</span>'
+                 + '  </div>'
+                 + '  <div style="font-size:9.5px;color:#475569;display:flex;justify-content:space-between">'
+                 + '    <span>SL đơn: <b>' + _ptFN(o.order_quantity) + '</b></span>'
+                 + '    <span>In bởi: <b>' + (o.printer_name || 'Gia công') + '</b></span>'
+                 + '  </div>'
+                 + '  <div style="font-size:9px;color:#94a3b8;margin-top:4px;text-align:right">' + _ptFDT(o.print_done_at) + '</div>'
+                 + '</div>';
+        }).join('');
+        
+        if (!orderRows) {
+            orderRows = '<div style="text-align:center;color:#94a3b8;padding:40px 10px;font-size:11px">Chưa có đơn hàng nào được in từ cây này.</div>';
+        }
+        
+        m.innerHTML = 
+            '<div class="pt-details-content">'
+          + '  <div class="pt-modal-header" style="background:#f8fafc">'
+          + '    <h3>🌲 Chi Tiết Cây Vật Liệu #' + roll.id + ' (' + (roll.roll_type === 'PET' ? 'Màng In PET' : 'Màng In TEM') + ')</h3>'
+          + '    <span class="pt-close-btn" onclick="closePtDetailsModal()">&times;</span>'
+          + '  </div>'
+          + '  <div class="pt-details-grid">'
+          + '    <div class="pt-details-left">'
+          + '      <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:8px">THAO TÁC CUỘN</div>'
+          +        actHtml
+          + '      <div id="ptDetailsFormArea" style="margin-top:12px"></div>'
+          + '    </div>'
+          + '    <div class="pt-details-mid">'
+          + '      <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:12px">THÔNG TIN CHUNG</div>'
+          + '      <table class="table" style="font-size:11.5px;margin-bottom:20px">'
+          + '        <tbody>'
+          + '          <tr><td style="width:140px;color:#64748b;font-weight:600">Định lượng</td><td><b>Mét (m)</b></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Người nhập</td><td><b>' + (roll.importer_name || 'Hệ thống') + '</b></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Thời gian nhập</td><td><b>' + _ptFDT(roll.import_date) + '</b></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Nhập từ lô kho</td><td><span style="font-weight:800;color:#7c3aed">🌀 Lô #' + (roll.material_tx_id || '—') + '</span></td></tr>'
+          + '          <tr><td style="color:#64748b;font-weight:600">Ghi chú ban đầu</td><td style="white-space:normal">' + (roll.notes || '—') + '</td></tr>'
+          + '        </tbody>'
+          + '      </table>'
+          + '      <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;margin-bottom:20px">'
+          + '        <div style="background:#f1f5f9;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#64748b;font-weight:700">TỔNG NHẬP</div><div style="font-size:12px;font-weight:800;color:#1e293b">' + _ptFN(roll.qty_imported) + 'm</div></div>'
+          + '        <div style="background:#e0f2fe;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#0369a1;font-weight:700">ĐÃ IN (SX)</div><div style="font-size:12px;font-weight:800;color:#0369a1">' + _ptFN(roll.qty_printed) + 'm</div></div>'
+          + '        <div style="background:#fef3c7;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#d97706;font-weight:700">HAO HỤT</div><div style="font-size:12px;font-weight:800;color:#d97706">' + _ptFN(roll.qty_waste) + 'm</div></div>'
+          + '        <div style="background:#fee2e2;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#b91c1c;font-weight:700">SX LỖI</div><div style="font-size:12px;font-weight:800;color:#b91c1c">' + _ptFN(roll.qty_error) + 'm</div></div>'
+          + '        <div style="background:#d1fae5;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#065f46;font-weight:700">TỒN CUỐI</div><div style="font-size:12px;font-weight:800;color:#065f46">' + _ptFN(roll.qty_remaining) + 'm</div></div>'
+          + '      </div>'
+          + '      <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:8px">LỊCH SỬ ĐIỀU CHỈNH HAO HỤT / LỖI</div>'
+          + '      <div style="max-height:220px;overflow-y:auto">'
+          + '        <table class="table" style="font-size:10px;white-space:nowrap">'
+          + '          <thead><tr style="background:#f1f5f9;color:#475569"><th>Thời gian</th><th>Hoạt động</th><th>Chi tiết</th><th>Người thực hiện</th></tr></thead>'
+          + '          <tbody>' + histRows + '</tbody>'
+          + '        </table>'
+          + '      </div>'
+          + '    </div>'
+          + '    <div class="pt-details-right">'
+          + '      <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:12px">DANH SÁCH ĐƠN ĐÃ IN (' + orders.length + ')</div>'
+          + '      <div style="max-height:calc(90vh - 120px);overflow-y:auto">'
+          +        orderRows
+          + '      </div>'
+          + '    </div>'
+          + '  </div>'
+          + '</div>';
+    } catch(e) {
+        showToast('Lỗi tải chi tiết cây: ' + e.message, 'error');
+        closePtDetailsModal();
+    }
+}
+
+function closePtDetailsModal() {
+    var m = document.getElementById('ptDetailsModal');
+    if (m) m.style.display = 'none';
+}
+
+function ptDetailsAction(type, rollId) {
+    var area = document.getElementById('ptDetailsFormArea');
+    if (!area) return;
+    
+    var title = type === 'waste' ? 'Khai báo Hao hụt' : 'Khai báo SX Lỗi';
+    var placeholder = type === 'waste' ? 'Nhập lý do hao hụt...' : 'Nhập lý do sản xuất lỗi...';
+    var labelClass = type === 'waste' ? 'color:#d97706' : 'color:#dc2626';
+    
+    area.innerHTML = 
+        '<div style="background:#fff;border:1px solid #e2e8f0;padding:12px;border-radius:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05)">'
+      + '  <div style="font-weight:800;font-size:11px;' + labelClass + ';margin-bottom:8px">' + title + '</div>'
+      + '  <div class="pt-form-group">'
+      + '    <label>Số lượng (mét) <span style="color:#ef4444">*</span></label>'
+      + '    <input type="number" id="ptActQty" min="0.01" step="0.01" required placeholder="Ví dụ: 2.34">'
+      + '  </div>'
+      + '  <div class="pt-form-group">'
+      + '    <label>Lý do bắt buộc <span style="color:#ef4444">*</span></label>'
+      + '    <input type="text" id="ptActReason" required placeholder="' + placeholder + '">'
+      + '  </div>'
+      + '  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">'
+      + '    <button class="pt-btn" style="background:#f1f5f9;color:#475569;padding:4px 8px;font-size:10px" onclick="document.getElementById(\'ptDetailsFormArea\').innerHTML=\'\'">Hủy</button>'
+      + '    <button class="pt-btn pt-btn-primary" style="padding:4px 8px;font-size:10px" onclick="ptDetailsSubmitAction(\'' + type + '\', ' + rollId + ')">Xác nhận</button>'
+      + '  </div>'
+      + '</div>';
+    
+    setTimeout(function() { document.getElementById('ptActQty').focus(); }, 50);
+}
+
+async function ptDetailsSubmitAction(type, rollId) {
+    var qty = Number(document.getElementById('ptActQty').value);
+    var reason = document.getElementById('ptActReason').value || '';
+    
+    if (!qty || qty <= 0) {
+        showToast('Số lượng mét phải lớn hơn 0', 'error');
+        return;
+    }
+    if (!reason.trim()) {
+        showToast('Vui lòng điền lý do bắt buộc', 'error');
+        return;
+    }
+    
+    try {
+        var url = type === 'waste' ? '/api/pettem/rolls/' + rollId + '/adjust-waste' : '/api/pettem/rolls/' + rollId + '/adjust-error';
+        await apiCall(url, 'POST', {
+            qty: qty,
+            reason: reason
+        });
+        showToast('✅ Cập nhật hao hụt/lỗi thành công!');
+        await openPtDetailsModal(rollId);
+        _ptLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function ptDetailsReset(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn reset toàn bộ hao hụt, sản xuất lỗi và trạng thái chốt của cây này không?')) return;
+    try {
+        await apiCall('/api/pettem/rolls/' + rollId + '/reset', 'POST');
+        showToast('✅ Đã reset cây vật liệu thành công!');
+        await openPtDetailsModal(rollId);
+        _ptLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function ptDetailsCloseRoll(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;
+    try {
+        await apiCall('/api/pettem/rolls/' + rollId + '/close', 'POST');
+        showToast('✅ Đã chốt cây vật liệu!');
+        await openPtDetailsModal(rollId);
+        _ptLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
     }
 }

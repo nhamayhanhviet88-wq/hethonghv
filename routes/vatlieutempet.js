@@ -30,11 +30,39 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_pth_rid ON pettem_history(roll_id)`);
     } catch(e) { console.error('[PT] hist:', e.message); }
 
+    try {
+        await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS pettem_roll_id INTEGER REFERENCES pettem_rolls(id) ON DELETE SET NULL`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_pr_pettem_roll ON printing_records(pettem_roll_id)`);
+    } catch(e) { console.error('[PT] printing_records migration:', e.message); }
+
     // ========== HELPERS ==========
     const TYPES = ['PET','TEM','DECAL'];
     const LABELS = {PET:'PET',TEM:'Tem',DECAL:'Decal'};
     function calcRemaining(imp,waste,err,printed) {
         return (Number(imp)||0) - (Number(waste)||0) - (Number(err)||0) - (Number(printed)||0);
+    }
+    async function syncPettemRollMeters(rollId) {
+        if (!rollId) return;
+        try {
+            const sumRow = await db.get(`
+                SELECT COALESCE(SUM(print_meters), 0)::numeric AS total_printed
+                FROM printing_records
+                WHERE pettem_roll_id = $1
+            `, [Number(rollId)]);
+            const totalPrinted = Number(sumRow.total_printed) || 0;
+
+            const roll = await db.get(`SELECT qty_imported, qty_waste, qty_error FROM pettem_rolls WHERE id = $1`, [Number(rollId)]);
+            if (roll) {
+                const rem = Number(roll.qty_imported) - Number(roll.qty_waste) - Number(roll.qty_error) - totalPrinted;
+                await db.run(`
+                    UPDATE pettem_rolls
+                    SET qty_printed = $1, qty_remaining = $2, updated_at = NOW()
+                    WHERE id = $3
+                `, [totalPrinted, rem, Number(rollId)]);
+            }
+        } catch (err) {
+            console.error('[PT] syncPettemRollMeters error:', err.message);
+        }
     }
 
     // ========== TREE ==========
@@ -148,6 +176,23 @@ module.exports = async function(fastify) {
         
         try {
             await client.query('BEGIN');
+
+            // 0. Check if there is already an active (unclosed) roll of this type in the workshop
+            const activeRollRes = await client.query(`
+                SELECT id, qty_remaining 
+                FROM pettem_rolls 
+                WHERE roll_type = $1 AND confirmed_by IS NULL
+                LIMIT 1
+            `, [b.roll_type]);
+            
+            if (activeRollRes.rows.length > 0) {
+                const activeRoll = activeRollRes.rows[0];
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ 
+                    error: `Không thể thêm vật liệu mới. Cuộn ${b.roll_type} hiện tại chưa được sử dụng hết hoặc chưa chốt cuộn (Tồn cuối: ${Number(activeRoll.qty_remaining).toLocaleString('vi-VN')} mét).` 
+                });
+            }
             
             // 1. Get current stock from Kho Vật Liệu
             const stockRes = await client.query(`
@@ -208,5 +253,163 @@ module.exports = async function(fastify) {
     // ========== STAFF ==========
     fastify.get('/api/pettem/staff', { preHandler: [authenticate] }, async () => {
         return { staff: await db.all(`SELECT id, full_name FROM users WHERE status='active' AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY full_name`) };
+    });
+
+    // ========== GET ACTIVE ROLLS FOR SELECTION ==========
+    fastify.get('/api/pettem/active-rolls', { preHandler: [authenticate] }, async (req) => {
+        const { roll_type } = req.query;
+        let where = 'WHERE 1=1', params = [];
+        if (roll_type) {
+            where += ` AND roll_type = $1`;
+            params.push(roll_type);
+        }
+        const rolls = await db.all(`
+            SELECT id, roll_type, import_date, qty_imported, qty_remaining, notes, confirmed_by
+            FROM pettem_rolls
+            ${where}
+            ORDER BY confirmed_by ASC NULLS FIRST, import_date DESC, id DESC
+            LIMIT 30
+        `, params);
+        return { rolls };
+    });
+
+    // ========== GET INDIVIDUAL ROLL DETAILS ==========
+    fastify.get('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const roll = await db.get(`
+            SELECT r.*, u.full_name AS created_by_name, uc.full_name AS confirmed_by_name
+            FROM pettem_rolls r
+            LEFT JOIN users u ON r.created_by = u.id
+            LEFT JOIN users uc ON r.confirmed_by = uc.id
+            WHERE r.id = $1
+        `, [Number(req.params.id)]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        return { roll };
+    });
+
+    // ========== GET HISTORY OF INDIVIDUAL ROLL ==========
+    fastify.get('/api/pettem/rolls/:id/history', { preHandler: [authenticate] }, async (req) => {
+        const history = await db.all(`
+            SELECT h.*, u.full_name AS performer_name
+            FROM pettem_history h
+            LEFT JOIN users u ON h.performed_by = u.id
+            WHERE h.roll_id = $1
+            ORDER BY h.performed_at DESC
+        `, [Number(req.params.id)]);
+        return { history };
+    });
+
+    // ========== GET ORDERS PRINTED ON INDIVIDUAL ROLL ==========
+    fastify.get('/api/pettem/rolls/:id/orders', { preHandler: [authenticate] }, async (req) => {
+        const orders = await db.all(`
+            SELECT pr.id, pr.order_code, pr.order_quantity, pr.print_meters, pr.print_done_at,
+                   u.full_name AS printer_name, c.name AS contractor_name
+            FROM printing_records pr
+            LEFT JOIN users u ON pr.printer_id = u.id
+            LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+            WHERE pr.pettem_roll_id = $1
+            ORDER BY pr.print_done_at DESC, pr.id DESC
+        `, [Number(req.params.id)]);
+        return { orders };
+    });
+
+    // ========== ADJUST WASTE ==========
+    fastify.post('/api/pettem/rolls/:id/adjust-waste', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const { qty, reason } = req.body || {};
+        const qNum = Number(qty);
+        if (isNaN(qNum) || qNum <= 0) return reply.code(400).send({ error: 'Số lượng không hợp lệ' });
+        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Lý do hao hụt là bắt buộc' });
+        
+        const roll = await db.get('SELECT qty_imported, qty_waste, qty_error, qty_printed FROM pettem_rolls WHERE id=$1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        
+        const newWaste = (Number(roll.qty_waste) || 0) + qNum;
+        const rem = (Number(roll.qty_imported) || 0) - newWaste - (Number(roll.qty_error) || 0) - (Number(roll.qty_printed) || 0);
+        
+        await db.run(`
+            UPDATE pettem_rolls 
+            SET qty_waste = $1, qty_remaining = $2, updated_at = NOW() 
+            WHERE id = $3
+        `, [newWaste, rem, id]);
+        
+        await db.run(`
+            INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [id, 'waste', `Khai báo hao hụt: +${qNum}m (Lý do: ${reason.trim()})`, req.user.id]);
+        
+        return { success: true };
+    });
+
+    // ========== ADJUST ERROR ==========
+    fastify.post('/api/pettem/rolls/:id/adjust-error', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const { qty, reason } = req.body || {};
+        const qNum = Number(qty);
+        if (isNaN(qNum) || qNum <= 0) return reply.code(400).send({ error: 'Số lượng không hợp lệ' });
+        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Lý do lỗi sản xuất là bắt buộc' });
+        
+        const roll = await db.get('SELECT qty_imported, qty_waste, qty_error, qty_printed FROM pettem_rolls WHERE id=$1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        
+        const newError = (Number(roll.qty_error) || 0) + qNum;
+        const rem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_waste) || 0) - newError - (Number(roll.qty_printed) || 0);
+        
+        await db.run(`
+            UPDATE pettem_rolls 
+            SET qty_error = $1, qty_remaining = $2, updated_at = NOW() 
+            WHERE id = $3
+        `, [newError, rem, id]);
+        
+        await db.run(`
+            INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [id, 'error', `Khai báo sản xuất lỗi: +${qNum}m (Lý do: ${reason.trim()})`, req.user.id]);
+        
+        return { success: true };
+    });
+
+    // ========== RESET ADJUSTMENTS ==========
+    fastify.post('/api/pettem/rolls/:id/reset', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const roll = await db.get('SELECT qty_imported, qty_printed FROM pettem_rolls WHERE id=$1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        
+        const rem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_printed) || 0);
+        await db.run(`
+            UPDATE pettem_rolls
+            SET qty_waste = 0, qty_error = 0, qty_remaining = $1, confirmed_by = NULL, updated_at = NOW()
+            WHERE id = $2
+        `, [rem, id]);
+        
+        await db.run(`
+            INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [id, 'reset', 'Reset hao hụt/lỗi/chốt cuộn về 0', req.user.id]);
+        
+        return { success: true };
+    });
+
+    // ========== CLOSE ROLL ==========
+    fastify.post('/api/pettem/rolls/:id/close', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const roll = await db.get('SELECT qty_remaining FROM pettem_rolls WHERE id=$1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        
+        if (Math.abs(Number(roll.qty_remaining)) > 0.001) {
+            return reply.code(400).send({ error: 'Chỉ được chốt cuộn khi tồn cuối bằng 0 (đã sử dụng hết)' });
+        }
+        
+        await db.run(`
+            UPDATE pettem_rolls
+            SET confirmed_by = $1, updated_at = NOW()
+            WHERE id = $2
+        `, [req.user.id, id]);
+        
+        await db.run(`
+            INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [id, 'close', 'Chốt cuộn vật liệu', req.user.id]);
+        
+        return { success: true };
     });
 };

@@ -100,6 +100,30 @@ module.exports = async function(fastify) {
         return false;
     }
 
+    async function syncPettemRollMeters(rollId) {
+        if (!rollId) return;
+        try {
+            const sumRow = await db.get(`
+                SELECT COALESCE(SUM(print_meters), 0)::numeric AS total_printed
+                FROM printing_records
+                WHERE pettem_roll_id = $1
+            `, [Number(rollId)]);
+            const totalPrinted = Number(sumRow.total_printed) || 0;
+
+            const roll = await db.get(`SELECT qty_imported, qty_waste, qty_error FROM pettem_rolls WHERE id = $1`, [Number(rollId)]);
+            if (roll) {
+                const rem = Number(roll.qty_imported) - Number(roll.qty_waste) - Number(roll.qty_error) - totalPrinted;
+                await db.run(`
+                    UPDATE pettem_rolls
+                    SET qty_printed = $1, qty_remaining = $2, updated_at = NOW()
+                    WHERE id = $3
+                `, [totalPrinted, rem, Number(rollId)]);
+            }
+        } catch (err) {
+            console.error('[BPI] syncPettemRollMeters error:', err.message);
+        }
+    }
+
     async function getOrCreatePrintingRecord(idStr, userId) {
         if (typeof idStr === 'string' && idStr.startsWith('dht_')) {
             const dhtOrderId = Number(idStr.replace('dht_', ''));
@@ -415,6 +439,10 @@ module.exports = async function(fastify) {
                     pr.id AS id,
                     pr.dht_order_id,
                     pr.material_tx_id,
+                    pr.pettem_roll_id,
+                    ptr.roll_type AS pettem_roll_type,
+                    ptr.qty_remaining AS pettem_roll_remaining,
+                    ptr.notes AS pettem_roll_notes,
                     o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     pr.is_test_print,
@@ -465,6 +493,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u_test ON pr.test_print_by = u_test.id
                 LEFT JOIN users u_done ON pr.print_done_by = u_done.id
                 LEFT JOIN users u_audit ON pr.audit_checked_by = u_audit.id
+                LEFT JOIN pettem_rolls ptr ON pr.pettem_roll_id = ptr.id
                 WHERE 1=1 ${userFilter}
 
                 UNION ALL
@@ -473,6 +502,10 @@ module.exports = async function(fastify) {
                     NULL::int AS id,
                     o.id AS dht_order_id,
                     NULL::int AS material_tx_id,
+                    NULL::int AS pettem_roll_id,
+                    NULL::text AS pettem_roll_type,
+                    NULL::numeric AS pettem_roll_remaining,
+                    NULL::text AS pettem_roll_notes,
                     o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     false AS is_test_print,
@@ -758,9 +791,33 @@ module.exports = async function(fastify) {
                     }
                 }
             }
+            // Auto active roll assignment if not set
+            if (!rec.pettem_roll_id) {
+                const fUpper = (rec.print_field || '').toUpperCase();
+                let rollType = null;
+                if (fUpper.includes('PET')) rollType = 'PET';
+                else if (fUpper.includes('TEM')) rollType = 'TEM';
+                else if (fUpper.includes('DECAL')) rollType = 'DECAL';
+                
+                if (rollType) {
+                    const activeRoll = await db.get(`
+                        SELECT id FROM pettem_rolls
+                        WHERE roll_type = $1 AND confirmed_by IS NULL
+                        ORDER BY import_date ASC, id ASC LIMIT 1
+                    `, [rollType]);
+                    if (activeRoll) {
+                        await db.run(`UPDATE printing_records SET pettem_roll_id = $1 WHERE id = $2`, [activeRoll.id, id]);
+                        await syncPettemRollMeters(activeRoll.id);
+                    }
+                }
+            }
             detail = '✅ In xong';
         } else if (action === 'undo_done') {
-            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            const oldRollId = rec.pettem_roll_id;
+            await db.run(`UPDATE printing_records SET is_print_done=false, print_done_at=NULL, print_done_by=NULL, material_tx_id=NULL, pettem_roll_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            if (oldRollId) {
+                await syncPettemRollMeters(oldRollId);
+            }
             detail = '↩️ Hoàn tác in xong';
         } else if (action === 'report_error') {
             await db.run(`UPDATE printing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
@@ -821,16 +878,21 @@ module.exports = async function(fastify) {
             auditSql = `, audit_checked=false, audit_checked_at=NULL, audit_checked_by=NULL`;
         }
 
+        const newRollId = b.pettem_roll_id !== undefined ? (b.pettem_roll_id ? Number(b.pettem_roll_id) : null) : rec.pettem_roll_id;
+
         await db.run(`UPDATE printing_records SET print_date=$1, printer_id=$2, contractor_id=$3, product_name=$4, cskh_name=$5,
             order_quantity=$6, print_meters=$7, roll_start_qty=$8, roll_end_qty=$9, current_roll=$10,
-            print_field=$11, shared_process=$12, notes=$13, material_tx_id=$14, updated_at=$15 ${auditSql} WHERE id=$16`,
+            print_field=$11, shared_process=$12, notes=$13, material_tx_id=$14, pettem_roll_id=$15, updated_at=$16 ${auditSql} WHERE id=$17`,
             [b.print_date||rec.print_date, b.printer_id||rec.printer_id, b.contractor_id!==undefined?b.contractor_id:rec.contractor_id,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              Number(b.order_quantity)||rec.order_quantity, Number(b.print_meters)||rec.print_meters,
              Number(b.roll_start_qty)||rec.roll_start_qty, Number(b.roll_end_qty)||rec.roll_end_qty,
              b.current_roll!==undefined?b.current_roll:rec.current_roll, b.print_field!==undefined?b.print_field:rec.print_field,
              b.shared_process!==undefined?b.shared_process:rec.shared_process, b.notes!==undefined?b.notes:rec.notes,
-             b.material_tx_id!==undefined?b.material_tx_id:rec.material_tx_id, now, id]);
+             b.material_tx_id!==undefined?b.material_tx_id:rec.material_tx_id, newRollId, now, id]);
+
+        if (rec.pettem_roll_id) await syncPettemRollMeters(rec.pettem_roll_id);
+        if (newRollId && newRollId !== rec.pettem_roll_id) await syncPettemRollMeters(newRollId);
 
         if (auditSql) {
             await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
@@ -856,9 +918,9 @@ module.exports = async function(fastify) {
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
 
         const ALLOWED = ['print_date','printer_id','contractor_id','product_name','cskh_name','order_quantity','print_meters',
-            'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes','material_tx_id'];
+            'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes','material_tx_id','pettem_roll_id'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
-        const numF = ['order_quantity','print_meters','roll_start_qty','roll_end_qty','printer_id','contractor_id','material_tx_id'];
+        const numF = ['order_quantity','print_meters','roll_start_qty','roll_end_qty','printer_id','contractor_id','material_tx_id','pettem_roll_id'];
         let fv;
         if (value === null || value === undefined || value === '') {
             fv = null;
@@ -878,6 +940,13 @@ module.exports = async function(fastify) {
         }
 
         await db.run(`UPDATE printing_records SET ${field}=$1, updated_at=$2 ${auditSql} WHERE id=$3`, [fv, now, id]);
+
+        if (field === 'print_meters' || field === 'pettem_roll_id') {
+            if (rec.pettem_roll_id) await syncPettemRollMeters(rec.pettem_roll_id);
+            if (field === 'pettem_roll_id' && fv && Number(fv) !== Number(rec.pettem_roll_id)) {
+                await syncPettemRollMeters(fv);
+            }
+        }
 
         if (auditSql) {
             await db.run(`INSERT INTO printing_history (printing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,

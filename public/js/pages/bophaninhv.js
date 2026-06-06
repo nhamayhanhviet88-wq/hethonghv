@@ -343,11 +343,18 @@ function _bpiRender() {
         }
 
         var rollDisplay = '—';
+        var parts = [];
         if (r.material_tx_id) {
-            rollDisplay = '<span style="color:#7c3aed;font-weight:700" title="' + (r.material_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + r.material_tx_id + '</span>';
+            parts.push('<span style="color:#7c3aed;font-weight:700" title="' + (r.material_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + r.material_tx_id + '</span>');
             if (r.material_roll_supplier) {
-                rollDisplay += '<br><span style="font-size:8px;color:#64748b">🏭 ' + r.material_roll_supplier.replace(/"/g, '&quot;') + '</span>';
+                parts.push('<span style="font-size:8px;color:#64748b;display:block">🏭 ' + r.material_roll_supplier.replace(/"/g, '&quot;') + '</span>');
             }
+        }
+        if (r.pettem_roll_id) {
+            parts.push('<span style="color:#059669;font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 Cây #' + r.pettem_roll_id + '</span>');
+        }
+        if (parts.length > 0) {
+            rollDisplay = parts.join('');
         }
 
         var metersCell = '';
@@ -357,7 +364,7 @@ function _bpiRender() {
         
         if (r.id) {
             metersCell = '<td style="text-align:center;font-weight:700;color:#dc2626;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'print_meters\','+(r.print_meters||0)+',\'number\')">'+(r.print_meters||'0')+'</td>';
-            rollCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.material_tx_id||'')+'\')">'+rollDisplay+'</td>';
+            rollCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.pettem_roll_id||'')+'\')">'+rollDisplay+'</td>';
             startCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'roll_start_qty\','+(r.roll_start_qty||0)+',\'number\')">'+(r.roll_start_qty||'0')+'</td>';
             endCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'roll_end_qty\','+(r.roll_end_qty||0)+',\'number\')">'+(r.roll_end_qty||'0')+'</td>';
         } else {
@@ -1013,18 +1020,17 @@ window._bpiEditCell = function(cell, id, field, val, type) {
     };
 };
 
-window._bpiEditRollCell = async function(cell, id, printField, selectedTxId) {
+window._bpiEditRollCell = async function(cell, id, printField, selectedRollId) {
     if (cell.querySelector('select')) return; // already editing
     
-    // Map printField to material_item_id
-    var matItemId = 4; // default Màng Pet
+    var rollType = 'PET';
     var fieldUpper = (printField || '').toUpperCase();
     if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
-        matItemId = 11; // Màng Tem
+        rollType = 'TEM';
     }
     
     try {
-        var res = await apiCall('/api/khovatlieu/available-rolls?material_item_id=' + matItemId);
+        var res = await apiCall('/api/pettem/active-rolls?roll_type=' + rollType);
         var rolls = res.rolls || [];
         
         var select = document.createElement('select');
@@ -1033,14 +1039,14 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedTxId) {
         
         var optNone = document.createElement('option');
         optNone.value = '';
-        optNone.textContent = '— Chọn cuộn/lô —';
+        optNone.textContent = '— Chọn cây vật liệu —';
         select.appendChild(optNone);
         
         rolls.forEach(function(r) {
             var opt = document.createElement('option');
             opt.value = r.id;
-            opt.textContent = 'Lô #' + r.id + ' (Còn ' + r.remaining_qty + 'm) - ' + (r.notes || r.source_name || '');
-            if (String(r.id) === String(selectedTxId)) {
+            opt.textContent = 'Cây #' + r.id + ' (Còn ' + Number(r.qty_remaining).toFixed(2) + 'm)' + (r.confirmed_by ? ' [ĐÃ CHỐT]' : '');
+            if (String(r.id) === String(selectedRollId)) {
                 opt.selected = true;
             }
             select.appendChild(opt);
@@ -1053,13 +1059,13 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedTxId) {
         
         var save = async function() {
             var newVal = select.value;
-            if (newVal === String(selectedTxId)) {
+            if (newVal === String(selectedRollId)) {
                 cell.innerHTML = originalHTML;
                 return;
             }
             try {
-                await apiCall('/api/printing/records/' + id + '/field', 'PATCH', { field: 'material_tx_id', value: newVal || null });
-                showToast('✅ Đã chọn cuộn vật liệu');
+                await apiCall('/api/printing/records/' + id + '/field', 'PATCH', { field: 'pettem_roll_id', value: newVal || null });
+                showToast('✅ Đã chọn cây vật liệu');
                 await _bpiLoadAll();
             } catch(e) {
                 showToast(e.message || 'Lỗi', 'error');
@@ -1073,6 +1079,6 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedTxId) {
             if (e.key === 'Escape') cell.innerHTML = originalHTML;
         };
     } catch(e) {
-        showToast('Lỗi tải cuộn vật liệu: ' + e.message, 'error');
+        showToast('Lỗi tải danh sách cây vật liệu: ' + e.message, 'error');
     }
 };
