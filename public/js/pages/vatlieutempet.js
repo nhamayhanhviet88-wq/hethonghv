@@ -300,7 +300,6 @@ async function onPtImpFieldChange() {
         submitBtn.disabled = false;
     }
     
-    try {
     var selectEl = document.getElementById('ptImpLotSelect');
     
     try {
