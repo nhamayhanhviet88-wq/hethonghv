@@ -301,9 +301,10 @@ module.exports = async function(fastify) {
     // ========== GET ORDERS PRINTED ON INDIVIDUAL ROLL ==========
     fastify.get('/api/pettem/rolls/:id/orders', { preHandler: [authenticate] }, async (req) => {
         const orders = await db.all(`
-            SELECT pr.id, pr.order_code, pr.order_quantity, pr.print_meters, pr.print_done_at,
+            SELECT pr.id, o.order_code, pr.order_quantity, pr.print_meters, pr.print_done_at,
                    u.full_name AS printer_name, c.name AS contractor_name
             FROM printing_records pr
+            LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
             LEFT JOIN users u ON pr.printer_id = u.id
             LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
             WHERE pr.pettem_roll_id = $1
