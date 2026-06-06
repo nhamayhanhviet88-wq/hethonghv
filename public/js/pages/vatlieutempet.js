@@ -413,14 +413,23 @@ async function openPtDetailsModal(rollId) {
             var qtyStr = '—';
             var reasonStr = h.details || '—';
             
-            if (h.action === 'waste' && h.details) {
+            if (h.action === 'create') {
+                qtyStr = '+' + _ptFN(roll.qty_imported) + 'm';
+                reasonStr = 'nhập kho ' + (roll.roll_type || '').toLowerCase();
+            } else if (h.action === 'waste' && h.details) {
                 var qtyMatch = h.details.match(/Khai báo hao hụt:\s*([+-]?[\d.]+\w*)/);
-                if (qtyMatch) qtyStr = qtyMatch[1];
+                if (qtyMatch) {
+                    qtyStr = qtyMatch[1].replace('+', '-');
+                    if (!qtyStr.startsWith('-')) qtyStr = '-' + qtyStr;
+                }
                 var reasonMatch = h.details.match(/\(Lý do:\s*([^)]+)\)/);
                 if (reasonMatch) reasonStr = reasonMatch[1];
             } else if (h.action === 'error' && h.details) {
                 var qtyMatch = h.details.match(/Khai báo sản xuất lỗi:\s*([+-]?[\d.]+\w*)/);
-                if (qtyMatch) qtyStr = qtyMatch[1];
+                if (qtyMatch) {
+                    qtyStr = qtyMatch[1].replace('+', '-');
+                    if (!qtyStr.startsWith('-')) qtyStr = '-' + qtyStr;
+                }
                 var reasonMatch = h.details.match(/\(Lý do:\s*([^)]+)\)/);
                 if (reasonMatch) reasonStr = reasonMatch[1];
             }
