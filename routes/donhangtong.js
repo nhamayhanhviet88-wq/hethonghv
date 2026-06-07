@@ -1343,6 +1343,14 @@ module.exports = async function(fastify) {
         if (Array.isArray(b.items)) {
             // Mark as edited
             await db.run('UPDATE dht_orders SET is_edited = TRUE WHERE id = $1', [orderId]);
+            
+            // Clean up old cutting records to prevent duplicates/orphans when order items change
+            const oldItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            const oldItemIds = oldItems.map(it => Number(it.id));
+            if (oldItemIds.length > 0) {
+                await db.run('DELETE FROM cutting_records WHERE order_item_id = ANY($1)', [oldItemIds]);
+            }
+
             await db.run('DELETE FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
             for (const item of b.items) {
                 await db.run(`
