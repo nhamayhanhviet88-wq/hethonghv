@@ -1360,7 +1360,7 @@ module.exports = async function(fastify) {
 
         // Fetch UNCLAIMED items only + total items count per order
         const orderIds = orders.map(o => o.id);
-        let items = [], allItemCounts = {};
+        let items = [], allItemCounts = {}, orderItemIdsMap = {};
         if (orderIds.length > 0) {
             items = await db.all(`
                 SELECT 
@@ -1399,6 +1399,18 @@ module.exports = async function(fastify) {
                 GROUP BY dht_order_id
             `, [orderIds]);
             for (const c of countRows) allItemCounts[c.dht_order_id] = c.cnt;
+
+            // Fetch absolute order of all items to determine correct absolute item_index
+            const allItems = await db.all(`
+                SELECT id, dht_order_id
+                FROM dht_order_items
+                WHERE dht_order_id = ANY($1)
+                ORDER BY dht_order_id, id
+            `, [orderIds]);
+            allItems.forEach(it => {
+                if (!orderItemIdsMap[it.dht_order_id]) orderItemIdsMap[it.dht_order_id] = [];
+                orderItemIdsMap[it.dht_order_id].push(it.id);
+            });
         }
         const itemMap = {};
         for (const it of items) {
@@ -1422,7 +1434,6 @@ module.exports = async function(fastify) {
                 try { pp = typeof it2.material_pairs === 'string' ? JSON.parse(it2.material_pairs) : (it2.material_pairs || []); } catch(e) {}
                 totalPhoi += pp.length > 0 ? pp.length : 1;
             }
-            let itemIdx = 0;
             for (const it of itsArr) {
                 if (it.cut_warning && it.cut_warning.indexOf('Cắt bù') >= 0) {
                     const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
@@ -1430,7 +1441,8 @@ module.exports = async function(fastify) {
                         continue;
                     }
                 }
-                itemIdx++;
+                const itemIdsInOrder = orderItemIdsMap[it.dht_order_id] || [];
+                const itemIdx = itemIdsInOrder.indexOf(it.id) + 1;
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
                 if (pairs.length > 0) {
