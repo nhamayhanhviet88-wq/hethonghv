@@ -259,7 +259,7 @@ function _bpeRenderUnassigned() {
             if (r.ready) {
                 claimHtml = '<button class="btn btn-sm btn-primary" onclick="_bpeClaimOrder(' + r.id + ',' + (r.item_id || 'null') + ',\'' + r.order_code + '\')" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;font-weight:bold;font-size:10px;padding:4px 8px;color:#fff !important">🔥 NHẬN ÉP</button>';
             } else {
-                claimHtml = '<button class="btn btn-sm btn-secondary" disabled title="' + (r.warning_msg || 'Thiếu thông tin') + '" style="font-size:10px;padding:4px 8px;opacity:0.6;cursor:not-allowed">🔒 Khóa</button>';
+                claimHtml = '<button class="btn btn-sm btn-secondary" disabled title="' + (r.warning_msg || 'Thiếu thông tin') + '" style="font-size:10px;padding:4px 8px;opacity:0.6;cursor:not-allowed">🔒 ' + (r.warning_msg || 'Khóa') + '</button>';
             }
             claimTd = '<td rowspan="' + rs + '" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">' + claimHtml + '</td>';
             
