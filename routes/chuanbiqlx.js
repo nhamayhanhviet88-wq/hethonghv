@@ -797,6 +797,16 @@ module.exports = async function(fastify) {
             }
         }
 
+        // Validate that there is at most 1 operator per field_id
+        const fieldsChecked = {};
+        for (const assign of uniqueAssignments) {
+            const fid = Number(assign.field_id);
+            if (fieldsChecked[fid]) {
+                return reply.code(400).send({ error: 'Mỗi lĩnh vực in chỉ được chọn tối đa 1 người thực hiện!' });
+            }
+            fieldsChecked[fid] = true;
+        }
+
         // Save order print assignments (replace all for this order/item)
         if (itemId) {
             await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);

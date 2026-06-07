@@ -1120,7 +1120,7 @@ async function _qlxAssignIn(orderId, itemId) {
                     fieldStaff.forEach(function(s) {
                         var isOpAssigned = assignments.some(function(a) { return a.field_id === f.id && a.operator_type === 'user' && a.operator_id === s.id; });
                         html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'">';
-                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="user" data-id="' + s.id + '" ' + (isOpAssigned ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#0ea5e9;cursor:pointer">';
+                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="user" data-id="' + s.id + '" ' + (isOpAssigned ? 'checked' : '') + ' onchange="_qlxToggleOperator(this, ' + f.id + ')" style="width:16px;height:16px;accent-color:#0ea5e9;cursor:pointer">';
                         html += '<span style="font-weight:600;color:#334155">👤 ' + s.name + '</span>';
                         html += '</label>';
                     });
@@ -1129,7 +1129,7 @@ async function _qlxAssignIn(orderId, itemId) {
                     fieldCons.forEach(function(c) {
                         var isOpAssigned = assignments.some(function(a) { return a.field_id === f.id && a.operator_type === 'contractor' && a.operator_id === c.id; });
                         html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'#faf5ff\'" onmouseout="this.style.background=\'\'">';
-                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="contractor" data-id="' + c.id + '" ' + (isOpAssigned ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer">';
+                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="contractor" data-id="' + c.id + '" ' + (isOpAssigned ? 'checked' : '') + ' onchange="_qlxToggleOperator(this, ' + f.id + ')" style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer">';
                         html += '<span style="font-weight:600;color:#334155">🏭 ' + c.name + '</span>';
                         html += '</label>';
                     });
@@ -1182,6 +1182,17 @@ function _qlxToggleFieldOps(fieldId) {
     }
 }
 
+function _qlxToggleOperator(el, fieldId) {
+    if (el.checked) {
+        var opCbs = document.querySelectorAll('.operator-checkbox[data-field-id="' + fieldId + '"]');
+        opCbs.forEach(function(opCb) {
+            if (opCb !== el) {
+                opCb.checked = false;
+            }
+        });
+    }
+}
+
 async function _qlxPASave() {
     if (window._qlxPABusy) return;
     
@@ -1199,6 +1210,9 @@ async function _qlxPASave() {
             if (opCbs.length === 0) {
                 var fieldName = card.querySelector('span').textContent || 'Lĩnh vực';
                 validationError = 'Vui lòng chọn ít nhất một người thực hiện cho lĩnh vực: ' + fieldName;
+            } else if (opCbs.length > 1) {
+                var fieldName = card.querySelector('span').textContent || 'Lĩnh vực';
+                validationError = 'Mỗi lĩnh vực in chỉ được chọn tối đa 1 người thực hiện! Lĩnh vực đang chọn nhiều hơn 1: ' + fieldName;
             }
             
             opCbs.forEach(function(opCb) {
