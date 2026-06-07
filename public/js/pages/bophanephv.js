@@ -435,6 +435,16 @@ function _bpeRenderRows(paged) {
     tb.innerHTML = paged.map(function(r, i) {
         var globalIndex = i + (_bpe.page - 1) * _bpe.pageSize;
         
+        var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
+        var priBadge = '';
+        if (priority === 'GẤP') {
+            priBadge = '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
+        } else if (priority === 'GỬI') {
+            priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
+        } else {
+            priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
+        }
+
         if (r.is_unpressed) {
             var claimHtml = '';
             if (r.ready) {
@@ -443,16 +453,6 @@ function _bpeRenderRows(paged) {
                 claimHtml = '<button class="bpe-claim-btn disabled" disabled title="' + (r.warning_msg || 'Thiếu thông tin') + '" style="padding:4px 12px;font-size:10px">🔒 ' + (r.warning_msg || 'Khóa') + '</button>';
             }
             
-            var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
-            var priBadge = '';
-            if (priority === 'GẤP') {
-                priBadge = '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
-            } else if (priority === 'GỬI') {
-                priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
-            } else {
-                priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
-            }
-
             var noteStr = r.warning_msg ? '<span style="color:#ef4444;font-weight:700">' + r.warning_msg + '</span>' : '—';
 
             return '<tr style="background:#fff7ed">'
@@ -495,7 +495,7 @@ function _bpeRenderRows(paged) {
             + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
-            + '<td style="font-weight:600;color:#1e293b">' + (r.product_name || r.order_code || '—') + '</td>'
+            + '<td style="font-weight:600;color:#1e293b">' + priBadge + (r.product_name || r.order_code || '—') + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
