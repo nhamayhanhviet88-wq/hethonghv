@@ -240,8 +240,8 @@ function _lsxRenderSb() {
 
     t.forEach(function(yr) {
         var yo = !!_lsxOpen['y_' + yr.year];
-        h += `<div class="lsx-sb-year" onclick="_lsxTgl('y_${yr.year}')">`
-            + `<span>${yo ? '▼' : '▶'} 📆 Năm ${yr.year}</span>`
+        h += `<div class="lsx-sb-year" onclick="_lsxFilter(${yr.year})">`
+            + `<span><span onclick="event.stopPropagation(); _lsxTgl('y_${yr.year}')" style="cursor:pointer; padding-right:6px; display:inline-block;">${yo ? '▼' : '▶'}</span>📆 Năm ${yr.year}</span>`
             + `<span style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:1px 7px;border-radius:10px;font-size:9px">${_lsxFN(yr.total_salary)}</span>`
             + `</div>`;
             
@@ -253,8 +253,8 @@ function _lsxRenderSb() {
                 
                 var dName = dp.dept === 'cutting' ? '✂️ Cắt' : (dp.dept === 'pressing' ? '🔥 Ép' : '🧵 May');
                 
-                h += `<div class="lsx-sb-dept${dpActive ? ' active' : ''}" onclick="event.stopPropagation(); _lsxTgl('${dk}'); _lsxFilter(${yr.year}, '${dp.dept}')">`
-                    + `<span>${do2 ? '▼' : '▶'} ${dName}</span>`
+                h += `<div class="lsx-sb-dept${dpActive ? ' active' : ''}" onclick="event.stopPropagation(); _lsxFilter(${yr.year}, '${dp.dept}')">`
+                    + `<span><span onclick="event.stopPropagation(); _lsxTgl('${dk}')" style="cursor:pointer; padding-right:6px; display:inline-block;">${do2 ? '▼' : '▶'}</span>${dName}</span>`
                     + `<span>${_lsxFN(dp.total_salary)}</span>`
                     + `</div>`;
                     
@@ -266,8 +266,8 @@ function _lsxRenderSb() {
                         
                         var wPrefix = wk.is_contractor ? '🏭 ' : '👤 ';
                         
-                        h += `<div class="lsx-sb-worker${wActive ? ' active' : ''}" onclick="event.stopPropagation(); _lsxTgl('${wkKey}'); _lsxFilter(${yr.year}, '${dp.dept}', ${wk.is_contractor ? null : wk.id}, ${wk.is_contractor ? wk.id : null})">`
-                            + `<span>${wo ? '▼' : '▶'} ${wPrefix}${wk.name}</span>`
+                        h += `<div class="lsx-sb-worker${wActive ? ' active' : ''}" onclick="event.stopPropagation(); _lsxFilter(${yr.year}, '${dp.dept}', ${wk.is_contractor ? null : wk.id}, ${wk.is_contractor ? wk.id : null})">`
+                            + `<span><span onclick="event.stopPropagation(); _lsxTgl('${wkKey}')" style="cursor:pointer; padding-right:6px; display:inline-block;">${wo ? '▼' : '▶'}</span>${wPrefix}${wk.name}</span>`
                             + `<span>${_lsxFN(wk.total_salary)}</span>`
                             + `</div>`;
                             
