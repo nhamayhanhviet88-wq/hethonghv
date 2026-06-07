@@ -84,11 +84,11 @@ function renderQuanlyxuongqlxPage(content) {
         +'<th>Tên KH</th><th>CSKH</th><th>Tiến Độ</th>'
         +'<th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu</th>'
         +'<th>SL</th><th>Ngày Ra Dự Kiến</th>'
-        +'<th>Tiêu Chuẩn</th><th>Trạng Thái</th>'
+        +'<th>Trạng Thái</th>'
         +'<th>NV Cắt</th><th>NV In</th><th>NV Ép</th><th>NV May</th>'
         +'<th>KTCL</th><th>Hoàn Thiện</th>'
         +'<th>Lĩnh Vực</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="23" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="22" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="qlxPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     var _st; document.getElementById('qlxSearch').addEventListener('input', function() {
@@ -302,7 +302,7 @@ function _qlxRenderTable() {
 
 function _qlxRenderRows(paged) {
     var tbody = document.getElementById('qlxTbody'); if (!tbody) return;
-    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="23"><div class="empty-state"><div class="icon">🏭</div><h3>Chưa có đơn hàng nào</h3><p>Chọn bộ lọc ở sidebar</p></div></td></tr>'; return; }
+    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="22"><div class="empty-state"><div class="icon">🏭</div><h3>Chưa có đơn hàng nào</h3><p>Chọn bộ lọc ở sidebar</p></div></td></tr>'; return; }
 
     var rows = [];
     paged.forEach(function(o) {
@@ -457,7 +457,6 @@ function _qlxRenderRows(paged) {
             h += '<td style="text-align:center;font-weight:700;color:#93c5fd;font-size:10px">' + itemQtyLabel + '</td>';
         }
         h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.expected_ship_date) : '') + '</td>';
-        h += '<td style="text-align:center">' + (isNew ? '<span class="qlx-priority" style="' + priColor + '">' + (o.shipping_priority || 'CHUẨN') + '</span>' : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? statusHtml : '') + '</td>';
         
         var nvCatHtml = showAssignNames ? ((it && it.nguoi_cat) || o.nguoi_cat || '—') : '';
