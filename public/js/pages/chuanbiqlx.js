@@ -463,6 +463,9 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-size:10px;color:#059669;font-weight:600">' + nvCatHtml + '</td>';
         
         var nvInHtml = showAssignNames ? ((it && it.nguoi_in) || o.nguoi_in || '—') : '';
+        if (nvInHtml && nvInHtml !== '—') {
+            nvInHtml = nvInHtml.replace(/;\s*/g, '<br>');
+        }
         if (isNew && o.in_theu_chung_names) nvInHtml += '<br><span style="font-size:8px;color:#8b5cf6;font-weight:600" title="In/Thêu Chung: ' + (o.in_theu_chung_names||'').replace(/"/g,'') + '">🤝 ' + o.in_theu_chung_names + '</span>';
         h += '<td style="font-size:10px;color:#2563eb;font-weight:600">' + nvInHtml + '</td>';
         
