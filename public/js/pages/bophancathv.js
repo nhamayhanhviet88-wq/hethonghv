@@ -170,7 +170,7 @@ function _bpcRenderSidebar() {
     // Mục 1: Các Đơn Chưa Cắt
     var uaActive = f.view === 'unassigned';
     h += '<div class="bpc-sb-uncut'+(uaActive?' active':'')+'" onclick="_bpcShowUnassigned()">';
-    h += '<span>🔴 CÁC ĐƠN CHƯA CẮT</span>';
+    h += '<span>🔴 ĐƠN CHƯA NHẬN CẮT</span>';
     h += '<span style="background:rgba(255,255,255,0.3);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:900">' + ua.total + '</span>';
     h += '</div>';
 
