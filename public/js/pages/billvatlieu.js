@@ -29,6 +29,26 @@ function _bvlGetUnitByName(name) {
     return found ? (found.unit || '') : '';
 }
 
+function _bvlGetMaterialFlags(itemId, name) {
+    var n = (name || '').toUpperCase().trim();
+    var isPet = (itemId == 4) || (n.indexOf('PET') !== -1 && (n.indexOf('CÂY') !== -1 || n.indexOf('MÀNG IN') !== -1) && n.indexOf('BỘT') === -1);
+    var isTem = (itemId == 11) || (n.indexOf('TEM') !== -1 && (n.indexOf('CÂY') !== -1 || n.indexOf('MÀNG IN') !== -1) && n.indexOf('CÁN') === -1);
+    var isDecal = (itemId == 21) || (n.indexOf('DECAL') !== -1 && (n.indexOf('CÂY') !== -1 || n.indexOf('MÀNG IN') !== -1));
+    
+    if (!isPet && !isTem && !isDecal) {
+        if (n === 'PET' || n === 'MÀNG IN PET') isPet = true;
+        else if (n === 'TEM' || n === 'MÀNG IN TEM') isTem = true;
+        else if (n === 'DECAL' || n === 'MÀNG IN DECAL') isDecal = true;
+    }
+    
+    return {
+        isPet: isPet,
+        isTem: isTem,
+        isDecal: isDecal,
+        isSpecial: isPet || isTem || isDecal
+    };
+}
+
 function renderBillvatlieuPage(content) {
     if (!document.getElementById('_bvlS')) {
         var st = document.createElement('style');
@@ -345,22 +365,18 @@ function _bvlRender() {
                 nameHtml = items.map(function(item, idx) {
                     var prefix = idx === 0 ? badgeHtml : '';
                     var foundTx = txs.find(function(t) { return t && t.material_item_id == item.material_item_id; });
-                    var isSpecial = false;
-                    var normName = (item.material_item_name || '').toUpperCase().trim();
-                    if (normName === 'PET' || normName === 'MÀNG IN PET' || normName === 'TEM' || normName === 'MÀNG IN TEM' || normName === 'DECAL' || normName === 'MÀNG IN DECAL' || item.material_item_id == 4 || item.material_item_id == 11 || item.material_item_id == 21) {
-                        isSpecial = true;
-                    }
-                    var lotLabel = (foundTx && !isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+                    var flags = _bvlGetMaterialFlags(item.material_item_id, item.material_item_name);
+                    var lotLabel = (foundTx && !flags.isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
                     var displayName = item.material_item_name || '—';
                     var seqStr = (foundTx && foundTx.seq) ? '#' + foundTx.seq : '';
                     var treeBadge = '';
-                    if (normName === 'PET' || normName === 'MÀNG IN PET' || item.material_item_id == 4) {
+                    if (flags.isPet) {
                         treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Pet ' + seqStr + '</span>';
                         displayName = 'Màng In Pet';
-                    } else if (normName === 'TEM' || normName === 'MÀNG IN TEM' || item.material_item_id == 11) {
+                    } else if (flags.isTem) {
                         treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Tem ' + seqStr + '</span>';
                         displayName = 'Màng In Tem';
-                    } else if (normName === 'DECAL' || normName === 'MÀNG IN DECAL' || item.material_item_id == 21) {
+                    } else if (flags.isDecal) {
                         treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Decal ' + seqStr + '</span>';
                         displayName = 'Màng In Decal';
                     }
@@ -373,22 +389,18 @@ function _bvlRender() {
                 }).join('');
             } else {
                 var foundTx = txs.find(function(t) { return t && t.material_item_id == r.material_item_id; });
-                var isSpecial = false;
-                var normName = (r.material_item_name || r.fabric_material || '').toUpperCase().trim();
-                if (normName === 'PET' || normName === 'MÀNG IN PET' || normName === 'TEM' || normName === 'MÀNG IN TEM' || normName === 'DECAL' || normName === 'MÀNG IN DECAL' || r.material_item_id == 4 || r.material_item_id == 11 || r.material_item_id == 21) {
-                    isSpecial = true;
-                }
-                var lotLabel = (foundTx && !isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+                var flags = _bvlGetMaterialFlags(r.material_item_id, r.material_item_name || r.fabric_material);
+                var lotLabel = (foundTx && !flags.isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
                 var displayName = r.material_item_name || r.fabric_material || '—';
                 var seqStr = (foundTx && foundTx.seq) ? '#' + foundTx.seq : '';
                 var treeBadge = '';
-                if (normName === 'PET' || normName === 'MÀNG IN PET' || r.material_item_id == 4) {
+                if (flags.isPet) {
                     treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Pet ' + seqStr + '</span>';
                     displayName = 'Màng In Pet';
-                } else if (normName === 'TEM' || normName === 'MÀNG IN TEM' || r.material_item_id == 11) {
+                } else if (flags.isTem) {
                     treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Tem ' + seqStr + '</span>';
                     displayName = 'Màng In Tem';
-                } else if (normName === 'DECAL' || normName === 'MÀNG IN DECAL' || r.material_item_id == 21) {
+                } else if (flags.isDecal) {
                     treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Decal ' + seqStr + '</span>';
                     displayName = 'Màng In Decal';
                 }
@@ -1115,23 +1127,19 @@ async function _bvlDetail(id) {
                 txs = typeof r.txs === 'string' ? JSON.parse(r.txs) : (r.txs || []);
             } catch(e) {}
             var foundTx = txs.find(function(t) { return t && t.material_item_id == item.material_item_id; });
-            var isSpecial = false;
-            var normName = (item.material_item_name || '').toUpperCase().trim();
-            if (normName === 'PET' || normName === 'MÀNG IN PET' || normName === 'TEM' || normName === 'MÀNG IN TEM' || normName === 'DECAL' || normName === 'MÀNG IN DECAL' || item.material_item_id == 4 || item.material_item_id == 11 || item.material_item_id == 21) {
-                isSpecial = true;
-            }
-            var lotLabel = (foundTx && !isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+            var flags = _bvlGetMaterialFlags(item.material_item_id, item.material_item_name);
+            var lotLabel = (foundTx && !flags.isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
             
             var displayName = item.material_item_name || '—';
             var seqStr = (foundTx && foundTx.seq) ? '#' + foundTx.seq : '';
             var treeBadge = '';
-            if (normName === 'PET' || normName === 'MÀNG IN PET' || item.material_item_id == 4) {
+            if (flags.isPet) {
                 treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Pet ' + seqStr + '</span>';
                 displayName = 'Màng In Pet';
-            } else if (normName === 'TEM' || normName === 'MÀNG IN TEM' || item.material_item_id == 11) {
+            } else if (flags.isTem) {
                 treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Tem ' + seqStr + '</span>';
                 displayName = 'Màng In Tem';
-            } else if (normName === 'DECAL' || normName === 'MÀNG IN DECAL' || item.material_item_id == 21) {
+            } else if (flags.isDecal) {
                 treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Decal ' + seqStr + '</span>';
                 displayName = 'Màng In Decal';
             }
@@ -1150,23 +1158,19 @@ async function _bvlDetail(id) {
             txs = typeof r.txs === 'string' ? JSON.parse(r.txs) : (r.txs || []);
         } catch(e) {}
         var foundTx = txs.find(function(t) { return t && t.material_item_id == r.material_item_id; });
-        var isSpecial = false;
-        var normName = (r.material_item_name || r.fabric_material || '').toUpperCase().trim();
-        if (normName === 'PET' || normName === 'MÀNG IN PET' || normName === 'TEM' || normName === 'MÀNG IN TEM' || normName === 'DECAL' || normName === 'MÀNG IN DECAL' || r.material_item_id == 4 || r.material_item_id == 11 || r.material_item_id == 21) {
-            isSpecial = true;
-        }
-        var lotLabel = (foundTx && !isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
+        var flags = _bvlGetMaterialFlags(r.material_item_id, r.material_item_name || r.fabric_material);
+        var lotLabel = (foundTx && !flags.isSpecial) ? '<span style="background:#fef3c7;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fcd34d;display:inline-block;vertical-align:middle;line-height:1.2">Lô #' + foundTx.tx_id + '</span>' : '';
 
         var displayName = r.material_item_name || r.fabric_material || '—';
         var seqStr = (foundTx && foundTx.seq) ? '#' + foundTx.seq : '';
         var treeBadge = '';
-        if (normName === 'PET' || normName === 'MÀNG IN PET' || r.material_item_id == 4) {
+        if (flags.isPet) {
             treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Pet ' + seqStr + '</span>';
             displayName = 'Màng In Pet';
-        } else if (normName === 'TEM' || normName === 'MÀNG IN TEM' || r.material_item_id == 11) {
+        } else if (flags.isTem) {
             treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Tem ' + seqStr + '</span>';
             displayName = 'Màng In Tem';
-        } else if (normName === 'DECAL' || normName === 'MÀNG IN DECAL' || r.material_item_id == 21) {
+        } else if (flags.isDecal) {
             treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Decal ' + seqStr + '</span>';
             displayName = 'Màng In Decal';
         }
