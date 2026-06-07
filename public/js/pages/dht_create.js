@@ -183,6 +183,21 @@ async function _dhtOnFreeCatSwitch() {
     var freeLabel = document.getElementById('_co_codeFreeLabel');
     var formFields = document.getElementById('_co_freeFormFields');
 
+    // Smart validation: if switching to PET but sheets containing 'Tờ' exist
+    if (catName === 'PET' && _dhtCreate.phieuItems && _dhtCreate.phieuItems.length > 0) {
+        var hasTo = _dhtCreate.phieuItems.some(function(item) {
+            return item && item.product_name === 'Tờ';
+        });
+        if (hasTo) {
+            showToast('⛔ Không thể chuyển sang PET vì đang có Phiếu chọn sản phẩm dạng "Tờ". Vui lòng xóa hoặc sửa các phiếu đó trước!', 'error');
+            var temOption = Array.from(catSel.options).find(function(opt) { return opt.text === 'TEM'; });
+            if (temOption) {
+                catSel.value = temOption.value;
+                catName = 'TEM';
+            }
+        }
+    }
+
     if (!catName || catName === '-- Chọn --') {
         // Chưa chọn lĩnh vực → ẩn toàn bộ form
         if (freeLabel) freeLabel.value = '🔄 Chọn lĩnh vực trước...';
@@ -1137,6 +1152,13 @@ function _dhtAddItemFree(editIdx) {
     ov.id = '_phieuPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
 
+    // Get current category name from select box
+    var catSel = document.getElementById('_co_cat');
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    if (catName !== 'PET' && catName !== 'TEM') {
+        catName = 'PET/TEM';
+    }
+
     // Qty/price rows
     var qps = existing.quantities || [{qty: '', price: ''}];
     var qpHTML = '';
@@ -1150,10 +1172,19 @@ function _dhtAddItemFree(editIdx) {
     }
 
     var vatSel = '<option value="0"' + (existing.vat_percent === 8 ? '' : ' selected') + '>0%</option><option value="8"' + (existing.vat_percent === 8 ? ' selected' : '') + '>8%</option>';
-    var prodSel = '<option value="">-- Chọn --</option><option value="Tờ"' + (existing.product_name === 'Tờ' ? ' selected' : '') + '>Tờ</option><option value="Mét"' + (existing.product_name === 'Mét' ? ' selected' : '') + '>Mét</option><option value="Thiết Kế"' + (existing.product_name === 'Thiết Kế' ? ' selected' : '') + '>Thiết Kế</option>';
+    
+    // Hide 'Tờ' option if in PET mode
+    var prodSel = '<option value="">-- Chọn --</option>';
+    if (catName !== 'PET') {
+        prodSel += '<option value="Tờ"' + (existing.product_name === 'Tờ' ? ' selected' : '') + '>Tờ</option>';
+    }
+    prodSel += '<option value="Mét"' + (existing.product_name === 'Mét' ? ' selected' : '') + '>Mét</option>'
+        + '<option value="Thiết Kế"' + (existing.product_name === 'Thiết Kế' ? ' selected' : '') + '>Thiết Kế</option>';
+
+    var title = '🐾 Phiếu ' + catName + ' #' + (idx + 1);
 
     ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:800;font-size:14px;color:var(--navy)">🐾 Phiếu PET/TEM #' + (idx + 1) + '</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:800;font-size:14px;color:var(--navy)">' + title + '</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         + '<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'
         + '<div class="form-group"><label style="font-weight:700;font-size:12px">Sản Phẩm <span style="color:red">*</span></label><select id="_ppf_product" class="form-control" style="font-size:13px">' + prodSel + '</select></div>'
         + '</div>'
@@ -1224,7 +1255,12 @@ function _dhtSavePhieuFree(idx) {
     };
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
-    showToast('✅ Đã lưu Phiếu #' + (idx + 1));
+    var catSel = document.getElementById('_co_cat');
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    if (catName !== 'PET' && catName !== 'TEM') {
+        catName = 'PET/TEM';
+    }
+    showToast('✅ Đã lưu Phiếu ' + catName + ' #' + (idx + 1));
 }
 
 async function _dhtAddItem(editIdx) {
@@ -1580,8 +1616,15 @@ function _dhtRenderPhieuRows() {
         var delBtn = (window._dhtEditRestricted && _dhtCreate.editMode)
             ? ''
             : '<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
+        
+        var catSel = document.getElementById('_co_cat');
+        var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+        if (catName !== 'PET' && catName !== 'TEM') {
+            catName = 'PET/TEM';
+        }
+
         var label = isFree
-            ? '🐾 #'+(i+1)+' '+p.product_name
+            ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name
             : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>';
         d.innerHTML='<div style="font-weight:700;color:var(--navy)">'+label+'</div>'
             +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
@@ -1736,6 +1779,18 @@ async function _dhtSubmitCreateV2() {
 
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
+    
+    // Final check for PET: no "Tờ" product allowed
+    if (catName === 'PET') {
+        var hasTo = items.some(function(item) {
+            return item && item.product_name === 'Tờ';
+        });
+        if (hasTo) {
+            showToast('⛔ Đơn hàng PET không được phép chứa sản phẩm dạng "Tờ". Vui lòng kiểm tra lại!', 'error');
+            return;
+        }
+    }
+
     var _totalAmt = 0, _totalVat = 0;
     items.forEach(function(p) { _totalAmt += p.raw_total || 0; _totalVat += p.vat_amount || 0; });
     (_dhtCreate.surcharges||[]).forEach(function(s) { _totalAmt += Number(s.amount) || 0; });
@@ -2446,6 +2501,17 @@ async function _dhtSubmitEditV2() {
     if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
 
     var items = _dhtCreate.phieuItems || [];
+    var catSel = document.getElementById('_co_cat');
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    if (catName === 'PET') {
+        var hasTo = items.some(function(item) {
+            return item && item.product_name === 'Tờ';
+        });
+        if (hasTo) {
+            showToast('⛔ Đơn hàng PET không được phép chứa sản phẩm dạng "Tờ". Vui lòng kiểm tra lại!', 'error');
+            return;
+        }
+    }
     var totalAmt = 0, totalVatAmt = 0;
     items.forEach(function(p) { if(!p)return; totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var surTotal = 0;
