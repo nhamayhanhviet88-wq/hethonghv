@@ -504,14 +504,6 @@ function _bpiRender() {
         var rollDisplay = '—';
         var parts = [];
         if (r.pettem_roll_id) {
-            var txId = r.material_tx_id || '';
-            if (!txId && r.pettem_roll_notes) {
-                var txMatch = r.pettem_roll_notes.match(/\(Giao dịch(?:\s*gốc)?\s*#(\d+)\)/i);
-                if (txMatch) txId = txMatch[1];
-            }
-            if (txId) {
-                parts.push('<span style="color:#7c3aed;font-weight:700" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + txId + '</span>');
-            }
             var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
             var formattedType = 'Pet';
             if (typeLabel === 'TEM') formattedType = 'Tem';
