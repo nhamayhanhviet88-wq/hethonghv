@@ -9,18 +9,21 @@ function renderBophanepPage(content){
     
     if(!document.getElementById('_bpeS')){var st=document.createElement('style');st.id='_bpeS';
     st.textContent='.bpe-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}.bpe-sb{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto}.bpe-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.bpe-main>*{flex-shrink:0}'
-    +'.bpe-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;color:#ea580c}'
-    +'.bpe-sb-total{background:#f8fafc;border-bottom:1px solid var(--gray-200);color:#334155;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer}'
-    +'.bpe-sb-total.active{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}'
+    +'.bpe-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;color:#7c3aed}'
+    +'.bpe-sb-total{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer}'
+    +'.bpe-sb-total.active{background:linear-gradient(135deg,#6d28d9,#4338ca)}'
+    +'.bpe-sb-uncut{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;padding:10px 16px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.1)}'
+    +'.bpe-sb-uncut.active{background:linear-gradient(135deg,#ea580c,#c2410c)}'
     +'.bpe-sb-year{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;background:#f8fafc;border-bottom:1px solid var(--gray-200)}'
-    +'.bpe-sb-month{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;color:#ea580c}'
-    +'.bpe-sb-month:hover{background:#fff7ed}.bpe-sb-month.active{background:#ffedd5;font-weight:800}'
+    +'.bpe-sb-year.active{background:#ede9fe;color:#7c3aed}'
+    +'.bpe-sb-month{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;color:#7c3aed}'
+    +'.bpe-sb-month:hover{background:#f5f3ff}.bpe-sb-month.active{background:#ede9fe;font-weight:800}'
     +'.bpe-sb-item{padding:5px 16px 5px 42px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #fafafa;color:#64748b}'
-    +'.bpe-sb-item:hover{background:#fff7ed}.bpe-sb-item.active{background:#ffedd5;color:#ea580c;font-weight:800}'
+    +'.bpe-sb-item:hover{background:#f5f3ff}.bpe-sb-item.active{background:#ede9fe;color:#7c3aed;font-weight:800}'
     +'.bpe-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
     +'.bpe-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.bpe-ib.on-rpt{background:#ffedd5;border-color:#f97316}.bpe-ib.on-sal{background:#fef3c7;border-color:#f59e0b}.bpe-ib.on-err{background:#fee2e2;border-color:#ef4444}'
-    +'.bpe-pos{font-size:9px;text-align:center;font-weight:700;color:#ea580c}'
+    +'.bpe-pos{font-size:9px;text-align:center;font-weight:700;color:#7c3aed}'
     +'@media(max-width:768px){.bpe-sb{display:none}}';
     document.head.appendChild(st);}
     
@@ -35,36 +38,42 @@ function renderBophanepPage(content){
     var _t;document.getElementById('bpeSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpe.search=document.getElementById('bpeSearch').value||'';_bpeRender();},300);});
     _bpeLoadAll();
 }
-
+ 
 async function _bpeLoadAll(){try{var tR=await apiCall('/api/pressing/tree');_bpe.tree=tR;_bpeRenderSb();if(_bpe.viewMode==='unassigned'){await _bpeLoadUnassigned();}else{await _bpeLoadRecs();}}catch(e){console.error('[BPE]',e);}}
-
+ 
 function _bpeRenderSb(){
     var sb = document.getElementById('bpeSb'); if (!sb || !_bpe.tree) return;
     var t = _bpe.tree, f = _bpe.filter;
     var h = '<div class="bpe-sb-title">────── 🔥 Bộ Phận Ép ──────</div>';
     
-    // Unassigned section
-    var un = t.unassigned || { total: 0, ready: 0, pending: 0 };
-    var unActive = _bpe.viewMode === 'unassigned';
-    h += '<div class="bpe-sb-total' + (unActive ? ' active' : '') + '" onclick="_bpeViewUnassigned()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;margin-bottom:4px">';
-    h += '<span>📥 Đơn chưa ép</span>';
-    h += '<span style="font-size:15px;font-weight:900">' + (un.total || 0) + '</span>';
-    h += '</div>';
-    
-    // Sub-unassigned filters: Ready & Pending
-    h += '<div style="display:flex;background:#f8fafc;border-bottom:1px solid #e2e8f0;margin-bottom:8px">';
-    h += '<div style="flex:1;text-align:center;padding:6px;font-size:11px;font-weight:800;color:#059669;cursor:pointer;border-right:1px solid #e2e8f0" onclick="_bpeViewUnassigned(\'ready\')">Sẵn sàng (' + (un.ready || 0) + ')</div>';
-    h += '<div style="flex:1;text-align:center;padding:6px;font-size:11px;font-weight:800;color:#64748b;cursor:pointer" onclick="_bpeViewUnassigned(\'pending\')">Chờ (' + (un.pending || 0) + ')</div>';
-    h += '</div>';
-    
-    // Assigned total
+    // Assigned total on top
     var totActive = _bpe.viewMode === 'assigned' && !f.year && !f.month && !f.presser_id;
-    h += '<div class="bpe-sb-total' + (totActive ? ' active' : '') + '" onclick="_bpeFilter()" style="margin-bottom:4px"><span>📦 Tổng đã nhận</span><span style="font-size:15px;font-weight:900">' + (t.total || 0) + '</span></div>';
+    h += '<div class="bpe-sb-total' + (totActive ? ' active' : '') + '" onclick="_bpeFilter()"><span>📦 Tổng đã nhận</span><span style="font-size:15px;font-weight:900">' + (t.total || 0) + '</span></div>';
+    
+    // Unassigned section (CÁC ĐƠN CHƯA ÉP)
+    var un = t.unassigned || { total: 0, ready: 0, pending: 0 };
+    var unActive = _bpe.viewMode === 'unassigned' && !_bpe.unassignedFilter;
+    h += '<div class="bpe-sb-uncut' + (unActive ? ' active' : '') + '" onclick="_bpeViewUnassigned()">';
+    h += '<span>🔴 CÁC ĐƠN CHƯA ÉP</span>';
+    h += '<span style="background:rgba(255,255,255,0.3);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:900">' + un.total + '</span>';
+    h += '</div>';
+    
+    if (un.total > 0) {
+        h += '<div style="padding:4px 16px;font-size:9px;color:#6b7280;border-bottom:1px solid #f0f0f0;display:flex;gap:8px">';
+        var readyActive = _bpe.viewMode === 'unassigned' && _bpe.unassignedFilter === 'ready';
+        h += '<span style="color:#059669;font-weight:700;cursor:pointer;' + (readyActive ? 'text-decoration:underline;font-size:10px' : '') + '" onclick="_bpeViewUnassigned(\'ready\')">🟢 Sẵn sàng: ' + un.ready + '</span>';
+        if (un.pending > 0) {
+            var pendingActive = _bpe.viewMode === 'unassigned' && _bpe.unassignedFilter === 'pending';
+            h += '<span style="color:#f59e0b;font-weight:700;cursor:pointer;' + (pendingActive ? 'text-decoration:underline;font-size:10px' : '') + '" onclick="_bpeViewUnassigned(\'pending\')">🟡 Thiếu ĐK: ' + un.pending + '</span>';
+        }
+        h += '</div>';
+    }
     
     if (t.yearTree) {
         t.yearTree.forEach(function(yr) {
             var yo = !!_bpeOpen['y' + yr.year];
-            h += '<div class="bpe-sb-year" onclick="_bpeTgl(\'y' + yr.year + '\')"><span>' + (yo ? '▼' : '▶') + ' 📆 ' + yr.year + '</span><span style="background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
+            var yAct = _bpe.viewMode === 'assigned' && f.year == yr.year && !f.presser_id && !f.month && !f.status;
+            h += '<div class="bpe-sb-year' + (yAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpeTgl(\'y' + yr.year + '\'); _bpeFilter(' + yr.year + ')"><span>' + (yo ? '▼' : '▶') + ' 📅 Năm ' + yr.year + '</span><span style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
             
             if (yo && yr.pressers) {
                 yr.pressers.forEach(function(p) {
