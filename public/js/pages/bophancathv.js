@@ -506,12 +506,16 @@ function _bpcMapRecordRow(r, i) {
     if (r.is_uncut) {
         var ready = r.fabric_arrived && r.has_pc_in;
         if (ready) {
-            cutBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt" style="background:#fef3c7;border-color:#f59e0b;color:#ea580c">✂️</button>';
+            if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+            } else {
+                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+            }
         } else {
             var missing = [];
             if (!r.fabric_arrived) missing.push('Vải');
             if (!r.has_pc_in) missing.push('PC In');
-            cutBtnHtml = '<button class="bpc-icon-btn" disabled title="Thiếu: '+missing.join('+')+'" style="opacity:0.5;cursor:not-allowed;background:#fee2e2;border-color:#fca5a5">🔒</button>';
+            cutBtnHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
         }
     } else {
         if (r.is_cut_done) {
