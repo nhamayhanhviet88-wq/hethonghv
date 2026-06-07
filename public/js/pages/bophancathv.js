@@ -353,7 +353,7 @@ function _bpcMapRecordRow(r, i) {
         warnHtml = '<span style="color:#dc2626;font-weight:700">' + r.cut_warning + '</span>';
         var isComp = r.cut_warning.indexOf('Cắt bù') >= 0;
         if (isComp && !r.is_cutting && !r.is_cut_done) {
-            warnHtml += ' <button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.id + ','cancel_compensation')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;margin-left:8px;font-weight:bold;height:auto;line-height:1;display:inline-block;vertical-align:middle;width:auto">❌ Hủy Cắt Bù</button>';
+            warnHtml += ' <button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;margin-left:8px;font-weight:bold;height:auto;line-height:1;display:inline-block;vertical-align:middle;width:auto">❌ Hủy Cắt Bù</button>';
         }
     }
     var updateStr = '';
@@ -390,14 +390,13 @@ function _bpcMapRecordRow(r, i) {
     var doneBtnHtml = showDoneBtn
         ? (r.is_cut_done
             ? (isGiamDoc
-                ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+','undo_cut_done')" title="Hoàn tác cắt xong (chỉ dành cho Giám đốc)">'+doneIcon+'</button>'
+                ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Giám đốc)">'+doneIcon+'</button>'
                 : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>')
             : '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>')
         : '<span style="width:26px;display:inline-block"></span>';
     var sharedCol = '—';
     if (r.cut_shared) {
-        var firstLine = r.cut_shared.split('
-')[0].replace(':', '');
+        var firstLine = r.cut_shared.split('\n')[0].replace(':', '');
         sharedCol = '<span title="' + r.cut_shared.replace(/"/g, '&quot;') + '" style="cursor:help;border-bottom:1px dashed #ea580c;font-weight:700;color:#ea580c">' + firstLine + '</span>';
     }
     
@@ -829,9 +828,9 @@ function _bpcBuildUnassignedTableHtml(all) {
                 var claimHtml;
                 if (ready) {
                     if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',''+r.order_code+'')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
                     } else {
-                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',''+r.order_code+'')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
                     }
                 } else {
                     var missing = [];
@@ -844,7 +843,7 @@ function _bpcBuildUnassignedTableHtml(all) {
                         var isManager = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
                         var isOriginalCutter = window._currentUser && r.original_cutter_id && r.original_cutter_id === window._currentUser.id;
                         if (isManager || isOriginalCutter) {
-                            claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ','cancel_compensation')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
+                            claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
                         }
                     }
                 }
