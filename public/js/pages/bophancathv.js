@@ -202,10 +202,10 @@ function _bpcRenderSidebar() {
                     var cAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && !f.status;
                     h += '<div class="bpc-sb-cutter'+(cAct?' active':'')+'" onclick="event.stopPropagation();_bpcToggle(\''+cKey+'\');_bpcFilter('+yr.year+',null,'+c.id+')"><span>'+(cOpen?'▼':'▶')+' 👤 '+(c.name||'Chưa PC')+'</span><span style="font-weight:800">'+c.total+'</span></div>';
                     if (cOpen) {
-                        // Đơn Chưa Hoàn Thành
+                        // Đơn Chưa Cắt Xong
                         if (c.incomplete_count > 0) {
                             var incAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && f.status==='incomplete';
-                            h += '<div class="bpc-sb-sub incomplete'+(incAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterStatus('+yr.year+','+c.id+',\'incomplete\')"><span>⏳ Chưa Hoàn Thành</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">'+c.incomplete_count+'</span></div>';
+                            h += '<div class="bpc-sb-sub incomplete'+(incAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterStatus('+yr.year+','+c.id+',\'incomplete\')"><span>⏳ Chưa Cắt Xong</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">'+c.incomplete_count+'</span></div>';
                         }
                         // Tháng đã hoàn thành
                         if (c.months) {
