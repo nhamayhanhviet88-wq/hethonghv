@@ -1,6 +1,6 @@
 // ========== BỘ PHẬN IN — Desktop SPA ==========
 var currentYear = new Date().getFullYear();
-var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, search: '', page: 1, ps: 200, contractors: [] };
+var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, statsFilter: 'all', search: '', page: 1, ps: 200, contractors: [] };
 var _bpiOpen = {};
 _bpiOpen['y' + currentYear] = true;
 _bpiOpen['p' + currentYear] = true;
@@ -46,6 +46,7 @@ function _bpiRestoreUrlState() {
             operator_id: operator_id ? Number(operator_id) : null
         };
         _bpi.search = search || '';
+        _bpi.statsFilter = 'all';
         
         var openStr = params.get('open');
         _bpiOpen = {};
@@ -56,6 +57,7 @@ function _bpiRestoreUrlState() {
         }
     } else {
         _bpi.filter = { year: currentYear, status: 'pending', field: null };
+        _bpi.statsFilter = 'all';
         _bpi.search = '';
         _bpiOpen = {};
         _bpiOpen['y' + currentYear] = true;
@@ -84,6 +86,9 @@ function renderBophaninPage(content) {
 +'.bpi-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
 +'.bpi-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
 +'.bpi-ib.on-test{background:#fef3c7;border-color:#f59e0b}.bpi-ib.on-done{background:#dcfce7;border-color:#22c55e}.bpi-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpi-ib.on-audit{background:#e0f2fe;border-color:#0ea5e9;color:#0284c7}'
++'.bpi-stat-btn{padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;cursor:pointer;transition:all .2s ease;border:2px solid transparent;user-select:none;opacity:0.55}'
++'.bpi-stat-btn:hover{opacity:0.85;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}'
++'.bpi-stat-btn.active{opacity:1;transform:scale(1.05);border-color:#fff;box-shadow:0 0 0 2px rgba(124,58,237,0.3)}'
 +'@media(max-width:768px){.bpi-sb{display:none}}'
 + '.bpi-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;opacity:0;transition:opacity .25s ease}'
 + '.bpi-modal-overlay.show{opacity:1}'
@@ -289,7 +294,8 @@ function _bpiRenderSb() {
 }
 
 function _bpiTgl(k) { _bpiOpen[k] = !_bpiOpen[k]; _bpiSaveUrlState(); _bpiRenderSb(); }
-function _bpiFilter(y,s,f,m,opType,opId) { _bpi.filter = { year:y||null, status:s||null, field:f||null, month:m||null, operator_type:opType||null, operator_id:opId||null }; _bpi.page=1; _bpiSaveUrlState(); _bpiRenderSb(); _bpiLoadRecs(); }
+function _bpiFilter(y,s,f,m,opType,opId) { _bpi.statsFilter = 'all'; _bpi.filter = { year:y||null, status:s||null, field:f||null, month:m||null, operator_type:opType||null, operator_id:opId||null }; _bpi.page=1; _bpiSaveUrlState(); _bpiRenderSb(); _bpiLoadRecs(); }
+function _bpiSetStatsFilter(filterType) { _bpi.statsFilter = filterType; _bpi.page = 1; _bpiRender(); }
 
 async function _bpiLoadRecs() {
     var f = _bpi.filter, qs = '?_=1';
@@ -424,6 +430,25 @@ function _bpiGetProgressDisplay(r) {
 function _bpiRender() {
     var all = _bpi.records.slice();
     if (_bpi.search) { var q=_bpi.search.toLowerCase(); all=all.filter(function(r){return (r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.customer_name||'').toLowerCase().indexOf(q)>=0;}); }
+    
+    // Compute stats BEFORE applying statsFilter so numbers match the current view
+    var totalCount = all.length;
+    var testingCount = all.filter(function(r){return r.is_test_print && !r.is_completed;}).length;
+    var pendingCount = all.filter(function(r){return !r.is_completed;}).length;
+    var doneCount = all.filter(function(r){return r.is_completed;}).length;
+    var errsCount = all.filter(function(r){return r.error_reported;}).length;
+
+    // Apply statsFilter
+    if (_bpi.statsFilter === 'testing') {
+        all = all.filter(function(r){return r.is_test_print && !r.is_completed;});
+    } else if (_bpi.statsFilter === 'pending') {
+        all = all.filter(function(r){return !r.is_completed;});
+    } else if (_bpi.statsFilter === 'done') {
+        all = all.filter(function(r){return r.is_completed;});
+    } else if (_bpi.statsFilter === 'error') {
+        all = all.filter(function(r){return r.error_reported;});
+    }
+
     var tot=all.length, tp=Math.ceil(tot/_bpi.ps)||1; if(_bpi.page>tp)_bpi.page=tp; if(_bpi.page<1)_bpi.page=1;
     var s=(_bpi.page-1)*_bpi.ps, paged=all.slice(s,s+_bpi.ps);
     // Render rows
@@ -614,11 +639,11 @@ function _bpiRender() {
         el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#c4b5fd;font-weight:900">'+tot+'</span> đơn</div>';
     }
     var sc=document.getElementById('bpiStats'); if(sc){
-        var testing=all.filter(function(r){return r.is_test_print&&!r.is_completed;}).length, done=all.filter(function(r){return r.is_completed;}).length, errs=all.filter(function(r){return r.error_reported;}).length;
-        sc.innerHTML='<div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #7c3aed30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div><div style="font-size:15px;font-weight:900">'+tot+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🧪 TEST</div><div style="font-size:15px;font-weight:900">'+testing+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #dc262630"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div><div style="font-size:15px;font-weight:900">'+errs+'</div></div>';
+        sc.innerHTML='<div class="bpi-stat-btn' + (_bpi.statsFilter === 'all' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'all\')" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(124,58,237,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG ĐƠN</div><div style="font-size:15px;font-weight:900">'+totalCount+'</div></div>'
+        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'testing' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'testing\')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(245,158,11,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🧪 ĐƠN IN TEST</div><div style="font-size:15px;font-weight:900">'+testingCount+'</div></div>'
+        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'pending' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'pending\')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(59,130,246,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA IN XONG</div><div style="font-size:15px;font-weight:900">'+pendingCount+'</div></div>'
+        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'done' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'done\')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(5,150,105,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ HOÀN THÀNH</div><div style="font-size:15px;font-weight:900">'+doneCount+'</div></div>'
+        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'error' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'error\')" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(220,38,38,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div><div style="font-size:15px;font-weight:900">'+errsCount+'</div></div>';
     }
     
     // Render pagination
