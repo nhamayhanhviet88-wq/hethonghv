@@ -506,20 +506,28 @@ function _bpiRender() {
         if (r.pettem_roll_id) {
             var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
             var formattedType = 'Pet';
-            var color = '#059669'; // Green for Pet
+            var bg = '#fee2e2';
+            var color = '#dc2626';
+            var border = '#fca5a5';
             if (typeLabel === 'TEM') {
                 formattedType = 'Tem';
-                color = '#d97706'; // Amber/Orange for Tem
+                bg = '#f3e8ff';
+                color = '#7c3aed';
+                border = '#d8b4fe';
             } else if (typeLabel === 'DECAL') {
                 formattedType = 'Decal';
-                color = '#2563eb'; // Blue for Decal
+                bg = '#d1fae5';
+                color = '#059669';
+                border = '#6ee7b7';
             } else if (typeLabel !== 'PET') {
                 formattedType = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1).toLowerCase();
-                color = '#7c3aed'; // Purple for others
+                bg = '#f3e8ff';
+                color = '#7c3aed';
+                border = '#d8b4fe';
             }
             var seqDisplay = r.pettem_roll_seq ? '#' + r.pettem_roll_seq : '#' + r.pettem_roll_id;
             var rollLabel = 'Cây ' + formattedType + ' ' + seqDisplay;
-            parts.push('<span style="color:' + color + ';font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 ' + rollLabel + '</span>');
+            parts.push('<span style="background:' + bg + ';color:' + color + ';padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;border:1px solid ' + border + ';display:inline-block;vertical-align:middle;line-height:1.2" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">' + rollLabel + '</span>');
         } else if (r.material_tx_id) {
             parts.push('<span style="color:#7c3aed;font-weight:700" title="' + (r.material_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + r.material_tx_id + '</span>');
             if (r.material_roll_supplier) {
