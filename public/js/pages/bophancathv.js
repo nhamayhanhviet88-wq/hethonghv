@@ -435,8 +435,8 @@ function _bpcMapRecordRow(r, i) {
                 ? '<button class="bpc-icon-btn ' + errCls + '" disabled title="Đã báo lỗi" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + errIcon + '</button>'
                 : '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>')
         +'</td>'
-        +'<td style="font-size:10px">'+((r.is_cutting || r.is_cut_done) ? _bpcFmtDate(r.cut_date) : '—')+'</td>'
-        +'<td style="font-size:10px;color:#059669;font-weight:600">'+((r.is_cutting || r.is_cut_done) ? (r.cutter_name||'—') : '—')+'</td>'
+        +'<td style="font-size:10px">'+(r.cut_date ? _bpcFmtDate(r.cut_date) : '—')+'</td>'
+        +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
         +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
@@ -1125,8 +1125,8 @@ async function _bpcOpenDetail(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧵 Chất liệu</span><span class="bpc-modal-val"><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.material_name||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + ((r.is_cutting || r.is_cut_done) ? (r.cutter_name||'—') : '—') + '</span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + ((r.is_cutting || r.is_cut_done) ? _bpcFmtDate(r.cut_date) : '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + (r.cut_date ? _bpcFmtDate(r.cut_date) : '—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
 
         // Wash reported details
