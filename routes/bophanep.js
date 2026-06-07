@@ -175,7 +175,7 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (pr.product_name ILIKE $${idx} OR pr.cskh_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT pr.*, u.full_name AS presser_name, u_rpt.full_name AS reported_by_name,
-                   u_sal.full_name AS salary_by_name, o.order_code,
+                   u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
             FROM pressing_records pr LEFT JOIN users u ON pr.presser_id=u.id
             LEFT JOIN users u_rpt ON pr.reported_by=u_rpt.id LEFT JOIN users u_sal ON pr.salary_approved_by=u_sal.id
