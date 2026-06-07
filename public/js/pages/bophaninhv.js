@@ -112,7 +112,12 @@ function renderBophaninPage(content) {
         document.head.appendChild(st);
     }
     content.innerHTML = '<div class="bpi-wrap"><div class="bpi-sb" id="bpiSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpi-main">'
-        +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpiInfo" style="font-size:12px"></div><div id="bpiStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpiSearch" placeholder="🔍 Tìm SP, CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
+        +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
+        +'<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
+        +'<div id="bpiInfo" style="font-size:12px"></div>'
+        +'<input id="bpiSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
+        +'</div>'
+        +'<div id="bpiStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpiManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công In</button>'
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
@@ -429,7 +434,17 @@ function _bpiGetProgressDisplay(r) {
 
 function _bpiRender() {
     var all = _bpi.records.slice();
-    if (_bpi.search) { var q=_bpi.search.toLowerCase(); all=all.filter(function(r){return (r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.customer_name||'').toLowerCase().indexOf(q)>=0;}); }
+    if (_bpi.search) {
+        var q = _bpi.search.toLowerCase();
+        all = all.filter(function(r) {
+            return (r.product_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.order_code||'').toLowerCase().indexOf(q)>=0 
+                || (r.customer_name||'').toLowerCase().indexOf(q)>=0
+                || (r.printer_name||'').toLowerCase().indexOf(q)>=0
+                || (r.contractor_name||'').toLowerCase().indexOf(q)>=0;
+        });
+    }
     
     // Compute stats BEFORE applying statsFilter so numbers match the current view
     var totalCount = all.length;
@@ -676,8 +691,13 @@ function _bpiNextPage() {
     var all = _bpi.records.slice();
     if (_bpi.search) { 
         var q = _bpi.search.toLowerCase(); 
-        all = all.filter(function(r){
-            return (r.product_name||'').toLowerCase().indexOf(q)>=0 || (r.cskh_name||'').toLowerCase().indexOf(q)>=0 || (r.order_code||'').toLowerCase().indexOf(q)>=0 || (r.customer_name||'').toLowerCase().indexOf(q)>=0;
+        all = all.filter(function(r) {
+            return (r.product_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.order_code||'').toLowerCase().indexOf(q)>=0 
+                || (r.customer_name||'').toLowerCase().indexOf(q)>=0
+                || (r.printer_name||'').toLowerCase().indexOf(q)>=0
+                || (r.contractor_name||'').toLowerCase().indexOf(q)>=0;
         }); 
     }
     var tp = Math.ceil(all.length / _bpi.ps) || 1;
