@@ -131,7 +131,7 @@ module.exports = async function(fastify) {
                 WHERE EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
                   AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
                   AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
-                  AND COALESCE(o.shipping_status, '') != 'shipped'
+                  AND COALESCE(o.shipping_status, '') NOT IN ('shipped', 'cancelled')
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = oi.id)
             )
             SELECT 
@@ -235,12 +235,23 @@ module.exports = async function(fastify) {
         const id = Number(req.params.id), b = req.body || {}, now = vnNow();
         const rec = await db.get('SELECT * FROM pressing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        // Update target order quantity dynamically based on latest cut records if available
+        const latestCut = await db.get(`
+            SELECT SUM(cut_quantity)::int AS cut_qty
+            FROM cutting_records
+            WHERE order_item_id = $1 AND is_cut_done = true
+              AND (material_name = $2 OR (material_name IS NULL AND $2 IS NULL))
+              AND (fabric_color = $3 OR (fabric_color IS NULL AND $3 IS NULL))
+        `, [rec.order_item_id, rec.material_name, rec.fabric_color]);
+        const latestQty = (latestCut && latestCut.cut_qty) ? latestCut.cut_qty : rec.order_quantity;
+
         await db.run(`UPDATE pressing_records SET press_date=$1,presser_id=$2,product_name=$3,cskh_name=$4,
             order_quantity=$5,press_quantity=$6,press_salary=$7,pos_chest_arm=$8,pos_back_belly=$9,
             pos_protective=$10,pos_packaging=$11,pos_other=$12,press_images=$13,notes=$14,updated_at=$15 WHERE id=$16`,
             [b.press_date!==undefined?b.press_date:rec.press_date, b.presser_id!==undefined?b.presser_id:rec.presser_id,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
-             b.order_quantity!==undefined?Number(b.order_quantity):rec.order_quantity,
+             latestQty,
              b.press_quantity!==undefined?Number(b.press_quantity):rec.press_quantity,
              b.press_salary!==undefined?Number(b.press_salary):Number(rec.press_salary),
              b.pos_chest_arm!==undefined?Number(b.pos_chest_arm):rec.pos_chest_arm,
@@ -329,7 +340,7 @@ module.exports = async function(fastify) {
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
-              AND COALESCE(o.shipping_status, '') != 'shipped'
+              AND COALESCE(o.shipping_status, '') NOT IN ('shipped', 'cancelled')
             ORDER BY
                 CASE WHEN EXISTS (
                     SELECT 1 FROM dht_order_items oi
@@ -480,86 +491,111 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const userId = request.user.id;
 
-        const order = await db.get(`
-            SELECT o.id, o.order_code, o.shipping_status
-            FROM dht_orders o
-            WHERE o.id = $1
-        `, [dht_order_id]);
-        if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
-        if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi đi rồi — không thể nhận đơn ép!' });
-
-        const item = await db.get(`
-            SELECT doi.id, doi.description, doi.material_pairs, doi.quantity,
-                   EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
-                   NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
-                   EXISTS(
-                       SELECT 1 FROM qlx_assignments qa 
-                       WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                         AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
-                   ) AS has_pc_in,
-                   EXISTS(
-                       SELECT 1 FROM printing_records pr 
-                       WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
-                         AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
-                   ) AS is_print_done_rec
-            FROM dht_order_items doi
-            WHERE doi.id = $1
-        `, [order_item_id]);
-        if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
-
-        const exists = await db.get(`SELECT 1 FROM pressing_records WHERE order_item_id = $1`, [order_item_id]);
-        if (exists) return reply.code(400).send({ error: 'Đơn này đã được nhận ép rồi!' });
-
-        const isCutReady = item.has_cut_records && item.all_cuts_done;
-        const isPrintReady = !item.has_pc_in || item.is_print_done_rec;
-        if (!isCutReady || !isPrintReady) {
-            let errMsg = 'Không thể nhận đơn ép do: ';
-            const errs = [];
-            if (!isCutReady) errs.push('chưa cắt xong');
-            if (!isPrintReady) errs.push('chưa in xong');
-            return reply.code(400).send({ error: errMsg + errs.join(', ') });
-        }
-
-        const cuts = await db.all(`
-            SELECT material_name, fabric_color, SUM(cut_quantity)::int AS cut_qty
-            FROM cutting_records
-            WHERE order_item_id = $1 AND is_cut_done = true
-            GROUP BY material_name, fabric_color
-        `, [order_item_id]);
-
-        if (cuts.length === 0) {
-            return reply.code(400).send({ error: 'Không tìm thấy số lượng cắt hoàn thành' });
-        }
-
-        const allItems = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
-        const itemIdx = allItems.findIndex(a => a.id === Number(order_item_id)) + 1;
-
-        let createdCount = 0;
-        for (let i = 0; i < cuts.length; i++) {
-            const cut = cuts[i];
-            const coordIdx = i + 1;
-            let prodName = order.order_code;
-            if (allItems.length > 1 || cuts.length > 1) {
-                prodName += ` — Phiếu ${itemIdx}`;
-                if (cuts.length > 1) prodName += ` — P${coordIdx}`;
+        // Implement transaction-level row locking to prevent race conditions (double claiming)
+        await db.run('BEGIN');
+        try {
+            const order = await db.get(`
+                SELECT o.id, o.order_code, o.shipping_status
+                FROM dht_orders o
+                WHERE o.id = $1
+            `, [dht_order_id]);
+            if (!order) {
+                await db.run('ROLLBACK');
+                return reply.code(404).send({ error: 'Đơn không tồn tại' });
             }
-            if (item.description) {
-                prodName += ` — ${item.description}`;
+            if (['shipped', 'cancelled'].includes(order.shipping_status)) {
+                await db.run('ROLLBACK');
+                return reply.code(400).send({
+                    error: `Đơn hàng đã ${order.shipping_status === 'shipped' ? 'gửi đi' : 'bị hủy'} — không thể nhận đơn ép!`
+                });
             }
 
-            await db.run(`
-                INSERT INTO pressing_records (
-                    dht_order_id, order_item_id, presser_id, press_date, product_name, cskh_name,
-                    order_quantity, press_quantity, press_salary, created_by, created_at, updated_at,
-                    material_name, fabric_color
-                ) VALUES ($1, $2, $3, $4, $5, (SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $6), $7, 0, 0, $3, $8, $8, $9, $10)
-            `, [
-                dht_order_id, order_item_id, userId, now, prodName, dht_order_id, cut.cut_qty || 0, now, cut.material_name || null, cut.fabric_color || null
-            ]);
-            createdCount++;
-        }
+            // Lock the target dht_order_items row using FOR UPDATE to block concurrent claim requests
+            const item = await db.get(`
+                SELECT doi.id, doi.description, doi.material_pairs, doi.quantity,
+                       EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
+                       NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
+                       EXISTS(
+                           SELECT 1 FROM qlx_assignments qa 
+                           WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                             AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                       ) AS has_pc_in,
+                       EXISTS(
+                           SELECT 1 FROM printing_records pr 
+                           WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                             AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                       ) AS is_print_done_rec
+                FROM dht_order_items doi
+                WHERE doi.id = $1 FOR UPDATE
+            `, [order_item_id]);
+            if (!item) {
+                await db.run('ROLLBACK');
+                return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
+            }
 
-        return { success: true, created: createdCount };
+            const exists = await db.get(`SELECT 1 FROM pressing_records WHERE order_item_id = $1`, [order_item_id]);
+            if (exists) {
+                await db.run('ROLLBACK');
+                return reply.code(400).send({ error: 'Đơn này đã được nhận ép rồi!' });
+            }
+
+            const isCutReady = item.has_cut_records && item.all_cuts_done;
+            const isPrintReady = !item.has_pc_in || item.is_print_done_rec;
+            if (!isCutReady || !isPrintReady) {
+                let errMsg = 'Không thể nhận đơn ép do: ';
+                const errs = [];
+                if (!isCutReady) errs.push('chưa cắt xong');
+                if (!isPrintReady) errs.push('chưa in xong');
+                await db.run('ROLLBACK');
+                return reply.code(400).send({ error: errMsg + errs.join(', ') });
+            }
+
+            const cuts = await db.all(`
+                SELECT material_name, fabric_color, SUM(cut_quantity)::int AS cut_qty
+                FROM cutting_records
+                WHERE order_item_id = $1 AND is_cut_done = true
+                GROUP BY material_name, fabric_color
+            `, [order_item_id]);
+
+            if (cuts.length === 0) {
+                await db.run('ROLLBACK');
+                return reply.code(400).send({ error: 'Không tìm thấy số lượng cắt hoàn thành' });
+            }
+
+            const allItems = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+            const itemIdx = allItems.findIndex(a => a.id === Number(order_item_id)) + 1;
+
+            let createdCount = 0;
+            for (let i = 0; i < cuts.length; i++) {
+                const cut = cuts[i];
+                const coordIdx = i + 1;
+                let prodName = order.order_code;
+                if (allItems.length > 1 || cuts.length > 1) {
+                    prodName += ` — Phiếu ${itemIdx}`;
+                    if (cuts.length > 1) prodName += ` — P${coordIdx}`;
+                }
+                if (item.description) {
+                    prodName += ` — ${item.description}`;
+                }
+
+                await db.run(`
+                    INSERT INTO pressing_records (
+                        dht_order_id, order_item_id, presser_id, press_date, product_name, cskh_name,
+                        order_quantity, press_quantity, press_salary, created_by, created_at, updated_at,
+                        material_name, fabric_color
+                    ) VALUES ($1, $2, $3, $4, $5, (SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $6), $7, 0, 0, $3, $8, $8, $9, $10)
+                `, [
+                    dht_order_id, order_item_id, userId, now, prodName, dht_order_id, cut.cut_qty || 0, now, cut.material_name || null, cut.fabric_color || null
+                ]);
+                createdCount++;
+            }
+
+            await db.run('COMMIT');
+            return { success: true, created: createdCount };
+        } catch (err) {
+            await db.run('ROLLBACK');
+            throw err;
+        }
     });
 
     // ========== UNCLAIM: Trả đơn ép (per-phiếu) ==========
