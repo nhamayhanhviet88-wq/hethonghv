@@ -140,8 +140,8 @@ function renderLuongSanXuatPage(content) {
                                         <br>
                                         <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:none;">Duyệt hết</button>
                                     </th>
+                                    <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
                                     <th>Lịch Sử Cập Nhật</th>
-                                    <th style="text-align:right;font-weight:bold;color:#0d9488">Cộng dồn (đ)</th>
                                 </tr>
                             </thead>
                             <tbody id="lsxTb">
@@ -436,16 +436,8 @@ function _lsxRenderTable() {
             }
         }
 
-        var priceCell = '';
-        var salCell = '';
-
-        if (_lsx.is_manager) {
-            priceCell = `<td style="text-align:right;font-weight:700" class="lsx-cell-editable" onclick="_lsxStartEdit(${r.id}, '${r.dept}', 'unit_price', ${r.unit_price}, this)">${_lsxFN(r.unit_price)}</td>`;
-            salCell = `<td style="text-align:right;font-weight:800;color:#f59e0b" class="lsx-cell-editable" onclick="_lsxStartEdit(${r.id}, '${r.dept}', 'salary', ${r.salary}, this)">${_lsxFN(r.salary)}</td>`;
-        } else {
-            priceCell = `<td style="text-align:right;font-weight:600">${_lsxFN(r.unit_price)}</td>`;
-            salCell = `<td style="text-align:right;font-weight:700;color:#f59e0b">${_lsxFN(r.salary)}</td>`;
-        }
+        var priceCell = `<td style="text-align:right;font-weight:600">${_lsxFN(r.unit_price)}</td>`;
+        var salCell = `<td style="text-align:right;font-weight:700;color:#f59e0b">${_lsxFN(r.salary)}</td>`;
 
         var orderQty = r.order_quantity !== undefined ? r.order_quantity : (r.quantity || 0);
 
@@ -483,8 +475,8 @@ function _lsxRenderTable() {
             + priceCell
             + salCell
             + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
-            + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
             + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
+            + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
             + `</tr>`;
     }).join('');
 
