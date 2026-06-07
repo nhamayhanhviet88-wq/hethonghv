@@ -332,19 +332,18 @@ module.exports = async function(fastify) {
             }))
         })).sort((a, b) => b.year - a.year);
 
-        // ── Unassigned count — per-item (phiếu) level ──
+        // ── Unassigned count — coordination (phối) level ──
         const isManagerOrStaff = isManager || ['quan_ly', 'truong_phong'].includes(request.user.role);
-        const unassigned = await db.get(`
+        const unassignedItems = await db.all(`
             SELECT
-                COUNT(i.id)::int AS total,
-                COUNT(i.id) FILTER (
-                    WHERE COALESCE(p.fabric_arrived, false) = true
-                      AND EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL))
-                )::int AS ready,
-                COUNT(i.id) FILTER (
-                    WHERE COALESCE(p.fabric_arrived, false) = false
-                       OR NOT EXISTS (SELECT 1 FROM qlx_assignments qa WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL))
-                )::int AS pending
+                i.material_pairs,
+                COALESCE(p.fabric_arrived, false) AS fabric_arrived,
+                EXISTS (
+                    SELECT 1 FROM qlx_assignments qa 
+                    WHERE qa.dht_order_id = o.id 
+                      AND qa.assignment_type = 'in' 
+                      AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                ) AS has_pc_in
             FROM dht_orders o
             JOIN dht_order_items i ON i.dht_order_id = o.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
@@ -372,6 +371,24 @@ module.exports = async function(fastify) {
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.shipping_status, '') != 'shipped'
         `, [isManagerOrStaff, request.user.id]);
+
+        let totalUnassigned = 0;
+        let readyUnassigned = 0;
+        let pendingUnassigned = 0;
+        for (const it of unassignedItems) {
+            let pairs = [];
+            try {
+                pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []);
+            } catch(e) {}
+            const cnt = (Array.isArray(pairs) && pairs.length > 0) ? pairs.length : 1;
+            totalUnassigned += cnt;
+            if (it.fabric_arrived && it.has_pc_in) {
+                readyUnassigned += cnt;
+            } else {
+                pendingUnassigned += cnt;
+            }
+        }
+        const unassigned = { total: totalUnassigned, ready: readyUnassigned, pending: pendingUnassigned };
 
         // Count stats
         const stats = await db.get(`
