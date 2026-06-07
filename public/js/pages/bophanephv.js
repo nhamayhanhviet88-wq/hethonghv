@@ -76,7 +76,9 @@ function renderBophanepPage(content) {
 + '.bpe-claim-btn.ready{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff !important;box-shadow:0 3px 10px rgba(124,58,237,0.3)}'
 + '.bpe-claim-btn.ready:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(124,58,237,0.4)}'
 + '.bpe-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1px solid #e2e8f0;font-weight:600}'
-+ '@media(min-width:769px){.bpe-hide-desktop{display:none !important}}';
++ '@media(min-width:769px){.bpe-hide-desktop{display:none !important}}'
++ '.bpe-col-act{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important;padding:4px 2px !important}'
++ '.bpe-col-stt{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important}';
         document.head.appendChild(st);
     }
 
@@ -91,7 +93,7 @@ function renderBophanepPage(content) {
         + '<div id="bpePaginationTop" style="margin:8px 0"></div>'
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:11px;white-space:nowrap;width:100%" id="bpeTable"><thead><tr style="background:var(--gray-800)">'
-        + '<th>STT</th><th>🔥</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
+        + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
         + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
         + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         + '</tr></thead><tbody id="bpeTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
@@ -411,7 +413,7 @@ function _bpeRender() {
         var thead = wrap.querySelector('thead');
         if (thead) {
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
-                + '<th>STT</th><th>🔥</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
+                + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
                 + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
                 + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
                 + '</tr>';
@@ -454,7 +456,7 @@ function _bpeRenderRows(paged) {
             var noteStr = r.warning_msg ? '<span style="color:#ef4444;font-weight:700">' + r.warning_msg + '</span>' : '—';
 
             return '<tr style="background:#fff7ed">'
-                +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(globalIndex+1)+'</td>'
+                +'<td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">'+(globalIndex+1)+'</td>'
                 +'<td colspan="2" style="text-align:center;vertical-align:middle">'+claimHtml+'</td>'
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
@@ -488,9 +490,9 @@ function _bpeRenderRows(paged) {
             presserHtml += ' <span onclick="event.stopPropagation(); _bpeUnclaimOrder(' + r.order_item_id + ',\'' + (r.order_code || '') + '\')" style="color:#ef4444;cursor:pointer;font-weight:bold;margin-left:4px" title="Trả lại đơn">❌</span>';
         }
 
-        return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
-            + '<td style="text-align:center"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
-            + '<td style="text-align:center"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
+        return '<tr><td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
+            + '<td class="bpe-col-act"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
+            + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
             + '<td style="font-weight:600;color:#1e293b">' + (r.product_name || r.order_code || '—') + '</td>'
