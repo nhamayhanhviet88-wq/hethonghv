@@ -430,8 +430,8 @@ async function _bpcLoadRecords() {
             wrap.innerHTML = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
                 +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
                 +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
-                +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
-                +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
+                +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
+                +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
                 +'</tr></thead><tbody id="bpcTbody"></tbody></table>';
         }
         _bpcRenderTable();
@@ -611,7 +611,6 @@ function _bpcMapRecordRow(r, i) {
             +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
             +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_start)+'</td>'
             +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_end)+'</td>'
-            +'<td>'+warnHtml+'</td>'
             +'<td style="font-size:10px;text-align:center">'+sharedCol+'</td>'
             +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
             +'</tr>';
@@ -636,7 +635,6 @@ function _bpcMapRecordRow(r, i) {
         +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+((r.is_cut_done ? r.ratio_reason : '')||'—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+((r.is_cutting || r.is_cut_done) ? _bpcFmtKg(r.kg_start) : '—')+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(r.is_cut_done ? _bpcFmtKg(r.kg_end) : '—')+'</td>'
-        +'<td>'+warnHtml+'</td>'
         +'<td style="font-size:10px;text-align:center">'+sharedCol+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
         +'</tr>';
@@ -649,8 +647,8 @@ function _bpcBuildRecordsTableHtml(records) {
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcRecordsTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
         +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
-        +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
-        +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
+        +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
+        +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
     th += records.map(function(r, i) {
         return _bpcMapRecordRow(r, i);
@@ -992,8 +990,8 @@ function _bpcBuildUnassignedTableHtml(all) {
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcUnassignedTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
         +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
-        +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
-        +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
+        +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
+        +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
     if (!all.length) {
         th += '<tr><td colspan="20"><div class="empty-state"><div class="icon">✅</div><h3>Không có đơn chờ cắt</h3></div></td></tr>';
@@ -1068,7 +1066,6 @@ function _bpcBuildUnassignedTableHtml(all) {
                 +'<td style="font-size:9px;color:#6b7280">—</td>'
                 +'<td style="text-align:center;font-weight:600">—</td>'
                 +'<td style="text-align:center;font-weight:600">—</td>'
-                +'<td>' + (r.cut_warning ? ('<span style="color:#dc2626;font-weight:700">' + r.cut_warning + '</span>') : '—') + '</td>'
                 +'<td style="font-size:10px;text-align:center">—</td>'
                 +'<td style="font-size:9px;color:#6b7280">—</td>'
                 +'</tr>';
