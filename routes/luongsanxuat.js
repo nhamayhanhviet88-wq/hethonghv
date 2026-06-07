@@ -81,9 +81,11 @@ module.exports = async function(fastify) {
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 WHERE ${whereCutting}
+                  AND cr.is_cut_done = true
                   AND cr.id = (
                       SELECT sub.id FROM cutting_records sub
                       WHERE sub.order_item_id = cr.order_item_id
+                        AND sub.is_cut_done = true
                         AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
                       ORDER BY COALESCE(NULLIF(SUBSTRING(sub.product_name FROM '— P([0-9]+)'), ''), '1')::integer ASC, sub.id ASC
                       LIMIT 1
@@ -102,6 +104,7 @@ module.exports = async function(fastify) {
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
                 WHERE ${wherePressing}
+                  AND pr.is_reported = true
 
                 UNION ALL
 
@@ -117,6 +120,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
                 WHERE ${whereSewing}
+                  AND sr.done_date IS NOT NULL
             ) sub
             GROUP BY year, month, dept, worker_id, contractor_id, worker_name, contractor_name
             ORDER BY year DESC, month DESC, dept, worker_name, contractor_name
@@ -203,17 +207,19 @@ module.exports = async function(fastify) {
             FROM (
                 SELECT cutter_id AS worker_id, salary, salary_approved AS is_approved 
                 FROM cutting_records cr
-                WHERE cr.id = (
+                WHERE cr.is_cut_done = true
+                  AND cr.id = (
                     SELECT sub.id FROM cutting_records sub
                     WHERE sub.order_item_id = cr.order_item_id
+                      AND sub.is_cut_done = true
                       AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
                     ORDER BY COALESCE(NULLIF(SUBSTRING(sub.product_name FROM '— P([0-9]+)'), ''), '1')::integer ASC, sub.id ASC
                     LIMIT 1
                 )
                 UNION ALL
-                SELECT presser_id AS worker_id, salary, salary_approved AS is_approved FROM pressing_records
+                SELECT presser_id AS worker_id, salary, salary_approved AS is_approved FROM pressing_records WHERE is_reported = true
                 UNION ALL
-                SELECT sewer_id AS worker_id, salary, salary_approved AS is_approved FROM sewing_records
+                SELECT sewer_id AS worker_id, salary, salary_approved AS is_approved FROM sewing_records WHERE done_date IS NOT NULL
             ) sub
             ${statusWhere}
         `, statusParams);
@@ -340,9 +346,11 @@ module.exports = async function(fastify) {
                 ) lh ON true
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
                 WHERE ${whereCutting}
+                  AND cr.is_cut_done = true
                   AND cr.id = (
                       SELECT sub.id FROM cutting_records sub
                       WHERE sub.order_item_id = cr.order_item_id
+                        AND sub.is_cut_done = true
                         AND ((COALESCE(sub.cut_warning, '') LIKE '%Cắt bù%') = (COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%'))
                       ORDER BY COALESCE(NULLIF(SUBSTRING(sub.product_name FROM '— P([0-9]+)'), ''), '1')::integer ASC, sub.id ASC
                       LIMIT 1
@@ -386,6 +394,7 @@ module.exports = async function(fastify) {
                 ) lh ON true
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
                 WHERE ${wherePressing}
+                  AND pr.is_reported = true
             `);
         }
 
@@ -426,6 +435,7 @@ module.exports = async function(fastify) {
                 ) lh ON true
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
                 WHERE ${whereSewing}
+                  AND sr.done_date IS NOT NULL
             `);
         }
 
