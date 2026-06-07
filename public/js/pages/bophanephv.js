@@ -91,10 +91,10 @@ function renderBophanepPage(content) {
         + '<div id="bpePaginationTop" style="margin:8px 0"></div>'
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:11px;white-space:nowrap;width:100%" id="bpeTable"><thead><tr style="background:var(--gray-800)">'
-        + '<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
+        + '<th>STT</th><th>🔥</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
         + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
         + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-        + '</tr></thead><tbody id="bpeTb"><tr><td colspan="21" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        + '</tr></thead><tbody id="bpeTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         + '<div id="bpePaginationBottom" style="margin:8px 0"></div>'
         + '</div></div>';
 
@@ -411,7 +411,7 @@ function _bpeRender() {
         var thead = wrap.querySelector('thead');
         if (thead) {
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
-                + '<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
+                + '<th>STT</th><th>🔥</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
                 + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
                 + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
                 + '</tr>';
@@ -426,7 +426,7 @@ function _bpeRender() {
 function _bpeRenderRows(paged) {
     var tb = document.getElementById('bpeTb'); if (!tb) return;
     if (!paged.length) {
-        tb.innerHTML = '<tr><td colspan="21"><div class="empty-state"><div class="icon">🔥</div><h3>Chưa có đơn ép nào</h3><p>Chọn mục ở sidebar</p></div></td></tr>';
+        tb.innerHTML = '<tr><td colspan="18"><div class="empty-state"><div class="icon">🔥</div><h3>Chưa có đơn ép nào</h3><p>Chọn mục ở sidebar</p></div></td></tr>';
         return;
     }
     
@@ -455,7 +455,7 @@ function _bpeRenderRows(paged) {
 
             return '<tr style="background:#fff7ed">'
                 +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(globalIndex+1)+'</td>'
-                +'<td colspan="3" style="text-align:center;vertical-align:middle">'+claimHtml+'</td>'
+                +'<td colspan="2" style="text-align:center;vertical-align:middle">'+claimHtml+'</td>'
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
                 +'<td style="font-weight:600;color:#1e293b">'+priBadge+r.product_name+'</td>'
@@ -464,7 +464,6 @@ function _bpeRenderRows(paged) {
                 +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
                 +'<td style="text-align:center;font-weight:600;color:#0369a1">'+r.order_quantity+'</td>'
                 +'<td style="text-align:center;font-weight:700;color:#ea580c">—</td>'
-                +'<td style="text-align:right;font-weight:800;color:#f59e0b">—</td>'
                 +'<td class="bpe-pos">—</td>'
                 +'<td class="bpe-pos">—</td>'
                 +'<td class="bpe-pos">—</td>'
@@ -491,7 +490,6 @@ function _bpeRenderRows(paged) {
 
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
             + '<td style="text-align:center"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
-            + '<td style="text-align:center"><button class="bpe-ib' + sC + '" onclick="_bpeTog(' + r.id + ',\'' + sA + '\')" title="Lương">' + sI + '</button></td>'
             + '<td style="text-align:center"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
@@ -501,7 +499,6 @@ function _bpeRenderRows(paged) {
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
             + '<td style="text-align:center;font-weight:600">' + (r.order_quantity || '—') + '</td>'
             + '<td style="text-align:center;font-weight:700;color:#ea580c">' + (r.press_quantity || '—') + '</td>'
-            + '<td style="text-align:right;font-weight:800;color:#f59e0b">' + _bpeFN(r.press_salary) + '</td>'
             + '<td class="bpe-pos">' + (r.pos_chest_arm || '—') + '</td>'
             + '<td class="bpe-pos">' + (r.pos_back_belly || '—') + '</td>'
             + '<td class="bpe-pos">' + (r.pos_protective || '—') + '</td>'
