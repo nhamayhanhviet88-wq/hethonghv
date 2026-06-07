@@ -433,6 +433,20 @@ function onPtImpLotChange() {
 
 async function submitPtImportForm(event) {
     event.preventDefault();
+    var btn = document.getElementById('submitPtImpBtn');
+    if (btn) {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.innerText = 'Đang xử lý...';
+    }
+
+    function enableBtn() {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'Xác Nhận Xuất';
+        }
+    }
+
     var field = document.getElementById('ptImpField').value;
     var selectEl = document.getElementById('ptImpLotSelect');
     var lotId = Number(selectEl.value);
@@ -440,12 +454,14 @@ async function submitPtImportForm(event) {
     
     if (!lotId) {
         showToast('Vui lòng chọn lô nhập từ Kho Vật Liệu', 'error');
+        enableBtn();
         return;
     }
     
     var lot = _ptAvailableLots.find(function(l) { return l.id === lotId; });
     if (!lot) {
         showToast('Lô vật liệu chọn không hợp lệ', 'error');
+        enableBtn();
         return;
     }
     
@@ -458,6 +474,7 @@ async function submitPtImportForm(event) {
         var unconfirmedCount = activeRolls.filter(function(r) { return !r.confirmed_by; }).length;
         if (unconfirmedCount > 0) {
             showToast('⚠️ Cần chốt cuộn ' + field + ' hiện tại trước khi thêm cuộn mới!', 'error');
+            enableBtn();
             return;
         }
     } catch(e) {
@@ -480,10 +497,12 @@ async function submitPtImportForm(event) {
             _ptLoadAll();
         } else {
             showToast(res.error || 'Lỗi khi xuất kho', 'error');
+            enableBtn();
         }
     } catch(e) {
         console.error('[PT] submit import failed:', e);
         showToast('Có lỗi xảy ra khi xuất kho', 'error');
+        enableBtn();
     }
 }
 
