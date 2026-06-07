@@ -573,11 +573,16 @@ function _bpcMapRecordRow(r, i) {
             : '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>';
     }
     
+    var ratioFailBadge = '';
+    if (r.is_cut_done && ratioColor === '#dc2626') {
+        ratioFailBadge = '<span style="background:#dc2626;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Sai Tỉ Lệ Cắt</span>';
+    }
+
     var nameHtml = '';
     if (r.is_uncut) {
         nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + sharedBadge + compBadge + priBadge + (r.product_name || r.order_code || '—') + '</td>';
     } else {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span>' + ratioFailBadge + '</td>';
     }
     
     var sharedCol = '—';
