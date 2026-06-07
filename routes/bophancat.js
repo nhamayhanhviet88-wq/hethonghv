@@ -413,6 +413,7 @@ module.exports = async function(fastify) {
         if (status === 'cutting') { where += ` AND cr.is_cutting = true AND cr.is_cut_done = false`; }
         else if (status === 'done') { where += ` AND cr.is_cut_done = true`; }
         else if (status === 'approved') { where += ` AND cr.salary_approved = true`; }
+        else if (status === 'incomplete') { where += ` AND cr.is_cut_done = false`; }
         if (search) {
             where += ` AND (cr.product_name ILIKE $${idx} OR cr.material_name ILIKE $${idx} OR o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR u_cutter.full_name ILIKE $${idx})`;
             params.push(`%${search}%`);

@@ -184,6 +184,18 @@ function _bpcRenderSidebar() {
             var yAct = f.view === 'records' && f.year == yr.year && !f.cutter_id && !f.month && !f.status;
             h += '<div class="bpc-sb-year' + (yAct ? ' active' : '') + '" onclick="_bpcSelectYear(' + yr.year + ')"><span>' + (yOpen?'▼':'▶') + ' 📅 Năm ' + yr.year + '</span><span style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
             if (yOpen && yr.cutters) {
+                // Calculate total incomplete count for all cutters in this year
+                var totalIncomplete = 0;
+                yr.cutters.forEach(function(c) {
+                    totalIncomplete += (c.incomplete_count || 0);
+                });
+                
+                var incYearAct = f.view === 'records' && f.year == yr.year && !f.cutter_id && f.status === 'incomplete';
+                h += '<div class="bpc-sb-sub incomplete' + (incYearAct ? ' active' : '') + '" style="padding-left:23px" onclick="event.stopPropagation(); _bpcFilterCutterStatus(' + yr.year + ', null, \'incomplete\')">';
+                h += '  <span>⏳ Chưa Cắt Xong</span>';
+                h += '  <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800">' + totalIncomplete + '</span>';
+                h += '</div>';
+
                 yr.cutters.forEach(function(c) {
                     var cKey = 'c'+yr.year+'_'+c.id;
                     var cOpen = !!_bpcOpen[cKey];
@@ -256,6 +268,7 @@ async function _bpcLoadRecords() {
     if (f.month) qs += '&month=' + f.month;
     if (f.cutter_id) qs += '&cutter_id=' + f.cutter_id;
     if (f.status === 'done') qs += '&status=done';
+    if (f.status === 'incomplete') qs += '&status=incomplete';
     try {
         var res = await apiCall('/api/cutting/records' + qs);
         _bpc.records = res.records || [];
@@ -497,6 +510,7 @@ function _bpcRenderStats(count, arr) {
     var el = document.getElementById('bpcFilterInfo'); if (!el) return;
     var f = _bpc.filter, parts = ['✂️ Bộ Phận Cắt'];
     if (f.year) parts.push('📆 ' + f.year);
+    if (f.status === 'incomplete') parts.push('⏳ Chưa Cắt Xong');
     if (f.month) parts.push('🗓️ T' + f.month);
     var label = parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ');
     el.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:0.3px">'
