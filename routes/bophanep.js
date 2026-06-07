@@ -437,8 +437,8 @@ module.exports = async function(fastify) {
                 const ready = isCutReady && isPrintReady;
 
                 const warnings = [];
-                if (!isCutReady) warnings.push('Chưa cắt xong');
-                if (!isPrintReady) warnings.push('Chưa in xong');
+                if (!isCutReady) warnings.push('Chưa cắt');
+                if (!isPrintReady) warnings.push('Chưa in');
                 const warningMsg = warnings.length > 0 ? warnings.join(' + ') : null;
 
                 const itemCuts = completedCuts.filter(c => c.order_item_id === it.id);
