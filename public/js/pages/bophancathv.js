@@ -1,5 +1,5 @@
 // ========== BỘ PHẬN CẮT — Desktop SPA Page ==========
-var _bpc = { records: [], tree: null, unassignedOrders: [], filter: { year: null, month: null, cutter_id: null, status: null, view: 'records' }, search: '', page: 1, pageSize: 200 };
+var _bpc = { records: [], tree: null, unassignedOrders: [], filter: { year: null, month: null, cutter_id: null, status: null, view: 'records' }, search: '', page: 1, pageSize: 200, subFilter: 'all', fullRecords: [] };
 var _bpcOpen = {};
 
 function _bpcFmtKg(val) {
@@ -270,14 +270,22 @@ async function _bpcLoadRecords() {
     if (f.year) qs += '&year=' + f.year;
     if (f.month) qs += '&month=' + f.month;
     if (f.cutter_id) qs += '&cutter_id=' + f.cutter_id;
-    if (f.status === 'done') qs += '&status=done';
-    if (f.status === 'incomplete') qs += '&status=incomplete';
+    
+    // Determine default client-side subFilter based on sidebar filter status
+    if (f.status === 'incomplete') {
+        _bpc.subFilter = 'incomplete';
+    } else if (f.status === 'done') {
+        _bpc.subFilter = 'done';
+    } else {
+        _bpc.subFilter = 'all';
+    }
+
     try {
         var res = await apiCall('/api/cutting/records' + qs);
         var records = res.records || [];
 
         // If it is the "Total" view (no filters), load unassigned as well and merge
-        var isTotalView = !f.year && !f.month && !f.cutter_id && !f.status;
+        var isTotalView = !f.year && !f.month && !f.cutter_id;
         if (isTotalView) {
             try {
                 var unassignedRes = await apiCall('/api/cutting/unassigned');
@@ -412,17 +420,14 @@ async function _bpcLoadRecords() {
             return gB.maxId - gA.maxId;
         });
         
-        // Flatten back to _bpc.records
+        // Flatten back to _bpc.fullRecords
         var newRecs = [];
         sortedGroups.forEach(function(key) {
             newRecs = newRecs.concat(groups[key].items);
         });
+        _bpc.fullRecords = newRecs;
         _bpc.records = newRecs;
 
-        // Filter incomplete on client if needed
-        if (f.status === 'incomplete') {
-            _bpc.records = _bpc.records.filter(function(r) { return !r.is_cut_done; });
-        }
         _bpc.page = 1;
         // Render table into wrap
         var wrap = document.getElementById('bpcTableWrap');
@@ -462,11 +467,31 @@ function _bpcFmtTimeDateNoYear(d) {
 }
 
 function _bpcRenderTable() {
-    var all = _bpc.records.slice();
+    var all = (_bpc.fullRecords || []).slice();
+    
+    // 1. Apply sub-filter
+    var sf = _bpc.subFilter || 'all';
+    if (sf === 'unassigned') {
+        all = all.filter(function(r) { return r.is_uncut; });
+    } else if (sf === 'incomplete') {
+        all = all.filter(function(r) { return !r.is_uncut && !r.is_cut_done; });
+    } else if (sf === 'done') {
+        all = all.filter(function(r) { return r.is_cut_done; });
+    }
+    
+    // 2. Apply search
     if (_bpc.search) {
         var q = _bpc.search.toLowerCase();
-        all = all.filter(function(r) { return (r.product_name||'').toLowerCase().indexOf(q)>=0 || (r.material_name||'').toLowerCase().indexOf(q)>=0 || (r.order_code||'').toLowerCase().indexOf(q)>=0 || (r.cutting_category||'').toLowerCase().indexOf(q)>=0; });
+        all = all.filter(function(r) { 
+            return (r.product_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.material_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.order_code||'').toLowerCase().indexOf(q)>=0 
+                || (r.cutting_category||'').toLowerCase().indexOf(q)>=0; 
+        });
     }
+    
+    _bpc.records = all;
+    
     var total = all.length, totalPages = Math.ceil(total / _bpc.pageSize) || 1;
     if (_bpc.page > totalPages) _bpc.page = totalPages;
     if (_bpc.page < 1) _bpc.page = 1;
@@ -709,12 +734,57 @@ function _bpcRenderStats(count, arr) {
         + label + ' <span style="opacity:0.5;margin:0 4px">—</span> <span style="color:#fca5a5;font-weight:900">' + count + '</span> đơn</div>';
 
     var sc = document.getElementById('bpcStatCards'); if (!sc) return;
-    var cutting = arr.filter(function(r){return r.is_cutting && !r.is_cut_done;}).length;
-    var done = arr.filter(function(r){return r.is_cut_done;}).length;
-    sc.innerHTML = ''
-        +'<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div><div style="font-size:15px;font-weight:900">'+count+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #f59e0b30;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .3s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✂️ ĐANG CẮT</div><div style="font-size:15px;font-weight:900">'+cutting+'</div></div>'
-        +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .6s"></div><div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>';
+    
+    // Get base list filtered ONLY by search (so stats reflect search query if typed)
+    var baseArr = (_bpc.fullRecords || []).slice();
+    if (_bpc.search) {
+        var q = _bpc.search.toLowerCase();
+        baseArr = baseArr.filter(function(r) { 
+            return (r.product_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.material_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.order_code||'').toLowerCase().indexOf(q)>=0 
+                || (r.cutting_category||'').toLowerCase().indexOf(q)>=0; 
+        });
+    }
+    
+    var totalCount = baseArr.length;
+    var unassignedCount = baseArr.filter(function(r) { return r.is_uncut; }).length;
+    var incompleteCount = baseArr.filter(function(r) { return !r.is_uncut && !r.is_cut_done; }).length;
+    var doneCount = baseArr.filter(function(r) { return r.is_cut_done; }).length;
+
+    var sf = _bpc.subFilter || 'all';
+    
+    var btnTotalHtml = '<div onclick="_bpcSetSubFilter(\'all\')" style="cursor:pointer;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'all' ? '0 0 0 3px #fff, 0 4px 20px rgba(220,38,38,0.5)' : '0 4px 10px rgba(220,38,38,0.2)') + ';transform:' + (sf === 'all' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'all' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">📦 TỔNG ĐƠN</div>'
+        +'<div style="font-size:16px;font-weight:900">' + totalCount + '</div>'
+        +'</div>';
+        
+    var btnUnassignedHtml = '<div onclick="_bpcSetSubFilter(\'unassigned\')" style="cursor:pointer;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'unassigned' ? '0 0 0 3px #fff, 0 4px 20px rgba(79,70,229,0.5)' : '0 4px 10px rgba(79,70,229,0.2)') + ';transform:' + (sf === 'unassigned' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'unassigned' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .2s"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">🔴 CHƯA NHẬN</div>'
+        +'<div style="font-size:16px;font-weight:900">' + unassignedCount + '</div>'
+        +'</div>';
+        
+    var btnIncompleteHtml = '<div onclick="_bpcSetSubFilter(\'incomplete\')" style="cursor:pointer;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'incomplete' ? '0 0 0 3px #fff, 0 4px 20px rgba(234,88,12,0.5)' : '0 4px 10px rgba(234,88,12,0.2)') + ';transform:' + (sf === 'incomplete' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'incomplete' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .4s"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA CẮT XONG</div>'
+        +'<div style="font-size:16px;font-weight:900">' + incompleteCount + '</div>'
+        +'</div>';
+        
+    var btnDoneHtml = '<div onclick="_bpcSetSubFilter(\'done\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'done' ? '0 0 0 3px #fff, 0 4px 20px rgba(16,185,129,0.5)' : '0 4px 10px rgba(16,185,129,0.2)') + ';transform:' + (sf === 'done' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'done' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .6s"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">✅ HOÀN THÀNH</div>'
+        +'<div style="font-size:16px;font-weight:900">' + doneCount + '</div>'
+        +'</div>';
+        
+    sc.innerHTML = btnTotalHtml + btnUnassignedHtml + btnIncompleteHtml + btnDoneHtml;
+}
+
+function _bpcSetSubFilter(sf) {
+    _bpc.subFilter = sf;
+    _bpc.page = 1;
+    _bpcRenderTable();
 }
 
 async function _bpcToggleAction(id, action) {
