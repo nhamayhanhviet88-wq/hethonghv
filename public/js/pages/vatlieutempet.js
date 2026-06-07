@@ -153,16 +153,20 @@ function _ptRender(){
         var displayFieldName = r.field_name || '—';
         var seqStr = r.seq ? '#' + r.seq : '';
         var btnLabel = '';
+        var treeBadge = '';
         
         if (r.roll_type === 'PET') {
-            displayFieldName = 'Cây Pet ' + seqStr + ' Màng In Pet';
             btnLabel = 'Cây Pet ' + seqStr;
+            treeBadge = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">Cây Pet ' + seqStr + '</span>';
+            displayFieldName = 'Màng In Pet';
         } else if (r.roll_type === 'TEM') {
-            displayFieldName = 'Cây Tem ' + seqStr;
             btnLabel = 'Cây Tem ' + seqStr;
+            treeBadge = '<span style="background:#f3e8ff;color:#7c3aed;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #d8b4fe;display:inline-block;vertical-align:middle;line-height:1.2">Cây Tem ' + seqStr + '</span>';
+            displayFieldName = 'Màng In Tem';
         } else if (r.roll_type === 'DECAL') {
-            displayFieldName = 'Cây Decal ' + seqStr;
             btnLabel = 'Cây Decal ' + seqStr;
+            treeBadge = '<span style="background:#d1fae5;color:#059669;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #6ee7b7;display:inline-block;vertical-align:middle;line-height:1.2">Cây Decal ' + seqStr + '</span>';
+            displayFieldName = 'Màng In Decal';
         } else {
             btnLabel = colLabel + ' #' + (r.material_tx_id || r.id);
             if (displayFieldName === 'PET') displayFieldName = 'Màng In Pet';
@@ -170,11 +174,16 @@ function _ptRender(){
             if (displayFieldName === 'DECAL') displayFieldName = 'Màng In Decal';
         }
         
+        var nameCellHtml = lotPrefix + displayFieldName;
+        if (treeBadge) {
+            nameCellHtml = '<div style="display:flex;align-items:center;justify-content:flex-start;text-align:left">' + treeBadge + '<span>' + displayFieldName + '</span></div>';
+        }
+        
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + btnLabel + '</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
         +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
-        +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+lotPrefix+displayFieldName+'</td>'
+        +'<td style="font-size:10px;color:#1e293b;font-weight:600;text-align:left !important;padding-left:12px">'+nameCellHtml+'</td>'
         +'<td style="text-align:center;font-weight:800;color:#e11d48;font-size:13px">'+_ptFN(r.qty_imported)+'</td>'
         +'<td style="text-align:center;color:#f59e0b;font-weight:600">'+_ptFN(r.qty_waste)+'</td>'
         +'<td style="text-align:center;color:#dc2626;font-weight:600">'+_ptFN(r.qty_error)+'</td>'
