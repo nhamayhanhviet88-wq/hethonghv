@@ -307,8 +307,9 @@ module.exports = async function(fastify) {
             where += ` AND COALESCE(p.is_completed, false) = true`;
         } else if (status === 'incomplete' || !status) {
             where += ` AND COALESCE(p.is_completed, false) = false AND COALESCE(o.shipping_status, '') != 'shipped'`;
+        } else if (status === 'all') {
+            where += ` AND (COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') != 'shipped')`;
         }
-        // else status === 'all' → no filter
 
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(o.shipping_date, o.order_date)) = $${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(o.shipping_date, o.order_date)) = $${idx++}`; params.push(Number(month)); }
