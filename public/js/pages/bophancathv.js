@@ -427,7 +427,7 @@ async function _bpcLoadRecords() {
         if (wrap) {
             wrap.innerHTML = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
                 +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-                +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th>'
+                +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
                 +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
                 +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
                 +'</tr></thead><tbody id="bpcTbody"></tbody></table>';
@@ -437,6 +437,27 @@ async function _bpcLoadRecords() {
 }
 
 function _bpcFmtDate(d) { if (!d) return '—'; try { var p = d.split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } catch(e) { return d; } }
+
+function _bpcFmtTimeDateNoYear(d) {
+    if (!d) return '—';
+    try {
+        var str = '';
+        if (typeof vnFormat === 'function') {
+            str = vnFormat(d);
+        } else {
+            var dateObj = new Date(d);
+            if (isNaN(dateObj.getTime())) return d;
+            var hh = String(dateObj.getHours()).padStart(2, '0');
+            var mm = String(dateObj.getMinutes()).padStart(2, '0');
+            var dd = String(dateObj.getDate()).padStart(2, '0');
+            var mo = String(dateObj.getMonth() + 1).padStart(2, '0');
+            str = hh + ':' + mm + ' ' + dd + '/' + mo + '/2026';
+        }
+        return str.replace(/\/\d{4}$/, '');
+    } catch(e) {
+        return d;
+    }
+}
 
 function _bpcRenderTable() {
     var all = _bpc.records.slice();
@@ -552,11 +573,7 @@ function _bpcMapRecordRow(r, i) {
     
     var nameHtml = '';
     if (r.is_uncut) {
-        var statusHtml = '<div style="display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle">'
-            + (r.fabric_arrived ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ Vải</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ Vải</span>')
-            + (r.has_pc_in ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ PC In</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ PC In</span>')
-            + '</div>';
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + sharedBadge + compBadge + priBadge + (r.product_name || r.order_code || '—') + statusHtml + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + sharedBadge + compBadge + priBadge + (r.product_name || r.order_code || '—') + '</td>';
     } else {
         nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>';
     }
@@ -582,6 +599,7 @@ function _bpcMapRecordRow(r, i) {
             +'<td style="font-size:10px">—</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
             +nameHtml
+            +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
@@ -603,9 +621,10 @@ function _bpcMapRecordRow(r, i) {
         +'<td style="text-align:center">'+doneBtnHtml+'</td>'
         +'<td style="text-align:center">'+washBtnHtml+'</td>'
         +'<td style="text-align:center">'+errBtnHtml+'</td>'
-        +'<td style="font-size:10px">'+(r.cut_date ? _bpcFmtDate(r.cut_date) : '—')+'</td>'
+        +'<td style="font-size:10px">'+(r.created_at ? _bpcFmtTimeDateNoYear(r.created_at) : '—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
         +nameHtml
+        +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
@@ -627,7 +646,7 @@ function _bpcBuildRecordsTableHtml(records) {
     }
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcRecordsTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
         +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
         +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
@@ -970,7 +989,7 @@ async function _bpcLoadUnassigned() {
 function _bpcBuildUnassignedTableHtml(all) {
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcUnassignedTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
         +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
         +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
@@ -1000,10 +1019,6 @@ function _bpcBuildUnassignedTableHtml(all) {
             if (r.cut_warning) {
                 spName += '<div style="color:#ea580c;font-size:10px;margin-top:2px;font-weight:bold">⚠️ ' + r.cut_warning + '</div>';
             }
-            var statusHtml = '<div style="display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle">'
-                + (r.fabric_arrived ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ Vải</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ Vải</span>')
-                + (r.has_pc_in ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ PC In</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ PC In</span>')
-                + '</div>';
             var claimTd = '';
             if (isNew) {
                 var rs = groupRowCount[groupKey] || 1;
@@ -1033,7 +1048,7 @@ function _bpcBuildUnassignedTableHtml(all) {
             }
             var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
             var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
-            var finalSpName = spName + statusHtml;
+            var finalSpName = spName;
 
             th += '<tr style="'+bg+'">'
                 +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
@@ -1041,6 +1056,7 @@ function _bpcBuildUnassignedTableHtml(all) {
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
                 +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
+                +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
                 +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
                 +'<td style="font-size:10px">'+(r.color_name||'—')+'</td>'
                 +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
