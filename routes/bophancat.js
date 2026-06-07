@@ -414,7 +414,7 @@ module.exports = async function(fastify) {
         else if (status === 'done') { where += ` AND cr.is_cut_done = true`; }
         else if (status === 'approved') { where += ` AND cr.salary_approved = true`; }
         if (search) {
-            where += ` AND (cr.product_name ILIKE $${idx} OR cr.material_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`;
+            where += ` AND (cr.product_name ILIKE $${idx} OR cr.material_name ILIKE $${idx} OR o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR u_cutter.full_name ILIKE $${idx})`;
             params.push(`%${search}%`);
             idx++;
         }
