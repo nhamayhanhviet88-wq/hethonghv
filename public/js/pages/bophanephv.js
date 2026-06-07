@@ -24,6 +24,10 @@ function renderBophanepPage(content){
     +'.bpe-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.bpe-ib.on-rpt{background:#ffedd5;border-color:#f97316}.bpe-ib.on-sal{background:#fef3c7;border-color:#f59e0b}.bpe-ib.on-err{background:#fee2e2;border-color:#ef4444}'
     +'.bpe-pos{font-size:9px;text-align:center;font-weight:700;color:#7c3aed}'
+    +'.bpe-claim-btn{padding:7px 16px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:"Inter",system-ui,sans-serif;letter-spacing:0.3px}'
+    +'.bpe-claim-btn.ready{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff !important;box-shadow:0 3px 10px rgba(124,58,237,0.3)}'
+    +'.bpe-claim-btn.ready:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(124,58,237,0.4)}'
+    +'.bpe-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1.5px solid #e2e8f0;font-weight:600}'
     +'@media(max-width:768px){.bpe-sb{display:none}}';
     document.head.appendChild(st);}
     
@@ -257,9 +261,9 @@ function _bpeRenderUnassigned() {
             var rs = groupRowCount[groupKey] || 1;
             var claimHtml = '';
             if (r.ready) {
-                claimHtml = '<button class="btn btn-sm btn-primary" onclick="_bpeClaimOrder(' + r.id + ',' + (r.item_id || 'null') + ',\'' + r.order_code + '\')" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;font-weight:bold;font-size:10px;padding:4px 8px;color:#fff !important">🔥 NHẬN ÉP</button>';
+                claimHtml = '<button class="bpe-claim-btn ready" onclick="_bpeClaimOrder(' + r.id + ',' + (r.item_id || 'null') + ',\'' + r.order_code + '\')">🔥 NHẬN ÉP</button>';
             } else {
-                claimHtml = '<button class="btn btn-sm btn-secondary" disabled title="' + (r.warning_msg || 'Thiếu thông tin') + '" style="font-size:10px;padding:4px 8px;opacity:0.6;cursor:not-allowed">🔒 ' + (r.warning_msg || 'Khóa') + '</button>';
+                claimHtml = '<button class="bpe-claim-btn disabled" disabled title="' + (r.warning_msg || 'Thiếu thông tin') + '">🔒 ' + (r.warning_msg || 'Khóa') + '</button>';
             }
             claimTd = '<td rowspan="' + rs + '" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">' + claimHtml + '</td>';
             
