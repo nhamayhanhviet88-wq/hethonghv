@@ -111,11 +111,13 @@ function renderBophancatPage(content) {
     }
     content.innerHTML = '<div class="bpc-wrap"><div class="bpc-sidebar" id="bpcSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpc-main">'
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
+        +'<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
         +'<div id="bpcFilterInfo" style="font-size:12px"></div>'
+        +'<input id="bpcSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
+        +'</div>'
         +'<div id="bpcStatCards" style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center;align-items:center"></div>'
         +'<button onclick="_bpcOpenMultiCut()" style="padding:8px 16px;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(234,88,12,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">✂️+ CẮT NHIỀU ĐƠN</button>'
         +((window._currentUser && window._currentUser.role === 'giam_doc') ? '<button onclick="_bpcOpenTargetRatioModal()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;margin-left:8px;box-shadow:0 3px 12px rgba(16,185,129,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">⚖️ ĐỊNH LƯỢNG TỈ LỆ CẮT</button>' : '')
-        +'<input id="bpcSearch" placeholder="🔍 Tìm sản phẩm, chất liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
         +'</div>'
         +'<div id="bpcPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden"><div class="card-body" style="flex:1;overflow:auto;padding:8px;position:relative" id="bpcTableWrap"></div></div>'
@@ -494,7 +496,9 @@ function _bpcRenderTable() {
             return (r.product_name||'').toLowerCase().indexOf(q)>=0 
                 || (r.material_name||'').toLowerCase().indexOf(q)>=0 
                 || (r.order_code||'').toLowerCase().indexOf(q)>=0 
-                || (r.cutting_category||'').toLowerCase().indexOf(q)>=0; 
+                || (r.cutting_category||'').toLowerCase().indexOf(q)>=0
+                || (r.cutter_name||'').toLowerCase().indexOf(q)>=0
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0; 
         });
     }
     
@@ -2807,7 +2811,9 @@ async function _bpcDoSearch(query) {
             return (r.order_code||'').toLowerCase().indexOf(q)>=0 
                 || (r.customer_name||'').toLowerCase().indexOf(q)>=0 
                 || (r.material_name||'').toLowerCase().indexOf(q)>=0
-                || (r.item_desc||'').toLowerCase().indexOf(q)>=0;
+                || (r.item_desc||'').toLowerCase().indexOf(q)>=0
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0
+                || (r.created_by_name||'').toLowerCase().indexOf(q)>=0;
         });
 
         // 3. Render combined results view

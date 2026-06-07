@@ -432,7 +432,7 @@ module.exports = async function(fastify) {
         else if (status === 'approved') { where += ` AND cr.salary_approved = true`; }
         else if (status === 'incomplete') { where += ` AND cr.is_cut_done = false`; }
         if (search) {
-            where += ` AND (cr.product_name ILIKE $${idx} OR cr.material_name ILIKE $${idx} OR o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR u_cutter.full_name ILIKE $${idx})`;
+            where += ` AND (cr.product_name ILIKE $${idx} OR cr.material_name ILIKE $${idx} OR o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR u_cutter.full_name ILIKE $${idx} OR u_cskh.full_name ILIKE $${idx})`;
             params.push(`%${search}%`);
             idx++;
         }
