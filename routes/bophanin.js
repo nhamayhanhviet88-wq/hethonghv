@@ -134,8 +134,19 @@ module.exports = async function(fastify) {
     }
 
     async function getOrCreatePrintingRecord(idStr, userId) {
-        if (typeof idStr === 'string' && idStr.startsWith('dht_')) {
-            const dhtOrderId = Number(idStr.replace('dht_', ''));
+        if (idStr === null || idStr === undefined || idStr === '') {
+            throw new Error('Mã đơn in là bắt buộc');
+        }
+
+        const strVal = String(idStr).trim();
+        // Extract the primary component if hyphenated (e.g. "21-3" -> "21", "dht_21-3" -> "dht_21")
+        const primaryIdStr = strVal.split('-')[0].trim();
+
+        if (primaryIdStr.startsWith('dht_')) {
+            const dhtOrderId = Number(primaryIdStr.replace('dht_', ''));
+            if (isNaN(dhtOrderId)) {
+                throw new Error('Mã đơn hàng tổng không hợp lệ');
+            }
             const existing = await db.get('SELECT id FROM printing_records WHERE dht_order_id = $1', [dhtOrderId]);
             if (existing) return existing.id;
 
@@ -180,7 +191,12 @@ module.exports = async function(fastify) {
 
             return r.id;
         }
-        return Number(idStr);
+
+        const id = Number(primaryIdStr);
+        if (isNaN(id)) {
+            throw new Error('Mã đơn in không hợp lệ');
+        }
+        return id;
     }
 
     // ========== CONTRACTORS CRUD ==========
@@ -1063,13 +1079,17 @@ module.exports = async function(fastify) {
     // ========== DELETE ==========
     fastify.delete('/api/printing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isPrintManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ mới xóa được' });
-        await db.run('DELETE FROM printing_records WHERE id=$1', [Number(req.params.id)]);
+        const id = Number(req.params.id);
+        if (isNaN(id)) return reply.code(400).send({ error: 'Mã đơn in không hợp lệ' });
+        await db.run('DELETE FROM printing_records WHERE id=$1', [id]);
         return { success: true };
     });
 
     // ========== HISTORY ==========
-    fastify.get('/api/printing/history/:id', { preHandler: [authenticate] }, async (req) => {
-        const rows = await db.all(`SELECT h.*, u.full_name AS performer_name FROM printing_history h LEFT JOIN users u ON h.performed_by=u.id WHERE h.printing_id=$1 ORDER BY h.performed_at DESC LIMIT 50`, [Number(req.params.id)]);
+    fastify.get('/api/printing/history/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        if (isNaN(id)) return reply.code(400).send({ error: 'Mã đơn in không hợp lệ' });
+        const rows = await db.all(`SELECT h.*, u.full_name AS performer_name FROM printing_history h LEFT JOIN users u ON h.performed_by=u.id WHERE h.printing_id=$1 ORDER BY h.performed_at DESC LIMIT 50`, [id]);
         return { history: rows };
     });
 
