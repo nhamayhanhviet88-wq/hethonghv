@@ -723,7 +723,13 @@ function _bpcRenderPagination(totalItems, totalPages) {
         html += ' <span style="font-size:11px;color:#64748b;font-weight:600;margin-left:8px">Trang '+_bpc.page+'/'+totalPages+' — '+totalItems+' đơn</span></div>';
     }
     var top = document.getElementById('bpcPaginationTop'), bot = document.getElementById('bpcPaginationBottom');
-    if (top) top.innerHTML = html;
+    if (top) {
+        if (totalPages <= 1) {
+            top.innerHTML = '';
+        } else {
+            top.innerHTML = html;
+        }
+    }
     if (bot) bot.innerHTML = html;
 }
 
@@ -1207,7 +1213,7 @@ function _bpcRenderUnassigned() {
     wrap.innerHTML = _bpcBuildUnassignedTableHtml(all);
 
     var top = document.getElementById('bpcPaginationTop'), bot = document.getElementById('bpcPaginationBottom');
-    if (top) top.innerHTML = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">'+all.length+' phối chờ cắt</span></div>';
+    if (top) top.innerHTML = '';
     if (bot) bot.innerHTML = '';
 }
 
@@ -2841,7 +2847,7 @@ async function _bpcDoSearch(query) {
 
         // Clear pagination top & bottom
         var top = document.getElementById('bpcPaginationTop'), bot = document.getElementById('bpcPaginationBottom');
-        if (top) top.innerHTML = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">Khớp: ' + matchedUnassigned.length + ' chưa nhận, ' + matchedRecords.length + ' đã nhận</span></div>';
+        if (top) top.innerHTML = '';
         if (bot) bot.innerHTML = '';
 
     } catch (e) {
