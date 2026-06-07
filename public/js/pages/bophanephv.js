@@ -32,7 +32,13 @@ function renderBophanepPage(content){
     document.head.appendChild(st);}
     
     content.innerHTML='<div class="bpe-wrap"><div class="bpe-sb" id="bpeSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpe-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpeInfo" style="font-size:12px"></div><div id="bpeStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpeSearch" placeholder="🔍 Tìm SP / CSKH / Mã đơn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
+    +'<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
+    +'<div id="bpeInfo" style="font-size:12px"></div>'
+    +'<input id="bpeSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
+    +'</div>'
+    +'<div id="bpeStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
+    +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap;width:100%" id="bpeTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
     +'<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
@@ -131,7 +137,16 @@ function _bpeRender(){
     if(_bpe.viewMode==='unassigned'){_bpeRenderUnassigned();return;}
     
     var all=_bpe.records.slice();
-    if(_bpe.search){var q=_bpe.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
+    if (_bpe.search) {
+        var q = _bpe.search.toLowerCase();
+        all = all.filter(function(r) {
+            return (r.product_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.order_code||'').toLowerCase().indexOf(q)>=0
+                || (r.customer_name||'').toLowerCase().indexOf(q)>=0
+                || (r.presser_name||'').toLowerCase().indexOf(q)>=0;
+        });
+    }
     var tot=all.length;
     
     var wrap = document.getElementById('bpeTable');
@@ -213,7 +228,14 @@ function _bpeRenderUnassigned() {
     var all = _bpe.unassignedOrders.slice();
     if (_bpe.search) {
         var q = _bpe.search.toLowerCase();
-        all = all.filter(function(r) { return (r.order_code||'').toLowerCase().indexOf(q)>=0 || (r.customer_name||'').toLowerCase().indexOf(q)>=0 || (r.material_name||'').toLowerCase().indexOf(q)>=0; });
+        all = all.filter(function(r) {
+            return (r.order_code||'').toLowerCase().indexOf(q)>=0 
+                || (r.customer_name||'').toLowerCase().indexOf(q)>=0 
+                || (r.material_name||'').toLowerCase().indexOf(q)>=0
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0
+                || (r.created_by_name||'').toLowerCase().indexOf(q)>=0
+                || (r.item_desc||'').toLowerCase().indexOf(q)>=0;
+        });
     }
     
     if (_bpe.unassignedFilter === 'ready') {
