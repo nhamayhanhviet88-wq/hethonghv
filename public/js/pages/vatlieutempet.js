@@ -148,14 +148,30 @@ function _ptRender(){
         
         var colType = r.roll_type ? r.roll_type.toUpperCase() : '';
         var colLabel = 'Cây' + (colType ? ' ' + colType : '');
-        var lotPrefix = r.material_tx_id ? 'Lô #' + r.material_tx_id + ' - ' : '';
+        var lotPrefix = (r.material_tx_id && !['PET','TEM','DECAL'].includes(r.roll_type)) ? 'Lô #' + r.material_tx_id + ' - ' : '';
+        
         var displayFieldName = r.field_name || '—';
-        if (displayFieldName === 'PET') displayFieldName = 'Màng In Pet';
-        if (displayFieldName === 'TEM') displayFieldName = 'Màng In Tem';
-        if (displayFieldName === 'DECAL') displayFieldName = 'Màng In Decal';
+        var seqStr = r.seq ? '#' + r.seq : '';
+        var btnLabel = '';
+        
+        if (r.roll_type === 'PET') {
+            displayFieldName = 'Cây Pet ' + seqStr + ' Màng In Pet';
+            btnLabel = 'Cây Pet ' + seqStr;
+        } else if (r.roll_type === 'TEM') {
+            displayFieldName = 'Cây Tem ' + seqStr;
+            btnLabel = 'Cây Tem ' + seqStr;
+        } else if (r.roll_type === 'DECAL') {
+            displayFieldName = 'Cây Decal ' + seqStr;
+            btnLabel = 'Cây Decal ' + seqStr;
+        } else {
+            btnLabel = colLabel + ' #' + (r.material_tx_id || r.id);
+            if (displayFieldName === 'PET') displayFieldName = 'Màng In Pet';
+            if (displayFieldName === 'TEM') displayFieldName = 'Màng In Tem';
+            if (displayFieldName === 'DECAL') displayFieldName = 'Màng In Decal';
+        }
         
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + colLabel + ' #'+(r.material_tx_id || r.id)+'</button></td>'
+        +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + btnLabel + '</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
         +'<td><span class="pt-tag" style="background:'+cl+'">'+(_ptTL[r.roll_type]||r.roll_type)+'</span></td>'
         +'<td style="font-size:10px;color:#1e293b;font-weight:600">'+lotPrefix+displayFieldName+'</td>'
@@ -352,8 +368,18 @@ async function onPtImpFieldChange() {
         var h = '<option value="">-- Chọn lô để xuất nguyên lô --</option>';
         _ptAvailableLots.forEach(function(lot) {
             var dateStr = _ptFD(lot.performed_at.split('T')[0]);
-            var materialName = field === 'PET' ? 'Màng In Pet' : field === 'TEM' ? 'Màng In Tem' : 'Màng In Decal';
-            h += '<option value="' + lot.id + '">Lô #' + lot.id + ' - ' + materialName + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
+            var seqStr = lot.seq ? '#' + lot.seq : '';
+            var displayName = '';
+            if (field === 'PET') {
+                displayName = 'Cây Pet ' + seqStr + ' Màng In Pet';
+            } else if (field === 'TEM') {
+                displayName = 'Cây Tem ' + seqStr;
+            } else if (field === 'DECAL') {
+                displayName = 'Cây Decal ' + seqStr;
+            } else {
+                displayName = 'Lô #' + lot.id + ' - ' + (field === 'PET' ? 'Màng In Pet' : field === 'TEM' ? 'Màng In Tem' : 'Màng In Decal');
+            }
+            h += '<option value="' + lot.id + '">' + displayName + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
         });
         if (selectEl) selectEl.innerHTML = h;
     } catch(e) {
@@ -600,10 +626,24 @@ async function openPtDetailsModal(rollId) {
         }
         var displayNotes = (roll.notes || '—').replace(/kho vật liệu/gi, '<b>$&</b>');
         
+        var seqStr = roll.seq ? '#' + roll.seq : '';
+        var titleName = '';
+        if (roll.roll_type === 'PET') {
+            titleName = 'Cây Pet ' + seqStr;
+        } else if (roll.roll_type === 'TEM') {
+            titleName = 'Cây Tem ' + seqStr;
+        } else if (roll.roll_type === 'DECAL') {
+            titleName = 'Cây Decal ' + seqStr;
+        } else {
+            titleName = 'Cây ' + roll.roll_type + ' #' + (roll.material_tx_id || roll.id);
+        }
+
+        var lotRowHtml = (['PET','TEM','DECAL'].includes(roll.roll_type)) ? '' : '          <tr><td style="color:#64748b;font-weight:600">Nhập từ lô kho</td><td><span style="font-weight:800;color:#7c3aed">🌀 Lô #' + txId + '</span></td></tr>';
+
         m.innerHTML = 
             '<div class="pt-details-content">'
           + '  <div class="pt-modal-header" style="background:#f8fafc">'
-          + '    <h3>🌲 Chi Tiết Cây Vật Liệu #' + (roll.material_tx_id || roll.id) + ' (' + (roll.roll_type === 'PET' ? 'Màng In PET' : roll.roll_type === 'TEM' ? 'Màng In TEM' : 'Màng In DECAL') + ')</h3>'
+          + '    <h3>🌲 Chi Tiết ' + titleName + '</h3>'
           + '    <span class="pt-close-btn" onclick="closePtDetailsModal()">&times;</span>'
           + '  </div>'
           + '  <div class="pt-details-grid">'
@@ -619,7 +659,7 @@ async function openPtDetailsModal(rollId) {
           + '          <tr><td style="width:140px;color:#64748b;font-weight:600">Định lượng</td><td><b>Mét (m)</b></td></tr>'
           + '          <tr><td style="color:#64748b;font-weight:600">Người nhập</td><td><b>' + (roll.created_by_name || 'Hệ thống') + '</b></td></tr>'
           + '          <tr><td style="color:#64748b;font-weight:600">Thời gian nhập</td><td><b>' + _ptFDT(roll.created_at) + '</b></td></tr>'
-          + '          <tr><td style="color:#64748b;font-weight:600">Nhập từ lô kho</td><td><span style="font-weight:800;color:#7c3aed">🌀 Lô #' + txId + '</span></td></tr>'
+          +            lotRowHtml
           + '          <tr><td style="color:#64748b;font-weight:600">Ghi chú ban đầu</td><td style="white-space:normal">' + displayNotes + '</td></tr>'
           + '        </tbody>'
           + '      </table>'

@@ -468,10 +468,16 @@ module.exports = async function(fastify) {
                 SELECT 
                     mt.id, mt.performed_at, mt.quantity::numeric AS quantity, mt.price::numeric AS price, mt.notes,
                     s.name AS source_name,
+                    seq_list.seq,
                     (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
                 FROM material_transactions mt
                 LEFT JOIN import_records ir ON mt.import_record_id = ir.id
                 LEFT JOIN import_sources s ON ir.source_id = s.id
+                LEFT JOIN (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                    FROM material_transactions
+                    WHERE tx_type = 'NHAP'
+                ) seq_list ON mt.id = seq_list.id
                 WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
             ) x
             WHERE x.remaining_qty > 0
@@ -485,7 +491,8 @@ module.exports = async function(fastify) {
             price: Number(r.price),
             notes: r.notes || '',
             source_name: r.source_name || 'Nguồn khác',
-            remaining_qty: Number(r.remaining_qty)
+            remaining_qty: Number(r.remaining_qty),
+            seq: r.seq
         }));
 
         return { rolls: formatted };

@@ -293,8 +293,13 @@ module.exports = async function(fastify) {
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM import_history h WHERE h.import_id=ir.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             LEFT JOIN LATERAL (
-                SELECT json_agg(json_build_object('material_item_id', mt.material_item_id, 'tx_id', mt.id)) AS txs
+                SELECT json_agg(json_build_object('material_item_id', mt.material_item_id, 'tx_id', mt.id, 'seq', seq_list.seq)) AS txs
                 FROM material_transactions mt 
+                LEFT JOIN (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                    FROM material_transactions
+                    WHERE tx_type = 'NHAP'
+                ) seq_list ON mt.id = seq_list.id
                 WHERE mt.import_record_id = ir.id AND mt.tx_type = 'NHAP'
             ) mt_list ON true
             ${where} ORDER BY ir.import_date DESC NULLS LAST, ir.created_at DESC`, params);
@@ -806,8 +811,13 @@ module.exports = async function(fastify) {
             LEFT JOIN material_warehouses w ON ir.warehouse_id=w.id
             LEFT JOIN material_items mi ON ir.material_item_id=mi.id
             LEFT JOIN LATERAL (
-                SELECT json_agg(json_build_object('material_item_id', mt.material_item_id, 'tx_id', mt.id)) AS txs
+                SELECT json_agg(json_build_object('material_item_id', mt.material_item_id, 'tx_id', mt.id, 'seq', seq_list.seq)) AS txs
                 FROM material_transactions mt 
+                LEFT JOIN (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                    FROM material_transactions
+                    WHERE tx_type = 'NHAP'
+                ) seq_list ON mt.id = seq_list.id
                 WHERE mt.import_record_id = ir.id AND mt.tx_type = 'NHAP'
             ) mt_list ON true
             WHERE ir.id=$1`, [Number(req.params.id)]);

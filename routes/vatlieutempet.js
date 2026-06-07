@@ -95,9 +95,15 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (r.field_name ILIKE $${idx} OR r.notes ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const rolls = await db.all(`
             SELECT r.*, COALESCE(uc.full_name, uc.username) AS confirmed_by_name,
-                   lh.performed_at AS last_update_at, COALESCE(lhu.full_name, lhu.username) AS last_update_by
+                   lh.performed_at AS last_update_at, COALESCE(lhu.full_name, lhu.username) AS last_update_by,
+                   seq_list.seq
             FROM pettem_rolls r
             LEFT JOIN users uc ON r.confirmed_by=uc.id
+            LEFT JOIN (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                FROM material_transactions
+                WHERE tx_type = 'NHAP'
+            ) seq_list ON r.material_tx_id = seq_list.id
             LEFT JOIN LATERAL (SELECT h.performed_at, h.performed_by FROM pettem_history h WHERE h.roll_id=r.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where} ORDER BY r.import_date DESC NULLS LAST, r.created_at DESC`, params);
@@ -259,6 +265,20 @@ module.exports = async function(fastify) {
             const materialTxId = txRes.rows[0].id;
 
             // 3. Insert into pettem_rolls
+            const seqRes = await client.query(`
+                SELECT seq FROM (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                    FROM material_transactions
+                    WHERE tx_type = 'NHAP'
+                ) s WHERE id = $1
+            `, [selectedTxId]);
+            const seq = seqRes.rows[0]?.seq || 1;
+
+            let fieldName = b.roll_type;
+            if (b.roll_type === 'PET') fieldName = `Cây Pet #${seq}`;
+            else if (b.roll_type === 'TEM') fieldName = `Cây Tem #${seq}`;
+            else if (b.roll_type === 'DECAL') fieldName = `Cây Decal #${seq}`;
+
             const rollTypeLabel = b.roll_type;
             const rollNotes = `Nhập từ Kho Vật Liệu Màng In ${rollTypeLabel} (Giao dịch gốc #${selectedTxId})` + (b.notes ? ` - ${b.notes}` : '');
             
@@ -266,7 +286,7 @@ module.exports = async function(fastify) {
                 INSERT INTO pettem_rolls
                 (roll_type, import_date, field_name, qty_imported, qty_waste, qty_error, qty_printed, qty_remaining, notes, created_by, created_at, material_tx_id)
                 VALUES ($1, $2, $3, $4, 0, 0, 0, $4, $5, $6, $7, $8) RETURNING id
-            `, [b.roll_type, b.import_date || vnDateStr(now), b.roll_type, qty, rollNotes, req.user.id, now, selectedTxId]);
+            `, [b.roll_type, b.import_date || vnDateStr(now), fieldName, qty, rollNotes, req.user.id, now, selectedTxId]);
             
             const rollId = rollRes.rows[0].id;
 
@@ -314,10 +334,16 @@ module.exports = async function(fastify) {
     // ========== GET INDIVIDUAL ROLL DETAILS ==========
     fastify.get('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const roll = await db.get(`
-            SELECT r.*, COALESCE(u.full_name, u.username) AS created_by_name, COALESCE(uc.full_name, uc.username) AS confirmed_by_name
+            SELECT r.*, COALESCE(u.full_name, u.username) AS created_by_name, COALESCE(uc.full_name, uc.username) AS confirmed_by_name,
+                   seq_list.seq
             FROM pettem_rolls r
             LEFT JOIN users u ON r.created_by = u.id
             LEFT JOIN users uc ON r.confirmed_by = uc.id
+            LEFT JOIN (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                FROM material_transactions
+                WHERE tx_type = 'NHAP'
+            ) seq_list ON r.material_tx_id = seq_list.id
             WHERE r.id = $1
         `, [Number(req.params.id)]);
         if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
