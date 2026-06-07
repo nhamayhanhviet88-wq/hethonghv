@@ -34,7 +34,7 @@ function renderBillnhaphangPage(content){
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260606e';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260607h';document.head.appendChild(s);}
     try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree?record_type=fabric'),apiCall('/api/import/sources?source_type=fabric'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
     // Check fabric permission
     setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
@@ -167,18 +167,47 @@ function _bnhRender(){
     +'<div style="background:linear-gradient(135deg,'+(sumDebt>0?'#ef4444,#dc2626':'#059669,#10b981')+');color:#fff;padding:6px 12px;border-radius:8px;min-width:80px;text-align:center;box-shadow:0 3px 10px '+(sumDebt>0?'#ef444420':'#05966920')+';flex-shrink:0"><div style="font-size:8px;font-weight:600;opacity:.85;letter-spacing:.5px;margin-bottom:1px">📊 TỔNG CÔNG NỢ</div><div style="font-size:12px;font-weight:900">'+_bnhFM(sumDebt)+'</div></div>';}
 }
 
-async function _bnhTog(id,action){if(action==='check'&&!confirm('Xác nhận duyệt bill này?'))return;try{await apiCall('/api/import/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bnhLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
+async function _bnhTog(id,action){
+    if(_bnh.submittingTog) return;
+    if(action==='check'&&!confirm('Xác nhận duyệt bill này?'))return;
+    _bnh.submittingTog = true;
+    try{
+        await apiCall('/api/import/toggle/'+id,'POST',{action});
+        showToast('✅ Cập nhật');
+        await _bnhLoadAll();
+    }catch(e){
+        showToast(e.message||'Lỗi','error');
+    }finally{
+        _bnh.submittingTog = false;
+    }
+}
 
-function _bnhAddSrc(){var name=prompt('Nhập tên nguồn cung cấp:');if(!name)return;
-apiCall('/api/import/sources','POST',{name, source_type: 'fabric'}).then(function(){showToast('✅ Đã thêm nguồn: '+name);_bnhLoadAll();}).catch(function(e){showToast(e.message||'Lỗi','error');});}
+function _bnhAddSrc(){
+    if(_bnh.submittingAddSrc) return;
+    var name=prompt('Nhập tên nguồn cung cấp:');
+    if(!name)return;
+    _bnh.submittingAddSrc = true;
+    apiCall('/api/import/sources','POST',{name, source_type: 'fabric'}).then(function(){
+        showToast('✅ Đã thêm nguồn: '+name);
+        _bnhLoadAll();
+    }).catch(function(e){
+        showToast(e.message||'Lỗi','error');
+    }).finally(function(){
+        _bnh.submittingAddSrc = false;
+    });
+}
 
 function _bnhDelSrc(sid, name){
+    if(_bnh.submittingDelSrc) return;
     if(!confirm('Bạn có chắc chắn muốn xóa nguồn "'+name+'" không?')) return;
+    _bnh.submittingDelSrc = true;
     apiCall('/api/import/sources/'+sid, 'DELETE').then(function(){
         showToast('✅ Đã xóa nguồn: '+name);
         _bnhLoadAll();
     }).catch(function(e){
         showToast(e.message||'Lỗi','error');
+    }).finally(function(){
+        _bnh.submittingDelSrc = false;
     });
 }
 
@@ -218,18 +247,28 @@ function _bnhPayModal(importId,billDebt,sourceDebt){
     });
 }
 async function _bnhPaySubmit(){
+    if(_bnhPay.submitting) return;
     var amt=Number(document.getElementById('_bnhPayAmt').value)||0;
+    var btn=document.getElementById('_bnhPayBtn');
+    var resetBtn = function() {
+        _bnhPay.submitting = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '💳 XÁC NHẬN THANH TOÁN';
+        }
+    };
     if(amt<=0){showToast('Vui lòng nhập số tiền','error');return;}
     if(!_bnhPay.imageData){showToast('Vui lòng dán hình ảnh thanh toán (Ctrl+V)','error');return;}
+    _bnhPay.submitting = true;
+    if(btn){btn.disabled=true;btn.textContent='⏳ Đang xử lý...';}
     var note=document.getElementById('_bnhPayNote').value||'';
-    var btn=document.getElementById('_bnhPayBtn');btn.disabled=true;btn.textContent='⏳ Đang xử lý...';
     try{
         var res=await apiCall('/api/import/payments/'+_bnhPay.importId,'POST',{amount:amt,image_data:_bnhPay.imageData,note:note});
-        if(res.error){showToast(res.error,'error');btn.disabled=false;btn.textContent='💳 XÁC NHẬN THANH TOÁN';return;}
+        if(res.error){showToast(res.error,'error');resetBtn();return;}
         showToast('✅ Thanh toán thành công: '+_bnhFM(amt)+'₫');
         var ov=document.getElementById('_bnhPayOv');if(ov)ov.remove();
         await _bnhLoadAll();
-    }catch(e){showToast(e.message||'Lỗi','error');btn.disabled=false;btn.textContent='💳 XÁC NHẬN THANH TOÁN';}
+    }catch(e){showToast(e.message||'Lỗi','error');resetBtn();}
 }
 
 async function _bnhShowPaymentHistoryModal(importId) {

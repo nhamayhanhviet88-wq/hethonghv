@@ -453,13 +453,17 @@ function _bvlRender() {
 }
 
 async function _bvlTog(id, action) {
+    if (_bvl.submittingTog) return;
     if (action === 'check' && !confirm('Xác nhận duyệt bill này?')) return;
+    _bvl.submittingTog = true;
     try {
         await apiCall('/api/import/toggle/' + id, 'POST', { action });
         showToast('✅ Cập nhật');
         await _bvlLoadAll();
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.submittingTog = false;
     }
 }
 
@@ -529,19 +533,29 @@ function _bvlPayModal(importId, billDebt, sourceDebt) {
 }
 
 async function _bvlPaySubmit() {
+    if (_bvlPay.submitting) return;
     var amt = Number(document.getElementById('_bvlPayAmt').value) || 0;
+    var btn = document.getElementById('_bvlPayBtn');
+    var resetBtn = function() {
+        _bvlPay.submitting = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '💳 XÁC NHẬN THANH TOÁN';
+        }
+    };
     if (amt <= 0) { showToast('Vui lòng nhập số tiền', 'error'); return; }
     if (!_bvlPay.imageData) { showToast('Vui lòng dán hình ảnh thanh toán (Ctrl+V)', 'error'); return; }
+    _bvlPay.submitting = true;
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang xử lý...';
+    }
     var note = document.getElementById('_bvlPayNote').value || '';
-    var btn = document.getElementById('_bvlPayBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Đang xử lý...';
     try {
         var res = await apiCall('/api/import/payments/' + _bvlPay.importId, 'POST', { amount: amt, image_data: _bvlPay.imageData, note: note });
         if (res.error) {
             showToast(res.error, 'error');
-            btn.disabled = false;
-            btn.textContent = '💳 XÁC NHẬN THANH TOÁN';
+            resetBtn();
             return;
         }
         showToast('✅ Thanh toán thành công: ' + _bvlFM(amt) + '₫');
@@ -550,8 +564,7 @@ async function _bvlPaySubmit() {
         await _bvlLoadAll();
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
-        btn.disabled = false;
-        btn.textContent = '💳 XÁC NHẬN THANH TOÁN';
+        resetBtn();
     }
 }
 
@@ -1004,26 +1017,38 @@ function _bvlRenderAddedMats() {
 }
 
 async function _bvlSubmitMat() {
-    var whSelect = document.getElementById('_bvlMatWh');
-    var srcId = document.getElementById('_bvlSrc').value;
-    var dateVal = document.getElementById('_bvlDate').value;
-    var notesVal = document.getElementById('_bvlNotes').value;
-
-    if (!whSelect || !whSelect.value) { showToast('Vui lòng chọn kho vật liệu', 'error'); return; }
-    if (!srcId) { showToast('Vui lòng chọn nhà cung cấp', 'error'); return; }
-    if (!_bvl.addedMaterials || _bvl.addedMaterials.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật liệu', 'error'); return; }
-    if (!_bvl.uploadImg) { showToast('Ảnh bill bắt buộc', 'error'); return; }
-
-    var shipCostVal = Number(document.getElementById('_bvlShipCost').value) || 0;
-    var shipPayerVal = document.getElementById('_bvlShipPayer').value;
-    if (shipCostVal > 0) {
-        if (!shipPayerVal) { showToast('Vui lòng chọn bên trả ship', 'error'); return; }
-        if (!_bvl.uploadShipImg) { showToast('Vui lòng dán ảnh hóa đơn ship', 'error'); return; }
+    if (_bvl.submitting) return;
+    _bvl.submitting = true;
+    var btn = document.getElementById('_bvlSubmitBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang lưu...';
     }
 
-    var btn = document.getElementById('_bvlSubmitBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Đang lưu...';
+    var whSelect = document.getElementById('_bvlMatWh');
+    var srcId = document.getElementById('_bvlSrc')?.value;
+    var dateVal = document.getElementById('_bvlDate')?.value;
+    var notesVal = document.getElementById('_bvlNotes')?.value;
+
+    var resetBtn = function() {
+        _bvl.submitting = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '💾 LƯU PHIẾU NHẬP';
+        }
+    };
+
+    if (!whSelect || !whSelect.value) { showToast('Vui lòng chọn kho vật liệu', 'error'); resetBtn(); return; }
+    if (!srcId) { showToast('Vui lòng chọn nhà cung cấp', 'error'); resetBtn(); return; }
+    if (!_bvl.addedMaterials || _bvl.addedMaterials.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật liệu', 'error'); resetBtn(); return; }
+    if (!_bvl.uploadImg) { showToast('Ảnh bill bắt buộc', 'error'); resetBtn(); return; }
+
+    var shipCostVal = Number(document.getElementById('_bvlShipCost')?.value) || 0;
+    var shipPayerVal = document.getElementById('_bvlShipPayer')?.value;
+    if (shipCostVal > 0) {
+        if (!shipPayerVal) { showToast('Vui lòng chọn bên trả ship', 'error'); resetBtn(); return; }
+        if (!_bvl.uploadShipImg) { showToast('Vui lòng dán ảnh hóa đơn ship', 'error'); resetBtn(); return; }
+    }
 
     var totalQty = 0;
     var totalCost = 0;
@@ -1035,7 +1060,7 @@ async function _bvlSubmitMat() {
     });
 
     var firstItem = _bvl.addedMaterials[0];
-    var vatVal = Number(document.getElementById('_bvlVatAmount').value) || 0;
+    var vatVal = Number(document.getElementById('_bvlVatAmount')?.value) || 0;
 
     var extraCostsVal = _bvl.addedExtraCosts.filter(function (c) {
         return c.content.trim() !== '' && Number(c.amount) > 0;
@@ -1074,8 +1099,7 @@ async function _bvlSubmitMat() {
         var res = await apiCall('/api/import/records', 'POST', body);
         if (res.error) {
             showToast(res.error, 'error');
-            btn.disabled = false;
-            btn.textContent = '💾 LƯU PHIẾU NHẬP';
+            resetBtn();
             return;
         }
         showToast('✅ Đã tạo phiếu nhập vật liệu thành công');
@@ -1084,8 +1108,7 @@ async function _bvlSubmitMat() {
         await _bvlLoadAll();
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
-        btn.disabled = false;
-        btn.textContent = '💾 LƯU PHIẾU NHẬP';
+        resetBtn();
     }
 }
 
@@ -1377,6 +1400,8 @@ async function _bvlAddWhSubmit() {
     var name = document.getElementById('_newWhName').value || '';
     var order = Number(document.getElementById('_newWhOrder').value) || 0;
     if (!name.trim()) { showToast('Vui lòng nhập tên kho', 'error'); return; }
+    if (_bvl.addingWh) return;
+    _bvl.addingWh = true;
     try {
         await apiCall('/api/material-setup/warehouses', 'POST', { name: name.trim(), display_order: order, is_active: true });
         showToast('✅ Đã thêm kho vật liệu');
@@ -1384,6 +1409,8 @@ async function _bvlAddWhSubmit() {
         _bvlSwitchTab('wh');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.addingWh = false;
     }
 }
 
@@ -1392,6 +1419,9 @@ async function _bvlUpdateWhSubmit(id) {
     var order = Number(document.getElementById('_whOrder_' + id).value) || 0;
     var active = document.getElementById('_whActive_' + id).checked;
     if (!name.trim()) { showToast('Vui lòng nhập tên kho', 'error'); return; }
+    if (!_bvl.updatingWh) _bvl.updatingWh = {};
+    if (_bvl.updatingWh[id]) return;
+    _bvl.updatingWh[id] = true;
     try {
         await apiCall('/api/material-setup/warehouses/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active });
         showToast('✅ Đã cập nhật kho vật liệu');
@@ -1399,6 +1429,8 @@ async function _bvlUpdateWhSubmit(id) {
         _bvlSwitchTab('wh');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.updatingWh[id] = false;
     }
 }
 
@@ -1488,6 +1520,8 @@ async function _bvlAddMatSubmit() {
     var unit = document.getElementById('_newMatUnit').value || '';
     var order = Number(document.getElementById('_newMatOrder').value) || 0;
     if (!name.trim()) { showToast('Vui lòng nhập tên vật tư', 'error'); return; }
+    if (_bvl.addingMat) return;
+    _bvl.addingMat = true;
     try {
         await apiCall('/api/material-setup/items', 'POST', { warehouse_id: _selectedSetupWhIdForMat, name: name.trim(), display_order: order, is_active: true, unit: unit });
         showToast('✅ Đã thêm vật tư');
@@ -1495,6 +1529,8 @@ async function _bvlAddMatSubmit() {
         _bvlSwitchTab('mat');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.addingMat = false;
     }
 }
 
@@ -1504,6 +1540,9 @@ async function _bvlUpdateMatSubmit(id) {
     var order = Number(document.getElementById('_matOrder_' + id).value) || 0;
     var active = document.getElementById('_matActive_' + id).checked;
     if (!name.trim()) { showToast('Vui lòng nhập tên vật tư', 'error'); return; }
+    if (!_bvl.updatingMat) _bvl.updatingMat = {};
+    if (_bvl.updatingMat[id]) return;
+    _bvl.updatingMat[id] = true;
     try {
         await apiCall('/api/material-setup/items/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active, unit: unit });
         showToast('✅ Đã cập nhật vật tư');
@@ -1511,6 +1550,8 @@ async function _bvlUpdateMatSubmit(id) {
         _bvlSwitchTab('mat');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.updatingMat[id] = false;
     }
 }
 
@@ -1547,6 +1588,8 @@ async function _bvlAddUnitSubmit() {
     var name = document.getElementById('_newUnitName').value || '';
     var order = Number(document.getElementById('_newUnitOrder').value) || 0;
     if (!name.trim()) { showToast('Vui lòng nhập tên định lượng', 'error'); return; }
+    if (_bvl.addingUnit) return;
+    _bvl.addingUnit = true;
     try {
         await apiCall('/api/material-setup/units', 'POST', { name: name.trim(), display_order: order, is_active: true });
         showToast('✅ Đã thêm định lượng');
@@ -1554,6 +1597,8 @@ async function _bvlAddUnitSubmit() {
         _bvlSwitchTab('unit');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.addingUnit = false;
     }
 }
 
@@ -1562,6 +1607,9 @@ async function _bvlUpdateUnitSubmit(id) {
     var order = Number(document.getElementById('_unitOrder_' + id).value) || 0;
     var active = document.getElementById('_unitActive_' + id).checked;
     if (!name.trim()) { showToast('Vui lòng nhập tên định lượng', 'error'); return; }
+    if (!_bvl.updatingUnit) _bvl.updatingUnit = {};
+    if (_bvl.updatingUnit[id]) return;
+    _bvl.updatingUnit[id] = true;
     try {
         await apiCall('/api/material-setup/units/' + id, 'PUT', { name: name.trim(), display_order: order, is_active: active });
         showToast('✅ Đã cập nhật định lượng');
@@ -1569,6 +1617,8 @@ async function _bvlUpdateUnitSubmit(id) {
         _bvlSwitchTab('unit');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.updatingUnit[id] = false;
     }
 }
 
@@ -1617,6 +1667,8 @@ function _bvlSetupSrcWhChange(val) {
 }
 
 async function _bvlSaveWarehouseSources() {
+    if (_bvl.savingSources) return;
+    _bvl.savingSources = true;
     var cbs = document.querySelectorAll('._setup_src_cb');
     var sids = [];
     cbs.forEach(function (cb) {
@@ -1629,6 +1681,8 @@ async function _bvlSaveWarehouseSources() {
         _bvlSwitchTab('src');
     } catch (e) {
         showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        _bvl.savingSources = false;
     }
 }
 

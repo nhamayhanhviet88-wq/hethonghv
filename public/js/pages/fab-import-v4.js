@@ -370,29 +370,31 @@ function _bnhFabEC(i, f, v) { if (f === 'c') _bnhFab.extraCosts[i].content = v; 
 
 async function _bnhFabSubmit() {
     if (_bnhFab.submitting) return;
+    _bnhFab.submitting = true;
+    var btn = document.getElementById('_fabSubmit');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
+
     var f = _bnhFab;
     var srcId = document.getElementById('_fabSrc')?.value;
-    if (!srcId) { showToast('Chọn nguồn NCC', 'error'); return; }
-    if (!f.items.length) { showToast('Chọn ít nhất 1 loại vải', 'error'); return; }
+    if (!srcId) { showToast('Chọn nguồn NCC', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+    if (!f.items.length) { showToast('Chọn ít nhất 1 loại vải', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
     for (var i = 0; i < f.items.length; i++) {
         var it = f.items[i];
-        if (!it.trees || !it.trees.length) { showToast(it.material_name+': thêm ít nhất 1 cây', 'error'); return; }
-        if (!it.unit_price || Number(it.unit_price) <= 0) { showToast(it.material_name+': nhập đơn giá', 'error'); return; }
+        if (!it.trees || !it.trees.length) { showToast(it.material_name+': thêm ít nhất 1 cây', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+        if (!it.unit_price || Number(it.unit_price) <= 0) { showToast(it.material_name+': nhập đơn giá', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         for (var t = 0; t < it.trees.length; t++) {
-            if (!it.trees[t].weight || Number(it.trees[t].weight) <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); return; }
+            if (!it.trees[t].weight || Number(it.trees[t].weight) <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         }
     }
     for (var j = 0; j < f.extraCosts.length; j++) {
         var ec = f.extraCosts[j];
-        if (!ec.content || !ec.content.trim()) { showToast('Chi phí khác '+(j+1)+': nhập nội dung', 'error'); return; }
-        if (!ec.amount || Number(ec.amount) <= 0) { showToast('Chi phí khác '+(j+1)+': nhập số tiền', 'error'); return; }
+        if (!ec.content || !ec.content.trim()) { showToast('Chi phí khác '+(j+1)+': nhập nội dung', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+        if (!ec.amount || Number(ec.amount) <= 0) { showToast('Chi phí khác '+(j+1)+': nhập số tiền', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
     }
     var shipCost = Number(document.getElementById('_fabShip')?.value) || 0;
-    if (shipCost > 0 && !f.shipImg) { showToast('Có phí ship thì phải dán ảnh ship (Ctrl+V)', 'error'); return; }
-    if (!f.billImg) { showToast('Ảnh bill bắt buộc (Ctrl+V)', 'error'); return; }
-    _bnhFab.submitting = true;
-    var btn = document.getElementById('_fabSubmit');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
+    if (shipCost > 0 && !f.shipImg) { showToast('Có phí ship thì phải dán ảnh ship (Ctrl+V)', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+    if (!f.billImg) { showToast('Ảnh bill bắt buộc (Ctrl+V)', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+
     try {
         var body = {
             source_id: Number(srcId),
