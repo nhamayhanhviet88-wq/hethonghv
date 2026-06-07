@@ -775,11 +775,13 @@ function _bpcRenderUnassigned() {
 
     // Table
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th style="min-width:130px;text-align:center">Nhận Đơn</th><th style="text-align:center">Ưu Tiên</th><th>Mã Đơn</th><th>Tên KH</th><th>CSKH</th><th>Tên SP / Phối</th>'
-        +'<th>Chất Liệu</th><th>Màu</th><th>SL</th><th>Ngày Ship</th>'
-        +'<th>Trạng Thái</th></tr></thead><tbody>';
+        +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
+        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ</th><th>Lý Do Sai TL</th>'
+        +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cảnh Báo</th><th>Cắt Chung</th><th>Cập Nhật</th>'
+        +'</tr></thead><tbody>';
     if (!all.length) {
-        th += '<tr><td colspan="12"><div class="empty-state"><div class="icon">✅</div><h3>Không có đơn chờ cắt</h3><p>Tất cả đơn đã được nhận</p></div></td></tr>';
+        th += '<tr><td colspan="20"><div class="empty-state"><div class="icon">✅</div><h3>Không có đơn chờ cắt</h3><p>Tất cả đơn đã được nhận</p></div></td></tr>';
     } else {
         // Count rows per phiếu (item) for rowspan
         var groupRowCount = {};
@@ -806,13 +808,12 @@ function _bpcRenderUnassigned() {
                 spName += '<div style="color:#ea580c;font-size:10px;margin-top:2px;font-weight:bold">⚠️ ' + r.cut_warning + '</div>';
             }
             // Status badges
-            var statusHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap">'
+            var statusHtml = '<div style="display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle">'
                 + (r.fabric_arrived ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ Vải</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ Vải</span>')
                 + (r.has_pc_in ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">✅ PC In</span>' : '<span style="background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">❌ PC In</span>')
                 + '</div>';
             // Claim button with rowspan
             var claimTd = '';
-            var priTd = '';
             if (isNew) {
                 var rs = groupRowCount[groupKey] || 1;
                 var claimHtml;
@@ -837,27 +838,39 @@ function _bpcRenderUnassigned() {
                         }
                     }
                 }
-                claimTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
-                priTd = '<td rowspan="'+rs+'" style="text-align:center;vertical-align:middle"><span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;letter-spacing:0.5px;font-family:Inter,system-ui,sans-serif;'+priColor+'">'+(r.shipping_priority||'CHUẨN')+'</span></td>';
+                claimTd = '<td rowspan="'+rs+'" colspan="4" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
             }
             // SL: P1 (phối chính mỗi phiếu) = xanh đậm, P2+ = xanh nhạt
             var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
             var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
             var showTitle = (r.total_items_in_order > 1) ? r.order_code + ' — Phiếu ' + r.item_index : r.order_code;
 
+            // Extra details for unified look
+            var spDetails = '<div style="font-size:10px;color:#64748b;margin-top:4px">'
+                + '👤 KH: ' + (r.customer_name || '—')
+                + ' | CSKH: ' + (r.cskh_name || r.created_by_name || '—')
+                + ' | 📅 Ship: ' + _bpcFmtDate(r.expected_ship_date)
+                + '</div>';
+            var finalSpName = spName + statusHtml + spDetails;
+
             th += '<tr style="'+bg+'">'
                 +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
                 +claimTd
-                +priTd
-                +'<td style="font-weight:700;color:#1e293b">'+(isNew?(priBadge + showTitle):'')+'</td>'
-                +'<td style="font-size:10px">'+(isNew?(r.customer_name||''):'')+'</td>'
-                +'<td style="font-size:10px;color:#6b7280">'+(isNew?(r.cskh_name||r.created_by_name||''):'')+'</td>'
-                +'<td style="font-weight:600;font-size:11px;color:#1e293b">'+spName+'</td>'
+                +'<td style="font-size:10px">—</td>'
+                +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+                +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
                 +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
                 +'<td style="font-size:10px">'+(r.color_name||'—')+'</td>'
                 +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
-                +'<td style="font-size:10px;color:#475569">'+(isNew?_bpcFmtDate(r.expected_ship_date):'')+'</td>'
-                +'<td>'+(isNew?statusHtml:'')+'</td>'
+                +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
+                +'<td style="text-align:center;font-weight:700;color:#dc2626">—</td>'
+                +'<td style="text-align:center;font-weight:800;color:#3b82f6">—</td>'
+                +'<td style="font-size:9px;color:#6b7280">—</td>'
+                +'<td style="text-align:center;font-weight:600">—</td>'
+                +'<td style="text-align:center;font-weight:600">—</td>'
+                +'<td>' + (r.cut_warning ? ('<span style="color:#dc2626;font-weight:700">' + r.cut_warning + '</span>') : '—') + '</td>'
+                +'<td style="font-size:10px;text-align:center">—</td>'
+                +'<td style="font-size:9px;color:#6b7280">—</td>'
                 +'</tr>';
         });
     }
