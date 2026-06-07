@@ -40,7 +40,8 @@ function renderBophancatPage(content) {
         var st = document.createElement('style'); st.id = '_bpcStyles';
         st.textContent = '.bpc-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}'
 +'.bpc-sidebar{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:relative}'
-+'.bpc-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.bpc-main>*{flex-shrink:0}.bpc-main .card{overflow:visible}'
++'.bpc-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:16px}.bpc-main>*{flex-shrink:0}.bpc-main .card{overflow:visible}'
++'#bpcTable thead th,#bpcUnassignedTable thead th,#bpcRecordsTable thead th{position:sticky;top:0;z-index:20;background:var(--gray-800) !important;color:#fff;box-shadow:inset 0 -1px 0 var(--gray-700)}'
 +'.bpc-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden;background:#f8fafc}'
 +'.bpc-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(239,68,68,0.08) 50%,transparent 70%);animation:bpcShimmer 3s infinite}'
 +'@keyframes bpcShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}'
@@ -117,7 +118,7 @@ function renderBophancatPage(content) {
         +'<input id="bpcSearch" placeholder="🔍 Tìm sản phẩm, chất liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
         +'</div>'
         +'<div id="bpcPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px" id="bpcTableWrap"></div></div>'
+        +'<div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden"><div class="card-body" style="flex:1;overflow:auto;padding:8px;position:relative" id="bpcTableWrap"></div></div>'
         +'<div id="bpcPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     var _st; document.getElementById('bpcSearch').addEventListener('input', function() {
