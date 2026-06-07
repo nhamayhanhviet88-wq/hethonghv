@@ -506,14 +506,20 @@ function _bpiRender() {
         if (r.pettem_roll_id) {
             var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
             var formattedType = 'Pet';
-            if (typeLabel === 'TEM') formattedType = 'Tem';
-            else if (typeLabel === 'DECAL') formattedType = 'Decal';
-            else if (typeLabel !== 'PET') {
+            var color = '#059669'; // Green for Pet
+            if (typeLabel === 'TEM') {
+                formattedType = 'Tem';
+                color = '#d97706'; // Amber/Orange for Tem
+            } else if (typeLabel === 'DECAL') {
+                formattedType = 'Decal';
+                color = '#2563eb'; // Blue for Decal
+            } else if (typeLabel !== 'PET') {
                 formattedType = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1).toLowerCase();
+                color = '#7c3aed'; // Purple for others
             }
             var seqDisplay = r.pettem_roll_seq ? '#' + r.pettem_roll_seq : '#' + r.pettem_roll_id;
             var rollLabel = 'Cây ' + formattedType + ' ' + seqDisplay;
-            parts.push('<span style="color:#059669;font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 ' + rollLabel + '</span>');
+            parts.push('<span style="color:' + color + ';font-weight:700;display:block" title="' + (r.pettem_roll_notes || '').replace(/"/g, '&quot;') + '">🌲 ' + rollLabel + '</span>');
         } else if (r.material_tx_id) {
             parts.push('<span style="color:#7c3aed;font-weight:700" title="' + (r.material_roll_notes || '').replace(/"/g, '&quot;') + '">🌀 Lô #' + r.material_tx_id + '</span>');
             if (r.material_roll_supplier) {
