@@ -1406,4 +1406,19 @@ start().catch(err => {
     console.error('❌ Server error:', err);
     process.exit(1);
 });
+
+// Graceful shutdown to release port 11000 immediately on PM2 restart
+const closeGracefully = async (signal) => {
+    console.log(`\n[Server] Received signal to terminate: ${signal}`);
+    try {
+        await fastify.close();
+        console.log('[Server] Fastify server closed successfully.');
+    } catch(err) {
+        console.error('[Server] Error during Fastify close:', err.message);
+    }
+    process.exit(0);
+};
+process.on('SIGINT', () => closeGracefully('SIGINT'));
+process.on('SIGTERM', () => closeGracefully('SIGTERM'));
+
 // Reload comment 3
