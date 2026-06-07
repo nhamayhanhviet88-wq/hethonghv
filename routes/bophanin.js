@@ -487,6 +487,7 @@ module.exports = async function(fastify) {
                     ptr.roll_type AS pettem_roll_type,
                     ptr.qty_remaining AS pettem_roll_remaining,
                     ptr.notes AS pettem_roll_notes,
+                    seq_list.seq AS pettem_roll_seq,
                     o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     pr.is_test_print,
@@ -540,6 +541,11 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u_done ON pr.print_done_by = u_done.id
                 LEFT JOIN users u_audit ON pr.audit_checked_by = u_audit.id
                 LEFT JOIN pettem_rolls ptr ON pr.pettem_roll_id = ptr.id
+                LEFT JOIN (
+                     SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
+                     FROM material_transactions
+                     WHERE tx_type = 'NHAP'
+                 ) seq_list ON ptr.material_tx_id = seq_list.id
                 WHERE 1=1 ${userFilter}
 
                 UNION ALL
@@ -552,6 +558,7 @@ module.exports = async function(fastify) {
                     NULL::text AS pettem_roll_type,
                     NULL::numeric AS pettem_roll_remaining,
                     NULL::text AS pettem_roll_notes,
+                    NULL::int AS pettem_roll_seq,
                     o.order_code, o.shipping_priority,
                     o.expected_ship_date,
                     false AS is_test_print,
