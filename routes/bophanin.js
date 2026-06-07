@@ -848,7 +848,10 @@ module.exports = async function(fastify) {
 
                 let txIdToSet = null;
                 const rollTx = await db.get(`SELECT material_tx_id FROM pettem_rolls WHERE id = $1`, [Number(pettem_roll_id)]);
-                if (rollTx) txIdToSet = rollTx.material_tx_id;
+                if (rollTx && rollTx.material_tx_id) {
+                    const txExists = await db.get('SELECT id FROM material_transactions WHERE id = $1', [Number(rollTx.material_tx_id)]);
+                    if (txExists) txIdToSet = Number(rollTx.material_tx_id);
+                }
 
                 await db.run(`UPDATE printing_records SET 
                     is_print_done=true, 
@@ -889,7 +892,11 @@ module.exports = async function(fastify) {
                             ORDER BY import_date ASC, id ASC LIMIT 1
                         `, [rollType]);
                         if (activeRoll) {
-                            const txIdToSet = activeRoll.material_tx_id;
+                            let txIdToSet = null;
+                            if (activeRoll.material_tx_id) {
+                                const txExists = await db.get('SELECT id FROM material_transactions WHERE id = $1', [Number(activeRoll.material_tx_id)]);
+                                if (txExists) txIdToSet = Number(activeRoll.material_tx_id);
+                            }
                             await db.run(`UPDATE printing_records SET pettem_roll_id = $1, material_tx_id = $2 WHERE id = $3`, [activeRoll.id, txIdToSet, id]);
                             await syncPettemRollMeters(activeRoll.id);
                         }
@@ -998,6 +1005,11 @@ module.exports = async function(fastify) {
             }
         }
 
+        if (finalTxId) {
+            const txExists = await db.get('SELECT id FROM material_transactions WHERE id = $1', [Number(finalTxId)]);
+            if (!txExists) finalTxId = null;
+        }
+
         await db.run(`UPDATE printing_records SET print_date=$1, printer_id=$2, contractor_id=$3, product_name=$4, cskh_name=$5,
             order_quantity=$6, print_meters=$7, roll_start_qty=$8, roll_end_qty=$9, current_roll=$10,
             print_field=$11, shared_process=$12, notes=$13, material_tx_id=$14, pettem_roll_id=$15, updated_at=$16 ${auditSql} WHERE id=$17`,
@@ -1047,6 +1059,11 @@ module.exports = async function(fastify) {
             if (isNaN(fv)) fv = 0;
         } else {
             fv = value;
+        }
+
+        if (field === 'material_tx_id' && fv) {
+            const txExists = await db.get('SELECT id FROM material_transactions WHERE id = $1', [Number(fv)]);
+            if (!txExists) fv = null;
         }
 
         let auditSql = '';
