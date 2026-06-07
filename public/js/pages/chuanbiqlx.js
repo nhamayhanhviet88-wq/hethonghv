@@ -117,8 +117,9 @@ function _qlxRenderSidebar() {
 
     // Pending KT badge
     var pendingKT = (t.pending_kt_count || 0);
-    if (pendingKT > 0) {
-        h += '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;cursor:default;border-bottom:1px solid #fbbf24">';
+    if (pendingKT > 0 || _qlx.activeFilter === 'no_print') {
+        var ktAct = _qlx.activeFilter === 'no_print';
+        h += '<div onclick="_qlxPendingKTFilter()" style="background:' + (ktAct ? '#fde68a' : 'linear-gradient(135deg,#fef3c7,#fde68a)') + ';padding:8px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid #fbbf24' + (ktAct ? ';font-weight:900' : '') + '">';
         h += '<span style="font-size:11px;font-weight:800;color:#92400e">⚠️ Chờ KT In Phiếu</span>';
         h += '<span style="background:#f59e0b;color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:800">' + pendingKT + '</span>';
         h += '</div>';
@@ -165,6 +166,16 @@ function _qlxRenderSidebar() {
 
 function _qlxToggle(key) { _qlxOpen[key] = !_qlxOpen[key]; _qlxRenderSidebar(); }
 function _qlxToggleGroup(key, status) { _qlxOpen[key] = !_qlxOpen[key]; _qlxFilter(status); }
+function _qlxPendingKTFilter() {
+    if (_qlx.activeFilter === 'no_print') {
+        _qlx.activeFilter = null;
+    } else {
+        _qlx.activeFilter = 'no_print';
+    }
+    _qlx.page = 1;
+    _qlxRenderTable();
+    _qlxRenderSidebar();
+}
 function _qlxSidebarSearchInput(val) {
     _qlx.sidebarSearch = val || '';
     _qlx.page = 1;
@@ -523,6 +534,7 @@ function _qlxStatFilter(key) {
     }
     _qlx.page = 1;
     _qlxRenderTable();
+    _qlxRenderSidebar();
 }
 
 async function _qlxFabric(orderId, action) {
