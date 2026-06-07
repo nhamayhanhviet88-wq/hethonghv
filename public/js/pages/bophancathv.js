@@ -38,9 +38,9 @@ function renderBophancatPage(content) {
     }
     if (!document.getElementById('_bpcStyles')) {
         var st = document.createElement('style'); st.id = '_bpcStyles';
-        st.textContent = '.bpc-wrap{display:flex;height:calc(100vh - 110px);overflow:hidden}'
-+'.bpc-sidebar{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:relative}'
-+'.bpc-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:16px}.bpc-main>*{flex-shrink:0}.bpc-main .card{overflow:visible}'
+        st.textContent = '.bpc-wrap{display:flex;min-height:calc(100vh - 110px);overflow:visible;align-items:flex-start}'
++'.bpc-sidebar{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:sticky;top:80px;height:calc(100vh - 110px)}'
++'.bpc-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:16px}.bpc-main>*{flex-shrink:0}.bpc-main .card{overflow:visible}'
 +'#bpcTable thead th,#bpcUnassignedTable thead th,#bpcRecordsTable thead th{background:#1e293b !important;color:#fff !important;box-shadow:inset 0 -1px 0 #334155}'
 +'.bpc-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden;background:#f8fafc}'
 +'.bpc-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(239,68,68,0.08) 50%,transparent 70%);animation:bpcShimmer 3s infinite}'
@@ -120,7 +120,7 @@ function renderBophancatPage(content) {
         +((window._currentUser && window._currentUser.role === 'giam_doc') ? '<button onclick="_bpcOpenTargetRatioModal()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;margin-left:8px;box-shadow:0 3px 12px rgba(16,185,129,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">⚖️ ĐỊNH LƯỢNG TỈ LỆ CẮT</button>' : '')
         +'</div>'
         +'<div id="bpcPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden"><div class="card-body" style="flex:1;overflow:auto;padding:8px;position:relative" id="bpcTableWrap"></div></div>'
+        +'<div class="card" style="flex:none;display:block;overflow:visible"><div class="card-body" style="overflow-x:auto;overflow-y:visible;padding:8px;position:relative" id="bpcTableWrap"></div></div>'
         +'<div id="bpcPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     var _st; document.getElementById('bpcSearch').addEventListener('input', function() {
