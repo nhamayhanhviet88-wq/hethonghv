@@ -627,7 +627,7 @@ function _bpcMapRecordRow(r, i) {
         +'<td style="text-align:center">'+doneBtnHtml+'</td>'
         +'<td style="text-align:center">'+washBtnHtml+'</td>'
         +'<td style="text-align:center">'+errBtnHtml+'</td>'
-        +'<td style="font-size:10px">'+(r.is_cut_done && r.cut_done_at ? _bpcFmtTimeDateNoYear(r.cut_done_at) : (r.created_at ? _bpcFmtTimeDateNoYear(r.created_at) : '—'))+'</td>'
+        +'<td style="font-size:10px">'+(r.is_cut_done && r.cut_done_at ? _bpcFmtTimeDateNoYear(r.cut_done_at) : '—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
         +nameHtml
         +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
