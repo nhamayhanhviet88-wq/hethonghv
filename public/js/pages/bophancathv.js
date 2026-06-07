@@ -845,13 +845,7 @@ function _bpcRenderUnassigned() {
             var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
             var showTitle = (r.total_items_in_order > 1) ? r.order_code + ' — Phiếu ' + r.item_index : r.order_code;
 
-            // Extra details for unified look
-            var spDetails = '<div style="font-size:10px;color:#64748b;margin-top:4px">'
-                + '👤 KH: ' + (r.customer_name || '—')
-                + ' | CSKH: ' + (r.cskh_name || r.created_by_name || '—')
-                + ' | 📅 Ship: ' + _bpcFmtDate(r.expected_ship_date)
-                + '</div>';
-            var finalSpName = spName + statusHtml + spDetails;
+            var finalSpName = spName + statusHtml;
 
             th += '<tr style="'+bg+'">'
                 +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
