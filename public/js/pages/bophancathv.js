@@ -38,7 +38,7 @@ function renderBophancatPage(content) {
     }
     if (!document.getElementById('_bpcStyles')) {
         var st = document.createElement('style'); st.id = '_bpcStyles';
-        st.textContent = '.bpc-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}'
+        st.textContent = '.bpc-wrap{display:flex;height:calc(100vh - 110px);overflow:hidden}'
 +'.bpc-sidebar{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:relative}'
 +'.bpc-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:16px}.bpc-main>*{flex-shrink:0}.bpc-main .card{overflow:visible}'
 +'#bpcTable thead th,#bpcUnassignedTable thead th,#bpcRecordsTable thead th{position:sticky;top:0;z-index:20;background:#1e293b !important;color:#fff !important;box-shadow:inset 0 -1px 0 #334155}'
