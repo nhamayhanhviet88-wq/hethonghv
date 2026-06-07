@@ -44,19 +44,30 @@ function renderBophancatPage(content) {
 +'.bpc-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden}'
 +'.bpc-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(239,68,68,0.08) 50%,transparent 70%);animation:bpcShimmer 3s infinite}'
 +'@keyframes bpcShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}'
-+'.bpc-sb-total{background:linear-gradient(135deg,#dc2626,#ef4444,#f87171);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;position:relative;overflow:hidden}'
++'.bpc-sb-total{background:#fff;color:#dc2626;border-left:5px solid #e2e8f0;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid var(--gray-200);transition:all 0.2s}'
++'.bpc-sb-total:hover{background:#fef2f2;border-left-color:#dc2626}'
++'.bpc-sb-total.active{background:linear-gradient(135deg,#dc2626,#ef4444,#f87171);color:#fff;border-left-color:#b91c1c}'
 +'.bpc-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:bpcGlow 2.5s infinite}'
 +'@keyframes bpcGlow{0%{left:-100%}100%{left:150%}}'
-+'.bpc-sb-uncut{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;padding:10px 16px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.1);animation:bpcPulse 2.5s infinite}'
++'.bpc-sb-uncut{background:#fff;color:#ea580c;border-left:5px solid #e2e8f0;padding:10px 16px 10px 11px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.1);transition:all 0.2s}'
++'.bpc-sb-uncut:hover{background:#fff7ed;border-left-color:#f97316}'
++'.bpc-sb-uncut.active{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;border-left-color:#c2410c;animation:bpcPulse 2.5s infinite}'
 +'@keyframes bpcPulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:inset 0 0 20px 0 rgba(255,255,255,0.15)}}'
-+'.bpc-sb-uncut.active{background:linear-gradient(135deg,#ea580c,#c2410c)}'
-+'.bpc-sb-year{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200);transition:all 0.15s}'
-+'.bpc-sb-year:hover{background:#f1f5f9}.bpc-sb-year.active{background:#fee2e2;color:#dc2626}'
-+'.bpc-sb-cutter{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;color:#dc2626}'
-+'.bpc-sb-cutter:hover{background:#fef2f2}.bpc-sb-cutter.active{background:#fee2e2;font-weight:800}'
-+'.bpc-sb-sub{padding:5px 16px 5px 42px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fafafa;color:#64748b}'
-+'.bpc-sb-sub:hover{background:#fef2f2}.bpc-sb-sub.active{background:#fee2e2;color:#dc2626;font-weight:800}'
-+'.bpc-sb-sub.incomplete{color:#f59e0b;font-weight:700}'
++'.bpc-sb-year{padding:8px 16px 8px 11px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200);transition:all 0.15s;border-left:5px solid transparent}'
++'.bpc-sb-year:hover{background:#f1f5f9;border-left-color:#cbd5e1}'
++'.bpc-sb-year.active{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-left-color:#1d4ed8}'
++'.bpc-sb-year.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important}'
++'.bpc-sb-cutter{padding:6px 16px 6px 23px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;color:#475569;border-left:5px solid transparent;transition:all 0.15s}'
++'.bpc-sb-cutter:hover{background:#f1f5f9;color:#0f172a}'
++'.bpc-sb-cutter.active{background:linear-gradient(135deg,#be123c,#fb7185);color:#fff;font-weight:800;border-left-color:#9f1239}'
++'.bpc-sb-cutter.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 8px;border-radius:10px;font-size:10px}'
++'.bpc-sb-sub{padding:5px 16px 5px 37px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fafafa;color:#64748b;border-left:5px solid transparent;transition:all 0.15s}'
++'.bpc-sb-sub:hover{background:#f8fafc;color:#1e293b}'
++'.bpc-sb-sub.active{background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;font-weight:800;border-left-color:#1d4ed8}'
++'.bpc-sb-sub.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
++'.bpc-sb-sub.incomplete{color:#d97706;font-weight:700}'
++'.bpc-sb-sub.incomplete.active{background:linear-gradient(135deg,#d97706,#fbbf24);color:#fff;border-left-color:#b45309}'
++'.bpc-sb-sub.incomplete.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
 +'.bpc-icon-btn{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
 +'.bpc-icon-btn:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
 +'.bpc-icon-btn.on-cut{background:#dcfce7;border-color:#22c55e}'
@@ -137,7 +148,8 @@ function _bpcRenderSidebar() {
     var ua = t.unassigned || { total: 0, ready: 0, pending: 0 };
 
     var h = '<div class="bpc-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#dc2626;font-weight:900">✂️ Bộ Phận Cắt</span> <span style="color:var(--navy)">───</span></div>';
-    h += '<div class="bpc-sb-total" onclick="_bpcFilter()"><span>📦 Tổng đơn cắt</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
+    var totActive = f.view === 'records' && !f.year && !f.month && !f.cutter_id && !f.status;
+    h += '<div class="bpc-sb-total' + (totActive ? ' active' : '') + '" onclick="_bpcFilter()"><span>📦 Tổng đơn cắt</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
 
     // Mục 1: Các Đơn Chưa Cắt
     var uaActive = f.view === 'unassigned';
@@ -397,8 +409,8 @@ function _bpcRenderRows(paged) {
                     ? '<button class="bpc-icon-btn ' + errCls + '" disabled title="Đã báo lỗi" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + errIcon + '</button>'
                     : '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>')
             +'</td>'
-            +'<td style="font-size:10px">'+_bpcFmtDate(r.cut_date)+'</td>'
-            +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
+            +'<td style="font-size:10px">'+((r.is_cutting || r.is_cut_done) ? _bpcFmtDate(r.cut_date) : '—')+'</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+((r.is_cutting || r.is_cut_done) ? (r.cutter_name||'—') : '—')+'</td>'
             +'<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span></td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
@@ -1054,8 +1066,8 @@ async function _bpcOpenDetail(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧵 Chất liệu</span><span class="bpc-modal-val"><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.material_name||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + _bpcFmtDate(r.cut_date) + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + ((r.is_cutting || r.is_cut_done) ? (r.cutter_name||'—') : '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + ((r.is_cutting || r.is_cut_done) ? _bpcFmtDate(r.cut_date) : '—') + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
 
         // Wash reported details
