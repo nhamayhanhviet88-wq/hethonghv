@@ -127,7 +127,7 @@ function _qlxRenderSidebar() {
     // Chưa Hoàn Thành
     var incOpen = !!_qlxOpen.inc;
     var incAct = f.status === 'incomplete' && !f.category_id && !f.year && !f.month;
-    h += '<div class="qlx-sb-grp' + (incAct ? ' active' : '') + '" onclick="_qlxToggleGroup(\'inc\',\'incomplete\')"><span>' + (incOpen ? '▼' : '▶') + ' ⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
+    h += '<div class="qlx-sb-grp' + (incAct ? ' active' : '') + '" onclick="_qlxFilter(\'incomplete\')"><span><span onclick="event.stopPropagation(); _qlxToggle(\'inc\')" style="cursor:pointer; padding-right:6px; display:inline-block;">' + (incOpen ? '▼' : '▶') + '</span>⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
     if (incOpen) {
         h += '<div style="padding:8px 12px;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:6px">';
         h += '<input type="text" id="qlxSidebarSearch" placeholder="🔍 Tìm mã đơn, khách, sale..." style="flex:1;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;outline:none;background:#f8fafc" value="' + (_qlx.sidebarSearch || '') + '" oninput="_qlxSidebarSearchInput(this.value)" onclick="event.stopPropagation()">';
@@ -140,7 +140,7 @@ function _qlxRenderSidebar() {
         t.incomplete.categories.forEach(function(cat) {
             var catOpen = !!_qlxOpen['cat' + cat.id];
             var catAct = f.status === 'incomplete' && f.category_id == cat.id && !f.month;
-            h += '<div class="qlx-sb-cat' + (catAct ? ' active' : '') + '" onclick="event.stopPropagation();_qlxToggle(\'cat' + cat.id + '\');_qlxFilter(\'incomplete\',' + cat.id + ')"><span>' + (catOpen ? '▼' : '▶') + ' 📁 ' + cat.name + '</span><span style="color:' + (cat.count > 0 ? '#0369a1' : '#999') + ';font-weight:' + (cat.count > 0 ? '800' : '400') + '">' + cat.count + '</span></div>';
+            h += '<div class="qlx-sb-cat' + (catAct ? ' active' : '') + '" onclick="event.stopPropagation(); _qlxFilter(\'incomplete\',' + cat.id + ')"><span><span onclick="event.stopPropagation(); _qlxToggle(\'cat' + cat.id + '\')" style="cursor:pointer; padding-right:6px; display:inline-block;">' + (catOpen ? '▼' : '▶') + '</span>📁 ' + cat.name + '</span><span style="color:' + (cat.count > 0 ? '#0369a1' : '#999') + ';font-weight:' + (cat.count > 0 ? '800' : '400') + '">' + cat.count + '</span></div>';
             if (catOpen && cat.months) {
                 cat.months.forEach(function(m) {
                     var mAct = f.status === 'incomplete' && f.category_id == cat.id && f.year == m.year && f.month == m.month;
@@ -153,7 +153,7 @@ function _qlxRenderSidebar() {
     // Đã Hoàn Thành
     var compOpen = !!_qlxOpen.comp;
     var compAct = f.status === 'complete' && !f.year && !f.month;
-    h += '<div class="qlx-sb-grp' + (compAct ? ' active' : '') + '" onclick="_qlxToggleGroup(\'comp\',\'complete\')"><span>' + (compOpen ? '▼' : '▶') + ' ✅ Đã Hoàn Thành</span><span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + compTotal + '</span></div>';
+    h += '<div class="qlx-sb-grp' + (compAct ? ' active' : '') + '" onclick="_qlxFilter(\'complete\')"><span><span onclick="event.stopPropagation(); _qlxToggle(\'comp\')" style="cursor:pointer; padding-right:6px; display:inline-block;">' + (compOpen ? '▼' : '▶') + '</span>✅ Đã Hoàn Thành</span><span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + compTotal + '</span></div>';
     if (compOpen && t.complete && t.complete.months) {
         t.complete.months.forEach(function(m) {
             var mAct = f.status === 'complete' && f.year == m.year && f.month == m.month;
