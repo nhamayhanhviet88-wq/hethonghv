@@ -67,7 +67,8 @@ function renderQuanlyxuongqlxPage(content) {
 +'.qlx-cl-icon-btn{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:80px;height:26px;border-radius:8px;border:1.5px solid #0ea5e9;background:linear-gradient(135deg,#e0f2fe,#bae6fd);font-size:10px;font-weight:700;color:#0369a1;gap:4px;transition:all .2s;animation:qlxPulse 2s infinite}'
 +'@keyframes qlxPulse{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0.4)}50%{box-shadow:0 0 0 6px rgba(14,165,233,0)}}'
 +'.qlx-cl-icon-btn:hover{transform:scale(1.05);background:linear-gradient(135deg,#bae6fd,#7dd3fc)}'
-+'@media(max-width:768px){.qlx-sidebar{display:none}}';
++'@media(max-width:768px){.qlx-sidebar{display:none}}'
++'@keyframes qlxBlink{0%,100%{opacity:1}50%{opacity:0.4}}';
         document.head.appendChild(st);
     }
     content.innerHTML = '<div class="qlx-wrap"><div class="qlx-sidebar" id="qlxSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="qlx-main">'
@@ -80,14 +81,14 @@ function renderQuanlyxuongqlxPage(content) {
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="qlxTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>🧵</th><th>🔩</th><th>🖨️</th><th>🪡</th>'
-        +'<th>Tên KH</th><th>CSKH</th>'
+        +'<th>Tên KH</th><th>CSKH</th><th>Tiến Độ</th>'
         +'<th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu</th>'
         +'<th>SL</th><th>Ngày Ra Dự Kiến</th>'
         +'<th>Tiêu Chuẩn</th><th>Trạng Thái</th>'
         +'<th>NV Cắt</th><th>NV In</th><th>NV Ép</th><th>NV May</th>'
         +'<th>KTCL</th><th>Hoàn Thiện</th>'
         +'<th>Lĩnh Vực</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="22" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="23" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="qlxPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     var _st; document.getElementById('qlxSearch').addEventListener('input', function() {
@@ -212,6 +213,38 @@ async function _qlxLoadOrders() {
 
 function _qlxFmtDate(d) { if (!d) return '—'; try { var p = d.split('T')[0].split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch(e) { return d; } }
 
+function _qlxGetTienDo(o) {
+    if (!o.expected_ship_date) return '—';
+    var todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    todayVN.setHours(0,0,0,0);
+    
+    var shipExpected = new Date(o.expected_ship_date);
+    shipExpected.setHours(0,0,0,0);
+    
+    var diffDays = Math.round((todayVN.getTime() - shipExpected.getTime()) / 86400000);
+    
+    if (o.shipped_at || o.shipping_status === 'shipped') {
+        var shipActual = o.shipped_at ? new Date(new Date(o.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })) : todayVN;
+        shipActual.setHours(0,0,0,0);
+        var shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
+        if (shipDiff > 0) {
+            return '<span style="color:#059669;font-weight:700">⚡ Nhanh ' + shipDiff + ' ngày</span>';
+        } else if (shipDiff === 0) {
+            return '<span style="color:#059669;font-weight:700">✅ Đúng hạn</span>';
+        } else {
+            return '<span style="color:#dc2626;font-weight:700">⚠️ Trễ ' + Math.abs(shipDiff) + ' ngày</span>';
+        }
+    } else {
+        if (diffDays < 0) {
+            return '<span style="color:#2563eb;font-weight:700">⏳ Còn ' + Math.abs(diffDays) + ' ngày</span>';
+        } else if (diffDays === 0) {
+            return '<span style="color:#f59e0b;font-weight:800">📦 Hôm nay!</span>';
+        } else {
+            return '<span style="color:#dc2626;font-weight:800;animation:qlxBlink 1s infinite">🔥 Quá hạn ' + diffDays + ' ngày</span>';
+        }
+    }
+}
+
 function _qlxRenderTable() {
     var all = _qlx.orders.slice();
     if (_qlx.search) {
@@ -269,7 +302,7 @@ function _qlxRenderTable() {
 
 function _qlxRenderRows(paged) {
     var tbody = document.getElementById('qlxTbody'); if (!tbody) return;
-    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="20"><div class="empty-state"><div class="icon">🏭</div><h3>Chưa có đơn hàng nào</h3><p>Chọn bộ lọc ở sidebar</p></div></td></tr>'; return; }
+    if (!paged.length) { tbody.innerHTML = '<tr><td colspan="23"><div class="empty-state"><div class="icon">🏭</div><h3>Chưa có đơn hàng nào</h3><p>Chọn bộ lọc ở sidebar</p></div></td></tr>'; return; }
 
     var rows = [];
     paged.forEach(function(o) {
@@ -403,6 +436,7 @@ function _qlxRenderRows(paged) {
 
         h += '<td style="font-weight:600;color:#1e293b;font-size:11px">' + (isNew ? (o.customer_name || '') : '') + '</td>';
         h += '<td style="font-size:10px;color:#6b7280">' + (isNew ? (o.cskh_name || o.created_by_name || '') : '') + '</td>';
+        h += '<td style="font-size:10px;text-align:center">' + (isNew ? _qlxGetTienDo(o) : '') + '</td>';
         h += '<td style="font-weight:600">' + phoiTag + '<span style="color:#1e293b;font-size:11px">' + spName + '</span></td>';
         h += '<td style="font-size:10px;color:#475569">' + matName + '</td>';
         h += '<td style="font-size:10px">' + (colorName ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:3px;vertical-align:middle"></span>' + colorName : '') + '</td>';
