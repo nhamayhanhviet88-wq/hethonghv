@@ -542,7 +542,6 @@ async function openPtDetailsModal(rollId) {
             } else {
                 actHtml += '<div style="font-size:10px;color:#ef4444;background:#fef2f2;border:1px solid #fee2e2;padding:8px;border-radius:6px;font-weight:600;margin-top:8px;text-align:center">⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.</div>';
             }
-            actHtml += '<button class="pt-action-btn reset" style="margin-top:12px" onclick="ptDetailsReset(' + roll.id + ')">🔄 Reset hao hụt & lỗi</button>';
         }
         
         var histRows = history.map(function(h) {
