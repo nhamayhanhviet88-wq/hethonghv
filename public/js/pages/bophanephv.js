@@ -75,7 +75,8 @@ function renderBophanepPage(content) {
 + '.bpe-claim-btn{padding:7px 16px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:"Inter",system-ui,sans-serif;letter-spacing:0.3px}'
 + '.bpe-claim-btn.ready{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff !important;box-shadow:0 3px 10px rgba(124,58,237,0.3)}'
 + '.bpe-claim-btn.ready:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(124,58,237,0.4)}'
-+ '.bpe-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1px solid #e2e8f0;font-weight:600}';
++ '.bpe-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1px solid #e2e8f0;font-weight:600}'
++ '@media(min-width:769px){.bpe-hide-desktop{display:none !important}}';
         document.head.appendChild(st);
     }
 
@@ -90,7 +91,7 @@ function renderBophanepPage(content) {
         + '<div id="bpePaginationTop" style="margin:8px 0"></div>'
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:11px;white-space:nowrap;width:100%" id="bpeTable"><thead><tr style="background:var(--gray-800)">'
-        + '<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
+        + '<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
         + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
         + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         + '</tr></thead><tbody id="bpeTb"><tr><td colspan="21" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
@@ -410,7 +411,7 @@ function _bpeRender() {
         var thead = wrap.querySelector('thead');
         if (thead) {
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
-                + '<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th>Chất Liệu</th><th>Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
+                + '<th>STT</th><th>🔥</th><th>💰</th><th>⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th><th>Lương</th>'
                 + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
                 + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
                 + '</tr>';
@@ -458,8 +459,8 @@ function _bpeRenderRows(paged) {
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
                 +'<td style="font-weight:600;color:#1e293b">'+priBadge+r.product_name+'</td>'
-                +'<td style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
-                +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
+                +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
+                +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
                 +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
                 +'<td style="text-align:center;font-weight:600;color:#0369a1">'+r.order_quantity+'</td>'
                 +'<td style="text-align:center;font-weight:700;color:#ea580c">—</td>'
@@ -495,8 +496,8 @@ function _bpeRenderRows(paged) {
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
             + '<td style="font-weight:600;color:#1e293b">' + (r.product_name || r.order_code || '—') + '</td>'
-            + '<td style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
-            + '<td style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
+            + '<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
+            + '<td class="bpe-hide-desktop" style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
             + '<td style="text-align:center;font-weight:600">' + (r.order_quantity || '—') + '</td>'
             + '<td style="text-align:center;font-weight:700;color:#ea580c">' + (r.press_quantity || '—') + '</td>'
