@@ -41,32 +41,32 @@ function renderBophancatPage(content) {
         st.textContent = '.bpc-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}'
 +'.bpc-sidebar{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:relative}'
 +'.bpc-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.bpc-main>*{flex-shrink:0}.bpc-main .card{overflow:visible}'
-+'.bpc-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden}'
++'.bpc-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden;background:#f8fafc}'
 +'.bpc-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(239,68,68,0.08) 50%,transparent 70%);animation:bpcShimmer 3s infinite}'
 +'@keyframes bpcShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}'
-+'.bpc-sb-total{background:#fff;color:#dc2626;border-left:5px solid #e2e8f0;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid var(--gray-200);transition:all 0.2s}'
-+'.bpc-sb-total:hover{background:#fef2f2;border-left-color:#dc2626}'
-+'.bpc-sb-total.active{background:linear-gradient(135deg,#dc2626,#ef4444,#f87171);color:#fff;border-left-color:#b91c1c}'
++'.bpc-sb-total{background:#fee2e2;color:#991b1b;border-left:5px solid #fca5a5;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid #fee2e2;transition:all 0.2s}'
++'.bpc-sb-total:hover{background:#fecaca}'
++'.bpc-sb-total.active{background:linear-gradient(135deg,#dc2626,#ef4444,#f87171);color:#fff;border-left-color:#7f1d1d;box-shadow:0 2px 5px rgba(220,38,38,0.25)}'
 +'.bpc-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:bpcGlow 2.5s infinite}'
 +'@keyframes bpcGlow{0%{left:-100%}100%{left:150%}}'
-+'.bpc-sb-uncut{background:#fff;color:#ea580c;border-left:5px solid #e2e8f0;padding:10px 16px 10px 11px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.1);transition:all 0.2s}'
-+'.bpc-sb-uncut:hover{background:#fff7ed;border-left-color:#f97316}'
-+'.bpc-sb-uncut.active{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;border-left-color:#c2410c;animation:bpcPulse 2.5s infinite}'
++'.bpc-sb-uncut{background:#ffedd5;color:#c2410c;border-left:5px solid #fed7aa;padding:11px 16px 11px 11px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid #ffedd5;transition:all 0.2s}'
++'.bpc-sb-uncut:hover{background:#fed7aa}'
++'.bpc-sb-uncut.active{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;border-left-color:#9a3412;box-shadow:0 2px 5px rgba(249,115,22,0.25);animation:bpcPulse 2.5s infinite}'
 +'@keyframes bpcPulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:inset 0 0 20px 0 rgba(255,255,255,0.15)}}'
-+'.bpc-sb-year{padding:8px 16px 8px 11px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200);transition:all 0.15s;border-left:5px solid transparent}'
-+'.bpc-sb-year:hover{background:#f1f5f9;border-left-color:#cbd5e1}'
-+'.bpc-sb-year.active{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-left-color:#1d4ed8}'
++'.bpc-sb-year{padding:9px 16px 9px 11px;font-weight:800;font-size:12px;color:#1e3a8a;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#dbeafe;border-bottom:1px solid #dbeafe;transition:all 0.15s;border-left:5px solid #bfdbfe}'
++'.bpc-sb-year:hover{background:#bfdbfe}'
++'.bpc-sb-year.active{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-left-color:#172554;box-shadow:0 2px 5px rgba(30,58,138,0.25)}'
 +'.bpc-sb-year.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important}'
-+'.bpc-sb-cutter{padding:6px 16px 6px 23px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;color:#475569;border-left:5px solid transparent;transition:all 0.15s}'
-+'.bpc-sb-cutter:hover{background:#f1f5f9;color:#0f172a}'
-+'.bpc-sb-cutter.active{background:linear-gradient(135deg,#be123c,#fb7185);color:#fff;font-weight:800;border-left-color:#9f1239}'
++'.bpc-sb-cutter{padding:7px 16px 7px 23px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;color:#334155;border-left:5px solid #cbd5e1;background:#f1f5f9;transition:all 0.15s}'
++'.bpc-sb-cutter:hover{background:#e2e8f0}'
++'.bpc-sb-cutter.active{background:linear-gradient(135deg,#be123c,#fb7185);color:#fff;font-weight:800;border-left-color:#4c0519;box-shadow:0 2px 5px rgba(190,18,60,0.25)}'
 +'.bpc-sb-cutter.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 8px;border-radius:10px;font-size:10px}'
-+'.bpc-sb-sub{padding:5px 16px 5px 37px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fafafa;color:#64748b;border-left:5px solid transparent;transition:all 0.15s}'
-+'.bpc-sb-sub:hover{background:#f8fafc;color:#1e293b}'
-+'.bpc-sb-sub.active{background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;font-weight:800;border-left-color:#1d4ed8}'
++'.bpc-sb-sub{padding:6px 16px 6px 37px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f1f5f9;color:#475569;border-left:5px solid transparent;background:#f8fafc;transition:all 0.15s}'
++'.bpc-sb-sub:hover{background:#f1f5f9}'
++'.bpc-sb-sub.active{background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;font-weight:800;border-left-color:#1e3a8a;box-shadow:0 2px 5px rgba(37,99,235,0.25)}'
 +'.bpc-sb-sub.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
-+'.bpc-sb-sub.incomplete{color:#d97706;font-weight:700}'
-+'.bpc-sb-sub.incomplete.active{background:linear-gradient(135deg,#d97706,#fbbf24);color:#fff;border-left-color:#b45309}'
++'.bpc-sb-sub.incomplete{background:#fef3c7;color:#92400e;border-left-color:#fde68a}'
++'.bpc-sb-sub.incomplete.active{background:linear-gradient(135deg,#d97706,#fbbf24);color:#fff;border-left-color:#78350f;box-shadow:0 2px 5px rgba(217,119,6,0.25)}'
 +'.bpc-sb-sub.incomplete.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
 +'.bpc-icon-btn{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
 +'.bpc-icon-btn:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
@@ -171,12 +171,7 @@ function _bpcRenderSidebar() {
     h += '<span>🔴 CÁC ĐƠN CHƯA CẮT</span>';
     h += '<span style="background:rgba(255,255,255,0.3);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:900">' + ua.total + '</span>';
     h += '</div>';
-    if (ua.total > 0) {
-        h += '<div style="padding:4px 16px;font-size:9px;color:#6b7280;border-bottom:1px solid #f0f0f0;display:flex;gap:8px">';
-        h += '<span style="color:#059669;font-weight:700">🟢 Sẵn sàng: ' + ua.ready + '</span>';
-        if (ua.pending > 0) h += '<span style="color:#f59e0b;font-weight:700">🟡 Thiếu ĐK: ' + ua.pending + '</span>';
-        h += '</div>';
-    }
+
 
     // Mục 2+3: Năm → NV → {Chưa HT, Tháng}
     if (t.yearTree) {
