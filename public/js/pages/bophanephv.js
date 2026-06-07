@@ -5,6 +5,28 @@ var _bpeOpen = {};
 function _bpeFD(d) { if (!d) return '—'; try { var p = d.split('T')[0].split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return d; } }
 function _bpeFN(n) { if (!n && n !== 0) return '—'; return Number(n).toLocaleString('vi-VN'); }
 
+function _bpeFmtTimeDateNoYear(d) {
+    if (!d) return '—';
+    try {
+        var str = '';
+        if (typeof vnFormat === 'function') {
+            str = vnFormat(d);
+        } else {
+            var dateObj = new Date(d);
+            if (isNaN(dateObj.getTime())) return d;
+            var hh = String(dateObj.getHours()).padStart(2, '0');
+            var mm = String(dateObj.getMinutes()).padStart(2, '0');
+            var dd = String(dateObj.getDate()).padStart(2, '0');
+            var mo = String(dateObj.getMonth() + 1).padStart(2, '0');
+            var yy = dateObj.getFullYear();
+            str = hh + ':' + mm + ' ' + dd + '/' + mo + '/' + yy;
+        }
+        return str.replace(/\/\d{4}$/, '');
+    } catch(e) {
+        return d;
+    }
+}
+
 function renderBophanepPage(content) {
     if (!document.getElementById('_bpcFontLink')) {
         var fl = document.createElement('link'); fl.id = '_bpcFontLink'; fl.rel = 'stylesheet';
@@ -470,7 +492,7 @@ function _bpeRenderRows(paged) {
             + '<td style="text-align:center"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
             + '<td style="text-align:center"><button class="bpe-ib' + sC + '" onclick="_bpeTog(' + r.id + ',\'' + sA + '\')" title="Lương">' + sI + '</button></td>'
             + '<td style="text-align:center"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
-            + '<td style="font-size:10px">' + _bpeFD(r.press_date) + '</td>'
+            + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
             + '<td style="font-weight:600;color:#1e293b">' + (r.product_name || r.order_code || '—') + '</td>'
             + '<td style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
