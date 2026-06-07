@@ -112,7 +112,7 @@ function renderBophancatPage(content) {
     content.innerHTML = '<div class="bpc-wrap"><div class="bpc-sidebar" id="bpcSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpc-main">'
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         +'<div id="bpcFilterInfo" style="font-size:12px"></div>'
-        +'<div id="bpcStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
+        +'<div id="bpcStatCards" style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center;align-items:center"></div>'
         +'<button onclick="_bpcOpenMultiCut()" style="padding:8px 16px;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(234,88,12,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">✂️+ CẮT NHIỀU ĐƠN</button>'
         +((window._currentUser && window._currentUser.role === 'giam_doc') ? '<button onclick="_bpcOpenTargetRatioModal()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;margin-left:8px;box-shadow:0 3px 12px rgba(16,185,129,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">⚖️ ĐỊNH LƯỢNG TỈ LỆ CẮT</button>' : '')
         +'<input id="bpcSearch" placeholder="🔍 Tìm sản phẩm, chất liệu..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
@@ -478,6 +478,13 @@ function _bpcRenderTable() {
         all = all.filter(function(r) { return !r.is_uncut && !r.is_cut_done; });
     } else if (sf === 'done') {
         all = all.filter(function(r) { return r.is_cut_done; });
+    } else if (sf === 'ratio_fail') {
+        all = all.filter(function(r) {
+            if (!r.is_cut_done) return false;
+            var tr = Number(r.target_cut_ratio) || 0;
+            var cr = Number(r.cut_ratio) || 0;
+            return tr > 0 && cr < tr;
+        });
     }
     
     // 2. Apply search
@@ -752,6 +759,12 @@ function _bpcRenderStats(count, arr) {
     var unassignedCount = baseArr.filter(function(r) { return r.is_uncut; }).length;
     var incompleteCount = baseArr.filter(function(r) { return !r.is_uncut && !r.is_cut_done; }).length;
     var doneCount = baseArr.filter(function(r) { return r.is_cut_done; }).length;
+    var ratioFailCount = baseArr.filter(function(r) {
+        if (!r.is_cut_done) return false;
+        var tr = Number(r.target_cut_ratio) || 0;
+        var cr = Number(r.cut_ratio) || 0;
+        return tr > 0 && cr < tr;
+    }).length;
 
     var sf = _bpc.subFilter || 'all';
     
@@ -761,6 +774,12 @@ function _bpcRenderStats(count, arr) {
         +'<div style="font-size:16px;font-weight:900">' + totalCount + '</div>'
         +'</div>';
         
+    var btnRatioFailHtml = '<div onclick="_bpcSetSubFilter(\'ratio_fail\')" style="cursor:pointer;background:linear-gradient(135deg,#991b1b,#7f1d1d);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'ratio_fail' ? '0 0 0 3px #fff, 0 4px 20px rgba(153,27,27,0.5)' : '0 4px 10px rgba(153,27,27,0.2)') + ';transform:' + (sf === 'ratio_fail' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'ratio_fail' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">📉 TỈ LỆ CẮT SAI</div>'
+        +'<div style="font-size:16px;font-weight:900">' + ratioFailCount + '</div>'
+        +'</div>';
+
     var btnUnassignedHtml = '<div onclick="_bpcSetSubFilter(\'unassigned\')" style="cursor:pointer;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'unassigned' ? '0 0 0 3px #fff, 0 4px 20px rgba(79,70,229,0.5)' : '0 4px 10px rgba(79,70,229,0.2)') + ';transform:' + (sf === 'unassigned' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'unassigned' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
         +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .2s"></div>'
         +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">🔴 CHƯA NHẬN</div>'
@@ -779,7 +798,8 @@ function _bpcRenderStats(count, arr) {
         +'<div style="font-size:16px;font-weight:900">' + doneCount + '</div>'
         +'</div>';
         
-    sc.innerHTML = btnTotalHtml + btnUnassignedHtml + btnIncompleteHtml + btnDoneHtml;
+    sc.innerHTML = '<div style="display:flex;gap:10px;justify-content:center">' + btnTotalHtml + btnRatioFailHtml + '</div>'
+        + '<div style="display:flex;gap:10px;justify-content:center">' + btnUnassignedHtml + btnIncompleteHtml + btnDoneHtml + '</div>';
 }
 
 function _bpcSetSubFilter(sf) {
