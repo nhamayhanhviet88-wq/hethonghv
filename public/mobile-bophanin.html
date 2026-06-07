@@ -486,8 +486,10 @@ async function mShowDoneModal(r) {
     
     let rollType = 'PET';
     const fieldUpper = (r.print_field || '').toUpperCase();
-    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+    if (fieldUpper.includes('TEM')) {
         rollType = 'TEM';
+    } else if (fieldUpper.includes('DECAL')) {
+        rollType = 'DECAL';
     }
     
     let activeRolls = [];
@@ -765,8 +767,10 @@ async function mEditCell(id, field, currentVal, title) {
 async function mEditRoll(id, printField, currentTxId) {
     let matItemId = 4;
     const fieldUpper = (printField || '').toUpperCase();
-    if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
+    if (fieldUpper.includes('TEM')) {
         matItemId = 11;
+    } else if (fieldUpper.includes('DECAL')) {
+        matItemId = 21;
     }
     try {
         const res = await api('/api/khovatlieu/available-rolls?material_item_id=' + matItemId);

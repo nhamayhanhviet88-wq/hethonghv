@@ -152,6 +152,7 @@ function _ptRender(){
         var displayFieldName = r.field_name || '—';
         if (displayFieldName === 'PET') displayFieldName = 'Màng In Pet';
         if (displayFieldName === 'TEM') displayFieldName = 'Màng In Tem';
+        if (displayFieldName === 'DECAL') displayFieldName = 'Màng In Decal';
         
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + colLabel + ' #'+(r.material_tx_id || r.id)+'</button></td>'
@@ -207,6 +208,7 @@ async function openPtImportModal() {
             + '        <select id="ptImpField" required onchange="onPtImpFieldChange()">'
             + '          <option value="TEM">🎫 TEM (Màng In Tem)</option>'
             + '          <option value="PET">🏷️ PET (Màng In Pet)</option>'
+            + '          <option value="DECAL">📋 DECAL (Màng In Decal)</option>'
             + '        </select>'
             + '      </div>'
             + '      <div class="pt-form-group">'
@@ -257,17 +259,19 @@ async function openPtImportModal() {
         var kvTree = await apiCall('/api/khovatlieu/tree');
         var petStock = 0;
         var temStock = 0;
+        var decalStock = 0;
         if (kvTree && kvTree.tree) {
             kvTree.tree.forEach(function(wh) {
                 if (wh.items) {
                     wh.items.forEach(function(item) {
                         if (item.id === 4) petStock = Number(item.remaining_stock) || 0;
                         if (item.id === 11) temStock = Number(item.remaining_stock) || 0;
+                        if (item.id === 21) decalStock = Number(item.remaining_stock) || 0;
                     });
                 }
             });
         }
-        _ptImpStocks = { PET: petStock, TEM: temStock };
+        _ptImpStocks = { PET: petStock, TEM: temStock, DECAL: decalStock };
     } catch(e) {
         console.error('[PT] Load warehouse stock failed:', e);
         showToast('Lỗi tải tồn kho từ Kho Vật Liệu', 'error');
@@ -284,9 +288,9 @@ function closePtImportModal() {
 
 async function onPtImpFieldChange() {
     var field = document.getElementById('ptImpField').value;
-    var name = field === 'PET' ? 'Màng In Pet' : 'Màng In Tem';
+    var name = field === 'PET' ? 'Màng In Pet' : field === 'TEM' ? 'Màng In Tem' : 'Màng In Decal';
     var stock = _ptImpStocks[field] || 0;
-    var materialItemId = field === 'PET' ? 4 : 11;
+    var materialItemId = field === 'PET' ? 4 : field === 'TEM' ? 11 : 21;
     
     document.getElementById('ptImpMatName').value = name;
     document.getElementById('ptImpStock').value = _ptFN(stock) + ' mét';
@@ -348,7 +352,7 @@ async function onPtImpFieldChange() {
         var h = '<option value="">-- Chọn lô để xuất nguyên lô --</option>';
         _ptAvailableLots.forEach(function(lot) {
             var dateStr = _ptFD(lot.performed_at.split('T')[0]);
-            var materialName = field === 'PET' ? 'Màng In Pet' : 'Màng In Tem';
+            var materialName = field === 'PET' ? 'Màng In Pet' : field === 'TEM' ? 'Màng In Tem' : 'Màng In Decal';
             h += '<option value="' + lot.id + '">Lô #' + lot.id + ' - ' + materialName + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
         });
         if (selectEl) selectEl.innerHTML = h;
@@ -599,7 +603,7 @@ async function openPtDetailsModal(rollId) {
         m.innerHTML = 
             '<div class="pt-details-content">'
           + '  <div class="pt-modal-header" style="background:#f8fafc">'
-          + '    <h3>🌲 Chi Tiết Cây Vật Liệu #' + (roll.material_tx_id || roll.id) + ' (' + (roll.roll_type === 'PET' ? 'Màng In PET' : 'Màng In TEM') + ')</h3>'
+          + '    <h3>🌲 Chi Tiết Cây Vật Liệu #' + (roll.material_tx_id || roll.id) + ' (' + (roll.roll_type === 'PET' ? 'Màng In PET' : roll.roll_type === 'TEM' ? 'Màng In TEM' : 'Màng In DECAL') + ')</h3>'
           + '    <span class="pt-close-btn" onclick="closePtDetailsModal()">&times;</span>'
           + '  </div>'
           + '  <div class="pt-details-grid">'

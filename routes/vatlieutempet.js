@@ -186,8 +186,8 @@ module.exports = async function(fastify) {
     fastify.post('/api/pettem/rolls/import-from-warehouse', { preHandler: [authenticate] }, async (req, reply) => {
         const b = req.body || {}, now = new Date();
         
-        if (!b.roll_type || !['PET', 'TEM'].includes(b.roll_type)) {
-            return reply.code(400).send({ error: 'Loại không hợp lệ (chỉ hỗ trợ PET hoặc TEM)' });
+        if (!b.roll_type || !['PET', 'TEM', 'DECAL'].includes(b.roll_type)) {
+            return reply.code(400).send({ error: 'Loại không hợp lệ (chỉ hỗ trợ PET, TEM hoặc DECAL)' });
         }
         
         const selectedTxId = Number(b.material_tx_id);
@@ -195,7 +195,11 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Vui lòng chọn lô nhập từ Kho Vật Liệu' });
         }
 
-        const materialItemId = b.roll_type === 'PET' ? 4 : 11;
+        let materialItemId;
+        if (b.roll_type === 'PET') materialItemId = 4;
+        else if (b.roll_type === 'TEM') materialItemId = 11;
+        else if (b.roll_type === 'DECAL') materialItemId = 21;
+
         const pool = db.getDB();
         const client = await pool.connect();
         
@@ -255,7 +259,7 @@ module.exports = async function(fastify) {
             const materialTxId = txRes.rows[0].id;
 
             // 3. Insert into pettem_rolls
-            const rollTypeLabel = b.roll_type === 'PET' ? 'PET' : 'TEM';
+            const rollTypeLabel = b.roll_type;
             const rollNotes = `Nhập từ Kho Vật Liệu Màng In ${rollTypeLabel} (Giao dịch gốc #${selectedTxId})` + (b.notes ? ` - ${b.notes}` : '');
             
             const rollRes = await client.query(`
