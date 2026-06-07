@@ -529,9 +529,10 @@ function _bpcMapRecordRow(r, i) {
     
     var isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
     var doneBtnHtml = '';
-    if (r.is_uncut) {
-        doneBtnHtml = '<span style="width:26px;display:inline-block">—</span>';
-    } else {
+    var washBtnHtml = '';
+    var errBtnHtml = '';
+    
+    if (!r.is_uncut) {
         doneBtnHtml = showDoneBtn
             ? (r.is_cut_done
                 ? (isGiamDoc
@@ -539,21 +540,11 @@ function _bpcMapRecordRow(r, i) {
                     : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>')
                 : '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>')
             : '<span style="width:26px;display:inline-block"></span>';
-    }
-    
-    var washBtnHtml = '';
-    if (r.is_uncut) {
-        washBtnHtml = '<span style="width:26px;display:inline-block">—</span>';
-    } else {
+            
         washBtnHtml = r.wash_reported
             ? '<button class="bpc-icon-btn ' + washCls + '" disabled title="Đã báo giặt vải" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + washIcon + '</button>'
             : '<button class="bpc-icon-btn' + washCls + '" onclick="_bpcOpenWashModal(' + r.id + ')" title="Giặt vải">' + washIcon + '</button>';
-    }
-    
-    var errBtnHtml = '';
-    if (r.is_uncut) {
-        errBtnHtml = '<span style="width:26px;display:inline-block">—</span>';
-    } else {
+            
         errBtnHtml = r.error_reported
             ? '<button class="bpc-icon-btn ' + errCls + '" disabled title="Đã báo lỗi" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + errIcon + '</button>'
             : '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>';
@@ -583,6 +574,28 @@ function _bpcMapRecordRow(r, i) {
     }
     var qtyColor = isPhoi ? '#60a5fa' : '#0369a1';
     var cutColor = isPhoi ? '#c084fc' : '#7c3aed';
+
+    if (r.is_uncut) {
+        return '<tr>'
+            +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+            +'<td colspan="4" style="text-align:center;vertical-align:middle">'+cutBtnHtml+'</td>'
+            +'<td style="font-size:10px">—</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+            +nameHtml
+            +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
+            +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#dc2626">'+_bpcFmtKg(r.kg_cut)+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio ? r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') : '—')+'</td>'
+            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_start)+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_end)+'</td>'
+            +'<td>'+warnHtml+'</td>'
+            +'<td style="font-size:10px;text-align:center">'+sharedCol+'</td>'
+            +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
+            +'</tr>';
+    }
 
     return '<tr>'
         +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
