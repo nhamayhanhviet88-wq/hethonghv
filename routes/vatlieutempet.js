@@ -19,9 +19,11 @@ module.exports = async function(fastify) {
         created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await db.exec(`ALTER TABLE pettem_rolls ADD COLUMN IF NOT EXISTS material_tx_id INTEGER REFERENCES material_transactions(id) ON DELETE SET NULL`);
+    await db.exec(`ALTER TABLE pettem_rolls ADD COLUMN IF NOT EXISTS xuat_tx_id INTEGER REFERENCES material_transactions(id) ON DELETE SET NULL`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_type ON pettem_rolls(roll_type)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_date ON pettem_rolls(import_date)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_material_tx ON pettem_rolls(material_tx_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_xuat_tx ON pettem_rolls(xuat_tx_id)`);
     } catch(e) { console.error('[PT] rolls migration error:', e.message); }
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS pettem_history (
@@ -137,9 +139,9 @@ module.exports = async function(fastify) {
         
         // Propagate qty_imported change to corresponding XUAT transaction in warehouse
         if (field === 'qty_imported') {
-            const roll = await db.get('SELECT material_tx_id FROM pettem_rolls WHERE id = $1', [id]);
-            if (roll && roll.material_tx_id) {
-                await db.run('UPDATE material_transactions SET quantity = $1 WHERE parent_tx_id = $2 AND tx_type = \'XUAT\'', [fv, roll.material_tx_id]);
+            const roll = await db.get('SELECT xuat_tx_id FROM pettem_rolls WHERE id = $1', [id]);
+            if (roll && roll.xuat_tx_id) {
+                await db.run('UPDATE material_transactions SET quantity = $1 WHERE id = $2 AND tx_type = \'XUAT\'', [fv, roll.xuat_tx_id]);
             }
         }
 
@@ -166,9 +168,9 @@ module.exports = async function(fastify) {
 
         // Propagate qty_imported change to corresponding XUAT transaction in warehouse
         if (b.qty_imported !== undefined) {
-            const roll = await db.get('SELECT material_tx_id FROM pettem_rolls WHERE id = $1', [id]);
-            if (roll && roll.material_tx_id) {
-                await db.run('UPDATE material_transactions SET quantity = $1 WHERE parent_tx_id = $2 AND tx_type = \'XUAT\'', [Number(b.qty_imported) || 0, roll.material_tx_id]);
+            const roll = await db.get('SELECT xuat_tx_id FROM pettem_rolls WHERE id = $1', [id]);
+            if (roll && roll.xuat_tx_id) {
+                await db.run('UPDATE material_transactions SET quantity = $1 WHERE id = $2 AND tx_type = \'XUAT\'', [Number(b.qty_imported) || 0, roll.xuat_tx_id]);
             }
         }
 
@@ -180,9 +182,14 @@ module.exports = async function(fastify) {
     // ========== DELETE ==========
     fastify.delete('/api/pettem/rolls/:id', { preHandler: [authenticate] }, async (req) => {
         const id = Number(req.params.id);
-        const roll = await db.get('SELECT material_tx_id FROM pettem_rolls WHERE id = $1', [id]);
-        if (roll && roll.material_tx_id) {
-            await db.run('DELETE FROM material_transactions WHERE parent_tx_id = $1 AND tx_type = \'XUAT\'', [roll.material_tx_id]);
+        const roll = await db.get('SELECT material_tx_id, xuat_tx_id FROM pettem_rolls WHERE id = $1', [id]);
+        if (roll) {
+            if (roll.xuat_tx_id) {
+                await db.run('DELETE FROM material_transactions WHERE id = $1 AND tx_type = \'XUAT\'', [roll.xuat_tx_id]);
+            } else if (roll.material_tx_id) {
+                // Fallback for older rolls before migration
+                await db.run('DELETE FROM material_transactions WHERE parent_tx_id = $1 AND tx_type = \'XUAT\'', [roll.material_tx_id]);
+            }
         }
         await db.run('DELETE FROM pettem_rolls WHERE id=$1', [id]);
         return { success: true };
@@ -228,8 +235,30 @@ module.exports = async function(fastify) {
                     error: `Không thể thêm vật liệu mới. Cuộn ${b.roll_type} hiện tại chưa được sử dụng hết hoặc chưa chốt cuộn (Tồn cuối: ${Number(activeRoll.qty_remaining).toLocaleString('vi-VN')} mét).` 
                 });
             }
+
+            // 1. Check if there is any other lot of this material type that is currently partially exported (remaining_qty < quantity)
+            const partialLots = await client.query(`
+                SELECT mt.id,
+                       (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
+                FROM material_transactions mt
+                WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
+                  AND (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)) > 0
+                  AND (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)) < mt.quantity
+                LIMIT 1
+            `, [materialItemId]);
+
+            if (partialLots.rows.length > 0) {
+                const partialLotId = Number(partialLots.rows[0].id);
+                if (selectedTxId !== partialLotId) {
+                    await client.query('ROLLBACK');
+                    client.release();
+                    return reply.code(400).send({
+                        error: `Bắt buộc phải xuất hết phần còn lại của cây đang dở dang trước khi sang cây mới.`
+                    });
+                }
+            }
             
-            // 1. Get the selected NHAP lot and verify its remaining quantity
+            // 2. Get the selected NHAP lot and verify its remaining quantity
             const lotRes = await client.query(`
                 SELECT 
                     mt.id, mt.quantity::numeric AS quantity,
@@ -251,10 +280,38 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: `Lô nhập #${selectedTxId} đã hết hoặc đã được xuất hết sang bộ phận in.` });
             }
 
-            // We take the ENTIRE remaining quantity of this lot to ensure 100% identity alignment
-            const qty = remainingQty;
+            // Read the custom qty_imported from request, validate it
+            const requestedQty = Number(b.qty_imported);
+            if (isNaN(requestedQty) || requestedQty <= 0) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ error: 'Số lượng mét xuất kho không hợp lệ' });
+            }
+            if (requestedQty > remainingQty) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ error: `Số mét xuất (${requestedQty}m) vượt quá số lượng tồn kho còn lại (${remainingQty}m)` });
+            }
 
-            // 2. Insert into material_transactions (XUAT)
+            // If this lot was already partially exported, force exporting the entire remaining quantity
+            const hasPrevExportsRes = await client.query(`
+                SELECT COUNT(*)::int AS cnt 
+                FROM material_transactions 
+                WHERE parent_tx_id = $1 AND tx_type = 'XUAT' AND printing_record_id IS NULL
+            `, [selectedTxId]);
+            const hasPrevExports = hasPrevExportsRes.rows[0].cnt > 0;
+            
+            if (hasPrevExports && requestedQty < remainingQty) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ 
+                    error: `Lô này đã được xuất một phần trước đó. Lần xuất này bắt buộc phải xuất toàn bộ phần còn lại (${remainingQty}m) để chốt hết cây.` 
+                });
+            }
+
+            const qty = requestedQty;
+
+            // 3. Insert into material_transactions (XUAT)
             const notes = b.notes ? b.notes : `Xuất màng in sang bộ phận in ${b.roll_type} (Lô nguồn: #${selectedTxId})`;
             const txRes = await client.query(`
                 INSERT INTO material_transactions 
@@ -264,7 +321,7 @@ module.exports = async function(fastify) {
             
             const materialTxId = txRes.rows[0].id;
 
-            // 3. Insert into pettem_rolls
+            // 4. Insert into pettem_rolls
             const seqRes = await client.query(`
                 SELECT seq FROM (
                     SELECT id, ROW_NUMBER() OVER (PARTITION BY material_item_id ORDER BY performed_at ASC, id ASC) AS seq
@@ -274,23 +331,31 @@ module.exports = async function(fastify) {
             `, [selectedTxId]);
             const seq = seqRes.rows[0]?.seq || 1;
 
-            let fieldName = b.roll_type;
-            if (b.roll_type === 'PET') fieldName = `Cây Pet #${seq}`;
-            else if (b.roll_type === 'TEM') fieldName = `Cây Tem #${seq}`;
-            else if (b.roll_type === 'DECAL') fieldName = `Cây Decal #${seq}`;
+            const existingCountRes = await client.query(`
+                SELECT COUNT(*)::int AS cnt 
+                FROM pettem_rolls 
+                WHERE material_tx_id = $1
+            `, [selectedTxId]);
+            const nextPartNumber = existingCountRes.rows[0].cnt + 1;
+
+            let label = b.roll_type === 'PET' ? 'Pet' : b.roll_type === 'TEM' ? 'Tem' : 'Decal';
+            let fieldName = `Cây ${label} #${seq}`;
+            if (nextPartNumber > 1) {
+                fieldName += ` (Lần ${nextPartNumber})`;
+            }
 
             const rollTypeLabel = b.roll_type;
             const rollNotes = `Nhập từ Kho Vật Liệu Màng In ${rollTypeLabel} (Giao dịch gốc #${selectedTxId})` + (b.notes ? ` - ${b.notes}` : '');
             
             const rollRes = await client.query(`
                 INSERT INTO pettem_rolls
-                (roll_type, import_date, field_name, qty_imported, qty_waste, qty_error, qty_printed, qty_remaining, notes, created_by, created_at, material_tx_id)
-                VALUES ($1, $2, $3, $4, 0, 0, 0, $4, $5, $6, $7, $8) RETURNING id
-            `, [b.roll_type, b.import_date || vnDateStr(now), fieldName, qty, rollNotes, req.user.id, now, selectedTxId]);
+                (roll_type, import_date, field_name, qty_imported, qty_waste, qty_error, qty_printed, qty_remaining, notes, created_by, created_at, material_tx_id, xuat_tx_id)
+                VALUES ($1, $2, $3, $4, 0, 0, 0, $4, $5, $6, $7, $8, $9) RETURNING id
+            `, [b.roll_type, b.import_date || vnDateStr(now), fieldName, qty, rollNotes, req.user.id, now, selectedTxId, materialTxId]);
             
             const rollId = rollRes.rows[0].id;
 
-            // 4. Insert into pettem_history
+            // 5. Insert into pettem_history
             await client.query(`
                 INSERT INTO pettem_history 
                 (roll_id, action, details, performed_by, performed_at)

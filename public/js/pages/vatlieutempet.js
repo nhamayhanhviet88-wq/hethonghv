@@ -249,8 +249,15 @@ async function openPtImportModal() {
             + '        <select id="ptImpLotSelect" required onchange="onPtImpLotChange()"></select>'
             + '      </div>'
             + '      <div class="pt-form-group">'
-            + '        <label>Số mét xuất kho (Xuất nguyên lô)</label>'
-            + '        <input type="text" id="ptImpQty" readonly style="background:#f1f5f9;font-weight:bold">'
+            + '        <label>Phương thức xuất</label>'
+            + '        <div style="display:flex;gap:16px;margin:4px 0">'
+            + '          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;text-transform:none"><input type="radio" name="ptImpType" value="full" checked onchange="onPtImpTypeChange()" style="width:auto;margin:0"> Xuất hết / Xuất phần còn lại</label>'
+            + '          <label id="ptImpTypePartialLabel" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;text-transform:none"><input type="radio" name="ptImpType" value="partial" onchange="onPtImpTypeChange()" style="width:auto;margin:0"> Xuất một phần</label>'
+            + '        </div>'
+            + '      </div>'
+            + '      <div class="pt-form-group">'
+            + '        <label id="ptImpQtyLabel">Số mét xuất kho</label>'
+            + '        <input type="number" id="ptImpQty" step="0.01" min="0.01" style="font-weight:bold" oninput="onPtImpQtyInput()" required>'
             + '      </div>'
             + '      <div class="pt-form-group">'
             + '        <label>Tồn cuối kho vật liệu (sau khi xuất)</label>'
@@ -369,52 +376,152 @@ async function onPtImpFieldChange() {
         
         if (_ptAvailableLots.length === 0) {
             if (selectEl) selectEl.innerHTML = '<option value="">⚠️ Không có lô nào còn tồn trong kho</option>';
-            document.getElementById('ptImpQty').value = '0 mét';
+            document.getElementById('ptImpQty').value = '';
             document.getElementById('ptImpEndBal').value = '';
             return;
         }
         
-        var h = '<option value="">-- Chọn lô để xuất nguyên lô --</option>';
-        _ptAvailableLots.forEach(function(lot) {
-            var dateStr = _ptFD(lot.performed_at.split('T')[0]);
-            var seqStr = lot.seq ? '#' + lot.seq : '';
-            var displayName = '';
-            if (field === 'PET') {
-                displayName = 'Cây Pet ' + seqStr + ' Màng In Pet';
-            } else if (field === 'TEM') {
-                displayName = 'Cây Tem ' + seqStr;
-            } else if (field === 'DECAL') {
-                displayName = 'Cây Decal ' + seqStr;
-            } else {
-                displayName = 'Lô #' + lot.id + ' - ' + (field === 'PET' ? 'Màng In Pet' : field === 'TEM' ? 'Màng In Tem' : 'Màng In Decal');
-            }
-            h += '<option value="' + lot.id + '">' + displayName + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
+        // Find if there is any partially exported lot (remaining_qty < quantity)
+        var partialLot = _ptAvailableLots.find(function(lot) {
+            return lot.remaining_qty < lot.quantity;
         });
-        if (selectEl) selectEl.innerHTML = h;
+        
+        var h = '';
+        var partialLabel = document.getElementById('ptImpTypePartialLabel');
+        
+        if (partialLot) {
+            var dateStr = _ptFD(partialLot.performed_at.split('T')[0]);
+            var seqStr = partialLot.seq ? '#' + partialLot.seq : '';
+            var displayName = 'Cây ' + (field === 'PET' ? 'Pet' : field === 'TEM' ? 'Tem' : 'Decal') + ' ' + seqStr;
+            
+            h = '<option value="' + partialLot.id + '">' + displayName + ' (' + _ptFN(partialLot.remaining_qty) + 'm) [ĐANG XUẤT DỞ] - Nhập ngày ' + dateStr + '</option>';
+            if (selectEl) {
+                selectEl.innerHTML = h;
+                selectEl.value = partialLot.id;
+                selectEl.disabled = true;
+            }
+            
+            document.querySelector('input[name="ptImpType"][value="full"]').checked = true;
+            if (partialLabel) {
+                partialLabel.style.display = 'none';
+            }
+            
+            if (warningEl && submitBtn && !warningEl.innerHTML.includes('Cần chốt cuộn')) {
+                warningEl.innerHTML = '💡 Lô ' + displayName + ' đang được xuất dở dang. Bạn bắt buộc phải xuất hết phần còn lại của lô này trước khi bắt đầu cây mới.';
+                warningEl.style.display = 'block';
+            }
+        } else {
+            if (selectEl) {
+                selectEl.disabled = false;
+            }
+            if (partialLabel) {
+                partialLabel.style.display = 'inline-flex';
+            }
+            if (warningEl && !warningEl.innerHTML.includes('Cần chốt cuộn')) {
+                warningEl.style.display = 'none';
+                warningEl.innerHTML = '';
+            }
+            
+            h = '<option value="">-- Chọn lô nhập --</option>';
+            _ptAvailableLots.forEach(function(lot) {
+                var dateStr = _ptFD(lot.performed_at.split('T')[0]);
+                var seqStr = lot.seq ? '#' + lot.seq : '';
+                var displayName = 'Cây ' + (field === 'PET' ? 'Pet' : field === 'TEM' ? 'Tem' : 'Decal') + ' ' + seqStr;
+                h += '<option value="' + lot.id + '">' + displayName + ' (' + _ptFN(lot.remaining_qty) + 'm) - Nhập ngày ' + dateStr + ' [' + lot.source_name + ']</option>';
+            });
+            if (selectEl) selectEl.innerHTML = h;
+        }
     } catch(e) {
         console.error('[PT] Load available rolls failed:', e);
         if (selectEl) selectEl.innerHTML = '<option value="">❌ Lỗi tải danh sách lô</option>';
     }
     
-    document.getElementById('ptImpQty').value = '';
-    document.getElementById('ptImpEndBal').value = '';
+    onPtImpLotChange();
 }
 
 function onPtImpLotChange() {
+    onPtImpTypeChange();
+}
+
+function onPtImpTypeChange() {
+    var typeEl = document.querySelector('input[name="ptImpType"]:checked');
+    var type = typeEl ? typeEl.value : 'full';
+    var qtyInput = document.getElementById('ptImpQty');
     var selectEl = document.getElementById('ptImpLotSelect');
     var lotId = Number(selectEl.value);
-    
     var lot = _ptAvailableLots.find(function(l) { return l.id === lotId; });
+    
+    if (type === 'full') {
+        qtyInput.readOnly = true;
+        qtyInput.style.background = '#f1f5f9';
+        qtyInput.style.cursor = 'not-allowed';
+        if (lot) {
+            qtyInput.value = lot.remaining_qty;
+        } else {
+            qtyInput.value = '';
+        }
+    } else {
+        qtyInput.readOnly = false;
+        qtyInput.style.background = '';
+        qtyInput.style.cursor = '';
+        qtyInput.placeholder = 'Nhập số mét cần xuất...';
+    }
+    
+    onPtImpQtyInput();
+}
+
+function onPtImpQtyInput() {
+    var selectEl = document.getElementById('ptImpLotSelect');
+    var lotId = Number(selectEl.value);
+    var lot = _ptAvailableLots.find(function(l) { return l.id === lotId; });
+    var qtyInput = document.getElementById('ptImpQty');
+    var qty = Number(qtyInput.value);
+    var warningEl = document.getElementById('ptImpWarning');
+    var submitBtn = document.getElementById('submitPtImpBtn');
+    
     if (!lot) {
-        document.getElementById('ptImpQty').value = '';
         document.getElementById('ptImpEndBal').value = '';
         return;
     }
     
-    var qty = lot.remaining_qty;
-    document.getElementById('ptImpQty').value = _ptFN(qty) + ' mét';
+    var remaining = lot.remaining_qty;
+    
+    if (qtyInput.value !== '' && (isNaN(qty) || qty <= 0)) {
+        if (warningEl && submitBtn) {
+            warningEl.innerHTML = '⚠️ Số mét xuất kho phải lớn hơn 0.';
+            warningEl.style.display = 'block';
+            submitBtn.disabled = true;
+        }
+        document.getElementById('ptImpEndBal').value = '';
+        return;
+    }
+    
+    if (qty > remaining) {
+        if (warningEl && submitBtn) {
+            warningEl.innerHTML = '⚠️ Số mét xuất kho (' + _ptFN(qty) + 'm) vượt quá tồn kho còn lại của lô (' + _ptFN(remaining) + 'm).';
+            warningEl.style.display = 'block';
+            submitBtn.disabled = true;
+        }
+        document.getElementById('ptImpEndBal').value = '';
+        return;
+    }
     
     var field = document.getElementById('ptImpField').value;
+    var partialLot = _ptAvailableLots.find(function(l) { return l.remaining_qty < l.quantity; });
+    
+    if (warningEl && submitBtn && !warningEl.innerHTML.includes('Cần chốt cuộn')) {
+        if (partialLot) {
+            var seqStr = partialLot.seq ? '#' + partialLot.seq : '';
+            var displayName = 'Cây ' + (field === 'PET' ? 'Pet' : field === 'TEM' ? 'Tem' : 'Decal') + ' ' + seqStr;
+            warningEl.innerHTML = '💡 Lô ' + displayName + ' đang được xuất dở dang. Bạn bắt buộc phải xuất hết phần còn lại của lô này trước khi bắt đầu cây mới.';
+            warningEl.style.display = 'block';
+        } else {
+            warningEl.style.display = 'none';
+            warningEl.innerHTML = '';
+        }
+        submitBtn.disabled = false;
+    }
+    
     var totalStock = _ptImpStocks[field] || 0;
     var bal = totalStock - qty;
     
@@ -451,6 +558,8 @@ async function submitPtImportForm(event) {
     var selectEl = document.getElementById('ptImpLotSelect');
     var lotId = Number(selectEl.value);
     var notes = document.getElementById('ptImpNotes').value;
+    var qtyInput = document.getElementById('ptImpQty');
+    var qty = Number(qtyInput.value);
     
     if (!lotId) {
         showToast('Vui lòng chọn lô nhập từ Kho Vật Liệu', 'error');
@@ -465,7 +574,17 @@ async function submitPtImportForm(event) {
         return;
     }
     
-    var qty = lot.remaining_qty;
+    if (isNaN(qty) || qty <= 0) {
+        showToast('Số mét xuất kho phải lớn hơn 0', 'error');
+        enableBtn();
+        return;
+    }
+    
+    if (qty > lot.remaining_qty) {
+        showToast('Số mét xuất vượt quá tồn kho còn lại của lô', 'error');
+        enableBtn();
+        return;
+    }
     
     // Check if there are any unconfirmed active rolls of this type. If yes, prevent adding new roll.
     try {
