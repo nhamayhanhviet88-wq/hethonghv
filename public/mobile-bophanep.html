@@ -8,106 +8,764 @@
     <link rel="icon" href="/images/logo.png" type="image/png">
     <style>
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Inter',-apple-system,sans-serif;background:linear-gradient(135deg,#431407,#7c2d12);min-height:100vh;color:#e2e8f0}
-        .mh{background:linear-gradient(135deg,#ea580c,#f97316);padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);position:sticky;top:0;z-index:100}
-        .mh img{width:32px;height:32px;border-radius:8px}.mh h1{font-size:15px;font-weight:800;color:#ffedd5;flex:1}
-        .mu{font-size:10px;color:#fed7aa;font-weight:600;background:rgba(255,255,255,.1);padding:4px 8px;border-radius:6px}
-        .mf{background:rgba(255,255,255,.05);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.08)}
-        .mf select,.mf input{flex:1;min-width:100px;padding:10px 12px;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:14px;font-family:inherit;background:rgba(255,255,255,.06);color:#e2e8f0;appearance:none}
-        .mf select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
-        .mf option{background:#7c2d12;color:#e2e8f0}
-        .ms{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 16px}
-        .ms>div{text-align:center;padding:10px 6px;border-radius:12px;color:#fff}
-        .ms .mv{font-size:20px;font-weight:900}.ms .ml{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.85;margin-top:2px}
-        .mc{padding:0 12px 80px}
-        .card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-bottom:12px;overflow:hidden;transition:transform .1s}
-        .card:active{transform:scale(.98)}
-        .ct{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.06)}
-        .ci{font-size:28px}.cn{font-size:14px;font-weight:800;color:#fdba74;flex:1}.cc{font-size:10px;color:#94a3b8;font-weight:600}
-        .cb{padding:12px 16px}
-        .cr{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
-        .cl{font-size:11px;color:#94a3b8;font-weight:600}.cv{font-size:13px;color:#e2e8f0;font-weight:700}
-        .cd{border-top:1px solid rgba(255,255,255,.06);margin:8px 0}
-        .pg{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:6px 0}
-        .pg>div{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 8px;text-align:center}
-        .pg .pl{font-size:8px;font-weight:700;color:#94a3b8;letter-spacing:.3px}.pg .pv{font-size:14px;font-weight:900;color:#fdba74}
-        .ca{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)}
-        .ab{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border-radius:12px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
-        .ab:active{transform:scale(.92)}.ab .ai{font-size:22px}.ab .al{font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:.3px}
-        .ab.on{border-color:#f97316;background:rgba(249,115,22,.15)}.ab.on .al{color:#fdba74}
-        .ch{padding:8px 16px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,.04)}.ch span{color:#fdba74;font-weight:700}
-        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
-        .tt{padding:14px 18px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:si .3s ease}
-        .ts{background:linear-gradient(135deg,#f97316,#ea580c)}.te{background:linear-gradient(135deg,#ef4444,#dc2626)}
-        @keyframes si{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
-        .sp{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:#f97316;border-radius:50%;animation:sn .6s linear infinite;display:inline-block;margin-bottom:8px}
-        @keyframes sn{to{transform:rotate(360deg)}}
-        .mb{display:inline-flex;align-items:center;gap:6px;color:#fdba74;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,.05);border-radius:8px}
+        body{font-family:'Inter',sans-serif;background:#0f172a;min-height:100vh;color:#e2e8f0;padding-bottom:70px}
+        .m-header{background:linear-gradient(135deg,#7c2d12,#9a3412);padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);position:sticky;top:0;z-index:100}
+        .m-header img{width:32px;height:32px;border-radius:8px}
+        .m-header h1{font-size:15px;font-weight:800;color:#ffedd5;flex:1}
+        .m-user{font-size:10px;color:#fed7aa;font-weight:600;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px}
+        
+        .m-tabs{display:flex;background:#1e293b;border-bottom:1px solid rgba(255,255,255,0.08);position:sticky;top:60px;z-index:99}
+        .m-tab{flex:1;padding:12px 8px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px}
+        .m-tab.active{color:#fdba74;border-bottom-color:#f97316;background:rgba(249,115,22,0.08)}
+        .m-tab .m-tab-badge{display:inline-block;background:#f97316;color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;min-width:18px}
+        
+        .m-search-bar{padding:8px 12px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;gap:8px}
+        .m-search-bar input{flex:1;padding:8px 12px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;font-size:13px;color:#fff;font-family:inherit}
+        .m-search-bar input:focus{outline:none;border-color:#f97316}
+        .m-search-bar select{padding:8px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;font-size:13px;color:#fff;font-family:inherit}
+
+        .m-content{padding:12px;min-height:calc(100vh - 160px)}
+        .m-card{background:#1e293b;border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:12px;overflow:hidden}
+        .m-card-top{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.06)}
+        .m-card-icon{font-size:28px}
+        .m-card-title{font-size:14px;font-weight:800;color:#fdba74;flex:1}
+        .m-card-code{font-size:10px;color:#94a3b8;font-weight:600}
+        .m-card-body{padding:12px 16px}
+        .m-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+        .m-lbl{font-size:11px;color:#94a3b8;font-weight:600}
+        .m-val{font-size:13px;color:#e2e8f0;font-weight:700}
+        .m-divider{border-top:1px solid rgba(255,255,255,0.06);margin:8px 0}
+        
+        .m-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin:2px}
+        .m-badge-ok{background:#dcfce7;color:#059669}
+        .m-badge-no{background:#fee2e2;color:#dc2626}
+        
+        .m-btn-claim{display:block;width:100%;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:900;cursor:pointer;margin-top:10px;letter-spacing:0.5px;transition:all .2s;font-family:'Inter',sans-serif;text-align:center}
+        .m-btn-claim.ready{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;box-shadow:0 4px 15px rgba(234,88,12,0.4)}
+        .m-btn-claim.ready:active{transform:scale(0.97)}
+        .m-btn-claim.locked{background:#283548;color:#94a3b8;cursor:not-allowed;border:1.5px solid rgba(255,255,255,0.1)}
+
+        .m-card-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.06)}
+        .m-act{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);cursor:pointer;transition:all .15s}
+        .m-act:active{transform:scale(0.92)}
+        .m-act .m-act-i{font-size:20px}
+        .m-act .m-act-l{font-size:8px;font-weight:700;color:#94a3b8}
+        .m-act.on{border-color:#f97316;background:rgba(249,115,22,0.15)}
+        .m-act.on .m-act-l{color:#fdba74}
+        
+        .m-toast-c{position:fixed;top:20px;left:10px;right:10px;z-index:999999;display:flex;flex-direction:column;gap:8px}
+        .m-toast{padding:14px 18px;border-radius:12px;color:white;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.3);animation:mSlide .3s ease}
+        .m-toast-ok{background:linear-gradient(135deg,#f97316,#ea580c)}
+        .m-toast-err{background:linear-gradient(135deg,#ef4444,#dc2626)}
+        @keyframes mSlide{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        
+        .m-spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,0.1);border-top-color:#f97316;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;margin-bottom:8px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        
+        .m-pri{padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:0.5px;display:inline-block;font-family:'Inter',sans-serif}
+        .m-pri-chuan{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff}
+        .m-pri-gap{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff}
+        .m-pri-gui{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
+
+        /* Bottom Sheet Modal */
+        .mm-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:99900;display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .25s ease;pointer-events:none}
+        .mm-overlay.show{opacity:1;pointer-events:auto}
+        .mm-sheet{background:#1e293b;border-radius:20px 20px 0 0;width:100%;max-height:85vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(0.34,1.56,0.64,1)}
+        .mm-overlay.show .mm-sheet{transform:translateY(0)}
+        .mm-header{background:linear-gradient(135deg,#ea580c,#f97316);padding:18px 20px;display:flex;align-items:center;gap:12px;border-radius:20px 20px 0 0}
+        .mm-header .mm-icon{font-size:28px}
+        .mm-header .mm-title{font-size:16px;font-weight:800;color:#fff}
+        .mm-header .mm-sub{font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px}
+        .mm-body{padding:16px 20px}
+        .mm-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+        .mm-row:last-child{border-bottom:none}
+        .mm-lbl{font-size:12px;color:#94a3b8;font-weight:600}
+        .mm-val{font-size:13px;color:#e2e8f0;font-weight:700;text-align:right;max-width:60%}
+        
+        .mm-phoi{background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);border-radius:12px;padding:12px 14px;margin-top:12px}
+        .mm-phoi-title{font-size:10px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+        .mm-phoi-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px}
+        
+        .mm-actions{display:flex;gap:10px;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.06)}
+        .mm-btn{flex:1;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;text-align:center}
+        .mm-btn-ok{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;box-shadow:0 4px 15px rgba(234,88,12,0.3)}
+        .mm-btn-ok:active{transform:scale(0.97)}
+        .mm-btn-no{background:rgba(255,255,255,0.08);color:#94a3b8}
+
+        /* Form Controls for Report Sheet */
+        .mr-form-group{margin-bottom:12px}
+        .mr-form-group label{display:block;font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+        .mr-input{width:100%;padding:10px 12px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;font-family:inherit}
+        .mr-input:focus{outline:none;border-color:#f97316}
+
+        .m-empty{text-align:center;padding:60px 20px;color:#64748b}
+        .m-empty-icon{font-size:48px;margin-bottom:12px}
+        
+        .m-back-btn{display:inline-flex;align-items:center;gap:6px;color:#fdba74;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,0.05);border-radius:8px}
     </style>
 </head>
 <body>
-    <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>🔥 BỘ PHẬN ÉP</h1><span class="mu" id="mU">...</span></div>
-    <div class="tc" id="mTC"></div>
-    <div id="mFB" class="mf" style="display:none">
-        <input type="date" id="mFD" onchange="mLoad()">
-        <select id="mFS" onchange="mLoad()"><option value="">Tất cả</option><option value="reported">Đã báo cáo</option><option value="approved">Duyệt lương</option><option value="error">Lỗi</option></select>
+    <div class="m-header">
+        <img src="/images/logo.png" alt="Logo">
+        <h1>🔥 BỘ PHẬN ÉP</h1>
+        <span class="m-user" id="mUser">...</span>
     </div>
-    <div id="mSB" class="ms" style="display:none">
-        <div style="background:linear-gradient(135deg,#ea580c,#f97316)"><div class="mv" id="sT">0</div><div class="ml">TỔNG</div></div>
-        <div style="background:linear-gradient(135deg,#f97316,#fb923c)"><div class="mv" id="sR">0</div><div class="ml">BÁO CÁO</div></div>
-        <div style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="mv" id="sA">0</div><div class="ml">LƯƠNG</div></div>
-        <div style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="mv" id="sE">0</div><div class="ml">LỖI</div></div>
+    
+    <div class="m-toast-c" id="mToastC"></div>
+
+    <div class="m-tabs" id="mTabs">
+        <div class="m-tab active" data-tab="unpressed" onclick="mSwitchTab('unpressed')">🔴 Chưa Ép <span class="m-tab-badge" id="mBadgeUnpressed">0</span></div>
+        <div class="m-tab" data-tab="mine" onclick="mSwitchTab('mine')">📋 Đơn Tôi <span class="m-tab-badge" id="mBadgeMine">0</span></div>
+        <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
-    <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
-    <a href="/bophanephv" class="mb">← Về trang Desktop</a>
-<script>
-let cu=null,mr=[];
-async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
-function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
-function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
-function fn(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN')}
-function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
-async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
-try{const r=await api('/api/pressing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.press_date&&r.press_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
-function mStats(){const t=mr.length,r=mr.filter(x=>x.is_reported).length,a=mr.filter(x=>x.salary_approved).length,e=mr.filter(x=>x.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sR').textContent=r;document.getElementById('sA').textContent=a;document.getElementById('sE').textContent=e}
-function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🔥</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn ép</div></div>';return}
-c.innerHTML=mr.map(r=>{
-const ic=r.is_reported?'🔥':'⬜';
-const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
-const rA=r.is_reported?'undo_report':'report',sA=r.salary_approved?'undo_salary':'approve_salary';
-let imgs='';try{const ia=JSON.parse(r.press_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
-+'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ngày ép</span><span class="cv">'+fd(r.press_date)+'</span></div>'
-+'<div class="cr"><span class="cl">👤 NV Ép</span><span class="cv" style="color:#fdba74">'+(r.presser_name||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">👤 CSKH</span><span class="cv" style="color:#93c5fd;font-size:11px">'+(r.cskh_name||'—')+'</span></div>'
-+'<div class="cd"></div>'
-+'<div class="cr"><span class="cl">📦 SL Đơn</span><span class="cv">'+(r.order_quantity||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">🔥 SL Ép</span><span class="cv" style="color:#fdba74;font-size:16px">'+(r.press_quantity||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">💰 Lương</span><span class="cv" style="color:#fbbf24;font-size:16px;font-weight:900">'+fn(r.press_salary)+'</span></div>'
-+'<div class="cd"></div>'
-+'<div style="font-size:10px;font-weight:700;color:#fdba74;margin-bottom:4px">📍 VỊ TRÍ ÉP</div>'
-+'<div class="pg">'
-+'<div><div class="pl">NGỰC/TAY/TẠP DỀ</div><div class="pv">'+(r.pos_chest_arm||0)+'</div></div>'
-+'<div><div class="pl">LƯNG/BỤNG/SƯỜN</div><div class="pv">'+(r.pos_back_belly||0)+'</div></div>'
-+'<div><div class="pl">BẢO HỘ/BẾP/SM</div><div class="pv">'+(r.pos_protective||0)+'</div></div>'
-+'<div><div class="pl">ĐG/CỔ BẺ VẢI</div><div class="pv">'+(r.pos_packaging||0)+'</div></div>'
-+'</div>'
-+(r.pos_other?'<div class="cr"><span class="cl">📍 VT Khác</span><span class="cv" style="font-size:11px">'+r.pos_other+'</span></div>':'')
-+imgs
-+(r.notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.notes+'</span></div>':'')
-+'</div>'
-+'<div class="ca">'
-+'<button class="ab'+(r.is_reported?' on':'')+'" onclick="mTog('+r.id+',\''+rA+'\')"><span class="ai">🔥</span><span class="al">BÁO CÁO</span></button>'
-+'<button class="ab'+(r.salary_approved?' on':'')+'" onclick="mTog('+r.id+',\''+sA+'\')"><span class="ai">💰</span><span class="al">LƯƠNG</span></button>'
-+'<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr()"><span class="ai">⚠️</span><span class="al">LỖI</span></button>'
-+'</div>'
-+(hl?'<div class="ch">'+hl+'</div>':'')
-+'</div>'}).join('')}
-async function mTog(id,a){try{await api('/api/pressing/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
-function mErr(){location.href='/donloikhachhang'}
-mInit();
-</script>
+
+    <div class="m-search-bar">
+        <input type="text" id="mSearchInp" placeholder="Tìm mã đơn, tên hàng..." oninput="mOnSearch()">
+        <select id="mPriorityFilter" onchange="mLoadData()" style="display:none">
+            <option value="">Độ ưu tiên</option>
+            <option value="GẤP">GẤP</option>
+            <option value="GỬI">GỬI</option>
+            <option value="CHUẨN">CHUẨN</option>
+        </select>
+    </div>
+
+    <div class="m-content" id="mContent">
+        <div style="text-align:center;padding:60px 20px;color:#94a3b8">
+            <div class="m-spinner"></div>
+            <div>Đang tải dữ liệu...</div>
+        </div>
+    </div>
+
+    <!-- Bottom sheet: Claim confirmation -->
+    <div class="mm-overlay" id="mClaimOverlay" onclick="if(event.target===this)mCloseClaim()">
+        <div class="mm-sheet">
+            <div class="mm-header">
+                <div class="mm-icon">🔥</div>
+                <div>
+                    <div class="mm-title">Xác Nhận Nhận Ép</div>
+                    <div class="mm-sub" id="mClaimCodeSub">Nhận đơn hàng</div>
+                </div>
+            </div>
+            <div class="mm-body">
+                <div class="mm-row"><span class="mm-lbl">📋 Mã đơn & Phiếu</span><span class="mm-val" id="mClaimOrderCode" style="color:#f97316;font-size:14px">...</span></div>
+                <div class="mm-row"><span class="mm-lbl">👤 Khách hàng</span><span class="mm-val" id="mClaimCustName">...</span></div>
+                <div class="mm-row"><span class="mm-lbl">💼 CSKH / Sale</span><span class="mm-val" id="mClaimCskh" style="color:#60a5fa">...</span></div>
+                <div class="mm-row"><span class="mm-lbl">📅 Hạn giao</span><span class="mm-val" id="mClaimShipDate">...</span></div>
+                <div class="mm-row"><span class="mm-lbl">👕 Mô tả phiếu</span><span class="mm-val" id="mClaimDesc">...</span></div>
+                
+                <div class="mm-phoi">
+                    <div class="mm-phoi-title">Danh sách phối ép</div>
+                    <div id="mClaimPhoiList">
+                        <!-- Items populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="mm-actions">
+                <button class="mm-btn mm-btn-no" onclick="mCloseClaim()">Hủy bỏ</button>
+                <button class="mm-btn mm-btn-ok" id="mClaimConfirmBtn" onclick="mDoClaim()">🔥 NHẬN ÉP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom sheet: Report Pressing -->
+    <div class="mm-overlay" id="mReportOverlay" onclick="if(event.target===this)mCloseReport()">
+        <div class="mm-sheet" style="max-height: 90vh">
+            <div class="mm-header" style="background: linear-gradient(135deg, #10b981, #059669)">
+                <div class="mm-icon">🔥</div>
+                <div>
+                    <div class="mm-title">Báo Cáo Hoàn Thành Ép</div>
+                    <div class="mm-sub" id="mReportTitleSub">Mã đơn</div>
+                </div>
+            </div>
+            <div class="mm-body">
+                <input type="hidden" id="mReportRecId">
+                <div class="mr-form-group">
+                    <label>🔥 Số lượng áo đã ép thực tế</label>
+                    <input type="number" id="mReportQty" class="mr-input" placeholder="Nhập số lượng áo ép...">
+                </div>
+                <div style="font-size: 11px; font-weight: 700; color: #fdba74; margin: 12px 0 6px">📍 CHI TIẾT VỊ TRÍ ÉP</div>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px">
+                    <div class="mr-form-group">
+                        <label>Ngực / Tay / Tạp dề</label>
+                        <input type="number" id="mPosChest" class="mr-input" value="0">
+                    </div>
+                    <div class="mr-form-group">
+                        <label>Lưng / Bụng / Sườn</label>
+                        <input type="number" id="mPosBack" class="mr-input" value="0">
+                    </div>
+                    <div class="mr-form-group">
+                        <label>Bảo hộ / Bếp / Sơ mi</label>
+                        <input type="number" id="mPosProtective" class="mr-input" value="0">
+                    </div>
+                    <div class="mr-form-group">
+                        <label>Đóng gói / Cổ bẻ</label>
+                        <input type="number" id="mPosPackaging" class="mr-input" value="0">
+                    </div>
+                </div>
+                
+                <div class="mr-form-group">
+                    <label>Vị trí khác</label>
+                    <input type="text" id="mPosOther" class="mr-input" placeholder="Vị trí khác...">
+                </div>
+
+                <div class="mr-form-group">
+                    <label>📝 Ghi chú</label>
+                    <input type="text" id="mReportNotes" class="mr-input" placeholder="Ghi chú thêm...">
+                </div>
+            </div>
+            <div class="mm-actions">
+                <button class="mm-btn mm-btn-no" onclick="mCloseReport()">Quay lại</button>
+                <button class="mm-btn mm-btn-ok" style="background: linear-gradient(135deg, #10b981, #059669)" id="mReportConfirmBtn" onclick="mDoReport()">✅ HOÀN THÀNH BÁO CÁO</button>
+            </div>
+        </div>
+    </div>
+
+    <a href="/bophanephv" class="m-back-btn">← Về trang Desktop</a>
+
+    <script>
+        let currentTab = 'unpressed';
+        let currentUser = null;
+        let unassignedOrders = [];
+        let pressingRecords = [];
+        let searchTimeout = null;
+
+        async function apiCall(url, method = 'GET', body = null) {
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            };
+            if (body) options.body = JSON.stringify(body);
+            const res = await fetch(url, options);
+            if (res.status === 401) {
+                location.href = '/index.html';
+                return;
+            }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Lỗi hệ thống');
+            return data;
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('mToastC');
+            const toast = document.createElement('div');
+            toast.className = 'm-toast ' + (type === 'error' ? 'm-toast-err' : 'm-toast-ok');
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function formatDate(d) {
+            if (!d) return '—';
+            try {
+                const parts = d.split('T')[0].split('-');
+                return parts[2] + '/' + parts[1] + '/' + parts[0];
+            } catch(e) { return d; }
+        }
+
+        function formatMoney(n) {
+            if (!n && n !== 0) return '—';
+            return Number(n).toLocaleString('vi-VN') + ' đ';
+        }
+
+        async function initPage() {
+            try {
+                const auth = await apiCall('/api/auth/me');
+                if (!auth.user) {
+                    location.href = '/index.html';
+                    return;
+                }
+                currentUser = auth.user;
+                document.getElementById('mUser').textContent = currentUser.full_name || currentUser.username;
+                
+                await mLoadData();
+            } catch(e) {
+                document.getElementById('mContent').innerHTML = `
+                    <div style="text-align:center;padding:60px 20px;color:#94a3b8">
+                        <div style="font-size:48px;margin-bottom:12px">❌</div>
+                        <div>Lỗi tải thông tin đăng nhập</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function mLoadData() {
+            const contentEl = document.getElementById('mContent');
+            contentEl.innerHTML = `
+                <div style="text-align:center;padding:60px 20px;color:#94a3b8">
+                    <div class="m-spinner"></div>
+                    <div>Đang tải dữ liệu...</div>
+                </div>
+            `;
+
+            try {
+                // Fetch unassigned pool
+                const unassignedData = await apiCall('/api/pressing/unassigned');
+                unassignedOrders = unassignedData.orders || [];
+
+                // Fetch pressing records
+                const recordsData = await apiCall('/api/pressing/records');
+                pressingRecords = recordsData.records || [];
+
+                // Update tab badges
+                updateBadges();
+
+                // Render current tab
+                renderCurrentTab();
+            } catch(e) {
+                contentEl.innerHTML = `<div style="text-align:center;padding:60px;color:#ef4444">⚠️ ${e.message}</div>`;
+            }
+        }
+
+        function updateBadges() {
+            // Unassigned: count unique order_item_id
+            const uniqueUnassigned = unassignedOrders.reduce((acc, curr) => {
+                const key = curr.id + '_' + curr.item_id;
+                if (!acc.includes(key)) acc.push(key);
+                return acc;
+            }, []).length;
+            document.getElementById('mBadgeUnpressed').textContent = uniqueUnassigned;
+
+            // Mine: count incomplete records assigned to user
+            const mineRecords = pressingRecords.filter(r => r.presser_id === currentUser.id && !r.is_reported);
+            document.getElementById('mBadgeMine').textContent = mineRecords.length;
+        }
+
+        function mSwitchTab(tabName) {
+            currentTab = tabName;
+            
+            // Toggle active classes on tab headers
+            const tabEls = document.querySelectorAll('.m-tab');
+            tabEls.forEach(el => {
+                if (el.getAttribute('data-tab') === tabName) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+
+            // Toggle filter visibility
+            const filterSelect = document.getElementById('mPriorityFilter');
+            if (tabName === 'unpressed') {
+                filterSelect.style.display = 'block';
+            } else {
+                filterSelect.style.display = 'none';
+            }
+
+            renderCurrentTab();
+        }
+
+        function mOnSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                renderCurrentTab();
+            }, 300);
+        }
+
+        function getFilteredUnassigned() {
+            const query = (document.getElementById('mSearchInp').value || '').toLowerCase();
+            const priority = document.getElementById('mPriorityFilter').value;
+            
+            let list = unassignedOrders.slice();
+            if (query) {
+                list = list.filter(r => 
+                    (r.order_code || '').toLowerCase().includes(query) ||
+                    (r.customer_name || '').toLowerCase().includes(query) ||
+                    (r.material_name || '').toLowerCase().includes(query)
+                );
+            }
+            if (priority) {
+                list = list.filter(r => r.shipping_priority === priority);
+            }
+            return list;
+        }
+
+        function getFilteredMine() {
+            const query = (document.getElementById('mSearchInp').value || '').toLowerCase();
+            let list = pressingRecords.filter(r => r.presser_id === currentUser.id && !r.is_reported);
+            if (query) {
+                list = list.filter(r => 
+                    (r.order_code || '').toLowerCase().includes(query) ||
+                    (r.product_name || '').toLowerCase().includes(query)
+                );
+            }
+            return list;
+        }
+
+        function getFilteredHistory() {
+            const query = (document.getElementById('mSearchInp').value || '').toLowerCase();
+            let list = pressingRecords.filter(r => r.presser_id === currentUser.id && r.is_reported);
+            if (query) {
+                list = list.filter(r => 
+                    (r.order_code || '').toLowerCase().includes(query) ||
+                    (r.product_name || '').toLowerCase().includes(query)
+                );
+            }
+            return list;
+        }
+
+        function renderCurrentTab() {
+            const contentEl = document.getElementById('mContent');
+            
+            if (currentTab === 'unpressed') {
+                renderUnpressedTab(contentEl);
+            } else if (currentTab === 'mine') {
+                renderMineTab(contentEl);
+            } else if (currentTab === 'history') {
+                renderHistoryTab(contentEl);
+            }
+        }
+
+        function renderUnpressedTab(el) {
+            const list = getFilteredUnassigned();
+            if (list.length === 0) {
+                el.innerHTML = `
+                    <div class="m-empty">
+                        <div class="m-empty-icon">📥</div>
+                        <div>Không có đơn hàng chưa ép nào</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by order_item_id
+            const grouped = [];
+            const seenKeys = {};
+            list.forEach(r => {
+                const key = r.id + '_' + r.item_id;
+                if (!seenKeys[key]) {
+                    seenKeys[key] = {
+                        id: r.id,
+                        order_code: r.order_code,
+                        customer_name: r.customer_name,
+                        cskh_name: r.cskh_name || r.created_by_name,
+                        expected_ship_date: r.expected_ship_date,
+                        shipping_priority: r.shipping_priority,
+                        item_id: r.item_id,
+                        item_desc: r.item_desc,
+                        item_index: r.item_index,
+                        item_qty: r.item_qty,
+                        ready: r.ready,
+                        warning_msg: r.warning_msg,
+                        phoi: []
+                    };
+                    grouped.push(seenKeys[key]);
+                }
+                if (r.material_name || r.color_name) {
+                    seenKeys[key].phoi.push({
+                        material_name: r.material_name,
+                        color_name: r.color_name,
+                        cut_qty: r.cut_qty
+                    });
+                }
+            });
+
+            el.innerHTML = grouped.map(item => {
+                const priority = (item.shipping_priority || 'CHUẨN').toUpperCase();
+                let priClass = 'm-pri-chuan';
+                if (priority === 'GẤP') priClass = 'm-pri-gap';
+                else if (priority === 'GỬI') priClass = 'm-pri-gui';
+
+                const phoiHtml = item.phoi.length > 0 ? `
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:10px; margin-top:8px">
+                        <div style="font-size:9px; font-weight:700; color:#fdba74; text-transform:uppercase; margin-bottom:6px">Danh sách phối</div>
+                        ${item.phoi.map(p => `
+                            <div style="display:flex; justify-content:space-between; font-size:11px; padding:3px 0">
+                                <span>👕 ${p.material_name || 'Hàng'} · ${p.color_name || 'Màu'}</span>
+                                <span style="font-weight:bold; color:#f97316">Cắt được: ${p.cut_qty || 0}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:6px">
+                        <span>SL Đơn hàng:</span>
+                        <span style="font-weight:bold; color:#60a5fa">${item.item_qty} áo</span>
+                    </div>
+                `;
+
+                let statusBadge = '';
+                let claimBtn = '';
+                if (item.ready) {
+                    statusBadge = '<span class="m-badge m-badge-ok">✅ Đủ điều kiện ép</span>';
+                    claimBtn = `<button class="m-btn-claim ready" onclick="mConfirmClaim(${item.id}, ${item.item_id})">🔥 NHẬN ÉP HÀNG</button>`;
+                } else {
+                    statusBadge = `<span class="m-badge m-badge-no">⚠️ Locked: ${item.warning_msg}</span>`;
+                    claimBtn = `<button class="m-btn-claim locked" disabled>🔒 ${item.warning_msg}</button>`;
+                }
+
+                return `
+                    <div class="m-card">
+                        <div class="m-card-top">
+                            <div class="m-card-icon">📥</div>
+                            <div class="m-card-title">${item.order_code} — Phiếu ${item.item_index}</div>
+                            <span class="m-pri ${priClass}">${priority}</span>
+                        </div>
+                        <div class="m-card-body">
+                            <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val">${item.customer_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#60a5fa">${item.cskh_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Hạn giao</span><span class="m-val" style="color:#fdba74">${formatDate(item.expected_ship_date)}</span></div>
+                            <div class="m-row"><span class="m-lbl">Mô tả</span><span class="m-val" style="font-size:12px; font-weight:normal">${item.item_desc || '—'}</span></div>
+                            <div class="m-divider"></div>
+                            ${phoiHtml}
+                            <div style="margin-top:8px">${statusBadge}</div>
+                            ${claimBtn}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderMineTab(el) {
+            const list = getFilteredMine();
+            if (list.length === 0) {
+                el.innerHTML = `
+                    <div class="m-empty">
+                        <div class="m-empty-icon">📋</div>
+                        <div>Bạn chưa nhận đơn ép nào</div>
+                    </div>
+                `;
+                return;
+            }
+
+            el.innerHTML = list.map(r => {
+                return `
+                    <div class="m-card">
+                        <div class="m-card-top" style="border-bottom-color: rgba(249,115,22,0.15)">
+                            <div class="m-card-icon">⚡</div>
+                            <div class="m-card-title" style="color:#fdba74">${r.product_name || r.order_code}</div>
+                            <div class="m-card-code">${r.order_code || ''}</div>
+                        </div>
+                        <div class="m-card-body">
+                            <div class="m-row"><span class="m-lbl">Chất liệu</span><span class="m-val" style="color:#f97316">${r.material_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Màu vải</span><span class="m-val">${r.fabric_color || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val" style="color:#60a5fa; font-size:14px">${r.order_quantity}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Ép thực tế</span><span class="m-val" style="color:#22c55e; font-size:16px">${r.press_quantity || 0}</span></div>
+                            <div class="m-row"><span class="m-lbl">Ghi chú</span><span class="m-val" style="font-weight:normal">${r.notes || '—'}</span></div>
+                            
+                            <div class="m-divider"></div>
+                            <div style="font-size:9px; font-weight:700; color:#fdba74; margin-bottom:6px">📍 CHI TIẾT VỊ TRÍ ÉP</div>
+                            <div style="display:grid; grid-template-columns: repeat(2,1fr); gap:6px; font-size:10px">
+                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Ngực/Tay: <b>${r.pos_chest_arm || 0}</b></div>
+                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Lưng/Bụng: <b>${r.pos_back_belly || 0}</b></div>
+                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Bảo hộ/SM: <b>${r.pos_protective || 0}</b></div>
+                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Đóng gói: <b>${r.pos_packaging || 0}</b></div>
+                            </div>
+                            ${r.pos_other ? `<div style="font-size:10px; margin-top:4px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:6px">Khác: <b>${r.pos_other}</b></div>` : ''}
+                        </div>
+                        <div class="m-card-actions">
+                            <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id}, ${r.order_quantity}, ${r.pos_chest_arm || 0}, ${r.pos_back_belly || 0}, ${r.pos_protective || 0}, ${r.pos_packaging || 0}, '${r.pos_other || ''}', '${r.notes || ''}', '${r.product_name || r.order_code}')">
+                                <span class="m-act-i">✅</span>
+                                <span class="m-act-l" style="color:#4ade80">BÁO CÁO</span>
+                            </button>
+                            <button class="m-act" style="border-color:#ef4444; background:rgba(239,68,68,0.05)" onclick="mUnclaim(${r.order_item_id}, '${r.order_code}')">
+                                <span class="m-act-i">❌</span>
+                                <span class="m-act-l" style="color:#f87171">TRẢ ĐƠN</span>
+                            </button>
+                            <button class="m-act" style="border-color:#e2e8f0" onclick="mErr()">
+                                <span class="m-act-i">⚠️</span>
+                                <span class="m-act-l">BÁO LỖI</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderHistoryTab(el) {
+            const list = getFilteredHistory();
+            if (list.length === 0) {
+                el.innerHTML = `
+                    <div class="m-empty">
+                        <div class="m-empty-icon">📅</div>
+                        <div>Chưa có lịch sử ép nào</div>
+                    </div>
+                `;
+                return;
+            }
+
+            el.innerHTML = list.map(r => {
+                const undoAction = 'undo_report';
+                const approvedBadge = r.salary_approved ? '<span class="m-badge m-badge-ok">💰 Đã duyệt lương</span>' : '<span class="m-badge m-badge-no" style="background:rgba(255,255,255,0.05);color:#94a3b8">Chờ duyệt lương</span>';
+                
+                return `
+                    <div class="m-card" style="opacity:0.85">
+                        <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
+                            <div class="m-card-icon">🔥</div>
+                            <div class="m-card-title" style="color:#a1a1aa">${r.product_name || r.order_code}</div>
+                            <div class="m-card-code">${r.order_code || ''}</div>
+                        </div>
+                        <div class="m-card-body">
+                            <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
+                            <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
+                            <div class="m-row"><span class="m-lbl">Ngày ép</span><span class="m-val">${formatDate(r.press_date)}</span></div>
+                            <div class="m-divider"></div>
+                            <div>
+                                ${approvedBadge}
+                            </div>
+                        </div>
+                        ${!r.salary_approved ? `
+                            <div class="m-card-actions" style="grid-template-columns:1fr">
+                                <button class="m-act" style="flex-direction:row; justify-content:center; gap:8px; padding:10px" onclick="mTog(${r.id}, '${undoAction}')">
+                                    <span class="m-act-i">↩️</span>
+                                    <span class="m-act-l">HOÀN TÁC BÁO CÁO</span>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- Claim Modal Logic ---
+        let currentClaimOrder = null;
+
+        function mConfirmClaim(orderId, itemId) {
+            const rows = unassignedOrders.filter(r => r.id === orderId && r.item_id === itemId);
+            if (rows.length === 0) return;
+            const o = rows[0];
+            currentClaimOrder = { orderId, itemId, orderCode: o.order_code };
+
+            document.getElementById('mClaimOrderCode').textContent = o.order_code + ' — Phiếu ' + o.item_index;
+            document.getElementById('mClaimCustName').textContent = o.customer_name || '—';
+            document.getElementById('mClaimCskh').textContent = o.cskh_name || o.created_by_name || '—';
+            document.getElementById('mClaimShipDate').textContent = formatDate(o.expected_ship_date);
+            document.getElementById('mClaimDesc').textContent = o.item_desc || '—';
+
+            const listEl = document.getElementById('mClaimPhoiList');
+            listEl.innerHTML = rows.map(r => `
+                <div class="mm-phoi-item">
+                    <span class="pn">👕 ${r.material_name || 'Hàng'} · ${r.color_name || 'Màu'}</span>
+                    <span class="pm" style="font-weight:bold; color:#f97316">SL Ép: ${r.cut_qty || 0}</span>
+                </div>
+            `).join('');
+
+            const overlay = document.getElementById('mClaimOverlay');
+            overlay.classList.add('show');
+        }
+
+        function mCloseClaim() {
+            document.getElementById('mClaimOverlay').classList.remove('show');
+            currentClaimOrder = null;
+        }
+
+        async function mDoClaim() {
+            if (!currentClaimOrder) return;
+            const btn = document.getElementById('mClaimConfirmBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang nhận...';
+
+            try {
+                await apiCall('/api/pressing/claim', 'POST', {
+                    dht_order_id: currentClaimOrder.orderId,
+                    order_item_id: currentClaimOrder.itemId
+                });
+                showToast('✅ Đã nhận đơn ép thành công');
+                mCloseClaim();
+                await mLoadData();
+            } catch(e) {
+                showToast(e.message, 'error');
+                btn.disabled = false;
+                btn.textContent = '🔥 NHẬN ÉP';
+            }
+        }
+
+        // --- Report Modal Logic ---
+        function mOpenReport(recId, orderQty, posChest, posBack, posProtective, posPackaging, posOther, notes, prodName) {
+            document.getElementById('mReportRecId').value = recId;
+            document.getElementById('mReportQty').value = orderQty; // default is the order cut quantity
+            document.getElementById('mPosChest').value = posChest;
+            document.getElementById('mPosBack').value = posBack;
+            document.getElementById('mPosProtective').value = posProtective;
+            document.getElementById('mPosPackaging').value = posPackaging;
+            document.getElementById('mPosOther').value = posOther;
+            document.getElementById('mReportNotes').value = notes;
+            
+            document.getElementById('mReportTitleSub').textContent = prodName;
+
+            const overlay = document.getElementById('mReportOverlay');
+            overlay.classList.add('show');
+        }
+
+        function mCloseReport() {
+            document.getElementById('mReportOverlay').classList.remove('show');
+        }
+
+        async function mDoReport() {
+            const recId = Number(document.getElementById('mReportRecId').value);
+            const qty = Number(document.getElementById('mReportQty').value) || 0;
+            const chest = Number(document.getElementById('mPosChest').value) || 0;
+            const back = Number(document.getElementById('mPosBack').value) || 0;
+            const prot = Number(document.getElementById('mPosProtective').value) || 0;
+            const pack = Number(document.getElementById('mPosPackaging').value) || 0;
+            const other = document.getElementById('mPosOther').value;
+            const notes = document.getElementById('mReportNotes').value;
+
+            const btn = document.getElementById('mReportConfirmBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang lưu...';
+
+            try {
+                // Save inputs using inline patch updates or full update API
+                await apiCall(`/api/pressing/records/${recId}`, 'PUT', {
+                    press_quantity: qty,
+                    pos_chest_arm: chest,
+                    pos_back_belly: back,
+                    pos_protective: prot,
+                    pos_packaging: pack,
+                    pos_other: other,
+                    notes: notes
+                });
+
+                // Toggle status to reported
+                await apiCall(`/api/pressing/toggle/${recId}`, 'POST', { action: 'report' });
+                
+                showToast('✅ Đã báo cáo thành công');
+                mCloseReport();
+                await mLoadData();
+            } catch(e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✅ HOÀN THÀNH BÁO CÁO';
+            }
+        }
+
+        // --- Unclaim Logic ---
+        async function mUnclaim(itemId, orderCode) {
+            if (confirm(`Trả lại đơn ${orderCode}? Mọi dữ liệu đã nhận sẽ bị xóa.`)) {
+                try {
+                    await apiCall('/api/pressing/unclaim', 'POST', { order_item_id: itemId });
+                    showToast('✅ Đã trả lại đơn');
+                    await mLoadData();
+                } catch(e) {
+                    showToast(e.message, 'error');
+                }
+            }
+        }
+
+        // --- Toggle Status (for undo report etc) ---
+        async function mTog(id, a) {
+            try {
+                await apiCall('/api/pressing/toggle/' + id, 'POST', { action: a });
+                showToast('✅ Cập nhật');
+                await mLoadData();
+            } catch(e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        function mErr() {
+            location.href = '/donloikhachhang';
+        }
+
+        // Initialize on load
+        initPage();
+    </script>
 </body>
 </html>
