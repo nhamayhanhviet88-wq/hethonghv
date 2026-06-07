@@ -228,7 +228,7 @@ function _bpeRenderUnassigned() {
         var thead = wrap.querySelector('thead');
         if (thead) {
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
-                + '<th>STT</th><th>Hành Động</th><th>Độ Ưu Tiên</th><th>Tên Phiếu</th><th>Khách Hàng</th><th>NV Sale</th><th>Mô Tả Phiếu</th><th>Chất Liệu</th><th>Màu Vải</th><th>SL Đơn</th><th>SL Cắt Được</th><th>Trạng Thái</th>'
+                + '<th>STT</th><th style="text-align:center">Nhận Đơn</th><th>Độ Ưu Tiên</th><th>Mã Đơn</th><th>Khách Hàng</th><th>NV Sale</th><th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu Vải</th><th>SL Đơn</th><th>SL Cắt Được</th><th>Trạng Thái</th>'
                 + '</tr>';
         }
     }
