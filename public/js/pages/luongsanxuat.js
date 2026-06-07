@@ -349,6 +349,33 @@ function _lsxFD(d) {
     }
 }
 
+function _lsxFormatWorkDate(r) {
+    if (!r.is_completed) return '—';
+    if (!r.completion_time) return '—';
+    try {
+        var dObj = new Date(r.completion_time);
+        var formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            hour12: false
+        });
+        var parts = formatter.formatToParts(dObj);
+        var hour = '', minute = '', day = '', month = '';
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === 'hour') hour = parts[i].value;
+            else if (parts[i].type === 'minute') minute = parts[i].value;
+            else if (parts[i].type === 'day') day = parts[i].value;
+            else if (parts[i].type === 'month') month = parts[i].value;
+        }
+        return hour + ':' + minute + ' ' + day + '/' + month;
+    } catch(e) {
+        return '—';
+    }
+}
+
 function _lsxFN(n) {
     if (!n && n !== 0) return '—';
     return Number(n).toLocaleString('vi-VN');
@@ -446,7 +473,7 @@ function _lsxRenderTable() {
 
         return `<tr>`
             + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
-            + `<td style="font-size:10px">${_lsxFD(r.work_date)}</td>`
+            + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
             + `<td>${deptBadge}</td>`
             + `<td style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</td>`
             + `<td style="font-weight:700;color:#1e3a8a">${codeCell}</td>`
