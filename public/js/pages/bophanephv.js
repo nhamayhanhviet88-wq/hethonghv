@@ -248,7 +248,7 @@ function _bpeRenderUnassigned() {
             var rs = groupRowCount[groupKey] || 1;
             var claimHtml = '';
             if (r.ready) {
-                claimHtml = '<button class="btn btn-sm btn-primary" onclick="_bpeClaimOrder(' + r.id + ',' + (r.item_id || 'null') + ',\'' + r.order_code + '\')" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;font-weight:bold;font-size:10px;padding:4px 8px">🔥 NHẬN ÉP</button>';
+                claimHtml = '<button class="btn btn-sm btn-primary" onclick="_bpeClaimOrder(' + r.id + ',' + (r.item_id || 'null') + ',\'' + r.order_code + '\')" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;font-weight:bold;font-size:10px;padding:4px 8px;color:#fff !important">🔥 NHẬN ÉP</button>';
             } else {
                 claimHtml = '<button class="btn btn-sm btn-secondary" disabled title="' + (r.warning_msg || 'Thiếu thông tin') + '" style="font-size:10px;padding:4px 8px;opacity:0.6;cursor:not-allowed">🔒 Khóa</button>';
             }
