@@ -436,7 +436,6 @@ function _bpiRender() {
     var testingCount = all.filter(function(r){return r.is_test_print && !r.is_completed;}).length;
     var pendingCount = all.filter(function(r){return !r.is_completed;}).length;
     var doneCount = all.filter(function(r){return r.is_completed;}).length;
-    var errsCount = all.filter(function(r){return r.error_reported;}).length;
 
     // Apply statsFilter
     if (_bpi.statsFilter === 'testing') {
@@ -445,8 +444,6 @@ function _bpiRender() {
         all = all.filter(function(r){return !r.is_completed;});
     } else if (_bpi.statsFilter === 'done') {
         all = all.filter(function(r){return r.is_completed;});
-    } else if (_bpi.statsFilter === 'error') {
-        all = all.filter(function(r){return r.error_reported;});
     }
 
     var tot=all.length, tp=Math.ceil(tot/_bpi.ps)||1; if(_bpi.page>tp)_bpi.page=tp; if(_bpi.page<1)_bpi.page=1;
@@ -642,8 +639,7 @@ function _bpiRender() {
         sc.innerHTML='<div class="bpi-stat-btn' + (_bpi.statsFilter === 'all' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'all\')" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(124,58,237,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG ĐƠN</div><div style="font-size:15px;font-weight:900">'+totalCount+'</div></div>'
         +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'testing' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'testing\')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(245,158,11,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🧪 ĐƠN IN TEST</div><div style="font-size:15px;font-weight:900">'+testingCount+'</div></div>'
         +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'pending' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'pending\')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(59,130,246,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA IN XONG</div><div style="font-size:15px;font-weight:900">'+pendingCount+'</div></div>'
-        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'done' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'done\')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(5,150,105,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ HOÀN THÀNH</div><div style="font-size:15px;font-weight:900">'+doneCount+'</div></div>'
-        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'error' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'error\')" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(220,38,38,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div><div style="font-size:15px;font-weight:900">'+errsCount+'</div></div>';
+        +'<div class="bpi-stat-btn' + (_bpi.statsFilter === 'done' ? ' active' : '') + '" onclick="_bpiSetStatsFilter(\'done\')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;box-shadow:0 4px 15px rgba(5,150,105,0.3)"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ HOÀN THÀNH</div><div style="font-size:15px;font-weight:900">'+doneCount+'</div></div>';
     }
     
     // Render pagination
