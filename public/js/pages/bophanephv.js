@@ -78,7 +78,22 @@ function renderBophanepPage(content) {
 + '.bpe-claim-btn.disabled{background:#f8fafc;color:#64748b;cursor:not-allowed;border:1px solid #e2e8f0;font-weight:600}'
 + '@media(min-width:769px){.bpe-hide-desktop{display:none !important}}'
 + '.bpe-col-act{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important;padding:4px 2px !important}'
-+ '.bpe-col-stt{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important}';
++ '.bpe-col-stt{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important}'
++ '.bpc-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s ease;pointer-events:none}'
++ '.bpc-modal-overlay.show{opacity:1;pointer-events:auto}'
++ '.bpc-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}'
++ '.bpc-modal-overlay.show .bpc-modal{transform:scale(1)}'
++ '.bpc-modal-header{background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px}'
++ '.bpc-modal-header .m-icon{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))}'
++ '.bpc-modal-header .m-title{font-size:16px;font-weight:800;letter-spacing:0.3px;font-family:Inter,system-ui,sans-serif}'
++ '.bpc-modal-header .m-sub{font-size:11px;opacity:0.85;margin-top:2px}'
++ '.bpc-modal-body{padding:20px 24px}'
++ '.bpc-modal-actions{display:flex;gap:10px;padding:16px 24px;border-top:1px solid #f1f5f9}'
++ '.bpc-modal-btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,system-ui,sans-serif;transition:all .15s}'
++ '.bpc-modal-btn.confirm{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.3)}'
++ '.bpc-modal-btn.confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,185,129,0.4)}'
++ '.bpc-modal-btn.cancel{background:#f1f5f9;color:#475569}'
++ '.bpc-modal-btn.cancel:hover{background:#e2e8f0}';
         document.head.appendChild(st);
     }
 
