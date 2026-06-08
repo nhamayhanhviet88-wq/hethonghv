@@ -46,8 +46,8 @@ function renderBophanmayPage(content){
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800);color:#fff">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">NV May</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Giá May</th><th style="text-align:right">Giá KTra</th><th style="text-align:right">Lương Giá KTra</th><th style="text-align:left">May Chung</th><th style="text-align:center">Ảnh Kiểm Tra</th><th style="text-align:left">Ngày Bàn Giao May</th><th style="text-align:left">Cập Nhật</th>'
-    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">NV May</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Giá May</th><th style="text-align:right">Giá KTra</th><th style="text-align:right">Lương Giá KTra</th><th style="text-align:left">May Chung</th><th style="text-align:center">Ảnh Kiểm Tra</th><th style="text-align:left">Ngày Bàn Giao May</th><th style="text-align:left">Cập Nhật</th>'
+    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
 }
@@ -153,7 +153,7 @@ function _bpmRender(){
     if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bpmTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="17"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
@@ -187,6 +187,7 @@ function _bpmRender(){
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+priBadge+(r.product_name||r.order_code||'—')+'</td>'
+        +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
         +'<td style="text-align:right;font-size:10px;color:#dc2626;font-weight:700">'+_bpmFN(r.checked_price)+'</td>'
