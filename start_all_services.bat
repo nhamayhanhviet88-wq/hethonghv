@@ -19,13 +19,11 @@ echo ======================================== >> "%LOGFILE%"
 echo   KHOI DONG: %date% %time% >> "%LOGFILE%"
 echo ======================================== >> "%LOGFILE%"
 
-:: ---- 0. KILL ROGUE node server.js (prevent duplicate CRM instances) ----
-echo [0/3] Killing any rogue node server.js processes...
-echo [0/3] Kill rogue processes... >> "%LOGFILE%"
-for /f "tokens=2" %%p in ('wmic process where "CommandLine like '%%server.js%%' and not CommandLine like '%%ProcessContainer%%' and not CommandLine like '%%pm2%%'" get ProcessId 2^>nul ^| findstr /r "[0-9]"') do (
-    taskkill /F /PID %%p >nul 2>&1
-    echo     [KILLED] Rogue node PID %%p >> "%LOGFILE%"
-)
+:: ---- 0. KILL ALL node.exe processes (prevent duplicate CRM instances and resource leaks) ----
+echo [0/3] Killing all running node.exe processes...
+echo [0/3] Kill node.exe processes... >> "%LOGFILE%"
+taskkill /F /IM node.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
 
 :: ---- 1. KHOI DONG SERVER NODE.JS QUA PM2 (PORT 11000) ----
 echo.
