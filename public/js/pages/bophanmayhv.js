@@ -145,6 +145,7 @@ if(f.status)qs+='&status='+f.status;
 try{var res=await apiCall('/api/sewing/records'+qs);_bpm.records=res.records||[];_bpm.page=1;_bpmRender();}catch(e){console.error('[BPM]',e);}}
 
 function _bpmFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
+function _bpmFDDM(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1];}catch(e){return d;}}
 function _bpmFN(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN');}
 function _bpmFDT(d){if(!d)return'';try{return new Date(d).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}).replace(',','').trim();}catch(e){return d;}}
 
@@ -265,7 +266,7 @@ function _bpmRender(){
         +'<td style="text-align:center">' + salaryCell + '</td>'
         +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
-        +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
+        +'<td style="font-size:10px">'+_bpmFDDM(r.expected_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+(r.cut_product_name||r.product_name||r.order_code||'—')+'</a></td>'
@@ -276,7 +277,7 @@ function _bpmRender(){
         +'<td style="text-align:right;font-weight:800;color:#f59e0b">'+_bpmFN(r.salary)+'</td>'
         +'<td style="font-size:9px">'+(r.shared_sewing||'—')+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
-        +'<td style="font-size:10px">'+_bpmFD(r.expected_date)+'</td>'
+        +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
     var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.status==='incomplete')parts.push('⏳ Chưa May Xong');if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);if(_bpm.filter.sewer_id==='none')parts.push('👤 Chưa phân công');

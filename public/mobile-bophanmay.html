@@ -62,6 +62,7 @@ let cu=null,mr=[];
 async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
+function fdDM(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]}catch(e){return d}}
 function fn(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN')}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
@@ -83,8 +84,8 @@ const rA=r.is_reported?'undo_report':'report',sA=r.salary_approved?'undo_salary'
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
 +'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ngày Dự Kiến</span><span class="cv">'+fd(r.expected_date)+'</span></div>'
-+'<div class="cr"><span class="cl">📅 QLX Hẹn Ra</span><span class="cv">'+fd(r.handover_date)+'</span></div>'
++'<div class="cr"><span class="cl">📅 Ngày Bàn Giao May</span><span class="cv">'+fd(r.handover_date)+'</span></div>'
++'<div class="cr"><span class="cl">📅 QLX Hẹn Ra</span><span class="cv">'+fdDM(r.expected_date)+'</span></div>'
 +'<div class="cr"><span class="cl">👤 NV May</span><span class="cv" style="color:#5eead4">'+nv+'</span></div>'
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">📦 Số lượng</span><span class="cv" style="color:#5eead4;font-size:16px">'+(r.quantity||'—')+'</span></div>'
