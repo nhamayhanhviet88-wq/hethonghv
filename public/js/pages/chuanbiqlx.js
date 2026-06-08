@@ -1763,7 +1763,7 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px;margin-bottom:12px">';
         
         // Table Headers
-        html += '<div style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,0.9fr) minmax(0,1.2fr) minmax(0,1.5fr) 34px;gap:8px;padding:0 10px;border:1px solid transparent;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
+        html += '<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,0.9fr) minmax(0,1.8fr) minmax(0,1.2fr) 34px;gap:8px;padding:0 10px;border:1px solid transparent;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
         html += '<div>Phân Công May</div>';
         html += '<div style="text-align:center">Số Lượng</div>';
         html += '<div style="text-align:left">Ngày Trả Hàng <span style="color:#dc2626">*</span></div>';
@@ -1876,12 +1876,16 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     var contractors = window._qlxMayData.contractors || [];
     var contractorOpts = contractors.map(function(c) {
         var selected = String(c.id) === String(cId) ? 'selected' : '';
-        return '<option value="' + c.id + '" ' + selected + '>🏭 Gia công: ' + c.name + '</option>';
+        var displayName = c.name;
+        if (!/^(gia\s*công)/i.test(displayName)) {
+            displayName = 'Gia công: ' + displayName;
+        }
+        return '<option value="' + c.id + '" ' + selected + '>🏭 ' + displayName + '</option>';
     }).join('');
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
-    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,0.9fr) minmax(0,1.2fr) minmax(0,1.5fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
+    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,0.9fr) minmax(0,1.8fr) minmax(0,1.2fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
     html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
