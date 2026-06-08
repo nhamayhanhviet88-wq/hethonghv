@@ -468,9 +468,30 @@ module.exports = async function(fastify) {
             itemMap[it.dht_order_id].push(it);
         }
 
-        // Attach items to orders
+        // Fetch cutting records to mark already cut or cutting items as arrived
+        let cuttingRows = [];
+        if (orderIds.length > 0) {
+            cuttingRows = await db.all(`
+                SELECT dht_order_id, order_item_id, material_name, fabric_color, is_cutting, is_cut_done
+                FROM cutting_records
+                WHERE dht_order_id = ANY($1)
+            `, [orderIds]);
+        }
+
+        const orderHasCuts = {};
+        for (const c of cuttingRows) {
+            if (c.is_cutting || c.is_cut_done) {
+                orderHasCuts[c.dht_order_id] = true;
+            }
+        }
+
+        // Attach items to orders and dynamically update order-level fabric flags
         for (const o of orders) {
             o.items = itemMap[o.id] || [];
+            if (orderHasCuts[o.id]) {
+                o.fabric_called = true;
+                o.fabric_arrived = true;
+            }
         }
 
         // Fetch per-phoi fabric reservation statuses
@@ -491,6 +512,37 @@ module.exports = async function(fastify) {
             phoiFabStatus[`${r.dht_order_id}_${r.item_id}_${r.phoi_index}`] = {
                 total: r.total, arrived: r.arrived, pending: r.pending
             };
+        }
+
+        // Match cutting records with items to override status if cut/cutting
+        for (const item of items) {
+            let pairs = [];
+            try {
+                pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+            } catch(e) {}
+            if (!Array.isArray(pairs)) pairs = [];
+
+            const itemCuts = cuttingRows.filter(c => c.order_item_id === item.id);
+
+            pairs.forEach((p, pIdx) => {
+                const pMat = (p.material_name || '').trim().toLowerCase();
+                const pColor = (p.color_name || '').trim().toLowerCase();
+
+                const match = itemCuts.find(c => {
+                    const cMat = (c.material_name || '').trim().toLowerCase();
+                    const cColor = (c.fabric_color || '').trim().toLowerCase();
+                    return cMat === pMat && cColor === pColor;
+                });
+
+                if (match && (match.is_cutting || match.is_cut_done)) {
+                    const key = `${item.dht_order_id}_${item.id}_${pIdx}`;
+                    phoiFabStatus[key] = {
+                        total: 1,
+                        arrived: 1,
+                        pending: 0
+                    };
+                }
+            });
         }
 
         return { orders, phoi_fab_status: phoiFabStatus };
@@ -1459,10 +1511,17 @@ module.exports = async function(fastify) {
 
         // Auto-check: if ALL reservations for this order are 'arrived' → set fabric_arrived = true
         const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [dht_order_id]);
-        if (pending && pending.cnt === 0) {
-            await ensureOrderPrepRow(dht_order_id);
+        const cuttingDone = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)) AS has_cut`, [dht_order_id]);
+        const hasActive = await db.get(`SELECT EXISTS (SELECT 1 FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status IN ('arrived', 'fulfilled')) AS has_active`, [dht_order_id]);
+        const isArrived = (pending && pending.cnt === 0) && (hasActive.has_active || cuttingDone.has_cut);
+
+        await ensureOrderPrepRow(dht_order_id);
+        if (isArrived) {
             await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
                 [now, request.user.id, dht_order_id]);
+        } else {
+            await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                [now, dht_order_id]);
         }
 
         return { success: true };
@@ -1583,10 +1642,17 @@ module.exports = async function(fastify) {
         // Auto-update order-level fabric_arrived for ALL affected orders
         for (const oid of affectedOrderIds) {
             const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [oid]);
-            if (pending && pending.cnt === 0) {
-                await ensureOrderPrepRow(oid);
+            const cuttingDone = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)) AS has_cut`, [oid]);
+            const hasActive = await db.get(`SELECT EXISTS (SELECT 1 FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status IN ('arrived', 'fulfilled')) AS has_active`, [oid]);
+            const isArrived = (pending && pending.cnt === 0) && (hasActive.has_active || cuttingDone.has_cut);
+
+            await ensureOrderPrepRow(oid);
+            if (isArrived) {
                 await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
                     [now, request.user.id, oid]);
+            } else {
+                await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                    [now, oid]);
             }
         }
 
@@ -1630,8 +1696,13 @@ module.exports = async function(fastify) {
 
         // Recheck order-level fabric_arrived for ALL affected orders
         for (const oid of affectedOrderIds) {
-            const remaining = await db.get(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status != 'released'`, [oid]);
-            if (remaining && remaining.total > 0 && remaining.pending === 0) {
+            const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [oid]);
+            const cuttingDone = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)) AS has_cut`, [oid]);
+            const hasActive = await db.get(`SELECT EXISTS (SELECT 1 FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status IN ('arrived', 'fulfilled')) AS has_active`, [oid]);
+            const isArrived = (pending && pending.cnt === 0) && (hasActive.has_active || cuttingDone.has_cut);
+
+            await ensureOrderPrepRow(oid);
+            if (isArrived) {
                 await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
                     [now, user.id, oid]);
             } else {
