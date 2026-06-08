@@ -90,8 +90,8 @@ function renderBillvatlieuPage(content) {
         + '<button id="bvlFabBtn" class="bvl-fab-btn" onclick="_bvlOpenMat()">📦 Nhập Vật Liệu</button>'
         + '<input id="bvlSearch" placeholder="🔍 Tìm vật liệu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bvlTable"><thead><tr style="background:var(--gray-800)">'
-        + '<th style="text-align:center">STT</th><th style="text-align:center">Duyệt</th><th style="text-align:center">TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>Kho</th><th>NV Nhập</th><th>Tên Vật Liệu</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
-        + '</tr></thead><tbody id="bvlTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        + '<th style="text-align:center;width:95px">STT</th><th>Ngày Nhập</th><th>Nguồn</th><th>Kho</th><th>Tên Vật Liệu</th><th style="text-align:center">Ảnh Bill</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
+        + '</tr></thead><tbody id="bvlTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
 
     var _t;
     document.getElementById('bvlSearch').addEventListener('input', function () {
@@ -305,7 +305,7 @@ function _bvlRender() {
     var tb = document.getElementById('bvlTb');
     if (!tb) return;
     if (!all.length) {
-        tb.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📦</div><h3>Chưa có bill nhập vật liệu</h3></div></td></tr>';
+        tb.innerHTML = '<tr><td colspan="14"><div class="empty-state"><div class="icon">📦</div><h3>Chưa có bill nhập vật liệu</h3></div></td></tr>';
     } else {
         var runDebt = new Array(all.length);
         var srcCumDebt = {};
@@ -334,6 +334,8 @@ function _bvlRender() {
                 duyetHtml = '<button class="bvl-ib" onclick="event.stopPropagation();_bvlTog(' + r.id + ',\'check\')" title="Duyệt kiểm tra">⬜</button>';
             } else if (r.is_checked) {
                 duyetHtml = '<span style="font-size:11px" title="Đã duyệt: ' + (r.checked_by_name || '') + '">✅</span>';
+            } else {
+                duyetHtml = '<span style="font-size:11px;color:#94a3b8" title="Chờ duyệt">⏳</span>';
             }
             if (Number(r.debt) > 0) {
                 payHtml = '<button class="bvl-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bvlPayModal(' + r.id + ',' + r.debt + ',' + srcDebt + ')" title="Thanh toán">💳</button>';
@@ -417,14 +419,38 @@ function _bvlRender() {
                 paidCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">' + _bvlFM(r.paid) + '</td>';
             }
 
-            return '<tr style="cursor:pointer" onclick="_bvlDetail(' + r.id + ')"><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">' + (i + 1) + '</td>'
-                + '<td style="text-align:center;vertical-align:middle">' + duyetHtml + '</td>'
-                + '<td style="text-align:center;vertical-align:middle">' + payHtml + '</td>'
-                + '<td style="font-size:10px;vertical-align:middle">' + _bvlFD(r.import_date) + '</td>'
+            var importTimeStr = '';
+            if (r.created_at) {
+                var dObj = new Date(r.created_at);
+                var utc = dObj.getTime() + (dObj.getTimezoneOffset() * 60000);
+                var vnTime = new Date(utc + (3600000 * 7));
+                var hh = String(vnTime.getHours()).padStart(2, '0');
+                var mi = String(vnTime.getMinutes()).padStart(2, '0');
+                var dd = String(vnTime.getDate()).padStart(2, '0');
+                var mm = String(vnTime.getMonth() + 1).padStart(2, '0');
+                var yyyy = vnTime.getFullYear();
+                importTimeStr = hh + ':' + mi + ' ' + dd + '/' + mm + '/' + yyyy;
+            } else if (r.import_date) {
+                var p = r.import_date.split('T')[0].split('-');
+                importTimeStr = p[2] + '/' + p[1] + '/' + p[0];
+            } else {
+                importTimeStr = '—';
+            }
+
+            var imgHtml = '';
+            if (r.bill_image_url) {
+                imgHtml = '<img src="' + r.bill_image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;transition:transform .15s" onclick="event.stopPropagation();window.open(this.src)" title="Click để xem ảnh gốc" onmouseover="this.style.transform=\'scale(1.15)\'" onmouseout="this.style.transform=\'none\'">';
+            } else {
+                imgHtml = '<span style="color:#94a3b8">—</span>';
+            }
+
+            return '<tr style="cursor:pointer" onclick="_bvlDetail(' + r.id + ')">'
+                + '<td style="vertical-align:middle;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-weight:700;color:#94a3b8">' + (i + 1) + '</span>' + duyetHtml + payHtml + '</div></td>'
+                + '<td style="font-size:10px;vertical-align:middle"><div style="font-weight:600;color:#1e293b">' + importTimeStr + '</div><div style="font-size:9px;color:#0d9488;font-weight:700;margin-top:2px">👤 ' + (r.importer_name || '—') + '</div></td>'
                 + '<td style="font-size:10px;color:' + _bvlGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">' + (r.source_name || '—') + '</td>'
                 + '<td style="font-size:10px;color:' + _bvlGetWarehouseColor(r.warehouse_name) + ';font-weight:700;vertical-align:middle">' + (r.warehouse_name ? '📦 ' + r.warehouse_name : '—') + '</td>'
-                + '<td style="font-size:10px;color:#059669;font-weight:600;vertical-align:middle">' + (r.importer_name || '—') + '</td>'
                 + '<td style="font-weight:600;color:#1e293b;max-width:260px;vertical-align:middle">' + nameHtml + '</td>'
+                + '<td style="text-align:center;vertical-align:middle">' + imgHtml + '</td>'
                 + '<td style="text-align:center;font-weight:700;color:#0d9488;vertical-align:middle">' + qtyHtml + '</td>'
                 + '<td style="text-align:right;font-weight:600;vertical-align:middle">' + _bvlFM(r.cost) + '</td>'
                 + '<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">' + _bvlFM(r.refund) + '</td>'
