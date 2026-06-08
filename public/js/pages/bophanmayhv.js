@@ -10,15 +10,18 @@ function renderBophanmayPage(content){
     +'.bpm-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden;background:#f8fafc}'
     +'.bpm-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(13,148,136,0.08) 50%,transparent 70%);animation:bpmShimmer 3s infinite}'
     +'@keyframes bpmShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}'
-    +'.bpm-sb-total{background:#0f766e;color:#fff;border-left:5px solid #115e59;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid #0f766e;transition:all 0.2s}'
-    +'.bpm-sb-total:hover{background:#115e59}'
-    +'.bpm-sb-total.active{background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-left-color:#fbbf24;box-shadow:0 2px 8px rgba(15,118,110,0.4);font-weight:900}'
+    +'.bpm-sb-total{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-left:5px solid #1d4ed8;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid #1e3a8a;transition:all 0.2s}'
+    +'.bpm-sb-total:hover{background:linear-gradient(135deg,#1d4ed8,#60a5fa)}'
+    +'.bpm-sb-total.active{background:linear-gradient(135deg,#1d4ed8,#60a5fa);color:#fff;border-left-color:#fbbf24;box-shadow:0 4px 12px rgba(30,58,138,0.3);font-weight:900}'
     +'.bpm-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:bpmGlow 2.5s infinite}'
     +'@keyframes bpmGlow{0%{left:-100%}100%{left:150%}}'
-    +'.bpm-sb-year{padding:9px 16px 9px 11px;font-weight:800;font-size:12px;color:#0f766e;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#ccfbf1;border-bottom:1px solid #ccfbf1;transition:all 0.15s;border-left:5px solid #2dd4bf}'
-    +'.bpm-sb-year:hover{background:#99f6e4}'
-    +'.bpm-sb-year.active{background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border-left-color:#115e59;box-shadow:0 2px 5px rgba(15,118,110,0.25)}'
-    +'.bpm-sb-year.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important}'
+    +'.bpm-sb-unassigned{background:linear-gradient(135deg,#991b1b,#ef4444);color:#fff;border-left:5px solid #b91c1c;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid #991b1b;transition:all 0.2s}'
+    +'.bpm-sb-unassigned:hover{background:linear-gradient(135deg,#b91c1c,#f87171)}'
+    +'.bpm-sb-unassigned.active{background:linear-gradient(135deg,#b91c1c,#fca5a5);color:#fff;border-left-color:#fbbf24;box-shadow:0 4px 12px rgba(153,27,27,0.3);font-weight:900}'
+    +'.bpm-sb-year{padding:12px 16px 12px 11px;font-weight:800;font-size:12px;color:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#065f46,#10b981);border-bottom:1px solid #065f46;transition:all 0.2s;border-left:5px solid #047857}'
+    +'.bpm-sb-year:hover{background:linear-gradient(135deg,#047857,#34d399)}'
+    +'.bpm-sb-year.active{background:linear-gradient(135deg,#047857,#a7f3d0);color:#fff;border-left-color:#fbbf24;box-shadow:0 4px 12px rgba(6,95,70,0.3);font-weight:900}'
+    +'.bpm-sb-year.active span:last-child{background:rgba(255,255,255,0.4) !important;color:#fff !important}'
     +'.bpm-sb-toggle-btn{padding:4px 6px;margin-right:2px;cursor:pointer;display:inline-block;transition:all 0.15s;border-radius:4px;user-select:none}'
     +'.bpm-sb-toggle-btn:hover{background:rgba(255,255,255,0.35);transform:scale(1.2)}'
     +'.bpm-sb-sewer{padding:7px 16px 7px 23px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;color:#334155;border-left:5px solid #cbd5e1;background:#f1f5f9;transition:all 0.15s}'
@@ -71,7 +74,7 @@ function _bpmRenderSb(){
         });
     }
     var unassignedActive = !f.year && !f.month && f.sewer_id === 'none' && !f.contractor_id && !f.status;
-    h += '<div class="bpm-sb-total' + (unassignedActive ? ' active' : '') + '" onclick="_bpmFilter(null, null, \'none\', null)"><span>👤 Chưa phân công</span><span style="font-size:16px">' + unassignedCount + '</span></div>';
+    h += '<div class="bpm-sb-unassigned' + (unassignedActive ? ' active' : '') + '" onclick="_bpmFilter(null, null, \'none\', null)"><span>👤 Chưa phân công</span><span style="font-size:16px">' + unassignedCount + '</span></div>';
 
     if (t.tree) {
         t.tree.forEach(function(yr) {
@@ -82,7 +85,7 @@ function _bpmRenderSb(){
             }
             var yOpen = !!_bpmOpen[yKey];
             var yAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && !f.month && !f.status;
-            h += '<div class="bpm-sb-year' + (yAct ? ' active' : '') + '" onclick="_bpmFilter(' + yr.year + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + yKey + '\')">' + (yOpen ? '▼' : '▶') + '</span> 📅 Năm ' + yr.year + '</span><span style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
+            h += '<div class="bpm-sb-year' + (yAct ? ' active' : '') + '" onclick="_bpmFilter(' + yr.year + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + yKey + '\')">' + (yOpen ? '▼' : '▶') + '</span> 📅 Năm ' + yr.year + '</span><span style="background:rgba(255,255,255,0.25);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:800">' + yr.count + '</span></div>';
             
             if (yOpen && yr.sewers) {
                 // Calculate total incomplete count for all sewers/contractors in this year
