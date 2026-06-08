@@ -21,7 +21,7 @@ module.exports = async function(fastify) {
         is_reported BOOLEAN DEFAULT false, reported_at TIMESTAMPTZ, reported_by INTEGER REFERENCES users(id),
         error_reported BOOLEAN DEFAULT false, error_order_id INTEGER,
         salary_approved BOOLEAN DEFAULT false, salary_approved_at TIMESTAMPTZ, salary_approved_by INTEGER REFERENCES users(id),
-        expected_date DATE, handover_date DATE, done_date DATE,
+        expected_date DATE, handover_date DATE, done_date TIMESTAMPTZ,
         sewer_id INTEGER REFERENCES users(id), contractor_id INTEGER,
         product_name TEXT, quantity INTEGER DEFAULT 0,
         base_price NUMERIC DEFAULT 0, checked_price NUMERIC DEFAULT 0, salary NUMERIC DEFAULT 0,
@@ -244,7 +244,7 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
             detail = '⚠️ Báo lỗi nội bộ';
         } else if (action === 'mark_done') {
-            await db.run(`UPDATE sewing_records SET done_date=CURRENT_DATE, is_reported=true, reported_at=COALESCE(reported_at,$1), updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`UPDATE sewing_records SET done_date=$1, is_reported=true, reported_at=COALESCE(reported_at,$1), updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '✅ May xong';
         } else if (action === 'undo_done') {
             await db.run(`UPDATE sewing_records SET done_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
