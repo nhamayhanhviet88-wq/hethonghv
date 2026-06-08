@@ -271,17 +271,17 @@ async function _bpmAssignTeam(recordId) {
             return '<option value="' + t.id + '" ' + selected + '>' + t.name + '</option>';
         }).join('');
 
-        var html = '<div style="padding:20px;font-family:\'Inter\',sans-serif;background-color:#0f172a;color:#f8fafc;border-radius:16px">';
-        html += '<h3 style="margin:0 0 16px;color:#ffffff;font-size:15px;font-weight:800">👥 Phân Tổ May</h3>';
+        var html = '<div style="padding:20px;font-family:\'Inter\',sans-serif;background-color:#ffffff;color:#1e293b;border-radius:16px">';
+        html += '<h3 style="margin:0 0 16px;color:#0d9488;font-size:15px;font-weight:800">👥 Phân Tổ May</h3>';
         
-        html += '<div style="margin-bottom:12px"><label style="font-size:10px;font-weight:800;color:#94a3b8;display:block;margin-bottom:4px">MẶT HÀNG / ĐƠN</label>';
-        html += '<input type="text" value="' + (rec.product_name || rec.order_code || 'N/A').replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #334155;border-radius:8px;font-size:12px;font-weight:700;color:#f8fafc;background:#1e293b;cursor:not-allowed"></div>';
+        html += '<div style="margin-bottom:12px"><label style="font-size:10px;font-weight:800;color:#475569;display:block;margin-bottom:4px">MẶT HÀNG / ĐƠN</label>';
+        html += '<input type="text" value="' + (rec.product_name || rec.order_code || 'N/A').replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
 
-        html += '<div style="margin-bottom:20px"><label style="font-size:10px;font-weight:800;color:#94a3b8;display:block;margin-bottom:4px">CHỌN TỔ/TEAM MAY</label>';
-        html += '<select id="_bpmAssignTeamSelect" class="form-control" style="width:100%;padding:8px 10px;border-radius:8px;font-size:12px;background:#1e293b;color:#ffffff;border:1.5px solid #334155"><option value="">-- Chưa Phân Tổ --</option>' + opts + '</select></div>';
+        html += '<div style="margin-bottom:20px"><label style="font-size:10px;font-weight:800;color:#475569;display:block;margin-bottom:4px">CHỌN TỔ/TEAM MAY</label>';
+        html += '<select id="_bpmAssignTeamSelect" class="form-control" style="width:100%;padding:8px 10px;border-radius:8px;font-size:12px;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"><option value="">-- Chưa Phân Tổ --</option>' + opts + '</select></div>';
 
         html += '<div style="display:flex;justify-content:flex-end;gap:12px">';
-        html += '<button class="btn btn-secondary" style="padding:6px 14px;font-size:11px;background-color:#475569;border:none;color:#fff" onclick="document.getElementById(\'_bpmTeamOverlay\').remove()">Hủy</button>';
+        html += '<button class="btn btn-secondary" style="padding:6px 14px;font-size:11px;background-color:#ffffff;border:1px solid #cbd5e1;color:#475569" onclick="document.getElementById(\'_bpmTeamOverlay\').remove()">Hủy</button>';
         html += '<button onclick="_bpmDoAssignTeam(' + recordId + ')" style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;padding:6px 18px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer">💾 Lưu Phân Tổ</button>';
         html += '</div></div>';
 
@@ -289,12 +289,13 @@ async function _bpmAssignTeam(recordId) {
         var ov = document.createElement('div');
         ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:100px;animation:qlxFadeIn .2s;transition:opacity .25s ease';
         ov.id = '_bpmTeamOverlay';
-        ov.innerHTML = '<div style="background:#0f172a;border-radius:16px;width:380px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.4);border:1px solid #334155;animation:qlxSlideUp .3s">' + html + '</div>';
+        ov.innerHTML = '<div style="background:#ffffff;border-radius:16px;width:380px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.15);border:1px solid #e2e8f0;animation:qlxSlideUp .3s">' + html + '</div>';
         document.body.appendChild(ov);
     } catch(e) {
         showToast('Lỗi: ' + e.message, 'error');
     }
 }
+
 
 
 async function _bpmDoAssignTeam(recordId) {
