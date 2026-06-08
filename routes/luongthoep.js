@@ -29,6 +29,13 @@ module.exports = async function(fastify) {
             updated_at      TIMESTAMPTZ DEFAULT NOW()
         )`);
 
+        // 3. Add price snapshot columns on pressing_records
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS price_chest_arm NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS price_back_belly NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS price_protective NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS price_packaging NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS price_other NUMERIC DEFAULT 0`);
+
         // Seed initial tier Bậc 1 if empty
         const count = await db.get(`SELECT COUNT(*)::int AS cnt FROM pressing_salary_tiers`);
         if (count && count.cnt === 0) {
@@ -39,6 +46,38 @@ module.exports = async function(fastify) {
             `, ['Bậc 1', 250, 350, 400, 100, 250]);
             console.log('[LTE] Seeded initial pressing tier Bậc 1');
         }
+
+        // Sync price snapshot columns for existing pressing records from current assignments or defaults
+        await db.run(`
+            UPDATE pressing_records pr
+            SET 
+              price_chest_arm = COALESCE(t.price_chest_arm, 250),
+              price_back_belly = COALESCE(t.price_back_belly, 350),
+              price_protective = COALESCE(t.price_protective, 400),
+              price_packaging = COALESCE(t.price_packaging, 100),
+              price_other = COALESCE(t.price_other, 250)
+            FROM (
+              SELECT u.id AS user_id, pt.price_chest_arm, pt.price_back_belly, pt.price_protective, pt.price_packaging, pt.price_other
+              FROM users u
+              LEFT JOIN user_pressing_salary_tiers ut ON u.id = ut.user_id
+              LEFT JOIN pressing_salary_tiers pt ON ut.tier_id = pt.id
+            ) t
+            WHERE pr.presser_id = t.user_id 
+              AND (pr.price_chest_arm IS NULL OR pr.price_chest_arm = 0)
+        `);
+
+        // Final fallback update for records without a linked user/assignment
+        await db.run(`
+            UPDATE pressing_records
+            SET 
+              price_chest_arm = 250,
+              price_back_belly = 350,
+              price_protective = 400,
+              price_packaging = 100,
+              price_other = 250
+            WHERE (price_chest_arm IS NULL OR price_chest_arm = 0)
+        `);
+
     } catch(e) {
         console.error('[LTE] Database auto-migration error:', e.message);
     }

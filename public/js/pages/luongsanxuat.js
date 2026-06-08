@@ -387,6 +387,72 @@ function _lsxFN(n) {
     return Number(n).toLocaleString('vi-VN');
 }
 
+function _lsxGetHeaderHTML() {
+    var showApproveAll = _lsx.is_manager && _lsx.records.some(function(r) { return !r.is_approved; });
+    var btnStyle = showApproveAll ? 'inline-block' : 'none';
+    
+    if (_lsx.filter.dept === 'pressing') {
+        return `
+            <tr style="background:var(--gray-800)">
+                <th style="width:50px">STT</th>
+                <th>Ngày Làm</th>
+                <th>Bộ Phận</th>
+                <th>Nhân Viên</th>
+                <th>Tên Sản Phẩm</th>
+                <th style="text-align:center">SL Đơn</th>
+                <th style="text-align:center">SL Ép</th>
+                <th style="text-align:center;background:#0d9488">Ngực/Tay</th>
+                <th style="text-align:center;background:#0d9488">Lưng/Bụng</th>
+                <th style="text-align:center;background:#0d9488">BH/Bếp</th>
+                <th style="text-align:center;background:#0d9488">ĐG/Cổ Bẻ</th>
+                <th style="text-align:center;background:#0d9488">VT Khác</th>
+                <th style="text-align:right">Thành Tiền (đ)</th>
+                <th style="text-align:center">
+                    Kiểm Tra
+                    <br>
+                    <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+                </th>
+                <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
+                <th>Cập Nhật</th>
+            </tr>
+        `;
+    }
+    
+    return `
+        <tr style="background:var(--gray-800)">
+            <th style="width:50px">STT</th>
+            <th>Ngày Làm</th>
+            <th>Bộ Phận</th>
+            <th>Nhân Viên</th>
+            <th>Mã Đơn</th>
+            <th style="text-align:center">SL Đơn</th>
+            <th style="text-align:center">SL Cắt</th>
+            <th>Tên Sản Phẩm</th>
+            <th style="text-align:right">Đơn Giá (đ)</th>
+            <th style="text-align:right">Thành Tiền (đ)</th>
+            <th style="text-align:center">
+                Kiểm Tra
+                <br>
+                <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+            </th>
+            <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
+            <th>Lịch Sử Cập Nhật</th>
+        </tr>
+    `;
+}
+
+function _lsxFormatPressingPos(qty, price) {
+    if (!qty) return `<span style="color:#94a3b8;font-size:10px">—</span>`;
+    var total = qty * price;
+    return `
+        <div style="text-align:center;line-height:1.2">
+            <span style="font-weight:700;color:#1e293b">${qty}</span>
+            <span style="color:#64748b;font-size:9px">x${price}</span>
+            <div style="font-weight:800;color:#0d9488;font-size:9.5px">${Number(total).toLocaleString('vi-VN')}</div>
+        </div>
+    `;
+}
+
 function _lsxRenderTable() {
     var all = _lsx.records.slice();
     if (_lsx.search) {
@@ -398,11 +464,21 @@ function _lsxRenderTable() {
         });
     }
 
+    // Dynamically render the table header based on active department filter
+    var tableEl = document.getElementById('lsxTable');
+    if (tableEl) {
+        var theadEl = tableEl.querySelector('thead');
+        if (theadEl) {
+            theadEl.innerHTML = _lsxGetHeaderHTML();
+        }
+    }
+
     var tb = document.getElementById('lsxTb');
     if (!tb) return;
     
     if (!all.length) {
-        tb.innerHTML = '<tr><td colspan="13"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
+        var colSpan = _lsx.filter.dept === 'pressing' ? 16 : 13;
+        tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
     }
@@ -468,6 +544,27 @@ function _lsxRenderTable() {
         }
         var qtyColor = isPhoi ? '#94a3b8' : '#64748b';
         var cutColor = isPhoi ? '#2dd4bf' : '#0d9488';
+
+        if (_lsx.filter.dept === 'pressing') {
+            return `<tr>`
+                + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
+                + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
+                + `<td>${deptBadge}</td>`
+                + `<td style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</td>`
+                + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
+                + `<td style="text-align:center;font-weight:700;color:${qtyColor}">${_lsxFormatOrderQty(orderQty, r.product_name, r.cutting_category, r.dept)}</td>`
+                + `<td style="text-align:center;font-weight:700;color:${cutColor}">${_lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, r.dept)}</td>`
+                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_chest_arm, r.price_chest_arm)}</td>`
+                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_back_belly, r.price_back_belly)}</td>`
+                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_protective, r.price_protective)}</td>`
+                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_packaging, r.price_packaging)}</td>`
+                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_other, r.price_other)}</td>`
+                + salCell
+                + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
+                + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
+                + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
+                + `</tr>`;
+        }
 
         return `<tr>`
             + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`

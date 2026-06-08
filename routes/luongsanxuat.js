@@ -306,7 +306,6 @@ module.exports = async function(fastify) {
         }
 
         // Build query parts based on selected department filter
-        // Build query parts based on selected department filter
         let query = '';
         const queryParts = [];
 
@@ -336,7 +335,17 @@ module.exports = async function(fastify) {
                     lh_u.full_name AS last_update_by,
                     cr.created_at,
                     cr.cut_warning,
-                    cr.cutting_category
+                    cr.cutting_category,
+                    NULL::integer AS pos_chest_arm,
+                    NULL::integer AS pos_back_belly,
+                    NULL::integer AS pos_protective,
+                    NULL::integer AS pos_packaging,
+                    NULL::integer AS pos_other,
+                    0::numeric AS price_chest_arm,
+                    0::numeric AS price_back_belly,
+                    0::numeric AS price_protective,
+                    0::numeric AS price_packaging,
+                    0::numeric AS price_other
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
@@ -386,7 +395,17 @@ module.exports = async function(fastify) {
                     lh_u.full_name AS last_update_by,
                     pr.created_at,
                     NULL::text AS cut_warning,
-                    NULL::text AS cutting_category
+                    NULL::text AS cutting_category,
+                    pr.pos_chest_arm,
+                    pr.pos_back_belly,
+                    pr.pos_protective,
+                    pr.pos_packaging,
+                    pr.pos_other,
+                    COALESCE(pr.price_chest_arm, 0) AS price_chest_arm,
+                    COALESCE(pr.price_back_belly, 0) AS price_back_belly,
+                    COALESCE(pr.price_protective, 0) AS price_protective,
+                    COALESCE(pr.price_packaging, 0) AS price_packaging,
+                    COALESCE(pr.price_other, 0) AS price_other
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
                 LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
@@ -428,7 +447,17 @@ module.exports = async function(fastify) {
                     lh_u.full_name AS last_update_by,
                     sr.created_at,
                     NULL::text AS cut_warning,
-                    NULL::text AS cutting_category
+                    NULL::text AS cutting_category,
+                    NULL::integer AS pos_chest_arm,
+                    NULL::integer AS pos_back_belly,
+                    NULL::integer AS pos_protective,
+                    NULL::integer AS pos_packaging,
+                    NULL::integer AS pos_other,
+                    0::numeric AS price_chest_arm,
+                    0::numeric AS price_back_belly,
+                    0::numeric AS price_protective,
+                    0::numeric AS price_packaging,
+                    0::numeric AS price_other
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id

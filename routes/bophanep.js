@@ -82,7 +82,14 @@ module.exports = async function(fastify) {
                             (packQty * packPrice) +
                             (otherQty * otherPrice);
 
-        return { salary: totalSalary };
+        return { 
+            salary: totalSalary,
+            price_chest_arm: chestPrice,
+            price_back_belly: backPrice,
+            price_protective: protPrice,
+            price_packaging: packPrice,
+            price_other: otherPrice
+        };
     }
 
     // ========== TREE ==========
@@ -364,6 +371,14 @@ module.exports = async function(fastify) {
         const latestQty = (latestCut && latestCut.cut_qty) ? latestCut.cut_qty : rec.order_quantity;
 
         let calculatedSalary = rec.press_salary;
+        let pricesObj = {
+            price_chest_arm: rec.price_chest_arm || 0,
+            price_back_belly: rec.price_back_belly || 0,
+            price_protective: rec.price_protective || 0,
+            price_packaging: rec.price_packaging || 0,
+            price_other: rec.price_other || 0
+        };
+
         if (b.press_salary === undefined) {
             const presserId = b.presser_id !== undefined ? b.presser_id : rec.presser_id;
             const chest = b.pos_chest_arm !== undefined ? Number(b.pos_chest_arm) : rec.pos_chest_arm;
@@ -373,13 +388,18 @@ module.exports = async function(fastify) {
             const otherVal = b.pos_other !== undefined ? Number(b.pos_other) : Number(rec.pos_other);
             const salInfo = await calculatePresserSalary(presserId, chest, back, prot, pack, otherVal);
             calculatedSalary = salInfo.salary;
+            if (salInfo.price_chest_arm !== undefined) {
+                pricesObj = salInfo;
+            }
         } else {
             calculatedSalary = Number(b.press_salary);
         }
 
         await db.run(`UPDATE pressing_records SET press_date=$1,presser_id=$2,product_name=$3,cskh_name=$4,
             order_quantity=$5,press_quantity=$6,press_salary=$7,salary=$7,pos_chest_arm=$8,pos_back_belly=$9,
-            pos_protective=$10,pos_packaging=$11,pos_other=$12,press_images=$13,notes=$14,updated_at=$15 WHERE id=$16`,
+            pos_protective=$10,pos_packaging=$11,pos_other=$12,press_images=$13,notes=$14,updated_at=$15,
+            price_chest_arm=$16, price_back_belly=$17, price_protective=$18, price_packaging=$19, price_other=$20
+            WHERE id=$21`,
             [b.press_date!==undefined?b.press_date:rec.press_date, b.presser_id!==undefined?b.presser_id:rec.presser_id,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              latestQty,
@@ -391,7 +411,9 @@ module.exports = async function(fastify) {
              b.pos_packaging!==undefined?Number(b.pos_packaging):rec.pos_packaging,
              b.pos_other!==undefined?b.pos_other:rec.pos_other,
              b.press_images!==undefined?b.press_images:rec.press_images,
-             b.notes!==undefined?b.notes:rec.notes, now, id]);
+             b.notes!==undefined?b.notes:rec.notes, now,
+             pricesObj.price_chest_arm, pricesObj.price_back_belly, pricesObj.price_protective,
+             pricesObj.price_packaging, pricesObj.price_other, id]);
         await db.run(`INSERT INTO pressing_history (pressing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin ép', req.user.id, now]);
         return { success: true };
@@ -423,7 +445,25 @@ module.exports = async function(fastify) {
                     rec.pos_packaging,
                     rec.pos_other
                 );
-                await db.run(`UPDATE pressing_records SET press_salary=$1, salary=$1 WHERE id=$2`, [salInfo.salary, id]);
+                await db.run(`
+                    UPDATE pressing_records 
+                    SET press_salary=$1, 
+                        salary=$1, 
+                        price_chest_arm=$2, 
+                        price_back_belly=$3, 
+                        price_protective=$4, 
+                        price_packaging=$5, 
+                        price_other=$6 
+                    WHERE id=$7
+                `, [
+                    salInfo.salary, 
+                    salInfo.price_chest_arm || 0,
+                    salInfo.price_back_belly || 0,
+                    salInfo.price_protective || 0,
+                    salInfo.price_packaging || 0,
+                    salInfo.price_other || 0,
+                    id
+                ]);
             }
         }
 
