@@ -1863,9 +1863,9 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
         }
     }
 
-    var qty = quantity !== undefined ? quantity : '';
-    var date = expectedDate !== undefined ? expectedDate : '';
-    var noteText = notes !== undefined ? notes : '';
+    var qty = (quantity !== undefined && quantity !== null) ? quantity : '';
+    var date = (expectedDate !== undefined && expectedDate !== null) ? expectedDate : '';
+    var noteText = (notes !== undefined && notes !== null) ? notes : '';
 
     var tzToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     var yyyy = tzToday.getFullYear();
