@@ -316,9 +316,15 @@ module.exports = async function(fastify) {
                 ? 'price_' + qtyCol
                 : qtyCol.replace('pos_', 'price_');
 
-            selectColsCutting += `, NULL::integer AS ${qtyCol}, 0::numeric AS ${prcCol}`;
-            selectColsSewing += `, NULL::integer AS ${qtyCol}, 0::numeric AS ${prcCol}`;
-            selectColsPressing += `, pr.${qtyCol}, COALESCE(pr.${prcCol}, 0) AS ${prcCol}`;
+            if (qtyCol === 'pos_other') {
+                selectColsCutting += `, NULL::text AS ${qtyCol}, 0::numeric AS ${prcCol}`;
+                selectColsSewing += `, NULL::text AS ${qtyCol}, 0::numeric AS ${prcCol}`;
+                selectColsPressing += `, pr.${qtyCol}::text AS ${qtyCol}, COALESCE(pr.${prcCol}, 0) AS ${prcCol}`;
+            } else {
+                selectColsCutting += `, NULL::numeric AS ${qtyCol}, 0::numeric AS ${prcCol}`;
+                selectColsSewing += `, NULL::numeric AS ${qtyCol}, 0::numeric AS ${prcCol}`;
+                selectColsPressing += `, pr.${qtyCol}::numeric AS ${qtyCol}, COALESCE(pr.${prcCol}, 0) AS ${prcCol}`;
+            }
         });
 
         const queryParts = [];

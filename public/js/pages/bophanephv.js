@@ -447,7 +447,7 @@ function _bpeRender() {
         var thead = wrap.querySelector('thead');
         if (thead) {
             var dynamicHeaders = (window._bpePositions || []).map(function(pos) {
-                return '<th title="' + pos.display_name + '" style="cursor:help">' + (pos.short_name || pos.display_name) + '</th>';
+                return '<th title="' + pos.display_name + '" style="cursor:help" onclick="showToast(\'Vị trí: \' + ' + JSON.stringify(pos.display_name) + ')">' + (pos.short_name || pos.display_name) + '</th>';
             }).join('');
 
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
