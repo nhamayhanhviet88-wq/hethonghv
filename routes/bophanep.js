@@ -111,25 +111,24 @@ module.exports = async function(fastify) {
             WITH item_status AS (
                 SELECT 
                     oi.id AS item_id,
-                    EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
-                    AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false) AS is_cut_done,
-                    CASE 
-                        WHEN NOT EXISTS (
-                            SELECT 1 FROM qlx_assignments qa 
-                            WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                              AND (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
-                        ) THEN true
-                        ELSE (
-                            EXISTS (
-                                SELECT 1 FROM printing_records pr 
-                                WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
-                            ) AND NOT EXISTS (
-                                SELECT 1 FROM printing_records pr 
-                                WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
-                                  AND NOT (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
-                            )
+                    (
+                        EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+                        AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
+                    ) AS is_cut_done,
+                    (
+                        EXISTS (
+                            SELECT 1 FROM printing_records pr 
+                            WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
+                              AND pr.print_field IN ('IN PET', 'IN DECAL')
+                              AND pr.printer_id IS NOT NULL
+                        ) AND NOT EXISTS (
+                            SELECT 1 FROM printing_records pr 
+                            WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
+                              AND pr.print_field IN ('IN PET', 'IN DECAL')
+                              AND pr.printer_id IS NOT NULL
+                              AND pr.is_print_done = false
                         )
-                    END AS is_print_done
+                    ) AS is_print_done
                 FROM dht_order_items oi
                 JOIN dht_orders o ON oi.dht_order_id = o.id
                 LEFT JOIN dht_categories c ON o.category_id = c.id
@@ -138,6 +137,13 @@ module.exports = async function(fastify) {
                   AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
                   AND COALESCE(o.shipping_status, '') NOT IN ('shipped', 'cancelled')
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = oi.id)
+                  AND EXISTS (
+                      SELECT 1 FROM qlx_order_print_assignments qa
+                      JOIN printing_fields pf ON qa.field_id = pf.id
+                      WHERE (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
+                        AND pf.name IN ('IN PET', 'IN DECAL')
+                        AND qa.operator_type = 'user'
+                  )
             )
             SELECT 
                 COUNT(*)::int AS total,
@@ -342,6 +348,13 @@ module.exports = async function(fastify) {
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = oi.id)
+                  AND EXISTS (
+                      SELECT 1 FROM qlx_order_print_assignments qa
+                      JOIN printing_fields pf ON qa.field_id = pf.id
+                      WHERE (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
+                        AND pf.name IN ('IN PET', 'IN DECAL')
+                        AND qa.operator_type = 'user'
+                  )
             )
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
@@ -352,23 +365,27 @@ module.exports = async function(fastify) {
                     SELECT 1 FROM dht_order_items oi
                     WHERE oi.dht_order_id = o.id
                       AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = oi.id)
+                      AND EXISTS (
+                          SELECT 1 FROM qlx_order_print_assignments qa
+                          JOIN printing_fields pf ON qa.field_id = pf.id
+                          WHERE (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
+                            AND pf.name IN ('IN PET', 'IN DECAL')
+                            AND qa.operator_type = 'user'
+                      )
                       AND EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
                       AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
-                      AND (
-                          NOT EXISTS (
-                              SELECT 1 FROM qlx_assignments qa 
-                              WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                                AND (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
-                          ) OR (
-                              EXISTS (
-                                  SELECT 1 FROM printing_records prr 
-                                  WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
-                              ) AND NOT EXISTS (
-                                  SELECT 1 FROM printing_records prr 
-                                  WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
-                                    AND NOT (prr.is_print_done = true OR prr.contractor_id IS NOT NULL)
-                              )
-                          )
+                      AND EXISTS (
+                          SELECT 1 FROM printing_records prr 
+                          WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
+                            AND prr.print_field IN ('IN PET', 'IN DECAL')
+                            AND prr.printer_id IS NOT NULL
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM printing_records prr 
+                          WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
+                            AND prr.print_field IN ('IN PET', 'IN DECAL')
+                            AND prr.printer_id IS NOT NULL
+                            AND prr.is_print_done = false
                       )
                 ) THEN 0 ELSE 1 END,
                 CASE WHEN COALESCE(o.shipping_priority, 'CHUẨN') NOT IN ('GẤP','GỬI') THEN 0
@@ -388,26 +405,44 @@ module.exports = async function(fastify) {
                     doi.description, 
                     doi.material_pairs,
                     doi.quantity AS quantity,
+                    (
+                        SELECT COUNT(*)::int 
+                        FROM dht_order_items doi2 
+                        WHERE doi2.dht_order_id = doi.dht_order_id AND doi2.id <= doi.id
+                    ) AS real_item_index,
                     EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
                     NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
-                    EXISTS(
-                        SELECT 1 FROM qlx_assignments qa 
-                        WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                          AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND qa.operator_type = 'user'
                     ) AS has_pc_in,
                     (
                         EXISTS (
                             SELECT 1 FROM printing_records pr 
                             WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                              AND pr.print_field IN ('IN PET', 'IN DECAL')
+                              AND pr.printer_id IS NOT NULL
                         ) AND NOT EXISTS (
                             SELECT 1 FROM printing_records pr 
                             WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
-                              AND NOT (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                              AND pr.print_field IN ('IN PET', 'IN DECAL')
+                              AND pr.printer_id IS NOT NULL
+                              AND pr.is_print_done = false
                         )
                     ) AS is_print_done_rec
                 FROM dht_order_items doi
                 WHERE doi.dht_order_id = ANY($1)
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = doi.id)
+                  AND EXISTS (
+                      SELECT 1 FROM qlx_order_print_assignments qa
+                      JOIN printing_fields pf ON qa.field_id = pf.id
+                      WHERE (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                        AND pf.name IN ('IN PET', 'IN DECAL')
+                        AND qa.operator_type = 'user'
+                  )
                 ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
 
@@ -442,14 +477,13 @@ module.exports = async function(fastify) {
             const totalItemsInOrder = allItemCounts[o.id] || 1;
             if (!itsArr.length) continue;
 
-            let itemIdx = 0;
             for (const it of itsArr) {
-                itemIdx++;
+                const itemIdx = it.real_item_index;
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
                 
                 const isCutReady = it.has_cut_records && it.all_cuts_done;
-                const isPrintReady = !it.has_pc_in || it.is_print_done_rec;
+                const isPrintReady = it.is_print_done_rec;
                 const ready = isCutReady && isPrintReady;
 
                 const warnings = [];
@@ -536,27 +570,38 @@ module.exports = async function(fastify) {
                 SELECT doi.id, doi.description, doi.material_pairs, doi.quantity,
                        EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
                        NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
-                       EXISTS(
-                           SELECT 1 FROM qlx_assignments qa 
-                           WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                             AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                       EXISTS (
+                           SELECT 1 FROM qlx_order_print_assignments qa
+                           JOIN printing_fields pf ON qa.field_id = pf.id
+                           WHERE (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                             AND pf.name IN ('IN PET', 'IN DECAL')
+                             AND qa.operator_type = 'user'
                        ) AS has_pc_in,
-                        (
-                            EXISTS (
-                                SELECT 1 FROM printing_records pr 
-                                WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
-                            ) AND NOT EXISTS (
-                                SELECT 1 FROM printing_records pr 
-                                WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
-                                  AND NOT (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
-                            )
-                        ) AS is_print_done_rec
+                       (
+                           EXISTS (
+                               SELECT 1 FROM printing_records pr 
+                               WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                                 AND pr.print_field IN ('IN PET', 'IN DECAL')
+                                 AND pr.printer_id IS NOT NULL
+                           ) AND NOT EXISTS (
+                               SELECT 1 FROM printing_records pr 
+                               WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                                 AND pr.print_field IN ('IN PET', 'IN DECAL')
+                                 AND pr.printer_id IS NOT NULL
+                                 AND pr.is_print_done = false
+                           )
+                       ) AS is_print_done_rec
                 FROM dht_order_items doi
                 WHERE doi.id = $1 FOR UPDATE
             `, [order_item_id]);
             if (!item) {
                 await db.run('ROLLBACK');
                 return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
+            }
+
+            if (!item.has_pc_in) {
+                await db.run('ROLLBACK');
+                return reply.code(400).send({ error: 'Đơn hàng này không thuộc diện ép của xưởng (không có phân công in PET/Decal nội bộ)' });
             }
 
             const exists = await db.get(`SELECT 1 FROM pressing_records WHERE order_item_id = $1`, [order_item_id]);
@@ -566,7 +611,7 @@ module.exports = async function(fastify) {
             }
 
             const isCutReady = item.has_cut_records && item.all_cuts_done;
-            const isPrintReady = !item.has_pc_in || item.is_print_done_rec;
+            const isPrintReady = item.is_print_done_rec;
             if (!isCutReady || !isPrintReady) {
                 let errMsg = 'Không thể nhận đơn ép do: ';
                 const errs = [];
