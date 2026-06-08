@@ -1339,49 +1339,113 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
         }
 
-        // ★ Replace order items if provided (= full edit via Sửa Đơn)
+        // ★ Smart Update/Replace order items if provided (= full edit via Sửa Đơn)
         if (Array.isArray(b.items)) {
             // Mark as edited
             await db.run('UPDATE dht_orders SET is_edited = TRUE WHERE id = $1', [orderId]);
             
-            // Clean up old cutting records to prevent duplicates/orphans when order items change
             const oldItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
             const oldItemIds = oldItems.map(it => Number(it.id));
-            if (oldItemIds.length > 0) {
-                await db.run('DELETE FROM cutting_records WHERE order_item_id = ANY($1)', [oldItemIds]);
+
+            // Extract IDs of items sent from frontend
+            const sentItemIds = b.items
+                .map(item => Number(item.id))
+                .filter(id => !isNaN(id) && id > 0);
+
+            // 1. Identify deleted items
+            const deletedItemIds = oldItemIds.filter(id => !sentItemIds.includes(id));
+            if (deletedItemIds.length > 0) {
+                // Delete cutting records for deleted items
+                await db.run('DELETE FROM cutting_records WHERE order_item_id = ANY($1)', [deletedItemIds]);
+                // Delete the items (will cascade delete sewing_records, etc.)
+                await db.run('DELETE FROM dht_order_items WHERE id = ANY($1)', [deletedItemIds]);
             }
 
-            await db.run('DELETE FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            // 2. Insert or update items
             for (const item of b.items) {
-                await db.run(`
-                    INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
-                        sale_type, product_name, material_id, material_name,
-                        color_id, color_name, pattern_name, sewing_techniques,
-                        accounting_notes, extra_materials, quantities,
-                        extra_product, extra_price, item_total, material_pairs)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-                `, [
-                    orderId,
-                    item.product_name || '',
-                    Number(item.quantity) || 0,
-                    Number(item.unit_price) || 0,
-                    Number(item.item_total) || 0,
-                    item.sale_type || null,
-                    item.product_name || null,
-                    item.material_id ? Number(item.material_id) : null,
-                    item.material_name || null,
-                    item.color_id ? Number(item.color_id) : null,
-                    item.color_name || null,
-                    item.pattern_name || null,
-                    JSON.stringify(item.sewing_techniques || []),
-                    item.accounting_notes || null,
-                    JSON.stringify(item.extra_materials || []),
-                    JSON.stringify(item.quantities || []),
-                    item.extra_product || null,
-                    Number(item.extra_price) || 0,
-                    Number(item.item_total) || 0,
-                    JSON.stringify(item.material_pairs || [])
-                ]);
+                const itemId = Number(item.id);
+                if (itemId && oldItemIds.includes(itemId)) {
+                    // Update existing item
+                    await db.run(`
+                        UPDATE dht_order_items
+                        SET description = $1, quantity = $2, unit_price = $3, total = $4,
+                            sale_type = $5, product_name = $6, material_id = $7, material_name = $8,
+                            color_id = $9, color_name = $10, pattern_name = $11, sewing_techniques = $12,
+                            accounting_notes = $13, extra_materials = $14, quantities = $15,
+                            extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19
+                        WHERE id = $20 AND dht_order_id = $21
+                    `, [
+                        item.product_name || '',
+                        Number(item.quantity) || 0,
+                        Number(item.unit_price) || 0,
+                        Number(item.item_total) || 0,
+                        item.sale_type || null,
+                        item.product_name || null,
+                        item.material_id ? Number(item.material_id) : null,
+                        item.material_name || null,
+                        item.color_id ? Number(item.color_id) : null,
+                        item.color_name || null,
+                        item.pattern_name || null,
+                        JSON.stringify(item.sewing_techniques || []),
+                        item.accounting_notes || null,
+                        JSON.stringify(item.extra_materials || []),
+                        JSON.stringify(item.quantities || []),
+                        item.extra_product || null,
+                        Number(item.extra_price) || 0,
+                        Number(item.item_total) || 0,
+                        JSON.stringify(item.material_pairs || []),
+                        itemId,
+                        orderId
+                    ]);
+
+                    // Sync updated product name, material name, and color display to related cutting/sewing records
+                    const colorDisplay = (item.material_pairs || []).map(p => p.color_name).join('+') || item.color_name || '';
+                    const matDisplay = (item.material_pairs || []).map(p => p.material_name).join('+') || item.material_name || '';
+                    const prodName = item.product_name || '';
+
+                    await db.run(`
+                        UPDATE cutting_records
+                        SET product_name = $1, material_name = $2, fabric_color = $3
+                        WHERE order_item_id = $4
+                    `, [prodName, matDisplay, colorDisplay, itemId]);
+
+                    await db.run(`
+                        UPDATE sewing_records
+                        SET product_name = $1
+                        WHERE order_item_id = $2
+                    `, [prodName, itemId]);
+                } else {
+                    // Insert new item
+                    await db.run(`
+                        INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
+                            sale_type, product_name, material_id, material_name,
+                            color_id, color_name, pattern_name, sewing_techniques,
+                            accounting_notes, extra_materials, quantities,
+                            extra_product, extra_price, item_total, material_pairs)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                    `, [
+                        orderId,
+                        item.product_name || '',
+                        Number(item.quantity) || 0,
+                        Number(item.unit_price) || 0,
+                        Number(item.item_total) || 0,
+                        item.sale_type || null,
+                        item.product_name || null,
+                        item.material_id ? Number(item.material_id) : null,
+                        item.material_name || null,
+                        item.color_id ? Number(item.color_id) : null,
+                        item.color_name || null,
+                        item.pattern_name || null,
+                        JSON.stringify(item.sewing_techniques || []),
+                        item.accounting_notes || null,
+                        JSON.stringify(item.extra_materials || []),
+                        JSON.stringify(item.quantities || []),
+                        item.extra_product || null,
+                        Number(item.extra_price) || 0,
+                        Number(item.item_total) || 0,
+                        JSON.stringify(item.material_pairs || [])
+                    ]);
+                }
             }
         }
 

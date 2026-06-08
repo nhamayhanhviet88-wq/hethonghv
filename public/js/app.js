@@ -2287,6 +2287,10 @@ function openModal(title, bodyHTML, footerHTML = '') {
 
 function closeModal() {
     document.getElementById('modalOverlay').classList.remove('show');
+    var container = document.getElementById('modalContainer');
+    if (container) {
+        container.classList.remove('modal-dark');
+    }
 }
 
 // ========== TOAST ==========

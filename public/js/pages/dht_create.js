@@ -1243,6 +1243,7 @@ function _dhtSavePhieuFree(idx) {
 
     var va = Math.round(raw * vp / 100);
     _dhtCreate.phieuItems[idx] = {
+        id: existing.id || null,
         sale_type: 'Bán',
         product_name: prod,
         material_id: null, material_name: prod, color_id: null, color_name: '',
@@ -1596,7 +1597,7 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
-    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
@@ -2154,6 +2155,7 @@ async function _dhtEditOrderFull(id) {
             var vatAmt = vatPct > 0 ? Math.round((rawTotal * vatPct) / (100 + vatPct)) : 0;
             var baseTotal = rawTotal - vatAmt;
             return {
+                id: it.id,
                 sale_type: it.sale_type || '',
                 product_name: it.product_name || it.description || '',
                 material_id: it.material_id || null,

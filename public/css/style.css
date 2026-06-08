@@ -849,6 +849,36 @@ tbody tr:last-child td {
     gap: 10px;
 }
 
+/* Dark Modal Theme for Sewing Assignments */
+.modal-dark {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+}
+.modal-dark .modal-header {
+    background: #0f172a !important;
+    border-bottom: 1px solid #1e293b !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+.modal-dark .modal-header h3 {
+    color: #ffffff !important;
+}
+.modal-dark .modal-close {
+    color: #94a3b8 !important;
+}
+.modal-dark .modal-close:hover {
+    color: #ef4444 !important;
+}
+.modal-dark .modal-body {
+    color: #f8fafc !important;
+    background: #0f172a !important;
+}
+.modal-dark .modal-footer {
+    background: #0f172a !important;
+    border-top: 1px solid #1e293b !important;
+}
+
 /* Dashboard form controls */
 .dashboard .form-group {
     margin-bottom: 18px;

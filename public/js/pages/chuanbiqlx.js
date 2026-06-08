@@ -1632,7 +1632,7 @@ async function _qlxAssignMay(orderId, itemId) {
         };
 
         // Render modal
-        var html = '<div style="padding:0">';
+        var html = '<div style="padding:0; background-color:#0f172a; color:#f8fafc">';
         // Header
         var priorityText = res.item.shipping_priority || 'CHUẨN';
         var priorityBadge = '';
@@ -1647,7 +1647,7 @@ async function _qlxAssignMay(orderId, itemId) {
         var timeText = res.item.standard_delivery_time ? ' lúc ' + res.item.standard_delivery_time : '';
         var fullDeliveryDateStr = deliveryDateStr + timeText;
 
-        html += '<div style="background:linear-gradient(135deg,#1e1b4b,#311042,#4a044e);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0">';
+        html += '<div style="background:linear-gradient(135deg,#1e1b4b,#0f172a);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0;border-bottom:1px solid #1e293b">';
         html += '<h3 style="margin:0;font-size:16px;font-weight:800;margin-bottom:6px">🪡 Phân Công May & Bàn Giao</h3>';
         html += '<p style="margin:0;font-size:11px;opacity:0.9;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             + '<span>Đơn: <b>' + res.item.order_code + '</b></span>'
@@ -1661,54 +1661,58 @@ async function _qlxAssignMay(orderId, itemId) {
         // Product Info
         var prodLabel = (res.item.product_name || res.item.description || 'N/A');
         html += '<div style="margin-bottom:16px; display:grid; grid-template-columns: 2fr 1fr; gap:12px">';
-        html += '<div><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">MẶT HÀNG</label>';
-        html += '<input type="text" value="' + prodLabel.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
+        html += '<div><label style="font-size:11px;font-weight:800;color:#94a3b8;display:block;margin-bottom:4px">MẶT HÀNG</label>';
+        html += '<input type="text" value="' + prodLabel.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #334155;border-radius:8px;font-size:12px;font-weight:700;color:#f8fafc;background:#1e293b;cursor:not-allowed"></div>';
         
-        html += '<div><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">SL CẮT XONG</label>';
-        html += '<input type="text" value="' + res.cut_qty + ' cái" readonly style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#059669;background:#f0fdf4;text-align:center;cursor:not-allowed"></div>';
+        html += '<div><label style="font-size:11px;font-weight:800;color:#94a3b8;display:block;margin-bottom:4px">SL CẮT XONG</label>';
+        html += '<input type="text" value="' + res.cut_qty + ' cái" readonly style="width:100%;padding:8px 12px;border:1.5px solid #064e3b;border-radius:8px;font-size:12px;font-weight:700;color:#34d399;background:#022c22;text-align:center;cursor:not-allowed"></div>';
         html += '</div>';
 
         // Pricing Info Banner
         var factoryPriceText = res.pricing.factory_price > 0 ? (res.pricing.factory_price.toLocaleString('vi-VN') + 'đ') : '🔴 Chưa thiết lập';
         var processingPriceText = res.pricing.processing_price > 0 ? (res.pricing.processing_price.toLocaleString('vi-VN') + 'đ') : '🔴 Chưa thiết lập';
         
-        html += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px">';
-        html += '<span>💵 Đơn giá May nhà: <b style="color:#1e293b">' + factoryPriceText + '</b></span>';
-        html += '<span>💵 Đơn giá Gia công: <b style="color:#1e293b">' + processingPriceText + '</b></span>';
+        html += '<div style="background:#1e293b;border:1.5px solid #334155;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#f8fafc">';
+        html += '<span>💵 Đơn giá May nhà: <b style="color:#fcd34d">' + factoryPriceText + '</b></span>';
+        html += '<span>💵 Đơn giá Gia công: <b style="color:#fcd34d">' + processingPriceText + '</b></span>';
         html += '</div>';
 
-        // High priority Info banner card
-        var cardBg = '#f0fdf4';
-        var cardBorder = '#bbf7d0';
-        var cardText = '#166534';
+        // High priority Info banner card - styled professionally in dark mode
+        var bannerBg = 'linear-gradient(135deg,#1e293b,#0f172a)';
+        var bannerBorder = '#334155';
+        var statusIndicator = '';
         if (priorityText === 'GẤP') {
-            cardBg = '#fef2f2';
-            cardBorder = '#fecaca';
-            cardText = '#991b1b';
+            bannerBg = 'linear-gradient(135deg,#7f1d1d,#450a0a)';
+            bannerBorder = '#991b1b';
+            statusIndicator = '🔥 GẤP';
         } else if (priorityText === 'GỬI') {
-            cardBg = '#fff7ed';
-            cardBorder = '#ffedd5';
-            cardText = '#9a3412';
+            bannerBg = 'linear-gradient(135deg,#7c2d12,#431407)';
+            bannerBorder = '#9a3412';
+            statusIndicator = '📦 GỬI';
+        } else {
+            bannerBg = 'linear-gradient(135deg,#064e3b,#022c22)';
+            bannerBorder = '#065f46';
+            statusIndicator = '🟢 CHUẨN';
         }
 
-        html += '<div style="background:' + cardBg + ';border:1.5px solid ' + cardBorder + ';border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;color:' + cardText + ';font-size:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02)">';
+        html += '<div style="background:' + bannerBg + ';border:1.5px solid ' + bannerBorder + ';border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;color:#ffffff;font-size:12px;box-shadow:0 4px 6px rgba(0,0,0,0.15)">';
         html += '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">📅</span>';
         html += '<div><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px">Hạn Trả Hàng</div>';
-        html += '<div style="font-size:15px;font-weight:800;color:#0f172a">' + fullDeliveryDateStr + '</div></div></div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#ffffff">' + fullDeliveryDateStr + '</div></div></div>';
         html += '<div style="text-align:right"><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Tiêu Chuẩn Đơn</div>';
-        html += '<div>' + priorityBadge + '</div></div>';
+        html += '<div style="font-weight:800;font-size:13px">' + statusIndicator + '</div></div>';
         html += '</div>';
 
         // Assignment summary & validation
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
-        html += '<label style="font-size:11px;font-weight:800;color:#475569;margin:0">PHÂN BỔ CHI TIẾT</label>';
+        html += '<label style="font-size:11px;font-weight:800;color:#94a3b8;margin:0">PHÂN BỔ CHI TIẾT</label>';
         html += '<div style="display:flex;align-items:center;gap:8px">';
-        html += '<span style="font-size:12px;font-weight:600;color:#64748b">Tổng đã chia: <b id="may_assign_total_qty" style="color:#0f172a">0</b> / ' + res.cut_qty + '</span>';
+        html += '<span style="font-size:12px;font-weight:600;color:#94a3b8">Tổng đã chia: <b id="may_assign_total_qty" style="color:#ffffff">0</b> / ' + res.cut_qty + '</span>';
         html += '<span id="may_assign_status_badge" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">Chưa khớp</span>';
         html += '</div></div>';
 
         // Assignment Table/List
-        html += '<div style="max-height:30vh;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc;margin-bottom:12px">';
+        html += '<div style="max-height:30vh;overflow-y:auto;border:1.5px solid #334155;border-radius:10px;padding:12px;background:#1e293b;margin-bottom:12px">';
         html += '<div id="may_assignment_rows" style="display:flex;flex-direction:column;gap:10px"></div>';
         html += '</div>';
 
@@ -1720,14 +1724,18 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '</div>'; // padding-24
 
         // Footer
-        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
-        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#fff;background-color:#1e3a8a;border:none">Hủy</button>';
+        html += '<div style="padding:16px 24px;border-top:1px solid #1e293b;display:flex;justify-content:flex-end;gap:12px;background:#1e293b;border-radius:0 0 16px 16px">';
+        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#fff;background-color:#475569;border:none">Hủy</button>';
         html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
         html += '</div>';
 
         html += '</div>';
 
         openModal('Phân Công May', html);
+        var container = document.getElementById('modalContainer');
+        if (container) {
+            container.classList.add('modal-dark');
+        }
 
         // Populate existing assignments or add one default row
         if (window._qlxMayPendingRows && window._qlxMayPendingRows.length > 0) {
@@ -1765,25 +1773,25 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
-    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1.5fr auto;gap:8px;align-items:center;background:#fff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
+    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1.5fr auto;gap:8px;align-items:center;background:#0f172a;padding:8px 10px;border:1px solid #334155;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
-    html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto" onchange="_qlxAssignMayUpdateTotal()">';
+    html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#1e293b;color:#f8fafc;border:1.5px solid #334155" onchange="_qlxAssignMayUpdateTotal()">';
     html += '<option value="" ' + (cId === '' ? 'selected' : '') + '>🏠 May Nhà (Trong xưởng)</option>';
     html += '<optgroup label="Bên Nhận Gia Công ngoài">' + contractorOpts + '</optgroup>';
     html += '</select></div>';
 
     // Quantity input
-    html += '<div><input type="number" class="form-control may-qty" value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto" oninput="_qlxAssignMayUpdateTotal()"></div>';
+    html += '<div><input type="number" class="form-control may-qty" value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:#1e293b;color:#f8fafc;border:1.5px solid #334155" oninput="_qlxAssignMayUpdateTotal()"></div>';
 
     // Target completion Date
-    html += '<div><input type="date" class="form-control may-date" value="' + date + '" style="padding:6px;font-size:11px;height:auto"></div>';
+    html += '<div><input type="date" class="form-control may-date" value="' + date + '" style="padding:6px;font-size:11px;height:auto;background:#1e293b;color:#f8fafc;border:1.5px solid #334155"></div>';
 
     // Notes
-    html += '<div><input type="text" class="form-control may-notes" value="' + noteText.replace(/"/g, '&quot;') + '" placeholder="Ghi chú hạn/phối..." style="padding:6px;font-size:11px;height:auto"></div>';
+    html += '<div><input type="text" class="form-control may-notes" value="' + noteText.replace(/"/g, '&quot;') + '" placeholder="Ghi chú hạn/phối..." style="padding:6px;font-size:11px;height:auto;background:#1e293b;color:#f8fafc;border:1.5px solid #334155"></div>';
 
     // Delete button
-    html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5">🗑️</button></div>';
+    html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c">🗑️</button></div>';
 
     html += '</div>';
 
