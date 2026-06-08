@@ -177,40 +177,79 @@
                     <div class="mm-sub" id="mReportTitleSub">Mã đơn</div>
                 </div>
             </div>
-            <div class="mm-body">
+            <div class="mm-body" style="max-height: 65vh; overflow-y: auto">
                 <input type="hidden" id="mReportRecId">
-                <div class="mr-form-group">
-                    <label>🔥 Số lượng áo đã ép thực tế</label>
-                    <input type="number" id="mReportQty" class="mr-input" placeholder="Nhập số lượng áo ép...">
+
+                <!-- Order Details Section -->
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">📋 Mã đơn:</span>
+                        <span id="mReportOrderCode" style="color: #fdba74; font-weight: 800"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">👕 Tên sản phẩm:</span>
+                        <span id="mReportProductName" style="color: #e2e8f0; font-weight: 700; text-align: right; max-width: 65%"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">🧵 Chất liệu & Màu:</span>
+                        <span id="mReportMatColor" style="color: #a78bfa; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">👨‍💼 CSKH:</span>
+                        <span id="mReportCskh" style="color: #60a5fa; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0">
+                        <span style="color: #94a3b8; font-weight: 600">📦 SL Cắt sản phẩm:</span>
+                        <span id="mReportCutQty" style="color: #10b981; font-weight: 800; font-size: 14px"></span>
+                    </div>
                 </div>
-                <div style="font-size: 11px; font-weight: 700; color: #fdba74; margin: 12px 0 6px">📍 CHI TIẾT VỊ TRÍ ÉP</div>
+
+                <div style="font-size: 11px; font-weight: 700; color: #fdba74; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px">📍 CHI TIẾT SỐ LƯỢNG VỊ TRÍ ÉP</div>
                 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px">
                     <div class="mr-form-group">
-                        <label>Ngực / Tay / Tạp dề</label>
-                        <input type="number" id="mPosChest" class="mr-input" value="0">
+                        <label>Ngực, Tay, Tạp Dề, Vải Mũ</label>
+                        <input type="number" inputmode="numeric" id="mPosChest" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
                     </div>
                     <div class="mr-form-group">
-                        <label>Lưng / Bụng / Sườn</label>
-                        <input type="number" id="mPosBack" class="mr-input" value="0">
+                        <label>Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</label>
+                        <input type="number" inputmode="numeric" id="mPosBack" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
                     </div>
                     <div class="mr-form-group">
-                        <label>Bảo hộ / Bếp / Sơ mi</label>
-                        <input type="number" id="mPosProtective" class="mr-input" value="0">
+                        <label>Bảo Hộ, Bếp, Sơ Mi</label>
+                        <input type="number" inputmode="numeric" id="mPosProtective" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
                     </div>
                     <div class="mr-form-group">
-                        <label>Đóng gói / Cổ bẻ</label>
-                        <input type="number" id="mPosPackaging" class="mr-input" value="0">
+                        <label>Đóng Gói, Cổ Bẻ Vải</label>
+                        <input type="number" inputmode="numeric" id="mPosPackaging" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
                     </div>
                 </div>
                 
-                <div class="mr-form-group">
-                    <label>Vị trí khác</label>
-                    <input type="text" id="mPosOther" class="mr-input" placeholder="Vị trí khác...">
+                <div class="mr-form-group" style="margin-bottom: 12px">
+                    <label>Vị Trí Khác</label>
+                    <input type="number" inputmode="numeric" id="mPosOther" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
+                </div>
+
+                <div class="mr-form-group" style="margin-bottom: 12px">
+                    <label>🔥 Tổng số lượng áo ép thực tế (Tự động lấy Max)</label>
+                    <input type="number" id="mReportQty" class="mr-input" readonly style="background: rgba(255, 255, 255, 0.02); color: #10b981; font-weight: 800; cursor: not-allowed">
+                </div>
+
+                <!-- Camera/Image Section -->
+                <div class="mr-form-group" style="margin-bottom: 12px">
+                    <label style="display: flex; align-items: center; gap: 4px; font-weight: 700">📸 Hình Ảnh Ép <span style="color: #ef4444">*</span></label>
+                    <div style="margin-top: 6px">
+                        <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1.5px dashed rgba(255, 255, 255, 0.15); border-radius: 10px; cursor: pointer; justify-content: center">
+                            <span style="font-size: 20px">📷</span>
+                            <span style="font-size: 12px; color: #e2e8f0; font-weight: 600">Chụp hình từ camera</span>
+                            <input type="file" id="mReportImgInput" accept="image/*" capture="environment" style="display: none" onchange="mReportImgFile(event)">
+                        </label>
+                        <div id="mReportImgPreview" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px"></div>
+                    </div>
                 </div>
 
                 <div class="mr-form-group">
-                    <label>📝 Ghi chú</label>
+                    <label>📝 Ghi chú ép</label>
                     <input type="text" id="mReportNotes" class="mr-input" placeholder="Ghi chú thêm...">
                 </div>
             </div>
@@ -538,6 +577,24 @@
             }
 
             el.innerHTML = list.map(r => {
+                let imagesHtml = '';
+                try {
+                    if (r.press_images) {
+                        const imgs = JSON.parse(r.press_images);
+                        if (imgs && imgs.length > 0) {
+                            imagesHtml = `
+                                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px">
+                                    ${imgs.map(url => `
+                                        <a href="${url}" target="_blank" style="display:inline-block" onclick="event.stopPropagation()">
+                                            <img src="${url}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08)">
+                                        </a>
+                                    `).join('')}
+                                </div>
+                            `;
+                        }
+                    }
+                } catch(e) {}
+
                 return `
                     <div class="m-card">
                         <div class="m-card-top" style="border-bottom-color: rgba(249,115,22,0.15)">
@@ -561,6 +618,7 @@
                                 <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Đóng gói: <b>${r.pos_packaging || 0}</b></div>
                             </div>
                             ${r.pos_other ? `<div style="font-size:10px; margin-top:4px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:6px">Khác: <b>${r.pos_other}</b></div>` : ''}
+                            ${imagesHtml}
                         </div>
                         <div class="m-card-actions" style="grid-template-columns:repeat(2,1fr)">
                             <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id}, ${r.order_quantity}, ${r.pos_chest_arm || 0}, ${r.pos_back_belly || 0}, ${r.pos_protective || 0}, ${r.pos_packaging || 0}, '${r.pos_other || ''}', '${r.notes || ''}', '${r.product_name || r.order_code}')">
@@ -593,6 +651,24 @@
                 const undoAction = 'undo_report';
                 const approvedBadge = r.salary_approved ? '<span class="m-badge m-badge-ok">💰 Đã duyệt lương</span>' : '<span class="m-badge m-badge-no" style="background:rgba(255,255,255,0.05);color:#94a3b8">Chờ duyệt lương</span>';
                 
+                let imagesHtml = '';
+                try {
+                    if (r.press_images) {
+                        const imgs = JSON.parse(r.press_images);
+                        if (imgs && imgs.length > 0) {
+                            imagesHtml = `
+                                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px">
+                                    ${imgs.map(url => `
+                                        <a href="${url}" target="_blank" style="display:inline-block" onclick="event.stopPropagation()">
+                                            <img src="${url}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08)">
+                                        </a>
+                                    `).join('')}
+                                </div>
+                            `;
+                        }
+                    }
+                } catch(e) {}
+
                 return `
                     <div class="m-card" style="opacity:0.85">
                         <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
@@ -606,6 +682,7 @@
                             <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
                             <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
                             <div class="m-row"><span class="m-lbl">Ngày ép</span><span class="m-val">${formatDate(r.press_date)}</span></div>
+                            ${imagesHtml}
                             <div class="m-divider"></div>
                             <div>
                                 ${approvedBadge}
@@ -677,18 +754,169 @@
             }
         }
 
+        // --- Image Helpers for Camera Upload & Compression ---
+        function mDataURLtoBlob(dataurl) {
+            const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            let i = n;
+            while(i--){
+                u8arr[i] = bstr.charCodeAt(i);
+            }
+            return new Blob([u8arr], {type:mime});
+        }
+
+        function mCompressImage(file, callback) {
+            if (!file) return callback(null);
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxWidth = 1000;
+                    const maxHeight = 1000;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                    callback(compressed);
+                };
+                img.onerror = function() {
+                    callback(e.target.result);
+                };
+                img.src = e.target.result;
+            };
+            reader.onerror = function() {
+                callback(null);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        let currentReportImages = [];
+
+        function mReportImgFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const previewZone = document.getElementById('mReportImgPreview');
+            const loadEl = document.createElement('div');
+            loadEl.style.fontSize = '11px';
+            loadEl.style.color = '#fdba74';
+            loadEl.textContent = '⏳ Đang nén và tải lên...';
+            previewZone.appendChild(loadEl);
+
+            mCompressImage(file, async function(compressedDataURL) {
+                if (!compressedDataURL) {
+                    loadEl.textContent = '❌ Lỗi nén ảnh';
+                    setTimeout(() => loadEl.remove(), 2000);
+                    return;
+                }
+                try {
+                    const blob = mDataURLtoBlob(compressedDataURL);
+                    const fd = new FormData();
+                    fd.append('file', blob, 'press_file_' + Date.now() + '.jpg');
+                    
+                    const response = await fetch('/api/import/upload-image', { 
+                        method: 'POST', 
+                        body: fd, 
+                        credentials: 'include' 
+                    });
+                    const data = await response.json();
+                    loadEl.remove();
+                    if (data.success) {
+                        currentReportImages.push(data.url);
+                        mRenderReportImages();
+                    } else {
+                        showToast('Lỗi tải lên: ' + (data.error || 'không rõ'), 'error');
+                    }
+                } catch (err) {
+                    loadEl.remove();
+                    showToast('Lỗi tải lên: ' + err.message, 'error');
+                }
+            });
+        }
+
+        function mRenderReportImages() {
+            const previewZone = document.getElementById('mReportImgPreview');
+            if (!previewZone) return;
+            previewZone.innerHTML = currentReportImages.map((url, idx) => `
+                <div style="position:relative; display:inline-block">
+                    <img src="${url}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid rgba(255,255,255,0.1)">
+                    <span onclick="mRemoveReportImage(${idx})" style="position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; border-radius:50%; width:18px; height:18px; font-size:11px; font-weight:900; text-align:center; line-height:18px; cursor:pointer">×</span>
+                </div>
+            `).join('');
+        }
+
+        function mRemoveReportImage(idx) {
+            currentReportImages.splice(idx, 1);
+            mRenderReportImages();
+        }
+
+        function mUpdateReportTotal() {
+            const chest = Number(document.getElementById('mPosChest').value) || 0;
+            const back = Number(document.getElementById('mPosBack').value) || 0;
+            const prot = Number(document.getElementById('mPosProtective').value) || 0;
+            const pack = Number(document.getElementById('mPosPackaging').value) || 0;
+            const otherVal = Number(document.getElementById('mPosOther').value) || 0;
+            
+            const maxVal = Math.max(chest, back, prot, pack, otherVal);
+            document.getElementById('mReportQty').value = maxVal > 0 ? maxVal : '';
+        }
+
         // --- Report Modal Logic ---
         function mOpenReport(recId, orderQty, posChest, posBack, posProtective, posPackaging, posOther, notes, prodName) {
-            document.getElementById('mReportRecId').value = recId;
-            document.getElementById('mReportQty').value = orderQty; // default is the order cut quantity
-            document.getElementById('mPosChest').value = posChest;
-            document.getElementById('mPosBack').value = posBack;
-            document.getElementById('mPosProtective').value = posProtective;
-            document.getElementById('mPosPackaging').value = posPackaging;
-            document.getElementById('mPosOther').value = posOther;
-            document.getElementById('mReportNotes').value = notes;
+            const r = pressingRecords.find(x => x.id === recId);
             
-            document.getElementById('mReportTitleSub').textContent = prodName;
+            document.getElementById('mReportRecId').value = recId;
+            
+            // Set order info headers
+            document.getElementById('mReportOrderCode').textContent = (r && r.order_code) ? r.order_code : '';
+            document.getElementById('mReportProductName').textContent = (r && r.product_name) ? r.product_name : prodName;
+            document.getElementById('mReportMatColor').textContent = (r && r.material_name) 
+                ? (r.material_name + ' · ' + (r.fabric_color || '—')) 
+                : '—';
+            document.getElementById('mReportCskh').textContent = (r && r.cskh_name) ? r.cskh_name : '—';
+            document.getElementById('mReportCutQty').textContent = orderQty + ' sp';
+
+            // Set inputs
+            document.getElementById('mPosChest').value = posChest || '';
+            document.getElementById('mPosBack').value = posBack || '';
+            document.getElementById('mPosProtective').value = posProtective || '';
+            document.getElementById('mPosPackaging').value = posPackaging || '';
+            
+            const otherNum = parseInt(posOther);
+            document.getElementById('mPosOther').value = isNaN(otherNum) ? '' : otherNum;
+            
+            document.getElementById('mReportNotes').value = notes || '';
+            
+            // Initialize images from record
+            currentReportImages = [];
+            try {
+                if (r && r.press_images) {
+                    currentReportImages = JSON.parse(r.press_images);
+                }
+            } catch(e) {
+                currentReportImages = [];
+            }
+            mRenderReportImages();
+            
+            mUpdateReportTotal();
 
             const overlay = document.getElementById('mReportOverlay');
             overlay.classList.add('show');
@@ -705,22 +933,58 @@
             const back = Number(document.getElementById('mPosBack').value) || 0;
             const prot = Number(document.getElementById('mPosProtective').value) || 0;
             const pack = Number(document.getElementById('mPosPackaging').value) || 0;
-            const other = document.getElementById('mPosOther').value;
+            const otherVal = Number(document.getElementById('mPosOther').value) || 0;
             const notes = document.getElementById('mReportNotes').value;
+
+            // Find current record and order cut quantity
+            const r = pressingRecords.find(x => x.id === recId);
+            const orderQty = r ? r.order_quantity : 9999;
+
+            if (chest <= 0 && back <= 0 && prot <= 0 && pack <= 0 && otherVal <= 0) {
+                showToast('⚠️ Bạn phải nhập số lượng cho ít nhất 1 vị trí ép!', 'error');
+                return;
+            }
+
+            if (chest > orderQty) {
+                showToast(`⚠️ SL Ngực, Tay... (${chest}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
+                return;
+            }
+            if (back > orderQty) {
+                showToast(`⚠️ SL Lưng, Bụng... (${back}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
+                return;
+            }
+            if (prot > orderQty) {
+                showToast(`⚠️ SL Bảo Hộ... (${prot}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
+                return;
+            }
+            if (pack > orderQty) {
+                showToast(`⚠️ SL Đóng Gói... (${pack}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
+                return;
+            }
+            if (otherVal > orderQty) {
+                showToast(`⚠️ SL Vị Trí Khác (${otherVal}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
+                return;
+            }
+
+            if (currentReportImages.length === 0) {
+                showToast('⚠️ Bạn phải chụp/chọn ít nhất 1 hình ảnh ép!', 'error');
+                return;
+            }
 
             const btn = document.getElementById('mReportConfirmBtn');
             btn.disabled = true;
             btn.textContent = '⏳ Đang lưu...';
 
             try {
-                // Save inputs using inline patch updates or full update API
+                // Save inputs using full update API
                 await apiCall(`/api/pressing/records/${recId}`, 'PUT', {
                     press_quantity: qty,
                     pos_chest_arm: chest,
                     pos_back_belly: back,
                     pos_protective: prot,
                     pos_packaging: pack,
-                    pos_other: other,
+                    pos_other: otherVal ? otherVal.toString() : '',
+                    press_images: JSON.stringify(currentReportImages),
                     notes: notes
                 });
 
