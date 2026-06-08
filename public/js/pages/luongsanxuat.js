@@ -581,7 +581,9 @@ function _lsxRenderTable() {
 
         var codeCell = r.order_code || '—';
         if (r.dept === 'cutting' && r.id) {
-            codeCell = `<span style="cursor:pointer; text-decoration:underline;" onclick="_lsxOpenCuttingDetail(${r.id})">${codeCell}</span>`;
+            codeCell = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenCuttingDetail(${r.id})">${codeCell}</span>`;
+        } else if (r.dept === 'pressing' && r.id) {
+            codeCell = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenPressingDetail(${r.id})">${codeCell}</span>`;
         }
         if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
             codeCell = `<span class="lsx-badge cut" style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; text-transform: none;">Cắt bù</span>` + codeCell;
@@ -625,6 +627,10 @@ function _lsxRenderTable() {
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
+        var prodCell = displayName;
+        if (r.dept === 'pressing' && r.id) {
+            prodCell = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenPressingDetail(${r.id})">${displayName}</span>`;
+        }
 
         return `<tr>`
             + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
@@ -634,7 +640,7 @@ function _lsxRenderTable() {
             + `<td style="font-weight:700;color:#1e3a8a">${codeCell}</td>`
             + `<td style="text-align:center;font-weight:700;color:${qtyColor}">${_lsxFormatOrderQty(orderQty, r.product_name, r.cutting_category, r.dept)}</td>`
             + `<td style="text-align:center;font-weight:700;color:${cutColor}">${_lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, r.dept)}</td>`
-            + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
+            + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodCell}</td>`
             + priceCell
             + salCell
             + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
