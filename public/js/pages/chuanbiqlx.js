@@ -75,7 +75,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         +'<div id="qlxFilterInfo" style="font-size:12px"></div>'
         +'<div id="qlxStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
-        +'<input id="qlxSearch" placeholder="🔍 Tìm mã đơn, tên KH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
+        +'<input id="qlxSearch" autocomplete="off" placeholder="🔍 Tìm mã đơn, tên KH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
         +(currentUser && currentUser.role === 'giam_doc' ? '<button onclick="_qlxChecklistSetup()" style="padding:6px 14px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Setup Checklist</button>' : '')
         +'</div>'
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
@@ -91,6 +91,11 @@ function renderQuanlyxuongqlxPage(content) {
         +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="22" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="qlxPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
+    _qlx.search = '';
+    _qlx.sidebarSearch = '';
+    var searchEl = document.getElementById('qlxSearch');
+    if (searchEl) searchEl.value = '';
+
     var _st; document.getElementById('qlxSearch').addEventListener('input', function() {
         clearTimeout(_st); _st = setTimeout(function() { _qlx.search = document.getElementById('qlxSearch').value || ''; _qlx.page = 1; _qlxRenderTable(); }, 300);
     });
@@ -132,7 +137,7 @@ function _qlxRenderSidebar() {
     h += '<div class="qlx-sb-grp' + (incAct ? ' active' : '') + '" onclick="_qlxFilter(\'incomplete\')"><span><span onclick="event.stopPropagation(); _qlxToggle(\'inc\')" style="cursor:pointer; padding-right:6px; display:inline-block;">' + (incOpen ? '▼' : '▶') + '</span>⏳ Chưa Hoàn Thành</span><span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + incTotal + '</span></div>';
     if (incOpen) {
         h += '<div style="padding:8px 12px;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:6px">';
-        h += '<input type="text" id="qlxSidebarSearch" placeholder="🔍 Tìm mã đơn, khách, sale..." style="flex:1;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;outline:none;background:#f8fafc" value="' + (_qlx.sidebarSearch || '') + '" oninput="_qlxSidebarSearchInput(this.value)" onclick="event.stopPropagation()">';
+        h += '<input type="text" id="qlxSidebarSearch" autocomplete="off" placeholder="🔍 Tìm mã đơn, khách, sale..." style="flex:1;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;outline:none;background:#f8fafc" value="' + (_qlx.sidebarSearch || '') + '" oninput="_qlxSidebarSearchInput(this.value)" onclick="event.stopPropagation()">';
         if (_qlx.sidebarSearch) {
             h += '<button onclick="event.stopPropagation();_qlxSidebarSearchInput(\'\')" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:bold;cursor:pointer">✕</button>';
         }

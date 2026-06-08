@@ -44,8 +44,7 @@ function _bpiRestoreUrlState() {
             month: month ? Number(month) : null,
             operator_type: operator_type || null,
             operator_id: operator_id ? Number(operator_id) : null
-        };
-        _bpi.search = search || '';
+        _bpi.search = '';
         _bpi.statsFilter = 'all';
         
         var openStr = params.get('open');
@@ -115,7 +114,7 @@ function renderBophaninPage(content) {
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         +'<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
         +'<div id="bpiInfo" style="font-size:12px"></div>'
-        +'<input id="bpiSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
+        +'<input id="bpiSearch" autocomplete="off" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
         +'</div>'
         +'<div id="bpiStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpiManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công In</button>'
@@ -124,7 +123,11 @@ function renderBophaninPage(content) {
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>Cuộn Vật Liệu</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody id="bpiTb"><tr><td colspan="20" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
-    document.getElementById('bpiSearch').value = _bpi.search || '';
+    
+    _bpi.search = '';
+    var searchEl = document.getElementById('bpiSearch');
+    if (searchEl) searchEl.value = '';
+
     var _t; document.getElementById('bpiSearch').addEventListener('input', function() {
         clearTimeout(_t); _t = setTimeout(function() {
             _bpi.search = document.getElementById('bpiSearch').value || '';

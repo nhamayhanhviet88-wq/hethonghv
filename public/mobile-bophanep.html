@@ -311,6 +311,36 @@
             return Number(n).toLocaleString('vi-VN') + ' đ';
         }
 
+        function getPrintStatusHtml(r) {
+            const printTypes = r.print_types || '';
+            const pendingPrintTypes = r.pending_print_types || '';
+            
+            if (!printTypes) return '';
+            
+            const types = printTypes.split(', ').map(t => t.trim());
+            const pending = pendingPrintTypes ? pendingPrintTypes.split(', ').map(t => t.trim()) : [];
+            
+            const badges = [];
+            
+            if (types.includes('IN PET')) {
+                if (pending.includes('IN PET')) {
+                    badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Pet</span>');
+                } else {
+                    badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Pet</span>');
+                }
+            }
+            
+            if (types.includes('IN DECAL')) {
+                if (pending.includes('IN DECAL')) {
+                    badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Decal</span>');
+                } else {
+                    badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Decal</span>');
+                }
+            }
+            
+            return badges.join('');
+        }
+
         async function initPage() {
             try {
                 const auth = await apiCall('/api/auth/me');
@@ -496,6 +526,8 @@
                         item_qty: r.item_qty,
                         ready: r.ready,
                         warning_msg: r.warning_msg,
+                        print_types: r.print_types,
+                        pending_print_types: r.pending_print_types,
                         phoi: []
                     };
                     grouped.push(seenKeys[key]);
@@ -554,6 +586,7 @@
                         <div class="m-card-body">
                             <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val">${item.customer_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#60a5fa">${item.cskh_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(item) || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Hạn giao</span><span class="m-val" style="color:#fdba74">${formatDate(item.expected_ship_date)}</span></div>
                             <div class="m-row"><span class="m-lbl">Mô tả</span><span class="m-val" style="font-size:12px; font-weight:normal">${item.item_desc || '—'}</span></div>
                             <div class="m-divider"></div>
@@ -607,6 +640,7 @@
                         <div class="m-card-body">
                             <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Chất liệu</span><span class="m-val" style="color:#f97316">${r.material_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Màu vải</span><span class="m-val">${r.fabric_color || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val" style="color:#60a5fa; font-size:14px">${r.order_quantity}</span></div>
@@ -683,6 +717,7 @@
                         <div class="m-card-body">
                             <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
                             <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>

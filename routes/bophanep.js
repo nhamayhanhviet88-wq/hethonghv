@@ -209,7 +209,50 @@ module.exports = async function(fastify) {
             SELECT pr.*, u.full_name AS presser_name, u_rpt.full_name AS reported_by_name,
                    u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
                    o.customer_name,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   (
+                        SELECT string_agg(pf.name, ', ')
+                        FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (
+                            qa.item_id = pr.order_item_id 
+                            OR (
+                                qa.item_id IS NULL 
+                                AND qa.dht_order_id = pr.dht_order_id 
+                                AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = pr.order_item_id)
+                            )
+                        )
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND qa.operator_type = 'user'
+                   ) AS print_types,
+                   (
+                        SELECT string_agg(pf.name, ', ')
+                        FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (
+                            qa.item_id = pr.order_item_id 
+                            OR (
+                                qa.item_id IS NULL 
+                                AND qa.dht_order_id = pr.dht_order_id 
+                                AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = pr.order_item_id)
+                            )
+                        )
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND qa.operator_type = 'user'
+                          AND NOT EXISTS (
+                              SELECT 1 FROM printing_records prr
+                              WHERE (
+                                  prr.order_item_id = pr.order_item_id
+                                  OR (
+                                      prr.order_item_id IS NULL
+                                      AND prr.dht_order_id = pr.dht_order_id
+                                      AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = pr.order_item_id)
+                                  )
+                              )
+                                AND prr.print_field = pf.name
+                                AND prr.is_print_done = true
+                          )
+                   ) AS pending_print_types
             FROM pressing_records pr LEFT JOIN users u ON pr.presser_id=u.id
             LEFT JOIN users u_rpt ON pr.reported_by=u_rpt.id LEFT JOIN users u_sal ON pr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON pr.dht_order_id=o.id
@@ -517,6 +560,21 @@ module.exports = async function(fastify) {
                         )
                           AND pf.name IN ('IN PET', 'IN DECAL')
                           AND qa.operator_type = 'user'
+                    ) AS print_types,
+                    (
+                        SELECT string_agg(pf.name, ', ')
+                        FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (
+                            qa.item_id = doi.id 
+                            OR (
+                                qa.item_id IS NULL 
+                                AND qa.dht_order_id = doi.dht_order_id 
+                                AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = doi.id)
+                            )
+                        )
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND qa.operator_type = 'user'
                           AND NOT EXISTS (
                               SELECT 1 FROM printing_records pr
                               WHERE (
@@ -648,6 +706,8 @@ module.exports = async function(fastify) {
                     cut_qty: displayCutQty,
                     is_cut_done: isCutReady,
                     is_print_done: isPrintReady,
+                    print_types: it.print_types || null,
+                    pending_print_types: it.pending_print_types || null,
                     warning_msg: warningMsg,
                     ready: ready,
                     phoi: phoiList

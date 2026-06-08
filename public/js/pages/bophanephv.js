@@ -109,7 +109,7 @@ function renderBophanepPage(content) {
         + '<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         + '<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
         + '<div id="bpeInfo" style="font-size:12px"></div>'
-        + '<input id="bpeSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
+        + '<input id="bpeSearch" autocomplete="off" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
         + '</div>'
         + '<div id="bpeStats" style="display:flex;gap:6px;flex:1;justify-content:center;align-items:center"></div>'
         + '</div>'
@@ -122,6 +122,10 @@ function renderBophanepPage(content) {
         + '</tr></thead><tbody id="bpeTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         + '<div id="bpePaginationBottom" style="margin:8px 0"></div>'
         + '</div></div>';
+
+    _bpe.search = '';
+    var searchEl = document.getElementById('bpeSearch');
+    if (searchEl) searchEl.value = '';
 
     var _t; document.getElementById('bpeSearch').addEventListener('input', function () {
         clearTimeout(_t); _t = setTimeout(function () {
@@ -452,6 +456,36 @@ function _bpeRender() {
     _bpeRenderStats(total, all);
 }
 
+function _bpeGetPrintStatusHtml(r) {
+    var printTypes = r.print_types || '';
+    var pendingPrintTypes = r.pending_print_types || '';
+    
+    if (!printTypes) return '';
+    
+    var types = printTypes.split(', ').map(function(t) { return t.trim(); });
+    var pending = pendingPrintTypes ? pendingPrintTypes.split(', ').map(function(t) { return t.trim(); }) : [];
+    
+    var badges = [];
+    
+    if (types.indexOf('IN PET') >= 0) {
+        if (pending.indexOf('IN PET') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Pet</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Pet</span>');
+        }
+    }
+    
+    if (types.indexOf('IN DECAL') >= 0) {
+        if (pending.indexOf('IN DECAL') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Decal</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Decal</span>');
+        }
+    }
+    
+    return badges.join('');
+}
+
 function _bpeRenderRows(paged) {
     var tb = document.getElementById('bpeTb'); if (!tb) return;
     if (!paged.length) {
@@ -487,7 +521,7 @@ function _bpeRenderRows(paged) {
                 +'<td colspan="2" style="text-align:center;vertical-align:middle">'+claimHtml+'</td>'
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
-                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+r.product_name+'</a></td>'
+                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+r.product_name+'</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
                 +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
@@ -521,13 +555,13 @@ function _bpeRenderRows(paged) {
         var upd = ''; if (r.last_update_at) { upd = _bpeFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#ea580c;font-size:9px">' + r.last_update_by + '</span>'; }
         
         var presserHtml = r.presser_name || '—';
-
+ 
         return '<tr><td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
             + '<td class="bpe-col-act"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
             + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
-            + '<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(' + r.id + ',' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">' + priBadge + (r.product_name || r.order_code || '—') + '</a></td>'
+            + '<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(' + r.id + ',' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">' + priBadge + (r.product_name || r.order_code || '—') + '</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
@@ -1115,6 +1149,9 @@ function _bpeOpenDetail(recordId, orderItemId) {
     h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
     h += '<div>🔥 <strong>NV Ép:</strong> <span>' + (r.presser_name || '—') + '</span></div>';
     h += '<div>📅 <strong>Ngày Ép:</strong> <span>' + (r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</span></div>';
+    if (r.print_types) {
+        h += '<div style="grid-column: span 2; display:flex; align-items:center; flex-wrap:wrap;">🖨️ <strong>Trạng thái in:</strong> ' + _bpeGetPrintStatusHtml(r) + '</div>';
+    }
     h += '</div>';
 
     // Quantities & Salary

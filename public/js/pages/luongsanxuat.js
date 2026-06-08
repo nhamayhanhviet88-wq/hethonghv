@@ -93,7 +93,7 @@ function renderLuongSanXuatPage(content) {
                 <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
                     <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
                         <div id="lsxInfo" style="font-size:12px"></div>
-                        <input id="lsxSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">
+                        <input id="lsxSearch" autocomplete="off" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">
                     </div>
                     <div id="lsxStats" style="display:flex;gap:12px;flex:1;justify-content:center"></div>
                     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -155,6 +155,10 @@ function renderLuongSanXuatPage(content) {
             </div>
         </div>
     `;
+
+    _lsx.search = '';
+    var searchEl = document.getElementById('lsxSearch');
+    if (searchEl) searchEl.value = '';
 
     var _t;
     document.getElementById('lsxSearch').addEventListener('input', function() {

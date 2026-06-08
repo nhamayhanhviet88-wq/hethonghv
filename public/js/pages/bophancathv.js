@@ -113,7 +113,7 @@ function renderBophancatPage(content) {
         +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         +'<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
         +'<div id="bpcFilterInfo" style="font-size:12px"></div>'
-        +'<input id="bpcSearch" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
+        +'<input id="bpcSearch" autocomplete="off" placeholder="🔍 Tìm SP, mã đơn, nhân viên..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:240px;outline:none">'
         +'</div>'
         +'<div id="bpcStatCards" style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center;align-items:center"></div>'
         +'<button onclick="_bpcOpenMultiCut()" style="padding:8px 16px;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(234,88,12,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">✂️+ CẮT NHIỀU ĐƠN</button>'
@@ -123,6 +123,11 @@ function renderBophancatPage(content) {
         +'<div class="card" style="flex:none;display:block;overflow:visible"><div class="card-body" style="overflow-x:auto;overflow-y:visible;padding:8px;position:relative" id="bpcTableWrap"></div></div>'
         +'<div id="bpcPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
+
+    _bpc.search = '';
+    var searchEl = document.getElementById('bpcSearch');
+    if (searchEl) searchEl.value = '';
+
     var _st; document.getElementById('bpcSearch').addEventListener('input', function() {
         clearTimeout(_st); _st = setTimeout(function() {
             _bpc.search = document.getElementById('bpcSearch').value || '';
