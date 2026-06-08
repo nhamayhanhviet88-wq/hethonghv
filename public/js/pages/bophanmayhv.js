@@ -580,17 +580,22 @@ async function _bpmShowHandoverModal(recordId) {
 
         // Parse techniques
         var techList = '';
-        try {
-            var techs = rec.sewing_techniques;
-            if (typeof techs === 'string') techs = JSON.parse(techs);
-            if (Array.isArray(techs)) techList = techs.join(', ');
-        } catch(e) {}
-        if (!techList) {
+        var rawTechs = rec.sewing_techniques || rec.ts_sewing_tech;
+        if (rawTechs) {
             try {
-                var techs = rec.ts_sewing_tech;
-                if (typeof techs === 'string') techs = JSON.parse(techs);
-                if (Array.isArray(techs)) techList = techs.join(', ');
-            } catch(e) {}
+                var techs = typeof rawTechs === 'string' ? JSON.parse(rawTechs) : rawTechs;
+                if (Array.isArray(techs)) {
+                    techList = techs.map(function(t) {
+                        if (typeof t === 'string') return t;
+                        if (t && typeof t === 'object') return t.name || t.tech_name || '';
+                        return '';
+                    }).filter(Boolean).join(', ');
+                } else if (typeof rawTechs === 'string') {
+                    techList = rawTechs;
+                }
+            } catch(e) {
+                techList = String(rawTechs);
+            }
         }
         if (!techList) techList = '—';
 
@@ -641,10 +646,12 @@ async function _bpmShowHandoverModal(recordId) {
         html += '      </div>';
         html += '    </div>';
 
-        // 3. Properties List (Image 2 style)
-        html += '    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px 16px; margin-bottom: 20px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+        // 3. Frame 1: THÔNG TIN SẢN PHẨM
+        html += '    <div style="margin-bottom: 16px;">';
+        html += '      <div style="font-size: 11px; font-weight: 800; color: #4f46e5; margin-bottom: 6px; letter-spacing: 0.5px;">📦 THÔNG TIN SẢN PHẨM</div>';
+        html += '      <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px 16px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
         
-        var rows = [
+        var rowsProd = [
             { label: '📋 Tên SP', val: '<span style="font-weight: 700; color: #0f172a; word-break: break-all;">' + prodFullName + '</span>' },
             { label: 'CSKH', val: '<span style="font-weight: 700; color: #475569;">' + (rec.cskh_name || '—') + '</span>' },
             { label: '🧵 Chất liệu', val: matBadge },
@@ -652,7 +659,26 @@ async function _bpmShowHandoverModal(recordId) {
             { label: '🏷️ Sản Phẩm May', val: catBadge },
             { label: '👤 NV May', val: nvMay },
             { label: '📅 Ngày Bàn Giao NV May', val: '<span style="font-weight: 700; color: #1e293b;">' + _bpmFD(rec.handover_date) + '</span>' },
-            { label: '📦 SL Đơn', val: '<span style="font-weight: 800; color: #0284c7; font-size: 14px;">' + slFormatted + '</span>' },
+            { label: '📦 SL Đơn', val: '<span style="font-weight: 800; color: #0284c7; font-size: 14px;">' + slFormatted + '</span>' }
+        ];
+
+        rowsProd.forEach(function(row, idx) {
+            var isLast = idx === rowsProd.length - 1;
+            html += '      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; ' + (isLast ? '' : 'border-bottom: 1px solid #f1f5f9;') + '">';
+            html += '        <span style="color: #64748b; font-weight: 600; flex-shrink: 0; margin-right: 12px;">' + row.label + '</span>';
+            html += '        <span style="text-align: right; display: flex; justify-content: flex-end;">' + row.val + '</span>';
+            html += '      </div>';
+        });
+
+        html += '      </div>';
+        html += '    </div>';
+
+        // 4. Frame 2: THÔNG TIN MAY MẶC
+        html += '    <div style="margin-bottom: 20px;">';
+        html += '      <div style="font-size: 11px; font-weight: 800; color: #0d9488; margin-bottom: 6px; letter-spacing: 0.5px;">🪡 THÔNG TIN MAY MẶC</div>';
+        html += '      <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px 16px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+
+        var rowsSew = [
             { label: 'Thông Số Mẫu Áo', val: '<span style="font-weight: 700; color: #4f46e5;">' + (rec.pattern_name || '—') + '</span>' },
             { label: 'Kỹ Thuật May', val: '<span style="font-weight: 700; color: #334155;">' + techList + '</span>' },
             { label: 'Giá Nhà May', val: '<span style="font-weight: 700; color: #0d9488;">' + (rec.ts_factory_price ? _bpmFN(rec.ts_factory_price) + 'đ' : '—') + '</span>' },
@@ -660,13 +686,15 @@ async function _bpmShowHandoverModal(recordId) {
             { label: 'QLX Lưu Ý May', val: '<span style="font-weight: 700; color: #ef4444; font-style: italic;">' + (rec.notes || '—') + '</span>' }
         ];
 
-        rows.forEach(function(row) {
-            html += '      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9;">';
+        rowsSew.forEach(function(row, idx) {
+            var isLast = idx === rowsSew.length - 1;
+            html += '      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; ' + (isLast ? '' : 'border-bottom: 1px solid #f1f5f9;') + '">';
             html += '        <span style="color: #64748b; font-weight: 600; flex-shrink: 0; margin-right: 12px;">' + row.label + '</span>';
             html += '        <span style="text-align: right; display: flex; justify-content: flex-end;">' + row.val + '</span>';
             html += '      </div>';
         });
 
+        html += '      </div>';
         html += '    </div>';
 
         // 4. Handover Teams Selection Section
