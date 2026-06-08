@@ -38,6 +38,7 @@ function renderBophanmayPage(content){
     +'.bpm-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
     +'.bpm-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.bpm-ib.on-rpt{background:#ccfbf1;border-color:#14b8a6}.bpm-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpm-ib.on-sal{background:#fef3c7;border-color:#f59e0b}'
+    +'.bpm-team-card{transition:all 0.2s ease}.bpm-team-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.05);border-color:#cbd5e1}.bpm-team-card.active{box-shadow:0 4px 12px rgba(13,148,136,0.15)}'
     +'@media(max-width:768px){.bpm-sb{display:none}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bpm-wrap"><div class="bpm-sb" id="bpmSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpm-main">'
@@ -51,7 +52,7 @@ function renderBophanmayPage(content){
     _bpmLoadAll();
 }
 
-async function _bpmLoadAll(){try{var[tR,cR]=await Promise.all([apiCall('/api/sewing/tree'),apiCall('/api/sewing/contractors')]);_bpm.tree=tR;_bpm.contractors=cR.contractors||[];_bpmRenderSb();await _bpmLoadRecs();}catch(e){console.error('[BPM]',e);}}
+async function _bpmLoadAll(){try{var[tR,cR,tms]=await Promise.all([apiCall('/api/sewing/tree'),apiCall('/api/sewing/contractors'),apiCall('/api/sewing/teams')]);_bpm.tree=tR;_bpm.contractors=cR.contractors||[];_bpm.teams=tms.teams||[];_bpmRenderSb();await _bpmLoadRecs();}catch(e){console.error('[BPM]',e);}}
 
 function _bpmRenderSb(){
     var sb = document.getElementById('bpmSb'); if (!sb || !_bpm.tree) return;
@@ -178,7 +179,7 @@ function _bpmRender(){
         }
 
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="bpm-ib'+rC+'" onclick="_bpmTog('+r.id+',\''+rA+'\')" title="Báo cáo">'+rI+'</button></td>'
+        +'<td style="text-align:center"><button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+sC+'" onclick="_bpmTog('+r.id+',\''+sA+'\')" title="Lương">'+sI+'</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bpmFD(r.expected_date)+'</td>'
@@ -331,6 +332,184 @@ async function _bpmDoAssignTeam(recordId) {
         await apiCall('/api/sewing/records/' + recordId + '/field', 'PATCH', { field: 'sewing_team_id', value: teamId ? parseInt(teamId) : null });
         var overlay = document.getElementById('_bpmTeamOverlay'); if (overlay) overlay.remove();
         showToast('✅ Đã phân tổ may');
+        await _bpmLoadAll();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function _bpmShowHandoverModal(recordId) {
+    try {
+        var rec = _bpm.records.find(function(x) { return x.id === recordId; });
+        if (!rec) return;
+
+        if (!_bpm.teams) {
+            var res = await apiCall('/api/sewing/teams');
+            _bpm.teams = res.teams || [];
+        }
+
+        var currentTeamId = rec.sewing_team_id || '';
+
+        var html = '<div style="padding: 24px; font-family: \'Inter\', sans-serif;">';
+        
+        // Header
+        html += '<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 20px;">';
+        html += '  <h3 style="margin: 0; color: #0d9488; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">📋 Bàn Giao Đơn Hàng May</h3>';
+        html += '  <span style="font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px;">Mã số: #' + rec.id + '</span>';
+        html += '</div>';
+
+        // Order Details (Grid format)
+        html += '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; font-size: 12px;">';
+        
+        html += '  <div style="grid-column: span 2;">';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">TÊN SẢN PHẨM / ĐƠN HÀNG</div>';
+        var priority = (rec.shipping_priority || 'CHUẨN').toUpperCase();
+        var priBadge = '';
+        if (priority === 'GẤP') {
+            priBadge = '<span style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 6px;">Gấp</span>';
+        }
+        html += '    <div style="font-weight: 700; color: #0f172a; font-size: 13px;">' + priBadge + (rec.product_name || rec.order_code || '—') + '</div>';
+        html += '  </div>';
+
+        html += '  <div>';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">SỐ LƯỢNG</div>';
+        html += '    <div style="font-weight: 700; color: #0d9488; font-size: 13px;">' + _bpmFN(rec.quantity) + ' sản phẩm</div>';
+        html += '  </div>';
+
+        html += '  <div>';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">LƯƠNG</div>';
+        html += '    <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">' + _bpmFN(rec.salary) + ' đ</div>';
+        html += '  </div>';
+
+        html += '  <div>';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">NGÀY DỰ KIẾN</div>';
+        html += '    <div style="font-weight: 700; color: #475569;">' + _bpmFD(rec.expected_date) + '</div>';
+        html += '  </div>';
+
+        html += '  <div>';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">QLX HẸN RA</div>';
+        html += '    <div style="font-weight: 700; color: #475569;">' + _bpmFD(rec.handover_date) + '</div>';
+        html += '  </div>';
+
+        html += '  <div style="grid-column: span 2;">';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">CHI TIẾT MAY</div>';
+        html += '    <div style="color: #334155; line-height: 1.4; background: #fff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 11px;">' + (rec.sewing_details || '—') + '</div>';
+        html += '  </div>';
+
+        html += '  <div style="grid-column: span 2;">';
+        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">GHI CHÚ / KK / MAY CHUNG</div>';
+        html += '    <div style="color: #475569;">';
+        if (rec.notes) html += '📌 <b>Ghi chú:</b> ' + rec.notes + '<br>';
+        if (rec.inventory_notes) html += '📦 <b>KK:</b> ' + rec.inventory_notes + '<br>';
+        if (rec.shared_sewing) html += '🪡 <b>May chung:</b> ' + rec.shared_sewing;
+        if (!rec.notes && !rec.inventory_notes && !rec.shared_sewing) html += '—';
+        html += '    </div>';
+        html += '  </div>';
+
+        html += '</div>';
+
+        // Handover Teams Selection
+        html += '<div>';
+        html += '  <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 12px;">';
+        html += '    <span>🪡 BÀN GIAO CHO TEAM MAY:</span>';
+        html += '  </div>';
+
+        html += '  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px;">';
+        
+        var noneActive = !currentTeamId;
+        html += '    <div class="bpm-team-card' + (noneActive ? ' active' : '') + '" onclick="_bpmSelectTeam(null)" id="team_card_none" style="padding: 12px; border-radius: 10px; border: 2px solid ' + (noneActive ? '#ef4444' : '#e2e8f0') + '; background: ' + (noneActive ? '#fef2f2' : '#fff') + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">';
+        html += '      <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + (noneActive ? '#ef4444' : '#cbd5e1') + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
+        if (noneActive) html += '        <div style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></div>';
+        html += '      </div>';
+        html += '      <div style="font-size: 12px; font-weight: 700; color: ' + (noneActive ? '#b91c1c' : '#475569') + '">❌ Chưa Bàn Giao</div>';
+        html += '    </div>';
+
+        _bpm.teams.forEach(function(t) {
+            var isCurrent = String(t.id) === String(currentTeamId);
+            html += '    <div class="bpm-team-card' + (isCurrent ? ' active' : '') + '" onclick="_bpmSelectTeam(' + t.id + ')" id="team_card_' + t.id + '" style="padding: 12px; border-radius: 10px; border: 2px solid ' + (isCurrent ? '#0d9488' : '#e2e8f0') + '; background: ' + (isCurrent ? '#f0fdf4' : '#fff') + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">';
+            html += '      <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + (isCurrent ? '#0d9488' : '#cbd5e1') + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
+            if (isCurrent) html += '        <div style="width: 8px; height: 8px; border-radius: 50%; background: #0d9488;"></div>';
+            html += '      </div>';
+            html += '      <div style="font-size: 12px; font-weight: 700; color: ' + (isCurrent ? '#0f766e' : '#1e293b') + '">👥 ' + t.name + '</div>';
+            html += '    </div>';
+        });
+
+        html += '  </div>';
+        html += '</div>';
+
+        html += '<input type="hidden" id="_bpmSelectedTeamId" value="' + currentTeamId + '">';
+        html += '<div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
+        html += '  <button class="btn btn-secondary" style="padding: 8px 18px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Hủy</button>';
+        html += '  <button onclick="_bpmSaveHandover(' + rec.id + ')" style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: #fff; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);">💾 Lưu Bàn Giao</button>';
+        html += '</div>';
+
+        html += '</div>';
+
+        var old = document.getElementById('_bpmHandoverOverlay'); if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;animation:qlxFadeIn .2s;transition:opacity .25s ease';
+        ov.id = '_bpmHandoverOverlay';
+        ov.innerHTML = '<div style="background:#ffffff;border-radius:16px;width:550px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.15);border:1px solid #e2e8f0;animation:qlxSlideUp .3s;margin-bottom:40px">' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+    }
+}
+
+function _bpmSelectTeam(teamId) {
+    document.getElementById('_bpmSelectedTeamId').value = teamId || '';
+
+    var cards = document.querySelectorAll('.bpm-team-card');
+    cards.forEach(function(c) {
+        c.classList.remove('active');
+        c.style.borderColor = '#e2e8f0';
+        c.style.background = '#fff';
+        
+        var textEl = c.querySelector('div:last-child');
+        if (textEl) textEl.style.color = c.id === 'team_card_none' ? '#475569' : '#1e293b';
+
+        var radioOuter = c.firstElementChild;
+        if (radioOuter) {
+            radioOuter.style.borderColor = '#cbd5e1';
+            radioOuter.innerHTML = '';
+        }
+    });
+
+    var targetId = teamId ? 'team_card_' + teamId : 'team_card_none';
+    var activeCard = document.getElementById(targetId);
+    if (activeCard) {
+        activeCard.classList.add('active');
+        var activeColor = teamId ? '#0d9488' : '#ef4444';
+        var activeBg = teamId ? '#f0fdf4' : '#fef2f2';
+        var textColor = teamId ? '#0f766e' : '#b91c1c';
+        
+        activeCard.style.borderColor = activeColor;
+        activeCard.style.background = activeBg;
+        
+        var textEl = activeCard.querySelector('div:last-child');
+        if (textEl) textEl.style.color = textColor;
+
+        var radioOuter = activeCard.firstElementChild;
+        if (radioOuter) {
+            radioOuter.style.borderColor = activeColor;
+            radioOuter.innerHTML = '<div style="width: 8px; height: 8px; border-radius: 50%; background: ' + activeColor + ';"></div>';
+        }
+    }
+}
+
+async function _bpmSaveHandover(recordId) {
+    var teamId = document.getElementById('_bpmSelectedTeamId').value;
+    try {
+        await apiCall('/api/sewing/records/' + recordId + '/field', 'PATCH', { 
+            field: 'sewing_team_id', 
+            value: teamId ? parseInt(teamId) : null 
+        });
+
+        var action = teamId ? 'report' : 'undo_report';
+        await apiCall('/api/sewing/toggle/' + recordId, 'POST', { action: action });
+
+        var overlay = document.getElementById('_bpmHandoverOverlay'); if (overlay) overlay.remove();
+        showToast('✅ Đã bàn giao đơn hàng');
         await _bpmLoadAll();
     } catch(e) {
         showToast(e.message, 'error');
