@@ -859,7 +859,7 @@ function _bpeOpenReportModal(id) {
     h += '<div style="margin-top:16px;">';
     h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">📸 Hình Ảnh Ép* (Bắt buộc)</label>';
     h += '<div id="_bpeDragArea" style="border:2px dashed #7c3aed; border-radius:10px; padding:20px; text-align:center; background:rgba(124,58,237,0.03); color:#7c3aed; cursor:pointer;" onclick="document.getElementById(\'_bpeFileInput\').click()">';
-    h += '    Bấm vào để chọn ảnh, kéo thả ảnh hoặc nhấn <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;font-weight:800">Ctrl + V</span> để dán ảnh';
+    h += '    Nhấn <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;font-weight:800">Ctrl + V</span> để dán ảnh hoặc click vào đây để chọn file';
     h += '    <input type="file" id="_bpeFileInput" accept="image/*" multiple style="display:none;" onchange="_bpeOnImagesSelect(event)">';
     h += '</div>';
     h += '<div id="_bpeImagePreviews" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>';
