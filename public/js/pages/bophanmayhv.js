@@ -642,7 +642,7 @@ async function _bpmShowHandoverModal(recordId) {
         html += '      </div>';
         html += '      <div>';
         html += '        <div style="font-size: 9px; font-weight: 800; color: #1e40af; margin-bottom: 2px; text-transform: uppercase;">📅 NGÀY MAY HT</div>';
-        html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + _bpmFD(rec.done_date) + '</div>';
+        html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + (_bpmFDT(rec.done_date) || '—') + '</div>';
         html += '      </div>';
         html += '    </div>';
 
