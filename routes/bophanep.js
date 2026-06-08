@@ -502,7 +502,35 @@ module.exports = async function(fastify) {
                               AND pr.printer_id IS NOT NULL
                               AND pr.is_print_done = false
                         )
-                    ) AS is_print_done_rec
+                    ) AS is_print_done_rec,
+                    (
+                        SELECT string_agg(pf.name, ', ')
+                        FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (
+                            qa.item_id = doi.id 
+                            OR (
+                                qa.item_id IS NULL 
+                                AND qa.dht_order_id = doi.dht_order_id 
+                                AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = doi.id)
+                            )
+                        )
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND qa.operator_type = 'user'
+                          AND NOT EXISTS (
+                              SELECT 1 FROM printing_records pr
+                              WHERE (
+                                  pr.order_item_id = doi.id
+                                  OR (
+                                      pr.order_item_id IS NULL
+                                      AND pr.dht_order_id = doi.dht_order_id
+                                      AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
+                                  )
+                              )
+                                AND pr.print_field = pf.name
+                                AND pr.is_print_done = true
+                          )
+                    ) AS pending_print_types
                 FROM dht_order_items doi
                 WHERE doi.dht_order_id = ANY($1)
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = doi.id)
@@ -565,7 +593,22 @@ module.exports = async function(fastify) {
 
                 const warnings = [];
                 if (!isCutReady) warnings.push('Chưa cắt');
-                if (!isPrintReady) warnings.push('Chưa in');
+                if (!isPrintReady) {
+                    if (it.pending_print_types) {
+                        const types = it.pending_print_types.split(', ').map(t => t.trim());
+                        if (types.includes('IN PET') && types.includes('IN DECAL')) {
+                            warnings.push('Chưa In Pet + Decal');
+                        } else if (types.includes('IN PET')) {
+                            warnings.push('Chưa In Pet');
+                        } else if (types.includes('IN DECAL')) {
+                            warnings.push('Chưa In Decal');
+                        } else {
+                            warnings.push('Chưa in');
+                        }
+                    } else {
+                        warnings.push('Chưa in');
+                    }
+                }
                 const warningMsg = warnings.length > 0 ? warnings.join(' + ') : null;
 
                 const itemCuts = completedCuts.filter(c => c.order_item_id === it.id);
@@ -688,7 +731,35 @@ module.exports = async function(fastify) {
                                  AND pr.printer_id IS NOT NULL
                                  AND pr.is_print_done = false
                            )
-                       ) AS is_print_done_rec
+                       ) AS is_print_done_rec,
+                       (
+                           SELECT string_agg(pf.name, ', ')
+                           FROM qlx_order_print_assignments qa
+                           JOIN printing_fields pf ON qa.field_id = pf.id
+                           WHERE (
+                               qa.item_id = doi.id 
+                               OR (
+                                   qa.item_id IS NULL 
+                                   AND qa.dht_order_id = doi.dht_order_id 
+                                   AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = doi.id)
+                               )
+                           )
+                             AND pf.name IN ('IN PET', 'IN DECAL')
+                             AND qa.operator_type = 'user'
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM printing_records pr
+                                 WHERE (
+                                     pr.order_item_id = doi.id
+                                     OR (
+                                         pr.order_item_id IS NULL
+                                         AND pr.dht_order_id = doi.dht_order_id
+                                         AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
+                                     )
+                                 )
+                                   AND pr.print_field = pf.name
+                                   AND pr.is_print_done = true
+                             )
+                       ) AS pending_print_types
                 FROM dht_order_items doi
                 WHERE doi.id = $1 FOR UPDATE
             `, [order_item_id]);
@@ -714,7 +785,22 @@ module.exports = async function(fastify) {
                 let errMsg = 'Không thể nhận đơn ép do: ';
                 const errs = [];
                 if (!isCutReady) errs.push('chưa cắt xong');
-                if (!isPrintReady) errs.push('chưa in xong');
+                if (!isPrintReady) {
+                    if (item.pending_print_types) {
+                        const types = item.pending_print_types.split(', ').map(t => t.trim());
+                        if (types.includes('IN PET') && types.includes('IN DECAL')) {
+                            errs.push('chưa in xong Pet và Decal');
+                        } else if (types.includes('IN PET')) {
+                            errs.push('chưa in xong Pet');
+                        } else if (types.includes('IN DECAL')) {
+                            errs.push('chưa in xong Decal');
+                        } else {
+                            errs.push('chưa in xong');
+                        }
+                    } else {
+                        errs.push('chưa in xong');
+                    }
+                }
                 await db.run('ROLLBACK');
                 return reply.code(400).send({ error: errMsg + errs.join(', ') });
             }
