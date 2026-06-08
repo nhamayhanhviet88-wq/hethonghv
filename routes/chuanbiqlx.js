@@ -650,6 +650,86 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    async function checkSewingPrerequisites(orderId, itemId) {
+        let isCutDone = true;
+        let isMatDone = true;
+
+        if (itemId) {
+            const cutStatus = await db.get(`
+                SELECT 
+                    EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cut_records,
+                    NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS all_cuts_done
+            `, [itemId]);
+
+            const matStatus = await db.get(`
+                SELECT 
+                    COALESCE(
+                        (SELECT material_called OR material_arrived FROM qlx_preparation WHERE item_id = $1),
+                        (SELECT material_called OR material_arrived FROM qlx_preparation WHERE dht_order_id = $2 AND item_id IS NULL),
+                        false
+                    ) AS material_done
+            `, [itemId, orderId]);
+
+            isCutDone = !!(cutStatus && cutStatus.has_cut_records && cutStatus.all_cuts_done);
+            isMatDone = !!(matStatus && matStatus.material_done);
+        } else {
+            const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+            if (items.length > 0) {
+                for (const item of items) {
+                    const cut = await db.get(`
+                        SELECT 
+                            EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cut_records,
+                            NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS all_cuts_done
+                    `, [item.id]);
+                    if (!cut || !cut.has_cut_records || !cut.all_cuts_done) {
+                        isCutDone = false;
+                    }
+
+                    const mat = await db.get(`
+                        SELECT 
+                            COALESCE(
+                                (SELECT material_called OR material_arrived FROM qlx_preparation WHERE item_id = $1),
+                                (SELECT material_called OR material_arrived FROM qlx_preparation WHERE dht_order_id = $2 AND item_id IS NULL),
+                                false
+                            ) AS material_done
+                    `, [item.id, orderId]);
+                    if (!mat || !mat.material_done) {
+                        isMatDone = false;
+                    }
+                }
+            } else {
+                const cut = await db.get(`
+                    SELECT 
+                        EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1) AS has_cut_records,
+                        NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = false) AS all_cuts_done
+                `, [orderId]);
+                isCutDone = !!(cut && cut.has_cut_records && cut.all_cuts_done);
+
+                const mat = await db.get(`
+                    SELECT material_called OR material_arrived AS material_done FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL
+                `, [orderId]);
+                isMatDone = !!(mat && mat.material_done);
+            }
+        }
+
+        return { isCutDone, isMatDone };
+    }
+
+    fastify.get('/api/qlx/assign-check/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const orderId = Number(request.params.orderId);
+        const { type, item_id } = request.query || {};
+
+        if (type === 'may') {
+            const itemId = item_id ? Number(item_id) : 0;
+            return await checkSewingPrerequisites(orderId, itemId);
+        }
+
+        return { isCutDone: true, isMatDone: true };
+    });
+
     fastify.post('/api/qlx/assign/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
@@ -676,6 +756,22 @@ module.exports = async function(fastify) {
             }
             if (!orderStatus.qlx_received_phieu) {
                 return reply.code(400).send({ error: 'QLX chưa xác nhận nhận Phiếu SX.' });
+            }
+
+            if (type === 'may' && user_id) {
+                const itemId = item_id ? Number(item_id) : 0;
+                const { isCutDone, isMatDone } = await checkSewingPrerequisites(orderId, itemId);
+                if (!isCutDone || !isMatDone) {
+                    let errMsg = '';
+                    if (!isCutDone && !isMatDone) {
+                        errMsg = 'Cắt chưa xong và Gọi vật liệu chưa xong';
+                    } else if (!isCutDone) {
+                        errMsg = 'Cắt chưa xong';
+                    } else {
+                        errMsg = 'Gọi vật liệu chưa xong';
+                    }
+                    return reply.code(400).send({ error: errMsg });
+                }
             }
         }
 

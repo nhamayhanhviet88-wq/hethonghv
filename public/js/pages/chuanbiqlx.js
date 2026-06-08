@@ -1119,6 +1119,62 @@ async function _qlxAssign(orderId, type, itemId) {
     // Special modal for 'in' type
     if (type === 'in') { return _qlxAssignIn(orderId, itemId); }
 
+    var checkRes;
+    if (type === 'may') {
+        try {
+            // Check current assignment first: is someone already assigned?
+            var isAlreadyAssigned = false;
+            var ord = _qlx.orders.find(function(o) { return o.id === orderId; });
+            if (ord) {
+                if (itemId) {
+                    var it = ord.items.find(function(item) { return item.id === itemId; });
+                    if (it && it.nguoi_may) isAlreadyAssigned = true;
+                } else {
+                    if (ord.nguoi_may) isAlreadyAssigned = true;
+                }
+            }
+
+            // Call the real-time check API
+            checkRes = await apiCall('/api/qlx/assign-check/' + orderId + '?type=may&item_id=' + (itemId || 0));
+            if (!checkRes.isCutDone || !checkRes.isMatDone) {
+                var msg = '';
+                if (!checkRes.isCutDone && !checkRes.isMatDone) {
+                    msg = 'Cắt đơn chưa xong và Gọi vật liệu chưa xong!';
+                } else if (!checkRes.isCutDone) {
+                    msg = 'Cắt đơn chưa xong!';
+                } else {
+                    msg = 'Gọi vật liệu chưa xong!';
+                }
+
+                if (!isAlreadyAssigned) {
+                    // Show a beautiful warning popup using a clean modal
+                    var warnBody = '<div style="text-align:center;padding:20px 10px">'
+                        + '<div style="font-size:48px;margin-bottom:16px">⚠️</div>'
+                        + '<h4 style="color:#dc2626;font-weight:800;margin-bottom:16px;font-size:16px">CHƯA ĐỦ ĐIỀU KIỆN PHÂN CÔNG MAY</h4>'
+                        + '<div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto;text-align:left">'
+                        + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
+                        + '<span>Cắt Đơn:</span>'
+                        + (checkRes.isCutDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>')
+                        + '</div>'
+                        + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
+                        + '<span>Gọi Vật Liệu:</span>'
+                        + (checkRes.isMatDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>')
+                        + '</div>'
+                        + '</div>'
+                        + '<p style="color:#64748b;font-size:11px;margin-top:16px;line-height:1.4">Vui lòng liên hệ bộ phận liên quan để hoàn thành trước khi phân công may.</p>'
+                        + '</div>';
+                    var warnFooter = '<button class="btn btn-secondary" onclick="closeModal()" style="width:100%">Đồng ý</button>';
+                    openModal('Cảnh Báo Điều Phối', warnBody, warnFooter);
+                    return;
+                } else {
+                    showToast('⚠️ Cảnh báo: ' + msg + ' (Chỉ được gỡ phân công, không thể đổi thợ)', 'warning');
+                }
+            }
+        } catch(e) {
+            console.error('Error checking assignment:', e);
+        }
+    }
+
     var deptHint = type === 'may' ? 'may' : type === 'cat' ? 'cắt' : type;
     var staff;
     try { var res = await apiCall('/api/qlx/staff?dept=' + encodeURIComponent(deptHint)); staff = res.staff || []; } catch(e) { staff = []; }
@@ -1126,7 +1182,14 @@ async function _qlxAssign(orderId, type, itemId) {
 
     var opts = staff.map(function(s) { return '<option value="' + s.id + '">' + s.full_name + (s.dept_name ? ' (' + s.dept_name + ')' : '') + '</option>'; }).join('');
 
-    var body = '<div style="margin-bottom:12px"><label style="font-weight:700;font-size:12px">Chọn nhân viên ' + typeLabels[type] + '</label>'
+    var warningBanner = '';
+    if (type === 'may' && checkRes && (!checkRes.isCutDone || !checkRes.isMatDone)) {
+        warningBanner = '<div style="background:#fffbeb;border:1px solid #fef3c7;color:#b45309;padding:10px 14px;border-radius:8px;font-size:11px;margin-bottom:12px;line-height:1.4">'
+            + '⚠️ <b>Cảnh báo:</b> Cắt đơn hoặc vật liệu chưa xong. Bạn chỉ có thể chọn <b>Gỡ phân công</b>. Nếu chọn nhân viên khác sẽ bị hệ thống từ chối.'
+            + '</div>';
+    }
+
+    var body = warningBanner + '<div style="margin-bottom:12px"><label style="font-weight:700;font-size:12px">Chọn nhân viên ' + typeLabels[type] + '</label>'
         + '<select id="_qlxAssignUser" class="form-control" style="margin-top:6px"><option value="">-- Gỡ phân công --</option>' + opts + '</select></div>';
 
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
