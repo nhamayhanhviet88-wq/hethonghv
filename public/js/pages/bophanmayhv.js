@@ -42,7 +42,7 @@ function renderBophanmayPage(content){
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>📋</th><th>⚠️</th><th>💰</th><th>Ngày Ra Dự Kiến</th><th>BG May</th><th>Xong</th><th>NV May</th><th>Tên SP</th><th>SL</th><th>Giá Gốc</th><th>Giá KT</th><th>Lương</th><th>Chi Tiết</th><th>KK</th><th>May Chung</th><th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+    +'<th>STT</th><th>📋</th><th>💰</th><th>⚠️</th><th>Ngày Ra Dự Kiến</th><th>BG May</th><th>Xong</th><th>NV May</th><th>Tên SP</th><th>SL</th><th>Giá Gốc</th><th>Giá KT</th><th>Lương</th><th>Chi Tiết</th><th>KK</th><th>May Chung</th><th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bpmTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
@@ -160,8 +160,8 @@ function _bpmRender(){
 
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="bpm-ib'+rC+'" onclick="_bpmTog('+r.id+',\''+rA+'\')" title="Báo cáo">'+rI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+sC+'" onclick="_bpmTog('+r.id+',\''+sA+'\')" title="Lương">'+sI+'</button></td>'
+        +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bpmFD(r.expected_date)+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="font-size:10px;color:'+(r.done_date?'#059669':'#94a3b8')+'">'+_bpmFD(r.done_date)+'</td>'
