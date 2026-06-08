@@ -42,8 +42,8 @@ function renderBophanmayPage(content){
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>📋</th><th>⚠️</th><th>📄</th><th>💰</th><th>✏️</th><th>Ra DK</th><th>BG May</th><th>Xong</th><th>NV May</th><th>Tên SP</th><th>SL</th><th>Giá Gốc</th><th>Giá KT</th><th>Lương</th><th>Chi Tiết</th><th>KK</th><th>May Chung</th><th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="21" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th>STT</th><th>📋</th><th>⚠️</th><th>💰</th><th>Ngày Ra Dự Kiến</th><th>BG May</th><th>Xong</th><th>NV May</th><th>Tên SP</th><th>SL</th><th>Giá Gốc</th><th>Giá KT</th><th>Lương</th><th>Chi Tiết</th><th>KK</th><th>May Chung</th><th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
 }
@@ -132,7 +132,7 @@ function _bpmRender(){
     if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bpmTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="21"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="19"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
@@ -147,17 +147,26 @@ function _bpmRender(){
         }
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='📸 '+ia.length;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bpmFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#0d9488;font-size:9px">'+r.last_update_by+'</span>';}
+        
+        var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
+        var priBadge = '';
+        if (priority === 'GẤP') {
+            priBadge = '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
+        } else if (priority === 'GỬI') {
+            priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
+        } else {
+            priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
+        }
+
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="bpm-ib'+rC+'" onclick="_bpmTog('+r.id+',\''+rA+'\')" title="Báo cáo">'+rI+'</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpm-ib" onclick="_bpmView('+r.id+')" title="Xem phiếu">📄</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+sC+'" onclick="_bpmTog('+r.id+',\''+sA+'\')" title="Lương">'+sI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpm-ib" onclick="_bpmEdit('+r.id+')" title="Chi tiết">✏️</button></td>'
         +'<td style="font-size:10px">'+_bpmFD(r.expected_date)+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="font-size:10px;color:'+(r.done_date?'#059669':'#94a3b8')+'">'+_bpmFD(r.done_date)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+(r.product_name||r.order_code||'—')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b">'+priBadge+(r.product_name||r.order_code||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
         +'<td style="text-align:right;font-size:10px;color:#dc2626;font-weight:700">'+_bpmFN(r.checked_price)+'</td>'

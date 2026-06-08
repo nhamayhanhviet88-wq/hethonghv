@@ -183,7 +183,7 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
-                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code,
+                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
             FROM sewing_records sr 
             LEFT JOIN users u ON sr.sewer_id=u.id 
