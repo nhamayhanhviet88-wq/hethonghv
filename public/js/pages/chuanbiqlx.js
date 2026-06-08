@@ -1,5 +1,5 @@
 // ========== CHUẨN BỊ QLX — White Sidebar + Blue Theme ==========
-var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 200 };
+var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 200, stableOrderIds: null };
 var _qlxOpen = { inc: true };
 function _qlxFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 function _qlxFmtDate(v) { if (!v) return '—'; try { var d = new Date(v); if (isNaN(d.getTime())) return '—'; return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch(e) { return '—'; } }
@@ -93,6 +93,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'</div></div>';
     _qlx.search = '';
     _qlx.sidebarSearch = '';
+    _qlx.stableOrderIds = null;
     var searchEl = document.getElementById('qlxSearch');
     if (searchEl) searchEl.value = '';
 
@@ -179,6 +180,7 @@ function _qlxPendingKTFilter() {
         _qlx.activeFilter = 'no_print';
     }
     _qlx.page = 1;
+    _qlx.stableOrderIds = null;
     _qlxRenderTable();
     _qlxRenderSidebar();
 }
@@ -197,6 +199,7 @@ function _qlxSidebarSearchInput(val) {
 function _qlxFilter(status, catId, year, month) {
     _qlx.filter = { status: status || 'all', category_id: catId || null, year: year || null, month: month || null };
     _qlx.page = 1;
+    _qlx.stableOrderIds = null;
     _qlxRenderSidebar();
     _qlxLoadOrders();
 }
@@ -283,18 +286,7 @@ function _qlxRenderTable() {
             return true;
         });
     }
-    // Sort: Tier 1 = Chưa In Phiếu, Tier 2 = Chưa Nhận Phiếu, Tier 3 = Đã Nhận
-    all.sort(function(a, b) {
-        var aPrint = a.sx_print_confirmed ? 1 : 0;
-        var bPrint = b.sx_print_confirmed ? 1 : 0;
-        if (aPrint !== bPrint) return aPrint - bPrint; // chưa in lên trước
-        var aRecv = (a.qlx_received_phieu === true || a.qlx_received_phieu === 't' || a.qlx_received_phieu === 1 || a.qlx_received_phieu === '1') ? 1 : 0;
-        var bRecv = (b.qlx_received_phieu === true || b.qlx_received_phieu === 't' || b.qlx_received_phieu === 1 || b.qlx_received_phieu === '1') ? 1 : 0;
-        if (aPrint && bPrint && aRecv !== bRecv) return aRecv - bRecv; // chưa nhận lên trước
-        // Sort by expected_ship_date ascending (gần → xa)
-        var dA = a.expected_ship_date || '9999-12-31', dB = b.expected_ship_date || '9999-12-31';
-        return dA < dB ? -1 : dA > dB ? 1 : 0;
-    });
+    _qlxApplyStableSort(all);
     var total = all.length, totalPages = Math.ceil(total / _qlx.pageSize) || 1;
     if (_qlx.page > totalPages) _qlx.page = totalPages;
     if (_qlx.page < 1) _qlx.page = 1;
@@ -303,6 +295,45 @@ function _qlxRenderTable() {
     _qlxRenderRows(paged);
     _qlxRenderPagination(total, totalPages);
     _qlxRenderStats(total, all);
+}
+
+function _qlxApplyStableSort(arr) {
+    function defaultSort(list) {
+        list.sort(function(a, b) {
+            var aPrint = a.sx_print_confirmed ? 1 : 0;
+            var bPrint = b.sx_print_confirmed ? 1 : 0;
+            if (aPrint !== bPrint) return aPrint - bPrint;
+            var aRecv = (a.qlx_received_phieu === true || a.qlx_received_phieu === 't' || a.qlx_received_phieu === 1 || a.qlx_received_phieu === '1') ? 1 : 0;
+            var bRecv = (b.qlx_received_phieu === true || b.qlx_received_phieu === 't' || b.qlx_received_phieu === 1 || b.qlx_received_phieu === '1') ? 1 : 0;
+            if (aPrint && bPrint && aRecv !== bRecv) return aRecv - bRecv;
+            var dA = a.expected_ship_date || '9999-12-31', dB = b.expected_ship_date || '9999-12-31';
+            return dA < dB ? -1 : dA > dB ? 1 : 0;
+        });
+    }
+
+    if (!_qlx.stableOrderIds || _qlx.stableOrderIds.length === 0) {
+        var tempAll = _qlx.orders.slice();
+        defaultSort(tempAll);
+        _qlx.stableOrderIds = tempAll.map(function(o) { return o.id; });
+    }
+
+    var indexMap = {};
+    _qlx.stableOrderIds.forEach(function(id, index) {
+        indexMap[id] = index;
+    });
+
+    var unknown = arr.filter(function(o) { return indexMap[o.id] === undefined; });
+    if (unknown.length > 0) {
+        defaultSort(unknown);
+        unknown.forEach(function(o) {
+            _qlx.stableOrderIds.push(o.id);
+            indexMap[o.id] = _qlx.stableOrderIds.length - 1;
+        });
+    }
+
+    arr.sort(function(a, b) {
+        return indexMap[a.id] - indexMap[b.id];
+    });
 }
 
 function _qlxRenderRows(paged) {
