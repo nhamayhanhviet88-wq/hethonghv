@@ -285,9 +285,15 @@ module.exports = async function(fastify) {
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         let detail = '';
         if (action === 'report') {
+            if (rec.is_reported && !['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role)) {
+                return reply.code(403).send({ error: 'Chỉ quản lý cấp cao và giám đốc mới được báo cáo lại!' });
+            }
             await db.run(`UPDATE pressing_records SET is_reported=true, reported_at=$1, reported_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
             detail = '🔥 Báo cáo ép';
         } else if (action === 'undo_report') {
+            if (!['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role)) {
+                return reply.code(403).send({ error: 'Chỉ quản lý cấp cao và giám đốc mới được hoàn tác báo cáo!' });
+            }
             await db.run(`UPDATE pressing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác báo cáo';
         } else if (action === 'approve_salary') {
@@ -311,6 +317,10 @@ module.exports = async function(fastify) {
         const id = Number(req.params.id), b = req.body || {}, now = vnNow();
         const rec = await db.get('SELECT * FROM pressing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        if (rec.is_reported && !['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Chỉ quản lý cấp cao và giám đốc mới được sửa báo cáo đã hoàn thành!' });
+        }
 
         // Update target order quantity dynamically based on latest cut records if available
         const latestCut = await db.get(`

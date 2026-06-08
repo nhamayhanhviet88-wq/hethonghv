@@ -555,9 +555,19 @@ function _bpeRenderRows(paged) {
         var upd = ''; if (r.last_update_at) { upd = _bpeFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#ea580c;font-size:9px">' + r.last_update_by + '</span>'; }
         
         var presserHtml = r.presser_name || '—';
+        
+        var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao'].indexOf(window._currentUser.role) !== -1;
+        var btnStyle = '';
+        var btnTitle = 'Báo cáo ép';
+        if (r.is_reported) {
+            btnTitle = isManager ? 'Báo cáo lại (Quản lý)' : 'Đã báo cáo';
+            if (!isManager) {
+                btnStyle = ' style="cursor: not-allowed; opacity: 0.85;"';
+            }
+        }
  
         return '<tr><td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
-            + '<td class="bpe-col-act"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
+            + '<td class="bpe-col-act"><button class="bpe-ib' + rC + '"' + btnStyle + ' onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="' + btnTitle + '">' + rI + '</button></td>'
             + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
@@ -771,6 +781,13 @@ async function _bpeUnclaimOrder(itemId, orderCode) {
 async function _bpeTog(id, action) {
     if (action === 'report') {
         _bpeOpenReportModal(id);
+    } else if (action === 'undo_report') {
+        var isManager = window._currentUser && ['giam_doc', 'quan_ly_cap_cao'].indexOf(window._currentUser.role) !== -1;
+        if (!isManager) {
+            showToast('⚠️ Chỉ quản lý cấp cao và giám đốc mới được báo cáo lại đơn đã ép!', 'error');
+            return;
+        }
+        _bpeOpenReportModal(id);
     } else {
         if (confirm('Hoàn tác báo cáo ép? Đơn này sẽ quay lại trạng thái chưa hoàn thành.')) {
             try {
@@ -858,9 +875,11 @@ function _bpeOpenReportModal(id) {
     var matColor = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
     var cskh = r.cskh_name || '—';
 
+    var modalTitle = r.is_reported ? 'BÁO CÁO LẠI ĐƠN ÉP' : 'BÁO CÁO HOÀN THÀNH ÉP';
+
     var h = '<div class="bpc-modal-overlay" id="_bpeReportModal">';
     h += '<div class="bpc-modal" style="width:680px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
-    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🔥</div><div><div class="m-title">BÁO CÁO HOÀN THÀNH ÉP</div><div class="m-sub">Mã đơn: <span id="_bpeRptOrderCode" style="font-weight:700">' + r.order_code + '</span></div></div></div>';
+    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🔥</div><div><div class="m-title">' + modalTitle + '</div><div class="m-sub">Mã đơn: <span id="_bpeRptOrderCode" style="font-weight:700">' + r.order_code + '</span></div></div></div>';
     
     h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px;">';
     
@@ -924,9 +943,11 @@ function _bpeOpenReportModal(id) {
 
     h += '</div>'; // End of modal-body
     
+    var submitText = r.is_reported ? 'LƯU BÁO CÁO' : 'BÁO CÁO ÉP';
+
     h += '<div class="bpc-modal-actions">';
     h += '<button class="bpc-modal-btn cancel" onclick="_bpeCloseReportModal()">Hủy</button>';
-    h += '<button class="bpc-modal-btn confirm" id="_bpeReportSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)" onclick="_bpeSubmitReport(' + id + ')">BÁO CÁO ÉP</button>';
+    h += '<button class="bpc-modal-btn confirm" id="_bpeReportSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)" onclick="_bpeSubmitReport(' + id + ')">' + submitText + '</button>';
     h += '</div>';
 
     h += '</div></div>';
