@@ -1161,19 +1161,35 @@ function _bpeOpenDetail(recordId, orderItemId) {
     }
     h += '</div>';
 
-    // Quantities & Salary
-    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">';
-    h += '<div style="background:#f0fdf4; padding:10px; border-radius:10px; text-align:center; border:1px solid #bbf7d0;"><div style="font-size:9px; font-weight:700; color:#166534">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:18px; font-weight:900; color:#15803d">' + (r.press_quantity || 0) + ' sp</div></div>';
-    h += '<div style="background:#fff7ed; padding:10px; border-radius:10px; text-align:center; border:1px solid #ffedd5;"><div style="font-size:9px; font-weight:700; color:#c2410c">💰 LƯƠNG ÉP</div><div style="font-size:18px; font-weight:900; color:#ea580c">' + _bpeFN(r.press_salary || 0) + ' đ</div></div>';
-    h += '</div>';
-
     // Detailed positions
     h += '<div class="bpc-detail-card" style="border-left: 4px solid #6366f1;">';
     h += '<div class="bpc-detail-section-title">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
     (window._bpePositions || []).forEach(function(pos) {
-        var val = r[pos.key_code] || 0;
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">' + pos.display_name + '</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + val + ' sp</span></div>';
+        var val = Number(r[pos.key_code]) || 0;
+        var prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+            ? 'price_' + pos.key_code
+            : pos.key_code.replace('pos_', 'price_');
+        var price = Number(r[prcCol]) || 0;
+        var cost = val * price;
+
+        h += '<div class="bpc-modal-row">';
+        h += '<span class="bpc-modal-lbl">' + pos.display_name + '</span>';
+        h += '<div class="bpc-modal-val" style="color:#4f46e5;font-weight:700;white-space:nowrap;">';
+        h += val + ' sp';
+        if (!r.is_unpressed) {
+            h += ' <span style="color:#94a3b8;margin:0 4px;font-size:11px;font-weight:normal;">x</span>';
+            h += ' <span style="color:#64748b;font-size:11px;font-weight:normal;">' + _bpeFN(price) + 'đ</span>';
+            h += ' <span style="color:#94a3b8;margin:0 4px;font-size:11px;font-weight:normal;">=</span>';
+            h += ' <span style="color:#059669;font-weight:800;font-size:12px;">' + _bpeFN(cost) + 'đ</span>';
+        }
+        h += '</div></div>';
     });
+    h += '</div>';
+
+    // Quantities & Salary
+    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">';
+    h += '<div style="background:#f0fdf4; padding:10px; border-radius:10px; text-align:center; border:1px solid #bbf7d0;"><div style="font-size:9px; font-weight:700; color:#166534">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:18px; font-weight:900; color:#15803d">' + (r.press_quantity || 0) + ' sp</div></div>';
+    h += '<div style="background:#fff7ed; padding:10px; border-radius:10px; text-align:center; border:1px solid #ffedd5;"><div style="font-size:9px; font-weight:700; color:#c2410c">💰 LƯƠNG ÉP</div><div style="font-size:18px; font-weight:900; color:#ea580c">' + _bpeFN(r.press_salary || 0) + ' đ</div></div>';
     h += '</div>';
 
     // Images & Notes

@@ -299,6 +299,34 @@ module.exports = async function(fastify) {
         return { records };
     });
 
+    // ========== GET SINGLE RECORD ==========
+    fastify.get('/api/pressing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const record = await db.get(`
+            SELECT pr.*, u.full_name AS presser_name,
+                   (
+                        SELECT string_agg(pf.name, ', ')
+                        FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (
+                            qa.item_id = pr.order_item_id 
+                            OR (
+                                qa.item_id IS NULL 
+                                AND qa.dht_order_id = pr.dht_order_id 
+                                AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = pr.order_item_id)
+                            )
+                        )
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND qa.operator_type = 'user'
+                   ) AS print_types
+            FROM pressing_records pr
+            LEFT JOIN users u ON pr.presser_id = u.id
+            WHERE pr.id = $1
+        `, [id]);
+        if (!record) return reply.code(404).send({ error: 'Không tìm thấy phiếu ép' });
+        return { record };
+    });
+
     // ========== CREATE ==========
     fastify.post('/api/pressing/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body || {}, now = vnNow();

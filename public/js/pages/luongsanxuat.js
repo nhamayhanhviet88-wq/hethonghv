@@ -607,7 +607,7 @@ function _lsxRenderTable() {
                 + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
                 + `<td>${deptBadge}</td>`
                 + `<td style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</td>`
-                + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
+                + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}"><span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenPressingDetail(${r.id})">${displayName}</span></td>`
                 + `<td style="text-align:center;font-weight:700;color:${qtyColor}">${_lsxFormatOrderQty(orderQty, r.product_name, r.cutting_category, r.dept)}</td>`
                 + `<td style="text-align:center;font-weight:700;color:${cutColor}">${_lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, r.dept)}</td>`
                 + (window._bpePositions || []).map(function(pos) {
@@ -982,4 +982,140 @@ function _lsxDetailFormatOrderQty(qty, productName, cuttingCategory) {
     } else {
         return qty + ' Phối';
     }
+}
+
+// ========== DETAIL MODAL: Xem chi tiết đơn ép từ Lương Sản Xuất ==========
+async function _lsxOpenPressingDetail(recordId) {
+    if (window._lsxDetailBusy) return;
+    window._lsxDetailBusy = true;
+    try {
+        var res = await apiCall('/api/pressing/records/' + recordId);
+        var r = res.record;
+        if (!r) return;
+
+        var old = document.getElementById('_bpeDetailModal'); if (old) old.remove();
+
+        var matColor = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
+        var statusTxt = r.is_reported ? '✅ Đã báo cáo' : '⏳ Chờ báo cáo';
+        var statusBg = r.is_reported ? '#059669' : '#ea580c';
+
+        var h = '<div class="bpc-modal-overlay" id="_bpeDetailModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpeDetailModal\').remove()},300)">';
+        h += '<div class="bpc-modal" style="width:560px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,' + statusBg + ',' + statusBg + 'cc)"><div class="m-icon">📋</div><div><div class="m-title">CHI TIẾT PHIẾU ÉP</div><div class="m-sub">' + statusTxt + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px;">';
+
+        // Info grid
+        h += '<div style="background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0; display:grid; grid-template-columns:1fr 1fr; gap:8px;">';
+        h += '<div>👕 <strong>Sản phẩm:</strong> <span>' + (r.product_name || '—') + '</span></div>';
+        h += '<div>🎨 <strong>Chất liệu/Màu:</strong> <span>' + matColor + '</span></div>';
+        h += '<div>👤 <strong>CSKH:</strong> <span>' + (r.cskh_name || '—') + '</span></div>';
+        h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
+        h += '<div>🔥 <strong>NV Ép:</strong> <span>' + (r.presser_name || '—') + '</span></div>';
+        h += '<div>📅 <strong>Ngày Ép:</strong> <span>' + (r.reported_at ? (typeof vnFormat === 'function' ? vnFormat(r.reported_at) : _lsxDetailFmtDate(r.reported_at)) : '—') + '</span></div>';
+        if (r.print_types) {
+            h += '<div style="grid-column: span 2; display:flex; align-items:center; flex-wrap:wrap;">🖨️ <strong>Trạng thái in:</strong> ' + _lsxGetPrintStatusHtml(r) + '</div>';
+        }
+        h += '</div>';
+
+        // Detailed positions
+        h += '<div class="bpc-detail-card" style="border-left: 4px solid #6366f1;">';
+        h += '<div class="bpc-detail-section-title">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
+        (window._bpePositions || []).forEach(function(pos) {
+            var val = Number(r[pos.key_code]) || 0;
+            var prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                ? 'price_' + pos.key_code
+                : pos.key_code.replace('pos_', 'price_');
+            var price = Number(r[prcCol]) || 0;
+            var cost = val * price;
+
+            h += '<div class="bpc-modal-row">';
+            h += '<span class="bpc-modal-lbl">' + pos.display_name + '</span>';
+            h += '<div class="bpc-modal-val" style="color:#4f46e5;font-weight:700;white-space:nowrap;">';
+            h += val + ' sp';
+            if (!r.is_unpressed) {
+                h += ' <span style="color:#94a3b8;margin:0 4px;font-size:11px;font-weight:normal;">x</span>';
+                h += ' <span style="color:#64748b;font-size:11px;font-weight:normal;">' + _lsxFN(price) + 'đ</span>';
+                h += ' <span style="color:#94a3b8;margin:0 4px;font-size:11px;font-weight:normal;">=</span>';
+                h += ' <span style="color:#059669;font-weight:800;font-size:12px;">' + _lsxFN(cost) + 'đ</span>';
+            }
+            h += '</div></div>';
+        });
+        h += '</div>';
+
+        // Quantities & Salary
+        h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; margin-top:16px;">';
+        h += '<div style="background:#f0fdf4; padding:10px; border-radius:10px; text-align:center; border:1px solid #bbf7d0;"><div style="font-size:9px; font-weight:700; color:#166534">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:18px; font-weight:900; color:#15803d">' + (r.press_quantity || 0) + ' sp</div></div>';
+        h += '<div style="background:#fff7ed; padding:10px; border-radius:10px; text-align:center; border:1px solid #ffedd5;"><div style="font-size:9px; font-weight:700; color:#c2410c">💰 LƯƠNG ÉP</div><div style="font-size:18px; font-weight:900; color:#ea580c">' + _lsxFN(r.press_salary || r.salary || 0) + ' đ</div></div>';
+        h += '</div>';
+
+        // Images & Notes
+        h += '<div class="bpc-detail-card" style="border-left: 4px solid #8b5cf6;">';
+        h += '<div class="bpc-detail-section-title" style="color:#8b5cf6">📝 BÁO CÁO CỦA NHÂN VIÊN</div>';
+        h += '<div class="bpc-modal-row" style="flex-direction:column; align-items:flex-start; border-bottom:none; padding:4px 0;"><span class="bpc-modal-lbl" style="margin-bottom:6px;">💬 Ghi chú ép:</span><span class="bpc-modal-val" style="text-align:left; max-width:100%; white-space:pre-wrap; color:#334155; font-weight:500; font-size:12px; background:#fff; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; width:100%; min-height:40px; box-sizing:border-box;">' + (r.notes || '—') + '</span></div>';
+        
+        var imgs = [];
+        try { imgs = typeof r.press_images === 'string' ? JSON.parse(r.press_images) : (r.press_images || []); } catch(e) {}
+        if (Array.isArray(imgs) && imgs.length > 0) {
+            h += '<div style="margin-top:12px;">';
+            h += '<div class="bpc-modal-lbl" style="margin-bottom:8px;">📸 Hình ảnh ép thực tế:</div>';
+            h += '<div style="display:flex; flex-wrap:wrap; gap:10px">';
+            imgs.forEach(function(imgUrl) {
+                h += '<img src="' + imgUrl + '" style="width:70px; height:70px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0; cursor:pointer;" onclick="window.open(\'' + imgUrl.replace(/'/g, "\\'") + '\',\'_blank\')">';
+            });
+            h += '</div>';
+            h += '</div>';
+        }
+        h += '</div>';
+
+        h += '</div>'; // End body
+
+        // Footer actions
+        h += '<div style="padding:12px 24px; border-top:1px solid #f1f5f9; text-align:center">';
+        h += '<button class="bpc-modal-btn cancel" style="width:100%" onclick="var m=document.getElementById(\'_bpeDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Đóng</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', h);
+        setTimeout(function() {
+            var m = document.getElementById('_bpeDetailModal');
+            if (m) m.classList.add('show');
+        }, 50);
+
+    } catch(e) {
+        console.error(e);
+        alert('Lỗi tải thông tin phiếu ép');
+    } finally {
+        window._lsxDetailBusy = false;
+    }
+}
+
+function _lsxGetPrintStatusHtml(r) {
+    var printTypes = r.print_types || '';
+    var pendingPrintTypes = r.pending_print_types || '';
+    
+    if (!printTypes) return '';
+    
+    var types = printTypes.split(', ').map(function(t) { return t.trim(); });
+    var pending = pendingPrintTypes ? pendingPrintTypes.split(', ').map(function(t) { return t.trim(); }) : [];
+    
+    var badges = [];
+    
+    if (types.indexOf('IN PET') >= 0) {
+        if (pending.indexOf('IN PET') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Pet</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Pet</span>');
+        }
+    }
+    
+    if (types.indexOf('IN DECAL') >= 0) {
+        if (pending.indexOf('IN DECAL') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Decal</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Decal</span>');
+        }
+    }
+    
+    return badges.join('');
 }
