@@ -413,6 +413,9 @@ async function _bnhFabSubmit() {
             cost_notes: document.getElementById('_fabNotes')?.value || ''
         };
         var res = await apiCall('/api/import/fabric-submit', 'POST', body);
+        if (res.error) {
+            throw new Error(res.error);
+        }
         showToast('✅ Nhập vải thành công! Mã: ' + res.fabric_import_code);
         if (res.ship_cashflow_code) showToast('💰 Đã tạo phiếu chi ship: ' + res.ship_cashflow_code);
         _bnhFabClose();

@@ -770,7 +770,7 @@ module.exports = async function(fastify) {
                     if (remaining.rows.length && remaining.rows[0].total > 0 && remaining.rows[0].pending === 0) {
                         await client.query(`INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
                             VALUES ($1, true, NOW(), $2)
-                            ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived = true, fabric_arrived_at = NOW(), fabric_arrived_by = $2, updated_at = NOW()`,
+                            ON CONFLICT (dht_order_id) WHERE item_id IS NULL DO UPDATE SET fabric_arrived = true, fabric_arrived_at = NOW(), fabric_arrived_by = $2, updated_at = NOW()`,
                             [oid, rec.importer_id]);
                     } else {
                         await client.query(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = NOW() WHERE dht_order_id = $1`,
@@ -1236,7 +1236,7 @@ module.exports = async function(fastify) {
                             await client.query(
                                 `INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
                                  VALUES ($1, true, $2, $3)
-                                 ON CONFLICT (dht_order_id) DO UPDATE SET fabric_arrived=true, fabric_arrived_at=$2, fabric_arrived_by=$3, updated_at=$2`,
+                                 ON CONFLICT (dht_order_id) WHERE item_id IS NULL DO UPDATE SET fabric_arrived=true, fabric_arrived_at=$2, fabric_arrived_by=$3, updated_at=$2`,
                                 [ordId, now, req.user.id]
                             );
                         }

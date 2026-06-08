@@ -157,6 +157,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation DROP CONSTRAINT IF EXISTS qlx_preparation_dht_order_id_key`);
         await db.exec(`DROP INDEX IF EXISTS idx_qlx_prep_item_id`);
         await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_prep_item_id ON qlx_preparation(item_id)`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_prep_order_null_item ON qlx_preparation(dht_order_id) WHERE item_id IS NULL`);
     } catch(e) { console.error('[QLX] migration qlx_preparation:', e.message); }
 
     try {
