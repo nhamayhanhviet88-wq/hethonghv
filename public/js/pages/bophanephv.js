@@ -497,7 +497,7 @@ function _bpeRenderRows(paged) {
                 +'<td class="bpe-pos">—</td>'
                 +'<td class="bpe-pos">—</td>'
                 +'<td class="bpe-pos">—</td>'
-                +'<td style="font-size:9px">—</td>'
+                +'<td class="bpe-pos" style="max-width:60px;overflow:hidden;text-overflow:ellipsis">—</td>'
                 +'<td style="text-align:center;font-size:10px">—</td>'
                 +'<td style="font-size:9px;color:#ef4444;font-weight:bold">'+noteStr+'</td>'
                 +'<td style="font-size:9px;color:#6b7280">—</td>'
@@ -527,7 +527,7 @@ function _bpeRenderRows(paged) {
             + '<td class="bpe-pos">' + (r.pos_back_belly || '—') + '</td>'
             + '<td class="bpe-pos">' + (r.pos_protective || '—') + '</td>'
             + '<td class="bpe-pos">' + (r.pos_packaging || '—') + '</td>'
-            + '<td style="font-size:9px;max-width:60px;overflow:hidden;text-overflow:ellipsis">' + (r.pos_other || '—') + '</td>'
+            + '<td class="bpe-pos" style="max-width:60px;overflow:hidden;text-overflow:ellipsis">' + (r.pos_other || '—') + '</td>'
             + '<td style="text-align:center;font-size:10px">' + imgs + '</td>'
             + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">' + (r.notes || '—') + '</td>'
             + '<td style="font-size:9px;color:#6b7280">' + upd + '</td></tr>';
