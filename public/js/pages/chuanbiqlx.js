@@ -86,7 +86,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'<th>STT</th><th>🧵</th><th>🔩</th><th>🖨️</th><th>🪡</th>'
         +'<th>Tên KH</th><th>CSKH</th><th>Tiến Độ</th>'
         +'<th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu</th>'
-        +'<th>SL</th><th>Ngày Ra Dự Kiến</th>'
+        +'<th>SL</th><th>Ngày Dự Kiến</th>'
         +'<th>Trạng Thái</th>'
         +'<th>NV Cắt</th><th>NV In</th><th>NV Ép</th><th>NV May</th>'
         +'<th>KTCL</th><th>Hoàn Thiện</th>'
