@@ -206,28 +206,8 @@
 
                 <div style="font-size: 11px; font-weight: 700; color: #fdba74; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px">📍 CHI TIẾT SỐ LƯỢNG VỊ TRÍ ÉP</div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px">
-                    <div class="mr-form-group">
-                        <label>Ngực, Tay, Tạp Dề, Vải Mũ</label>
-                        <input type="number" inputmode="numeric" id="mPosChest" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
-                    </div>
-                    <div class="mr-form-group">
-                        <label>Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</label>
-                        <input type="number" inputmode="numeric" id="mPosBack" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
-                    </div>
-                    <div class="mr-form-group">
-                        <label>Bảo Hộ, Bếp, Sơ Mi</label>
-                        <input type="number" inputmode="numeric" id="mPosProtective" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
-                    </div>
-                    <div class="mr-form-group">
-                        <label>Đóng Gói, Cổ Bẻ Vải</label>
-                        <input type="number" inputmode="numeric" id="mPosPackaging" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
-                    </div>
-                </div>
-                
-                <div class="mr-form-group" style="margin-bottom: 12px">
-                    <label>Vị Trí Khác</label>
-                    <input type="number" inputmode="numeric" id="mPosOther" class="mr-input" placeholder="0" min="0" oninput="mUpdateReportTotal()">
+                <div id="mReportFieldsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px">
+                    <!-- Dynamic fields will be loaded here -->
                 </div>
 
                 <div class="mr-form-group" style="margin-bottom: 12px">
@@ -378,6 +358,10 @@
             `;
 
             try {
+                // Fetch positions configuration
+                const posRes = await apiCall('/api/pressing/positions');
+                window._bpePositions = (posRes.positions || []).filter(p => p.is_active);
+
                 // Fetch unassigned pool
                 const unassignedData = await apiCall('/api/pressing/unassigned');
                 unassignedOrders = unassignedData.orders || [];
@@ -630,6 +614,11 @@
                     }
                 } catch(e) {}
 
+                const detailPositionsHtml = (window._bpePositions || []).map(pos => {
+                    const val = r[pos.key_code] || 0;
+                    return `<div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">${pos.display_name}: <b>${val}</b></div>`;
+                }).join('');
+
                 return `
                     <div class="m-card">
                         <div class="m-card-top" style="border-bottom-color: rgba(249,115,22,0.15)">
@@ -650,16 +639,12 @@
                             <div class="m-divider"></div>
                             <div style="font-size:9px; font-weight:700; color:#fdba74; margin-bottom:6px">📍 CHI TIẾT VỊ TRÍ ÉP</div>
                             <div style="display:grid; grid-template-columns: repeat(2,1fr); gap:6px; font-size:10px">
-                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Ngực/Tay: <b>${r.pos_chest_arm || 0}</b></div>
-                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Lưng/Bụng: <b>${r.pos_back_belly || 0}</b></div>
-                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Bảo hộ/SM: <b>${r.pos_protective || 0}</b></div>
-                                <div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px">Đóng gói: <b>${r.pos_packaging || 0}</b></div>
+                                ${detailPositionsHtml}
                             </div>
-                            ${r.pos_other ? `<div style="font-size:10px; margin-top:4px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:6px">Khác: <b>${r.pos_other}</b></div>` : ''}
                             ${imagesHtml}
                         </div>
                         <div class="m-card-actions" style="grid-template-columns:repeat(2,1fr)">
-                            <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id}, ${r.order_quantity}, ${r.pos_chest_arm || 0}, ${r.pos_back_belly || 0}, ${r.pos_protective || 0}, ${r.pos_packaging || 0}, '${r.pos_other || ''}', '${r.notes || ''}', '${r.product_name || r.order_code}')">
+                            <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id})">
                                 <span class="m-act-i">✅</span>
                                 <span class="m-act-l" style="color:#4ade80">BÁO CÁO</span>
                             </button>
@@ -707,47 +692,38 @@
                     }
                 } catch(e) {}
 
-                return `
-                    <div class="m-card" style="opacity:0.85">
-                        <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
-                            <div class="m-card-icon">🔥</div>
-                            <div class="m-card-title" style="color:#a1a1aa">${r.product_name || r.order_code}</div>
-                            <div class="m-card-code">${r.order_code || ''}</div>
-                        </div>
-                        <div class="m-card-body">
-                            <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
-                            <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
-                            <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
-                            <div class="m-row"><span class="m-lbl">Ngày ép</span><span class="m-val">${formatDate(r.press_date)}</span></div>
-                            
-                            <div class="m-divider"></div>
-                            <div style="font-size:10px; font-weight:800; color:#818cf8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">🧩 Chi tiết các vị trí ép</div>
-                            <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
-                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                                    <span style="color:#94a3b8">Ngực, Tay, Tạp Dề, Vải Mũ</span>
-                                    <span style="font-weight:700; color:#818cf8">${r.pos_chest_arm || 0} sp</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                                    <span style="color:#94a3b8">Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</span>
-                                    <span style="font-weight:700; color:#818cf8">${r.pos_back_belly || 0} sp</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                                    <span style="color:#94a3b8">Bảo Hộ, Bếp, Sơ Mi</span>
-                                    <span style="font-weight:700; color:#818cf8">${r.pos_protective || 0} sp</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                                    <span style="color:#94a3b8">Đóng Gói, Cổ Bẻ Vải</span>
-                                    <span style="font-weight:700; color:#818cf8">${r.pos_packaging || 0} sp</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; padding:4px 0">
-                                    <span style="color:#94a3b8">Vị Trí Khác</span>
-                                    <span style="font-weight:700; color:#818cf8">${r.pos_other || 0} sp</span>
-                                </div>
-                            </div>
+                            const detailHistoryHtml = (window._bpePositions || []).map(pos => {
+                                const val = r[pos.key_code] || 0;
+                                return `
+                                    <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                                        <span style="color:#94a3b8">${pos.display_name}</span>
+                                        <span style="font-weight:700; color:#818cf8">${val} sp</span>
+                                    </div>
+                                `;
+                            }).join('');
+
+                            return `
+                                <div class="m-card" style="opacity:0.85">
+                                    <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
+                                        <div class="m-card-icon">🔥</div>
+                                        <div class="m-card-title" style="color:#a1a1aa">${r.product_name || r.order_code}</div>
+                                        <div class="m-card-code">${r.order_code || ''}</div>
+                                    </div>
+                                    <div class="m-card-body">
+                                        <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
+                                        <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
+                                        <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
+                                        <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
+                                        <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
+                                        <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
+                                        <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
+                                        <div class="m-row"><span class="m-lbl">Ngày ép</span><span class="m-val">${formatDate(r.press_date)}</span></div>
+                                        
+                                        <div class="m-divider"></div>
+                                        <div style="font-size:10px; font-weight:800; color:#818cf8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">🧩 Chi tiết các vị trí ép</div>
+                                        <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
+                                            ${detailHistoryHtml}
+                                        </div>
                             <div style="font-size:10px; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px; margin-bottom:6px">📝 Báo cáo của nhân viên</div>
                             <div style="font-size:11px; padding:8px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:8px; color:#cbd5e1; margin-bottom:8px">
                                 <div style="font-size:10px; color:#94a3b8; margin-bottom:2px">Ghi chú ép:</div>
@@ -935,13 +911,11 @@
         }
 
         function mUpdateReportTotal() {
-            const chest = Number(document.getElementById('mPosChest').value) || 0;
-            const back = Number(document.getElementById('mPosBack').value) || 0;
-            const prot = Number(document.getElementById('mPosProtective').value) || 0;
-            const pack = Number(document.getElementById('mPosPackaging').value) || 0;
-            const otherVal = Number(document.getElementById('mPosOther').value) || 0;
-            
-            const sumVal = chest + back + prot + pack + otherVal;
+            const inputs = document.querySelectorAll('.mPosInput');
+            let sumVal = 0;
+            inputs.forEach(input => {
+                sumVal += (Number(input.value) || 0);
+            });
             document.getElementById('mReportQty').value = sumVal > 0 ? sumVal : '';
         }
 
@@ -960,30 +934,38 @@
         }
 
         // --- Report Modal Logic ---
-        function mOpenReport(recId, orderQty, posChest, posBack, posProtective, posPackaging, posOther, notes, prodName) {
+        function mOpenReport(recId) {
             const r = pressingRecords.find(x => x.id === recId);
+            if (!r) return;
             
             document.getElementById('mReportRecId').value = recId;
             
             // Set order info headers
-            document.getElementById('mReportOrderCode').textContent = (r && r.order_code) ? r.order_code : '';
-            document.getElementById('mReportProductName').textContent = (r && r.product_name) ? r.product_name : prodName;
-            document.getElementById('mReportMatColor').textContent = (r && r.material_name) 
+            document.getElementById('mReportOrderCode').textContent = r.order_code || '';
+            document.getElementById('mReportProductName').textContent = r.product_name || r.order_code;
+            document.getElementById('mReportMatColor').textContent = r.material_name 
                 ? (r.material_name + ' · ' + (r.fabric_color || '—')) 
                 : '—';
-            document.getElementById('mReportCskh').textContent = (r && r.cskh_name) ? r.cskh_name : '—';
-            document.getElementById('mReportCutQty').textContent = orderQty + ' sp';
+            document.getElementById('mReportCskh').textContent = r.cskh_name || '—';
+            document.getElementById('mReportCutQty').textContent = r.order_quantity + ' sp';
 
-            // Set inputs
-            document.getElementById('mPosChest').value = posChest || '';
-            document.getElementById('mPosBack').value = posBack || '';
-            document.getElementById('mPosProtective').value = posProtective || '';
-            document.getElementById('mPosPackaging').value = posPackaging || '';
+            // Populate form container dynamically
+            const formContainer = document.getElementById('mReportFieldsContainer');
+            if (formContainer) {
+                let formHtml = '';
+                (window._bpePositions || []).forEach(pos => {
+                    const val = r[pos.key_code] !== undefined && r[pos.key_code] !== null ? r[pos.key_code] : '';
+                    formHtml += `
+                        <div class="mr-form-group">
+                            <label>${pos.display_name}</label>
+                            <input type="number" inputmode="numeric" data-key="${pos.key_code}" class="mr-input mPosInput" placeholder="0" min="0" oninput="mUpdateReportTotal()" value="${val}">
+                        </div>
+                    `;
+                });
+                formContainer.innerHTML = formHtml;
+            }
             
-            const otherNum = parseInt(posOther);
-            document.getElementById('mPosOther').value = isNaN(otherNum) ? '' : otherNum;
-            
-            document.getElementById('mReportNotes').value = notes || '';
+            document.getElementById('mReportNotes').value = r.notes || '';
             
             // Initialize images from record
             currentReportImages = [];
@@ -1008,37 +990,56 @@
 
         async function mDoReport() {
             const recId = Number(document.getElementById('mReportRecId').value);
-            const qty = Number(document.getElementById('mReportQty').value) || 0;
-            const chest = Number(document.getElementById('mPosChest').value) || 0;
-            const back = Number(document.getElementById('mPosBack').value) || 0;
-            const prot = Number(document.getElementById('mPosProtective').value) || 0;
-            const pack = Number(document.getElementById('mPosPackaging').value) || 0;
-            const otherVal = Number(document.getElementById('mPosOther').value) || 0;
             const notes = document.getElementById('mReportNotes').value;
 
             // Find current record and order cut quantity
             const r = pressingRecords.find(x => x.id === recId);
             const orderQty = r ? r.order_quantity : 9999;
 
-            if (chest <= 0 && back <= 0 && prot <= 0 && pack <= 0 && otherVal <= 0) {
+            const payload = {
+                press_images: JSON.stringify(currentReportImages),
+                notes: notes
+            };
+
+            let total = 0;
+            const inputs = document.querySelectorAll('.mPosInput');
+            
+            let hasQty = false;
+            let validationError = null;
+
+            inputs.forEach(input => {
+                const key = input.getAttribute('data-key');
+                const val = parseInt(input.value) || 0;
+                payload[key] = val;
+                total += val;
+                
+                if (val > 0) {
+                    hasQty = true;
+                    const pos = (window._bpePositions || []).find(p => p.key_code === key);
+                    let maxMultiplier = 5;
+                    if (key === 'pos_chest_arm') maxMultiplier = 4;
+                    else if (key === 'pos_back_belly') maxMultiplier = 5;
+                    else if (key === 'pos_protective') maxMultiplier = 3;
+                    else if (key === 'pos_packaging') maxMultiplier = 2;
+
+                    const err = mValidateFieldMultiple(val, pos ? pos.display_name : 'Chi tiết', orderQty, maxMultiplier);
+                    if (err && !validationError) {
+                        validationError = err;
+                    }
+                }
+            });
+
+            if (!hasQty) {
                 showToast('⚠️ Bạn phải nhập số lượng cho ít nhất 1 vị trí ép!', 'error');
                 return;
             }
 
-            const errChest = mValidateFieldMultiple(chest, 'Ngực, Tay, Tạp Dề, Vải Mũ', orderQty, 4);
-            if (errChest) { showToast(errChest, 'error'); return; }
+            if (validationError) {
+                showToast(validationError, 'error');
+                return;
+            }
 
-            const errBack = mValidateFieldMultiple(back, 'Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn', orderQty, 5);
-            if (errBack) { showToast(errBack, 'error'); return; }
-
-            const errProt = mValidateFieldMultiple(prot, 'Bảo Hộ, Bếp, Sơ Mi', orderQty, 3);
-            if (errProt) { showToast(errProt, 'error'); return; }
-
-            const errPack = mValidateFieldMultiple(pack, 'Đóng Gói, Cổ Bẻ Vải', orderQty, 2);
-            if (errPack) { showToast(errPack, 'error'); return; }
-
-            const errOther = mValidateFieldMultiple(otherVal, 'Vị Trí Khác', orderQty, 5);
-            if (errOther) { showToast(errOther, 'error'); return; }
+            payload.press_quantity = total;
 
             if (currentReportImages.length === 0) {
                 showToast('⚠️ Bạn phải chụp/chọn ít nhất 1 hình ảnh ép!', 'error');
@@ -1051,16 +1052,7 @@
 
             try {
                 // Save inputs using full update API
-                await apiCall(`/api/pressing/records/${recId}`, 'PUT', {
-                    press_quantity: qty,
-                    pos_chest_arm: chest,
-                    pos_back_belly: back,
-                    pos_protective: prot,
-                    pos_packaging: pack,
-                    pos_other: otherVal ? otherVal.toString() : '',
-                    press_images: JSON.stringify(currentReportImages),
-                    notes: notes
-                });
+                await apiCall(`/api/pressing/records/${recId}`, 'PUT', payload);
 
                 // Toggle status to reported
                 await apiCall(`/api/pressing/toggle/${recId}`, 'POST', { action: 'report' });

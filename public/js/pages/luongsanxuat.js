@@ -174,6 +174,13 @@ function renderLuongSanXuatPage(content) {
 
 async function _lsxLoadAll() {
     try {
+        try {
+            var posRes = await apiCall('/api/pressing/positions');
+            window._bpePositions = (posRes.positions || []).filter(p => p.is_active);
+        } catch(e) {
+            window._bpePositions = [];
+        }
+
         var res = await apiCall('/api/production-salary/tree');
         _lsx.tree = res.tree;
         _lsx.is_manager = res.is_manager || false;
@@ -392,6 +399,10 @@ function _lsxGetHeaderHTML() {
     var btnStyle = showApproveAll ? 'inline-block' : 'none';
     
     if (_lsx.filter.dept === 'pressing') {
+        var posHeaders = (window._bpePositions || []).map(function(pos) {
+            return `<th style="text-align:center;background:#0d9488">${pos.display_name}</th>`;
+        }).join('');
+
         return `
             <tr style="background:var(--gray-800)">
                 <th style="width:50px">STT</th>
@@ -401,11 +412,7 @@ function _lsxGetHeaderHTML() {
                 <th>Tên Sản Phẩm</th>
                 <th style="text-align:center">SL Đơn</th>
                 <th style="text-align:center">SL Ép</th>
-                <th style="text-align:center;background:#0d9488">Ngực/Tay</th>
-                <th style="text-align:center;background:#0d9488">Lưng/Bụng</th>
-                <th style="text-align:center;background:#0d9488">BH/Bếp</th>
-                <th style="text-align:center;background:#0d9488">ĐG/Cổ Bẻ</th>
-                <th style="text-align:center;background:#0d9488">VT Khác</th>
+                ${posHeaders}
                 <th style="text-align:right">Thành Tiền (đ)</th>
                 <th style="text-align:center">
                     Kiểm Tra
@@ -484,7 +491,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? 16 : 13;
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : 13;
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -561,11 +568,15 @@ function _lsxRenderTable() {
                 + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
                 + `<td style="text-align:center;font-weight:700;color:${qtyColor}">${_lsxFormatOrderQty(orderQty, r.product_name, r.cutting_category, r.dept)}</td>`
                 + `<td style="text-align:center;font-weight:700;color:${cutColor}">${_lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, r.dept)}</td>`
-                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_chest_arm, r.price_chest_arm)}</td>`
-                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_back_belly, r.price_back_belly)}</td>`
-                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_protective, r.price_protective)}</td>`
-                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_packaging, r.price_packaging)}</td>`
-                + `<td style="background:#f0fdf4">${_lsxFormatPressingPos(r.pos_other, r.price_other)}</td>`
+                + (window._bpePositions || []).map(function(pos) {
+                    var qtyCol = pos.key_code;
+                    var prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                        ? 'price_' + qtyCol
+                        : qtyCol.replace('pos_', 'price_');
+                    var qty = r[qtyCol];
+                    var price = r[prcCol];
+                    return `<td style="background:#f0fdf4">${_lsxFormatPressingPos(qty, price)}</td>`;
+                }).join('')
                 + salCell
                 + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
                 + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`

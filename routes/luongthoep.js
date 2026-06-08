@@ -7,6 +7,50 @@ module.exports = async function(fastify) {
 
     // ========== AUTO-MIGRATE / SCHEMA SETUP ==========
     try {
+        // 0. Table for pressing positions configurations
+        await db.exec(`CREATE TABLE IF NOT EXISTS pressing_positions (
+            id              SERIAL PRIMARY KEY,
+            key_code        VARCHAR(50) UNIQUE NOT NULL,
+            display_name    VARCHAR(255) NOT NULL,
+            is_active       BOOLEAN DEFAULT TRUE,
+            display_order   INTEGER DEFAULT 0,
+            created_at      TIMESTAMPTZ DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+
+        // Seed default positions if empty
+        const posCount = await db.get(`SELECT COUNT(*)::int AS cnt FROM pressing_positions`);
+        if (posCount && posCount.cnt === 0) {
+            await db.run(`
+                INSERT INTO pressing_positions (key_code, display_name, display_order)
+                VALUES 
+                  ('pos_chest_arm', 'Ngực, Tay, Tạp Dề Vải Mũ', 1),
+                  ('pos_back_belly', 'Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn', 2),
+                  ('pos_protective', 'Bảo Hộ, Bếp, Sơ Mi', 3),
+                  ('pos_packaging', 'Đóng Gói, Cổ Bẻ Vải', 4),
+                  ('pos_other', 'Vị Trí Khác', 5)
+            `);
+            console.log('[LTE] Seeded default pressing positions');
+        }
+
+        // Fetch and run ALTER TABLE statements to ensure all position columns exist dynamically
+        const allPositions = await db.all(`SELECT key_code FROM pressing_positions`);
+        for (const pos of allPositions) {
+            const qtyCol = pos.key_code;
+            const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                ? 'price_' + qtyCol
+                : qtyCol.replace('pos_', 'price_');
+            
+            // Alter pressing_records qty column (except default ones which exist)
+            if (!['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)) {
+                await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS ${qtyCol} NUMERIC DEFAULT 0`);
+            }
+            // Alter pressing_records price column
+            await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS ${prcCol} NUMERIC DEFAULT 0`);
+            // Alter pressing_salary_tiers price column
+            await db.exec(`ALTER TABLE pressing_salary_tiers ADD COLUMN IF NOT EXISTS ${prcCol} NUMERIC DEFAULT 0`);
+        }
+
         // 1. Table for salary tiers
         await db.exec(`CREATE TABLE IF NOT EXISTS pressing_salary_tiers (
             id              SERIAL PRIMARY KEY,
@@ -117,25 +161,30 @@ module.exports = async function(fastify) {
         if (!(await isSalaryManager(req))) {
             return reply.code(403).send({ error: 'Không có quyền cấu hình bậc lương thợ ép' });
         }
-        const { tier_name, price_chest_arm, price_back_belly, price_protective, price_packaging, price_other } = req.body || {};
+        const { tier_name } = req.body || {};
         if (!tier_name || !tier_name.trim()) return reply.code(400).send({ error: 'Thiếu tên bậc lương' });
 
-        const now = vnNow();
-        const result = await db.get(`
-            INSERT INTO pressing_salary_tiers (
-                tier_name, price_chest_arm, price_back_belly, price_protective, price_packaging, price_other, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-            RETURNING *
-        `, [
-            tier_name.trim(),
-            Number(price_chest_arm) || 0,
-            Number(price_back_belly) || 0,
-            Number(price_protective) || 0,
-            Number(price_packaging) || 0,
-            Number(price_other) || 0,
-            now
-        ]);
+        const positions = await db.all(`SELECT key_code FROM pressing_positions`);
+        const columns = ['tier_name', 'created_at', 'updated_at'];
+        const values = [tier_name.trim(), vnNow(), vnNow()];
+        const placeholders = ['$1', '$2', '$3'];
 
+        positions.forEach((pos) => {
+            const prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                ? 'price_' + pos.key_code
+                : pos.key_code.replace('pos_', 'price_');
+            
+            columns.push(prcCol);
+            values.push(Number(req.body[prcCol]) || 0);
+            placeholders.push(`$${columns.length}`);
+        });
+
+        const sql = `
+            INSERT INTO pressing_salary_tiers (${columns.join(', ')})
+            VALUES (${placeholders.join(', ')})
+            RETURNING *
+        `;
+        const result = await db.get(sql, values);
         return { success: true, tier: result };
     });
 
@@ -144,31 +193,29 @@ module.exports = async function(fastify) {
             return reply.code(403).send({ error: 'Không có quyền cấu hình bậc lương thợ ép' });
         }
         const id = Number(req.params.id);
-        const { tier_name, price_chest_arm, price_back_belly, price_protective, price_packaging, price_other } = req.body || {};
+        const { tier_name } = req.body || {};
         if (!tier_name || !tier_name.trim()) return reply.code(400).send({ error: 'Thiếu tên bậc lương' });
 
-        const now = vnNow();
-        await db.run(`
-            UPDATE pressing_salary_tiers 
-            SET tier_name = $1, 
-                price_chest_arm = $2, 
-                price_back_belly = $3, 
-                price_protective = $4, 
-                price_packaging = $5, 
-                price_other = $6, 
-                updated_at = $7 
-            WHERE id = $8
-        `, [
-            tier_name.trim(),
-            Number(price_chest_arm) || 0,
-            Number(price_back_belly) || 0,
-            Number(price_protective) || 0,
-            Number(price_packaging) || 0,
-            Number(price_other) || 0,
-            now,
-            id
-        ]);
+        const positions = await db.all(`SELECT key_code FROM pressing_positions`);
+        const setClauses = ['tier_name = $1', 'updated_at = $2'];
+        const values = [tier_name.trim(), vnNow()];
 
+        positions.forEach((pos) => {
+            const prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                ? 'price_' + pos.key_code
+                : pos.key_code.replace('pos_', 'price_');
+            
+            values.push(Number(req.body[prcCol]) || 0);
+            setClauses.push(`${prcCol} = $${values.length}`);
+        });
+
+        values.push(id);
+        const sql = `
+            UPDATE pressing_salary_tiers 
+            SET ${setClauses.join(', ')}
+            WHERE id = $${values.length}
+        `;
+        await db.run(sql, values);
         return { success: true };
     });
 
@@ -249,6 +296,78 @@ module.exports = async function(fastify) {
             `, [userId, tierId, now]);
             return { success: true };
         }
+    });
+
+    // ========== API: PRESSING POSITIONS ==========
+    fastify.get('/api/pressing/positions', { preHandler: [authenticate] }, async (req) => {
+        const positions = await db.all(`
+            SELECT * FROM pressing_positions 
+            ORDER BY display_order ASC, id ASC
+        `);
+        return { positions };
+    });
+
+    fastify.post('/api/pressing/positions', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isSalaryManager(req))) {
+            return reply.code(403).send({ error: 'Không có quyền cấu hình vị trí ép' });
+        }
+        const { display_name } = req.body || {};
+        if (!display_name || !display_name.trim()) {
+            return reply.code(400).send({ error: 'Thiếu tên vị trí' });
+        }
+
+        const maxIdRow = await db.get(`SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM pressing_positions`);
+        const nextId = maxIdRow.next_id;
+        const keyCode = `pos_${nextId}`;
+
+        const maxOrderRow = await db.get(`SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM pressing_positions`);
+        const nextOrder = maxOrderRow.next_order;
+
+        const now = vnNow();
+        const result = await db.get(`
+            INSERT INTO pressing_positions (key_code, display_name, display_order, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, TRUE, $4, $4)
+            RETURNING *
+        `, [keyCode, display_name.trim(), nextOrder, now]);
+
+        // Alter pressing_records qty & price, and pressing_salary_tiers price
+        const qtyCol = keyCode;
+        const prcCol = 'price_' + keyCode;
+
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS ${qtyCol} NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS ${prcCol} NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE pressing_salary_tiers ADD COLUMN IF NOT EXISTS ${prcCol} NUMERIC DEFAULT 0`);
+
+        return { success: true, position: result };
+    });
+
+    fastify.put('/api/pressing/positions/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isSalaryManager(req))) {
+            return reply.code(403).send({ error: 'Không có quyền cấu hình vị trí ép' });
+        }
+        const id = Number(req.params.id);
+        const { display_name, display_order, is_active } = req.body || {};
+        if (!display_name || !display_name.trim()) {
+            return reply.code(400).send({ error: 'Thiếu tên vị trí' });
+        }
+
+        const now = vnNow();
+        await db.run(`
+            UPDATE pressing_positions
+            SET display_name = $1,
+                display_order = $2,
+                is_active = $3,
+                updated_at = $4
+            WHERE id = $5
+        `, [
+            display_name.trim(),
+            Number(display_order) || 0,
+            is_active === undefined ? true : !!is_active,
+            now,
+            id
+        ]);
+
+        return { success: true };
     });
 
 };

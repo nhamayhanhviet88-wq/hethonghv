@@ -139,6 +139,9 @@ function renderBophanepPage(content) {
 
 async function _bpeLoadAll() {
     try {
+        var posRes = await apiCall('/api/pressing/positions');
+        window._bpePositions = (posRes.positions || []).filter(p => p.is_active);
+
         var tR = await apiCall('/api/pressing/tree');
         _bpe.tree = tR;
         if (tR && tR.yearTree) {
@@ -443,9 +446,13 @@ function _bpeRender() {
     if (wrap) {
         var thead = wrap.querySelector('thead');
         if (thead) {
+            var dynamicHeaders = (window._bpePositions || []).map(function(pos) {
+                return '<th title="' + pos.display_name + '">' + pos.display_name + '</th>';
+            }).join('');
+
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
                 + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
-                + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
+                + dynamicHeaders
                 + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
                 + '</tr>';
         }
@@ -506,6 +513,15 @@ function _bpeRenderRows(paged) {
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
 
+        var posColsHtml = (window._bpePositions || []).map(function(pos) {
+            if (r.is_unpressed) {
+                return '<td class="bpe-pos">—</td>';
+            } else {
+                var val = r[pos.key_code];
+                return '<td class="bpe-pos">' + (val !== undefined && val !== null ? val : '—') + '</td>';
+            }
+        }).join('');
+
         if (r.is_unpressed) {
             var claimHtml = '';
             if (r.ready) {
@@ -527,11 +543,7 @@ function _bpeRenderRows(paged) {
                 +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
                 +'<td style="text-align:center;font-weight:600;color:#0369a1">'+r.order_quantity+'</td>'
                 +'<td style="text-align:center;font-weight:700;color:#ea580c">—</td>'
-                +'<td class="bpe-pos">—</td>'
-                +'<td class="bpe-pos">—</td>'
-                +'<td class="bpe-pos">—</td>'
-                +'<td class="bpe-pos">—</td>'
-                +'<td class="bpe-pos" style="max-width:60px;overflow:hidden;text-overflow:ellipsis">—</td>'
+                + posColsHtml
                 +'<td style="text-align:center;font-size:10px">—</td>'
                 +'<td style="font-size:9px;color:#ef4444;font-weight:bold">'+noteStr+'</td>'
                 +'<td style="font-size:9px;color:#6b7280">—</td>'
@@ -577,11 +589,7 @@ function _bpeRenderRows(paged) {
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
             + '<td style="text-align:center;font-weight:600">' + (r.order_quantity || '—') + '</td>'
             + '<td style="text-align:center;font-weight:700;color:#ea580c">' + (r.press_quantity || '—') + '</td>'
-            + '<td class="bpe-pos">' + (r.pos_chest_arm || '—') + '</td>'
-            + '<td class="bpe-pos">' + (r.pos_back_belly || '—') + '</td>'
-            + '<td class="bpe-pos">' + (r.pos_protective || '—') + '</td>'
-            + '<td class="bpe-pos">' + (r.pos_packaging || '—') + '</td>'
-            + '<td class="bpe-pos" style="max-width:60px;overflow:hidden;text-overflow:ellipsis">' + (r.pos_other || '—') + '</td>'
+            + posColsHtml
             + '<td style="text-align:center;font-size:10px">' + imgs + '</td>'
             + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">' + (r.notes || '—') + '</td>'
             + '<td style="font-size:9px;color:#6b7280">' + upd + '</td></tr>';
@@ -881,44 +889,15 @@ function _bpeOpenReportModal(id) {
     h += '<div class="bpc-modal" style="width:680px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🔥</div><div><div class="m-title">' + modalTitle + '</div><div class="m-sub">Mã đơn: <span id="_bpeRptOrderCode" style="font-weight:700">' + r.order_code + '</span></div></div></div>';
     
-    h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px;">';
-    
-    // Info grid
-    h += '<div style="background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0; display:grid; grid-template-columns:1fr 1fr; gap:8px;">';
-    h += '<div>👕 <strong>Sản phẩm:</strong> <span>' + (r.product_name || '—') + '</span></div>';
-    h += '<div>🎨 <strong>Chất liệu/Màu:</strong> <span>' + matColor + '</span></div>';
-    h += '<div>👤 <strong>CSKH:</strong> <span>' + cskh + '</span></div>';
-    h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + orderQty + ' sp</span></div>';
-    h += '</div>';
-
     // Inputs Grid
-    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">';
-    h += '<div>';
-    h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">Ngực, Tay, Tạp Dề, Vải Mũ</label>';
-    h += '<input type="number" id="_bpePosChest" class="form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + (r.pos_chest_arm || '') + '">';
-    h += '</div>';
-    h += '<div>';
-    h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</label>';
-    h += '<input type="number" id="_bpePosBack" class="form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + (r.pos_back_belly || '') + '">';
-    h += '</div>';
-    h += '</div>';
-
-    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">';
-    h += '<div>';
-    h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">Bảo Hộ, Bếp, Sơ Mi</label>';
-    h += '<input type="number" id="_bpePosProtective" class="form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + (r.pos_protective || '') + '">';
-    h += '</div>';
-    h += '<div>';
-    h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">Đóng Gói, Cổ Bẻ Vải</label>';
-    h += '<input type="number" id="_bpePosPackaging" class="form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + (r.pos_packaging || '') + '">';
-    h += '</div>';
-    h += '</div>';
-
-    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">';
-    h += '<div>';
-    h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">Vị Trí Khác</label>';
-    h += '<input type="number" id="_bpePosOther" class="form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + (parseInt(r.pos_other) || '') + '">';
-    h += '</div>';
+    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">';
+    (window._bpePositions || []).forEach(function(pos) {
+        var val = r[pos.key_code] !== undefined && r[pos.key_code] !== null ? r[pos.key_code] : '';
+        h += '<div>';
+        h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">' + pos.display_name + '</label>';
+        h += '<input type="number" data-key="' + pos.key_code + '" class="_bpePosInput form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + val + '">';
+        h += '</div>';
+    });
     h += '<div>';
     h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">Ghi Chú Ép</label>';
     h += '<textarea id="_bpeReportNotes" class="form-control" style="width:100%; height:38px; resize:none;" placeholder="Nhập ghi chú...">' + (r.notes || '') + '</textarea>';
@@ -992,14 +971,13 @@ function _bpeCloseReportModal() {
 }
 
 function _bpeUpdateReportTotal() {
-    var chest = Number(document.getElementById('_bpePosChest').value) || 0;
-    var back = Number(document.getElementById('_bpePosBack').value) || 0;
-    var prot = Number(document.getElementById('_bpePosProtective').value) || 0;
-    var pack = Number(document.getElementById('_bpePosPackaging').value) || 0;
-    var other = Number(document.getElementById('_bpePosOther').value) || 0;
-
-    var sum = chest + back + prot + pack + other;
-    document.getElementById('_bpeReportQty').textContent = sum;
+    var inputs = document.querySelectorAll('._bpePosInput');
+    var sum = 0;
+    inputs.forEach(function(input) {
+        sum += (Number(input.value) || 0);
+    });
+    var rQty = document.getElementById('_bpeReportQty');
+    if (rQty) rQty.textContent = sum;
 }
 
 function _bpeOnImagesSelect(e) {
@@ -1068,35 +1046,55 @@ function _bpeValidateFieldMultiple(val, name, orderQty, maxSubItems) {
 }
 
 async function _bpeSubmitReport(id) {
-    var chest = Number(document.getElementById('_bpePosChest').value) || 0;
-    var back = Number(document.getElementById('_bpePosBack').value) || 0;
-    var prot = Number(document.getElementById('_bpePosProtective').value) || 0;
-    var pack = Number(document.getElementById('_bpePosPackaging').value) || 0;
-    var otherVal = Number(document.getElementById('_bpePosOther').value) || 0;
-    var notes = document.getElementById('_bpeReportNotes').value;
+    var notes = document.getElementById('_bpeReportNotes') ? document.getElementById('_bpeReportNotes').value : '';
 
     var r = (_bpe.fullRecords || []).find(function(x) { return x.id === id; });
     var orderQty = r ? r.order_quantity : 9999;
 
-    if (chest <= 0 && back <= 0 && prot <= 0 && pack <= 0 && otherVal <= 0) {
+    var payload = {
+        press_images: JSON.stringify(window._bpeReportImages),
+        notes: notes
+    };
+
+    var total = 0;
+    var inputs = document.querySelectorAll('._bpePosInput');
+    
+    var hasQty = false;
+    var validationError = null;
+
+    inputs.forEach(function(input) {
+        var key = input.getAttribute('data-key');
+        var val = parseInt(input.value) || 0;
+        payload[key] = val;
+        total += val;
+        
+        if (val > 0) {
+            hasQty = true;
+            var pos = (window._bpePositions || []).find(function(p) { return p.key_code === key; });
+            var maxMultiplier = 5;
+            if (key === 'pos_chest_arm') maxMultiplier = 4;
+            else if (key === 'pos_back_belly') maxMultiplier = 5;
+            else if (key === 'pos_protective') maxMultiplier = 3;
+            else if (key === 'pos_packaging') maxMultiplier = 2;
+
+            var err = _bpeValidateFieldMultiple(val, pos ? pos.display_name : 'Chi tiết', orderQty, maxMultiplier);
+            if (err && !validationError) {
+                validationError = err;
+            }
+        }
+    });
+
+    if (!hasQty) {
         showToast('⚠️ Bạn phải nhập số lượng cho ít nhất 1 vị trí ép!', 'error');
         return;
     }
 
-    var errChest = _bpeValidateFieldMultiple(chest, 'Ngực, Tay, Tạp Dề, Vải Mũ', orderQty, 4);
-    if (errChest) { showToast('⚠️ ' + errChest, 'error'); return; }
+    if (validationError) {
+        showToast('⚠️ ' + validationError, 'error');
+        return;
+    }
 
-    var errBack = _bpeValidateFieldMultiple(back, 'Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn', orderQty, 5);
-    if (errBack) { showToast('⚠️ ' + errBack, 'error'); return; }
-
-    var errProt = _bpeValidateFieldMultiple(prot, 'Bảo Hộ, Bếp, Sơ Mi', orderQty, 3);
-    if (errProt) { showToast('⚠️ ' + errProt, 'error'); return; }
-
-    var errPack = _bpeValidateFieldMultiple(pack, 'Đóng Gói, Cổ Bẻ Vải', orderQty, 2);
-    if (errPack) { showToast('⚠️ ' + errPack, 'error'); return; }
-
-    var errOther = _bpeValidateFieldMultiple(otherVal, 'Vị Trí Khác', orderQty, 5);
-    if (errOther) { showToast('⚠️ ' + errOther, 'error'); return; }
+    payload.press_quantity = total;
 
     if (!window._bpeReportImages || window._bpeReportImages.length === 0) {
         showToast('⚠️ Bạn phải chọn/dán ít nhất 1 hình ảnh ép!', 'error');
@@ -1109,20 +1107,8 @@ async function _bpeSubmitReport(id) {
         btn.textContent = '⏳ Đang lưu...';
     }
 
-    var qty = chest + back + prot + pack + otherVal;
-
     try {
-        await apiCall('/api/pressing/records/' + id, 'PUT', {
-            press_quantity: qty,
-            pos_chest_arm: chest,
-            pos_back_belly: back,
-            pos_protective: prot,
-            pos_packaging: pack,
-            pos_other: otherVal ? otherVal.toString() : '',
-            press_images: JSON.stringify(window._bpeReportImages),
-            notes: notes
-        });
-
+        await apiCall('/api/pressing/records/' + id, 'PUT', payload);
         await apiCall('/api/pressing/toggle/' + id, 'POST', { action: 'report' });
         
         showToast('✅ Đã báo cáo thành công');
@@ -1184,11 +1170,10 @@ function _bpeOpenDetail(recordId, orderItemId) {
     // Detailed positions
     h += '<div class="bpc-detail-card" style="border-left: 4px solid #6366f1;">';
     h += '<div class="bpc-detail-section-title">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👕 Ngực, Tay, Tạp Dề, Vải Mũ</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_chest_arm || 0) + ' sp</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧥 Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_back_belly || 0) + ' sp</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🛡️ Bảo Hộ, Bếp, Sơ Mi</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_protective || 0) + ' sp</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 Đóng Gói, Cổ Bẻ Vải</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_packaging || 0) + ' sp</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📍 Vị Trí Khác</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_other || 0) + ' sp</span></div>';
+    (window._bpePositions || []).forEach(function(pos) {
+        var val = r[pos.key_code] || 0;
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">' + pos.display_name + '</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + val + ' sp</span></div>';
+    });
     h += '</div>';
 
     // Images & Notes

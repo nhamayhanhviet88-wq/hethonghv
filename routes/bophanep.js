@@ -54,41 +54,40 @@ module.exports = async function(fastify) {
         return false;
     }
 
-    async function calculatePresserSalary(presserId, posChest, posBack, posProt, posPack, posOther) {
-        if (!presserId) return { salary: 0, price_chest_arm: 0, price_back_belly: 0, price_protective: 0, price_packaging: 0, price_other: 0 };
+    async function calculatePresserSalary(presserId, recordBodyOrParams) {
+        const positions = await db.all(`SELECT key_code FROM pressing_positions`);
+        const pricesObj = {};
+        positions.forEach(pos => {
+            const prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                ? 'price_' + pos.key_code
+                : pos.key_code.replace('pos_', 'price_');
+            pricesObj[prcCol] = 0;
+        });
+
+        if (!presserId) return { salary: 0, ...pricesObj };
         const assignment = await db.get(`SELECT tier_id FROM user_pressing_salary_tiers WHERE user_id = $1`, [presserId]);
-        if (!assignment) return { salary: 0, price_chest_arm: 0, price_back_belly: 0, price_protective: 0, price_packaging: 0, price_other: 0 };
-        const tier = await db.get(`
-            SELECT price_chest_arm, price_back_belly, price_protective, price_packaging, price_other
-            FROM pressing_salary_tiers WHERE id = $1
-        `, [assignment.tier_id]);
-        if (!tier) return { salary: 0, price_chest_arm: 0, price_back_belly: 0, price_protective: 0, price_packaging: 0, price_other: 0 };
+        if (!assignment) return { salary: 0, ...pricesObj };
 
-        const chestPrice = Number(tier.price_chest_arm) || 0;
-        const backPrice = Number(tier.price_back_belly) || 0;
-        const protPrice = Number(tier.price_protective) || 0;
-        const packPrice = Number(tier.price_packaging) || 0;
-        const otherPrice = Number(tier.price_other) || 0;
+        const tier = await db.get(`SELECT * FROM pressing_salary_tiers WHERE id = $1`, [assignment.tier_id]);
+        if (!tier) return { salary: 0, ...pricesObj };
 
-        const chestQty = Number(posChest) || 0;
-        const backQty = Number(posBack) || 0;
-        const protQty = Number(posProt) || 0;
-        const packQty = Number(posPack) || 0;
-        const otherQty = Number(posOther) || 0;
+        let totalSalary = 0;
+        positions.forEach(pos => {
+            const qtyCol = pos.key_code;
+            const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                ? 'price_' + qtyCol
+                : qtyCol.replace('pos_', 'price_');
+            
+            const price = Number(tier[prcCol]) || 0;
+            pricesObj[prcCol] = price;
 
-        const totalSalary = (chestQty * chestPrice) +
-                            (backQty * backPrice) +
-                            (protQty * protPrice) +
-                            (packQty * packPrice) +
-                            (otherQty * otherPrice);
+            const qty = Number(recordBodyOrParams[qtyCol]) || 0;
+            totalSalary += qty * price;
+        });
 
-        return { 
+        return {
             salary: totalSalary,
-            price_chest_arm: chestPrice,
-            price_back_belly: backPrice,
-            price_protective: protPrice,
-            price_packaging: packPrice,
-            price_other: otherPrice
+            ...pricesObj
         };
     }
 
@@ -303,14 +302,53 @@ module.exports = async function(fastify) {
     // ========== CREATE ==========
     fastify.post('/api/pressing/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body || {}, now = vnNow();
-        const r = await db.get(`INSERT INTO pressing_records (dht_order_id,press_date,presser_id,product_name,cskh_name,
-            order_quantity,press_quantity,press_salary,pos_chest_arm,pos_back_belly,pos_protective,pos_packaging,pos_other,
-            press_images,notes,created_by,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
-            [b.dht_order_id||null, b.press_date||null, b.presser_id||null, b.product_name||null, b.cskh_name||null,
-             Number(b.order_quantity)||0, Number(b.press_quantity)||0, Number(b.press_salary)||0,
-             Number(b.pos_chest_arm)||0, Number(b.pos_back_belly)||0, Number(b.pos_protective)||0,
-             Number(b.pos_packaging)||0, b.pos_other||null, b.press_images||'[]', b.notes||null, req.user.id, now]);
+        const positions = await db.all(`SELECT key_code FROM pressing_positions`);
+        const salInfo = await calculatePresserSalary(b.presser_id, b);
+
+        const columns = [
+            'dht_order_id', 'press_date', 'presser_id', 'product_name', 'cskh_name',
+            'order_quantity', 'press_quantity', 'press_salary', 'salary',
+            'press_images', 'notes', 'created_by', 'created_at'
+        ];
+        const values = [
+            b.dht_order_id || null,
+            b.press_date || null,
+            b.presser_id || null,
+            b.product_name || null,
+            b.cskh_name || null,
+            Number(b.order_quantity) || 0,
+            Number(b.press_quantity) || 0,
+            Number(salInfo.salary) || 0,
+            Number(salInfo.salary) || 0,
+            b.press_images || '[]',
+            b.notes || null,
+            req.user.id,
+            now
+        ];
+        const placeholders = columns.map((_, idx) => `$${idx + 1}`);
+
+        positions.forEach(pos => {
+            const qtyCol = pos.key_code;
+            const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                ? 'price_' + qtyCol
+                : qtyCol.replace('pos_', 'price_');
+
+            columns.push(qtyCol);
+            values.push(b[qtyCol] !== undefined ? Number(b[qtyCol]) : 0);
+            placeholders.push(`$${columns.length}`);
+
+            columns.push(prcCol);
+            values.push(Number(salInfo[prcCol]) || 0);
+            placeholders.push(`$${columns.length}`);
+        });
+
+        const sql = `
+            INSERT INTO pressing_records (${columns.join(', ')})
+            VALUES (${placeholders.join(', ')})
+            RETURNING id
+        `;
+        const r = await db.get(sql, values);
+
         await db.run(`INSERT INTO pressing_history (pressing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', 'Tạo đơn ép mới', req.user.id, now]);
         return { success: true, id: r.id };
@@ -370,50 +408,88 @@ module.exports = async function(fastify) {
         `, [rec.order_item_id, rec.material_name, rec.fabric_color]);
         const latestQty = (latestCut && latestCut.cut_qty) ? latestCut.cut_qty : rec.order_quantity;
 
+        const positions = await db.all(`SELECT key_code FROM pressing_positions`);
+
         let calculatedSalary = rec.press_salary;
-        let pricesObj = {
-            price_chest_arm: rec.price_chest_arm || 0,
-            price_back_belly: rec.price_back_belly || 0,
-            price_protective: rec.price_protective || 0,
-            price_packaging: rec.price_packaging || 0,
-            price_other: rec.price_other || 0
-        };
+        let pricesObj = {};
+        positions.forEach(pos => {
+            const prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                ? 'price_' + pos.key_code
+                : pos.key_code.replace('pos_', 'price_');
+            pricesObj[prcCol] = rec[prcCol] || 0;
+        });
 
         if (b.press_salary === undefined) {
             const presserId = b.presser_id !== undefined ? b.presser_id : rec.presser_id;
-            const chest = b.pos_chest_arm !== undefined ? Number(b.pos_chest_arm) : rec.pos_chest_arm;
-            const back = b.pos_back_belly !== undefined ? Number(b.pos_back_belly) : rec.pos_back_belly;
-            const prot = b.pos_protective !== undefined ? Number(b.pos_protective) : rec.pos_protective;
-            const pack = b.pos_packaging !== undefined ? Number(b.pos_packaging) : rec.pos_packaging;
-            const otherVal = b.pos_other !== undefined ? Number(b.pos_other) : Number(rec.pos_other);
-            const salInfo = await calculatePresserSalary(presserId, chest, back, prot, pack, otherVal);
+            
+            const tempBody = {};
+            positions.forEach(pos => {
+                const qtyCol = pos.key_code;
+                tempBody[qtyCol] = b[qtyCol] !== undefined ? b[qtyCol] : rec[qtyCol];
+            });
+
+            const salInfo = await calculatePresserSalary(presserId, tempBody);
             calculatedSalary = salInfo.salary;
-            if (salInfo.price_chest_arm !== undefined) {
-                pricesObj = salInfo;
-            }
+            pricesObj = salInfo;
         } else {
             calculatedSalary = Number(b.press_salary);
+            positions.forEach(pos => {
+                const prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                    ? 'price_' + pos.key_code
+                    : pos.key_code.replace('pos_', 'price_');
+                if (b[prcCol] !== undefined) {
+                    pricesObj[prcCol] = Number(b[prcCol]) || 0;
+                }
+            });
         }
 
-        await db.run(`UPDATE pressing_records SET press_date=$1,presser_id=$2,product_name=$3,cskh_name=$4,
-            order_quantity=$5,press_quantity=$6,press_salary=$7,salary=$7,pos_chest_arm=$8,pos_back_belly=$9,
-            pos_protective=$10,pos_packaging=$11,pos_other=$12,press_images=$13,notes=$14,updated_at=$15,
-            price_chest_arm=$16, price_back_belly=$17, price_protective=$18, price_packaging=$19, price_other=$20
-            WHERE id=$21`,
-            [b.press_date!==undefined?b.press_date:rec.press_date, b.presser_id!==undefined?b.presser_id:rec.presser_id,
-             b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
-             latestQty,
-             b.press_quantity!==undefined?Number(b.press_quantity):rec.press_quantity,
-             calculatedSalary,
-             b.pos_chest_arm!==undefined?Number(b.pos_chest_arm):rec.pos_chest_arm,
-             b.pos_back_belly!==undefined?Number(b.pos_back_belly):rec.pos_back_belly,
-             b.pos_protective!==undefined?Number(b.pos_protective):rec.pos_protective,
-             b.pos_packaging!==undefined?Number(b.pos_packaging):rec.pos_packaging,
-             b.pos_other!==undefined?b.pos_other:rec.pos_other,
-             b.press_images!==undefined?b.press_images:rec.press_images,
-             b.notes!==undefined?b.notes:rec.notes, now,
-             pricesObj.price_chest_arm, pricesObj.price_back_belly, pricesObj.price_protective,
-             pricesObj.price_packaging, pricesObj.price_other, id]);
+        const setClauses = [
+            'press_date = $1',
+            'presser_id = $2',
+            'product_name = $3',
+            'cskh_name = $4',
+            'order_quantity = $5',
+            'press_quantity = $6',
+            'press_salary = $7',
+            'salary = $7',
+            'press_images = $8',
+            'notes = $9',
+            'updated_at = $10'
+        ];
+        const values = [
+            b.press_date !== undefined ? b.press_date : rec.press_date,
+            b.presser_id !== undefined ? b.presser_id : rec.presser_id,
+            b.product_name !== undefined ? b.product_name : rec.product_name,
+            b.cskh_name !== undefined ? b.cskh_name : rec.cskh_name,
+            latestQty,
+            b.press_quantity !== undefined ? Number(b.press_quantity) : rec.press_quantity,
+            calculatedSalary,
+            b.press_images !== undefined ? b.press_images : rec.press_images,
+            b.notes !== undefined ? b.notes : rec.notes,
+            now
+        ];
+
+        positions.forEach(pos => {
+            const qtyCol = pos.key_code;
+            const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                ? 'price_' + qtyCol
+                : qtyCol.replace('pos_', 'price_');
+
+            values.push(b[qtyCol] !== undefined ? Number(b[qtyCol]) : (rec[qtyCol] || 0));
+            setClauses.push(`${qtyCol} = $${values.length}`);
+
+            values.push(pricesObj[prcCol] || 0);
+            setClauses.push(`${prcCol} = $${values.length}`);
+        });
+
+        values.push(id);
+        const sql = `
+            UPDATE pressing_records
+            SET ${setClauses.join(', ')}
+            WHERE id = $${values.length}
+        `;
+        await db.run(sql, values);
+
         await db.run(`INSERT INTO pressing_history (pressing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin ép', req.user.id, now]);
         return { success: true };
@@ -422,10 +498,26 @@ module.exports = async function(fastify) {
     // ========== INLINE FIELD ==========
     fastify.patch('/api/pressing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { field, value } = req.body || {}, now = vnNow();
-        const ALLOWED = ['press_date','presser_id','product_name','cskh_name','order_quantity','press_quantity',
-            'press_salary','pos_chest_arm','pos_back_belly','pos_protective','pos_packaging','pos_other','notes'];
+        
+        const positions = await db.all(`SELECT key_code FROM pressing_positions`);
+        const ALLOWED = ['press_date','presser_id','product_name','cskh_name','order_quantity','press_quantity','press_salary','notes'];
+        const numF = ['presser_id','order_quantity','press_quantity','press_salary'];
+        const positionFields = ['presser_id'];
+
+        positions.forEach(pos => {
+            const qtyCol = pos.key_code;
+            const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                ? 'price_' + qtyCol
+                : qtyCol.replace('pos_', 'price_');
+            
+            ALLOWED.push(qtyCol);
+            ALLOWED.push(prcCol);
+            numF.push(qtyCol);
+            numF.push(prcCol);
+            positionFields.push(qtyCol);
+        });
+
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
-        const numF = ['presser_id','order_quantity','press_quantity','press_salary','pos_chest_arm','pos_back_belly','pos_protective','pos_packaging'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         await db.run(`UPDATE pressing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
         
@@ -433,37 +525,30 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE pressing_records SET salary=$1 WHERE id=$2`, [fv, id]);
         }
 
-        const positionFields = ['presser_id', 'pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'];
         if (positionFields.includes(field)) {
             const rec = await db.get('SELECT * FROM pressing_records WHERE id=$1', [id]);
             if (rec) {
-                const salInfo = await calculatePresserSalary(
-                    rec.presser_id,
-                    rec.pos_chest_arm,
-                    rec.pos_back_belly,
-                    rec.pos_protective,
-                    rec.pos_packaging,
-                    rec.pos_other
-                );
-                await db.run(`
+                const salInfo = await calculatePresserSalary(rec.presser_id, rec);
+                
+                const setClauses = ['press_salary=$1', 'salary=$1'];
+                const values = [salInfo.salary];
+
+                positions.forEach(pos => {
+                    const prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                        ? 'price_' + pos.key_code
+                        : pos.key_code.replace('pos_', 'price_');
+                    
+                    values.push(salInfo[prcCol] || 0);
+                    setClauses.push(`${prcCol}=$${values.length}`);
+                });
+
+                values.push(id);
+                const sql = `
                     UPDATE pressing_records 
-                    SET press_salary=$1, 
-                        salary=$1, 
-                        price_chest_arm=$2, 
-                        price_back_belly=$3, 
-                        price_protective=$4, 
-                        price_packaging=$5, 
-                        price_other=$6 
-                    WHERE id=$7
-                `, [
-                    salInfo.salary, 
-                    salInfo.price_chest_arm || 0,
-                    salInfo.price_back_belly || 0,
-                    salInfo.price_protective || 0,
-                    salInfo.price_packaging || 0,
-                    salInfo.price_other || 0,
-                    id
-                ]);
+                    SET ${setClauses.join(', ')} 
+                    WHERE id=$${values.length}
+                `;
+                await db.run(sql, values);
             }
         }
 

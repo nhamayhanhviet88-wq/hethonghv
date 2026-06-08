@@ -1185,16 +1185,19 @@ async function _ltcDeleteTier(id) {
 let _lteTiers = [];
 let _ltePressers = [];
 let _lteAssignments = [];
+let _ltePositions = [];
 
 async function _cdsxLoadLuongThoEp(container) {
     container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-400)">Đang tải cấu hình lương thợ ép...</div>';
     try {
         const tRes = await apiCall('/api/pressing-salary/tiers');
         const aRes = await apiCall('/api/pressing-salary/assignments');
+        const pRes = await apiCall('/api/pressing/positions');
 
         _lteTiers = tRes.tiers || [];
         _ltePressers = aRes.pressers || [];
         _lteAssignments = aRes.assignments || [];
+        _ltePositions = pRes.positions || [];
 
         _lteRenderMain(container);
     } catch(e) {
@@ -1204,8 +1207,19 @@ async function _cdsxLoadLuongThoEp(container) {
 
 function _lteRenderMain(container) {
     let h = `
-        <div style="display:grid; grid-template-columns: 480px 1fr; gap: 20px; margin-top: 10px;">
-            <!-- Left panel: Quản lý Bậc Lương -->
+        <div style="display:grid; grid-template-columns: 320px 420px 1fr; gap: 20px; margin-top: 10px;">
+            <!-- Column 1: Cấu hình Vị Trí Ép -->
+            <div style="background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+                    <span style="font-weight:800; font-size:14px; color:#0f766e;">🎯 Vị Trí Ép</span>
+                    <button onclick="_lteShowCreatePositionModal()" style="background:linear-gradient(135deg,#0f766e,#0d9488); color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">➕ Thêm Vị Trí</button>
+                </div>
+                <div id="_ltePositionsListContainer" style="flex:1; overflow-y:auto; max-height:calc(100vh - 300px); display:flex; flex-direction:column; gap:8px;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <!-- Column 2: Quản lý Bậc Lương -->
             <div style="background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
                     <span style="font-weight:800; font-size:14px; color:#1e293b;">📋 Danh Sách Bậc Lương Ép</span>
@@ -1216,7 +1230,7 @@ function _lteRenderMain(container) {
                 </div>
             </div>
 
-            <!-- Right panel: Gán Bậc Lương Nhân Viên -->
+            <!-- Column 3: Gán Bậc Lương Nhân Viên -->
             <div style="background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:12px;">
                 <div style="border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
                     <span style="font-weight:800; font-size:14px; color:#7c3aed;">👥 Gán Bậc Lương Thợ Ép</span>
@@ -1259,7 +1273,34 @@ function _lteRenderMain(container) {
         </div>
     `;
     container.innerHTML = h;
+    _lteRenderPositionsList();
     _lteRenderTiersList();
+}
+
+function _lteRenderPositionsList() {
+    const container = document.getElementById('_ltePositionsListContainer');
+    if (!container) return;
+
+    if (_ltePositions.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:11px;">Chưa có vị trí nào</div>';
+        return;
+    }
+
+    let h = '';
+    _ltePositions.forEach(p => {
+        h += `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; flex-direction:column; gap:2px; max-width: 70%;">
+                    <span style="font-weight:700; font-size:12px; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.display_name}</span>
+                    <span style="font-size:10px; color:${p.is_active ? '#0d9488' : '#94a3b8'}">${p.is_active ? '● Hoạt động' : '○ Tắt'}</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="_lteShowEditPositionModal(${p.id})" style="border:none; background:none; color:#2563eb; font-weight:700; font-size:10px; cursor:pointer;">✏️ Sửa</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = h;
 }
 
 function _lteRenderTiersList() {
@@ -1283,26 +1324,18 @@ function _lteRenderTiersList() {
                     </div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
-                    <div style="display:flex; justify-content:space-between; padding:2px 0;">
-                        <span style="color:#475569;">• Ngực, Tay, Tạp Dề Vải Mũ:</span>
-                        <span style="font-weight:700; color:#0f766e;">${Number(t.price_chest_arm).toLocaleString('vi-VN')}đ</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; padding:2px 0;">
-                        <span style="color:#475569;">• Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn:</span>
-                        <span style="font-weight:700; color:#0f766e;">${Number(t.price_back_belly).toLocaleString('vi-VN')}đ</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; padding:2px 0;">
-                        <span style="color:#475569;">• Bảo Hộ, Bếp, Sơ Mi:</span>
-                        <span style="font-weight:700; color:#0f766e;">${Number(t.price_protective).toLocaleString('vi-VN')}đ</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; padding:2px 0;">
-                        <span style="color:#475569;">• Đóng Gói, Cổ Bẻ Vải:</span>
-                        <span style="font-weight:700; color:#0f766e;">${Number(t.price_packaging).toLocaleString('vi-VN')}đ</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; padding:2px 0;">
-                        <span style="color:#475569;">• Vị Trí Khác:</span>
-                        <span style="font-weight:700; color:#0f766e;">${Number(t.price_other).toLocaleString('vi-VN')}đ</span>
-                    </div>
+                    ${_ltePositions.filter(pos => pos.is_active).map(pos => {
+                        const qtyCol = pos.key_code;
+                        const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                            ? 'price_' + qtyCol
+                            : qtyCol.replace('pos_', 'price_');
+                        return `
+                            <div style="display:flex; justify-content:space-between; padding:2px 0;">
+                                <span style="color:#475569;">• ${pos.display_name}:</span>
+                                <span style="font-weight:700; color:#0f766e;">${(Number(t[prcCol]) || 0).toLocaleString('vi-VN')}đ</span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -1359,31 +1392,27 @@ function _lteShowTierFormModal(tier = null) {
             
             <div style="border-top:1px solid #e2e8f0; padding-top:10px; display:flex; flex-direction:column; gap:10px;">
                 <span style="font-weight:700; color:#475569;">Đơn giá cho từng vị trí (đ/áo):</span>
-                
-                <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px; align-items:center;">
-                    <span style="color:#475569;">Ngực, Tay, Tạp Dề Vải Mũ:</span>
-                    <input type="number" id="_lteFormChest" value="${isEdit ? tier.price_chest_arm : 250}" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; text-align:right;">
-                </div>
+                ${_ltePositions.filter(pos => pos.is_active).map(pos => {
+                    const qtyCol = pos.key_code;
+                    const prcCol = qtyCol.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(qtyCol)
+                        ? 'price_' + qtyCol
+                        : qtyCol.replace('pos_', 'price_');
+                    
+                    let defaultVal = 0;
+                    if (pos.key_code === 'pos_chest_arm') defaultVal = 250;
+                    else if (pos.key_code === 'pos_back_belly') defaultVal = 350;
+                    else if (pos.key_code === 'pos_protective') defaultVal = 400;
+                    else if (pos.key_code === 'pos_packaging') defaultVal = 100;
+                    else if (pos.key_code === 'pos_other') defaultVal = 250;
 
-                <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px; align-items:center;">
-                    <span style="color:#475569;">Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn:</span>
-                    <input type="number" id="_lteFormBack" value="${isEdit ? tier.price_back_belly : 350}" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; text-align:right;">
-                </div>
-
-                <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px; align-items:center;">
-                    <span style="color:#475569;">Bảo Hộ, Bếp, Sơ Mi:</span>
-                    <input type="number" id="_lteFormProtective" value="${isEdit ? tier.price_protective : 400}" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; text-align:right;">
-                </div>
-
-                <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px; align-items:center;">
-                    <span style="color:#475569;">Đóng Gói, Cổ Bẻ Vải:</span>
-                    <input type="number" id="_lteFormPackaging" value="${isEdit ? tier.price_packaging : 100}" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; text-align:right;">
-                </div>
-
-                <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px; align-items:center;">
-                    <span style="color:#475569;">Vị Trí Khác:</span>
-                    <input type="number" id="_lteFormOther" value="${isEdit ? tier.price_other : 250}" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; text-align:right;">
-                </div>
+                    const val = isEdit ? (tier[prcCol] !== undefined ? tier[prcCol] : 0) : defaultVal;
+                    return `
+                        <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px; align-items:center;">
+                            <span style="color:#475569;">${pos.display_name}:</span>
+                            <input type="number" class="lte-dynamic-price-input" data-col="${prcCol}" value="${val}" style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; text-align:right; box-sizing: border-box; height: 32px;">
+                        </div>
+                    `;
+                }).join('')}
             </div>
         </div>
     `;
@@ -1396,22 +1425,17 @@ function _lteShowTierFormModal(tier = null) {
 async function _lteSubmitTierForm(id = null) {
     const isEdit = id !== null;
     const tierName = document.getElementById('_lteFormTierName')?.value?.trim();
-    const chest = document.getElementById('_lteFormChest')?.value;
-    const back = document.getElementById('_lteFormBack')?.value;
-    const protective = document.getElementById('_lteFormProtective')?.value;
-    const packaging = document.getElementById('_lteFormPackaging')?.value;
-    const other = document.getElementById('_lteFormOther')?.value;
-    
     if (!tierName) { showToast('Nhập tên bậc lương', 'error'); return; }
 
     const payload = {
-        tier_name: tierName,
-        price_chest_arm: Number(chest) || 0,
-        price_back_belly: Number(back) || 0,
-        price_protective: Number(protective) || 0,
-        price_packaging: Number(packaging) || 0,
-        price_other: Number(other) || 0
+        tier_name: tierName
     };
+
+    const inputs = document.querySelectorAll('.lte-dynamic-price-input');
+    inputs.forEach(input => {
+        const col = input.getAttribute('data-col');
+        payload[col] = Number(input.value) || 0;
+    });
 
     try {
         const url = isEdit ? `/api/pressing-salary/tiers/${id}` : '/api/pressing-salary/tiers';
@@ -1445,4 +1469,74 @@ async function _lteDeleteTier(id) {
         showToast('Lỗi kết nối', 'error');
     }
 }
+
+function _lteShowCreatePositionModal() {
+    _lteShowPositionFormModal();
+}
+
+function _lteShowEditPositionModal(id) {
+    const pos = _ltePositions.find(p => p.id === id);
+    if (!pos) return;
+    _lteShowPositionFormModal(pos);
+}
+
+function _lteShowPositionFormModal(pos = null) {
+    const isEdit = !!pos;
+    const title = isEdit ? '✏️ Chỉnh Sửa Vị Trí Ép' : '➕ Thêm Vị Trí Ép Mới';
+
+    let body = `
+        <div style="display:flex; flex-direction:column; gap:12px; font-size:12px; width:360px;">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-weight:700; color:#475569;">Tên vị trí:</label>
+                <input type="text" id="_lteFormPosName" value="${isEdit ? pos.display_name : ''}" placeholder="Ví dụ: Cổ Bẻ Phối" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; height: 38px; box-sizing: border-box;">
+            </div>
+            
+            ${isEdit ? `
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-weight:700; color:#475569;">Thứ tự hiển thị:</label>
+                    <input type="number" id="_lteFormPosOrder" value="${pos.display_order || 0}" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; height: 38px; box-sizing: border-box;">
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top: 4px;">
+                    <input type="checkbox" id="_lteFormPosActive" ${pos.is_active ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;">
+                    <label for="_lteFormPosActive" style="font-weight:700; color:#475569; cursor: pointer;">Hoạt động</label>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    let footer = `<button class="btn" onclick="${isEdit ? `_lteSubmitPositionForm(${pos.id})` : '_lteSubmitPositionForm()'}" style="background:#0f766e; color:#fff; border:none; padding:8px 20px; border-radius:6px; font-weight:700; cursor:pointer;">💾 Lưu Vị Trí</button>`;
+
+    openModal(title, body, footer);
+}
+
+async function _lteSubmitPositionForm(id = null) {
+    const isEdit = id !== null;
+    const name = document.getElementById('_lteFormPosName')?.value?.trim();
+    if (!name) { showToast('Nhập tên vị trí', 'error'); return; }
+
+    let payload = { display_name: name };
+    if (isEdit) {
+        const order = document.getElementById('_lteFormPosOrder')?.value;
+        const active = document.getElementById('_lteFormPosActive')?.checked;
+        payload.display_order = Number(order) || 0;
+        payload.is_active = !!active;
+    }
+
+    try {
+        const url = isEdit ? `/api/pressing/positions/${id}` : '/api/pressing/positions';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await apiCall(url, method, payload);
+        if (res.success) {
+            showToast(isEdit ? '✅ Đã cập nhật vị trí ép' : '✅ Đã thêm vị trí ép mới');
+            closeModal();
+            const content = document.getElementById('cdsxContent');
+            if (content) await _cdsxLoadLuongThoEp(content);
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
+    } catch(err) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
 
