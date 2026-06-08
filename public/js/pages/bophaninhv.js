@@ -44,6 +44,7 @@ function _bpiRestoreUrlState() {
             month: month ? Number(month) : null,
             operator_type: operator_type || null,
             operator_id: operator_id ? Number(operator_id) : null
+        };
         _bpi.search = '';
         _bpi.statsFilter = 'all';
         
