@@ -28,6 +28,9 @@ function renderQuanlyxuongqlxPage(content) {
 +'.qlx-icon-btn.on-mat{background:#dbeafe;border-color:#3b82f6}'
 +'.qlx-icon-btn.on-pri{background:#fef3c7;border-color:#f59e0b}'
 +'.qlx-icon-btn.on-sew{background:#ede9fe;border-color:#8b5cf6}'
++'.qlx-icon-btn.qlx-sew-ready{background:#f3e8ff;border-color:#a78bfa;animation:qlxPulseSew 2s infinite}'
++'.qlx-icon-btn.qlx-sew-not-ready{opacity:0.25;filter:grayscale(1)}'
++'@keyframes qlxPulseSew{0%,100%{box-shadow:0 0 0 0 rgba(139,92,246,0.45)}50%{box-shadow:0 0 0 6px rgba(139,92,246,0)}}'
 +'.qlx-phoi-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-right:3px;background:#dbeafe;color:#1e40af}'
 +'.qlx-priority{padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;display:inline-block}'
 +'.qlx-status-bar{display:flex;gap:2px;align-items:center}'
@@ -439,8 +442,17 @@ function _qlxRenderRows(paged) {
                     if (receivedPhieu) {
                         var hasNguoiIn = it ? it.nguoi_in : o.nguoi_in;
                         var hasNguoiMay = it ? it.nguoi_may : o.nguoi_may;
+                        var isSewingAllowed = it ? (it.is_cut_done && it.is_material_done) : (o.is_cut_done && o.is_material_done);
+                        var sewClass = '';
+                        if (hasNguoiMay) {
+                            sewClass = ' on-sew';
+                        } else if (isSewingAllowed) {
+                            sewClass = ' qlx-sew-ready';
+                        } else {
+                            sewClass = ' qlx-sew-not-ready';
+                        }
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\',' + (it ? it.id : 0) + ')" title="PC In">🖨️</button></td>';
-                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiMay ? ' on-sew' : '') + '" onclick="_qlxAssign(' + o.id + ',\'may\',' + (it ? it.id : 0) + ')" title="PC May">🪡</button></td>';
+                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="_qlxAssign(' + o.id + ',\'may\',' + (it ? it.id : 0) + ')" title="PC May">🪡</button></td>';
                     } else {
                         if (isNew) {
                             h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" onclick="_qlxReceivePhieu(' + o.id + ')" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6;font-size:9px;font-weight:700;color:#1e40af;white-space:nowrap;animation:qlxPulse 2s infinite" title="Xác nhận đã nhận Phiếu SX từ KT">📋 Nhận Phiếu SX</button></td>';

@@ -522,7 +522,10 @@ module.exports = async function(fastify) {
             } catch(e) {}
             if (!Array.isArray(pairs)) pairs = [];
 
-            const itemCuts = cuttingRows.filter(c => c.order_item_id === item.id);
+            const hasCuts = itemCuts.length > 0;
+            const allCutDone = hasCuts && itemCuts.every(c => c.is_cut_done === true);
+            item.is_cut_done = allCutDone;
+            item.is_material_done = !!(item.material_called || item.material_arrived);
 
             pairs.forEach((p, pIdx) => {
                 const pMat = (p.material_name || '').trim().toLowerCase();
@@ -543,6 +546,17 @@ module.exports = async function(fastify) {
                     };
                 }
             });
+        }
+
+        for (const o of orders) {
+            const oItems = itemMap[o.id] || [];
+            if (oItems.length > 0) {
+                o.is_cut_done = oItems.every(it => it.is_cut_done);
+                o.is_material_done = oItems.every(it => it.is_material_done);
+            } else {
+                o.is_cut_done = false;
+                o.is_material_done = !!(o.material_called || o.material_arrived);
+            }
         }
 
         return { orders, phoi_fab_status: phoiFabStatus };
