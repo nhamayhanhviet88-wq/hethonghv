@@ -1647,7 +1647,7 @@ async function _qlxAssignMay(orderId, itemId) {
         var timeText = res.item.standard_delivery_time ? ' lúc ' + res.item.standard_delivery_time : '';
         var fullDeliveryDateStr = deliveryDateStr + timeText;
 
-        html += '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;padding:20px 24px;border-radius:16px 16px 0 0;border-bottom:1px solid #1e293b">';
+        html += '<div style="background:linear-gradient(135deg,#1e1b4b,#311042);color:#ffffff;padding:20px 24px;border-radius:16px 16px 0 0;border-bottom:1px solid #311042">';
         html += '<h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff;margin-bottom:6px">🪡 Phân Công May & Bàn Giao</h3>';
         html += '<p style="margin:0;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             + '<span>Đơn: <b style="color:#f8fafc">' + res.item.order_code + '</b></span>'
@@ -1655,6 +1655,7 @@ async function _qlxAssignMay(orderId, itemId) {
             + '<span>— Hạn trả: <b style="color:#fde047">📅 ' + fullDeliveryDateStr + '</b></span>'
             + '<span>— Tiêu chuẩn: ' + priorityBadge + '</span>'
             + '</p></div>';
+
 
         html += '<div style="padding:20px 24px">';
 
@@ -1730,8 +1731,9 @@ async function _qlxAssignMay(orderId, itemId) {
 
         // Footer
         html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
-        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#475569;background-color:#ffffff;border:1px solid #cbd5e1">Hủy</button>';
-        html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#fff;background-color:#1d4ed8;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
+        html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+
         html += '</div>';
 
         html += '</div>';
