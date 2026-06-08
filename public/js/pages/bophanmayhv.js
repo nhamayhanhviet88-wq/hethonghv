@@ -700,31 +700,18 @@ async function _bpmShowHandoverModal(recordId) {
         // 4. Handover Teams Selection Section
         html += '    <div>';
         html += '      <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">';
-        html += '        <span>🪡 BÀN GIAO CHO TEAM MAY:</span>';
+        html += '        <span>🪡 BÀN GIAO CHO TEAM MAY (bắt buộc):</span>';
         html += '      </div>';
 
         html += '      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px;">';
         
-        var noneActive = !currentTeamId;
-        html += '        <div class="bpm-team-card' + (noneActive ? ' active' : '') + '" onclick="_bpmSelectTeam(null)" id="team_card_none" style="padding: 12px; border-radius: 10px; border: 2px solid ' + (noneActive ? '#ef4444' : '#e2e8f0') + '; background: ' + (noneActive ? '#fef2f2' : '#fff') + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">';
-        html += '          <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + (noneActive ? '#ef4444' : '#cbd5e1') + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
-        if (noneActive) html += '            <div style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></div>';
-        html += '          </div>';
-        html += '          <div style="font-size: 12px; font-weight: 700; color: ' + (noneActive ? '#b91c1c' : '#475569') + '">❌ Chưa Bàn Giao</div>';
-        html += '        </div>';
-
         _bpm.teams.forEach(function(t) {
-            var isCurrent = String(t.id) === String(currentTeamId);
-            var activeBorder = isCurrent ? '#0d9488' : '#e2e8f0';
-            var activeBg = isCurrent ? '#f0fdf4' : '#fff';
-            var activeText = isCurrent ? '#0f766e' : '#1e293b';
-            var activeRadioBorder = isCurrent ? '#0d9488' : '#cbd5e1';
+            if (t.id === 14) return; // Skip "👥 PHÒNG MAY"
 
-            html += '        <div class="bpm-team-card' + (isCurrent ? ' active' : '') + '" onclick="_bpmSelectTeam(' + t.id + ')" id="team_card_' + t.id + '" style="padding: 12px; border-radius: 10px; border: 2px solid ' + activeBorder + '; background: ' + activeBg + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">';
-            html += '          <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + activeRadioBorder + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
-            if (isCurrent) html += '            <div style="width: 8px; height: 8px; border-radius: 50%; background: #0d9488;"></div>';
+            html += '        <div class="bpm-team-card" onclick="_bpmSelectTeam(' + t.id + ')" id="team_card_' + t.id + '" style="padding: 12px; border-radius: 10px; border: 2px solid #e2e8f0; background: #fff; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">';
+            html += '          <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
             html += '          </div>';
-            html += '          <div style="font-size: 12px; font-weight: 700; color: ' + activeText + '">👥 ' + t.name + '</div>';
+            html += '          <div style="font-size: 12px; font-weight: 700; color: #1e293b">👥 ' + t.name + '</div>';
             html += '        </div>';
         });
 
@@ -732,7 +719,7 @@ async function _bpmShowHandoverModal(recordId) {
         html += '    </div>';
 
         // 5. Actions Footer
-        html += '    <input type="hidden" id="_bpmSelectedTeamId" value="' + currentTeamId + '">';
+        html += '    <input type="hidden" id="_bpmSelectedTeamId" value="">';
         html += '    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
         html += '      <button class="btn btn-secondary" style="padding: 8px 18px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Hủy</button>';
         html += '      <button onclick="_bpmSaveHandover(' + rec.id + ')" style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: #fff; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);">💾 Lưu Bàn Giao</button>';
@@ -762,7 +749,7 @@ function _bpmSelectTeam(teamId) {
         c.style.background = '#fff';
         
         var textEl = c.querySelector('div:last-child');
-        if (textEl) textEl.style.color = c.id === 'team_card_none' ? '#475569' : '#1e293b';
+        if (textEl) textEl.style.color = '#1e293b';
 
         var radioOuter = c.firstElementChild;
         if (radioOuter) {
@@ -771,13 +758,13 @@ function _bpmSelectTeam(teamId) {
         }
     });
 
-    var targetId = teamId ? 'team_card_' + teamId : 'team_card_none';
+    var targetId = 'team_card_' + teamId;
     var activeCard = document.getElementById(targetId);
     if (activeCard) {
         activeCard.classList.add('active');
-        var activeColor = teamId ? '#0d9488' : '#ef4444';
-        var activeBg = teamId ? '#f0fdf4' : '#fef2f2';
-        var textColor = teamId ? '#0f766e' : '#b91c1c';
+        var activeColor = '#0d9488';
+        var activeBg = '#f0fdf4';
+        var textColor = '#0f766e';
         
         activeCard.style.borderColor = activeColor;
         activeCard.style.background = activeBg;
@@ -795,14 +782,17 @@ function _bpmSelectTeam(teamId) {
 
 async function _bpmSaveHandover(recordId) {
     var teamId = document.getElementById('_bpmSelectedTeamId').value;
+    if (!teamId) {
+        showToast('⚠️ Bạn bắt buộc phải chọn Team May để bàn giao!', 'error');
+        return;
+    }
     try {
         await apiCall('/api/sewing/records/' + recordId + '/field', 'PATCH', { 
             field: 'sewing_team_id', 
-            value: teamId ? parseInt(teamId) : null 
+            value: parseInt(teamId) 
         });
 
-        var action = teamId ? 'report' : 'undo_report';
-        await apiCall('/api/sewing/toggle/' + recordId, 'POST', { action: action });
+        await apiCall('/api/sewing/toggle/' + recordId, 'POST', { action: 'report' });
 
         var overlay = document.getElementById('_bpmHandoverOverlay'); if (overlay) overlay.remove();
         showToast('✅ Đã bàn giao đơn hàng');
