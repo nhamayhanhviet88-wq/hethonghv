@@ -26,7 +26,7 @@ function renderBillnhaphangPage(content){
     content.innerHTML='<div class="bnh-wrap"><div class="bnh-sb" id="bnhSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bnh-main">'
     +'<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:6px;flex:1;justify-content:center;flex-wrap:nowrap;overflow-x:auto"></div><button id="bnhFabBtn" class="bnh-fab-btn" style="display:none" onclick="_bnhOpenFabric()">🧵 Nhập Vải</button><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bnhTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">Duyệt</th><th style="text-align:center">TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>NV Nhập</th><th>Chất Liệu - Màu Vải</th><th style="text-align:center">Số Cây Vải</th><th style="text-align:center">SL Nhập</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
+    +'<th style="text-align:center">STT</th><th style="text-align:center">Duyệt</th><th style="text-align:center">TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>Chất Liệu - Màu Vải</th><th style="text-align:center">Ảnh Bill</th><th style="text-align:center">Số Cây Vải</th><th style="text-align:center">SL Nhập</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bnhTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bnhSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bnh.search=document.getElementById('bnhSearch').value||'';_bnhRender();},300);});
     _bnhLoadAll();
@@ -135,27 +135,52 @@ function _bnhRender(){
 
         var paidCellHtml = '';
         if (Number(r.paid) > 0) {
-            paidCellHtml = '<td style="text-align:right;color:#059669;font-weight:700;cursor:pointer;text-decoration:underline dashed" onclick="event.stopPropagation();_bnhShowPaymentHistoryModal(' + r.id + ')" title="Xem chi tiết lịch sử thanh toán">' + _bnhFM(r.paid) + '</td>';
+            paidCellHtml = '<td style="text-align:right;color:#059669;font-weight:700;cursor:pointer;text-decoration:underline dashed;vertical-align:middle" onclick="event.stopPropagation();_bnhShowPaymentHistoryModal(' + r.id + ')" title="Xem chi tiết lịch sử thanh toán">' + _bnhFM(r.paid) + '</td>';
         } else {
-            paidCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600">' + _bnhFM(r.paid) + '</td>';
+            paidCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">' + _bnhFM(r.paid) + '</td>';
         }
 
-        return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center">'+duyetHtml+'</td>'
-        +'<td style="text-align:center">'+payHtml+'</td>'
-        +'<td style="font-size:10px">'+_bnhFD(r.import_date)+'</td>'
-        +'<td style="font-size:10px;color:' + _bnhGetSourceColor(r.source_name) + ';font-weight:700">'+(r.source_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.importer_name||'—')+'</td>'
-        +'<td style="font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis">'+badgeHtml+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#4f46e5">'+_bnhFM(info.trees)+'</td>'
-        +'<td style="text-align:center;font-weight:600;color:#7c3aed;font-size:10px">'+info.qty+'</td>'
-        +'<td style="text-align:right;font-weight:600">'+_bnhFM(r.cost)+'</td>'
-        +'<td style="text-align:right;color:#f59e0b;font-weight:600">'+_bnhFM(r.refund)+'</td>'
-        +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_bnhFM(r.total_amount)+'</td>'
+        var importTimeStr = '';
+        if (r.created_at) {
+            var dObj = new Date(r.created_at);
+            var utc = dObj.getTime() + (dObj.getTimezoneOffset() * 60000);
+            var vnTime = new Date(utc + (3600000 * 7));
+            var hh = String(vnTime.getHours()).padStart(2, '0');
+            var mi = String(vnTime.getMinutes()).padStart(2, '0');
+            var dd = String(vnTime.getDate()).padStart(2, '0');
+            var mm = String(vnTime.getMonth() + 1).padStart(2, '0');
+            var yyyy = vnTime.getFullYear();
+            importTimeStr = hh + ':' + mi + ' ' + dd + '/' + mm + '/' + yyyy;
+        } else if (r.import_date) {
+            var p = r.import_date.split('T')[0].split('-');
+            importTimeStr = p[2] + '/' + p[1] + '/' + p[0];
+        } else {
+            importTimeStr = '—';
+        }
+
+        var imgHtml = '';
+        if (r.bill_image_url) {
+            imgHtml = '<img src="' + r.bill_image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;transition:transform .15s" onclick="event.stopPropagation();window.open(this.src)" title="Click để xem ảnh gốc" onmouseover="this.style.transform=\'scale(1.15)\'" onmouseout="this.style.transform=\'none\'">';
+        } else {
+            imgHtml = '<span style="color:#94a3b8">—</span>';
+        }
+
+        return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">'+(i+1)+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+duyetHtml+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+payHtml+'</td>'
+        +'<td style="font-size:10px;vertical-align:middle"><div style="font-weight:600;color:#1e293b">'+importTimeStr+'</div><div style="font-size:9px;color:#0d9488;font-weight:700;margin-top:2px">👤 '+(r.importer_name||'—')+'</div></td>'
+        +'<td style="font-size:10px;color:' + _bnhGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">'+(r.source_name||'—')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+badgeHtml+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+imgHtml+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#4f46e5;vertical-align:middle">'+_bnhFM(info.trees)+'</td>'
+        +'<td style="text-align:center;font-weight:600;color:#7c3aed;font-size:10px;vertical-align:middle">'+info.qty+'</td>'
+        +'<td style="text-align:right;font-weight:600;vertical-align:middle">'+_bnhFM(r.cost)+'</td>'
+        +'<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">'+_bnhFM(r.refund)+'</td>'
+        +'<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">'+_bnhFM(r.total_amount)+'</td>'
         +paidCellHtml
-        +'<td style="text-align:center">'+_bnhDebt(runDebt[i])+'</td>'
-        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.cost_notes||'—')+'</td>'
-        +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
+        +'<td style="text-align:center;vertical-align:middle">'+_bnhDebt(runDebt[i])+'</td>'
+        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+(r.cost_notes||'—')+'</td>'
+        +'<td style="font-size:9px;color:#6b7280;vertical-align:middle">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bnhInfo');if(el){var src=_bnh.filter.source_id?(_bnh.sources.find(function(s){return s.id==_bnh.filter.source_id;})||{}).name||'':'Tất cả';
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">🧾 '+src+' — <span style="color:#c7d2fe;font-weight:900">'+tot+'</span> bill</div>';}
     var sc=document.getElementById('bnhStats');if(sc){
