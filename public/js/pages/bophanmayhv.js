@@ -58,6 +58,21 @@ function _bpmRenderSb(){
     var totActive = !f.year && !f.month && !f.sewer_id && !f.contractor_id && !f.status;
     h += '<div class="bpm-sb-total' + (totActive ? ' active' : '') + '" onclick="_bpmFilter()"><span>📦 Tổng đơn may</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
 
+    var unassignedCount = 0;
+    if (t.tree) {
+        t.tree.forEach(function(yr) {
+            if (yr.sewers) {
+                yr.sewers.forEach(function(s) {
+                    if (!s.is_contractor && !s.is_team && !s.id) {
+                        unassignedCount += (s.total || 0);
+                    }
+                });
+            }
+        });
+    }
+    var unassignedActive = !f.year && !f.month && f.sewer_id === 'none' && !f.contractor_id && !f.status;
+    h += '<div class="bpm-sb-total' + (unassignedActive ? ' active' : '') + '" onclick="_bpmFilter(null, null, \'none\', null)"><span>👤 Chưa phân công</span><span style="font-size:16px">' + unassignedCount + '</span></div>';
+
     if (t.tree) {
         t.tree.forEach(function(yr) {
             if (yr.year === 2025) return;
@@ -83,6 +98,7 @@ function _bpmRenderSb(){
                 h += '</div>';
 
                 yr.sewers.forEach(function(s) {
+                    if (!s.is_contractor && !s.is_team && !s.id) return;
                     var sKey = 's' + yr.year + '_' + (s.is_contractor ? 'c' : 'i') + '_' + (s.id || 0);
                     var sOpen = !!_bpmOpen[sKey];
                     var isCurrentSewer = !s.is_contractor && f.sewer_id == s.id;
@@ -177,7 +193,7 @@ function _bpmRender(){
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
-    var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.status==='incomplete')parts.push('⏳ Chưa May Xong');if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);
+    var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.status==='incomplete')parts.push('⏳ Chưa May Xong');if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);if(_bpm.filter.sewer_id==='none')parts.push('👤 Chưa phân công');
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#99f6e4;font-weight:900">'+tot+'</span> đơn</div>';}
     var sc=document.getElementById('bpmStats');if(sc){
     var prog=all.filter(function(r){return r.is_reported&&!r.done_date;}).length,done=all.filter(function(r){return r.done_date;}).length,appr=all.filter(function(r){return r.salary_approved;}).length;

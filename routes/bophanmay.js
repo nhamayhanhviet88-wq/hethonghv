@@ -173,7 +173,13 @@ module.exports = async function(fastify) {
         }
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(month)); }
-        if (sewer_id) { where += ` AND sr.sewer_id=$${idx++}`; params.push(Number(sewer_id)); }
+        if (sewer_id) {
+            if (sewer_id === 'none') {
+                where += ` AND sr.sewer_id IS NULL AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL`;
+            } else {
+                where += ` AND sr.sewer_id=$${idx++}`; params.push(Number(sewer_id));
+            }
+        }
         if (contractor_id) { where += ` AND sr.contractor_id=$${idx++}`; params.push(Number(contractor_id)); }
         if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
         if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
