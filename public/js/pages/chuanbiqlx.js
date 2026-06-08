@@ -1811,6 +1811,12 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     var date = expectedDate !== undefined ? expectedDate : '';
     var noteText = notes !== undefined ? notes : '';
 
+    var tzToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    var yyyy = tzToday.getFullYear();
+    var mm = String(tzToday.getMonth() + 1).padStart(2, '0');
+    var dd = String(tzToday.getDate()).padStart(2, '0');
+    var minDateStr = yyyy + '-' + mm + '-' + dd;
+
     var contractors = window._qlxMayData.contractors || [];
     var contractorOpts = contractors.map(function(c) {
         var selected = String(c.id) === String(cId) ? 'selected' : '';
@@ -1831,13 +1837,14 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     html += '<div><input type="number" class="form-control may-qty" value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" oninput="_qlxAssignMayUpdateTotal()"></div>';
 
     // Target completion Date
-    html += '<div><input type="date" class="form-control may-date" value="' + date + '" style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
+    html += '<div><input type="date" class="form-control may-date" value="' + date + '" min="' + minDateStr + '" style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
 
     // Notes
     html += '<div><input type="text" class="form-control may-notes" value="' + noteText.replace(/"/g, '&quot;') + '" placeholder="Ghi chú hạn/phối..." style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
 
     // Delete button
     html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#ef4444;border:1px solid #fca5a5">🗑️</button></div>';
+
 
     var container = document.getElementById('may_assignment_rows');
     if (container) {
@@ -1899,7 +1906,16 @@ async function _qlxAssignMaySave() {
     var productName = (window._qlxMayData.item.product_name || window._qlxMayData.item.description || 'N/A');
     var patternName = window._qlxMayData.item.pattern_name || 'N/A';
 
+    var validationError = '';
+    var tzToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    var yyyy = tzToday.getFullYear();
+    var mm = String(tzToday.getMonth() + 1).padStart(2, '0');
+    var dd = String(tzToday.getDate()).padStart(2, '0');
+    var todayStr = yyyy + '-' + mm + '-' + dd;
+
     rows.forEach(function(row) {
+        if (validationError) return;
+
         var targetSelect = row.querySelector('.may-target');
         var qtyInput = row.querySelector('.may-qty');
         var dateInput = row.querySelector('.may-date');
@@ -1914,10 +1930,19 @@ async function _qlxAssignMaySave() {
         var price = isGiaCong ? pricing.processing_price : pricing.factory_price;
 
         if (qty > 0) {
+            if (!date) {
+                validationError = 'Vui lòng chọn Ngày yêu cầu trả hàng cho tất cả các bên nhận may!';
+                return;
+            }
+            if (date < todayStr) {
+                validationError = 'Ngày yêu cầu trả hàng không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
+                return;
+            }
+
             assignments.push({
                 contractor_id: isGiaCong ? parseInt(contractorId) : null,
                 quantity: qty,
-                expected_date: date || null,
+                expected_date: date,
                 notes: notes || null
             });
             totalQty += qty;
@@ -1928,6 +1953,11 @@ async function _qlxAssignMaySave() {
             }
         }
     });
+
+    if (validationError) {
+        showToast('⚠️ ' + validationError, 'error');
+        return;
+    }
 
     var cutQty = window._qlxMayData.cut_qty;
     
