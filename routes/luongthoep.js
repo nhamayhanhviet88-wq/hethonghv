@@ -12,25 +12,37 @@ module.exports = async function(fastify) {
             id              SERIAL PRIMARY KEY,
             key_code        VARCHAR(50) UNIQUE NOT NULL,
             display_name    VARCHAR(255) NOT NULL,
+            short_name      VARCHAR(100),
             is_active       BOOLEAN DEFAULT TRUE,
             display_order   INTEGER DEFAULT 0,
             created_at      TIMESTAMPTZ DEFAULT NOW(),
             updated_at      TIMESTAMPTZ DEFAULT NOW()
         )`);
 
+        // Migration: Ensure short_name column exists
+        await db.exec(`ALTER TABLE pressing_positions ADD COLUMN IF NOT EXISTS short_name VARCHAR(100)`);
+
         // Seed default positions if empty
         const posCount = await db.get(`SELECT COUNT(*)::int AS cnt FROM pressing_positions`);
         if (posCount && posCount.cnt === 0) {
             await db.run(`
-                INSERT INTO pressing_positions (key_code, display_name, display_order)
+                INSERT INTO pressing_positions (key_code, display_name, short_name, display_order)
                 VALUES 
-                  ('pos_chest_arm', 'Ngực, Tay, Tạp Dề Vải Mũ', 1),
-                  ('pos_back_belly', 'Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn', 2),
-                  ('pos_protective', 'Bảo Hộ, Bếp, Sơ Mi', 3),
-                  ('pos_packaging', 'Đóng Gói, Cổ Bẻ Vải', 4),
-                  ('pos_other', 'Vị Trí Khác', 5)
+                  ('pos_chest_arm', 'Ngực, Tay, Tạp Dề Vải Mũ', 'Ngực/Tay', 1),
+                  ('pos_back_belly', 'Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn', 'Lưng/Bụng', 2),
+                  ('pos_protective', 'Bảo Hộ, Bếp, Sơ Mi', 'BH/Bếp', 3),
+                  ('pos_packaging', 'Đóng Gói, Cổ Bẻ Vải', 'ĐG/Cổ Bẻ', 4),
+                  ('pos_other', 'Vị Trí Khác', 'VT Khác', 5)
             `);
-            console.log('[LTE] Seeded default pressing positions');
+            console.log('[LTE] Seeded default pressing positions with short names');
+        } else {
+            // Update default positions short_name if null/empty
+            await db.run(`UPDATE pressing_positions SET short_name = 'Ngực/Tay' WHERE key_code = 'pos_chest_arm' AND (short_name IS NULL OR short_name = '')`);
+            await db.run(`UPDATE pressing_positions SET short_name = 'Lưng/Bụng' WHERE key_code = 'pos_back_belly' AND (short_name IS NULL OR short_name = '')`);
+            await db.run(`UPDATE pressing_positions SET short_name = 'BH/Bếp' WHERE key_code = 'pos_protective' AND (short_name IS NULL OR short_name = '')`);
+            await db.run(`UPDATE pressing_positions SET short_name = 'ĐG/Cổ Bẻ' WHERE key_code = 'pos_packaging' AND (short_name IS NULL OR short_name = '')`);
+            await db.run(`UPDATE pressing_positions SET short_name = 'VT Khác' WHERE key_code = 'pos_other' AND (short_name IS NULL OR short_name = '')`);
+            await db.run(`UPDATE pressing_positions SET short_name = display_name WHERE short_name IS NULL OR short_name = ''`);
         }
 
         // Fetch and run ALTER TABLE statements to ensure all position columns exist dynamically
@@ -311,10 +323,11 @@ module.exports = async function(fastify) {
         if (!(await isSalaryManager(req))) {
             return reply.code(403).send({ error: 'Không có quyền cấu hình vị trí ép' });
         }
-        const { display_name } = req.body || {};
+        const { display_name, short_name } = req.body || {};
         if (!display_name || !display_name.trim()) {
             return reply.code(400).send({ error: 'Thiếu tên vị trí' });
         }
+        const trimmedShort = short_name && short_name.trim() ? short_name.trim() : display_name.trim();
 
         const maxIdRow = await db.get(`SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM pressing_positions`);
         const nextId = maxIdRow.next_id;
@@ -325,10 +338,10 @@ module.exports = async function(fastify) {
 
         const now = vnNow();
         const result = await db.get(`
-            INSERT INTO pressing_positions (key_code, display_name, display_order, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, TRUE, $4, $4)
+            INSERT INTO pressing_positions (key_code, display_name, short_name, display_order, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, TRUE, $5, $5)
             RETURNING *
-        `, [keyCode, display_name.trim(), nextOrder, now]);
+        `, [keyCode, display_name.trim(), trimmedShort, nextOrder, now]);
 
         // Alter pressing_records qty & price, and pressing_salary_tiers price
         const qtyCol = keyCode;
@@ -346,21 +359,24 @@ module.exports = async function(fastify) {
             return reply.code(403).send({ error: 'Không có quyền cấu hình vị trí ép' });
         }
         const id = Number(req.params.id);
-        const { display_name, display_order, is_active } = req.body || {};
+        const { display_name, short_name, display_order, is_active } = req.body || {};
         if (!display_name || !display_name.trim()) {
             return reply.code(400).send({ error: 'Thiếu tên vị trí' });
         }
+        const trimmedShort = short_name && short_name.trim() ? short_name.trim() : display_name.trim();
 
         const now = vnNow();
         await db.run(`
             UPDATE pressing_positions
             SET display_name = $1,
-                display_order = $2,
-                is_active = $3,
-                updated_at = $4
-            WHERE id = $5
+                short_name = $2,
+                display_order = $3,
+                is_active = $4,
+                updated_at = $5
+            WHERE id = $6
         `, [
             display_name.trim(),
+            trimmedShort,
             Number(display_order) || 0,
             is_active === undefined ? true : !!is_active,
             now,

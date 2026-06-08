@@ -1291,7 +1291,8 @@ function _lteRenderPositionsList() {
         h += `
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; flex-direction:column; gap:2px; max-width: 70%;">
-                    <span style="font-weight:700; font-size:12px; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.display_name}</span>
+                    <span style="font-weight:700; font-size:12px; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${p.display_name}">${p.display_name}</span>
+                    <span style="font-size:10px; color:#64748b;">Viết tắt: <span style="font-weight:700; color:#0f766e;">${p.short_name || '—'}</span></span>
                     <span style="font-size:10px; color:${p.is_active ? '#0d9488' : '#94a3b8'}">${p.is_active ? '● Hoạt động' : '○ Tắt'}</span>
                 </div>
                 <div style="display:flex; gap:8px;">
@@ -1491,6 +1492,11 @@ function _lteShowPositionFormModal(pos = null) {
                 <input type="text" id="_lteFormPosName" value="${isEdit ? pos.display_name : ''}" placeholder="Ví dụ: Cổ Bẻ Phối" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; height: 38px; box-sizing: border-box;">
             </div>
             
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-weight:700; color:#475569;">Tên viết tắt (Rút gọn):</label>
+                <input type="text" id="_lteFormPosShort" value="${isEdit ? (pos.short_name || '') : ''}" placeholder="Ví dụ: Cổ Bẻ" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; height: 38px; box-sizing: border-box;">
+            </div>
+            
             ${isEdit ? `
                 <div style="display:flex; flex-direction:column; gap:4px;">
                     <label style="font-weight:700; color:#475569;">Thứ tự hiển thị:</label>
@@ -1514,7 +1520,9 @@ async function _lteSubmitPositionForm(id = null) {
     const name = document.getElementById('_lteFormPosName')?.value?.trim();
     if (!name) { showToast('Nhập tên vị trí', 'error'); return; }
 
-    let payload = { display_name: name };
+    const shortName = document.getElementById('_lteFormPosShort')?.value?.trim();
+
+    let payload = { display_name: name, short_name: shortName };
     if (isEdit) {
         const order = document.getElementById('_lteFormPosOrder')?.value;
         const active = document.getElementById('_lteFormPosActive')?.checked;
