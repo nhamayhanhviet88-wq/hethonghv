@@ -147,6 +147,22 @@ try{var res=await apiCall('/api/sewing/records'+qs);_bpm.records=res.records||[]
 function _bpmFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 function _bpmFN(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN');}
 function _bpmFDT(d){if(!d)return'';try{return new Date(d).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}).replace(',','').trim();}catch(e){return d;}}
+
+function _bpmFormatOrderQty(qty, categoryName, productName) {
+    if (qty === null || qty === undefined || qty === '' || qty === '—') return '—';
+    var suffix = categoryName;
+    if (!suffix && productName) {
+        var descLower = productName.toLowerCase();
+        if (descLower.indexOf('áo gió') >= 0) suffix = 'Áo Gió';
+        else if (descLower.indexOf('áo') >= 0) suffix = 'Áo';
+        else if (descLower.indexOf('quần') >= 0) suffix = 'Quần';
+        else if (descLower.indexOf('váy') >= 0) suffix = 'Váy';
+        else if (descLower.indexOf('tạp dề') >= 0) suffix = 'Tạp Dề';
+        else if (descLower.indexOf('túi') >= 0) suffix = 'Túi';
+    }
+    var suffixStr = suffix ? (' ' + suffix) : '';
+    return qty + suffixStr;
+}
 function _bpmParseProduct(r) {
     var orderCode = r.order_code || '—';
     var phieu = 'Phiếu 1';
@@ -211,7 +227,7 @@ function _bpmRender(){
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
         +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+(r.cut_product_name||r.product_name||r.order_code||'—')+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#0d9488">'+_bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
         +'<td style="text-align:right;font-size:10px;color:#dc2626;font-weight:700">'+_bpmFN(r.checked_price)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#f59e0b">'+_bpmFN(r.salary)+'</td>'

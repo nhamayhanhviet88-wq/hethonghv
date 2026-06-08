@@ -192,6 +192,7 @@ module.exports = async function(fastify) {
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
                    u_cskh.full_name AS cskh_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id LIMIT 1) AS cut_product_name,
+                   cc.name AS category_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
             FROM sewing_records sr 
             LEFT JOIN users u ON sr.sewer_id=u.id 
@@ -200,6 +201,9 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
             LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where} ORDER BY sr.handover_date DESC NULLS LAST, sr.created_at DESC`, params);
