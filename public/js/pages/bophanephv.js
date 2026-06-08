@@ -886,8 +886,9 @@ function _bpeOpenReportModal(id) {
     var modalTitle = r.is_reported ? 'BÁO CÁO LẠI ĐƠN ÉP' : 'BÁO CÁO HOÀN THÀNH ÉP';
 
     var h = '<div class="bpc-modal-overlay" id="_bpeReportModal">';
-    h += '<div class="bpc-modal" style="width:680px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
+    h += '<div class="bpc-modal" style="width:680px; max-height:95vh; display:flex; flex-direction:column;">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🔥</div><div><div class="m-title">' + modalTitle + '</div><div class="m-sub">Mã đơn: <span id="_bpeRptOrderCode" style="font-weight:700">' + r.order_code + '</span></div></div></div>';
+    h += '<div class="bpc-modal-body" style="padding:20px 24px; overflow-y:auto; flex:1;">';
     
     // Inputs Grid
     h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">';
