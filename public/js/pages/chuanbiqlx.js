@@ -1650,11 +1650,10 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="background:linear-gradient(135deg,#1e1b4b,#311042);color:#ffffff;padding:20px 24px;border-radius:16px 16px 0 0;border-bottom:1px solid #311042">';
         html += '<h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff;margin-bottom:6px">🪡 Phân Công May & Bàn Giao</h3>';
         html += '<p style="margin:0;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            + '<span>Đơn: <b style="color:#f8fafc">' + res.item.order_code + '</b></span>'
+            + '<span>Mã đơn: <b style="color:#f8fafc">' + res.item.order_code + '</b></span>'
             + '<span>— Rập: <b style="color:#f8fafc">' + (res.item.pattern_name || 'N/A') + '</b></span>'
-            + '<span>— Hạn trả: <b style="color:#fde047">📅 ' + fullDeliveryDateStr + '</b></span>'
-            + '<span>— Tiêu chuẩn: ' + priorityBadge + '</span>'
             + '</p></div>';
+
 
 
         html += '<div style="padding:20px 24px">';
