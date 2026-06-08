@@ -1130,6 +1130,8 @@ async function _qlxAssign(orderId, type, itemId) {
 
     // Special modal for 'in' type
     if (type === 'in') { return _qlxAssignIn(orderId, itemId); }
+    // Special modal for 'may' type
+    if (type === 'may') { return _qlxAssignMay(orderId, itemId); }
 
     var ord = _qlx.orders.find(function(o) { return o.id === orderId; });
     var checkRes;
@@ -1571,4 +1573,322 @@ async function _qlxClToggleActive(id, val) {
 async function _qlxClDelete(id) {
     if (!confirm('X\u00f3a m\u1ee5c n\u00e0y?')) return;
     try { await apiCall('/api/qlx/checklist/templates/' + id, 'DELETE'); showToast('\u2705 \u0110\u00e3 x\u00f3a'); _qlxChecklistSetup(); } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ========== SPLIT SEWING ASSIGNMENT MODAL (Phân Công May Bàn Giao) ==========
+async function _qlxAssignMay(orderId, itemId) {
+    if (!itemId) {
+        showToast('Vui lòng phân công may theo từng phiếu sản phẩm cụ thể!', 'error');
+        return;
+    }
+
+    try {
+        // 1. First, check preconditions
+        var checkRes = await apiCall('/api/qlx/assign-check/' + orderId + '?type=may&item_id=' + itemId);
+        if (!checkRes.isCutDone || !checkRes.isMatDone) {
+            // Check if there is already an assignment to let them de-assign
+            var ord = _qlx.orders.find(function(o) { return o.id === orderId; });
+            var isAlreadyAssigned = false;
+            if (ord) {
+                var it = ord.items.find(function(item) { return item.id === itemId; });
+                if (it && it.nguoi_may) isAlreadyAssigned = true;
+            }
+
+            if (!isAlreadyAssigned) {
+                var warnBody = '<div style="text-align:center;padding:20px 10px">'
+                    + '<div style="font-size:48px;margin-bottom:16px">⚠️</div>'
+                    + '<h4 style="color:#dc2626;font-weight:800;margin-bottom:16px;font-size:16px">CHƯA ĐỦ ĐIỀU KIỆN PHÂN CÔNG MAY</h4>'
+                    + '<div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto;text-align:left">'
+                    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
+                    + '<span>Cắt Đơn:</span>'
+                    + (checkRes.isCutDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>')
+                    + '</div>'
+                    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
+                    + '<span>Gọi Vật Liệu:</span>'
+                    + (checkRes.isMatDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>')
+                    + '</div>'
+                    + '</div>'
+                    + '<p style="color:#64748b;font-size:11px;margin-top:16px;line-height:1.4">Vui lòng hoàn thành các công đoạn trước để có số lượng cắt xong trước khi phân công may.</p>'
+                    + '</div>';
+                var warnFooter = '<button class="btn btn-secondary" onclick="closeModal()" style="width:100%">Đồng ý</button>';
+                openModal('Cảnh Báo Điều Phối', warnBody, warnFooter);
+                return;
+            } else {
+                showToast('⚠️ Cắt hoặc vật liệu chưa xong. Bạn chỉ có thể gỡ phân công cũ (lưu danh sách trống)', 'warning');
+            }
+        }
+
+        // 2. Fetch current assignment and configuration data
+        var res = await apiCall('/api/qlx/sewing-assignment/' + itemId);
+        
+        // Store config and state globally/window
+        window._qlxMayData = {
+            orderId: orderId,
+            itemId: itemId,
+            cut_qty: res.cut_qty,
+            item: res.item,
+            contractors: res.contractors,
+            pricing: res.pricing
+        };
+
+        // Render modal
+        var html = '<div style="padding:0">';
+        // Header
+        html += '<div style="background:linear-gradient(135deg,#1e1b4b,#311042,#4a044e);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0">';
+        html += '<h3 style="margin:0;font-size:16px;font-weight:800">🪡 Phân Công May & Bàn Giao</h3>';
+        html += '<p style="margin:4px 0 0;font-size:11px;opacity:0.8">Đơn ' + res.item.order_code + ' — Rập: ' + (res.item.pattern_name || 'N/A') + '</p></div>';
+
+        html += '<div style="padding:20px 24px">';
+        
+        // Product Info
+        var prodLabel = (res.item.product_name || res.item.description || 'N/A');
+        html += '<div style="margin-bottom:16px; display:grid; grid-template-columns: 2fr 1fr; gap:12px">';
+        html += '<div><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">MẶT HÀNG</label>';
+        html += '<input type="text" value="' + prodLabel.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
+        
+        html += '<div><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">SL CẮT XONG</label>';
+        html += '<input type="text" value="' + res.cut_qty + ' cái" readonly style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#059669;background:#f0fdf4;text-align:center;cursor:not-allowed"></div>';
+        html += '</div>';
+
+        // Pricing Info Banner
+        var factoryPriceText = res.pricing.factory_price > 0 ? (res.pricing.factory_price.toLocaleString('vi-VN') + 'đ') : '🔴 Chưa thiết lập';
+        var processingPriceText = res.pricing.processing_price > 0 ? (res.pricing.processing_price.toLocaleString('vi-VN') + 'đ') : '🔴 Chưa thiết lập';
+        
+        html += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px">';
+        html += '<span>💵 Đơn giá May nhà: <b style="color:#1e293b">' + factoryPriceText + '</b></span>';
+        html += '<span>💵 Đơn giá Gia công: <b style="color:#1e293b">' + processingPriceText + '</b></span>';
+        html += '</div>';
+
+        // Assignment summary & validation
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
+        html += '<label style="font-size:11px;font-weight:800;color:#475569;margin:0">PHÂN BỔ CHI TIẾT</label>';
+        html += '<div style="display:flex;align-items:center;gap:8px">';
+        html += '<span style="font-size:12px;font-weight:600;color:#64748b">Tổng đã chia: <b id="may_assign_total_qty" style="color:#0f172a">0</b> / ' + res.cut_qty + '</span>';
+        html += '<span id="may_assign_status_badge" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">Chưa khớp</span>';
+        html += '</div></div>';
+
+        // Assignment Table/List
+        html += '<div style="max-height:30vh;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc;margin-bottom:12px">';
+        html += '<div id="may_assignment_rows" style="display:flex;flex-direction:column;gap:10px"></div>';
+        html += '</div>';
+
+        // Add button
+        html += '<div style="text-align:right;margin-bottom:16px">';
+        html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px">➕ Thêm bên nhận may</button>';
+        html += '</div>';
+
+        html += '</div>'; // padding-24
+
+        // Footer
+        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
+        html += '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>';
+        html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+        html += '</div>';
+
+        html += '</div>';
+
+        openModal('Phân Công May', html);
+
+        // Populate existing assignments or add one default row
+        if (window._qlxMayPendingRows && window._qlxMayPendingRows.length > 0) {
+            // Restore from pending (reopened modal after price warn)
+            window._qlxMayPendingRows.forEach(function(row) {
+                _qlxAssignMayAddRow(row.contractor_id, row.quantity, row.expected_date, row.notes);
+            });
+            window._qlxMayPendingRows = null;
+        } else if (res.assignments && res.assignments.length > 0) {
+            res.assignments.forEach(function(a) {
+                var formattedDate = a.expected_date ? a.expected_date.split('T')[0] : '';
+                _qlxAssignMayAddRow(a.contractor_id, a.quantity, formattedDate, a.notes);
+            });
+        } else {
+            // Default 1 row with full cut quantity and default target May Nhà
+            _qlxAssignMayAddRow('', res.cut_qty, '', '');
+        }
+
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+    }
+}
+
+function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
+    var cId = contractorId !== undefined ? contractorId : '';
+    var qty = quantity !== undefined ? quantity : '';
+    var date = expectedDate !== undefined ? expectedDate : '';
+    var noteText = notes !== undefined ? notes : '';
+
+    var contractors = window._qlxMayData.contractors || [];
+    var contractorOpts = contractors.map(function(c) {
+        var selected = String(c.id) === String(cId) ? 'selected' : '';
+        return '<option value="' + c.id + '" ' + selected + '>🏭 Gia công: ' + c.name + '</option>';
+    }).join('');
+
+    var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1.5fr auto;gap:8px;align-items:center;background:#fff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
+    
+    // Target dropdown (May Nhà / Gia Công)
+    html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto" onchange="_qlxAssignMayUpdateTotal()">';
+    html += '<option value="" ' + (cId === '' ? 'selected' : '') + '>🏠 May Nhà (Trong xưởng)</option>';
+    html += '<optgroup label="Bên Nhận Gia Công ngoài">' + contractorOpts + '</optgroup>';
+    html += '</select></div>';
+
+    // Quantity input
+    html += '<div><input type="number" class="form-control may-qty" value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto" oninput="_qlxAssignMayUpdateTotal()"></div>';
+
+    // Target completion Date
+    html += '<div><input type="date" class="form-control may-date" value="' + date + '" style="padding:6px;font-size:11px;height:auto"></div>';
+
+    // Notes
+    html += '<div><input type="text" class="form-control may-notes" value="' + noteText.replace(/"/g, '&quot;') + '" placeholder="Ghi chú hạn/phối..." style="padding:6px;font-size:11px;height:auto"></div>';
+
+    // Delete button
+    html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5">🗑️</button></div>';
+
+    html += '</div>';
+
+    var container = document.getElementById('may_assignment_rows');
+    if (container) {
+        var temp = document.createElement('div');
+        temp.innerHTML = html;
+        container.appendChild(temp.firstElementChild);
+        _qlxAssignMayUpdateTotal();
+    }
+}
+
+function _qlxAssignMayRemoveRow(btn) {
+    var row = btn.closest('.may-assign-row');
+    if (row) {
+        row.remove();
+        _qlxAssignMayUpdateTotal();
+    }
+}
+
+function _qlxAssignMayUpdateTotal() {
+    var rows = document.querySelectorAll('.may-assign-row');
+    var total = 0;
+    
+    rows.forEach(function(row) {
+        var qtyInput = row.querySelector('.may-qty');
+        var qty = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+        total += qty;
+    });
+
+    var cutQty = window._qlxMayData.cut_qty;
+    var totalSpan = document.getElementById('may_assign_total_qty');
+    if (totalSpan) {
+        totalSpan.textContent = total;
+    }
+
+    var badge = document.getElementById('may_assign_status_badge');
+    var saveBtn = document.getElementById('may_assign_save_btn');
+
+    if (badge && saveBtn) {
+        if (total === cutQty) {
+            badge.textContent = '🟢 Khớp 100%';
+            badge.style.background = '#dcfce7';
+            badge.style.color = '#15803d';
+        } else {
+            badge.textContent = '🔴 Chưa khớp';
+            badge.style.background = '#fee2e2';
+            badge.style.color = '#b91c1c';
+        }
+    }
+}
+
+async function _qlxAssignMaySave() {
+    var rows = document.querySelectorAll('.may-assign-row');
+    var assignments = [];
+    var totalQty = 0;
+    var priceCheckFailed = false;
+    var failedTargetLabel = '';
+
+    var pricing = window._qlxMayData.pricing;
+    var productName = (window._qlxMayData.item.product_name || window._qlxMayData.item.description || 'N/A');
+    var patternName = window._qlxMayData.item.pattern_name || 'N/A';
+
+    rows.forEach(function(row) {
+        var targetSelect = row.querySelector('.may-target');
+        var qtyInput = row.querySelector('.may-qty');
+        var dateInput = row.querySelector('.may-date');
+        var notesInput = row.querySelector('.may-notes');
+
+        var contractorId = targetSelect ? targetSelect.value : '';
+        var qty = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+        var date = dateInput ? dateInput.value : '';
+        var notes = notesInput ? notesInput.value : '';
+
+        var isGiaCong = contractorId !== '';
+        var price = isGiaCong ? pricing.processing_price : pricing.factory_price;
+
+        if (qty > 0) {
+            assignments.push({
+                contractor_id: isGiaCong ? parseInt(contractorId) : null,
+                quantity: qty,
+                expected_date: date || null,
+                notes: notes || null
+            });
+            totalQty += qty;
+
+            if (price <= 0) {
+                priceCheckFailed = true;
+                failedTargetLabel = isGiaCong ? 'Gia Công' : 'Trong Nhà';
+            }
+        }
+    });
+
+    var cutQty = window._qlxMayData.cut_qty;
+    
+    // Validations
+    if (assignments.length === 0) {
+        if (!confirm('Bạn có chắc chắn muốn gỡ toàn bộ phân công May của sản phẩm này?')) {
+            return;
+        }
+    } else if (totalQty !== cutQty) {
+        showToast('Tổng số lượng phân công (' + totalQty + ') phải khớp chính xác 100% với số lượng đã cắt xong (' + cutQty + ')!', 'error');
+        return;
+    }
+
+    // Pricing validation check
+    if (priceCheckFailed) {
+        // Store current form state to restore when reopening
+        window._qlxMayPendingRows = [];
+        rows.forEach(function(row) {
+            window._qlxMayPendingRows.push({
+                contractor_id: row.querySelector('.may-target').value,
+                quantity: parseInt(row.querySelector('.may-qty').value) || 0,
+                expected_date: row.querySelector('.may-date').value,
+                notes: row.querySelector('.may-notes').value
+            });
+        });
+
+        // Close and open warning popup
+        var warnBody = '<div style="text-align:center;padding:20px 10px">'
+            + '<div style="font-size:48px;margin-bottom:16px">⚠️</div>'
+            + '<h4 style="color:#dc2626;font-weight:800;margin-bottom:12px;font-size:15px">SẢN PHẨM CHƯA CÓ ĐƠN GIÁ MAY</h4>'
+            + '<p style="color:#1e293b;font-size:13px;line-height:1.5;margin-bottom:10px">Sản phẩm <b>' + productName + '</b> chưa được thiết lập Đơn Giá May <b>' + failedTargetLabel + '</b>.</p>'
+            + '<p style="color:#475569;font-size:12px;line-height:1.4;margin-bottom:16px">Vui lòng liên hệ Giám Đốc để thiết lập bảng giá cho rập <b>' + patternName + '</b> trước khi tiếp tục phân công sản xuất.</p>'
+            + '</div>';
+        
+        var warnFooter = '<button class="btn btn-secondary" onclick="_qlxAssignMayReopen()" style="width:100%">Quay lại thiết lập</button>';
+            
+        openModal('Cảnh Báo Đơn Giá May', warnBody, warnFooter);
+        return;
+    }
+
+    try {
+        await apiCall('/api/qlx/sewing-assignment/' + window._qlxMayData.itemId, 'POST', { assignments: assignments });
+        closeModal();
+        showToast('✅ Đã lưu phân công May & Bàn giao');
+        await _qlxLoadAll();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function _qlxAssignMayReopen() {
+    closeModal();
+    if (window._qlxMayData) {
+        _qlxAssignMay(window._qlxMayData.orderId, window._qlxMayData.itemId);
+    }
 }

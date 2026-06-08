@@ -137,7 +137,14 @@ function _bpmRender(){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         var sI=r.salary_approved?'💰':'⬜',sC=r.salary_approved?' on-sal':'',sA=r.salary_approved?'undo_salary':'approve_salary';
-        var nvN=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia công'):(r.sewer_name||'—');
+        var nvN = '—';
+        if (r.contractor_id) {
+            nvN = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
+        } else {
+            var badgeColor = r.sewing_team_id ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
+            var teamLabel = r.sewer_name ? '👥 ' + r.sewer_name : '❌ Chưa Phân Tổ';
+            nvN = '<span class="badge" style="' + badgeColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmAssignTeam(' + r.id + ')" title="Nhấp để phân tổ may">' + teamLabel + '</span>';
+        }
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='📸 '+ia.length;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bpmFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#0d9488;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
@@ -248,4 +255,55 @@ async function _bpmConDel(id) {
         showToast('✅ Đã xóa');
         _bpmManageContractors();
     } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bpmAssignTeam(recordId) {
+    try {
+        var res = await apiCall('/api/sewing/teams');
+        var teams = res.teams || [];
+        var rec = _bpm.records.find(function(x) { return x.id === recordId; });
+        if (!rec) return;
+
+        var currentTeamId = rec.sewing_team_id || '';
+
+        var opts = teams.map(function(t) {
+            var selected = String(t.id) === String(currentTeamId) ? 'selected' : '';
+            return '<option value="' + t.id + '" ' + selected + '>' + t.name + '</option>';
+        }).join('');
+
+        var html = '<div style="padding:20px;font-family:\'Inter\',sans-serif">';
+        html += '<h3 style="margin:0 0 16px;color:#0d9488;font-size:15px;font-weight:800">👥 Phân Tổ May</h3>';
+        
+        html += '<div style="margin-bottom:12px"><label style="font-size:10px;font-weight:800;color:#475569;display:block;margin-bottom:4px">MẶT HÀNG / ĐƠN</label>';
+        html += '<input type="text" value="' + (rec.product_name || rec.order_code || 'N/A').replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
+
+        html += '<div style="margin-bottom:20px"><label style="font-size:10px;font-weight:800;color:#475569;display:block;margin-bottom:4px">CHỌN TỔ/TEAM MAY</label>';
+        html += '<select id="_bpmAssignTeamSelect" class="form-control" style="width:100%;padding:8px 10px;border-radius:8px;font-size:12px"><option value="">-- Chưa Phân Tổ --</option>' + opts + '</select></div>';
+
+        html += '<div style="display:flex;justify-content:flex-end;gap:12px">';
+        html += '<button class="btn btn-secondary" style="padding:6px 14px;font-size:11px" onclick="document.getElementById(\'_bpmTeamOverlay\').remove()">Hủy</button>';
+        html += '<button onclick="_bpmDoAssignTeam(' + recordId + ')" style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;padding:6px 18px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer">💾 Lưu Phân Tổ</button>';
+        html += '</div></div>';
+
+        var old = document.getElementById('_bpmTeamOverlay'); if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:100px;animation:qlxFadeIn .2s;transition:opacity .25s ease';
+        ov.id = '_bpmTeamOverlay';
+        ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:380px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s">' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+    }
+}
+
+async function _bpmDoAssignTeam(recordId) {
+    var teamId = document.getElementById('_bpmAssignTeamSelect').value;
+    try {
+        await apiCall('/api/sewing/records/' + recordId + '/field', 'PATCH', { field: 'sewing_team_id', value: teamId ? parseInt(teamId) : null });
+        var overlay = document.getElementById('_bpmTeamOverlay'); if (overlay) overlay.remove();
+        showToast('✅ Đã phân tổ may');
+        await _bpmLoadAll();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
 }

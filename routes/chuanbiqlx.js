@@ -434,7 +434,14 @@ module.exports = async function(fastify) {
                            COALESCE(a_in_item_u.full_name, pc_in_item.name),
                            COALESCE(a_in_ord_u.full_name, pc_in_ord.name)
                        ) AS nguoi_in,
-                       COALESCE(a_may_item_u.full_name, a_may_ord_u.full_name) AS nguoi_may
+                       COALESCE(
+                           (SELECT string_agg(COALESCE(c.name, 'May nhà') || ' (' || sr.quantity || ')', ', ')
+                            FROM sewing_records sr
+                            LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
+                            WHERE sr.order_item_id = doi.id
+                           ),
+                           a_may_item_u.full_name, a_may_ord_u.full_name
+                       ) AS nguoi_may
                 FROM dht_order_items doi
                 -- Item-level joins
                 LEFT JOIN qlx_preparation p_item ON p_item.item_id = doi.id
@@ -1845,6 +1852,213 @@ module.exports = async function(fastify) {
 
         await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
             [orderId, 'receive_phieu', 'QLX xác nhận đã nhận Phiếu Sản Xuất', request.user.id, now]);
+
+        return { success: true };
+    });
+
+    // ========== GET SEWING ASSIGNMENT DETAIL AND PRICING ==========
+    fastify.get('/api/qlx/sewing-assignment/:itemId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const itemId = Number(request.params.itemId);
+
+        // 1. Get order item and order info
+        const item = await db.get(`
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, o.order_code
+            FROM dht_order_items doi
+            JOIN dht_orders o ON doi.dht_order_id = o.id
+            WHERE doi.id = $1
+        `, [itemId]);
+        if (!item) return reply.code(404).send({ error: 'Không tìm thấy chi tiết sản phẩm' });
+
+        // 2. Get total completed cut quantity
+        const cutQtyRow = await db.get(`
+            SELECT COALESCE(SUM(cut_quantity), 0)::int AS cut_qty
+            FROM cutting_records
+            WHERE order_item_id = $1 AND is_cut_done = true
+        `, [itemId]);
+        const cut_qty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+
+        // 3. Get existing sewing records
+        const assignments = await db.all(`
+            SELECT id, contractor_id, quantity, expected_date, notes, is_reported, salary_approved
+            FROM sewing_records
+            WHERE order_item_id = $1
+            ORDER BY id ASC
+        `, [itemId]);
+
+        // 4. Get active sewing contractors
+        const contractors = await db.all(`
+            SELECT id, name
+            FROM sewing_contractors
+            WHERE is_active = true
+            ORDER BY name ASC
+        `);
+
+        // 5. Get pricing from tsam_samples based on pattern_name
+        let pricing = { factory_price: 0, processing_price: 0 };
+        if (item.pattern_name) {
+            const tsam = await db.get(`
+                SELECT factory_price, processing_price
+                FROM tsam_samples
+                WHERE sample_code = $1 AND is_active = true
+            `, [item.pattern_name]);
+            if (tsam) {
+                pricing.factory_price = Number(tsam.factory_price) || 0;
+                pricing.processing_price = Number(tsam.processing_price) || 0;
+            }
+        }
+
+        return {
+            item,
+            cut_qty,
+            assignments,
+            contractors,
+            pricing
+        };
+    });
+
+    // ========== POST SEWING ASSIGNMENT (SPLIT / DIRECT ASSIGNMENT) ==========
+    fastify.post('/api/qlx/sewing-assignment/:itemId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const itemId = Number(request.params.itemId);
+        const { assignments } = request.body || {};
+        if (!Array.isArray(assignments)) {
+            return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
+        }
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        // 1. Fetch item and order info
+        const item = await db.get(`
+            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, o.order_code
+            FROM dht_order_items doi
+            JOIN dht_orders o ON doi.dht_order_id = o.id
+            WHERE doi.id = $1
+        `, [itemId]);
+        if (!item) return reply.code(404).send({ error: 'Không tìm thấy chi tiết sản phẩm' });
+
+        const productName = item.product_name || item.description || 'N/A';
+
+        // 2. Check if any existing sewing records are reported or salary approved
+        const lockedCheck = await db.get(`
+            SELECT COUNT(*)::int AS cnt
+            FROM sewing_records
+            WHERE order_item_id = $1 AND (is_reported = true OR salary_approved = true)
+        `, [itemId]);
+        if (lockedCheck && lockedCheck.cnt > 0) {
+            return reply.code(400).send({ error: 'Đơn may này đã có báo cáo sản lượng hoặc duyệt lương. Không thể thay đổi phân công!' });
+        }
+
+        // 3. Get total completed cut quantity
+        const cutQtyRow = await db.get(`
+            SELECT COALESCE(SUM(cut_quantity), 0)::int AS cut_qty
+            FROM cutting_records
+            WHERE order_item_id = $1 AND is_cut_done = true
+        `, [itemId]);
+        const cut_qty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+
+        if (cut_qty <= 0) {
+            return reply.code(400).send({ error: 'Sản phẩm này chưa được cắt xong. Không thể phân công May!' });
+        }
+
+        // 4. Validate total assignment quantity matches cut quantity exactly
+        let totalAssignQty = 0;
+        for (const ass of assignments) {
+            const qty = Number(ass.quantity);
+            if (isNaN(qty) || qty <= 0) {
+                return reply.code(400).send({ error: 'Số lượng phân công phải lớn hơn 0!' });
+            }
+            totalAssignQty += qty;
+        }
+
+        if (assignments.length > 0 && totalAssignQty !== cut_qty) {
+            return reply.code(400).send({ error: `Tổng số lượng phân công (${totalAssignQty}) phải khớp chính xác 100% với số lượng đã cắt xong (${cut_qty})!` });
+        }
+
+        let factoryPrice = 0;
+        let processingPrice = 0;
+        if (assignments.length > 0) {
+            // 5. Fetch pricing from tsam_samples
+            if (!item.pattern_name) {
+                return reply.code(400).send({ error: 'Phiếu chưa được thiết lập Mã rập/Mẫu áo. Vui lòng cập nhật thông tin đơn hàng trước!' });
+            }
+            const tsam = await db.get(`
+                SELECT factory_price, processing_price
+                FROM tsam_samples
+                WHERE sample_code = $1 AND is_active = true
+            `, [item.pattern_name]);
+            if (!tsam) {
+                return reply.code(400).send({ error: `Mã rập/Mẫu áo "${item.pattern_name}" chưa được khai báo trong hệ thống. Vui lòng liên hệ Giám Đốc!` });
+            }
+
+            factoryPrice = Number(tsam.factory_price) || 0;
+            processingPrice = Number(tsam.processing_price) || 0;
+
+            // 6. Validate price existence for each assignment target
+            for (const ass of assignments) {
+                const isGiaCong = !!ass.contractor_id;
+                const price = isGiaCong ? processingPrice : factoryPrice;
+                if (price <= 0) {
+                    return reply.code(400).send({
+                        error: `Sản phẩm "${productName}" (Mẫu áo: "${item.pattern_name}") chưa được thiết lập Đơn Giá May [${isGiaCong ? 'Gia công' : 'Trong nhà'}]. Vui lòng liên hệ Giám Đốc để tạo bảng giá trước khi phân công!`
+                    });
+                }
+            }
+        }
+
+        // 7. Perform save operations
+        // Delete all old sewing records for this item (verified they aren't reported/approved)
+        await db.run('DELETE FROM sewing_records WHERE order_item_id = $1', [itemId]);
+
+        // Also clean up any legacy qlx_assignments for sewing on this item
+        await db.run("DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'may'", [itemId]);
+
+        // Insert new records
+        const descParts = [];
+        for (const ass of assignments) {
+            const isGiaCong = !!ass.contractor_id;
+            const price = isGiaCong ? processingPrice : factoryPrice;
+            const sal = Number(ass.quantity) * price;
+
+            let contractorName = 'May Nhà';
+            if (isGiaCong) {
+                const cNameRow = await db.get('SELECT name FROM sewing_contractors WHERE id = $1', [Number(ass.contractor_id)]);
+                contractorName = cNameRow ? cNameRow.name : `Gia công #${ass.contractor_id}`;
+            }
+            descParts.push(`${contractorName} (${ass.quantity})`);
+
+            await db.run(`
+                INSERT INTO sewing_records (
+                    dht_order_id, order_item_id, product_name, contractor_id, quantity,
+                    base_price, salary, expected_date, notes, created_by, created_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            `, [
+                item.dht_order_id,
+                itemId,
+                productName,
+                ass.contractor_id ? Number(ass.contractor_id) : null,
+                Number(ass.quantity),
+                price,
+                sal,
+                ass.expected_date || ass.due_date || null,
+                ass.notes || null,
+                request.user.id,
+                now
+            ]);
+        }
+
+        // Write to qlx_history
+        const historyDetails = `Phân công May (bàn giao số lượng): ${descParts.join(', ')}`;
+        await db.run(`
+            INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `, [item.dht_order_id, itemId, 'assign_may', historyDetails, request.user.id, now]);
 
         return { success: true };
     });

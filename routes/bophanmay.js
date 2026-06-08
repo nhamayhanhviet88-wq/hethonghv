@@ -16,6 +16,8 @@ module.exports = async function(fastify) {
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_records (
         id SERIAL PRIMARY KEY, dht_order_id INTEGER,
+        order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
+        sewing_team_id INTEGER REFERENCES departments(id),
         is_reported BOOLEAN DEFAULT false, reported_at TIMESTAMPTZ, reported_by INTEGER REFERENCES users(id),
         error_reported BOOLEAN DEFAULT false, error_order_id INTEGER,
         salary_approved BOOLEAN DEFAULT false, salary_approved_at TIMESTAMPTZ, salary_approved_by INTEGER REFERENCES users(id),
@@ -31,6 +33,8 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewer ON sewing_records(sewer_id)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_contractor ON sewing_records(contractor_id)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_handover ON sewing_records(handover_date)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_order_item ON sewing_records(order_item_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewing_team ON sewing_records(sewing_team_id)`);
     } catch(e) { console.error('[BPM] records:', e.message); }
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_history (
@@ -85,34 +89,41 @@ module.exports = async function(fastify) {
     fastify.get('/api/sewing/tree', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isSewManager(req);
         let where = '', params = [];
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { where = ' AND sr.sewer_id=$1'; params.push(req.user.id); }
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
+            where = ' AND (sr.sewer_id=$1 OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$1))'; 
+            params.push(req.user.id); 
+        }
         
         const rows = await db.all(`
             SELECT EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))::int AS year,
                    sr.sewer_id, u.full_name AS sewer_name,
+                   sr.sewing_team_id, dt.name AS sewing_team_name,
                    sr.contractor_id, c.name AS contractor_name,
                    CASE WHEN sr.done_date IS NOT NULL THEN 1 ELSE 0 END AS is_done,
                    CASE WHEN sr.done_date IS NOT NULL THEN EXTRACT(MONTH FROM COALESCE(sr.done_date,sr.handover_date,sr.created_at))::int ELSE NULL END AS done_month,
                    COUNT(*)::int AS count
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id=u.id
+            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
             LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
             WHERE 1=1 ${where}
-            GROUP BY year, sr.sewer_id, u.full_name, sr.contractor_id, c.name, is_done, done_month
-            ORDER BY year DESC, u.full_name, c.name, done_month DESC`, params);
+            GROUP BY year, sr.sewer_id, u.full_name, sr.sewing_team_id, dt.name, sr.contractor_id, c.name, is_done, done_month
+            ORDER BY year DESC, dt.name, u.full_name, c.name, done_month DESC`, params);
 
         const total = rows.reduce((s,r) => s+r.count, 0);
         const yearMap = {};
         for (const r of rows) {
             if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, sewers: {} };
             const isContractor = !!r.contractor_id;
-            const key = isContractor ? `c_${r.contractor_id}` : `s_${r.sewer_id || 0}`;
+            const isTeam = !!r.sewing_team_id;
+            const key = isContractor ? `c_${r.contractor_id}` : (isTeam ? `t_${r.sewing_team_id}` : `s_${r.sewer_id || 0}`);
             
             if (!yearMap[r.year].sewers[key]) {
                 yearMap[r.year].sewers[key] = {
-                    id: isContractor ? r.contractor_id : r.sewer_id,
+                    id: isContractor ? r.contractor_id : (isTeam ? r.sewing_team_id : r.sewer_id),
                     is_contractor: isContractor,
-                    name: isContractor ? (r.contractor_name || 'Gia công') : (r.sewer_name || 'Chưa phân công'),
+                    is_team: isTeam,
+                    name: isContractor ? (r.contractor_name || 'Gia công') : (isTeam ? r.sewing_team_name : (r.sewer_name || 'Chưa phân công')),
                     total: 0,
                     incomplete_count: 0,
                     months: {}
@@ -153,23 +164,31 @@ module.exports = async function(fastify) {
     // ========== LIST ==========
     fastify.get('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isSewManager(req);
-        const { year, month, sewer_id, contractor_id, status, search } = req.query;
+        const { year, month, sewer_id, contractor_id, sewing_team_id, status, search } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { where += ` AND sr.sewer_id=$${idx++}`; params.push(req.user.id); }
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
+            where += ` AND (sr.sewer_id=$${idx} OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$${idx}))`; 
+            params.push(req.user.id); 
+            idx++;
+        }
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(month)); }
         if (sewer_id) { where += ` AND sr.sewer_id=$${idx++}`; params.push(Number(sewer_id)); }
         if (contractor_id) { where += ` AND sr.contractor_id=$${idx++}`; params.push(Number(contractor_id)); }
+        if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
         if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
         else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
         else if (status==='approved') where += ` AND sr.salary_approved=true`;
         else if (status==='incomplete') where += ` AND sr.done_date IS NULL`;
         if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
-            SELECT sr.*, u.full_name AS sewer_name, c.name AS contractor_name,
+            SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
-            FROM sewing_records sr LEFT JOIN users u ON sr.sewer_id=u.id LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            FROM sewing_records sr 
+            LEFT JOIN users u ON sr.sewer_id=u.id 
+            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
+            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
             LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
@@ -240,7 +259,7 @@ module.exports = async function(fastify) {
         const sal = calcSalary(qty, bp, cp);
         await db.run(`UPDATE sewing_records SET expected_date=$1,handover_date=$2,done_date=$3,sewer_id=$4,contractor_id=$5,
             product_name=$6,quantity=$7,base_price=$8,checked_price=$9,salary=$10,sewing_details=$11,
-            inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16 WHERE id=$17`,
+            inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16,sewing_team_id=$17 WHERE id=$18`,
             [b.expected_date!==undefined?b.expected_date:rec.expected_date, b.handover_date!==undefined?b.handover_date:rec.handover_date,
              b.done_date!==undefined?b.done_date:rec.done_date, b.sewer_id!==undefined?b.sewer_id:rec.sewer_id,
              b.contractor_id!==undefined?b.contractor_id:rec.contractor_id, b.product_name!==undefined?b.product_name:rec.product_name,
@@ -248,7 +267,7 @@ module.exports = async function(fastify) {
              b.inventory_notes!==undefined?b.inventory_notes:rec.inventory_notes,
              b.shared_sewing!==undefined?b.shared_sewing:rec.shared_sewing,
              b.finish_images!==undefined?b.finish_images:rec.finish_images,
-             b.notes!==undefined?b.notes:rec.notes, now, id]);
+             b.notes!==undefined?b.notes:rec.notes, now, b.sewing_team_id!==undefined?b.sewing_team_id:rec.sewing_team_id, id]);
         await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin may', req.user.id, now]);
         return { success: true, salary: sal };
@@ -257,10 +276,10 @@ module.exports = async function(fastify) {
     // ========== INLINE FIELD ==========
     fastify.patch('/api/sewing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { field, value } = req.body||{}, now = vnNow();
-        const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','product_name',
+        const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','sewing_team_id','product_name',
             'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
-        const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id'];
+        const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
         // Recalc salary if price/qty changed
@@ -272,6 +291,11 @@ module.exports = async function(fastify) {
         await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'inline_update', `${field}: ${value}`, req.user.id, now]);
         return { success: true };
+    });
+
+    // ========== TEAMS ==========
+    fastify.get('/api/sewing/teams', { preHandler: [authenticate] }, async () => {
+        return { teams: await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 OR id = 14 ORDER BY name`) };
     });
 
     // ========== UPLOAD IMAGES ==========
