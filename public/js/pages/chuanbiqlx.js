@@ -1759,10 +1759,20 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<span id="may_assign_status_badge" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">Chưa khớp</span>';
         html += '</div></div>';
 
+        // Table Headers
+        html += '<div style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1.5fr auto;gap:8px;padding:0 22px;margin-bottom:6px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">';
+        html += '<div>Phân Công May</div>';
+        html += '<div style="text-align:center">Số Lượng</div>';
+        html += '<div style="text-align:center">Ngày Trả Hàng</div>';
+        html += '<div>Lưu Ý May</div>';
+        html += '<div></div>';
+        html += '</div>';
+
         // Assignment Table/List
         html += '<div style="max-height:30vh;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc;margin-bottom:12px">';
         html += '<div id="may_assignment_rows" style="display:flex;flex-direction:column;gap:10px"></div>';
         html += '</div>';
+
 
         // Add button
         html += '<div style="text-align:right;margin-bottom:16px">';
