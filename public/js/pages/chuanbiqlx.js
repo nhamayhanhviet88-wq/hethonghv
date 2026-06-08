@@ -1876,11 +1876,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     var contractors = window._qlxMayData.contractors || [];
     var contractorOpts = contractors.map(function(c) {
         var selected = String(c.id) === String(cId) ? 'selected' : '';
-        var displayName = c.name;
-        if (!/^(gia\s*công)/i.test(displayName)) {
-            displayName = 'Gia công: ' + displayName;
-        }
-        return '<option value="' + c.id + '" ' + selected + '>🏭 ' + displayName + '</option>';
+        return '<option value="' + c.id + '" ' + selected + '>🏭 ' + c.name + '</option>';
     }).join('');
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
