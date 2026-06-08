@@ -212,7 +212,7 @@ function _bpmRender(){
         +function(){
             var pInfo = _bpmParseProduct(r);
             return '<td style="color:#1e293b;line-height:1.4">'
-            +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px">'+priBadge+'<span style="font-size:10px;font-weight:700;color:#0f766e">📦 '+pInfo.orderCode+'</span></div>'
+            +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px">'+priBadge+'<span style="font-size:10px;font-weight:700">📦 <a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+pInfo.orderCode+'</a></span></div>'
             +'<div style="font-size:10px;color:#475569;margin-bottom:3px">📄 '+pInfo.phieu+' <span style="color:#cbd5e1">|</span> 🎨 '+pInfo.phoi+'</div>'
             +'<div style="font-size:11px;font-weight:600;color:#1e293b">'+pInfo.prodName+'</div>'
             +'</td>';
