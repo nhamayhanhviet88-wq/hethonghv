@@ -522,6 +522,7 @@ module.exports = async function(fastify) {
             } catch(e) {}
             if (!Array.isArray(pairs)) pairs = [];
 
+            const itemCuts = cuttingRows.filter(c => c.order_item_id === item.id);
             const hasCuts = itemCuts.length > 0;
             const allCutDone = hasCuts && itemCuts.every(c => c.is_cut_done === true);
             item.is_cut_done = allCutDone;
