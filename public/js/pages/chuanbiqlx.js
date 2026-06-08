@@ -1818,8 +1818,51 @@ async function _qlxAssignMay(orderId, itemId) {
     }
 }
 
+function _qlxAssignMayUpdateDropdownOptions() {
+    var selects = document.querySelectorAll('.may-target');
+    var selectedValues = Array.from(selects).map(function(s) { return s.value; });
+
+    selects.forEach(function(s) {
+        var currentValue = s.value;
+        var options = s.querySelectorAll('option');
+        options.forEach(function(opt) {
+            var val = opt.value;
+            if (val !== currentValue && selectedValues.indexOf(val) !== -1) {
+                opt.disabled = true;
+            } else {
+                opt.disabled = false;
+            }
+        });
+    });
+}
+
+function _qlxAssignMayHandleTargetChange() {
+    _qlxAssignMayUpdateDropdownOptions();
+    _qlxAssignMayUpdateTotal();
+}
+
 function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
-    var cId = contractorId !== undefined ? contractorId : '';
+    var cId = contractorId;
+    if (cId === undefined) {
+        var selectedValues = Array.from(document.querySelectorAll('.may-target')).map(function(s) { return s.value; });
+        // Try '' (May Nhà) first
+        if (selectedValues.indexOf('') === -1) {
+            cId = '';
+        } else {
+            // Try contractors
+            var contractors = window._qlxMayData.contractors || [];
+            var found = '';
+            for (var i = 0; i < contractors.length; i++) {
+                var cidStr = String(contractors[i].id);
+                if (selectedValues.indexOf(cidStr) === -1) {
+                    found = cidStr;
+                    break;
+                }
+            }
+            cId = found;
+        }
+    }
+
     var qty = quantity !== undefined ? quantity : '';
     var date = expectedDate !== undefined ? expectedDate : '';
     var noteText = notes !== undefined ? notes : '';
@@ -1841,7 +1884,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,0.9fr) minmax(0,1.2fr) minmax(0,1.5fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
-    html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayUpdateTotal()">';
+    html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
     html += '<option value="" ' + (cId === '' ? 'selected' : '') + '>🏠 May Nhà (Trong xưởng)</option>';
     html += '<optgroup label="Bên Nhận Gia Công ngoài">' + contractorOpts + '</optgroup>';
     html += '</select></div>';
@@ -1865,6 +1908,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
         temp.innerHTML = html;
         container.appendChild(temp.firstElementChild);
         _qlxAssignMayUpdateTotal();
+        _qlxAssignMayUpdateDropdownOptions();
     }
 }
 
@@ -1873,6 +1917,7 @@ function _qlxAssignMayRemoveRow(btn) {
     if (row) {
         row.remove();
         _qlxAssignMayUpdateTotal();
+        _qlxAssignMayUpdateDropdownOptions();
     }
 }
 
@@ -1910,6 +1955,27 @@ function _qlxAssignMayUpdateTotal() {
 
 async function _qlxAssignMaySave() {
     var rows = document.querySelectorAll('.may-assign-row');
+    
+    // Validate duplicate targets (contractors / May Nhà)
+    var selectedContractors = new Set();
+    var hasDuplicate = false;
+    rows.forEach(function(row) {
+        var targetSelect = row.querySelector('.may-target');
+        var contractorId = targetSelect ? targetSelect.value : '';
+        var qtyInput = row.querySelector('.may-qty');
+        var qty = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+        if (qty > 0) {
+            if (selectedContractors.has(contractorId)) {
+                hasDuplicate = true;
+            }
+            selectedContractors.add(contractorId);
+        }
+    });
+    if (hasDuplicate) {
+        showToast('Mỗi bên nhận may chỉ được phân công tối đa 1 lần!', 'error');
+        return;
+    }
+
     var assignments = [];
     var totalQty = 0;
     var priceCheckFailed = false;
