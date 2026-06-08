@@ -1766,7 +1766,7 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,0.9fr) minmax(0,1.8fr) minmax(0,1.2fr) 34px;gap:8px;padding:0 10px;border:1px solid transparent;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
         html += '<div>Phân Công May</div>';
         html += '<div style="text-align:center">Số Lượng</div>';
-        html += '<div style="text-align:left">Ngày Trả Hàng <span style="color:#dc2626">*</span></div>';
+        html += '<div style="text-align:left">QLX Hẹn Ra <span style="color:#dc2626">*</span></div>';
         html += '<div>Lưu Ý May</div>';
         html += '<div></div>';
         html += '</div>';
@@ -2010,11 +2010,11 @@ async function _qlxAssignMaySave() {
 
         if (qty > 0) {
             if (!date) {
-                validationError = 'Vui lòng chọn Ngày yêu cầu trả hàng cho tất cả các bên nhận may!';
+                validationError = 'Vui lòng chọn QLX Hẹn Ra cho tất cả các bên nhận may!';
                 return;
             }
             if (date < todayStr) {
-                validationError = 'Ngày yêu cầu trả hàng không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
+                validationError = 'QLX Hẹn Ra không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
                 return;
             }
 
