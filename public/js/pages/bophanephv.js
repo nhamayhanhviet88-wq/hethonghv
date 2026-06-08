@@ -507,7 +507,17 @@ function _bpeRenderRows(paged) {
         var rI = r.is_reported ? '🔥' : '⬜', rC = r.is_reported ? ' on-rpt' : '', rA = r.is_reported ? 'undo_report' : 'report';
         var sI = r.salary_approved ? '💰' : '⬜', sC = r.salary_approved ? ' on-sal' : '', sA = r.salary_approved ? 'undo_salary' : 'approve_salary';
         var eI = r.error_reported ? '⚠️' : '⬜', eC = r.error_reported ? ' on-err' : '';
-        var imgs = '—'; try { var ia = JSON.parse(r.press_images || '[]'); if (ia.length) imgs = '📸 ' + ia.length; } catch (e) {}
+        var imgs = '—';
+        try {
+            var ia = JSON.parse(r.press_images || '[]');
+            if (ia.length) {
+                imgs = '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">';
+                ia.forEach(function(url) {
+                    imgs += '<img src="' + url + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #cbd5e1" onclick="_bpeViewImage(\'' + url.replace(/'/g, "\\'") + '\');event.stopPropagation();" />';
+                });
+                imgs += '</div>';
+            }
+        } catch (e) {}
         var upd = ''; if (r.last_update_at) { upd = _bpeFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#ea580c;font-size:9px">' + r.last_update_by + '</span>'; }
         
         var presserHtml = r.presser_name || '—';
@@ -1135,7 +1145,7 @@ function _bpeOpenDetail(recordId, orderItemId) {
         h += '<div class="bpc-modal-lbl" style="margin-bottom:8px;">📸 Hình ảnh ép thực tế:</div>';
         h += '<div style="display:flex; flex-wrap:wrap; gap:10px">';
         imgs.forEach(function(imgUrl) {
-            h += '<img src="' + imgUrl + '" class="bpe-detail-thumb" onclick="window.open(\'' + imgUrl + '\',\'_blank\')">';
+            h += '<img src="' + imgUrl + '" class="bpe-detail-thumb" onclick="_bpeViewImage(\'' + imgUrl.replace(/'/g, "\\'") + '\')">';
         });
         h += '</div>';
         h += '</div>';
@@ -1156,4 +1166,15 @@ function _bpeOpenDetail(recordId, orderItemId) {
         var m = document.getElementById('_bpeDetailModal');
         if (m) m.classList.add('show');
     });
+}
+
+function _bpeViewImage(url) {
+    var ov = document.getElementById('bpeImgViewer');
+    if (ov) ov.remove();
+    ov = document.createElement('div');
+    ov.id = 'bpeImgViewer';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer';
+    ov.onclick = function() { ov.remove(); };
+    ov.innerHTML = '<img src="' + url + '" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);object-fit:contain">';
+    document.body.appendChild(ov);
 }
