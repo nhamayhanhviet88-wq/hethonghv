@@ -147,10 +147,33 @@ try{var res=await apiCall('/api/sewing/records'+qs);_bpm.records=res.records||[]
 function _bpmFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 function _bpmFN(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN');}
 function _bpmFDT(d){if(!d)return'';try{return new Date(d).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}).replace(',','').trim();}catch(e){return d;}}
+function _bpmParseProduct(r) {
+    var orderCode = r.order_code || '—';
+    var phieu = 'Phiếu 1';
+    var phoi = 'P1';
+    var prodName = r.product_name || '—';
+    if (r.cut_product_name) {
+        var parts = r.cut_product_name.split(' — ');
+        if (parts.length >= 4) {
+            orderCode = parts[0];
+            phieu = parts[1];
+            phoi = parts[2];
+            prodName = parts.slice(3).join(' — ');
+        } else if (parts.length === 2) {
+            orderCode = parts[0];
+            prodName = parts[1];
+        } else if (parts.length === 3) {
+            orderCode = parts[0];
+            phieu = parts[1];
+            prodName = parts[2];
+        }
+    }
+    return { orderCode: orderCode, phieu: phieu, phoi: phoi, prodName: prodName };
+}
 
 function _bpmRender(){
     var all=_bpm.records.slice();
-    if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
+    if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.cut_product_name||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bpmTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="17"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
@@ -186,7 +209,14 @@ function _bpmRender(){
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+priBadge+(r.product_name||r.order_code||'—')+'</td>'
+        +function(){
+            var pInfo = _bpmParseProduct(r);
+            return '<td style="color:#1e293b;line-height:1.4">'
+            +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px">'+priBadge+'<span style="font-size:10px;font-weight:700;color:#0f766e">📦 '+pInfo.orderCode+'</span></div>'
+            +'<div style="font-size:10px;color:#475569;margin-bottom:3px">📄 '+pInfo.phieu+' <span style="color:#cbd5e1">|</span> 🎨 '+pInfo.phoi+'</div>'
+            +'<div style="font-size:11px;font-weight:600;color:#1e293b">'+pInfo.prodName+'</div>'
+            +'</td>';
+        }()
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
