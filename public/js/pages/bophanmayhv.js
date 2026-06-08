@@ -209,14 +209,7 @@ function _bpmRender(){
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
-        +function(){
-            var pInfo = _bpmParseProduct(r);
-            return '<td style="color:#1e293b;line-height:1.4">'
-            +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px">'+priBadge+'<span style="font-size:10px;font-weight:700">📦 <a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+pInfo.orderCode+'</a></span></div>'
-            +'<div style="font-size:10px;color:#475569;margin-bottom:3px">📄 '+pInfo.phieu+' <span style="color:#cbd5e1">|</span> 🎨 '+pInfo.phoi+'</div>'
-            +'<div style="font-size:11px;font-weight:600;color:#1e293b">'+pInfo.prodName+'</div>'
-            +'</td>';
-        }()
+        +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+(r.cut_product_name||r.product_name||r.order_code||'—')+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
