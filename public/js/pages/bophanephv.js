@@ -859,7 +859,7 @@ function _bpeOpenReportModal(id) {
 
     // Auto-calculated total
     h += '<div style="margin-top:16px; padding:10px; background:#fff7ed; border-radius:8px; border:1px solid #ffedd5; display:flex; justify-content:space-between; align-items:center;">';
-    h += '<span style="font-weight:700; color:#ea580c;">👉 Tổng số lượng áo ép thực tế (Tự động lấy max):</span>';
+    h += '<span style="font-weight:700; color:#ea580c;">👉 Tổng Số Lượng Ép ( tổng của tất cả các chi tiết ):</span>';
     h += '<span id="_bpeReportQty" style="font-size:18px; font-weight:900; color:#ea580c;">0</span>';
     h += '</div>';
 
@@ -928,8 +928,8 @@ function _bpeUpdateReportTotal() {
     var pack = Number(document.getElementById('_bpePosPackaging').value) || 0;
     var other = Number(document.getElementById('_bpePosOther').value) || 0;
 
-    var max = Math.max(chest, back, prot, pack, other);
-    document.getElementById('_bpeReportQty').textContent = max;
+    var sum = chest + back + prot + pack + other;
+    document.getElementById('_bpeReportQty').textContent = sum;
 }
 
 function _bpeOnImagesSelect(e) {
@@ -1039,7 +1039,7 @@ async function _bpeSubmitReport(id) {
         btn.textContent = '⏳ Đang lưu...';
     }
 
-    var qty = Math.max(chest, back, prot, pack, otherVal);
+    var qty = chest + back + prot + pack + otherVal;
 
     try {
         await apiCall('/api/pressing/records/' + id, 'PUT', {

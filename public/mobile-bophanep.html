@@ -231,7 +231,7 @@
                 </div>
 
                 <div class="mr-form-group" style="margin-bottom: 12px">
-                    <label>🔥 Tổng số lượng áo ép thực tế (Tự động lấy Max)</label>
+                    <label>🔥 Tổng Số Lượng Ép ( tổng của tất cả các chi tiết )</label>
                     <input type="number" id="mReportQty" class="mr-input" readonly style="background: rgba(255, 255, 255, 0.02); color: #10b981; font-weight: 800; cursor: not-allowed">
                 </div>
 
@@ -651,7 +651,7 @@
 
             el.innerHTML = list.map(r => {
                 const undoAction = 'undo_report';
-                const approvedBadge = r.salary_approved ? '<span class="m-badge m-badge-ok">💰 Đã duyệt lương</span>' : '<span class="m-badge m-badge-no" style="background:rgba(255,255,255,0.05);color:#94a3b8">Chờ duyệt lương</span>';
+                const approvedBadge = r.salary_approved ? '<span class="m-badge m-badge-ok">💰 Đã duyệt lương</span>' : '';
                 
                 let imagesHtml = '';
                 try {
@@ -902,8 +902,8 @@
             const pack = Number(document.getElementById('mPosPackaging').value) || 0;
             const otherVal = Number(document.getElementById('mPosOther').value) || 0;
             
-            const maxVal = Math.max(chest, back, prot, pack, otherVal);
-            document.getElementById('mReportQty').value = maxVal > 0 ? maxVal : '';
+            const sumVal = chest + back + prot + pack + otherVal;
+            document.getElementById('mReportQty').value = sumVal > 0 ? sumVal : '';
         }
 
         function mValidateFieldMultiple(val, name, orderQty, maxSubItems) {
