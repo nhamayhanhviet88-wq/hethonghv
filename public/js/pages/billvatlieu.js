@@ -90,8 +90,8 @@ function renderBillvatlieuPage(content) {
         + '<button id="bvlFabBtn" class="bvl-fab-btn" onclick="_bvlOpenMat()">📦 Nhập Vật Liệu</button>'
         + '<input id="bvlSearch" placeholder="🔍 Tìm vật liệu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bvlTable"><thead><tr style="background:var(--gray-800)">'
-        + '<th style="text-align:center;width:120px">STT - Duyệt - TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>Kho</th><th>Tên Vật Liệu</th><th style="text-align:center">Ảnh Bill</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
-        + '</tr></thead><tbody id="bvlTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        + '<th style="text-align:center;width:40px">STT</th><th style="text-align:center;width:50px">Duyệt</th><th style="text-align:center;width:50px">TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>Kho</th><th>Tên Vật Liệu</th><th style="text-align:center">Ảnh Bill</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
+        + '</tr></thead><tbody id="bvlTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
 
     var _t;
     document.getElementById('bvlSearch').addEventListener('input', function () {
@@ -305,7 +305,7 @@ function _bvlRender() {
     var tb = document.getElementById('bvlTb');
     if (!tb) return;
     if (!all.length) {
-        tb.innerHTML = '<tr><td colspan="14"><div class="empty-state"><div class="icon">📦</div><h3>Chưa có bill nhập vật liệu</h3></div></td></tr>';
+        tb.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📦</div><h3>Chưa có bill nhập vật liệu</h3></div></td></tr>';
     } else {
         var runDebt = new Array(all.length);
         var srcCumDebt = {};
@@ -445,7 +445,9 @@ function _bvlRender() {
             }
 
             return '<tr style="cursor:pointer" onclick="_bvlDetail(' + r.id + ')">'
-                + '<td style="vertical-align:middle;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-weight:700;color:#94a3b8">' + (i + 1) + '</span>' + duyetHtml + payHtml + '</div></td>'
+                + '<td style="vertical-align:middle;text-align:center;font-weight:700;color:#94a3b8">' + (i + 1) + '</td>'
+                + '<td style="vertical-align:middle;text-align:center">' + duyetHtml + '</td>'
+                + '<td style="vertical-align:middle;text-align:center">' + payHtml + '</td>'
                 + '<td style="font-size:10px;vertical-align:middle"><div style="font-weight:600;color:#1e293b">' + importTimeStr + '</div><div style="font-size:9px;color:#0d9488;font-weight:700;margin-top:2px">👤 ' + (r.importer_name || '—') + '</div></td>'
                 + '<td style="font-size:10px;color:' + _bvlGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">' + (r.source_name || '—') + '</td>'
                 + '<td style="font-size:10px;color:' + _bvlGetWarehouseColor(r.warehouse_name) + ';font-weight:700;vertical-align:middle">' + (r.warehouse_name ? '📦 ' + r.warehouse_name : '—') + '</td>'
