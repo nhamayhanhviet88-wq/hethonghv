@@ -1700,13 +1700,56 @@ async function _qlxAssignMay(orderId, itemId) {
             statusIndicator = '<span style="color:#10b981">🟢 CHUẨN</span>';
         }
 
-        html += '<div style="background:' + bannerBg + ';border:1.5px solid ' + bannerBorder + ';border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;color:' + bannerTextColor + ';font-size:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02)">';
+        // Calculate Tiến Độ
+        var progressHTML = '<span style="color:#64748b">—</span>';
+        if (res.item.expected_ship_date) {
+            var todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            todayVN.setHours(0,0,0,0);
+            
+            var shipExpected = new Date(res.item.expected_ship_date);
+            shipExpected.setHours(0,0,0,0);
+            
+            var diffDays = Math.round((todayVN.getTime() - shipExpected.getTime()) / 86400000);
+            
+            if (res.item.shipped_at || res.item.shipping_status === 'shipped') {
+                var shipActual = res.item.shipped_at ? new Date(new Date(res.item.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })) : todayVN;
+                shipActual.setHours(0,0,0,0);
+                var shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
+                if (shipDiff > 0) {
+                    progressHTML = '<span style="color:#059669;font-weight:800">⚡ Nhanh ' + shipDiff + ' ngày</span>';
+                } else if (shipDiff === 0) {
+                    progressHTML = '<span style="color:#059669;font-weight:800">✅ Đúng hạn</span>';
+                } else {
+                    progressHTML = '<span style="color:#dc2626;font-weight:800">⚠️ Trễ ' + Math.abs(shipDiff) + ' ngày</span>';
+                }
+            } else {
+                if (diffDays < 0) {
+                    progressHTML = '<span style="color:#2563eb;font-weight:800">⏳ Còn ' + Math.abs(diffDays) + ' ngày</span>';
+                } else if (diffDays === 0) {
+                    progressHTML = '<span style="color:#f59e0b;font-weight:800">📦 Hôm nay!</span>';
+                } else {
+                    progressHTML = '<span style="color:#dc2626;font-weight:800;animation:qlxBlink 1s infinite">🔥 Quá hạn ' + diffDays + ' ngày</span>';
+                }
+            }
+        }
+
+        html += '<div style="background:' + bannerBg + ';border:1.5px solid ' + bannerBorder + ';border-radius:12px;padding:14px 18px;margin-bottom:20px;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;align-items:center;color:' + bannerTextColor + ';font-size:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02)">';
+        
+        // Hạn Trả Hàng
         html += '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">📅</span>';
         html += '<div><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px">Hạn Trả Hàng</div>';
-        html += '<div style="font-size:15px;font-weight:800">' + fullDeliveryDateStr + '</div></div></div>';
+        html += '<div style="font-size:14px;font-weight:800">' + fullDeliveryDateStr + '</div></div></div>';
+        
+        // Tiến Độ
+        html += '<div style="text-align:center"><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Tiến Độ</div>';
+        html += '<div style="font-size:13px">' + progressHTML + '</div></div>';
+        
+        // Tiêu Chuẩn Đơn
         html += '<div style="text-align:right"><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Tiêu Chuẩn Đơn</div>';
         html += '<div style="font-weight:800;font-size:13px">' + statusIndicator + '</div></div>';
+        
         html += '</div>';
+
 
         // Assignment summary & validation
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
