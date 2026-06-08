@@ -313,7 +313,8 @@ async function _bpmTogSalary(id) {
     h += '<div><strong>Sản phẩm/Phối:</strong> ' + (r.cut_product_name || r.product_name || '—') + '</div>';
     h += '<div><strong>Số lượng:</strong> ' + _bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name) + '</div>';
     h += '<div><strong>Giá KTra:</strong> <span style="color:#dc2626;font-weight:700">' + _bpmFN(r.checked_price) + ' đ</span></div>';
-    h += '<div><strong>Lương Giá KTra:</strong> <span style="color:#f59e0b;font-weight:800">' + _bpmFN(r.salary) + ' đ</span></div>';
+    var calculatedSalary = Number(r.quantity || 0) * Number(r.checked_price || 0);
+    h += '<div><strong>Lương Giá KTra:</strong> <span style="color:#f59e0b;font-weight:800">' + _bpmFN(calculatedSalary) + ' đ</span></div>';
     if (r.salary_approved) {
         var formattedTime = '';
         if (r.salary_approved_at) {

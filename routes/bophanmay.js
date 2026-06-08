@@ -68,9 +68,10 @@ module.exports = async function(fastify) {
         const u = await db.get(`SELECT username, role FROM users WHERE id=$1`, [req.user.id]);
         return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
     }
-    function calcSalary(qty, base, checked) {
-        const q = Number(qty)||0, b = Number(base)||0, c = Number(checked)||0;
-        return q * (c > 0 ? c : b);
+    function calcSalary(approved, qty, base, checked) {
+        if (!approved) return 0;
+        const q = Number(qty)||0, c = Number(checked)||0;
+        return q * c;
     }
 
     // ========== CONTRACTORS CRUD ==========
@@ -224,7 +225,7 @@ module.exports = async function(fastify) {
     // ========== CREATE ==========
     fastify.post('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body||{}, now = vnNow();
-        const sal = calcSalary(b.quantity, b.base_price, b.checked_price);
+        const sal = calcSalary(false, b.quantity, b.base_price, b.checked_price);
         const r = await db.get(`INSERT INTO sewing_records (dht_order_id,expected_date,handover_date,done_date,sewer_id,contractor_id,
             product_name,quantity,base_price,checked_price,salary,sewing_details,inventory_notes,shared_sewing,finish_images,notes,created_by,created_at)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
@@ -256,11 +257,12 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Cần nhập Giá KTra trước khi tính lương!' });
             }
             const salary_note = req.body.salary_note || null;
-            await db.run(`UPDATE sewing_records SET salary_approved=true, salary_approved_at=$1, salary_approved_by=$2, salary_note=$3, updated_at=$1 WHERE id=$4`, [now, req.user.id, salary_note, id]);
+            const sal = Number(rec.quantity || 0) * Number(rec.checked_price || 0);
+            await db.run(`UPDATE sewing_records SET salary_approved=true, salary_approved_at=$1, salary_approved_by=$2, salary_note=$3, salary=$4, updated_at=$1 WHERE id=$5`, [now, req.user.id, salary_note, sal, id]);
             detail = '💰 Duyệt lương may' + (salary_note ? ': ' + salary_note : '');
         } else if (action === 'undo_salary') {
             if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Không có quyền' });
-            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, salary=0, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác duyệt lương';
         } else if (action === 'report_error') {
             await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
@@ -284,7 +286,7 @@ module.exports = async function(fastify) {
         const qty = b.quantity!==undefined ? Number(b.quantity)||0 : rec.quantity;
         const bp = b.base_price!==undefined ? Number(b.base_price)||0 : Number(rec.base_price)||0;
         const cp = b.checked_price!==undefined ? Number(b.checked_price)||0 : Number(rec.checked_price)||0;
-        const sal = calcSalary(qty, bp, cp);
+        const sal = calcSalary(rec.salary_approved, qty, bp, cp);
         await db.run(`UPDATE sewing_records SET expected_date=$1,handover_date=$2,done_date=$3,sewer_id=$4,contractor_id=$5,
             product_name=$6,quantity=$7,base_price=$8,checked_price=$9,salary=$10,sewing_details=$11,
             inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16,sewing_team_id=$17 WHERE id=$18`,
@@ -312,8 +314,8 @@ module.exports = async function(fastify) {
         await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
         // Recalc salary if price/qty changed
         if (['quantity','base_price','checked_price'].includes(field)) {
-            const rec = await db.get('SELECT quantity, base_price, checked_price FROM sewing_records WHERE id=$1', [id]);
-            if (rec) { const sal = calcSalary(rec.quantity, rec.base_price, rec.checked_price);
+            const rec = await db.get('SELECT salary_approved, quantity, base_price, checked_price FROM sewing_records WHERE id=$1', [id]);
+            if (rec) { const sal = calcSalary(rec.salary_approved, rec.quantity, rec.base_price, rec.checked_price);
                 await db.run(`UPDATE sewing_records SET salary=$1 WHERE id=$2`, [sal, id]); }
         }
         await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
