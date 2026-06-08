@@ -63,20 +63,20 @@ module.exports = async function(fastify) {
         return { contractors: await db.all(`SELECT * FROM sewing_contractors WHERE is_active=true ORDER BY display_order, name`) };
     });
     fastify.post('/api/sewing/contractors', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền tạo nhà gia công may' });
         const { name, phone, notes } = req.body || {};
         if (!name) return reply.code(400).send({ error: 'Tên bắt buộc' });
         const r = await db.get(`INSERT INTO sewing_contractors (name,phone,notes,created_by) VALUES ($1,$2,$3,$4) RETURNING id`, [name, phone||null, notes||null, req.user.id]);
         return { success: true, id: r.id };
     });
     fastify.put('/api/sewing/contractors/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền chỉnh sửa nhà gia công may' });
         const { name, phone, notes } = req.body || {};
         await db.run(`UPDATE sewing_contractors SET name=$1, phone=$2, notes=$3 WHERE id=$4`, [name, phone||null, notes||null, req.params.id]);
         return { success: true };
     });
     fastify.delete('/api/sewing/contractors/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa nhà gia công may' });
         await db.run(`UPDATE sewing_contractors SET is_active=false WHERE id=$1`, [req.params.id]);
         return { success: true };
     });

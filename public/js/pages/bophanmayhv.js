@@ -19,7 +19,9 @@ function renderBophanmayPage(content){
     +'@media(max-width:768px){.bpm-sb{display:none}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bpm-wrap"><div class="bpm-sb" id="bpmSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpm-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpmInfo" style="font-size:12px"></div><div id="bpmStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpmSearch" placeholder="🔍 Tìm SP..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpmInfo" style="font-size:12px"></div><div id="bpmStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpmSearch" placeholder="🔍 Tìm SP..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
+    +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
+    +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th>📋</th><th>⚠️</th><th>📄</th><th>💰</th><th>✏️</th><th>Ra DK</th><th>BG May</th><th>Xong</th><th>NV May</th><th>Tên SP</th><th>SL</th><th>Giá Gốc</th><th>Giá KT</th><th>Lương</th><th>Chi Tiết</th><th>KK</th><th>May Chung</th><th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bpmTb"><tr><td colspan="21" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -106,3 +108,74 @@ function _bpmView(id){var r=_bpm.records.find(function(x){return x.id===id;});if
 var imgs='';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=ia.map(function(s){return'<img src="'+s+'" style="width:100px;height:100px;object-fit:cover;border-radius:8px;margin:2px">';}).join('');}catch(e){}
 showToast('📄 Phiếu #'+id+': '+(r.product_name||'SP')+' — SL:'+r.quantity+' — Lương:'+_bpmFN(r.salary));}
 function _bpmEdit(id){showToast('✏️ Chức năng edit chi tiết — phát triển thêm');}
+
+// ========== GIA CÔNG MAY MANAGEMENT (Giám Đốc only) ==========
+async function _bpmManageContractors() {
+    try {
+        var res = await apiCall('/api/sewing/contractors');
+        var cons = res.contractors || [];
+
+        var html = '<div style="padding:20px;font-family:\'Inter\',sans-serif">';
+        html += '<h3 style="margin:0 0 16px;color:#0f172a">🏭 Quản Lý Gia Công May</h3>';
+
+        // Add new form
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0">';
+        html += '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">➕ Thêm Gia Công May Mới</div>';
+        html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+        html += '<input id="_bpmConName" placeholder="Tên gia công..." style="flex:1;min-width:150px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
+        html += '<input id="_bpmConPhone" placeholder="SĐT (tuỳ chọn)" style="width:120px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
+        html += '<input id="_bpmConNotes" placeholder="Ghi chú" style="width:150px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
+        html += '<button onclick="_bpmConAdd()" style="padding:8px 16px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Thêm</button>';
+        html += '</div></div>';
+
+        // List existing
+        if (cons.length) {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9">';
+            html += '<th style="padding:8px;text-align:left">#</th><th style="padding:8px;text-align:left">Tên</th><th style="padding:8px;text-align:left">SĐT</th><th style="padding:8px;text-align:left">Ghi chú</th><th style="padding:8px;text-align:center">Thao tác</th></tr></thead><tbody>';
+            cons.forEach(function(c, i) {
+                html += '<tr style="border-bottom:1px solid #e2e8f0">';
+                html += '<td style="padding:8px;color:#94a3b8;font-weight:700">' + (i+1) + '</td>';
+                html += '<td style="padding:8px;font-weight:700;color:#1e293b">🏭 ' + c.name + '</td>';
+                html += '<td style="padding:8px;color:#6b7280">' + (c.phone || '—') + '</td>';
+                html += '<td style="padding:8px;color:#6b7280;max-width:120px;overflow:hidden;text-overflow:ellipsis">' + (c.notes || '—') + '</td>';
+                html += '<td style="padding:8px;text-align:center">';
+                html += '<button onclick="_bpmConDel(' + c.id + ')" style="padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626;font-weight:600">🗑️ Xóa</button>';
+                html += '</td></tr>';
+            });
+            html += '</tbody></table>';
+        } else {
+            html += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Chưa có Gia Công May nào</div>';
+        }
+
+        html += '<div style="padding:16px 0 0;text-align:right"><button onclick="document.getElementById(\'_bpmConOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button></div>';
+        html += '</div>';
+
+        var old = document.getElementById('_bpmConOverlay'); if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;animation:qlxFadeIn .2s;transition:opacity .25s ease';
+        ov.id = '_bpmConOverlay';
+        ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s;margin-bottom:40px">' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _bpmConAdd() {
+    var name = (document.getElementById('_bpmConName') || {}).value || '';
+    var phone = (document.getElementById('_bpmConPhone') || {}).value || '';
+    var notes = (document.getElementById('_bpmConNotes') || {}).value || '';
+    if (!name.trim()) return showToast('Nhập tên gia công', 'error');
+    try {
+        await apiCall('/api/sewing/contractors', 'POST', { name: name.trim(), phone: phone.trim(), notes: notes.trim() });
+        showToast('✅ Đã thêm Gia Công May');
+        _bpmManageContractors();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bpmConDel(id) {
+    if (!confirm('Xóa Gia Công May này?')) return;
+    try {
+        await apiCall('/api/sewing/contractors/' + id, 'DELETE');
+        showToast('✅ Đã xóa');
+        _bpmManageContractors();
+    } catch(e) { showToast(e.message, 'error'); }
+}
