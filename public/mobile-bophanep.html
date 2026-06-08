@@ -556,14 +556,10 @@
                             </div>
                             ${r.pos_other ? `<div style="font-size:10px; margin-top:4px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:6px">Khác: <b>${r.pos_other}</b></div>` : ''}
                         </div>
-                        <div class="m-card-actions">
+                        <div class="m-card-actions" style="grid-template-columns:repeat(2,1fr)">
                             <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id}, ${r.order_quantity}, ${r.pos_chest_arm || 0}, ${r.pos_back_belly || 0}, ${r.pos_protective || 0}, ${r.pos_packaging || 0}, '${r.pos_other || ''}', '${r.notes || ''}', '${r.product_name || r.order_code}')">
                                 <span class="m-act-i">✅</span>
                                 <span class="m-act-l" style="color:#4ade80">BÁO CÁO</span>
-                            </button>
-                            <button class="m-act" style="border-color:#ef4444; background:rgba(239,68,68,0.05)" onclick="mUnclaim(${r.order_item_id}, '${r.order_code}')">
-                                <span class="m-act-i">❌</span>
-                                <span class="m-act-l" style="color:#f87171">TRẢ ĐƠN</span>
                             </button>
                             <button class="m-act" style="border-color:#e2e8f0" onclick="mErr()">
                                 <span class="m-act-i">⚠️</span>

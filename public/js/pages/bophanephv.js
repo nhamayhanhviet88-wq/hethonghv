@@ -484,11 +484,6 @@ function _bpeRenderRows(paged) {
         var upd = ''; if (r.last_update_at) { upd = _bpeFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#ea580c;font-size:9px">' + r.last_update_by + '</span>'; }
         
         var presserHtml = r.presser_name || '—';
-        var isOwnRecord = window._currentUser && r.presser_id === window._currentUser.id;
-        var isManager = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
-        if ((isOwnRecord || isManager) && !r.is_reported && !r.salary_approved) {
-            presserHtml += ' <span onclick="event.stopPropagation(); _bpeUnclaimOrder(' + r.order_item_id + ',\'' + (r.order_code || '') + '\')" style="color:#ef4444;cursor:pointer;font-weight:bold;margin-left:4px" title="Trả lại đơn">❌</span>';
-        }
 
         return '<tr><td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
             + '<td class="bpe-col-act"><button class="bpe-ib' + rC + '" onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="Báo cáo ép">' + rI + '</button></td>'
