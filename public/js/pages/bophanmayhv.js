@@ -268,7 +268,7 @@ function _bpmRender(){
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="text-align:center;vertical-align:middle;font-weight:700;font-size:11px;color:#4f46e5;white-space:nowrap">'+_bpmFDDM(r.expected_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
-        +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_date, r.done_date)+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_ship_date || r.shipping_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+(r.cut_product_name||r.product_name||r.order_code||'—')+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+_bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
@@ -621,7 +621,7 @@ async function _bpmShowHandoverModal(recordId) {
         html += '      </div>';
         html += '      <div style="border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; align-items: center; justify-content: center;">';
         html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">TIẾN ĐỘ</div>';
-        html += '        <div style="display: inline-block; transform: scale(0.95);">' + _bpmProgress(rec.expected_date, rec.done_date) + '</div>';
+        html += '        <div style="display: inline-block; transform: scale(0.95);">' + _bpmProgress(rec.expected_ship_date || rec.shipping_date, rec.done_date) + '</div>';
         html += '      </div>';
         html += '      <div>';
         html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">TIÊU CHUẨN ĐƠN</div>';
