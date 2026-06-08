@@ -603,6 +603,8 @@
                             <div class="m-card-code">${r.order_code || ''}</div>
                         </div>
                         <div class="m-card-body">
+                            <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Chất liệu</span><span class="m-val" style="color:#f97316">${r.material_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Màu vải</span><span class="m-val">${r.fabric_color || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val" style="color:#60a5fa; font-size:14px">${r.order_quantity}</span></div>
@@ -677,25 +679,50 @@
                             <div class="m-card-code">${r.order_code || ''}</div>
                         </div>
                         <div class="m-card-body">
+                            <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
                             <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
                             <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
                             <div class="m-row"><span class="m-lbl">Ngày ép</span><span class="m-val">${formatDate(r.press_date)}</span></div>
+                            
+                            <div class="m-divider"></div>
+                            <div style="font-size:10px; font-weight:800; color:#818cf8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">🧩 Chi tiết các vị trí ép</div>
+                            <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
+                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                                    <span style="color:#94a3b8">Ngực, Tay, Tạp Dề, Vải Mũ</span>
+                                    <span style="font-weight:700; color:#818cf8">${r.pos_chest_arm || 0} sp</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                                    <span style="color:#94a3b8">Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</span>
+                                    <span style="font-weight:700; color:#818cf8">${r.pos_back_belly || 0} sp</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                                    <span style="color:#94a3b8">Bảo Hộ, Bếp, Sơ Mi</span>
+                                    <span style="font-weight:700; color:#818cf8">${r.pos_protective || 0} sp</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                                    <span style="color:#94a3b8">Đóng Gói, Cổ Bẻ Vải</span>
+                                    <span style="font-weight:700; color:#818cf8">${r.pos_packaging || 0} sp</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; padding:4px 0">
+                                    <span style="color:#94a3b8">Vị Trí Khác</span>
+                                    <span style="font-weight:700; color:#94a3b8">${r.pos_other || '—'}</span>
+                                </div>
+                            </div>
+                            <div style="font-size:10px; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px; margin-bottom:6px">📝 Báo cáo của nhân viên</div>
+                            <div style="font-size:11px; padding:8px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:8px; color:#cbd5e1; margin-bottom:8px">
+                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px">Ghi chú ép:</div>
+                                <div>${r.notes || '—'}</div>
+                            </div>
+                            
                             ${imagesHtml}
                             <div class="m-divider"></div>
                             <div>
                                 ${approvedBadge}
                             </div>
                         </div>
-                        ${!r.salary_approved ? `
-                            <div class="m-card-actions" style="grid-template-columns:1fr">
-                                <button class="m-act" style="flex-direction:row; justify-content:center; gap:8px; padding:10px" onclick="mTog(${r.id}, '${undoAction}')">
-                                    <span class="m-act-i">↩️</span>
-                                    <span class="m-act-l">HOÀN TÁC BÁO CÁO</span>
-                                </button>
-                            </div>
-                        ` : ''}
                     </div>
                 `;
             }).join('');
