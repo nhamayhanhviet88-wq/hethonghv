@@ -588,7 +588,7 @@ function _bpmProgress(exp, done) {
             
             var diff = Math.round((doneD - expD) / 86400000);
             if (diff < 0) {
-                return '<span class="bpm-progress" style="background:#d1fae5;color:#059669">⚡ Nhanh hơn ' + Math.abs(diff) + ' ngày</span>';
+                return '<span class="bpm-progress" style="background:#d1fae5;color:#059669">⚡ Nhanh ' + Math.abs(diff) + ' ngày</span>';
             }
             if (diff === 0) {
                 return '<span class="bpm-progress" style="background:#dbeafe;color:#2563eb">✅ Ra kịp hàng</span>';
