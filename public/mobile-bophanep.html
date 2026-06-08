@@ -500,7 +500,9 @@
                     };
                     grouped.push(seenKeys[key]);
                 }
-                if (r.material_name || r.color_name) {
+                if (r.phoi && r.phoi.length > 0) {
+                    seenKeys[key].phoi = r.phoi;
+                } else if (r.material_name || r.color_name) {
                     seenKeys[key].phoi.push({
                         material_name: r.material_name,
                         color_name: r.color_name,
@@ -743,8 +745,10 @@
             document.getElementById('mClaimShipDate').textContent = formatDate(o.expected_ship_date);
             document.getElementById('mClaimDesc').textContent = o.item_desc || '—';
 
+            const phoiList = (o.phoi && o.phoi.length > 0) ? o.phoi : rows;
+
             const listEl = document.getElementById('mClaimPhoiList');
-            listEl.innerHTML = rows.map(r => `
+            listEl.innerHTML = phoiList.map(r => `
                 <div class="mm-phoi-item">
                     <span class="pn">👕 ${r.material_name || 'Hàng'} · ${r.color_name || 'Màu'}</span>
                     <span class="pm" style="font-weight:bold; color:#f97316">SL Ép: ${r.cut_qty || 0}</span>

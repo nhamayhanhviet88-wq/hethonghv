@@ -294,6 +294,7 @@ async function _bpeLoadRecs() {
             try {
                 var unassignedRes = await apiCall('/api/pressing/unassigned');
                 var unassignedOrders = unassignedRes.orders || [];
+                _bpe.unassignedOrders = unassignedOrders;
                 
                 // Map unassigned items to match pressing_record structure
                 var unassignedRecords = unassignedOrders.map(function(ur) {
@@ -328,7 +329,8 @@ async function _bpeLoadRecs() {
                         presser_name: null,
                         presser_id: null,
                         ready: ur.ready,
-                        warning_msg: ur.warning_msg
+                        warning_msg: ur.warning_msg,
+                        phoi: ur.phoi || []
                     };
                 });
                 records = records.concat(unassignedRecords);
@@ -348,6 +350,7 @@ async function _bpeLoadUnassigned() {
     try {
         var res = await apiCall('/api/pressing/unassigned');
         var orders = res.orders || [];
+        _bpe.unassignedOrders = orders;
         
         // Map to pressing records structure
         var records = orders.map(function(ur) {
@@ -382,7 +385,8 @@ async function _bpeLoadUnassigned() {
                 presser_name: null,
                 presser_id: null,
                 ready: ur.ready,
-                warning_msg: ur.warning_msg
+                warning_msg: ur.warning_msg,
+                phoi: ur.phoi || []
             };
         });
         
@@ -668,10 +672,11 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Hạn ship</span><span class="bpc-modal-val">' + _bpeFD(o.expected_ship_date) + '</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👕 Mô tả phiếu</span><span class="bpc-modal-val">' + (o.item_desc || '—') + '</span></div>';
     
-    if (rows.length > 0) {
+    var phoiList = (o && o.phoi && o.phoi.length > 0) ? o.phoi : rows;
+    if (phoiList.length > 0) {
         h += '<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">';
-        h += '<div style="font-size:11px;font-weight:bold;color:#4f46e5;margin-bottom:8px">📦 DANH SÁCH PHỐI ÉP (' + rows.length + ')</div>';
-        rows.forEach(function(p) {
+        h += '<div style="font-size:11px;font-weight:bold;color:#4f46e5;margin-bottom:8px">📦 DANH SÁCH PHỐI ÉP (' + phoiList.length + ')</div>';
+        phoiList.forEach(function(p) {
             h += '<div style="display:flex;justify-content:space-between;padding:6px 10px;background:#f8fafc;border-radius:6px;margin-bottom:4px;font-size:11px">';
             h += '<span style="font-weight:bold">' + (p.material_name || 'Phối') + ' · ' + (p.color_name || 'Màu') + '</span>';
             h += '<span style="font-weight:bold;color:#ea580c">SL Ép: ' + (p.cut_qty || p.order_quantity || 0) + '</span>';

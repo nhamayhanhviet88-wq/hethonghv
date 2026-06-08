@@ -444,40 +444,45 @@ module.exports = async function(fastify) {
 
                 const itemCuts = completedCuts.filter(c => c.order_item_id === it.id);
 
-                if (pairs.length > 0) {
-                    for (let pi = 0; pi < pairs.length; pi++) {
-                        const phoi = pairs[pi];
-                        const matchingCut = itemCuts.find(c => (c.material_name || '').trim().toLowerCase() === (phoi.material_name || '').trim().toLowerCase() && (c.fabric_color || '').trim().toLowerCase() === (phoi.color_name || '').trim().toLowerCase());
-                        const coordQty = matchingCut ? matchingCut.cut_qty : 0;
+                let materialName = null;
+                let colorName = null;
+                let phoiList = [];
 
-                        rows.push({
-                            ...o, item_id: it.id, item_desc: it.description,
-                            item_index: itemIdx, phoi_in_item: pi + 1, total_phoi: pairs.length,
-                            total_items_in_order: totalItemsInOrder,
-                            material_name: phoi.material_name || null,
-                            color_name: phoi.color_name || null,
-                            item_qty: it.quantity,
-                            cut_qty: coordQty,
-                            is_cut_done: isCutReady,
-                            is_print_done: isPrintReady,
-                            warning_msg: warningMsg,
-                            ready: ready
-                        });
-                    }
-                } else {
-                    const totalCutQty = itemCuts.reduce((acc, curr) => acc + (curr.cut_qty || 0), 0);
-                    rows.push({
-                        ...o, item_id: it.id, item_desc: it.description,
-                        item_index: itemIdx, phoi_in_item: 1, total_phoi: 1,
-                        total_items_in_order: totalItemsInOrder,
-                        material_name: null, color_name: null, item_qty: it.quantity,
-                        cut_qty: totalCutQty,
-                        is_cut_done: isCutReady,
-                        is_print_done: isPrintReady,
-                        warning_msg: warningMsg,
-                        ready: ready
+                if (pairs.length > 0) {
+                    materialName = [...new Set(pairs.map(p => (p.material_name || '').trim()).filter(Boolean))].join(', ');
+                    colorName = [...new Set(pairs.map(p => (p.color_name || '').trim()).filter(Boolean))].join(', ');
+                    
+                    phoiList = pairs.map(p => {
+                        const matchingCut = itemCuts.find(c => (c.material_name || '').trim().toLowerCase() === (p.material_name || '').trim().toLowerCase() && (c.fabric_color || '').trim().toLowerCase() === (p.color_name || '').trim().toLowerCase());
+                        return {
+                            material_name: p.material_name || null,
+                            color_name: p.color_name || null,
+                            cut_qty: matchingCut ? (matchingCut.cut_qty || 0) : 0
+                        };
                     });
                 }
+
+                const maxCutQty = itemCuts.length > 0 ? Math.max(...itemCuts.map(c => c.cut_qty || 0), 0) : 0;
+                const displayCutQty = maxCutQty > 0 ? maxCutQty : it.quantity;
+
+                rows.push({
+                    ...o,
+                    item_id: it.id,
+                    item_desc: it.description,
+                    item_index: itemIdx,
+                    phoi_in_item: 1,
+                    total_phoi: 1,
+                    total_items_in_order: totalItemsInOrder,
+                    material_name: materialName || null,
+                    color_name: colorName || null,
+                    item_qty: it.quantity,
+                    cut_qty: displayCutQty,
+                    is_cut_done: isCutReady,
+                    is_print_done: isPrintReady,
+                    warning_msg: warningMsg,
+                    ready: ready,
+                    phoi: phoiList
+                });
             }
         }
 
@@ -566,33 +571,32 @@ module.exports = async function(fastify) {
             const allItems = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
             const itemIdx = allItems.findIndex(a => a.id === Number(order_item_id)) + 1;
 
-            let createdCount = 0;
-            for (let i = 0; i < cuts.length; i++) {
-                const cut = cuts[i];
-                const coordIdx = i + 1;
-                let prodName = order.order_code;
-                if (allItems.length > 1 || cuts.length > 1) {
-                    prodName += ` — Phiếu ${itemIdx}`;
-                    if (cuts.length > 1) prodName += ` — P${coordIdx}`;
-                }
-                if (item.description) {
-                    prodName += ` — ${item.description}`;
-                }
-
-                await db.run(`
-                    INSERT INTO pressing_records (
-                        dht_order_id, order_item_id, presser_id, press_date, product_name, cskh_name,
-                        order_quantity, press_quantity, press_salary, created_by, created_at, updated_at,
-                        material_name, fabric_color
-                    ) VALUES ($1, $2, $3, $4, $5, (SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $6), $7, 0, 0, $3, $8, $8, $9, $10)
-                `, [
-                    dht_order_id, order_item_id, userId, now, prodName, dht_order_id, cut.cut_qty || 0, now, cut.material_name || null, cut.fabric_color || null
-                ]);
-                createdCount++;
+            let prodName = order.order_code;
+            if (allItems.length > 1) {
+                prodName += ` — Phiếu ${itemIdx}`;
+            }
+            if (item.description) {
+                prodName += ` — ${item.description}`;
             }
 
+            const materialName = [...new Set(cuts.map(c => (c.material_name || '').trim()).filter(Boolean))].join(', ');
+            const fabricColor = [...new Set(cuts.map(c => (c.fabric_color || '').trim()).filter(Boolean))].join(', ');
+            
+            const maxCutQty = Math.max(...cuts.map(c => c.cut_qty || 0), 0);
+            const targetQty = maxCutQty > 0 ? maxCutQty : (item.quantity || 0);
+
+            await db.run(`
+                INSERT INTO pressing_records (
+                    dht_order_id, order_item_id, presser_id, press_date, product_name, cskh_name,
+                    order_quantity, press_quantity, press_salary, created_by, created_at, updated_at,
+                    material_name, fabric_color
+                ) VALUES ($1, $2, $3, $4, $5, (SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $6), $7, 0, 0, $3, $8, $8, $9, $10)
+            `, [
+                dht_order_id, order_item_id, userId, now, prodName, dht_order_id, targetQty, now, materialName || null, fabricColor || null
+            ]);
+
             await db.run('COMMIT');
-            return { success: true, created: createdCount };
+            return { success: true, created: 1 };
         } catch (err) {
             await db.run('ROLLBACK');
             throw err;
