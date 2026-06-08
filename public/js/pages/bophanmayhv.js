@@ -158,7 +158,6 @@ function _bpmRender(){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         var sI=r.salary_approved?'💰':'⬜',sC=r.salary_approved?' on-sal':'',sA=r.salary_approved?'undo_salary':'approve_salary';
-        var dI=r.done_date?'✅':'⬜',dC=r.done_date?' on-rpt':'',dA=r.done_date?'undo_done':'mark_done';
         var nvN = '—';
         if (r.contractor_id) {
             nvN = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
@@ -186,7 +185,7 @@ function _bpmRender(){
         +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
-        +'<td style="text-align:center;font-size:10px;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;justify-content:center"><button class="bpm-ib'+dC+'" onclick="_bpmTog('+r.id+',\''+dA+'\')" title="Hoàn thành may">'+dI+'</button>'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:10px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'')+'</div></td>'
+        +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap" onclick="_bpmTog('+r.id+',\'undo_done\')" title="Click để hoàn tác">'+_bpmFDT(r.done_date)+'</span>':'<button onclick="_bpmTog('+r.id+',\'mark_done\')" style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background=\'#0d9488\';this.style.color=\'#fff\';this.style.borderColor=\'#0d9488\'" onmouseout="this.style.background=\'#f1f5f9\';this.style.color=\'#475569\';this.style.borderColor=\'#cbd5e1\'">May xong</button>')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+priBadge+(r.product_name||r.order_code||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
