@@ -37,7 +37,7 @@ function renderBophanmayPage(content){
     +'.bpm-sb-sub.incomplete.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
     +'.bpm-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
     +'.bpm-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
-    +'.bpm-ib.on-rpt{background:#ccfbf1;border-color:#14b8a6}.bpm-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpm-ib.on-sal{background:#fef3c7;border-color:#f59e0b}'
+    +'.bpm-ib.on-rpt{background:#ccfbf1;border-color:#14b8a6}.bpm-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpm-ib.on-sal{background:#e0f2fe;border-color:#0ea5e9;color:#0284c7;font-weight:bold}'
     +'.bpm-team-card{transition:all 0.2s ease}.bpm-team-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.05);border-color:#cbd5e1}.bpm-team-card.active{box-shadow:0 4px 12px rgba(13,148,136,0.15)}'
     +'@media(max-width:768px){.bpm-sb{display:none}}.bpm-progress{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800}@keyframes bpmBlink{0%,100%{opacity:1}50%{opacity:0.4}}';
     document.head.appendChild(st);}
@@ -196,7 +196,49 @@ function _bpmRender(){
     tb.innerHTML=all.map(function(r,i){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
-        var sI=r.salary_approved?'💰':'⬜',sC=r.salary_approved?' on-sal':'',sA=r.salary_approved?'undo_salary':'approve_salary';
+        
+        var salaryCell = '';
+        var shName = '';
+        if (r.salary_by_name) {
+            shName = r.salary_by_name.split(' ').pop();
+        }
+        var noteHtml = '';
+        if (r.salary_note) {
+            var shNote = r.salary_note.length > 20 ? (r.salary_note.substring(0, 17) + '...') : r.salary_note;
+            noteHtml = '<br><span style="font-style:italic;opacity:0.85" title="' + r.salary_note.replace(/"/g, '&quot;') + '">📝 ' + shNote + '</span>';
+        }
+        var formattedTime = '';
+        if (r.salary_approved_at) {
+            try {
+                formattedTime = new Date(r.salary_approved_at).toLocaleString('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit'
+                }).replace(',', '').trim();
+            } catch(e) {
+                formattedTime = r.salary_approved_at;
+            }
+        }
+        var canApprove = window._currentUser && (window._currentUser.role === 'giam_doc' || (window._currentUser.role === 'quan_ly_cap_cao' && window._currentUser.username === 'trinh'));
+        if (canApprove) {
+            var sI = r.salary_approved ? '✓' : '⬜';
+            var sC = r.salary_approved ? ' on-sal' : '';
+            var salaryDetails = '';
+            if (r.salary_approved && shName) {
+                salaryDetails = '<div style="font-size:8px;color:#0284c7;margin-top:2px;line-height:1">' + shName + '<br>' + formattedTime + noteHtml + '</div>';
+            }
+            var titleText = r.salary_approved ? ('Đã tính lương: ' + (r.salary_note || '(Không có ghi chú)')) : 'Tính lương';
+            salaryCell = '<button class="bpm-ib' + sC + '" onclick="_bpmTogSalary(' + r.id + ')" title="' + titleText + '">' + sI + '</button>' + salaryDetails;
+        } else {
+            if (r.salary_approved) {
+                salaryCell = '<span style="background:#e0f2fe;color:#0284c7;padding:4px 8px;border-radius:6px;font-weight:800;font-size:9.5px;display:inline-block;line-height:1.2;text-align:center">✓ ' + shName + '<br>' + formattedTime + noteHtml + '</span>';
+            } else {
+                salaryCell = '<span style="color:#94a3b8">—</span>';
+            }
+        }
+        
         var nvN = '—';
         if (r.contractor_id) {
             nvN = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
@@ -220,7 +262,7 @@ function _bpmRender(){
 
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center">'+(r.contractor_id ? '—' : '<button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button>')+'</td>'
-        +'<td style="text-align:center"><button class="bpm-ib'+sC+'" onclick="_bpmTog('+r.id+',\''+sA+'\')" title="Lương">'+sI+'</button></td>'
+        +'<td style="text-align:center">' + salaryCell + '</td>'
         +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
@@ -248,6 +290,109 @@ function _bpmRender(){
 }
 
 async function _bpmTog(id,action){try{await apiCall('/api/sewing/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bpmLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
+async function _bpmTogSalary(id) {
+    var r = _bpm.records.find(function(x) { return x.id === id; });
+    if (!r) return showToast('Không tìm thấy đơn may', 'error');
+    if (!r.salary_approved) {
+        if (!r.checked_price || Number(r.checked_price) <= 0) {
+            showToast('❌ Vui lòng nhập Giá KTra trước khi tính lương!', 'error');
+            return;
+        }
+    }
+    var h = '<div class="bpm-modal-overlay show" id="_bpmSalaryOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto">';
+    h += '<div style="background:#fff;border-radius:16px;width:400px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s">';
+    h += '<div style="background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px">';
+    h += '<div style="font-size:24px">💰</div>';
+    h += '<div>';
+    h += '<div style="font-size:15px;font-weight:800">TÍNH LƯƠNG ĐƠN MAY</div>';
+    h += '<div style="font-size:11px;opacity:0.85;margin-top:2px">Đơn hàng #' + r.id + '</div>';
+    h += '</div></div>';
+    h += '<div style="padding:20px;font-size:12px;color:#334155">';
+    h += '<div style="margin-bottom:12px;line-height:1.6">';
+    h += '<div><strong>Mã đơn hàng:</strong> ' + (r.order_code || '—') + '</div>';
+    h += '<div><strong>Sản phẩm/Phối:</strong> ' + (r.cut_product_name || r.product_name || '—') + '</div>';
+    h += '<div><strong>Số lượng:</strong> ' + _bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name) + '</div>';
+    h += '<div><strong>Giá KTra:</strong> <span style="color:#dc2626;font-weight:700">' + _bpmFN(r.checked_price) + ' đ</span></div>';
+    h += '<div><strong>Lương Giá KTra:</strong> <span style="color:#f59e0b;font-weight:800">' + _bpmFN(r.salary) + ' đ</span></div>';
+    if (r.salary_approved) {
+        var formattedTime = '';
+        if (r.salary_approved_at) {
+            try {
+                formattedTime = new Date(r.salary_approved_at).toLocaleString('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit'
+                }).replace(',', '').trim();
+            } catch(e) {
+                formattedTime = r.salary_approved_at;
+            }
+        }
+        h += '<div style="margin-top:6px;padding:6px 10px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:6px;font-weight:700">';
+        h += '✓ ĐÃ DUYỆT LƯƠNG: ' + (r.salary_by_name || '—') + ' lúc ' + formattedTime;
+        h += '</div>';
+    } else {
+        h += '<div style="margin-top:6px;padding:6px 10px;background:#f8fafc;border:1px solid #cbd5e1;color:#64748b;border-radius:6px;font-weight:700">';
+        h += '⏳ CHƯA DUYỆT LƯƠNG';
+        h += '</div>';
+    }
+    h += '</div>';
+    h += '<div style="margin-top:16px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Nội Dung Ghi Chú <span style="color:#ef4444">*</span></label>';
+    h += '<textarea id="_bpmSalaryNoteText" style="width:100%;height:80px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box" placeholder="Nhập ghi chú tính lương...">' + (r.salary_note || '') + '</textarea>';
+    h += '</div>';
+    h += '</div>';
+    h += '<div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">';
+    h += '<button onclick="_bpmCloseSalaryModal()" style="padding:8px 16px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
+    if (r.salary_approved) {
+        h += '<button id="_bpmCancelSalaryBtn" onclick="_bpmSubmitSalary(' + id + ', true)" style="padding:8px 16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#dc2626">Hủy tính lương</button>';
+    }
+    h += '<button id="_bpmSaveSalaryBtn" onclick="_bpmSubmitSalary(' + id + ', false)" style="padding:8px 20px;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">💾 Lưu</button>';
+    h += '</div>';
+    h += '</div></div>';
+    var old = document.getElementById('_bpmSalaryOverlay'); if (old) old.remove();
+    document.body.insertAdjacentHTML('beforeend', h);
+    var txt = document.getElementById('_bpmSalaryNoteText');
+    if (txt) {
+        txt.focus();
+        var val = txt.value;
+        txt.value = '';
+        txt.value = val;
+    }
+}
+function _bpmCloseSalaryModal() {
+    var m = document.getElementById('_bpmSalaryOverlay');
+    if (m) m.remove();
+}
+async function _bpmSubmitSalary(id, cancel) {
+    var note = '';
+    if (!cancel) {
+        var noteEl = document.getElementById('_bpmSalaryNoteText');
+        note = noteEl ? noteEl.value.trim() : '';
+        if (!note) {
+            showToast('Vui lòng nhập ghi chú tính lương', 'error');
+            return;
+        }
+    }
+    var btnSave = document.getElementById('_bpmSaveSalaryBtn');
+    var btnCancel = document.getElementById('_bpmCancelSalaryBtn');
+    if (btnSave) btnSave.disabled = true;
+    if (btnCancel) btnCancel.disabled = true;
+    try {
+        var action = cancel ? 'undo_salary' : 'approve_salary';
+        await apiCall('/api/sewing/toggle/' + id, 'POST', {
+            action: action,
+            salary_note: note
+        });
+        showToast(cancel ? '↩️ Đã hủy tính lương' : '✅ Đã tính lương');
+        _bpmCloseSalaryModal();
+        await _bpmLoadAll();
+    } catch (e) {
+        showToast(e.message || 'Lỗi', 'error');
+        if (btnSave) btnSave.disabled = false;
+        if (btnCancel) btnCancel.disabled = false;
+    }
+}
 function _bpmErr(id){if(typeof navigate==='function'){navigate('don-loi-khach-hang');showToast('📋 Chuyển sang Đơn Lỗi');}}
 function _bpmView(id){
     var r=_bpm.records.find(function(x){return x.id===id;});

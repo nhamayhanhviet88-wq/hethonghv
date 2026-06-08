@@ -21,6 +21,7 @@ module.exports = async function(fastify) {
         is_reported BOOLEAN DEFAULT false, reported_at TIMESTAMPTZ, reported_by INTEGER REFERENCES users(id),
         error_reported BOOLEAN DEFAULT false, error_order_id INTEGER,
         salary_approved BOOLEAN DEFAULT false, salary_approved_at TIMESTAMPTZ, salary_approved_by INTEGER REFERENCES users(id),
+        salary_note TEXT,
         expected_date DATE, handover_date DATE, done_date TIMESTAMPTZ,
         sewer_id INTEGER REFERENCES users(id), contractor_id INTEGER,
         product_name TEXT, quantity INTEGER DEFAULT 0,
@@ -35,6 +36,11 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_handover ON sewing_records(handover_date)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_order_item ON sewing_records(order_item_id)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewing_team ON sewing_records(sewing_team_id)`);
+    try {
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS salary_note TEXT`);
+    } catch(err) {
+        console.error('[BPM] Migration error for salary_note:', err.message);
+    }
     } catch(e) { console.error('[BPM] records:', e.message); }
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_history (
@@ -56,6 +62,11 @@ module.exports = async function(fastify) {
         const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('may') || n.includes('quản lý xưởng')) return true; }
         return false;
+    }
+    async function canApproveSalary(req) {
+        if (req.user.role === 'giam_doc') return true;
+        const u = await db.get(`SELECT username, role FROM users WHERE id=$1`, [req.user.id]);
+        return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
     }
     function calcSalary(qty, base, checked) {
         const q = Number(qty)||0, b = Number(base)||0, c = Number(checked)||0;
@@ -240,12 +251,16 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác báo cáo';
         } else if (action === 'approve_salary') {
-            if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ' });
-            await db.run(`UPDATE sewing_records SET salary_approved=true, salary_approved_at=$1, salary_approved_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
-            detail = '💰 Duyệt lương may';
+            if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền tính lương!' });
+            if (!rec.checked_price || Number(rec.checked_price) <= 0) {
+                return reply.code(400).send({ error: 'Cần nhập Giá KTra trước khi tính lương!' });
+            }
+            const salary_note = req.body.salary_note || null;
+            await db.run(`UPDATE sewing_records SET salary_approved=true, salary_approved_at=$1, salary_approved_by=$2, salary_note=$3, updated_at=$1 WHERE id=$4`, [now, req.user.id, salary_note, id]);
+            detail = '💰 Duyệt lương may' + (salary_note ? ': ' + salary_note : '');
         } else if (action === 'undo_salary') {
-            if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
-            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Không có quyền' });
+            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác duyệt lương';
         } else if (action === 'report_error') {
             await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
