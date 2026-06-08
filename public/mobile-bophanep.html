@@ -954,11 +954,11 @@
             if (formContainer) {
                 let formHtml = '';
                 (window._bpePositions || []).forEach(pos => {
-                    const val = r[pos.key_code] !== undefined && r[pos.key_code] !== null ? r[pos.key_code] : '';
+                    const val = r[pos.key_code] !== undefined && r[pos.key_code] !== null && Number(r[pos.key_code]) !== 0 ? r[pos.key_code] : '';
                     formHtml += `
                         <div class="mr-form-group">
                             <label>${pos.display_name}</label>
-                            <input type="number" inputmode="numeric" data-key="${pos.key_code}" class="mr-input mPosInput" placeholder="0" min="0" oninput="mUpdateReportTotal()" value="${val}">
+                            <input type="number" inputmode="numeric" data-key="${pos.key_code}" class="mr-input mPosInput" placeholder="Nhập SL..." min="0" oninput="mUpdateReportTotal()" value="${val}">
                         </div>
                     `;
                 });

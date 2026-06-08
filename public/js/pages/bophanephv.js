@@ -892,10 +892,10 @@ function _bpeOpenReportModal(id) {
     // Inputs Grid
     h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">';
     (window._bpePositions || []).forEach(function(pos) {
-        var val = r[pos.key_code] !== undefined && r[pos.key_code] !== null ? r[pos.key_code] : '';
+        var val = r[pos.key_code] !== undefined && r[pos.key_code] !== null && Number(r[pos.key_code]) !== 0 ? r[pos.key_code] : '';
         h += '<div>';
         h += '<label style="display:block; font-weight:800; color:#475569; margin-bottom:4px; font-size:11px; text-transform:uppercase;">' + pos.display_name + '</label>';
-        h += '<input type="number" data-key="' + pos.key_code + '" class="_bpePosInput form-control" style="width:100%; font-weight:bold;" min="0" oninput="_bpeUpdateReportTotal()" value="' + val + '">';
+        h += '<input type="number" data-key="' + pos.key_code + '" class="_bpePosInput form-control" style="width:100%; font-weight:bold;" placeholder="Nhập SL..." min="0" oninput="_bpeUpdateReportTotal()" value="' + val + '">';
         h += '</div>';
     });
     h += '<div>';
