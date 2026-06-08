@@ -332,7 +332,7 @@ module.exports = async function(fastify) {
         const records = await db.all(`
             SELECT pr.*, u.full_name AS presser_name, u_rpt.full_name AS reported_by_name,
                    u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
-                   o.customer_name,
+                   o.customer_name, cc.name AS category_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
                    (
                         SELECT string_agg(pf.name, ', ')
@@ -380,6 +380,9 @@ module.exports = async function(fastify) {
             FROM pressing_records pr LEFT JOIN users u ON pr.presser_id=u.id
             LEFT JOIN users u_rpt ON pr.reported_by=u_rpt.id LEFT JOIN users u_sal ON pr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON pr.dht_order_id=o.id
+            LEFT JOIN dht_order_items oi ON pr.order_item_id = oi.id
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM pressing_history h WHERE h.pressing_id=pr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where} ORDER BY pr.press_date DESC NULLS LAST, pr.created_at DESC`, params);
@@ -856,6 +859,7 @@ module.exports = async function(fastify) {
                     doi.description, 
                     doi.material_pairs,
                     doi.quantity AS quantity,
+                    cc.name AS category_name,
                     (
                         SELECT COUNT(*)::int 
                         FROM dht_order_items doi2 
@@ -949,6 +953,8 @@ module.exports = async function(fastify) {
                           )
                     ) AS pending_print_types
                 FROM dht_order_items doi
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 WHERE doi.dht_order_id = ANY($1)
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = doi.id)
                   AND EXISTS (
@@ -1053,6 +1059,7 @@ module.exports = async function(fastify) {
 
                 rows.push({
                     ...o,
+                    category_name: it.category_name,
                     item_id: it.id,
                     item_desc: it.description,
                     item_index: itemIdx,

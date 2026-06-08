@@ -27,6 +27,22 @@ function _bpeFmtTimeDateNoYear(d) {
     }
 }
 
+function _bpeFormatOrderQty(qty, categoryName, productName) {
+    if (qty === null || qty === undefined || qty === '' || qty === '—') return '—';
+    var suffix = categoryName;
+    if (!suffix && productName) {
+        var descLower = productName.toLowerCase();
+        if (descLower.indexOf('áo gió') >= 0) suffix = 'Áo Gió';
+        else if (descLower.indexOf('áo') >= 0) suffix = 'Áo';
+        else if (descLower.indexOf('quần') >= 0) suffix = 'Quần';
+        else if (descLower.indexOf('váy') >= 0) suffix = 'Váy';
+        else if (descLower.indexOf('tạp dề') >= 0) suffix = 'Tạp Dề';
+        else if (descLower.indexOf('túi') >= 0) suffix = 'Túi';
+    }
+    var suffixStr = suffix ? (' ' + suffix) : '';
+    return qty + suffixStr;
+}
+
 function renderBophanepPage(content) {
     if (!document.getElementById('_bpcFontLink')) {
         var fl = document.createElement('link'); fl.id = '_bpcFontLink'; fl.rel = 'stylesheet';
@@ -325,6 +341,7 @@ async function _bpeLoadRecs() {
                         product_name: spName,
                         material_name: ur.material_name,
                         fabric_color: ur.color_name,
+                        category_name: ur.category_name,
                         order_quantity: ur.cut_qty || 0,
                         original_qty: ur.item_qty,
                         press_quantity: 0,
@@ -381,6 +398,7 @@ async function _bpeLoadUnassigned() {
                 product_name: spName,
                 material_name: ur.material_name,
                 fabric_color: ur.color_name,
+                category_name: ur.category_name,
                 order_quantity: ur.cut_qty || 0,
                 original_qty: ur.item_qty,
                 press_quantity: 0,
@@ -542,7 +560,7 @@ function _bpeRenderRows(paged) {
                 +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
                 +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
-                +'<td style="text-align:center;font-weight:600;color:#0369a1">'+r.order_quantity+'</td>'
+                +'<td style="text-align:center;font-weight:600;color:#0369a1">'+_bpeFormatOrderQty(r.order_quantity, r.category_name, r.product_name)+'</td>'
                 +'<td style="text-align:center;font-weight:700;color:#ea580c">—</td>'
                 + posColsHtml
                 +'<td style="font-size:9px;color:#ef4444;font-weight:bold">'+noteStr+'</td>'
@@ -588,7 +606,7 @@ function _bpeRenderRows(paged) {
             + '<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
-            + '<td style="text-align:center;font-weight:600">' + (r.order_quantity || '—') + '</td>'
+            + '<td style="text-align:center;font-weight:600">' + _bpeFormatOrderQty(r.order_quantity, r.category_name, r.product_name) + '</td>'
             + '<td style="text-align:center;font-weight:700;color:#ea580c">' + (r.press_quantity || '—') + '</td>'
             + posColsHtml
             + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">' + (r.notes || '—') + '</td>'
