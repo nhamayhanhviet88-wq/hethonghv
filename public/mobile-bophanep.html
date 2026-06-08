@@ -879,6 +879,20 @@
             document.getElementById('mReportQty').value = maxVal > 0 ? maxVal : '';
         }
 
+        function mValidateFieldMultiple(val, name, orderQty, maxSubItems) {
+            if (val <= 0) return null;
+            if (orderQty <= 0) return null;
+            if (val <= orderQty) return null;
+            if (val % orderQty !== 0) {
+                return `⚠️ SL ${name} (${val}) khi lớn hơn SL cắt (${orderQty}) phải là bội số của SL cắt (ví dụ: ${orderQty}, ${orderQty * 2}, ${orderQty * 3}...)!`;
+            }
+            const maxAllowed = maxSubItems * orderQty;
+            if (val > maxAllowed) {
+                return `⚠️ SL ${name} (${val}) không được lớn hơn ${maxSubItems} lần SL cắt (${maxAllowed})!`;
+            }
+            return null;
+        }
+
         // --- Report Modal Logic ---
         function mOpenReport(recId, orderQty, posChest, posBack, posProtective, posPackaging, posOther, notes, prodName) {
             const r = pressingRecords.find(x => x.id === recId);
@@ -945,26 +959,20 @@
                 return;
             }
 
-            if (chest > orderQty) {
-                showToast(`⚠️ SL Ngực, Tay... (${chest}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
-                return;
-            }
-            if (back > orderQty) {
-                showToast(`⚠️ SL Lưng, Bụng... (${back}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
-                return;
-            }
-            if (prot > orderQty) {
-                showToast(`⚠️ SL Bảo Hộ... (${prot}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
-                return;
-            }
-            if (pack > orderQty) {
-                showToast(`⚠️ SL Đóng Gói... (${pack}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
-                return;
-            }
-            if (otherVal > orderQty) {
-                showToast(`⚠️ SL Vị Trí Khác (${otherVal}) không được lớn hơn SL cắt (${orderQty})!`, 'error');
-                return;
-            }
+            const errChest = mValidateFieldMultiple(chest, 'Ngực, Tay, Tạp Dề, Vải Mũ', orderQty, 4);
+            if (errChest) { showToast(errChest, 'error'); return; }
+
+            const errBack = mValidateFieldMultiple(back, 'Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn', orderQty, 5);
+            if (errBack) { showToast(errBack, 'error'); return; }
+
+            const errProt = mValidateFieldMultiple(prot, 'Bảo Hộ, Bếp, Sơ Mi', orderQty, 3);
+            if (errProt) { showToast(errProt, 'error'); return; }
+
+            const errPack = mValidateFieldMultiple(pack, 'Đóng Gói, Cổ Bẻ Vải', orderQty, 2);
+            if (errPack) { showToast(errPack, 'error'); return; }
+
+            const errOther = mValidateFieldMultiple(otherVal, 'Vị Trí Khác', orderQty, 5);
+            if (errOther) { showToast(errOther, 'error'); return; }
 
             if (currentReportImages.length === 0) {
                 showToast('⚠️ Bạn phải chụp/chọn ít nhất 1 hình ảnh ép!', 'error');
