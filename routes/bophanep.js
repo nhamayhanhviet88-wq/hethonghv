@@ -119,10 +119,15 @@ module.exports = async function(fastify) {
                             WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                               AND (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
                         ) THEN true
-                        ELSE EXISTS (
-                            SELECT 1 FROM printing_records pr 
-                            WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
-                              AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                        ELSE (
+                            EXISTS (
+                                SELECT 1 FROM printing_records pr 
+                                WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
+                            ) AND NOT EXISTS (
+                                SELECT 1 FROM printing_records pr 
+                                WHERE (pr.order_item_id = oi.id OR (pr.dht_order_id = o.id AND pr.order_item_id IS NULL))
+                                  AND NOT (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                            )
                         )
                     END AS is_print_done
                 FROM dht_order_items oi
@@ -354,10 +359,15 @@ module.exports = async function(fastify) {
                               SELECT 1 FROM qlx_assignments qa 
                               WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                                 AND (qa.item_id = oi.id OR (qa.dht_order_id = o.id AND qa.item_id IS NULL))
-                          ) OR EXISTS (
-                              SELECT 1 FROM printing_records prr 
-                              WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
-                                AND (prr.is_print_done = true OR prr.contractor_id IS NOT NULL)
+                          ) OR (
+                              EXISTS (
+                                  SELECT 1 FROM printing_records prr 
+                                  WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
+                              ) AND NOT EXISTS (
+                                  SELECT 1 FROM printing_records prr 
+                                  WHERE (prr.order_item_id = oi.id OR (prr.dht_order_id = o.id AND prr.order_item_id IS NULL))
+                                    AND NOT (prr.is_print_done = true OR prr.contractor_id IS NOT NULL)
+                              )
                           )
                       )
                 ) THEN 0 ELSE 1 END,
@@ -385,10 +395,15 @@ module.exports = async function(fastify) {
                         WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                           AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
                     ) AS has_pc_in,
-                    EXISTS(
-                        SELECT 1 FROM printing_records pr 
-                        WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
-                          AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                    (
+                        EXISTS (
+                            SELECT 1 FROM printing_records pr 
+                            WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                        ) AND NOT EXISTS (
+                            SELECT 1 FROM printing_records pr 
+                            WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                              AND NOT (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                        )
                     ) AS is_print_done_rec
                 FROM dht_order_items doi
                 WHERE doi.dht_order_id = ANY($1)
@@ -526,11 +541,16 @@ module.exports = async function(fastify) {
                            WHERE qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                              AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
                        ) AS has_pc_in,
-                       EXISTS(
-                           SELECT 1 FROM printing_records pr 
-                           WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
-                             AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
-                       ) AS is_print_done_rec
+                        (
+                            EXISTS (
+                                SELECT 1 FROM printing_records pr 
+                                WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                            ) AND NOT EXISTS (
+                                SELECT 1 FROM printing_records pr 
+                                WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL))
+                                  AND NOT (pr.is_print_done = true OR pr.contractor_id IS NOT NULL)
+                            )
+                        ) AS is_print_done_rec
                 FROM dht_order_items doi
                 WHERE doi.id = $1 FOR UPDATE
             `, [order_item_id]);
