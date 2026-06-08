@@ -1120,7 +1120,7 @@ function _bpeOpenDetail(recordId, orderItemId) {
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧥 Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_back_belly || 0) + ' sp</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🛡️ Bảo Hộ, Bếp, Sơ Mi</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_protective || 0) + ' sp</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 Đóng Gói, Cổ Bẻ Vải</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_packaging || 0) + ' sp</span></div>';
-    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📍 Vị Trí Khác</span><span class="bpc-modal-val" style="color:#475569;font-weight:700">' + (r.pos_other || '—') + '</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📍 Vị Trí Khác</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_other || 0) + ' sp</span></div>';
     h += '</div>';
 
     // Images & Notes
