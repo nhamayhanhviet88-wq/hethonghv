@@ -46,8 +46,8 @@ function renderBophanmayPage(content){
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800);color:#fff">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">Ngày Dự Kiến</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:left">NV May</th><th style="text-align:left">Tên SP</th><th style="text-align:center">SL</th><th style="text-align:right">Giá Gốc</th><th style="text-align:right">Giá KT</th><th style="text-align:right">Lương</th><th style="text-align:left">Chi Tiết</th><th style="text-align:left">KK</th><th style="text-align:left">May Chung</th><th style="text-align:center">Ảnh</th><th style="text-align:left">Ghi Chú</th><th style="text-align:left">Cập Nhật</th>'
-    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">NV May</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Hoàn Thành May</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Giá May</th><th style="text-align:right">Giá Kiểm Tra</th><th style="text-align:right">Lương Giá Kiểm Tra</th><th style="text-align:left">May Chung</th><th style="text-align:center">Ảnh Kiểm Tra</th><th style="text-align:left">Ngày Bàn Giao May</th><th style="text-align:left">Chi Tiết</th><th style="text-align:left">KK</th><th style="text-align:left">Ghi Chú</th><th style="text-align:left">Cập Nhật</th>'
+    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="19" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
 }
@@ -152,20 +152,21 @@ function _bpmRender(){
     if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bpmTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="18"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="19"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         var sI=r.salary_approved?'💰':'⬜',sC=r.salary_approved?' on-sal':'',sA=r.salary_approved?'undo_salary':'approve_salary';
+        var dI=r.done_date?'✅':'⬜',dC=r.done_date?' on-rpt':'',dA=r.done_date?'undo_done':'mark_done';
         var nvN = '—';
         if (r.contractor_id) {
             nvN = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
         } else {
             var badgeColor = r.sewing_team_id ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
             var teamLabel = r.sewer_name ? '👥 ' + r.sewer_name : '❌ Chưa Phân Tổ';
-            nvN = '<span class="badge" style="' + badgeColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmAssignTeam(' + r.id + ')" title="Nhấp để phân tổ may">' + teamLabel + '</span>';
+            nvN = '<span class="badge" style="' + badgeColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + teamLabel + '</span>';
         }
-        var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='📸 '+ia.length;}catch(e){}
+        var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<span class="badge" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmView('+r.id+')" title="Xem ảnh">📸 '+ia.length+'</span>';}catch(e){}
         var upd='';if(r.last_update_at){upd=_bpmFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#0d9488;font-size:9px">'+r.last_update_by+'</span>';}
         
         var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
@@ -182,18 +183,19 @@ function _bpmRender(){
         +'<td style="text-align:center"><button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+sC+'" onclick="_bpmTog('+r.id+',\''+sA+'\')" title="Lương">'+sI+'</button></td>'
         +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
-        +'<td style="font-size:10px">'+_bpmFD(r.expected_date)+'</td>'
-        +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
+        +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
+        +'<td style="text-align:center;font-size:10px;vertical-align:middle"><div style="display:flex;align-items:center;gap:6px;justify-content:center"><button class="bpm-ib'+dC+'" onclick="_bpmTog('+r.id+',\''+dA+'\')" title="Hoàn thành may">'+dI+'</button>'+(r.done_date?'<span style="color:#059669;font-weight:700">'+_bpmFD(r.done_date)+'</span>':'<span style="color:#94a3b8">—</span>')+'</div></td>'
         +'<td style="font-weight:600;color:#1e293b">'+priBadge+(r.product_name||r.order_code||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+(r.quantity||'—')+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
         +'<td style="text-align:right;font-size:10px;color:#dc2626;font-weight:700">'+_bpmFN(r.checked_price)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#f59e0b">'+_bpmFN(r.salary)+'</td>'
-        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.sewing_details||'—')+'</td>'
-        +'<td style="font-size:9px;max-width:60px;overflow:hidden;text-overflow:ellipsis">'+(r.inventory_notes||'—')+'</td>'
         +'<td style="font-size:9px">'+(r.shared_sewing||'—')+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
+        +'<td style="font-size:10px">'+_bpmFD(r.expected_date)+'</td>'
+        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.sewing_details||'—')+'</td>'
+        +'<td style="font-size:9px;max-width:60px;overflow:hidden;text-overflow:ellipsis">'+(r.inventory_notes||'—')+'</td>'
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
@@ -209,9 +211,29 @@ function _bpmRender(){
 
 async function _bpmTog(id,action){try{await apiCall('/api/sewing/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bpmLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
 function _bpmErr(id){if(typeof navigate==='function'){navigate('don-loi-khach-hang');showToast('📋 Chuyển sang Đơn Lỗi');}}
-function _bpmView(id){var r=_bpm.records.find(function(x){return x.id===id;});if(!r)return;
-var imgs='';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=ia.map(function(s){return'<img src="'+s+'" style="width:100px;height:100px;object-fit:cover;border-radius:8px;margin:2px">';}).join('');}catch(e){}
-showToast('📄 Phiếu #'+id+': '+(r.product_name||'SP')+' — SL:'+r.quantity+' — Lương:'+_bpmFN(r.salary));}
+function _bpmView(id){
+    var r=_bpm.records.find(function(x){return x.id===id;});
+    if(!r)return;
+    var ia=[]; try { ia=JSON.parse(r.finish_images||'[]'); } catch(e){}
+    if(!ia.length) return showToast('Không có ảnh', 'warning');
+    
+    var html = '<div style="padding:20px;font-family:\'Inter\',sans-serif">';
+    html += '<h3 style="margin:0 0 16px;color:#0f172a;font-size:15px;font-weight:800">📸 Ảnh Kiểm Tra - Đơn #' + r.id + '</h3>';
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;max-height:60vh;overflow-y:auto">';
+    ia.forEach(function(src) {
+        html += '<a href="' + src + '" target="_blank" title="Click để xem ảnh gốc"><img src="' + src + '" style="width:120px;height:120px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;transition:all 0.2s" onmouseover="this.style.transform=\'scale(1.05)\';this.style.borderColor=\'#0d9488\'" onmouseout="this.style.transform=\'scale(1)\';this.style.borderColor=\'#e2e8f0\'"></a>';
+    });
+    html += '</div>';
+    html += '<div style="text-align:right"><button onclick="document.getElementById(\'_bpmImgOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button></div>';
+    html += '</div>';
+
+    var old = document.getElementById('_bpmImgOverlay'); if (old) old.remove();
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;animation:qlxFadeIn .2s;transition:opacity .25s ease';
+    ov.id = '_bpmImgOverlay';
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:500px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s">' + html + '</div>';
+    document.body.appendChild(ov);
+}
 function _bpmEdit(id){showToast('✏️ Chức năng edit chi tiết — phát triển thêm');}
 
 // ========== GIA CÔNG MAY MANAGEMENT (Giám Đốc only) ==========
