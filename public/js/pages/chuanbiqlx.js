@@ -27,7 +27,7 @@ function renderQuanlyxuongqlxPage(content) {
 +'.qlx-icon-btn.on-fab{background:#dcfce7;border-color:#22c55e}'
 +'.qlx-icon-btn.on-mat{background:#dbeafe;border-color:#3b82f6}'
 +'.qlx-icon-btn.on-pri{background:#fef3c7;border-color:#f59e0b}'
-+'.qlx-icon-btn.on-sew{background:#ede9fe;border-color:#8b5cf6}'
++'.qlx-icon-btn.on-sew{background:#ccfbf1;border-color:#0d9488}'
 +'.qlx-icon-btn.qlx-sew-ready{background:#f3e8ff;border-color:#a78bfa;animation:qlxPulseSew 2s infinite}'
 +'.qlx-icon-btn.qlx-sew-not-ready{opacity:0.25;filter:grayscale(1)}'
 +'@keyframes qlxPulseSew{0%,100%{box-shadow:0 0 0 0 rgba(139,92,246,0.45)}50%{box-shadow:0 0 0 6px rgba(139,92,246,0)}}'
