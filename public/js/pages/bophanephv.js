@@ -93,7 +93,15 @@ function renderBophanepPage(content) {
 + '.bpc-modal-btn.confirm{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 15px rgba(16,185,129,0.3)}'
 + '.bpc-modal-btn.confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,185,129,0.4)}'
 + '.bpc-modal-btn.cancel{background:#f1f5f9;color:#475569}'
-+ '.bpc-modal-btn.cancel:hover{background:#e2e8f0}';
++ '.bpc-modal-btn.cancel:hover{background:#e2e8f0}'
++ '.bpc-modal-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;font-family:Inter,system-ui,sans-serif}'
++ '.bpc-modal-row:last-child{border-bottom:none}'
++ '.bpc-modal-lbl{font-size:12px;color:#64748b;font-weight:600;display:flex;align-items:center;gap:6px}'
++ '.bpc-modal-val{font-size:13px;color:#1e293b;font-weight:700;text-align:right;max-width:65%}'
++ '.bpc-detail-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:16px}'
++ '.bpc-detail-section-title{font-size:11px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px}'
++ '.bpe-detail-thumb{width:80px;height:80px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;transition:transform .2s,border-color .2s}'
++ '.bpe-detail-thumb:hover{transform:scale(1.05);border-color:#6366f1}';
         document.head.appendChild(st);
     }
 
@@ -1101,8 +1109,8 @@ function _bpeOpenDetail(recordId, orderItemId) {
     h += '</div>';
 
     // Detailed positions
-    h += '<div style="border-top:1.5px solid #f1f5f9; padding-top:12px; margin-bottom:16px;">';
-    h += '<div style="font-size:11px; font-weight:800; color:#4f46e5; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
+    h += '<div class="bpc-detail-card" style="border-left: 4px solid #6366f1;">';
+    h += '<div class="bpc-detail-section-title">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👕 Ngực, Tay, Tạp Dề, Vải Mũ</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_chest_arm || 0) + ' sp</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧥 Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_back_belly || 0) + ' sp</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🛡️ Bảo Hộ, Bếp, Sơ Mi</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_protective || 0) + ' sp</span></div>';
@@ -1111,17 +1119,18 @@ function _bpeOpenDetail(recordId, orderItemId) {
     h += '</div>';
 
     // Images & Notes
-    h += '<div style="border-top:1.5px solid #f1f5f9; padding-top:12px;">';
-    h += '<div class="bpc-modal-row" style="flex-direction:column; align-items:flex-start; border-bottom:none;"><span class="bpc-modal-lbl" style="margin-bottom:4px;">📝 Ghi chú ép</span><span class="bpc-modal-val" style="text-align:left; max-width:100%; white-space:pre-wrap; color:#334155;">' + (r.notes || '—') + '</span></div>';
+    h += '<div class="bpc-detail-card" style="border-left: 4px solid #8b5cf6;">';
+    h += '<div class="bpc-detail-section-title" style="color:#8b5cf6">📝 BÁO CÁO CỦA NHÂN VIÊN</div>';
+    h += '<div class="bpc-modal-row" style="flex-direction:column; align-items:flex-start; border-bottom:none; padding:4px 0;"><span class="bpc-modal-lbl" style="margin-bottom:6px;">💬 Ghi chú ép:</span><span class="bpc-modal-val" style="text-align:left; max-width:100%; white-space:pre-wrap; color:#334155; font-weight:500; font-size:12px; background:#fff; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; width:100%; min-height:40px; box-sizing:border-box;">' + (r.notes || '—') + '</span></div>';
     
     var imgs = [];
     try { imgs = typeof r.press_images === 'string' ? JSON.parse(r.press_images) : (r.press_images || []); } catch(e) {}
     if (Array.isArray(imgs) && imgs.length > 0) {
-        h += '<div style="margin-top:10px;">';
-        h += '<div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px; text-align:left">📸 Hình ảnh ép:</div>';
-        h += '<div style="display:flex; flex-wrap:wrap; gap:8px">';
+        h += '<div style="margin-top:12px;">';
+        h += '<div class="bpc-modal-lbl" style="margin-bottom:8px;">📸 Hình ảnh ép thực tế:</div>';
+        h += '<div style="display:flex; flex-wrap:wrap; gap:10px">';
         imgs.forEach(function(imgUrl) {
-            h += '<img src="' + imgUrl + '" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0; cursor:pointer" onclick="window.open(\'' + imgUrl + '\',\'_blank\')">';
+            h += '<img src="' + imgUrl + '" class="bpe-detail-thumb" onclick="window.open(\'' + imgUrl + '\',\'_blank\')">';
         });
         h += '</div>';
         h += '</div>';
