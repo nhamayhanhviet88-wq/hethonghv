@@ -475,7 +475,7 @@ function _bpeRenderRows(paged) {
                 +'<td colspan="2" style="text-align:center;vertical-align:middle">'+claimHtml+'</td>'
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
-                +'<td style="font-weight:600;color:#1e293b">'+priBadge+r.product_name+'</td>'
+                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+r.product_name+'</a></td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
                 +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
@@ -505,7 +505,7 @@ function _bpeRenderRows(paged) {
             + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
-            + '<td style="font-weight:600;color:#1e293b">' + priBadge + (r.product_name || r.order_code || '—') + '</td>'
+            + '<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(' + r.id + ',' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">' + priBadge + (r.product_name || r.order_code || '—') + '</a></td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
             + '<td style="font-size:10px;color:#2563eb;font-weight:600">' + (r.cskh_name || '—') + '</td>'
@@ -1057,4 +1057,89 @@ async function _bpeSubmitReport(id) {
             btn.textContent = 'BÁO CÁO ÉP';
         }
     }
+}
+
+function _bpeOpenDetail(recordId, orderItemId) {
+    var r;
+    if (recordId) {
+        r = _bpe.records.find(function(x) { return x.id === recordId; });
+        if (!r && _bpe.fullRecords) r = _bpe.fullRecords.find(function(x) { return x.id === recordId; });
+    } else if (orderItemId) {
+        r = _bpe.records.find(function(x) { return x.order_item_id === orderItemId && x.is_unpressed; });
+        if (!r && _bpe.fullRecords) r = _bpe.fullRecords.find(function(x) { return x.order_item_id === orderItemId && x.is_unpressed; });
+    }
+    if (!r) {
+        alert('Không tìm thấy thông tin phiếu ép.');
+        return;
+    }
+
+    var old = document.getElementById('_bpeDetailModal'); if (old) old.remove();
+
+    var matColor = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
+    var statusTxt = r.is_reported ? '✅ Đã báo cáo' : '⏳ Chờ báo cáo';
+    var statusBg = r.is_reported ? '#059669' : '#ea580c';
+
+    var h = '<div class="bpc-modal-overlay" id="_bpeDetailModal">';
+    h += '<div class="bpc-modal" style="width:560px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
+    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,' + statusBg + ',' + statusBg + 'cc)"><div class="m-icon">📋</div><div><div class="m-title">CHI TIẾT PHIẾU ÉP</div><div class="m-sub">' + statusTxt + '</div></div></div>';
+    h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px;">';
+
+    // Info grid
+    h += '<div style="background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0; display:grid; grid-template-columns:1fr 1fr; gap:8px;">';
+    h += '<div>👕 <strong>Sản phẩm:</strong> <span>' + (r.product_name || '—') + '</span></div>';
+    h += '<div>🎨 <strong>Chất liệu/Màu:</strong> <span>' + matColor + '</span></div>';
+    h += '<div>👤 <strong>CSKH:</strong> <span>' + (r.cskh_name || '—') + '</span></div>';
+    h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
+    h += '<div>🔥 <strong>NV Ép:</strong> <span>' + (r.presser_name || '—') + '</span></div>';
+    h += '<div>📅 <strong>Ngày Ép:</strong> <span>' + (r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</span></div>';
+    h += '</div>';
+
+    // Quantities & Salary
+    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">';
+    h += '<div style="background:#f0fdf4; padding:10px; border-radius:10px; text-align:center; border:1px solid #bbf7d0;"><div style="font-size:9px; font-weight:700; color:#166534">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:18px; font-weight:900; color:#15803d">' + (r.press_quantity || 0) + ' sp</div></div>';
+    h += '<div style="background:#fff7ed; padding:10px; border-radius:10px; text-align:center; border:1px solid #ffedd5;"><div style="font-size:9px; font-weight:700; color:#c2410c">💰 LƯƠNG ÉP</div><div style="font-size:18px; font-weight:900; color:#ea580c">' + _bpeFN(r.press_salary || 0) + ' đ</div></div>';
+    h += '</div>';
+
+    // Detailed positions
+    h += '<div style="border-top:1.5px solid #f1f5f9; padding-top:12px; margin-bottom:16px;">';
+    h += '<div style="font-size:11px; font-weight:800; color:#4f46e5; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👕 Ngực, Tay, Tạp Dề, Vải Mũ</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_chest_arm || 0) + ' sp</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🧥 Lưng, Bụng, Sườn, Áo Sẵn, Mũ Sẵn</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_back_belly || 0) + ' sp</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🛡️ Bảo Hộ, Bếp, Sơ Mi</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_protective || 0) + ' sp</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 Đóng Gói, Cổ Bẻ Vải</span><span class="bpc-modal-val" style="color:#4f46e5;font-weight:700">' + (r.pos_packaging || 0) + ' sp</span></div>';
+    h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📍 Vị Trí Khác</span><span class="bpc-modal-val" style="color:#475569;font-weight:700">' + (r.pos_other || '—') + '</span></div>';
+    h += '</div>';
+
+    // Images & Notes
+    h += '<div style="border-top:1.5px solid #f1f5f9; padding-top:12px;">';
+    h += '<div class="bpc-modal-row" style="flex-direction:column; align-items:flex-start; border-bottom:none;"><span class="bpc-modal-lbl" style="margin-bottom:4px;">📝 Ghi chú ép</span><span class="bpc-modal-val" style="text-align:left; max-width:100%; white-space:pre-wrap; color:#334155;">' + (r.notes || '—') + '</span></div>';
+    
+    var imgs = [];
+    try { imgs = typeof r.press_images === 'string' ? JSON.parse(r.press_images) : (r.press_images || []); } catch(e) {}
+    if (Array.isArray(imgs) && imgs.length > 0) {
+        h += '<div style="margin-top:10px;">';
+        h += '<div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px; text-align:left">📸 Hình ảnh ép:</div>';
+        h += '<div style="display:flex; flex-wrap:wrap; gap:8px">';
+        imgs.forEach(function(imgUrl) {
+            h += '<img src="' + imgUrl + '" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0; cursor:pointer" onclick="window.open(\'' + imgUrl + '\',\'_blank\')">';
+        });
+        h += '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+
+    h += '</div>'; // End body
+
+    // Footer actions
+    h += '<div style="padding:12px 24px; border-top:1px solid #f1f5f9; text-align:center">';
+    h += '<button class="bpc-modal-btn cancel" style="width:100%" onclick="var m=document.getElementById(\'_bpeDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Đóng</button>';
+    h += '</div>';
+
+    h += '</div></div>';
+    
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(function() {
+        var m = document.getElementById('_bpeDetailModal');
+        if (m) m.classList.add('show');
+    });
 }
