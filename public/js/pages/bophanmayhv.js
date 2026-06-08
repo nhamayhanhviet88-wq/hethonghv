@@ -39,15 +39,15 @@ function renderBophanmayPage(content){
     +'.bpm-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.bpm-ib.on-rpt{background:#ccfbf1;border-color:#14b8a6}.bpm-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpm-ib.on-sal{background:#fef3c7;border-color:#f59e0b}'
     +'.bpm-team-card{transition:all 0.2s ease}.bpm-team-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.05);border-color:#cbd5e1}.bpm-team-card.active{box-shadow:0 4px 12px rgba(13,148,136,0.15)}'
-    +'@media(max-width:768px){.bpm-sb{display:none}}';
+    +'@media(max-width:768px){.bpm-sb{display:none}}.bpm-progress{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800}@keyframes bpmBlink{0%,100%{opacity:1}50%{opacity:0.4}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bpm-wrap"><div class="bpm-sb" id="bpmSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpm-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpmInfo" style="font-size:12px"></div><div id="bpmStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpmSearch" placeholder="🔍 Tìm SP..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800);color:#fff">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">NV May</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Giá May</th><th style="text-align:right">Giá KTra</th><th style="text-align:right">Lương Giá KTra</th><th style="text-align:left">May Chung</th><th style="text-align:center">Ảnh Kiểm Tra</th><th style="text-align:left">Ngày Bàn Giao May</th><th style="text-align:left">Cập Nhật</th>'
-    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">NV May</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:center">Tiến Độ</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">Số Lượng</th><th style="text-align:right">Giá May</th><th style="text-align:right">Giá KTra</th><th style="text-align:right">Lương Giá KTra</th><th style="text-align:left">May Chung</th><th style="text-align:center">Ảnh Kiểm Tra</th><th style="text-align:left">Ngày Bàn Giao May</th><th style="text-align:left">Cập Nhật</th>'
+    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
 }
@@ -225,6 +225,7 @@ function _bpmRender(){
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="color:#059669;font-weight:700;font-size:11px;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+(r.cut_product_name||r.product_name||r.order_code||'—')+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+_bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
@@ -572,5 +573,55 @@ async function _bpmSaveHandover(recordId) {
         await _bpmLoadAll();
     } catch(e) {
         showToast(e.message, 'error');
+    }
+}
+
+function _bpmProgress(exp, done) {
+    if (!exp) return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8">—</span>';
+    try {
+        var expD = _bpmGetDatePart(exp);
+        if (!expD) return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8">—</span>';
+        
+        if (done) {
+            var doneD = _bpmGetDatePart(done);
+            if (!doneD) return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8">—</span>';
+            
+            var diff = Math.round((doneD - expD) / 86400000);
+            if (diff < 0) {
+                return '<span class="bpm-progress" style="background:#d1fae5;color:#059669">⚡ Nhanh hơn ' + Math.abs(diff) + ' ngày</span>';
+            }
+            if (diff === 0) {
+                return '<span class="bpm-progress" style="background:#dbeafe;color:#2563eb">✅ Ra kịp hàng</span>';
+            }
+            return '<span class="bpm-progress" style="background:#fee2e2;color:#dc2626">🔴 Chậm ' + diff + ' ngày</span>';
+        }
+        
+        var today = _bpmGetDatePart();
+        var diff2 = Math.round((expD - today) / 86400000);
+        if (diff2 > 0) {
+            return '<span class="bpm-progress" style="background:#dbeafe;color:#2563eb">⏳ Còn ' + diff2 + ' ngày</span>';
+        }
+        if (diff2 === 0) {
+            return '<span class="bpm-progress" style="background:#fef3c7;color:#d97706">⏳ Ra kịp hàng</span>';
+        }
+        return '<span class="bpm-progress" style="background:#fee2e2;color:#dc2626;animation:bpmBlink 1.5s infinite">🔥 Chậm ' + Math.abs(diff2) + ' ngày</span>';
+    } catch (e) {
+        return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8">—</span>';
+    }
+}
+
+function _bpmGetDatePart(d) {
+    try {
+        var dateStr = '';
+        if (typeof vnISOStr === 'function') {
+            dateStr = vnISOStr(d).split('T')[0];
+        } else {
+            var dateObj = d ? new Date(d) : new Date();
+            dateStr = dateObj.toISOString().split('T')[0];
+        }
+        var parts = dateStr.split('-');
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0, 0);
+    } catch(e) {
+        return null;
     }
 }
