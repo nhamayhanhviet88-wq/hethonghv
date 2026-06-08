@@ -1763,10 +1763,10 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px;margin-bottom:12px">';
         
         // Table Headers
-        html += '<div style="display:grid;grid-template-columns:1.8fr 0.8fr 1.2fr 1.5fr auto;gap:8px;padding:0 10px;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
+        html += '<div style="display:grid;grid-template-columns:1.8fr 0.8fr 1.2fr 1.5fr auto;gap:8px;padding:0 10px;border:1px solid transparent;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
         html += '<div>Phân Công May</div>';
         html += '<div style="text-align:center">Số Lượng</div>';
-        html += '<div style="text-align:center">Ngày Trả Hàng <span style="color:#dc2626">*</span></div>';
+        html += '<div style="text-align:left">Ngày Trả Hàng <span style="color:#dc2626">*</span></div>';
         html += '<div>Lưu Ý May</div>';
         html += '<div></div>';
         html += '</div>';
