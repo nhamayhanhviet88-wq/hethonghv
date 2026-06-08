@@ -578,26 +578,47 @@ async function _bpmShowHandoverModal(recordId) {
 
         var slFormatted = _bpmFormatOrderQty(rec.quantity, rec.category_name, rec.cut_product_name || rec.product_name);
 
-        // Parse techniques
-        var techList = '';
-        var rawTechs = rec.sewing_techniques || rec.ts_sewing_tech;
-        if (rawTechs) {
+        // Parse core techniques (Kỹ Thuật May) from ts_sewing_tech
+        var coreTechList = '';
+        var rawCoreTechs = rec.ts_sewing_tech;
+        if (rawCoreTechs) {
             try {
-                var techs = typeof rawTechs === 'string' ? JSON.parse(rawTechs) : rawTechs;
+                var techs = typeof rawCoreTechs === 'string' ? JSON.parse(rawCoreTechs) : rawCoreTechs;
                 if (Array.isArray(techs)) {
-                    techList = techs.map(function(t) {
+                    coreTechList = techs.map(function(t) {
                         if (typeof t === 'string') return t;
                         if (t && typeof t === 'object') return t.name || t.tech_name || '';
                         return '';
                     }).filter(Boolean).join(', ');
-                } else if (typeof rawTechs === 'string') {
-                    techList = rawTechs;
+                } else if (typeof rawCoreTechs === 'string') {
+                    coreTechList = rawCoreTechs;
                 }
             } catch(e) {
-                techList = String(rawTechs);
+                coreTechList = String(rawCoreTechs);
             }
         }
-        if (!techList) techList = '—';
+        if (!coreTechList) coreTechList = '—';
+
+        // Parse additional techniques (Chi Tiết May Thêm) from sewing_techniques
+        var extraTechList = '';
+        var rawExtraTechs = rec.sewing_techniques;
+        if (rawExtraTechs) {
+            try {
+                var techs = typeof rawExtraTechs === 'string' ? JSON.parse(rawExtraTechs) : rawExtraTechs;
+                if (Array.isArray(techs)) {
+                    extraTechList = techs.map(function(t) {
+                        if (typeof t === 'string') return t;
+                        if (t && typeof t === 'object') return t.name || t.tech_name || '';
+                        return '';
+                    }).filter(Boolean).join(', ');
+                } else if (typeof rawExtraTechs === 'string') {
+                    extraTechList = rawExtraTechs;
+                }
+            } catch(e) {
+                extraTechList = String(rawExtraTechs);
+            }
+        }
+        if (!extraTechList) extraTechList = '—';
 
         // Prepare UI HTML
         var html = '<div style="font-family: \'Inter\', sans-serif; background: #f8fafc; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">';
@@ -680,7 +701,8 @@ async function _bpmShowHandoverModal(recordId) {
 
         var rowsSew = [
             { label: 'Thông Số Mẫu Áo', val: '<span style="font-weight: 700; color: #4f46e5;">' + (rec.pattern_name || '—') + '</span>' },
-            { label: 'Kỹ Thuật May', val: '<span style="font-weight: 700; color: #334155;">' + techList + '</span>' },
+            { label: 'Kỹ Thuật May', val: '<span style="font-weight: 700; color: #334155;">' + coreTechList + '</span>' },
+            { label: 'Chi Tiết May Thêm', val: '<span style="font-weight: 700; color: #334155;">' + extraTechList + '</span>' },
             { label: 'Giá Nhà May', val: '<span style="font-weight: 700; color: #0d9488;">' + (rec.ts_factory_price ? _bpmFN(rec.ts_factory_price) + 'đ' : '—') + '</span>' },
             { label: 'Giá May Gia Công', val: '<span style="font-weight: 700; color: #0ea5e9;">' + (rec.ts_processing_price ? _bpmFN(rec.ts_processing_price) + 'đ' : '—') + '</span>' },
             { label: 'QLX Lưu Ý May', val: '<span style="font-weight: 700; color: #ef4444; font-style: italic;">' + (rec.notes || '—') + '</span>' }
