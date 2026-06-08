@@ -557,100 +557,161 @@ async function _bpmShowHandoverModal(recordId) {
 
         var currentTeamId = rec.sewing_team_id || '';
 
-        var html = '<div style="padding: 24px; font-family: \'Inter\', sans-serif;">';
-        
-        // Header
-        html += '<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 20px;">';
-        html += '  <h3 style="margin: 0; color: #0d9488; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">📋 Bàn Giao Đơn Hàng May</h3>';
-        html += '  <span style="font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px;">Mã số: #' + rec.id + '</span>';
-        html += '</div>';
+        // Parse products
+        var pInfo = _bpmParseProduct(rec);
+        var prodFullName = (rec.order_code || '—');
+        if (pInfo.phieu) prodFullName += ' — ' + pInfo.phieu;
+        if (pInfo.phoi) prodFullName += ' — ' + pInfo.phoi;
+        if (pInfo.prodName) prodFullName += ' — ' + pInfo.prodName;
 
-        // Order Details (Grid format)
-        html += '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; font-size: 12px;">';
+        // Create badges/pills
+        var matBadge = rec.material_name ? '<span style="background:#fef3c7;color:#92400e;padding:4px 12px;border-radius:20px;font-weight:700;font-size:11px;display:inline-block;">' + rec.material_name + '</span>' : '—';
+        var colBadge = rec.color_name ? '<span style="background:#1e293b;color:#f8fafc;padding:4px 12px;border-radius:20px;font-weight:700;font-size:11px;display:inline-block;">' + rec.color_name + '</span>' : '—';
+        var catBadge = rec.category_name ? '<span style="background:#eff6ff;color:#1d4ed8;padding:4px 12px;border-radius:20px;font-weight:700;font-size:11px;display:inline-block;">' + rec.category_name + '</span>' : '—';
         
-        html += '  <div style="grid-column: span 2;">';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">TÊN SẢN PHẨM / ĐƠN HÀNG</div>';
-        var priority = (rec.shipping_priority || 'CHUẨN').toUpperCase();
-        var priBadge = '';
-        if (priority === 'GẤP') {
-            priBadge = '<span style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 6px;">Gấp</span>';
+        var nvMay = '—';
+        if (rec.contractor_id) {
+            nvMay = '<span style="color:#0284c7;font-weight:700;">🏭 ' + (rec.contractor_name || 'Gia công') + '</span>';
+        } else if (rec.sewer_name) {
+            nvMay = '<span style="color:#059669;font-weight:700;">👤 ' + rec.sewer_name + '</span>';
         }
-        html += '    <div style="font-weight: 700; color: #0f172a; font-size: 13px;">' + priBadge + (rec.product_name || rec.order_code || '—') + '</div>';
+
+        var slFormatted = _bpmFormatOrderQty(rec.quantity, rec.category_name, rec.cut_product_name || rec.product_name);
+
+        // Parse techniques
+        var techList = '';
+        try {
+            var techs = rec.sewing_techniques;
+            if (typeof techs === 'string') techs = JSON.parse(techs);
+            if (Array.isArray(techs)) techList = techs.join(', ');
+        } catch(e) {}
+        if (!techList) {
+            try {
+                var techs = rec.ts_sewing_tech;
+                if (typeof techs === 'string') techs = JSON.parse(techs);
+                if (Array.isArray(techs)) techList = techs.join(', ');
+            } catch(e) {}
+        }
+        if (!techList) techList = '—';
+
+        // Prepare UI HTML
+        var html = '<div style="font-family: \'Inter\', sans-serif; background: #f8fafc; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">';
+        
+        // Header (Indigo/Lavender gradient)
+        html += '  <div style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; padding: 20px 24px; position: relative;">';
+        html += '    <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">📋 CHI TIẾT BÀN GIAO MAY</h3>';
+        html += '    <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Mã số đơn may: #' + rec.id + '</p>';
+        html += '    <button onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.15); border: none; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 700; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'">✕</button>';
         html += '  </div>';
 
-        html += '  <div>';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">SỐ LƯỢNG</div>';
-        html += '    <div style="font-weight: 700; color: #0d9488; font-size: 13px;">' + _bpmFN(rec.quantity) + ' sản phẩm</div>';
-        html += '  </div>';
+        // Scrollable content body
+        html += '  <div style="padding: 20px; max-height: 65vh; overflow-y: auto; box-sizing: border-box;">';
 
-        html += '  <div>';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">LƯƠNG</div>';
-        html += '    <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">' + _bpmFN(rec.salary) + ' đ</div>';
-        html += '  </div>';
-
-        html += '  <div>';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">NGÀY DỰ KIẾN</div>';
-        html += '    <div style="font-weight: 700; color: #475569;">' + _bpmFD(rec.expected_date) + '</div>';
-        html += '  </div>';
-
-        html += '  <div>';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">QLX HẸN RA</div>';
-        html += '    <div style="font-weight: 700; color: #475569;">' + _bpmFD(rec.handover_date) + '</div>';
-        html += '  </div>';
-
-        html += '  <div style="grid-column: span 2;">';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">CHI TIẾT MAY</div>';
-        html += '    <div style="color: #334155; line-height: 1.4; background: #fff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 11px;">' + (rec.sewing_details || '—') + '</div>';
-        html += '  </div>';
-
-        html += '  <div style="grid-column: span 2;">';
-        html += '    <div style="font-weight: 800; color: #64748b; margin-bottom: 2px;">GHI CHÚ / KK / MAY CHUNG</div>';
-        html += '    <div style="color: #475569;">';
-        if (rec.notes) html += '📌 <b>Ghi chú:</b> ' + rec.notes + '<br>';
-        if (rec.inventory_notes) html += '📦 <b>KK:</b> ' + rec.inventory_notes + '<br>';
-        if (rec.shared_sewing) html += '🪡 <b>May chung:</b> ' + rec.shared_sewing;
-        if (!rec.notes && !rec.inventory_notes && !rec.shared_sewing) html += '—';
+        // 1. Banner Block: Hạn Trả Hàng | Tiến Độ | Tiêu Chuẩn Đơn
+        var priUpper = (rec.shipping_priority || 'CHUẨN').toUpperCase();
+        var priText = priUpper === 'GẤP' ? '🔥 GẤP' : (priUpper === 'GỬI' ? '✈️ GỬI' : 'CHUẨN');
+        var priColor = priUpper === 'GẤP' ? '#dc2626' : (priUpper === 'GỬI' ? '#0284c7' : '#475569');
+        var bannerBg = priUpper === 'GẤP' ? '#fff5f5' : '#ffffff';
+        var bannerBorder = priUpper === 'GẤP' ? '1px solid #fee2e2' : '1px solid #e2e8f0';
+        
+        html += '    <div style="background: ' + bannerBg + '; border: ' + bannerBorder + '; border-radius: 12px; padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 8px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+        html += '      <div style="border-right: 1px solid #f1f5f9;">';
+        html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">📅 HẠN TRẢ HÀNG</div>';
+        html += '        <div style="font-size: 12px; font-weight: 800; color: #1e293b;">' + _bpmFD(rec.shipping_date) + '</div>';
+        html += '      </div>';
+        html += '      <div style="border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; align-items: center; justify-content: center;">';
+        html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">TIẾN ĐỘ</div>';
+        html += '        <div style="display: inline-block; transform: scale(0.95);">' + _bpmProgress(rec.expected_date, rec.done_date) + '</div>';
+        html += '      </div>';
+        html += '      <div>';
+        html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">TIÊU CHUẨN ĐƠN</div>';
+        html += '        <div style="font-size: 12px; font-weight: 900; color: ' + priColor + ';">' + priText + '</div>';
+        html += '      </div>';
         html += '    </div>';
-        html += '  </div>';
 
-        html += '</div>';
+        // 2. Dates Block: Ngày Gửi Dự Kiến | QLX Hẹn Ra
+        html += '    <div style="background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); text-align: center; gap: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+        html += '      <div style="border-right: 1px solid #dbeafe;">';
+        html += '        <div style="font-size: 9px; font-weight: 800; color: #1e40af; margin-bottom: 2px; text-transform: uppercase;">📅 NGÀY GỬI DỰ KIẾN</div>';
+        html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + _bpmFD(rec.shipping_date) + '</div>';
+        html += '      </div>';
+        html += '      <div>';
+        html += '        <div style="font-size: 9px; font-weight: 800; color: #1e40af; margin-bottom: 2px; text-transform: uppercase;">📅 QLX HẸN RA</div>';
+        html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + _bpmFD(rec.expected_date) + '</div>';
+        html += '      </div>';
+        html += '    </div>';
 
-        // Handover Teams Selection
-        html += '<div>';
-        html += '  <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 12px;">';
-        html += '    <span>🪡 BÀN GIAO CHO TEAM MAY:</span>';
-        html += '  </div>';
+        // 3. Properties List (Image 2 style)
+        html += '    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px 16px; margin-bottom: 20px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+        
+        var rows = [
+            { label: '📋 Tên SP', val: '<span style="font-weight: 700; color: #0f172a; word-break: break-all;">' + prodFullName + '</span>' },
+            { label: 'CSKH', val: '<span style="font-weight: 700; color: #475569;">' + (rec.cskh_name || '—') + '</span>' },
+            { label: '🧵 Chất liệu', val: matBadge },
+            { label: '🎨 Màu', val: colBadge },
+            { label: '🏷️ Sản Phẩm May', val: catBadge },
+            { label: '👤 NV May', val: nvMay },
+            { label: '📅 Ngày Bàn Giao NV May', val: '<span style="font-weight: 700; color: #1e293b;">' + _bpmFD(rec.handover_date) + '</span>' },
+            { label: '📦 SL Đơn', val: '<span style="font-weight: 800; color: #0284c7; font-size: 14px;">' + slFormatted + '</span>' },
+            { label: 'Thông Số Mẫu Áo', val: '<span style="font-weight: 700; color: #4f46e5;">' + (rec.pattern_name || '—') + '</span>' },
+            { label: 'Kỹ Thuật May', val: '<span style="font-weight: 700; color: #334155;">' + techList + '</span>' },
+            { label: 'Giá Nhà May', val: '<span style="font-weight: 700; color: #0d9488;">' + (rec.ts_factory_price ? _bpmFN(rec.ts_factory_price) + 'đ' : '—') + '</span>' },
+            { label: 'Giá May Gia Công', val: '<span style="font-weight: 700; color: #0ea5e9;">' + (rec.ts_processing_price ? _bpmFN(rec.ts_processing_price) + 'đ' : '—') + '</span>' },
+            { label: 'QLX Lưu Ý May', val: '<span style="font-weight: 700; color: #ef4444; font-style: italic;">' + (rec.notes || '—') + '</span>' }
+        ];
 
-        html += '  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px;">';
+        rows.forEach(function(row) {
+            html += '      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9;">';
+            html += '        <span style="color: #64748b; font-weight: 600; flex-shrink: 0; margin-right: 12px;">' + row.label + '</span>';
+            html += '        <span style="text-align: right; display: flex; justify-content: flex-end;">' + row.val + '</span>';
+            html += '      </div>';
+        });
+
+        html += '    </div>';
+
+        // 4. Handover Teams Selection Section
+        html += '    <div>';
+        html += '      <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">';
+        html += '        <span>🪡 BÀN GIAO CHO TEAM MAY:</span>';
+        html += '      </div>';
+
+        html += '      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px;">';
         
         var noneActive = !currentTeamId;
-        html += '    <div class="bpm-team-card' + (noneActive ? ' active' : '') + '" onclick="_bpmSelectTeam(null)" id="team_card_none" style="padding: 12px; border-radius: 10px; border: 2px solid ' + (noneActive ? '#ef4444' : '#e2e8f0') + '; background: ' + (noneActive ? '#fef2f2' : '#fff') + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">';
-        html += '      <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + (noneActive ? '#ef4444' : '#cbd5e1') + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
-        if (noneActive) html += '        <div style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></div>';
-        html += '      </div>';
-        html += '      <div style="font-size: 12px; font-weight: 700; color: ' + (noneActive ? '#b91c1c' : '#475569') + '">❌ Chưa Bàn Giao</div>';
-        html += '    </div>';
+        html += '        <div class="bpm-team-card' + (noneActive ? ' active' : '') + '" onclick="_bpmSelectTeam(null)" id="team_card_none" style="padding: 12px; border-radius: 10px; border: 2px solid ' + (noneActive ? '#ef4444' : '#e2e8f0') + '; background: ' + (noneActive ? '#fef2f2' : '#fff') + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">';
+        html += '          <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + (noneActive ? '#ef4444' : '#cbd5e1') + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
+        if (noneActive) html += '            <div style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></div>';
+        html += '          </div>';
+        html += '          <div style="font-size: 12px; font-weight: 700; color: ' + (noneActive ? '#b91c1c' : '#475569') + '">❌ Chưa Bàn Giao</div>';
+        html += '        </div>';
 
         _bpm.teams.forEach(function(t) {
             var isCurrent = String(t.id) === String(currentTeamId);
-            html += '    <div class="bpm-team-card' + (isCurrent ? ' active' : '') + '" onclick="_bpmSelectTeam(' + t.id + ')" id="team_card_' + t.id + '" style="padding: 12px; border-radius: 10px; border: 2px solid ' + (isCurrent ? '#0d9488' : '#e2e8f0') + '; background: ' + (isCurrent ? '#f0fdf4' : '#fff') + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">';
-            html += '      <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + (isCurrent ? '#0d9488' : '#cbd5e1') + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
-            if (isCurrent) html += '        <div style="width: 8px; height: 8px; border-radius: 50%; background: #0d9488;"></div>';
-            html += '      </div>';
-            html += '      <div style="font-size: 12px; font-weight: 700; color: ' + (isCurrent ? '#0f766e' : '#1e293b') + '">👥 ' + t.name + '</div>';
-            html += '    </div>';
+            var activeBorder = isCurrent ? '#0d9488' : '#e2e8f0';
+            var activeBg = isCurrent ? '#f0fdf4' : '#fff';
+            var activeText = isCurrent ? '#0f766e' : '#1e293b';
+            var activeRadioBorder = isCurrent ? '#0d9488' : '#cbd5e1';
+
+            html += '        <div class="bpm-team-card' + (isCurrent ? ' active' : '') + '" onclick="_bpmSelectTeam(' + t.id + ')" id="team_card_' + t.id + '" style="padding: 12px; border-radius: 10px; border: 2px solid ' + activeBorder + '; background: ' + activeBg + '; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">';
+            html += '          <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ' + activeRadioBorder + '; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #fff;">';
+            if (isCurrent) html += '            <div style="width: 8px; height: 8px; border-radius: 50%; background: #0d9488;"></div>';
+            html += '          </div>';
+            html += '          <div style="font-size: 12px; font-weight: 700; color: ' + activeText + '">👥 ' + t.name + '</div>';
+            html += '        </div>';
         });
 
-        html += '  </div>';
-        html += '</div>';
+        html += '      </div>';
+        html += '    </div>';
 
-        html += '<input type="hidden" id="_bpmSelectedTeamId" value="' + currentTeamId + '">';
-        html += '<div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
-        html += '  <button class="btn btn-secondary" style="padding: 8px 18px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Hủy</button>';
-        html += '  <button onclick="_bpmSaveHandover(' + rec.id + ')" style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: #fff; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);">💾 Lưu Bàn Giao</button>';
-        html += '</div>';
+        // 5. Actions Footer
+        html += '    <input type="hidden" id="_bpmSelectedTeamId" value="' + currentTeamId + '">';
+        html += '    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
+        html += '      <button class="btn btn-secondary" style="padding: 8px 18px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Hủy</button>';
+        html += '      <button onclick="_bpmSaveHandover(' + rec.id + ')" style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: #fff; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);">💾 Lưu Bàn Giao</button>';
+        html += '    </div>';
 
-        html += '</div>';
+        html += '  </div>'; // End Scrollable body
+        html += '</div>'; // End wrapper
 
         var old = document.getElementById('_bpmHandoverOverlay'); if (old) old.remove();
         var ov = document.createElement('div');
