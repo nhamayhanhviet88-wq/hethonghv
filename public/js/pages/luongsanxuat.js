@@ -400,7 +400,7 @@ function _lsxGetHeaderHTML() {
     
     if (_lsx.filter.dept === 'pressing') {
         var posHeaders = (window._bpePositions || []).map(function(pos) {
-            return `<th style="text-align:center;background:#0d9488;cursor:help" title="${pos.display_name}" onclick="showToast('Vị trí: ' + ${JSON.stringify(pos.display_name)})">${pos.short_name || pos.display_name}</th>`;
+            return `<th style="text-align:center;background:#0d9488;cursor:help" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}</th>`;
         }).join('');
 
         return `
