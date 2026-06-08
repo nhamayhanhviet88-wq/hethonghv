@@ -239,7 +239,13 @@ function mQty(r){
 }
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
+        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bo_phan_in || !cu.permissions.bo_phan_in.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bộ Phận In!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
 try{const r=await api('/api/printing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.print_date&&r.print_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">⚠️</div><div>'+e.message+'</div></div>'}}
 function mStats(){const t=mr.length,te=mr.filter(r=>r.is_test_print&&!r.is_completed).length,d=mr.filter(r=>r.is_completed).length,er=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sE').textContent=te;document.getElementById('sD').textContent=d;document.getElementById('sR').textContent=er}

@@ -280,7 +280,13 @@
                     return;
                 }
                 currentUser = auth.user;
-                document.getElementById('mUser').textContent = currentUser.full_name || currentUser.username;
+                
+        if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.bo_phan_ep || !currentUser.permissions.bo_phan_ep.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bộ Phận Ép!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mUser').textContent = currentUser.full_name || currentUser.username;
                 
                 await mLoadData();
             } catch(e) {

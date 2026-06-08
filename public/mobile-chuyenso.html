@@ -180,7 +180,13 @@
             const auth = await apiCall('/api/auth/me');
             if (!auth.user) { window.location.href = '/index.html'; return; }
             currentUser = auth.user;
-            document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
+            
+        if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.chuyen_so || !currentUser.permissions.chuyen_so.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Chuyển Số!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
             await mRenderForm();
         } catch(e) {
             document.getElementById('mContent').innerHTML = '<div class="m-loading">❌ Lỗi kết nối server</div>';

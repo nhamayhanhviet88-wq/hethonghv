@@ -64,7 +64,13 @@ function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
 function fn(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN')}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
+        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bo_phan_may || !cu.permissions.bo_phan_may.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bộ Phận May!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
 try{const r=await api('/api/sewing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.handover_date&&r.handover_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){const t=mr.length,p=mr.filter(r=>r.is_reported&&!r.done_date).length,d=mr.filter(r=>r.done_date).length,a=mr.filter(r=>r.salary_approved).length;document.getElementById('sT').textContent=t;document.getElementById('sP').textContent=p;document.getElementById('sD').textContent=d;document.getElementById('sA').textContent=a}

@@ -76,7 +76,13 @@
             const a=await api('/api/auth/me');
             if(!a.user){location.href='/index.html';return}
             currentUser=a.user;
-            document.getElementById('mU').textContent=currentUser.full_name||currentUser.username;
+            
+        if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.nhan_vien || !currentUser.permissions.nhan_vien.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Tài Khoản Nhân Viên!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=currentUser.full_name||currentUser.username;
             await loadAll();
         }catch(e){document.getElementById('mR').innerHTML='<div class="me">❌ Lỗi kết nối</div>'}
     })();

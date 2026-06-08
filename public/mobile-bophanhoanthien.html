@@ -78,7 +78,13 @@ function progress(exp,done){
     if(diff2===0)return'<span class="pg" style="background:rgba(245,158,11,.2);color:#fbbf24">⏰ Hôm nay</span>';
     return'<span class="pg" style="background:rgba(239,68,68,.2);color:#fca5a5">🔴 Quá '+Math.abs(diff2)+'d</span>';}
 function ship(s){if(s==='gap')return'<span class="bd gap">🔴 GẤP</span>';if(s==='gui')return'<span class="bd gui">📦 GỬI</span>';return'<span class="bd chuan">✅ CHUẨN</span>';}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
+        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bo_phan_hoan_thien || !cu.permissions.bo_phan_hoan_thien.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Cắt Chỉ & Hoàn Thiện!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
 try{const r=await api('/api/finishing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){const t=mr.length,p=mr.filter(r=>r.is_completed&&!r.done_date).length,d=mr.filter(r=>r.done_date).length,e=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sP').textContent=p;document.getElementById('sD').textContent=d;document.getElementById('sE').textContent=e}

@@ -200,7 +200,13 @@
             const auth = await apiCall('/api/auth/me');
             if (!auth.user) { window.location.href = '/index.html'; return; }
             currentUser = auth.user;
-            document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
+            
+        if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.tim_kiem_kh || !currentUser.permissions.tim_kiem_kh.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Tìm Kiếm Khách Hàng!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
         } catch(e) {
             document.getElementById('mResults').innerHTML = '<div class="m-empty">❌ Lỗi kết nối</div>';
         }

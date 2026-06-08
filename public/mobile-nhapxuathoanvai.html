@@ -68,7 +68,13 @@ function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p
 function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
 function fns(n){const v=Number(n)||0;if(v>=1e9)return(v/1e9).toFixed(1)+'tỷ';if(v>=1e6)return(v/1e6).toFixed(1)+'tr';if(v>=1e3)return(v/1e3).toFixed(0)+'k';return v.toString()}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
+        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.nhap_xuat_hoan_vai || !cu.permissions.nhap_xuat_hoan_vai.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Nhập Xuất Hoàn Vải!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=cu.full_name||cu.username;
 document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi: '+e.message+'</div></div>'}}
 async function mLoad(){const tt=document.getElementById('mFT')?.value||'',st=document.getElementById('mFS')?.value||'';let q='?_=1';if(tt)q+='&tx_type='+tt;if(st)q+='&status='+st;
 try{const r=await api('/api/fabrictx/records'+q);mr=r.records||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}

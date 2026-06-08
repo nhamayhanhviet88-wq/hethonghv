@@ -78,7 +78,13 @@ function mTreeInfo(r){
     const parts=[];Object.keys(byUnit).forEach(u=>{if(byUnit[u]>0)parts.push(fn(byUnit[u])+' '+u);});
     return{trees:tc,qty:parts.join(' + ')||'—',byUnit};
 }
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
+        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bill_nhap_hang || !cu.permissions.bill_nhap_hang.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bill Nhập Vải!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=cu.full_name||cu.username;
 const sR=await api('/api/import/sources');srcs=sR.sources||[];const sel=document.getElementById('mFSrc');srcs.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent='🏪 '+s.name;sel.appendChild(o);});
 document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',src=document.getElementById('mFSrc')?.value||'';let q='?_=1';if(st)q+='&status='+st;if(src)q+='&source_id='+src;

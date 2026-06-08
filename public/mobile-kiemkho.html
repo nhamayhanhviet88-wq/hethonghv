@@ -62,7 +62,13 @@ async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fn(n){return Number(n||0).toLocaleString('vi-VN')}
 function diff(r){if(r.actual_weight===null||r.actual_weight===undefined)return'<span class="df none">— Chưa kiểm</span>';const d=Number(r.difference)||0;if(d===0)return'<span class="df ok">✅ Khớp</span>';if(d>0)return'<span class="df short">🔴 Thiếu '+fn(d)+'</span>';return'<span class="df over">🔵 Dư '+fn(Math.abs(d))+'</span>';}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;document.getElementById('mU').textContent=cu.full_name||cu.username;
+async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
+        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.kiem_kho || !cu.permissions.kiem_kho.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Kiểm Kho Vải!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mU').textContent=cu.full_name||cu.username;
 const tR=await api('/api/stockcheck/tree');tree=tR;const wSel=document.getElementById('mFW');tR.tree.forEach(w=>{const o=document.createElement('option');o.value=w.id;o.textContent='🏭 '+w.name+' ('+w.roll_count+')';wSel.appendChild(o);});
 document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';
 if(tR.tree.length){wSel.value=tR.tree[0].id;onWh();}

@@ -256,7 +256,13 @@ async function mInit(){
         const auth=await mApi('/api/auth/me');
         if(!auth.user){window.location.href='/index.html';return;}
         mUser=auth.user;
-        document.getElementById('mUser').textContent=mUser.full_name||mUser.username;
+        
+        if (mUser.role !== 'giam_doc' && (!mUser.permissions || !mUser.permissions.bo_phan_cat || !mUser.permissions.bo_phan_cat.can_view)) {
+            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bộ Phận Cắt!');
+            window.location.href = '/';
+            return;
+        }
+    document.getElementById('mUser').textContent=mUser.full_name||mUser.username;
         if(mUser.role === 'giam_doc'){
             const btn = document.getElementById('mRatioBtn');
             if(btn) btn.style.display = 'block';

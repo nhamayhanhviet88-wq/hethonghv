@@ -1046,6 +1046,14 @@ async function checkAuth(retryCount) {
         renderAffiliateFloatingButtons();
         _toInit(); // Time override button (chỉ GĐ)
         _drInit(); // Daily report button (chỉ GĐ)
+
+        var redirectToast = sessionStorage.getItem('unauthorized_redirect_toast');
+        if (redirectToast) {
+            sessionStorage.removeItem('unauthorized_redirect_toast');
+            if (typeof showToast === 'function') {
+                showToast(redirectToast, 'error');
+            }
+        }
     } catch (err) {
         // ★ Network error / Timeout → auto-retry (tối đa 3 lần) thay vì redirect login
         console.warn('[Auth] Lần ' + (_attempt + 1) + ' thất bại:', err.message);
@@ -1614,6 +1622,95 @@ function navigate(page) {
     if (ov) { ov.classList.remove('show'); ov.style.cssText = ''; }
 }
 
+// ========== ROUTING HOOKS & HELPERS ==========
+function findMenuItemForPage(pageId) {
+    // 1. Khớp trực tiếp theo ID menu
+    var item = MENU_CONFIG.find(function(m) { return m.id === pageId; });
+    if (item) return item;
+
+    // 2. Khớp trực tiếp theo href (bỏ dấu gạch chéo đầu)
+    item = MENU_CONFIG.find(function(m) { return m.href && m.href.replace(/^\//, '') === pageId; });
+    if (item) return item;
+
+    // 3. Khớp các alias phổ biến (chỉ các trang đại diện cho menu chính)
+    var aliasMap = {
+        'baocaohoahong': 'bao-cao-hoa-hong',
+        'chapnhanctvaffliate': 'chap-nhan-ctv-affiliate',
+        'baocaohoahonghv': 'bao-cao-hoa-hong-hv',
+        'huongdansudung': 'huong-dan-su-dung',
+        'bangxephangaffiliate': 'bang-xep-hang-affiliate',
+        'bangxephangkinhdoanh': 'bang-xep-hang-kinh-doanh',
+        'bangxephangsale': 'bang-xep-hang-sale',
+        'bangxephangctv': 'bang-xep-hang-ctv',
+        'bxhsanxuat': 'bxh-san-xuat',
+        'bxhvanphong': 'bxh-van-phong',
+        'giaithuonggame': 'giai-thuong-game',
+        'traogiaithuong': 'trao-giai-thuong',
+        'bangiaodiem': 'bangiao-diem-kd',
+        'lichkhoabieu': 'lich-khoa-bieu',
+        'lichsubaocaocv': 'lich-su-bao-cao',
+        'khoatknv': 'khoa-tk-nv',
+        'mokhoatkphat': 'mo-khoa-tk-phat',
+        'xinnghinhanvien': 'xin-nghi-nv',
+        'setupngayle': 'setup-ngay-le',
+        'bangiaokhoa': 'bangiao-khoa',
+        'timkiemkhachhanghv': 'timkiemkhachhang',
+        'chamsocaffiliate': 'cham-soc-affiliate',
+        'chamsockockol': 'cham-soc-koc-kol',
+        'luongsanxuat': 'luong-san-xuat',
+        'donkhachsll': 'don-khach-sll',
+        'donkhachnhieulan': 'don-khach-nhieu-lan',
+        'donkhachmoi': 'don-khach-moi',
+        'donquanhe': 'don-quan-he'
+    };
+
+    var resolvedId = aliasMap[pageId];
+    if (resolvedId) {
+        return MENU_CONFIG.find(function(m) { return m.id === resolvedId; });
+    }
+
+    // 4. Khớp bằng cách loại bỏ dấu gạch ngang (ví dụ: bophancat khớp bo-phan-cat)
+    var cleanId = pageId.replace(/-/g, '').toLowerCase();
+    item = MENU_CONFIG.find(function(m) {
+        return m.id.replace(/-/g, '').toLowerCase() === cleanId;
+    });
+    if (item) return item;
+
+    // 5. Khớp qua href sau khi loại bỏ dấu gạch ngang
+    item = MENU_CONFIG.find(function(m) {
+        return m.href && m.href.replace(/^\//, '').replace(/-/g, '').toLowerCase() === cleanId;
+    });
+    if (item) return item;
+
+    return null;
+}
+
+function findPermissionMenuItem(pageId) {
+    // Ánh xạ các trang con/trang quy tắc tư vấn về các menu cha để kiểm tra quyền
+    var aliasMap = {
+        'quytacnuttuvancrmnhucau': 'crm-nhu-cau',
+        'quytacnuttuvancrmctv': 'crm-ctv',
+        'quytacnuttuvancrmaffiliate': 'cham-soc-affiliate',
+        'quytacnuttuvancrmkockol': 'cham-soc-koc-kol'
+    };
+
+    var targetId = aliasMap[pageId] || pageId;
+    return findMenuItemForPage(targetId);
+}
+
+function hasMenuPermission(item) {
+    if (!currentUser) return false;
+    if (currentUser.role === 'giam_doc') return true;
+    if (item.strictRoles && (!item.roles || !item.roles.includes(currentUser.role))) return false;
+    var permKey = item.permKey;
+    if (permKey) {
+        if (!userPermissions[permKey] || !userPermissions[permKey].can_view) return false;
+    } else if (item.roles) {
+        if (!item.roles.includes(currentUser.role)) return false;
+    }
+    return true;
+}
+
 // Smart redirect for tkaffiliate uses sessionStorage (survives reload, clears on tab close)
 
 async function handleRoute() {
@@ -1677,11 +1774,32 @@ async function handleRoute() {
         currentPage = pathname;
     }
 
-    // If pathname doesn't match any menu ID, look up by href
-    var foundById = MENU_CONFIG.find(function(m) { return m.id === currentPage; });
-    if (!foundById) {
-        var foundByHref = MENU_CONFIG.find(function(m) { return m.href && m.href.replace(/^\//, '') === pathname; });
-        if (foundByHref) currentPage = foundByHref.id;
+    // Normalize currentPage name using findMenuItemForPage (actual page mapping)
+    var matchedItem = findMenuItemForPage(currentPage);
+    if (matchedItem) {
+        currentPage = matchedItem.id;
+    }
+
+    // Permission check for target page
+    var targetMenuItem = findPermissionMenuItem(currentPage);
+    if (targetMenuItem) {
+        if (!hasMenuPermission(targetMenuItem)) {
+            if (typeof showToast === 'function') {
+                showToast('🔒 Bạn không có quyền truy cập trang này!', 'error');
+            }
+            // If already on root/dashboard path, avoid infinite recursion
+            if (pathname === 'dashboard' || pathname === '') {
+                const content = document.getElementById('contentArea');
+                if (content) {
+                    content.innerHTML = '<div style="text-align:center;padding:50px;color:#94a3b8;">Bạn không có quyền truy cập bất kỳ trang nào. Vui lòng liên hệ quản lý.</div>';
+                }
+                return;
+            }
+            // Redirect to dashboard (which will resolve to first visible allowed page)
+            history.replaceState({ page: 'dashboard' }, '', '/');
+            handleRoute();
+            return;
+        }
     }
 
     // Update active menu
