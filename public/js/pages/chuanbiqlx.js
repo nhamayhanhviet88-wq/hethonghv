@@ -1634,9 +1634,27 @@ async function _qlxAssignMay(orderId, itemId) {
         // Render modal
         var html = '<div style="padding:0">';
         // Header
+        var priorityText = res.item.shipping_priority || 'CHUẨN';
+        var priorityBadge = '';
+        if (priorityText === 'GẤP') {
+            priorityBadge = '<span style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px">🔥 GẤP</span>';
+        } else if (priorityText === 'GỬI') {
+            priorityBadge = '<span style="background:#f97316;color:#fff;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px">📦 GỬI</span>';
+        } else {
+            priorityBadge = '<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px">🟢 CHUẨN</span>';
+        }
+        var deliveryDateStr = res.item.expected_ship_date ? _qlxFmtDate(res.item.expected_ship_date) : 'Chưa thiết lập';
+        var timeText = res.item.standard_delivery_time ? ' lúc ' + res.item.standard_delivery_time : '';
+        var fullDeliveryDateStr = deliveryDateStr + timeText;
+
         html += '<div style="background:linear-gradient(135deg,#1e1b4b,#311042,#4a044e);color:#fff;padding:20px 24px;border-radius:16px 16px 0 0">';
-        html += '<h3 style="margin:0;font-size:16px;font-weight:800">🪡 Phân Công May & Bàn Giao</h3>';
-        html += '<p style="margin:4px 0 0;font-size:11px;opacity:0.8">Đơn ' + res.item.order_code + ' — Rập: ' + (res.item.pattern_name || 'N/A') + '</p></div>';
+        html += '<h3 style="margin:0;font-size:16px;font-weight:800;margin-bottom:6px">🪡 Phân Công May & Bàn Giao</h3>';
+        html += '<p style="margin:0;font-size:11px;opacity:0.9;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            + '<span>Đơn: <b>' + res.item.order_code + '</b></span>'
+            + '<span>— Rập: <b>' + (res.item.pattern_name || 'N/A') + '</b></span>'
+            + '<span>— Hạn trả: <b style="color:#fef08a">📅 ' + fullDeliveryDateStr + '</b></span>'
+            + '<span>— Tiêu chuẩn: ' + priorityBadge + '</span>'
+            + '</p></div>';
 
         html += '<div style="padding:20px 24px">';
         
@@ -1657,6 +1675,28 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px">';
         html += '<span>💵 Đơn giá May nhà: <b style="color:#1e293b">' + factoryPriceText + '</b></span>';
         html += '<span>💵 Đơn giá Gia công: <b style="color:#1e293b">' + processingPriceText + '</b></span>';
+        html += '</div>';
+
+        // High priority Info banner card
+        var cardBg = '#f0fdf4';
+        var cardBorder = '#bbf7d0';
+        var cardText = '#166534';
+        if (priorityText === 'GẤP') {
+            cardBg = '#fef2f2';
+            cardBorder = '#fecaca';
+            cardText = '#991b1b';
+        } else if (priorityText === 'GỬI') {
+            cardBg = '#fff7ed';
+            cardBorder = '#ffedd5';
+            cardText = '#9a3412';
+        }
+
+        html += '<div style="background:' + cardBg + ';border:1.5px solid ' + cardBorder + ';border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;color:' + cardText + ';font-size:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02)">';
+        html += '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">📅</span>';
+        html += '<div><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px">Hạn Trả Hàng</div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#0f172a">' + fullDeliveryDateStr + '</div></div></div>';
+        html += '<div style="text-align:right"><div style="font-size:9px;font-weight:800;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Tiêu Chuẩn Đơn</div>';
+        html += '<div>' + priorityBadge + '</div></div>';
         html += '</div>';
 
         // Assignment summary & validation
