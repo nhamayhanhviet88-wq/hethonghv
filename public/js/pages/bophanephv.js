@@ -79,7 +79,7 @@ function renderBophanepPage(content) {
 + '@media(min-width:769px){.bpe-hide-desktop{display:none !important}}'
 + '.bpe-col-act{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important;padding:4px 2px !important}'
 + '.bpe-col-stt{width:40px !important;min-width:40px !important;max-width:40px !important;text-align:center !important}'
-+ '.bpc-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s ease;pointer-events:none}'
++ '.bpc-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(6px);z-index:999999 !important;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s ease;pointer-events:none}'
 + '.bpc-modal-overlay.show{opacity:1;pointer-events:auto}'
 + '.bpc-modal{background:#fff;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,0.25);transform:scale(0.85);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}'
 + '.bpc-modal-overlay.show .bpc-modal{transform:scale(1)}'
@@ -650,7 +650,7 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
     
     var old = document.getElementById('_bpeClaimModal'); if (old) old.remove();
     
-    var h = '<div class="bpc-modal-overlay" id="_bpeClaimModal" onclick="if(event.target===this)_bpeCloseModal()">';
+    var h = '<div class="bpc-modal-overlay" id="_bpeClaimModal">';
     h += '<div class="bpc-modal" style="width:480px">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🔥</div><div><div class="m-title">Xác Nhận Nhận Ép</div><div class="m-sub">Nhận phiếu ép hàng này</div></div></div>';
     h += '<div class="bpc-modal-body" style="padding:16px 20px">';
@@ -801,7 +801,7 @@ function _bpeOpenReportModal(id) {
     var matColor = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
     var cskh = r.cskh_name || '—';
 
-    var h = '<div class="bpc-modal-overlay" id="_bpeReportModal" onclick="if(event.target===this)_bpeCloseReportModal()">';
+    var h = '<div class="bpc-modal-overlay" id="_bpeReportModal">';
     h += '<div class="bpc-modal" style="width:680px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"><div class="m-icon">🔥</div><div><div class="m-title">BÁO CÁO HOÀN THÀNH ÉP</div><div class="m-sub">Mã đơn: <span id="_bpeRptOrderCode" style="font-weight:700">' + r.order_code + '</span></div></div></div>';
     
