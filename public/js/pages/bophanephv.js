@@ -117,7 +117,7 @@ function renderBophanepPage(content) {
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:11px;white-space:nowrap;width:100%" id="bpeTable"><thead><tr style="background:var(--gray-800)">'
         + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
-        + '<th title="Ngực/Tay/Tạp Dề/Vải Mũ">Ngực/Tay</th><th title="Lưng/Bụng/Sườn/Áo Sẵn/Mũ Sẵn">Lưng/Bụng</th><th title="Bảo Hộ/Bếp/Sơ Mi">BH/Bếp</th><th title="Đóng Gói/Cổ Bẻ Vải">ĐG/Cổ Bẻ</th><th>VT Khác</th>'
+        + '<th title="Ngực, Tay, Tạp Dề Vải Mũ" style="cursor:help">Ngực/Tay</th><th title="Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn" style="cursor:help">Lưng/Bụng</th><th title="Bảo Hộ, Bếp, Sơ Mi" style="cursor:help">BH/Bếp</th><th title="Đóng Gói, Cổ Bẻ Vải" style="cursor:help">ĐG/Cổ Bẻ</th><th title="Vị Trí Khác" style="cursor:help">VT Khác</th>'
         + '<th>Ảnh</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         + '</tr></thead><tbody id="bpeTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         + '<div id="bpePaginationBottom" style="margin:8px 0"></div>'
@@ -447,7 +447,7 @@ function _bpeRender() {
         var thead = wrap.querySelector('thead');
         if (thead) {
             var dynamicHeaders = (window._bpePositions || []).map(function(pos) {
-                return '<th title="' + pos.display_name + '">' + (pos.short_name || pos.display_name) + '</th>';
+                return '<th title="' + pos.display_name + '" style="cursor:help">' + (pos.short_name || pos.display_name) + '</th>';
             }).join('');
 
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
