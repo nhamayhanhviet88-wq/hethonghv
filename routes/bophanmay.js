@@ -86,26 +86,62 @@ module.exports = async function(fastify) {
         const mgr = await isSewManager(req);
         let where = '', params = [];
         if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { where = ' AND sr.sewer_id=$1'; params.push(req.user.id); }
+        
         const rows = await db.all(`
             SELECT EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))::int AS year,
-                   EXTRACT(MONTH FROM COALESCE(sr.handover_date,sr.created_at))::int AS month,
-                   sr.sewer_id, u.full_name AS sewer_name, sr.contractor_id, c.name AS contractor_name,
+                   sr.sewer_id, u.full_name AS sewer_name,
+                   sr.contractor_id, c.name AS contractor_name,
+                   CASE WHEN sr.done_date IS NOT NULL THEN 1 ELSE 0 END AS is_done,
+                   CASE WHEN sr.done_date IS NOT NULL THEN EXTRACT(MONTH FROM COALESCE(sr.done_date,sr.handover_date,sr.created_at))::int ELSE NULL END AS done_month,
                    COUNT(*)::int AS count
-            FROM sewing_records sr LEFT JOIN users u ON sr.sewer_id=u.id LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
-            WHERE 1=1 ${where} GROUP BY year,month,sr.sewer_id,u.full_name,sr.contractor_id,c.name
-            ORDER BY year DESC, month DESC, u.full_name, c.name`, params);
+            FROM sewing_records sr
+            LEFT JOIN users u ON sr.sewer_id=u.id
+            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            WHERE 1=1 ${where}
+            GROUP BY year, sr.sewer_id, u.full_name, sr.contractor_id, c.name, is_done, done_month
+            ORDER BY year DESC, u.full_name, c.name, done_month DESC`, params);
+
         const total = rows.reduce((s,r) => s+r.count, 0);
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, months: {} };
-            if (!yearMap[r.year].months[r.month]) yearMap[r.year].months[r.month] = { month: r.month, count: 0, sewers: [], contractors: [] };
-            const mo = yearMap[r.year].months[r.month];
-            if (r.contractor_id) { const e = mo.contractors.find(x=>x.id===r.contractor_id); if(e) e.count+=r.count; else mo.contractors.push({id:r.contractor_id,name:r.contractor_name||'Gia công',count:r.count}); }
-            else if (r.sewer_id) { const e = mo.sewers.find(x=>x.id===r.sewer_id); if(e) e.count+=r.count; else mo.sewers.push({id:r.sewer_id,name:r.sewer_name||'Chưa PC',count:r.count}); }
-            else { const e = mo.sewers.find(x=>x.id===null); if(e) e.count+=r.count; else mo.sewers.push({id:null,name:'Chưa phân công',count:r.count}); }
-            mo.count += r.count; yearMap[r.year].count += r.count;
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, sewers: {} };
+            const isContractor = !!r.contractor_id;
+            const key = isContractor ? `c_${r.contractor_id}` : `s_${r.sewer_id || 0}`;
+            
+            if (!yearMap[r.year].sewers[key]) {
+                yearMap[r.year].sewers[key] = {
+                    id: isContractor ? r.contractor_id : r.sewer_id,
+                    is_contractor: isContractor,
+                    name: isContractor ? (r.contractor_name || 'Gia công') : (r.sewer_name || 'Chưa phân công'),
+                    total: 0,
+                    incomplete_count: 0,
+                    months: {}
+                };
+            }
+            
+            const sewer = yearMap[r.year].sewers[key];
+            sewer.total += r.count;
+            yearMap[r.year].count += r.count;
+            
+            if (r.is_done === 1 && r.done_month !== null) {
+                if (!sewer.months[r.done_month]) {
+                    sewer.months[r.done_month] = { month: r.done_month, count: 0 };
+                }
+                sewer.months[r.done_month].count += r.count;
+            } else {
+                sewer.incomplete_count += r.count;
+            }
         }
-        const tree = Object.values(yearMap).map(y=>({...y, months: Object.values(y.months)}));
+        
+        const tree = Object.values(yearMap).map(y => ({
+            year: y.year,
+            count: y.count,
+            sewers: Object.values(y.sewers).map(s => ({
+                ...s,
+                months: Object.values(s.months).sort((a,b) => b.month - a.month)
+            }))
+        })).sort((a,b) => b.year - a.year);
+
         const stats = await db.get(`SELECT COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE is_reported AND done_date IS NULL)::int AS in_progress,
             COUNT(*) FILTER (WHERE done_date IS NOT NULL)::int AS done,
@@ -127,6 +163,7 @@ module.exports = async function(fastify) {
         if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
         else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
         else if (status==='approved') where += ` AND sr.salary_approved=true`;
+        else if (status==='incomplete') where += ` AND sr.done_date IS NULL`;
         if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT sr.*, u.full_name AS sewer_name, c.name AS contractor_name,

@@ -1,18 +1,37 @@
 // ========== BỘ PHẬN MAY — Desktop SPA ==========
-var _bpm={records:[],tree:null,filter:{year:null,month:null,sewer_id:null,contractor_id:null},search:'',page:1,ps:100,contractors:[]};
+var _bpm={records:[],tree:null,filter:{year:null,month:null,sewer_id:null,contractor_id:null,status:null},search:'',page:1,ps:100,contractors:[]};
 var _bpmOpen={};
 
 function renderBophanmayPage(content){
     if(!document.getElementById('_bpmS')){var st=document.createElement('style');st.id='_bpmS';
-    st.textContent='.bpm-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}.bpm-sb{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto}.bpm-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.bpm-main>*{flex-shrink:0}'
-    +'.bpm-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;color:#0d9488}'
-    +'.bpm-sb-total{background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer}'
-    +'.bpm-sb-year{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;background:#f8fafc;border-bottom:1px solid var(--gray-200)}'
-    +'.bpm-sb-month{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;color:#0d9488}'
-    +'.bpm-sb-month:hover{background:#f0fdfa}.bpm-sb-month.active{background:#ccfbf1;font-weight:800}'
-    +'.bpm-sb-item{padding:5px 16px 5px 42px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #fafafa;color:#64748b}'
-    +'.bpm-sb-item:hover{background:#f0fdfa}.bpm-sb-item.active{background:#ccfbf1;color:#0d9488;font-weight:800}'
-    +'.bpm-sb-label{padding:4px 16px 4px 36px;font-size:9px;font-weight:800;color:#5eead4;letter-spacing:1px;background:#f0fdfa}'
+    st.textContent='.bpm-wrap{display:flex;min-height:calc(100vh - 110px);overflow:visible;align-items:flex-start}'
+    +'.bpm-sb{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;position:sticky;top:80px;height:calc(100vh - 110px)}'
+    +'.bpm-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:16px}.bpm-main>*{flex-shrink:0}'
+    +'.bpm-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden;background:#f8fafc}'
+    +'.bpm-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(13,148,136,0.08) 50%,transparent 70%);animation:bpmShimmer 3s infinite}'
+    +'@keyframes bpmShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}'
+    +'.bpm-sb-total{background:#0f766e;color:#fff;border-left:5px solid #115e59;padding:12px 16px 12px 11px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center;cursor:pointer;position:relative;overflow:hidden;border-bottom:1px solid #0f766e;transition:all 0.2s}'
+    +'.bpm-sb-total:hover{background:#115e59}'
+    +'.bpm-sb-total.active{background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-left-color:#fbbf24;box-shadow:0 2px 8px rgba(15,118,110,0.4);font-weight:900}'
+    +'.bpm-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:bpmGlow 2.5s infinite}'
+    +'@keyframes bpmGlow{0%{left:-100%}100%{left:150%}}'
+    +'.bpm-sb-year{padding:9px 16px 9px 11px;font-weight:800;font-size:12px;color:#0f766e;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#ccfbf1;border-bottom:1px solid #ccfbf1;transition:all 0.15s;border-left:5px solid #2dd4bf}'
+    +'.bpm-sb-year:hover{background:#99f6e4}'
+    +'.bpm-sb-year.active{background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border-left-color:#115e59;box-shadow:0 2px 5px rgba(15,118,110,0.25)}'
+    +'.bpm-sb-year.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important}'
+    +'.bpm-sb-toggle-btn{padding:4px 6px;margin-right:2px;cursor:pointer;display:inline-block;transition:all 0.15s;border-radius:4px;user-select:none}'
+    +'.bpm-sb-toggle-btn:hover{background:rgba(255,255,255,0.35);transform:scale(1.2)}'
+    +'.bpm-sb-sewer{padding:7px 16px 7px 23px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;color:#334155;border-left:5px solid #cbd5e1;background:#f1f5f9;transition:all 0.15s}'
+    +'.bpm-sb-sewer:hover{background:#e2e8f0}'
+    +'.bpm-sb-sewer.active{background:linear-gradient(135deg,#0f766e,#2dd4bf);color:#fff;font-weight:800;border-left-color:#115e59;box-shadow:0 2px 5px rgba(15,118,110,0.25)}'
+    +'.bpm-sb-sewer.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 8px;border-radius:10px;font-size:10px}'
+    +'.bpm-sb-sub{padding:6px 16px 6px 37px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f1f5f9;color:#475569;border-left:5px solid transparent;background:#f8fafc;transition:all 0.15s}'
+    +'.bpm-sb-sub:hover{background:#f1f5f9}'
+    +'.bpm-sb-sub.active{background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;font-weight:800;border-left-color:#0f766e;box-shadow:0 2px 5px rgba(13,148,136,0.25)}'
+    +'.bpm-sb-sub.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
+    +'.bpm-sb-sub.incomplete{background:#fef3c7;color:#92400e;border-left-color:#fde68a}'
+    +'.bpm-sb-sub.incomplete.active{background:linear-gradient(135deg,#d97706,#fbbf24);color:#fff;border-left-color:#78350f;box-shadow:0 2px 5px rgba(217,119,6,0.25)}'
+    +'.bpm-sb-sub.incomplete.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
     +'.bpm-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
     +'.bpm-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.bpm-ib.on-rpt{background:#ccfbf1;border-color:#14b8a6}.bpm-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpm-ib.on-sal{background:#fef3c7;border-color:#f59e0b}'
@@ -31,27 +50,78 @@ function renderBophanmayPage(content){
 
 async function _bpmLoadAll(){try{var[tR,cR]=await Promise.all([apiCall('/api/sewing/tree'),apiCall('/api/sewing/contractors')]);_bpm.tree=tR;_bpm.contractors=cR.contractors||[];_bpmRenderSb();await _bpmLoadRecs();}catch(e){console.error('[BPM]',e);}}
 
-function _bpmRenderSb(){var sb=document.getElementById('bpmSb');if(!sb||!_bpm.tree)return;var t=_bpm.tree,f=_bpm.filter;
-var h='<div class="bpm-sb-title">───── 🧵 Bộ Phận May ─────</div>';
-h+='<div class="bpm-sb-total" onclick="_bpmFilter()"><span>📦 Tổng đơn may</span><span style="font-size:16px">'+(t.total||0)+'</span></div>';
-if(t.tree)t.tree.forEach(function(yr){var yo=!!_bpmOpen['y'+yr.year];
-h+='<div class="bpm-sb-year" onclick="_bpmTgl(\'y'+yr.year+'\')"><span>'+(yo?'▼':'▶')+' 📆 '+yr.year+'</span><span style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
-if(yo&&yr.months)yr.months.forEach(function(mo){var mk='m'+yr.year+'_'+mo.month,mo2=!!_bpmOpen[mk],mA=f.year==yr.year&&f.month==mo.month&&!f.sewer_id&&!f.contractor_id;
-h+='<div class="bpm-sb-month'+(mA?' active':'')+'" onclick="event.stopPropagation();_bpmTgl(\''+mk+'\');_bpmFilter('+yr.year+','+mo.month+')"><span>'+(mo2?'▼':'▶')+' T'+String(mo.month).padStart(2,'0')+'</span><span>'+mo.count+'</span></div>';
-if(mo2){if(mo.sewers&&mo.sewers.length){h+='<div class="bpm-sb-label">── NV NỘI BỘ ──</div>';
-mo.sewers.forEach(function(p){var pA=f.year==yr.year&&f.month==mo.month&&f.sewer_id==p.id;
-h+='<div class="bpm-sb-item'+(pA?' active':'')+'" onclick="event.stopPropagation();_bpmFilter('+yr.year+','+mo.month+','+p.id+')"><span>👤 '+(p.name||'Chưa PC')+'</span><span>'+p.count+'</span></div>';});}
-if(mo.contractors&&mo.contractors.length){h+='<div class="bpm-sb-label">── GIA CÔNG ──</div>';
-mo.contractors.forEach(function(c){var cA=f.year==yr.year&&f.month==mo.month&&f.contractor_id==c.id;
-h+='<div class="bpm-sb-item'+(cA?' active':'')+'" onclick="event.stopPropagation();_bpmFilter('+yr.year+','+mo.month+',null,'+c.id+')"><span>🏭 '+c.name+'</span><span>'+c.count+'</span></div>';});}
-}});});sb.innerHTML=h;}
+function _bpmRenderSb(){
+    var sb = document.getElementById('bpmSb'); if (!sb || !_bpm.tree) return;
+    var t = _bpm.tree, f = _bpm.filter;
+
+    var h = '<div class="bpm-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#0d9488;font-weight:900">🧵 Bộ Phận May</span> <span style="color:var(--navy)">───</span></div>';
+    var totActive = !f.year && !f.month && !f.sewer_id && !f.contractor_id && !f.status;
+    h += '<div class="bpm-sb-total' + (totActive ? ' active' : '') + '" onclick="_bpmFilter()"><span>📦 Tổng đơn may</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
+
+    if (t.tree) {
+        t.tree.forEach(function(yr) {
+            if (yr.year === 2025) return;
+            var yKey = 'y' + yr.year;
+            if (_bpmOpen[yKey] === undefined) {
+                _bpmOpen[yKey] = true;
+            }
+            var yOpen = !!_bpmOpen[yKey];
+            var yAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && !f.month && !f.status;
+            h += '<div class="bpm-sb-year' + (yAct ? ' active' : '') + '" onclick="_bpmFilter(' + yr.year + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + yKey + '\')">' + (yOpen ? '▼' : '▶') + '</span> 📅 Năm ' + yr.year + '</span><span style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">' + yr.count + '</span></div>';
+            
+            if (yOpen && yr.sewers) {
+                // Calculate total incomplete count for all sewers/contractors in this year
+                var totalIncomplete = 0;
+                yr.sewers.forEach(function(s) {
+                    totalIncomplete += (s.incomplete_count || 0);
+                });
+                
+                var incYearAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && f.status === 'incomplete';
+                h += '<div class="bpm-sb-sub incomplete' + (incYearAct ? ' active' : '') + '" style="padding-left:23px" onclick="event.stopPropagation(); _bpmFilterStatus(' + yr.year + ', null, null, \'incomplete\')">';
+                h += '  <span>⏳ Chưa May Xong</span>';
+                h += '  <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800">' + totalIncomplete + '</span>';
+                h += '</div>';
+
+                yr.sewers.forEach(function(s) {
+                    var sKey = 's' + yr.year + '_' + (s.is_contractor ? 'c' : 'i') + '_' + (s.id || 0);
+                    var sOpen = !!_bpmOpen[sKey];
+                    var isCurrentSewer = !s.is_contractor && f.sewer_id == s.id;
+                    var isCurrentContractor = s.is_contractor && f.contractor_id == s.id;
+                    var sAct = f.year == yr.year && (isCurrentSewer || isCurrentContractor) && !f.status && !f.month;
+                    
+                    var icon = s.is_contractor ? '🏭 ' : '👤 ';
+                    h += '<div class="bpm-sb-sewer' + (sAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilter(' + yr.year + ', null, ' + (s.is_contractor ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + sKey + '\')">' + (sOpen ? '▼' : '▶') + '</span> ' + icon + (s.name || 'Chưa PC') + '</span><span style="font-weight:800">' + s.total + '</span></div>';
+                    
+                    if (sOpen) {
+                        // Đơn Chưa May Xong of this sewer/contractor
+                        if (s.incomplete_count > 0) {
+                            var incAct = f.year == yr.year && (isCurrentSewer || isCurrentContractor) && f.status === 'incomplete';
+                            h += '<div class="bpm-sb-sub incomplete' + (incAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterStatus(' + yr.year + ', ' + (s.is_contractor ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', \'incomplete\')"><span>⏳ Chưa May Xong</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">' + s.incomplete_count + '</span></div>';
+                        }
+                        // Tháng đã hoàn thành
+                        if (s.months) {
+                            s.months.forEach(function(m) {
+                                var mAct = f.year == yr.year && (isCurrentSewer || isCurrentContractor) && f.month == m.month && f.status === 'done';
+                                h += '<div class="bpm-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterMonth(' + yr.year + ', ' + (s.is_contractor ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + m.month + ')"><span>📅 T' + String(m.month).padStart(2, '0') + '</span><span>' + m.count + '</span></div>';
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
+    sb.innerHTML = h;
+}
 
 function _bpmTgl(k){_bpmOpen[k]=!_bpmOpen[k];_bpmRenderSb();}
-function _bpmFilter(y,m,s,c){_bpm.filter={year:y||null,month:m||null,sewer_id:s||null,contractor_id:c||null};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
+function _bpmFilter(y,m,s,c){_bpm.filter={year:y||null,month:m||null,sewer_id:s||null,contractor_id:c||null,status:null};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
+function _bpmFilterStatus(y,s,c,status){_bpm.filter={year:y,month:null,sewer_id:s||null,contractor_id:c||null,status:status};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
+function _bpmFilterMonth(y,s,c,m){_bpm.filter={year:y,month:m,sewer_id:s||null,contractor_id:c||null,status:'done'};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
 
 async function _bpmLoadRecs(){var f=_bpm.filter,qs='?_=1';
 if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;
 if(f.sewer_id)qs+='&sewer_id='+f.sewer_id;if(f.contractor_id)qs+='&contractor_id='+f.contractor_id;
+if(f.status)qs+='&status='+f.status;
 try{var res=await apiCall('/api/sewing/records'+qs);_bpm.records=res.records||[];_bpm.page=1;_bpmRender();}catch(e){console.error('[BPM]',e);}}
 
 function _bpmFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
@@ -92,7 +162,7 @@ function _bpmRender(){
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
-    var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);
+    var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.status==='incomplete')parts.push('⏳ Chưa May Xong');if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#99f6e4;font-weight:900">'+tot+'</span> đơn</div>';}
     var sc=document.getElementById('bpmStats');if(sc){
     var prog=all.filter(function(r){return r.is_reported&&!r.done_date;}).length,done=all.filter(function(r){return r.done_date;}).length,appr=all.filter(function(r){return r.salary_approved;}).length;
