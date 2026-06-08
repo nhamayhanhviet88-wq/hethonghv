@@ -1724,15 +1724,16 @@ async function _qlxAssignMay(orderId, itemId) {
 
         // Add button
         html += '<div style="text-align:right;margin-bottom:16px">';
-        html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px;color:#1e3a8a;background-color:#eff6ff;border:1px solid #bfdbfe">➕ Thêm bên nhận may</button>';
+        html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px;color:#ffffff;background-color:#1e3a8a;border:none">➕ Thêm bên nhận may</button>';
         html += '</div>';
 
         html += '</div>'; // padding-24
 
         // Footer
         html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
-        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#fff;background-color:#1d4ed8;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
+        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#ffffff;background-color:#1e3a8a;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
         html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+
 
         html += '</div>';
 
