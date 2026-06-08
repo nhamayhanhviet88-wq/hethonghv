@@ -172,6 +172,14 @@ function renderLuongSanXuatPage(content) {
     _lsxLoadAll();
 }
 
+function _lsxEnforceRestrictedFilter() {
+    var isRestricted = !_lsx.is_manager && !(window._currentUser && ['quan_ly', 'truong_phong'].includes(window._currentUser.role));
+    if (isRestricted && window._currentUser) {
+        _lsx.filter.worker_id = window._currentUser.id;
+        _lsx.filter.contractor_id = null;
+    }
+}
+
 async function _lsxLoadAll() {
     try {
         try {
@@ -185,6 +193,18 @@ async function _lsxLoadAll() {
         _lsx.tree = res.tree;
         _lsx.is_manager = res.is_manager || false;
         
+        _lsxEnforceRestrictedFilter();
+        
+        // If restricted, default to the latest year and department
+        var isRestricted = !_lsx.is_manager && !(window._currentUser && ['quan_ly', 'truong_phong'].includes(window._currentUser.role));
+        if (isRestricted && _lsx.tree && _lsx.tree.length > 0) {
+            var latestYear = _lsx.tree[0];
+            _lsx.filter.year = latestYear.year;
+            if (latestYear.depts && latestYear.depts.length > 0) {
+                _lsx.filter.dept = latestYear.depts[0].dept;
+            }
+        }
+        
         // Pre-open the latest year and its departments by default on first load
         if (Object.keys(_lsxOpen).length === 0 && _lsx.tree && _lsx.tree.length > 0) {
             var latestYear = _lsx.tree[0];
@@ -192,6 +212,10 @@ async function _lsxLoadAll() {
             if (latestYear.depts) {
                 latestYear.depts.forEach(function(dp) {
                     _lsxOpen[`d_${latestYear.year}_${dp.dept}`] = true;
+                    // Pre-open their own worker node so they see themselves highlighted
+                    if (isRestricted && window._currentUser) {
+                        _lsxOpen[`w_${latestYear.year}_${dp.dept}_${window._currentUser.id}_false`] = true;
+                    }
                 });
             }
         }
@@ -314,16 +338,34 @@ function _lsxFilter(yr, dept, workerId, contractorId, month) {
     _lsx.filter.contractor_id = contractorId || null;
     _lsx.filter.month = month || null;
     
+    _lsxEnforceRestrictedFilter();
+    
     _lsxRenderSb();
     _lsxLoadRecs();
 }
 
 function _lsxChangeStatus(st) {
     _lsx.filter.status = st || '';
+    _lsxEnforceRestrictedFilter();
+    _lsxLoadRecs();
+}
+
+function _lsxChangeYear(val) {
+    _lsx.filter.year = val ? Number(val) : null;
+    _lsxEnforceRestrictedFilter();
+    _lsxRenderSb();
+    _lsxLoadRecs();
+}
+
+function _lsxChangeMonth(val) {
+    _lsx.filter.month = val ? Number(val) : null;
+    _lsxEnforceRestrictedFilter();
+    _lsxRenderSb();
     _lsxLoadRecs();
 }
 
 async function _lsxLoadRecs() {
+    _lsxEnforceRestrictedFilter();
     var f = _lsx.filter;
     
     // Sync dropdown values
