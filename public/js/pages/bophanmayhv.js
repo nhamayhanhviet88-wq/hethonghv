@@ -617,7 +617,7 @@ async function _bpmShowHandoverModal(recordId) {
         html += '    <div style="background: ' + bannerBg + '; border: ' + bannerBorder + '; border-radius: 12px; padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 8px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
         html += '      <div style="border-right: 1px solid #f1f5f9;">';
         html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">📅 HẠN TRẢ HÀNG</div>';
-        html += '        <div style="font-size: 12px; font-weight: 800; color: #1e293b;">' + _bpmFD(rec.shipping_date) + '</div>';
+        html += '        <div style="font-size: 12px; font-weight: 800; color: #1e293b;">' + _bpmFD(rec.expected_ship_date || rec.shipping_date) + '</div>';
         html += '      </div>';
         html += '      <div style="border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; align-items: center; justify-content: center;">';
         html += '        <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-bottom: 2px; text-transform: uppercase;">TIẾN ĐỘ</div>';
@@ -629,15 +629,15 @@ async function _bpmShowHandoverModal(recordId) {
         html += '      </div>';
         html += '    </div>';
 
-        // 2. Dates Block: Ngày Gửi Dự Kiến | QLX Hẹn Ra
+        // 2. Dates Block: QLX Hẹn Ra | Ngày May HT
         html += '    <div style="background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); text-align: center; gap: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
         html += '      <div style="border-right: 1px solid #dbeafe;">';
-        html += '        <div style="font-size: 9px; font-weight: 800; color: #1e40af; margin-bottom: 2px; text-transform: uppercase;">📅 NGÀY GỬI DỰ KIẾN</div>';
-        html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + _bpmFD(rec.shipping_date) + '</div>';
-        html += '      </div>';
-        html += '      <div>';
         html += '        <div style="font-size: 9px; font-weight: 800; color: #1e40af; margin-bottom: 2px; text-transform: uppercase;">📅 QLX HẸN RA</div>';
         html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + _bpmFD(rec.expected_date) + '</div>';
+        html += '      </div>';
+        html += '      <div>';
+        html += '        <div style="font-size: 9px; font-weight: 800; color: #1e40af; margin-bottom: 2px; text-transform: uppercase;">📅 NGÀY MAY HT</div>';
+        html += '        <div style="font-size: 12px; font-weight: 800; color: #1d4ed8;">' + _bpmFD(rec.done_date) + '</div>';
         html += '      </div>';
         html += '    </div>';
 
