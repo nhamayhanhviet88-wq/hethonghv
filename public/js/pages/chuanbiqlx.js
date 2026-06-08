@@ -1637,26 +1637,27 @@ async function _qlxAssignMay(orderId, itemId) {
         var priorityText = res.item.shipping_priority || 'CHUẨN';
         var priorityBadge = '';
         if (priorityText === 'GẤP') {
-            priorityBadge = '<span style="background:#fee2e2;color:#ef4444;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px;border:1px solid #fca5a5">🔥 GẤP</span>';
+            priorityBadge = '<span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px;border:1px solid #991b1b">🔥 GẤP</span>';
         } else if (priorityText === 'GỬI') {
-            priorityBadge = '<span style="background:#ffedd5;color:#f97316;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px;border:1px solid #fed7aa">📦 GỬI</span>';
+            priorityBadge = '<span style="background:#7c2d12;color:#fed7aa;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px;border:1px solid #9a3412">📦 GỬI</span>';
         } else {
-            priorityBadge = '<span style="background:#d1fae5;color:#10b981;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px;border:1px solid #a7f3d0">🟢 CHUẨN</span>';
+            priorityBadge = '<span style="background:#064e3b;color:#a7f3d0;padding:2px 8px;border-radius:6px;font-weight:800;font-size:10px;margin-left:4px;border:1px solid #065f46">🟢 CHUẨN</span>';
         }
         var deliveryDateStr = res.item.expected_ship_date ? _qlxFmtDate(res.item.expected_ship_date) : 'Chưa thiết lập';
         var timeText = res.item.standard_delivery_time ? ' lúc ' + res.item.standard_delivery_time : '';
         var fullDeliveryDateStr = deliveryDateStr + timeText;
 
-        html += '<div style="background:#f8fafc;color:#1e293b;padding:20px 24px;border-radius:16px 16px 0 0;border-bottom:1px solid #e2e8f0">';
-        html += '<h3 style="margin:0;font-size:16px;font-weight:800;color:#0f172a;margin-bottom:6px">🪡 Phân Công May & Bàn Giao</h3>';
-        html += '<p style="margin:0;font-size:11px;color:#475569;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            + '<span>Đơn: <b style="color:#0f172a">' + res.item.order_code + '</b></span>'
-            + '<span>— Rập: <b style="color:#0f172a">' + (res.item.pattern_name || 'N/A') + '</b></span>'
-            + '<span>— Hạn trả: <b style="color:#2563eb">📅 ' + fullDeliveryDateStr + '</b></span>'
+        html += '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;padding:20px 24px;border-radius:16px 16px 0 0;border-bottom:1px solid #1e293b">';
+        html += '<h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff;margin-bottom:6px">🪡 Phân Công May & Bàn Giao</h3>';
+        html += '<p style="margin:0;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            + '<span>Đơn: <b style="color:#f8fafc">' + res.item.order_code + '</b></span>'
+            + '<span>— Rập: <b style="color:#f8fafc">' + (res.item.pattern_name || 'N/A') + '</b></span>'
+            + '<span>— Hạn trả: <b style="color:#fde047">📅 ' + fullDeliveryDateStr + '</b></span>'
             + '<span>— Tiêu chuẩn: ' + priorityBadge + '</span>'
             + '</p></div>';
 
         html += '<div style="padding:20px 24px">';
+
         
         // Product Info
         var prodLabel = (res.item.product_name || res.item.description || 'N/A');
