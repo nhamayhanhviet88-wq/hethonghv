@@ -1759,19 +1759,22 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<span id="may_assign_status_badge" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">Chưa khớp</span>';
         html += '</div></div>';
 
+        // Unified Table Block (Header + Scrollable Rows)
+        html += '<div style="border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px;margin-bottom:12px">';
+        
         // Table Headers
-        html += '<div style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1.5fr auto;gap:8px;padding:0 22px;margin-bottom:6px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">';
+        html += '<div style="display:grid;grid-template-columns:1.8fr 0.8fr 1.2fr 1.5fr auto;gap:8px;padding:0 10px;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
         html += '<div>Phân Công May</div>';
         html += '<div style="text-align:center">Số Lượng</div>';
-        html += '<div style="text-align:center">Ngày Trả Hàng</div>';
+        html += '<div style="text-align:center">Ngày Trả Hàng <span style="color:#dc2626">*</span></div>';
         html += '<div>Lưu Ý May</div>';
         html += '<div></div>';
         html += '</div>';
 
         // Assignment Table/List
-        html += '<div style="max-height:30vh;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc;margin-bottom:12px">';
-        html += '<div id="may_assignment_rows" style="display:flex;flex-direction:column;gap:10px"></div>';
+        html += '<div id="may_assignment_rows" style="max-height:30vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>';
         html += '</div>';
+
 
 
         // Add button
@@ -1835,7 +1838,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
-    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1.5fr auto;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
+    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:1.8fr 0.8fr 1.2fr 1.5fr auto;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
     html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayUpdateTotal()">';
