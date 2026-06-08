@@ -47,35 +47,34 @@ module.exports = async function(fastify) {
             console.log('[LTE] Seeded initial pressing tier Bậc 1');
         }
 
-        // Sync price snapshot columns for existing pressing records from current assignments or defaults
+        // Sync price snapshot columns for existing pressing records from current assignments or 0 if no assignment
         await db.run(`
             UPDATE pressing_records pr
             SET 
-              price_chest_arm = COALESCE(t.price_chest_arm, 250),
-              price_back_belly = COALESCE(t.price_back_belly, 350),
-              price_protective = COALESCE(t.price_protective, 400),
-              price_packaging = COALESCE(t.price_packaging, 100),
-              price_other = COALESCE(t.price_other, 250)
+              price_chest_arm = COALESCE(t.price_chest_arm, 0),
+              price_back_belly = COALESCE(t.price_back_belly, 0),
+              price_protective = COALESCE(t.price_protective, 0),
+              price_packaging = COALESCE(t.price_packaging, 0),
+              price_other = COALESCE(t.price_other, 0)
             FROM (
               SELECT u.id AS user_id, pt.price_chest_arm, pt.price_back_belly, pt.price_protective, pt.price_packaging, pt.price_other
               FROM users u
               LEFT JOIN user_pressing_salary_tiers ut ON u.id = ut.user_id
               LEFT JOIN pressing_salary_tiers pt ON ut.tier_id = pt.id
             ) t
-            WHERE pr.presser_id = t.user_id 
-              AND (pr.price_chest_arm IS NULL OR pr.price_chest_arm = 0)
+            WHERE pr.presser_id = t.user_id
         `);
 
-        // Final fallback update for records without a linked user/assignment
+        // Clean up records where presser has no linked tier assignment
         await db.run(`
             UPDATE pressing_records
             SET 
-              price_chest_arm = 250,
-              price_back_belly = 350,
-              price_protective = 400,
-              price_packaging = 100,
-              price_other = 250
-            WHERE (price_chest_arm IS NULL OR price_chest_arm = 0)
+              price_chest_arm = 0,
+              price_back_belly = 0,
+              price_protective = 0,
+              price_packaging = 0,
+              price_other = 0
+            WHERE presser_id IS NULL OR presser_id NOT IN (SELECT user_id FROM user_pressing_salary_tiers)
         `);
 
     } catch(e) {

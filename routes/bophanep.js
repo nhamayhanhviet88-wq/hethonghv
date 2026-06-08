@@ -55,14 +55,14 @@ module.exports = async function(fastify) {
     }
 
     async function calculatePresserSalary(presserId, posChest, posBack, posProt, posPack, posOther) {
-        if (!presserId) return { salary: 0 };
+        if (!presserId) return { salary: 0, price_chest_arm: 0, price_back_belly: 0, price_protective: 0, price_packaging: 0, price_other: 0 };
         const assignment = await db.get(`SELECT tier_id FROM user_pressing_salary_tiers WHERE user_id = $1`, [presserId]);
-        if (!assignment) return { salary: 0 };
+        if (!assignment) return { salary: 0, price_chest_arm: 0, price_back_belly: 0, price_protective: 0, price_packaging: 0, price_other: 0 };
         const tier = await db.get(`
             SELECT price_chest_arm, price_back_belly, price_protective, price_packaging, price_other
             FROM pressing_salary_tiers WHERE id = $1
         `, [assignment.tier_id]);
-        if (!tier) return { salary: 0 };
+        if (!tier) return { salary: 0, price_chest_arm: 0, price_back_belly: 0, price_protective: 0, price_packaging: 0, price_other: 0 };
 
         const chestPrice = Number(tier.price_chest_arm) || 0;
         const backPrice = Number(tier.price_back_belly) || 0;

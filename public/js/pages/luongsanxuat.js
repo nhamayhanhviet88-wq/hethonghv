@@ -443,6 +443,13 @@ function _lsxGetHeaderHTML() {
 
 function _lsxFormatPressingPos(qty, price) {
     if (!qty) return `<span style="color:#94a3b8;font-size:10px">—</span>`;
+    if (!price || Number(price) === 0) {
+        return `
+            <div style="text-align:center;line-height:1.2">
+                <span style="font-weight:700;color:#64748b">${qty}</span>
+            </div>
+        `;
+    }
     var total = qty * price;
     return `
         <div style="text-align:center;line-height:1.2">
