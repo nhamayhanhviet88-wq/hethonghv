@@ -54,6 +54,37 @@ module.exports = async function(fastify) {
         return false;
     }
 
+    async function calculatePresserSalary(presserId, posChest, posBack, posProt, posPack, posOther) {
+        if (!presserId) return { salary: 0 };
+        const assignment = await db.get(`SELECT tier_id FROM user_pressing_salary_tiers WHERE user_id = $1`, [presserId]);
+        if (!assignment) return { salary: 0 };
+        const tier = await db.get(`
+            SELECT price_chest_arm, price_back_belly, price_protective, price_packaging, price_other
+            FROM pressing_salary_tiers WHERE id = $1
+        `, [assignment.tier_id]);
+        if (!tier) return { salary: 0 };
+
+        const chestPrice = Number(tier.price_chest_arm) || 0;
+        const backPrice = Number(tier.price_back_belly) || 0;
+        const protPrice = Number(tier.price_protective) || 0;
+        const packPrice = Number(tier.price_packaging) || 0;
+        const otherPrice = Number(tier.price_other) || 0;
+
+        const chestQty = Number(posChest) || 0;
+        const backQty = Number(posBack) || 0;
+        const protQty = Number(posProt) || 0;
+        const packQty = Number(posPack) || 0;
+        const otherQty = Number(posOther) || 0;
+
+        const totalSalary = (chestQty * chestPrice) +
+                            (backQty * backPrice) +
+                            (protQty * protPrice) +
+                            (packQty * packPrice) +
+                            (otherQty * otherPrice);
+
+        return { salary: totalSalary };
+    }
+
     // ========== TREE ==========
     fastify.get('/api/pressing/tree', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isPressManager(req);
@@ -332,14 +363,28 @@ module.exports = async function(fastify) {
         `, [rec.order_item_id, rec.material_name, rec.fabric_color]);
         const latestQty = (latestCut && latestCut.cut_qty) ? latestCut.cut_qty : rec.order_quantity;
 
+        let calculatedSalary = rec.press_salary;
+        if (b.press_salary === undefined) {
+            const presserId = b.presser_id !== undefined ? b.presser_id : rec.presser_id;
+            const chest = b.pos_chest_arm !== undefined ? Number(b.pos_chest_arm) : rec.pos_chest_arm;
+            const back = b.pos_back_belly !== undefined ? Number(b.pos_back_belly) : rec.pos_back_belly;
+            const prot = b.pos_protective !== undefined ? Number(b.pos_protective) : rec.pos_protective;
+            const pack = b.pos_packaging !== undefined ? Number(b.pos_packaging) : rec.pos_packaging;
+            const otherVal = b.pos_other !== undefined ? Number(b.pos_other) : Number(rec.pos_other);
+            const salInfo = await calculatePresserSalary(presserId, chest, back, prot, pack, otherVal);
+            calculatedSalary = salInfo.salary;
+        } else {
+            calculatedSalary = Number(b.press_salary);
+        }
+
         await db.run(`UPDATE pressing_records SET press_date=$1,presser_id=$2,product_name=$3,cskh_name=$4,
-            order_quantity=$5,press_quantity=$6,press_salary=$7,pos_chest_arm=$8,pos_back_belly=$9,
+            order_quantity=$5,press_quantity=$6,press_salary=$7,salary=$7,pos_chest_arm=$8,pos_back_belly=$9,
             pos_protective=$10,pos_packaging=$11,pos_other=$12,press_images=$13,notes=$14,updated_at=$15 WHERE id=$16`,
             [b.press_date!==undefined?b.press_date:rec.press_date, b.presser_id!==undefined?b.presser_id:rec.presser_id,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              latestQty,
              b.press_quantity!==undefined?Number(b.press_quantity):rec.press_quantity,
-             b.press_salary!==undefined?Number(b.press_salary):Number(rec.press_salary),
+             calculatedSalary,
              b.pos_chest_arm!==undefined?Number(b.pos_chest_arm):rec.pos_chest_arm,
              b.pos_back_belly!==undefined?Number(b.pos_back_belly):rec.pos_back_belly,
              b.pos_protective!==undefined?Number(b.pos_protective):rec.pos_protective,
@@ -361,6 +406,27 @@ module.exports = async function(fastify) {
         const numF = ['presser_id','order_quantity','press_quantity','press_salary','pos_chest_arm','pos_back_belly','pos_protective','pos_packaging'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         await db.run(`UPDATE pressing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+        
+        if (field === 'press_salary') {
+            await db.run(`UPDATE pressing_records SET salary=$1 WHERE id=$2`, [fv, id]);
+        }
+
+        const positionFields = ['presser_id', 'pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'];
+        if (positionFields.includes(field)) {
+            const rec = await db.get('SELECT * FROM pressing_records WHERE id=$1', [id]);
+            if (rec) {
+                const salInfo = await calculatePresserSalary(
+                    rec.presser_id,
+                    rec.pos_chest_arm,
+                    rec.pos_back_belly,
+                    rec.pos_protective,
+                    rec.pos_packaging,
+                    rec.pos_other
+                );
+                await db.run(`UPDATE pressing_records SET press_salary=$1, salary=$1 WHERE id=$2`, [salInfo.salary, id]);
+            }
+        }
+
         await db.run(`INSERT INTO pressing_history (pressing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'inline_update', `${field}: ${value}`, req.user.id, now]);
         return { success: true };
