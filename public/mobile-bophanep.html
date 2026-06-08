@@ -616,7 +616,7 @@
 
                 const detailPositionsHtml = (window._bpePositions || []).map(pos => {
                     const val = r[pos.key_code] || 0;
-                    return `<div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px" title="${pos.display_name}">${pos.short_name || pos.display_name}: <b>${val}</b></div>`;
+                    return `<div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px; cursor:pointer" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}: <b>${val}</b></div>`;
                 }).join('');
 
                 return `
@@ -696,7 +696,7 @@
                                 const val = r[pos.key_code] || 0;
                                 return `
                                     <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                                        <span style="color:#94a3b8" title="${pos.display_name}">${pos.short_name || pos.display_name}</span>
+                                        <span style="color:#94a3b8; cursor:pointer" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}</span>
                                         <span style="font-weight:700; color:#818cf8">${val} sp</span>
                                     </div>
                                 `;
