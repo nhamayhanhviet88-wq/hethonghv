@@ -1131,12 +1131,12 @@ async function _qlxAssign(orderId, type, itemId) {
     // Special modal for 'in' type
     if (type === 'in') { return _qlxAssignIn(orderId, itemId); }
 
+    var ord = _qlx.orders.find(function(o) { return o.id === orderId; });
     var checkRes;
     if (type === 'may') {
         try {
             // Check current assignment first: is someone already assigned?
             var isAlreadyAssigned = false;
-            var ord = _qlx.orders.find(function(o) { return o.id === orderId; });
             if (ord) {
                 if (itemId) {
                     var it = ord.items.find(function(item) { return item.id === itemId; });
@@ -1207,7 +1207,19 @@ async function _qlxAssign(orderId, type, itemId) {
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
         + '<button class="btn" onclick="_qlxDoAssign(' + orderId + ',\'' + type + '\',' + (itemId || null) + ')" style="background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;border:none;padding:8px 20px;border-radius:8px;font-weight:700">💾 Phân Công</button>';
 
-    openModal('🏭 Phân Công ' + typeLabels[type] + ' — Đơn #' + orderId, body, footer);
+    var titleSuffix = '';
+    if (ord) {
+        titleSuffix = ord.order_code || ('Đơn #' + orderId);
+        if (itemId) {
+            var it = ord.items.find(function(item) { return item.id === itemId; });
+            if (it && it.description) {
+                titleSuffix += ' — ' + it.description;
+            }
+        }
+    } else {
+        titleSuffix = 'Đơn #' + orderId;
+    }
+    openModal('🏭 Phân Công ' + typeLabels[type] + ' — ' + titleSuffix, body, footer);
 }
 
 async function _qlxDoAssign(orderId, type, itemId) {
