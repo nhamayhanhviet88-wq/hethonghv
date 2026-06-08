@@ -91,6 +91,93 @@ module.exports = async function(fastify) {
         };
     }
 
+    async function checkPrintReady(orderItemId, dhtOrderId) {
+        const item = await db.get(`
+            SELECT 
+               EXISTS (
+                   SELECT 1 FROM qlx_order_print_assignments qa
+                   JOIN printing_fields pf ON qa.field_id = pf.id
+                   WHERE (
+                       qa.item_id = $1 
+                       OR (
+                           qa.item_id IS NULL 
+                           AND qa.dht_order_id = $2 
+                           AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)
+                       )
+                   )
+                     AND pf.name IN ('IN PET', 'IN DECAL')
+                     AND qa.operator_type = 'user'
+               ) AS has_pc_in,
+               (
+                   EXISTS (
+                       SELECT 1 FROM printing_records pr 
+                       WHERE (
+                           pr.order_item_id = $1 
+                           OR (
+                               pr.order_item_id IS NULL 
+                               AND pr.dht_order_id = $2 
+                               AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)
+                           )
+                       )
+                         AND pr.print_field IN ('IN PET', 'IN DECAL')
+                         AND pr.printer_id IS NOT NULL
+                   ) AND NOT EXISTS (
+                       SELECT 1 FROM printing_records pr 
+                       WHERE (
+                           pr.order_item_id = $1 
+                           OR (
+                               pr.order_item_id IS NULL 
+                               AND pr.dht_order_id = $2 
+                               AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)
+                           )
+                       )
+                         AND pr.print_field IN ('IN PET', 'IN DECAL')
+                         AND pr.printer_id IS NOT NULL
+                         AND pr.is_print_done = false
+                   )
+               ) AS is_print_done_rec,
+               (
+                   SELECT string_agg(pf.name, ', ')
+                   FROM qlx_order_print_assignments qa
+                   JOIN printing_fields pf ON qa.field_id = pf.id
+                   WHERE (
+                       qa.item_id = $1 
+                       OR (
+                           qa.item_id IS NULL 
+                           AND qa.dht_order_id = $2 
+                           AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)
+                       )
+                   )
+                     AND pf.name IN ('IN PET', 'IN DECAL')
+                     AND qa.operator_type = 'user'
+                     AND NOT EXISTS (
+                         SELECT 1 FROM printing_records pr 
+                         WHERE (
+                             pr.order_item_id = $1 
+                             OR (
+                                 pr.order_item_id IS NULL 
+                                 AND pr.dht_order_id = $2 
+                                 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)
+                             )
+                         )
+                           AND pr.print_field = pf.name
+                           AND pr.printer_id IS NOT NULL
+                           AND pr.is_print_done = true
+                     )
+               ) AS pending_print_types
+        `, [orderItemId, dhtOrderId]);
+
+        if (!item) return { ready: true };
+
+        const isPrintReady = !item.has_pc_in || item.is_print_done_rec;
+        return {
+            ready: isPrintReady,
+            has_pc_in: item.has_pc_in,
+            pending_types: item.pending_print_types
+        };
+    }
+
+
     // ========== TREE ==========
     fastify.get('/api/pressing/tree', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isPressManager(req);
@@ -392,6 +479,27 @@ module.exports = async function(fastify) {
             if (rec.is_reported && !['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role)) {
                 return reply.code(403).send({ error: 'Chỉ quản lý cấp cao và giám đốc mới được báo cáo lại!' });
             }
+            if (!['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role) && rec.order_item_id) {
+                const printStatus = await checkPrintReady(rec.order_item_id, rec.dht_order_id);
+                if (!printStatus.ready) {
+                    let errMsg = 'Không thể báo cáo ép do: ';
+                    if (printStatus.pending_types) {
+                        const types = printStatus.pending_types.split(', ').map(t => t.trim());
+                        if (types.includes('IN PET') && types.includes('IN DECAL')) {
+                            errMsg += 'chưa in xong Pet và Decal';
+                        } else if (types.includes('IN PET')) {
+                            errMsg += 'chưa in xong Pet';
+                        } else if (types.includes('IN DECAL')) {
+                            errMsg += 'chưa in xong Decal';
+                        } else {
+                            errMsg += 'chưa in xong';
+                        }
+                    } else {
+                        errMsg += 'chưa in xong';
+                    }
+                    return reply.code(400).send({ error: errMsg });
+                }
+            }
             await db.run(`UPDATE pressing_records SET is_reported=true, reported_at=$1, reported_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
             detail = '🔥 Báo cáo ép';
         } else if (action === 'undo_report') {
@@ -424,6 +532,28 @@ module.exports = async function(fastify) {
 
         if (rec.is_reported && !['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role)) {
             return reply.code(403).send({ error: 'Chỉ quản lý cấp cao và giám đốc mới được sửa báo cáo đã hoàn thành!' });
+        }
+
+        if (!['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role) && rec.order_item_id) {
+            const printStatus = await checkPrintReady(rec.order_item_id, rec.dht_order_id);
+            if (!printStatus.ready) {
+                let errMsg = 'Không thể lưu báo cáo ép do: ';
+                if (printStatus.pending_types) {
+                    const types = printStatus.pending_types.split(', ').map(t => t.trim());
+                    if (types.includes('IN PET') && types.includes('IN DECAL')) {
+                        errMsg += 'chưa in xong Pet và Decal';
+                    } else if (types.includes('IN PET')) {
+                        errMsg += 'chưa in xong Pet';
+                    } else if (types.includes('IN DECAL')) {
+                        errMsg += 'chưa in xong Decal';
+                    } else {
+                        errMsg += 'chưa in xong';
+                    }
+                } else {
+                    errMsg += 'chưa in xong';
+                }
+                return reply.code(400).send({ error: errMsg });
+            }
         }
 
         // Update target order quantity dynamically based on latest cut records if available
