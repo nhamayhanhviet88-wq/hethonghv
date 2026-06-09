@@ -1865,7 +1865,7 @@ module.exports = async function(fastify) {
 
         // 1. Get order item and order info
         const item = await db.get(`
-            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -1878,7 +1878,15 @@ module.exports = async function(fastify) {
             FROM cutting_records
             WHERE order_item_id = $1 AND is_cut_done = true
         `, [itemId]);
-        const cut_qty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+        const rawCutQty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+        let numPhois = 1;
+        try {
+            const pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+            if (Array.isArray(pairs) && pairs.length > 0) {
+                numPhois = pairs.length;
+            }
+        } catch(e) {}
+        const cut_qty = Math.round(rawCutQty / numPhois);
 
         // 3. Get existing sewing records
         const assignments = await db.all(`
@@ -1937,7 +1945,7 @@ module.exports = async function(fastify) {
 
         // 1. Fetch item and order info
         const item = await db.get(`
-            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, o.order_code
+            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, o.order_code
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -1962,7 +1970,15 @@ module.exports = async function(fastify) {
             FROM cutting_records
             WHERE order_item_id = $1 AND is_cut_done = true
         `, [itemId]);
-        const cut_qty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+        const rawCutQty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+        let numPhois = 1;
+        try {
+            const pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+            if (Array.isArray(pairs) && pairs.length > 0) {
+                numPhois = pairs.length;
+            }
+        } catch(e) {}
+        const cut_qty = Math.round(rawCutQty / numPhois);
 
         if (cut_qty <= 0) {
             return reply.code(400).send({ error: 'Sản phẩm này chưa được cắt xong. Không thể phân công May!' });
