@@ -195,6 +195,13 @@ function _bpmFormatOrderQty(qty, categoryName, productName) {
     var suffixStr = suffix ? (' ' + suffix) : '';
     return qty + suffixStr;
 }
+function _bpmDisplayProdName(r) {
+    if (!r) return '—';
+    var name = r.cut_product_name || r.product_name || r.order_code || '—';
+    return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
+        return p1 === '—' ? ' — ' : '';
+    }).trim();
+}
 function _bpmParseProduct(r) {
     var orderCode = r.order_code || '—';
     var phieu = 'Phiếu 1';
@@ -306,7 +313,7 @@ function _bpmRender(){
         +'<td style="text-align:center;vertical-align:middle;font-weight:700;font-size:11px;color:#4f46e5;white-space:nowrap">'+_bpmFDDM(r.expected_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_ship_date || r.shipping_date, r.done_date)+'</td>'
-        +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+(r.cut_product_name||r.product_name||r.order_code||'—')+'</a></td>'
+        +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpmDisplayProdName(r)+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+_bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
@@ -348,7 +355,7 @@ async function _bpmTogSalary(id) {
     h += '<div style="padding:20px;font-size:12px;color:#334155">';
     h += '<div style="margin-bottom:12px;line-height:1.6">';
     h += '<div><strong>Mã đơn hàng:</strong> ' + (r.order_code || '—') + '</div>';
-    h += '<div><strong>Sản phẩm/Phối:</strong> ' + (r.cut_product_name || r.product_name || '—') + '</div>';
+    h += '<div><strong>Sản phẩm/Phối:</strong> ' + _bpmDisplayProdName(r) + '</div>';
     h += '<div><strong>Số lượng:</strong> ' + _bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name) + '</div>';
     h += '<div><strong>Giá KTra:</strong> <span style="color:#dc2626;font-weight:700">' + _bpmFN(r.checked_price) + ' đ</span></div>';
     var calculatedSalary = Number(r.quantity || 0) * Number(r.checked_price || 0);
@@ -548,7 +555,7 @@ async function _bpmAssignTeam(recordId) {
         html += '<h3 style="margin:0 0 16px;color:#0d9488;font-size:15px;font-weight:800">👥 Phân Tổ May</h3>';
         
         html += '<div style="margin-bottom:12px"><label style="font-size:10px;font-weight:800;color:#475569;display:block;margin-bottom:4px">MẶT HÀNG / ĐƠN</label>';
-        html += '<input type="text" value="' + (rec.product_name || rec.order_code || 'N/A').replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
+        html += '<input type="text" value="' + _bpmDisplayProdName(rec).replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
 
         html += '<div style="margin-bottom:20px"><label style="font-size:10px;font-weight:800;color:#475569;display:block;margin-bottom:4px">CHỌN TỔ/TEAM MAY</label>';
         html += '<select id="_bpmAssignTeamSelect" class="form-control" style="width:100%;padding:8px 10px;border-radius:8px;font-size:12px;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"><option value="">-- Chưa Phân Tổ --</option>' + opts + '</select></div>';
@@ -599,7 +606,7 @@ async function _bpmShowHandoverModal(recordId) {
         var pInfo = _bpmParseProduct(rec);
         var prodFullName = (rec.order_code || '—');
         if (pInfo.phieu) prodFullName += ' — ' + pInfo.phieu;
-        if (pInfo.phoi) prodFullName += ' — ' + pInfo.phoi;
+        if (pInfo.phoi && !/^P\d+$/i.test(pInfo.phoi)) prodFullName += ' — ' + pInfo.phoi;
         if (pInfo.prodName) prodFullName += ' — ' + pInfo.prodName;
 
         // Create badges/pills
