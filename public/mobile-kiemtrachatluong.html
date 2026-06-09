@@ -712,6 +712,7 @@
         let originalRecords = []; // Full raw records returned by API
         let filteredRecords = []; // Records after tab division and search filters
         let teamsList = []; // Canned team list
+        let holidaysList = []; // Loaded holidays
         let currentRecordId = null; // Temp holder for active record ID in modals
         let showDoneToday = false;
 
@@ -785,8 +786,31 @@
 
                 document.getElementById('userFullname').textContent = currentUser.full_name || currentUser.username;
 
+                // Bind date validation change listener
+                const el = document.getElementById('hlNewDate');
+                if (el) {
+                    el.addEventListener('change', function() {
+                        const val = this.value;
+                        if (!val) return;
+                        
+                        const todayStr = getVnTodayStr();
+                        if (val < todayStr) {
+                            toast('Chỉ được hẹn từ ngày hôm nay trở đi!', 'error');
+                            this.value = '';
+                            return;
+                        }
+                        
+                        if (isHolidayDate(val)) {
+                            toast('Không được chọn ngày nghỉ lễ!', 'error');
+                            this.value = '';
+                            return;
+                        }
+                    });
+                }
+
                 // Load initial data
                 await loadTeams();
+                await loadHolidays();
                 await loadData();
             } catch(err) {
                 toast(err.message, 'error');
@@ -800,6 +824,26 @@
                 teamsList = res.teams || [];
             } catch(e) {
                 console.error('Lỗi tải danh sách tổ:', e);
+            }
+        }
+
+        // Fetch Holidays
+        async function loadHolidays() {
+            try {
+                const currentYear = new Date().getFullYear();
+                const [h1, h2] = await Promise.all([
+                    callApi(`/api/holidays?year=${currentYear}`).catch(() => ({ holidays: [] })),
+                    callApi(`/api/holidays?year=${currentYear + 1}`).catch(() => ({ holidays: [] }))
+                ]);
+                holidaysList = [
+                    ...(h1.holidays || []),
+                    ...(h2.holidays || [])
+                ].map(h => {
+                    if (!h.holiday_date) return '';
+                    return typeof h.holiday_date === 'string' ? h.holiday_date.split('T')[0] : '';
+                }).filter(Boolean);
+            } catch(e) {
+                console.error('Lỗi tải danh sách ngày lễ:', e);
             }
         }
 
@@ -1114,6 +1158,15 @@
             }
         }
 
+        function getVnTodayStr() {
+            const now = new Date();
+            return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+        }
+
+        function isHolidayDate(dateStr) {
+            return holidaysList.includes(dateStr);
+        }
+
         // Open Hẹn Lại modal
         function openHenLai(recordId) {
             currentRecordId = recordId;
@@ -1125,7 +1178,12 @@
             
             // Set current date or tomorrow in picker
             const expectedVal = r.expected_date ? r.expected_date.split('T')[0] : '';
-            document.getElementById('hlNewDate').value = expectedVal;
+            const dateInput = document.getElementById('hlNewDate');
+            dateInput.value = expectedVal;
+            
+            // Limit to today or future
+            const todayStr = getVnTodayStr();
+            dateInput.min = todayStr;
             
             openSheet('sheetHenLai');
         }
@@ -1135,6 +1193,17 @@
             const val = document.getElementById('hlNewDate').value;
             if (!val) {
                 toast('Vui lòng chọn ngày hẹn mới', 'error');
+                return;
+            }
+
+            const todayStr = getVnTodayStr();
+            if (val < todayStr) {
+                toast('Chỉ được hẹn từ ngày hôm nay trở đi!', 'error');
+                return;
+            }
+
+            if (isHolidayDate(val)) {
+                toast('Không được chọn ngày nghỉ lễ!', 'error');
                 return;
             }
 

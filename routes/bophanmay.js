@@ -2,6 +2,7 @@
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const { vnNow, vnDateStr } = require('../utils/timezone');
+const { getHolidays } = require('../utils/workingDay');
 const path = require('path');
 const fs = require('fs');
 
@@ -331,6 +332,15 @@ module.exports = async function(fastify) {
         let isRescheduled = rec.is_rescheduled;
         let origExpected = rec.original_expected_date;
         if (b.expected_date !== undefined && b.expected_date !== rec.expected_date) {
+            const dateVal = b.expected_date ? b.expected_date.split('T')[0] : '';
+            const todayStr = vnDateStr();
+            if (!dateVal || dateVal < todayStr) {
+                return reply.code(400).send({ error: 'Chỉ được hẹn từ ngày hôm nay trở đi!' });
+            }
+            const holidays = await getHolidays();
+            if (holidays.has(dateVal)) {
+                return reply.code(400).send({ error: 'Không được chọn ngày nghỉ lễ!' });
+            }
             origExpected = rec.original_expected_date || rec.expected_date;
             isRescheduled = true;
         }
@@ -362,12 +372,22 @@ module.exports = async function(fastify) {
         const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         if (field === 'expected_date') {
+            const dateVal = value ? value.split('T')[0] : '';
+            const todayStr = vnDateStr();
+            if (!dateVal || dateVal < todayStr) {
+                return reply.code(400).send({ error: 'Chỉ được hẹn từ ngày hôm nay trở đi!' });
+            }
+            const holidays = await getHolidays();
+            if (holidays.has(dateVal)) {
+                return reply.code(400).send({ error: 'Không được chọn ngày nghỉ lễ!' });
+            }
+
             const rec = await db.get('SELECT expected_date, original_expected_date FROM sewing_records WHERE id=$1', [id]);
-            if (rec && value !== rec.expected_date) {
+            if (rec && dateVal !== rec.expected_date) {
                 const orig = rec.original_expected_date || rec.expected_date;
-                await db.run(`UPDATE sewing_records SET expected_date=$1, is_rescheduled=true, original_expected_date=$2, updated_at=$3 WHERE id=$4`, [value, orig, now, id]);
+                await db.run(`UPDATE sewing_records SET expected_date=$1, is_rescheduled=true, original_expected_date=$2, updated_at=$3 WHERE id=$4`, [dateVal, orig, now, id]);
                 await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                    [id, 'inline_update', `Hẹn Lại: ${rec.expected_date} ➔ ${value}`, req.user.id, now]);
+                    [id, 'inline_update', `Hẹn Lại: ${rec.expected_date} ➔ ${dateVal}`, req.user.id, now]);
             }
         } else {
             await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
