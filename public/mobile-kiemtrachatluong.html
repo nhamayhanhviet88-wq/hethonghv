@@ -1280,7 +1280,10 @@
 
                 return `<div class="card">
                     <div class="card-header">
-                        <span class="card-code">${cleanProdName(r)}</span>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; max-width:80%;">
+                            ${getPriorityBadge(r.shipping_priority)}
+                            <span class="card-code">${cleanProdName(r)}</span>
+                        </div>
                         <span class="card-client">${r.cskh_name || 'Sale'}</span>
                     </div>
                     <div class="card-body">
@@ -1322,13 +1325,9 @@
                                     <span class="meta-label">📅 Hạn trả hàng</span>
                                     <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}${((r.shipping_priority || 'CHUẨN').toUpperCase() === 'CHUẨN' && r.standard_delivery_time) ? ' ⏰ ' + r.standard_delivery_time : ''}</span>
                                 </div>
-                                <div class="meta-item">
+                                <div class="meta-item" style="grid-column: span 2;">
                                     <span class="meta-label">📈 Tiến độ</span>
-                                    <span class="meta-value">${getProgress(r.expected_ship_date || r.shipping_date, r.done_date)}</span>
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">🏆 Tiêu chuẩn đơn</span>
-                                    <span class="meta-value">${getPriorityBadge(r.shipping_priority)}</span>
+                                    <span class="meta-value" style="align-self: flex-start;">${getProgress(r.expected_ship_date || r.shipping_date, r.done_date)}</span>
                                 </div>
                                 ${delayStr}
                             </div>
