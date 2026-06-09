@@ -69,9 +69,13 @@ module.exports = async function(fastify) {
         return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
     }
     function calcSalary(approved, qty, base, checked) {
-        if (!approved) return 0;
-        const q = Number(qty)||0, c = Number(checked)||0;
-        return q * c;
+        const q = Number(qty)||0;
+        if (approved) {
+            const c = Number(checked)||0;
+            return q * c;
+        }
+        const b = Number(base)||0;
+        return q * b;
     }
 
     // ========== CONTRACTORS CRUD ==========
@@ -270,7 +274,7 @@ module.exports = async function(fastify) {
             detail = '💰 Duyệt lương may' + (salary_note ? ': ' + salary_note : '');
         } else if (action === 'undo_salary') {
             if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Không có quyền' });
-            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, salary=0, updated_at=$1 WHERE id=$2`, [now, id]);
+            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, salary = quantity * base_price, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác duyệt lương';
         } else if (action === 'report_error') {
             await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);

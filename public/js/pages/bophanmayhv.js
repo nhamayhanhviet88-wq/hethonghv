@@ -262,6 +262,10 @@ function _bpmRender(){
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
 
+        var salStyle = r.salary_approved ? 'font-weight:800;color:#059669;' : 'font-weight:600;color:#64748b;opacity:0.85;';
+        var salTitle = r.salary_approved ? 'Lương đã duyệt (tính theo Giá KTra)' : 'Lương tạm tính (chưa duyệt, tính theo Giá May)';
+        var salDisplay = _bpmFN(r.salary) + (r.salary_approved ? ' <span style="color:#059669;font-weight:800;font-size:9px">✓</span>' : '');
+
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center">'+(r.contractor_id ? '—' : '<button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button>')+'</td>'
         +'<td style="text-align:center">' + salaryCell + '</td>'
@@ -275,7 +279,7 @@ function _bpmRender(){
         +'<td style="text-align:center;font-weight:700;color:#0d9488">'+_bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
         +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
         +'<td style="text-align:right;font-size:10px;color:#dc2626;font-weight:700">'+_bpmFN(r.checked_price)+'</td>'
-        +'<td style="text-align:right;font-weight:800;color:#f59e0b">'+_bpmFN(r.salary)+'</td>'
+        +'<td style="text-align:right;font-size:10px;'+salStyle+'" title="'+salTitle+'">'+salDisplay+'</td>'
         +'<td style="font-size:9px">'+(r.shared_sewing||'—')+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td style="font-size:10px">'+_bpmFDTFull(r.handover_date)+'</td>'
