@@ -724,6 +724,66 @@
             }).trim();
         }
 
+        function getProgress(exp, done) {
+            if (!exp) return '<span style="color:#94a3b8">—</span>';
+            try {
+                var expD = getDatePart(exp);
+                if (!expD) return '<span style="color:#94a3b8">—</span>';
+                
+                if (done) {
+                    var doneD = getDatePart(done);
+                    if (!doneD) return '<span style="color:#94a3b8">—</span>';
+                    
+                    var diff = Math.round((doneD - expD) / 86400000);
+                    if (diff < 0) {
+                        return '<span style="background:rgba(16,185,129,0.15);color:#10b981;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px;">⚡ Nhanh ' + Math.abs(diff) + ' ngày</span>';
+                    }
+                    if (diff === 0) {
+                        return '<span style="background:rgba(37,99,235,0.15);color:#3b82f6;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px;">✅ Ra kịp hàng</span>';
+                    }
+                    return '<span style="background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px;">🔴 Chậm ' + diff + ' ngày</span>';
+                }
+                
+                var today = getDatePart();
+                var diff2 = Math.round((expD - today) / 86400000);
+                if (diff2 > 0) {
+                    return '<span style="background:rgba(37,99,235,0.15);color:#3b82f6;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px;">⏳ Còn ' + diff2 + ' ngày</span>';
+                }
+                if (diff2 === 0) {
+                    return '<span style="background:rgba(217,119,6,0.15);color:#f59e0b;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px;">⏳ Ra kịp hàng</span>';
+                }
+                return '<span style="background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;padding:2px 6px;border-radius:4px;font-size:11px;animation:pulse 1.5s infinite">🔥 Chậm ' + Math.abs(diff2) + ' ngày</span>';
+            } catch (e) {
+                return '<span style="color:#94a3b8">—</span>';
+            }
+        }
+
+        function getDatePart(d) {
+            try {
+                var dateStr = '';
+                if (typeof vnISOStr === 'function') {
+                    dateStr = vnISOStr(d).split('T')[0];
+                } else {
+                    var dateObj = d ? new Date(d) : new Date();
+                    dateStr = dateObj.toISOString().split('T')[0];
+                }
+                var parts = dateStr.split('-');
+                return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0, 0);
+            } catch(e) {
+                return null;
+            }
+        }
+
+        function getPriorityBadge(priority) {
+            const p = (priority || 'CHUẨN').toUpperCase();
+            if (p === 'GẤP') {
+                return '<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">🔥 GẤP</span>';
+            } else if (p === 'GỬI') {
+                return '<span style="background: rgba(2, 132, 199, 0.15); color: #38bdf8; border: 1px solid rgba(2, 132, 199, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✈️ GỬI</span>';
+            }
+            return '<span style="background: rgba(100, 116, 139, 0.15); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">CHUẨN</span>';
+        }
+
         // Formats
         function fn(n) {
             if (!n && n !== 0) return '—';
@@ -1056,11 +1116,7 @@
                                 <span class="meta-value" style="line-height: 1.4;">${(r.color_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
                             </div>
                             <div class="meta-item">
-                                <span class="meta-label">${dateLabel}</span>
-                                <span class="meta-value">${fd(r.expected_date)}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">💵 Đơn giá May</span>
+                                <span class="meta-label">💵 Giá gốc</span>
                                 <span class="meta-value">${fn(r.base_price)}</span>
                             </div>
                             <div class="meta-item">
@@ -1068,8 +1124,26 @@
                                 <span class="meta-value highlight">${fn(r.checked_price)}</span>
                             </div>
                             <div class="meta-item">
-                                <span class="meta-label">💰 Lương thợ</span>
-                                <span class="meta-value" style="color:#10b981; font-weight:800;">${fn(r.salary)}</span>
+                                <span class="meta-label">${dateLabel}</span>
+                                <span class="meta-value">${fd(r.expected_date)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">📅 Hạn trả hàng</span>
+                                <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">📈 Tiến độ</span>
+                                <span class="meta-value">${getProgress(r.expected_ship_date || r.shipping_date, r.done_date)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">🏆 Tiêu chuẩn đơn</span>
+                                <span class="meta-value">${getPriorityBadge(r.shipping_priority)}</span>
+                            </div>
+                            <div class="meta-item" style="grid-column: span 2;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 6px; margin-top: 4px;">
+                                    <span class="meta-label" style="margin: 0;">💰 Lương thợ</span>
+                                    <span class="meta-value" style="color:#10b981; font-weight:800; font-size:14px;">${fn(r.salary)}</span>
+                                </div>
                             </div>
                             ${delayStr}
                         </div>
