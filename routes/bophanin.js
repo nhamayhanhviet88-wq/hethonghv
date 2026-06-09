@@ -754,7 +754,7 @@ module.exports = async function(fastify) {
                     }
 
                     if (totalRows > 1) {
-                        finalProdName = `${r.order_code} — Phiếu ${itemIdx} — P1 — ${itemDesc}`;
+                        finalProdName = `${r.order_code} — Phiếu ${itemIdx} — ${itemDesc}`;
                     } else {
                         finalProdName = `${r.order_code} — ${itemDesc}`;
                     }
@@ -790,9 +790,13 @@ module.exports = async function(fastify) {
                 }
             }
 
+            // Strip coordination label (— P1 —, — P2 —, etc.) - not needed for printing dept
+            let displayName = r.cut_product_name || finalProdName;
+            displayName = displayName.replace(/\s*—\s*P\d+\s*—\s*/g, ' — ').replace(/\s*—\s*P\d+\s*$/g, '');
+
             return {
                 ...r,
-                product_name: r.cut_product_name || finalProdName,
+                product_name: displayName,
                 shared_process: calculatedSharedProcess,
                 cutting_category: cuttingCategory,
                 id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)
