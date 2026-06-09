@@ -740,28 +740,105 @@ async function _bpmShowHandoverModal(recordId) {
         html += '      </div>';
         html += '    </div>';
 
-        // 4. Frame 2: THÔNG TIN MAY MẶC
-        html += '    <div style="margin-bottom: 20px;">';
-        html += '      <div style="font-size: 11px; font-weight: 800; color: #0d9488; margin-bottom: 6px; letter-spacing: 0.5px;">🪡 THÔNG TIN MAY MẶC</div>';
-        html += '      <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px 16px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+        // Parse extra techniques for price sum and table rendering
+        var tsamFP = Number(rec.ts_factory_price) || 0;
+        var tsamPP = Number(rec.ts_processing_price) || 0;
+        var totalMayNha = tsamFP;
+        var totalMayGC = tsamPP;
+        var extraTechs = [];
+        try {
+            extraTechs = typeof rec.sewing_techniques === 'string' ? JSON.parse(rec.sewing_techniques) : (rec.sewing_techniques || []);
+        } catch(e) {}
+        for (var i = 0; i < extraTechs.length; i++) {
+            totalMayNha += (Number(extraTechs[i].fp) || 0) * (Number(extraTechs[i].qty) || 1);
+            totalMayGC += (Number(extraTechs[i].pp) || 0) * (Number(extraTechs[i].qty) || 1);
+        }
 
-        var rowsSew = [
-            { label: 'Thông Số Mẫu Áo', val: '<span style="font-weight: 700; color: #4f46e5;">' + (rec.pattern_name || '—') + '</span>' },
-            { label: 'Kỹ Thuật May', val: '<span style="font-weight: 700; color: #334155;">' + coreTechList + '</span>' },
-            { label: 'Chi Tiết May Thêm', val: '<span style="font-weight: 700; color: #334155;">' + extraTechList + '</span>' },
-            { label: 'Giá Nhà May', val: '<span style="font-weight: 700; color: #0d9488;">' + (rec.ts_factory_price ? _bpmFN(rec.ts_factory_price) + 'đ' : '—') + '</span>' },
-            { label: 'Giá May Gia Công', val: '<span style="font-weight: 700; color: #0ea5e9;">' + (rec.ts_processing_price ? _bpmFN(rec.ts_processing_price) + 'đ' : '—') + '</span>' },
-            { label: 'QLX Lưu Ý May', val: '<span style="font-weight: 700; color: #ef4444; font-style: italic;">' + (rec.notes || '—') + '</span>' }
-        ];
+        // Render "✂️ Kỹ thuật may" table
+        html += '    <div style="margin-bottom:16px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02)">';
+        html += '      <div style="font-weight:800;font-size:12px;color:#1e293b;margin-bottom:8px; display: flex; align-items: center; gap: 6px">✂️ Kỹ thuật may (' + (extraTechs.length + 1) + ')</div>';
+        html += '      <table style="width:100%;border-collapse:collapse;font-size:11px; margin-bottom: 8px">';
+        html += '        <thead><tr style="background:#1e293b;color:#fff">';
+        html += '          <th style="padding:6px 8px;text-align:left;font-weight:700;border-radius:6px 0 0 0">Kỹ thuật</th>';
+        html += '          <th style="padding:6px 8px;text-align:center;font-weight:700">SL</th>';
+        html += '          <th style="padding:6px 8px;text-align:right;font-weight:700">MAY NHÀ</th>';
+        html += '          <th style="padding:6px 8px;text-align:right;font-weight:700;border-radius:0 6px 0 0">MAY GC</th>';
+        html += '        </tr></thead><tbody>';
 
-        rowsSew.forEach(function(row, idx) {
-            var isLast = idx === rowsSew.length - 1;
-            html += '      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; ' + (isLast ? '' : 'border-bottom: 1px solid #f1f5f9;') + '">';
-            html += '        <span style="color: #64748b; font-weight: 600; flex-shrink: 0; margin-right: 12px;">' + row.label + '</span>';
-            html += '        <span style="text-align: right; display: flex; justify-content: flex-end;">' + row.val + '</span>';
+        // TSAM base row
+        var techDetailsHtml = '';
+        if (rec.ts_sewing_tech) {
+            var tsamSewing = [];
+            try {
+                tsamSewing = typeof rec.ts_sewing_tech === 'string' ? JSON.parse(rec.ts_sewing_tech) : (rec.ts_sewing_tech || []);
+            } catch(e) {}
+            if (Array.isArray(tsamSewing) && tsamSewing.length > 0) {
+                techDetailsHtml = '<div style="font-size:10px;font-weight:500;color:#475569;margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">';
+                for (var pIdx = 0; pIdx < tsamSewing.length; pIdx++) {
+                    var tItem = tsamSewing[pIdx];
+                    var nameStr = typeof tItem === 'string' ? tItem : (tItem.name || '');
+                    if (nameStr) {
+                        techDetailsHtml += '<span style="background:#e0f2fe;color:#0369a1;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">' + nameStr + '</span>';
+                    }
+                }
+                techDetailsHtml += '</div>';
+            }
+        }
+
+        html += '        <tr style="border-bottom:1px solid #e2e8f0;background:#f0f9ff">';
+        html += '          <td style="padding:6px 8px;font-weight:800;color:#0284c7;line-height:1.3">📐 ' + (rec.pattern_name || 'TSAM') + techDetailsHtml + '</td>';
+        html += '          <td style="padding:6px 8px;text-align:center;font-weight:700">1</td>';
+        html += '          <td style="padding:6px 8px;text-align:right;font-weight:800">' + tsamFP.toLocaleString('vi-VN') + 'đ</td>';
+        html += '          <td style="padding:6px 8px;text-align:right;font-weight:800">' + tsamPP.toLocaleString('vi-VN') + 'đ</td>';
+        html += '        </tr>';
+
+        // Additional techniques
+        for (var i = 0; i < extraTechs.length; i++) {
+            var t = extraTechs[i];
+            var tfp = Number(t.fp) || 0;
+            var tpp = Number(t.pp) || 0;
+            html += '        <tr style="border-bottom:1px solid #e2e8f0">';
+            html += '          <td style="padding:6px 8px;font-weight:600">' + t.name + '</td>';
+            html += '          <td style="padding:6px 8px;text-align:center">' + (t.qty || 1) + '</td>';
+            html += '          <td style="padding:6px 8px;text-align:right">' + tfp.toLocaleString('vi-VN') + 'đ</td>';
+            html += '          <td style="padding:6px 8px;text-align:right">' + tpp.toLocaleString('vi-VN') + 'đ</td>';
+            html += '        </tr>';
+        }
+        html += '        </tbody></table>';
+
+        // Total price banner
+        html += '        <div style="padding:8px 12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:11px">';
+        html += '          <span style="font-weight:800;color:#92400e">💰 Tổng giá may</span>';
+        html += '          <span style="font-weight:900">MAY NHÀ: <span style="color:#dc2626">' + totalMayNha.toLocaleString('vi-VN') + 'đ</span> &nbsp;|&nbsp; MAY GC: <span style="color:#7c3aed">' + totalMayGC.toLocaleString('vi-VN') + 'đ</span></span>';
+        html += '        </div>';
+        html += '    </div>';
+
+        // Render "Thông Số Mẫu Áo *"
+        html += '    <div style="margin-bottom:16px;">';
+        html += '      <label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">Thông Số Mẫu Áo *</label>';
+        var patternNameValue = rec.pattern_name || '—';
+        html += '      <input type="text" value="' + patternNameValue.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed;margin-bottom:8px">';
+
+        if (rec.ts_spec_image) {
+            html += '      <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:10px;padding:10px;text-align:center;margin-bottom:16px">';
+            html += '        <div style="font-size:11px;font-weight:800;color:#0284c7;margin-bottom:6px">📷 Hình Ảnh Thông Số</div>';
+            html += '        <img src="' + rec.ts_spec_image + '" style="max-width:100%;max-height:250px;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.1)" onclick="window.open(\'' + rec.ts_spec_image + '\',\'_blank\')" title="Click để xem lớn">';
             html += '      </div>';
-        });
+        } else {
+            html += '      <div style="background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:10px;padding:12px;text-align:center;font-size:11px;color:#94a3b8;margin-bottom:16px">';
+            html += '        📷 Chưa cập nhật hình ảnh thông số mẫu áo';
+            html += '      </div>';
+        }
+        html += '    </div>';
 
+        // 4. Frame 2: LƯU Ý MAY TỪ QLX (Gọn gàng & thông minh)
+        html += '    <div style="margin-bottom: 20px;">';
+        html += '      <div style="font-size: 11px; font-weight: 800; color: #0d9488; margin-bottom: 6px; letter-spacing: 0.5px;">📝 LƯU Ý MAY TỪ QLX</div>';
+        html += '      <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px 16px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">';
+        html += '        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">';
+        html += '          <span style="color: #64748b; font-weight: 600;">QLX Lưu Ý May</span>';
+        html += '          <span style="text-align: right; font-weight: 700; color: #ef4444; font-style: italic;">' + (rec.notes || '—') + '</span>';
+        html += '        </div>';
         html += '      </div>';
         html += '    </div>';
 
