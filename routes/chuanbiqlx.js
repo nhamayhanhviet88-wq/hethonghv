@@ -1994,7 +1994,7 @@ module.exports = async function(fastify) {
 
         // 1. Fetch item and order info
         const item = await db.get(`
-            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, o.order_code
+            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, o.order_code, doi.sewing_techniques
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -2109,9 +2109,28 @@ module.exports = async function(fastify) {
 
         // Insert new records
         const descParts = [];
+
+        // Calculate extra technique pricing
+        let extraFactory = 0;
+        let extraProcessing = 0;
+        try {
+            const extraTechs = typeof item.sewing_techniques === 'string' ? JSON.parse(item.sewing_techniques) : (item.sewing_techniques || []);
+            if (Array.isArray(extraTechs)) {
+                for (let i = 0; i < extraTechs.length; i++) {
+                    extraFactory += (Number(extraTechs[i].fp) || 0) * (Number(extraTechs[i].qty) || 1);
+                    extraProcessing += (Number(extraTechs[i].pp) || 0) * (Number(extraTechs[i].qty) || 1);
+                }
+            }
+        } catch (e) {
+            console.error('[QLX Sewing Assignment] Parse sewing techniques error:', e);
+        }
+
+        const totalFactoryPrice = factoryPrice + extraFactory;
+        const totalProcessingPrice = processingPrice + extraProcessing;
+
         for (const ass of assignments) {
             const isGiaCong = !!ass.contractor_id;
-            const price = isGiaCong ? processingPrice : factoryPrice;
+            const price = isGiaCong ? totalProcessingPrice : totalFactoryPrice;
             const sal = Number(ass.quantity) * price;
 
             let contractorName = 'May Nhà';
