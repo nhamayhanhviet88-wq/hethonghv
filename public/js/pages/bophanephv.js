@@ -4,6 +4,13 @@ var _bpeOpen = {};
 
 function _bpeFD(d) { if (!d) return '—'; try { var p = d.split('T')[0].split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return d; } }
 function _bpeFN(n) { if (!n && n !== 0) return '—'; return Number(n).toLocaleString('vi-VN'); }
+function _bpeDisplayProdName(r) {
+    if (!r) return '—';
+    var name = r.product_name || r.order_code || '—';
+    return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
+        return p1 === '—' ? ' — ' : '';
+    }).trim();
+}
 
 function _bpeFmtTimeDateNoYear(d) {
     if (!d) return '—';
@@ -557,7 +564,7 @@ function _bpeRenderRows(paged) {
                 +'<td colspan="2" style="text-align:center;vertical-align:middle">'+claimHtml+'</td>'
                 +'<td style="font-size:10px">—</td>'
                 +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
-                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+r.product_name+'</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
+                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpeDisplayProdName(r)+'</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
                 +'<td style="text-align:center;font-size:10px">—</td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
                 +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
@@ -603,7 +610,7 @@ function _bpeRenderRows(paged) {
             + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
-            + '<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(' + r.id + ',' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">' + priBadge + (r.product_name || r.order_code || '—') + '</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
+            + '<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(' + r.id + ',' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">' + priBadge + _bpeDisplayProdName(r) + '</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
             + '<td style="text-align:center;font-size:10px">' + imgs + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">' + (r.material_name || '—') + '</td>'
             + '<td class="bpe-hide-desktop" style="font-size:10px">' + (r.fabric_color || '—') + '</td>'
@@ -1171,7 +1178,7 @@ function _bpeOpenDetail(recordId, orderItemId) {
 
     // Info grid
     h += '<div style="background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0; display:grid; grid-template-columns:1fr 1fr; gap:8px;">';
-    h += '<div>👕 <strong>Sản phẩm:</strong> <span>' + (r.product_name || '—') + '</span></div>';
+    h += '<div>👕 <strong>Sản phẩm:</strong> <span>' + _bpeDisplayProdName(r) + '</span></div>';
     h += '<div>🎨 <strong>Chất liệu/Màu:</strong> <span>' + matColor + '</span></div>';
     h += '<div>👤 <strong>CSKH:</strong> <span>' + (r.cskh_name || '—') + '</span></div>';
     h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
