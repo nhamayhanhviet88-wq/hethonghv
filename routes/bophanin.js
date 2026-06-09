@@ -531,7 +531,8 @@ module.exports = async function(fastify) {
                         ELSE pr.is_print_done 
                     END AS is_completed,
                     pr.order_item_id AS order_item_id,
-                    o.category_id AS category_id
+                    o.category_id AS category_id,
+                    (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name
                 FROM printing_records pr
                 LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -599,7 +600,8 @@ module.exports = async function(fastify) {
                     NULL AS done_by_name,
                     false AS is_completed,
                     NULL::int AS order_item_id,
-                    o.category_id AS category_id
+                    o.category_id AS category_id,
+                    NULL::text AS cut_product_name
                 FROM dht_orders o
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
                 WHERE (
@@ -780,7 +782,7 @@ module.exports = async function(fastify) {
 
             return {
                 ...r,
-                product_name: finalProdName,
+                product_name: r.cut_product_name || finalProdName,
                 shared_process: calculatedSharedProcess,
                 cutting_category: cuttingCategory,
                 id: r.record_type === 'virtual' ? 'dht_' + r.dht_order_id : Number(r.id)

@@ -333,6 +333,7 @@ module.exports = async function(fastify) {
             SELECT pr.*, u.full_name AS presser_name, u_rpt.full_name AS reported_by_name,
                    u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
                    o.customer_name, cc.name AS category_name,
+                   (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
                    (
                         SELECT string_agg(pf.name, ', ')
@@ -386,7 +387,11 @@ module.exports = async function(fastify) {
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM pressing_history h WHERE h.pressing_id=pr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where} ORDER BY pr.press_date DESC NULLS LAST, pr.created_at DESC`, params);
-        return { records };
+        const formattedRecords = records.map(r => ({
+            ...r,
+            product_name: r.cut_product_name || r.product_name
+        }));
+        return { records: formattedRecords };
     });
 
     // ========== GET SINGLE RECORD ==========
@@ -394,6 +399,7 @@ module.exports = async function(fastify) {
         const id = Number(req.params.id);
         const record = await db.get(`
             SELECT pr.*, u.full_name AS presser_name,
+                   (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                    (
                         SELECT string_agg(pf.name, ', ')
                         FROM qlx_order_print_assignments qa
@@ -414,6 +420,7 @@ module.exports = async function(fastify) {
             WHERE pr.id = $1
         `, [id]);
         if (!record) return reply.code(404).send({ error: 'Không tìm thấy phiếu ép' });
+        record.product_name = record.cut_product_name || record.product_name;
         return { record };
     });
 
@@ -860,6 +867,7 @@ module.exports = async function(fastify) {
                     doi.material_pairs,
                     doi.quantity AS quantity,
                     cc.name AS category_name,
+                    (SELECT product_name FROM cutting_records WHERE order_item_id = doi.id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                     (
                         SELECT COUNT(*)::int 
                         FROM dht_order_items doi2 
@@ -1076,7 +1084,8 @@ module.exports = async function(fastify) {
                     pending_print_types: it.pending_print_types || null,
                     warning_msg: warningMsg,
                     ready: ready,
-                    phoi: phoiList
+                    phoi: phoiList,
+                    cut_product_name: it.cut_product_name || null
                 });
             }
         }

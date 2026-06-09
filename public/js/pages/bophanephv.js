@@ -321,12 +321,14 @@ async function _bpeLoadRecs() {
                 
                 // Map unassigned items to match pressing_record structure
                 var unassignedRecords = unassignedOrders.map(function(ur) {
-                    var spName = ur.order_code;
-                    if (ur.total_items_in_order > 1 || ur.total_phoi > 1) {
-                        spName += ' — Phiếu ' + ur.item_index;
-                        if (ur.total_phoi > 1) spName += ' — P' + ur.phoi_in_item;
+                    var spName = ur.cut_product_name || ur.order_code;
+                    if (!ur.cut_product_name) {
+                        if (ur.total_items_in_order > 1 || ur.total_phoi > 1) {
+                            spName += ' — Phiếu ' + ur.item_index;
+                            if (ur.total_phoi > 1) spName += ' — P' + ur.phoi_in_item;
+                        }
+                        if (ur.item_desc) spName += ' — ' + ur.item_desc;
                     }
-                    if (ur.item_desc) spName += ' — ' + ur.item_desc;
                     
                     return {
                         is_unpressed: true,
