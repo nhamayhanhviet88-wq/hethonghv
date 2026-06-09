@@ -845,56 +845,84 @@ async function _bpmShowHandoverModal(recordId) {
         html += '    </div>';
 
         // 4. Handover Teams Selection Section
-        html += '    <div>';
-        html += '      <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">';
-        html += '        <span>🪡 BÀN GIAO CHO TEAM MAY (bắt buộc):</span>';
-        html += '      </div>';
+        if (rec.contractor_id !== null) {
+            html += '    <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px;">';
+            html += '      <div style="font-size: 20px;">🏭</div>';
+            html += '      <div>';
+            html += '        <div style="font-size: 13px; font-weight: 800; color: #166534; margin-bottom: 4px;">ĐƠN GIA CÔNG NGOÀI</div>';
+            html += '        <div style="font-size: 11px; color: #15803d; line-height: 1.5;">Đơn hàng này được giao cho đơn vị Gia công ngoài. Không cần thực hiện phân tổ may trong nhà.</div>';
+            html += '      </div>';
+            html += '    </div>';
 
-        // Allocation progress status box
-        html += '      <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 16px; font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">';
-        html += '        <div style="display: flex; justify-content: space-between; color: #475569;">';
-        html += '          <span>Tổng số lượng cần chia:</span>';
-        html += '          <span style="color: #0f172a; font-weight: 800;">' + rec.quantity + ' áo</span>';
-        html += '        </div>';
-        html += '        <div style="display: flex; justify-content: space-between; color: #475569;">';
-        html += '          <span>Đã chia:</span>';
-        html += '          <span style="color: #0f766e; font-weight: 800;"><span id="_bpmAllocatedQtyVal">0</span> áo</span>';
-        html += '        </div>';
-        html += '        <div style="display: flex; justify-content: space-between; color: #475569;">';
-        html += '          <span>Còn lại:</span>';
-        html += '          <span style="color: #ef4444; font-weight: 800;"><span id="_bpmRemainingQtyVal">' + rec.quantity + '</span> áo</span>';
-        html += '        </div>';
-        html += '        <div id="_bpmAllocationHint" style="font-size: 11px; text-align: center; margin-top: 6px; color: #64748b;">';
-        html += '          Nhập số lượng cho từng tổ để bắt đầu.';
-        html += '        </div>';
-        html += '      </div>';
+            // Actions Footer (Only close button)
+            html += '    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
+            html += '      <button class="btn btn-secondary" style="padding: 8px 20px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Đóng</button>';
+            html += '    </div>';
+        } else if (rec.done_date !== null || rec.salary_approved === true) {
+            html += '    <div style="background: #fff7ed; border: 1.5px solid #ffedd5; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px;">';
+            html += '      <div style="font-size: 20px;">🔒</div>';
+            html += '      <div>';
+            html += '        <div style="font-size: 13px; font-weight: 800; color: #c2410c; margin-bottom: 4px;">ĐƠN HÀNG ĐÃ KHÓA</div>';
+            html += '        <div style="font-size: 11px; color: #9a3412; line-height: 1.5;">Đơn may đã hoàn thành hoặc đã được duyệt tính lương. Không thể thay đổi phân tổ/bàn giao.</div>';
+            html += '      </div>';
+            html += '    </div>';
 
-        html += '      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">';
-        
-        _bpm.teams.forEach(function(t) {
-            if (t.id === 14) return; // Skip "👥 PHÒNG MAY"
+            // Actions Footer (Only close button)
+            html += '    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
+            html += '      <button class="btn btn-secondary" style="padding: 8px 20px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Đóng</button>';
+            html += '    </div>';
+        } else {
+            html += '    <div>';
+            html += '      <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">';
+            html += '        <span>🪡 BÀN GIAO CHO TEAM MAY (bắt buộc):</span>';
+            html += '      </div>';
 
-            html += '        <div class="bpm-team-row" id="team_row_' + t.id + '" style="padding: 10px 16px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: all 0.2s;">';
-            html += '          <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;" onclick="_bpmToggleTeamRow(' + t.id + ', ' + rec.quantity + ')">';
-            html += '            <input type="checkbox" id="team_cb_' + t.id + '" style="width: 18px; height: 18px; cursor: pointer;" onclick="event.stopPropagation(); _bpmHandleCheckboxChange(' + t.id + ', ' + rec.quantity + ')">';
-            html += '            <label style="font-size: 13px; font-weight: 700; color: #1e293b; cursor: pointer;">👥 ' + t.name + '</label>';
-            html += '          </div>';
-            html += '          <div>';
-            html += '            <input type="number" id="team_qty_' + t.id + '" class="bpm-team-qty-input" data-team-id="' + t.id + '" placeholder="SL" min="1" disabled ';
-            html += '              style="width: 90px; padding: 6px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-weight: 800; font-size: 13px; text-align: right; background: #f8fafc; transition: all 0.2s;" ';
-            html += '              oninput="_bpmUpdateHandoverAllocations(' + rec.quantity + ')" onchange="_bpmUpdateHandoverAllocations(' + rec.quantity + ')">';
-            html += '          </div>';
+            // Allocation progress status box
+            html += '      <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 16px; font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">';
+            html += '        <div style="display: flex; justify-content: space-between; color: #475569;">';
+            html += '          <span>Tổng số lượng cần chia:</span>';
+            html += '          <span style="color: #0f172a; font-weight: 800;">' + rec.quantity + ' áo</span>';
             html += '        </div>';
-        });
+            html += '        <div style="display: flex; justify-content: space-between; color: #475569;">';
+            html += '          <span>Đã chia:</span>';
+            html += '          <span style="color: #0f766e; font-weight: 800;"><span id="_bpmAllocatedQtyVal">0</span> áo</span>';
+            html += '        </div>';
+            html += '        <div style="display: flex; justify-content: space-between; color: #475569;">';
+            html += '          <span>Còn lại:</span>';
+            html += '          <span style="color: #ef4444; font-weight: 800;"><span id="_bpmRemainingQtyVal">' + rec.quantity + '</span> áo</span>';
+            html += '        </div>';
+            html += '        <div id="_bpmAllocationHint" style="font-size: 11px; text-align: center; margin-top: 6px; color: #64748b;">';
+            html += '          Nhập số lượng cho từng tổ để bắt đầu.';
+            html += '        </div>';
+            html += '      </div>';
 
-        html += '      </div>';
-        html += '    </div>';
+            html += '      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">';
+            
+            _bpm.teams.forEach(function(t) {
+                if (t.id === 14) return; // Skip "👥 PHÒNG MAY"
 
-        // 5. Actions Footer
-        html += '    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
-        html += '      <button class="btn btn-secondary" style="padding: 8px 18px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Hủy</button>';
-        html += '      <button id="_bpmSaveBtn" onclick="_bpmSaveHandover(' + rec.id + ')" disabled style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: #fff; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: not-allowed; opacity: 0.5; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25); transition: all 0.2s;">💾 Lưu Bàn Giao</button>';
-        html += '    </div>';
+                html += '        <div class="bpm-team-row" id="team_row_' + t.id + '" style="padding: 10px 16px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: all 0.2s;">';
+                html += '          <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;" onclick="_bpmToggleTeamRow(' + t.id + ', ' + rec.quantity + ')">';
+                html += '            <input type="checkbox" id="team_cb_' + t.id + '" style="width: 18px; height: 18px; cursor: pointer;" onclick="event.stopPropagation(); _bpmHandleCheckboxChange(' + t.id + ', ' + rec.quantity + ')">';
+                html += '            <label style="font-size: 13px; font-weight: 700; color: #1e293b; cursor: pointer;">👥 ' + t.name + '</label>';
+                html += '          </div>';
+                html += '          <div>';
+                html += '            <input type="number" id="team_qty_' + t.id + '" class="bpm-team-qty-input" data-team-id="' + t.id + '" placeholder="SL" min="1" disabled ';
+                html += '              style="width: 90px; padding: 6px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-weight: 800; font-size: 13px; text-align: right; background: #f8fafc; transition: all 0.2s;" ';
+                html += '              oninput="_bpmUpdateHandoverAllocations(' + rec.quantity + ')" onchange="_bpmUpdateHandoverAllocations(' + rec.quantity + ')">';
+                html += '          </div>';
+                html += '        </div>';
+            });
+
+            html += '      </div>';
+            html += '    </div>';
+
+            // 5. Actions Footer
+            html += '    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">';
+            html += '      <button class="btn btn-secondary" style="padding: 8px 18px; font-size: 12px; font-weight: 700; background-color: #f1f5f9; border: none; color: #475569;" onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()">Hủy</button>';
+            html += '      <button id="_bpmSaveBtn" onclick="_bpmSaveHandover(' + rec.id + ')" disabled style="background: linear-gradient(135deg, #0d9488, #14b8a6); color: #fff; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: not-allowed; opacity: 0.5; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25); transition: all 0.2s;">💾 Lưu Bàn Giao</button>';
+            html += '    </div>';
+        }
 
         html += '  </div>'; // End Scrollable body
         html += '</div>'; // End wrapper

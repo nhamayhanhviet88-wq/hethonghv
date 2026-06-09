@@ -358,6 +358,18 @@ module.exports = async function(fastify) {
                 return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
             }
 
+            if (rec.contractor_id !== null) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ error: 'Không thể phân tổ trong nhà cho đơn may gia công ngoài!' });
+            }
+
+            if (rec.done_date !== null || rec.salary_approved === true) {
+                await client.query('ROLLBACK');
+                client.release();
+                return reply.code(400).send({ error: 'Đơn may đã hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân tổ!' });
+            }
+
             // Validate quantities
             let totalQty = 0;
             for (const ass of assignments) {
