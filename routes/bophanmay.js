@@ -222,7 +222,11 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY sr.handover_date DESC NULLS LAST, sr.created_at DESC`, params);
+            ${where} ORDER BY 
+                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
+                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                sr.expected_date ASC NULLS LAST,
+                sr.created_at DESC`, params);
         return { records };
     });
 
