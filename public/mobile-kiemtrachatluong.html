@@ -624,7 +624,8 @@
                 <option value="">Tất cả Tổ/Gia công</option>
             </select>
             <select id="filterTime" style="flex:1;" onchange="handleTimeFilterChange()">
-                <option value="undone">⏳ Chưa xong</option>
+                <option value="undone_past_today">⏳ Chưa xong QK & Hôm nay</option>
+                <option value="undone">⏳ Chưa xong tất cả</option>
                 <option value="today">✅ Xong hôm nay</option>
                 <option value="custom_date">📅 Xong ngày khác...</option>
                 <option value="custom_month">🗓️ Xong tháng/năm...</option>
@@ -1050,7 +1051,7 @@
                 }
 
                 if (activeTab === '4') {
-                    const timeVal = document.getElementById('filterTime')?.value || 'undone';
+                    const timeVal = document.getElementById('filterTime')?.value || 'undone_past_today';
                     if (timeVal === 'today') {
                         q += `&status=done_today`;
                     } else if (timeVal === 'custom_date') {
@@ -1066,8 +1067,10 @@
                         }
                     } else if (timeVal === 'done_all') {
                         q += `&status=done_all`;
-                    } else {
+                    } else if (timeVal === 'undone') {
                         q += `&status=incomplete`;
+                    } else {
+                        q += `&status=undone_past_today`;
                     }
                 }
                 
@@ -1121,7 +1124,7 @@
             if (tabId === '4') {
                 const timeSel = document.getElementById('filterTime');
                 if (timeSel) {
-                    timeSel.value = 'undone';
+                    timeSel.value = 'undone_past_today';
                     document.getElementById('filterCustomDateContainer').style.display = 'none';
                     document.getElementById('filterCustomMonthContainer').style.display = 'none';
                 }
