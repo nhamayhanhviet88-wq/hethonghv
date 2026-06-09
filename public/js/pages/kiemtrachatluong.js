@@ -516,14 +516,14 @@ function renderKiemtrachatluongPage(content) {
                                 <thead>
                                     <tr>
                                         <th style="width: 50px; text-align: center;">STT</th>
-                                        <th style="width: 150px; text-align: center;">Thao Tác</th>
-                                        <th style="text-align: left;">Mã Đơn / Sản Phẩm / CSKH</th>
-                                        <th style="text-align: left;">Kỹ Thuật / Vải / Màu</th>
-                                        <th style="text-align: center; width: 120px;">SL Đơn / SL May</th>
-                                        <th style="text-align: left; width: 150px;">Phân Công Cho</th>
-                                        <th style="text-align: center; width: 120px;">Hạn Trả / QLX Hẹn</th>
-                                        <th style="text-align: center; width: 100px;">QC / Lương</th>
-                                        <th style="text-align: left; width: 150px;">Ghi Chú & Ảnh QC</th>
+                                        <th style="text-align: center; white-space: nowrap;">Thao Tác</th>
+                                        <th style="text-align: left; white-space: nowrap;">Mã Đơn / Sản Phẩm / CSKH</th>
+                                        <th style="text-align: left; white-space: nowrap;">Kỹ Thuật / Vải / Màu</th>
+                                        <th style="text-align: center; white-space: nowrap; width: 120px;">SL Đơn / SL May</th>
+                                        <th style="text-align: left; white-space: nowrap;">Phân Công Cho</th>
+                                        <th style="text-align: center; white-space: nowrap; width: 120px;">Hạn Trả / QLX Hẹn</th>
+                                        <th style="text-align: center; white-space: nowrap; width: 100px;">QC / Lương</th>
+                                        <th style="text-align: left; white-space: nowrap; width: 150px;">Ghi Chú & Ảnh QC</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ktclTableBody">
@@ -742,30 +742,30 @@ function _ktclRenderTable() {
         let actionsHtml = '';
         if (_ktclState.activeTab === '1' || _ktclState.activeTab === '2') {
             actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHenLai(${r.id})" style="margin-bottom:4px; width:100%; justify-content:center;">
+                <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHenLai(${r.id})" style="justify-content:center; white-space:nowrap;">
                     📅 Hẹn Lại
                 </button>
-                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="width:100%; justify-content:center;">
+                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">
                     ⚠️ Báo Lỗi
                 </button>
             `;
         } else if (_ktclState.activeTab === '3') {
             actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclOpenPhanTo(${r.id})" style="width:100%; justify-content:center;">
+                <button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclOpenPhanTo(${r.id})" style="justify-content:center; white-space:nowrap;">
                     👥 Phân Tổ
                 </button>
             `;
         } else if (_ktclState.activeTab === '4') {
             const isDone = !!r.done_date;
             actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="margin-bottom:4px; width:100%; justify-content:center;">
+                <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
                     🔍 QC & Nghiệm Thu
                 </button>
                 ${isDone ? 
-                    `<button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclToggleDone(${r.id}, 'undo_done')" style="width:100%; justify-content:center;">
+                    `<button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclToggleDone(${r.id}, 'undo_done')" style="justify-content:center; white-space:nowrap;">
                         ↩️ Hoàn Tác
                     </button>` : 
-                    `<button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclToggleDone(${r.id}, 'mark_done')" style="width:100%; justify-content:center;">
+                    `<button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclToggleDone(${r.id}, 'mark_done')" style="justify-content:center; white-space:nowrap;">
                         ✅ Xong May
                     </button>`
                 }
@@ -774,10 +774,13 @@ function _ktclRenderTable() {
         
         // Add audit history button to all rows
         actionsHtml += `
-            <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHistory(${r.id})" style="margin-top:4px; display:flex; width:100%; justify-content:center;">
+            <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHistory(${r.id})" style="justify-content:center; white-space:nowrap;">
                 📜 Lịch Sử
             </button>
         `;
+        
+        // Wrap everything in a nowrap flex container
+        actionsHtml = `<div style="display:flex; gap:6px; align-items:center; justify-content:center; white-space:nowrap;">${actionsHtml}</div>`;
         
         // Order Info
         const priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
@@ -818,11 +821,11 @@ function _ktclRenderTable() {
         // Assigned to (Team or Contractor)
         let assignedHtml = '';
         if (r.contractor_id) {
-            assignedHtml = `<span style="background: #f5f5f4; color: #44403c; border: 1px solid #e7e5e4; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px;">🏭 ${r.contractor_name || 'Gia công'}</span>`;
+            assignedHtml = `<span style="background: #f5f5f4; color: #44403c; border: 1px solid #e7e5e4; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; white-space: nowrap; display: inline-block;">🏭 ${r.contractor_name || 'Gia công'}</span>`;
         } else if (r.sewing_team_id) {
-            assignedHtml = `<span style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px;">👥 ${r.sewer_name || 'Tổ may'}</span>`;
+            assignedHtml = `<span style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; white-space: nowrap; display: inline-block;">👥 ${r.sewer_name || 'Tổ may'}</span>`;
         } else {
-            assignedHtml = `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px;">❌ Chưa phân tổ</span>`;
+            assignedHtml = `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; white-space: nowrap; display: inline-block;">❌ Chưa phân tổ</span>`;
         }
         
         // Dates
