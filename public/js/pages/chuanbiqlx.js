@@ -1678,6 +1678,61 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<span>💵 Đơn giá Gia công: <b style="color:#0f172a">' + processingPriceText + '</b></span>';
         html += '</div>';
 
+        // Sewing techniques table
+        var techniques = [];
+        try {
+            var sewTech = res.item.sewing_techniques;
+            techniques = typeof sewTech === 'string' ? JSON.parse(sewTech) : (sewTech || []);
+        } catch(e) {}
+
+        var tsamFP = Number(res.pricing.factory_price) || 0;
+        var tsamPP = Number(res.pricing.processing_price) || 0;
+        var totalMayNha = tsamFP;
+        var totalMayGC = tsamPP;
+        for (var i = 0; i < techniques.length; i++) {
+            totalMayNha += (Number(techniques[i].fp) || 0) * (Number(techniques[i].qty) || 1);
+            totalMayGC += (Number(techniques[i].pp) || 0) * (Number(techniques[i].qty) || 1);
+        }
+
+        html += '<div style="margin-bottom:16px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02)">';
+        html += '<div style="font-weight:800;font-size:12px;color:#1e293b;margin-bottom:8px; display: flex; align-items: center; gap: 6px">✂️ Kỹ thuật may (' + (techniques.length + 1) + ')</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:11px; margin-bottom: 8px">';
+        html += '<thead><tr style="background:#1e293b;color:#fff">';
+        html += '<th style="padding:6px 8px;text-align:left;font-weight:700;border-radius:6px 0 0 0">Kỹ thuật</th>';
+        html += '<th style="padding:6px 8px;text-align:center;font-weight:700">SL</th>';
+        html += '<th style="padding:6px 8px;text-align:right;font-weight:700">MAY NHÀ</th>';
+        html += '<th style="padding:6px 8px;text-align:right;font-weight:700;border-radius:0 6px 0 0">MAY GC</th>';
+        html += '</tr></thead><tbody>';
+        
+        // TSAM base row
+        html += '<tr style="border-bottom:1px solid #e2e8f0;background:#f0f9ff">';
+        html += '<td style="padding:6px 8px;font-weight:800;color:#0284c7">📐 ' + (res.item.pattern_name || 'TSAM') + '</td>';
+        html += '<td style="padding:6px 8px;text-align:center;font-weight:700">1</td>';
+        html += '<td style="padding:6px 8px;text-align:right;font-weight:800">' + tsamFP.toLocaleString('vi-VN') + 'đ</td>';
+        html += '<td style="padding:6px 8px;text-align:right;font-weight:800">' + tsamPP.toLocaleString('vi-VN') + 'đ</td>';
+        html += '</tr>';
+
+        // Additional techniques
+        for (var i = 0; i < techniques.length; i++) {
+            var t = techniques[i];
+            var tfp = Number(t.fp) || 0;
+            var tpp = Number(t.pp) || 0;
+            html += '<tr style="border-bottom:1px solid #e2e8f0">';
+            html += '<td style="padding:6px 8px;font-weight:600">' + t.name + '</td>';
+            html += '<td style="padding:6px 8px;text-align:center">' + (t.qty || 1) + '</td>';
+            html += '<td style="padding:6px 8px;text-align:right">' + tfp.toLocaleString('vi-VN') + 'đ</td>';
+            html += '<td style="padding:6px 8px;text-align:right">' + tpp.toLocaleString('vi-VN') + 'đ</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+
+        // Total sewing cost banner
+        html += '<div style="padding:8px 12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:11px">';
+        html += '<span style="font-weight:800;color:#92400e">💰 Tổng giá may</span>';
+        html += '<span style="font-weight:900">MAY NHÀ: <span style="color:#dc2626">' + totalMayNha.toLocaleString('vi-VN') + 'đ</span> &nbsp;|&nbsp; MAY GC: <span style="color:#7c3aed">' + totalMayGC.toLocaleString('vi-VN') + 'đ</span></span>';
+        html += '</div>';
+        html += '</div>';
+
         // High priority Info banner card - styled professionally in light mode
         var bannerBg = '#f8fafc';
         var bannerBorder = '#e2e8f0';

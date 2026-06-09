@@ -1865,7 +1865,7 @@ module.exports = async function(fastify) {
 
         // 1. Get order item and order info
         const item = await db.get(`
-            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
