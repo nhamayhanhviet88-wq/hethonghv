@@ -345,11 +345,16 @@ module.exports = async function(fastify) {
 
         const now = vnNow();
 
-        await db.run('BEGIN');
+        const pool = db.getDB();
+        const client = await pool.connect();
         try {
-            const rec = await db.get('SELECT * FROM sewing_records WHERE id=$1', [id]);
+            await client.query('BEGIN');
+
+            const recRes = await client.query('SELECT * FROM sewing_records WHERE id=$1', [id]);
+            const rec = recRes.rows[0];
             if (!rec) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
+                client.release();
                 return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
             }
 
@@ -358,18 +363,21 @@ module.exports = async function(fastify) {
             for (const ass of assignments) {
                 const qty = Number(ass.quantity) || 0;
                 if (qty <= 0) {
-                    await db.run('ROLLBACK');
+                    await client.query('ROLLBACK');
+                    client.release();
                     return reply.code(400).send({ error: 'Số lượng bàn giao cho từng tổ phải lớn hơn 0!' });
                 }
                 if (!ass.team_id) {
-                    await db.run('ROLLBACK');
+                    await client.query('ROLLBACK');
+                    client.release();
                     return reply.code(400).send({ error: 'Tổ may bàn giao không hợp lệ!' });
                 }
                 totalQty += qty;
             }
 
             if (totalQty !== Number(rec.quantity)) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
+                client.release();
                 return reply.code(400).send({ error: `Tổng số lượng bàn giao (${totalQty}) phải bằng số lượng của đơn (${rec.quantity})!` });
             }
 
@@ -378,32 +386,33 @@ module.exports = async function(fastify) {
                 const teamId = Number(ass.team_id);
                 const qty = Number(ass.quantity);
 
-                const teamRow = await db.get('SELECT name FROM departments WHERE id=$1', [teamId]);
+                const teamRes = await client.query('SELECT name FROM departments WHERE id=$1', [teamId]);
+                const teamRow = teamRes.rows[0];
                 const teamName = teamRow ? teamRow.name : `Tổ #${teamId}`;
 
                 if (i === 0) {
                     const sal = calcSalary(rec.salary_approved, qty, rec.base_price, rec.checked_price);
 
-                    await db.run(`
+                    await client.query(`
                         UPDATE sewing_records 
                         SET sewing_team_id=$1, quantity=$2, salary=$3, is_reported=true, reported_at=$4, reported_by=$5, handover_date=COALESCE(handover_date, $4), updated_at=$4 
                         WHERE id=$6
                     `, [teamId, qty, sal, now, req.user.id, id]);
 
-                    await db.run(`
+                    await client.query(`
                         INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
                         VALUES ($1, $2, $3, $4, $5)
                     `, [id, 'report', `Bàn giao: ${teamName} (SL: ${qty})`, req.user.id, now]);
                 } else {
                     const sal = calcSalary(rec.salary_approved, qty, rec.base_price, rec.checked_price);
 
-                    const newRow = await db.get(`
+                    const newRowRes = await client.query(`
                         INSERT INTO sewing_records (
                             dht_order_id, order_item_id, sewing_team_id, is_reported, reported_at, reported_by,
                             expected_date, handover_date, product_name, quantity, base_price, checked_price, salary,
                             sewing_details, inventory_notes, shared_sewing, notes, created_by, created_at, updated_at
                         )
-                        VALUES ($1, $2, $3, true, $4, $5, $6, $4, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $4)
+                        VALUES ($1, $2, $3, true, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $4)
                         RETURNING id
                     `, [
                         rec.dht_order_id, rec.order_item_id, teamId, now, req.user.id,
@@ -411,9 +420,9 @@ module.exports = async function(fastify) {
                         rec.sewing_details, rec.inventory_notes, rec.shared_sewing, rec.notes, rec.created_by, rec.created_at
                     ]);
 
-                    const newId = newRow ? newRow.id : null;
+                    const newId = newRowRes.rows[0] ? newRowRes.rows[0].id : null;
                     if (newId) {
-                        await db.run(`
+                        await client.query(`
                             INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
                             VALUES ($1, $2, $3, $4, $5)
                         `, [newId, 'report', `Bàn giao: ${teamName} (SL: ${qty})`, req.user.id, now]);
@@ -421,10 +430,12 @@ module.exports = async function(fastify) {
                 }
             }
 
-            await db.run('COMMIT');
+            await client.query('COMMIT');
+            client.release();
             return { success: true };
         } catch (err) {
-            await db.run('ROLLBACK');
+            await client.query('ROLLBACK');
+            client.release();
             throw err;
         }
     });

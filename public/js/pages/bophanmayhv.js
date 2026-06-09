@@ -972,17 +972,7 @@ function _bpmHandleCheckboxChange(teamId, maxQty) {
             inp.style.borderColor = '#0d9488';
             row.style.borderColor = '#0d9488';
             row.style.background = '#f0fdf4';
-
-            // Auto-fill calculation
-            var currentAllocated = 0;
-            var inputs = document.querySelectorAll('.bpm-team-qty-input');
-            inputs.forEach(function(otherInp) {
-                if (otherInp !== inp && !otherInp.disabled) {
-                    currentAllocated += (parseInt(otherInp.value) || 0);
-                }
-            });
-            var rem = maxQty - currentAllocated;
-            inp.value = rem > 0 ? rem : '';
+            inp.value = '';
         } else {
             inp.disabled = true;
             inp.value = '';
