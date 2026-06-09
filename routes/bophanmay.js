@@ -215,7 +215,6 @@ module.exports = async function(fastify) {
         } else if (tab === '3') {
             where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
         } else if (tab === '4') {
-            where += ` AND (sr.sewing_team_id IS NOT NULL OR sr.contractor_id IS NOT NULL)`;
             if (status === 'done_today') {
                 where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date)`;
             } else if (status === 'done_all') {
