@@ -602,6 +602,7 @@
                 <option value="today">✅ Xong hôm nay</option>
                 <option value="custom_date">📅 Xong ngày khác...</option>
                 <option value="custom_month">🗓️ Xong tháng/năm...</option>
+                <option value="done_all">📁 Xong tất cả</option>
             </select>
         </div>
         <div id="filterCustomDateContainer" style="display:none; width:100%;">
@@ -618,6 +619,13 @@
         <div style="height:120px;margin-bottom:12px;" class="skeleton"></div>
         <div style="height:120px;margin-bottom:12px;" class="skeleton"></div>
         <div style="height:120px;margin-bottom:12px;" class="skeleton"></div>
+    </div>
+
+    <!-- Pagination Panel -->
+    <div id="paginationContainer" style="display:none; justify-content:center; align-items:center; gap:12px; margin: 15px 0 25px 0; padding:0 16px;">
+        <button id="btnPrevPage" class="btn btn-secondary" style="width:auto; padding:8px 16px; font-weight:700;" onclick="changePage(-1)">◀ Trước</button>
+        <span id="pageInfo" style="font-size:13px; color:#9ca3af; font-weight:700;">Trang 1/1</span>
+        <button id="btnNextPage" class="btn btn-secondary" style="width:auto; padding:8px 16px; font-weight:700;" onclick="changePage(1)">Sau ▶</button>
     </div>
 
     <!-- Bottom Navigation Bar -->
@@ -755,6 +763,9 @@
         let currentRecordId = null; // Temp holder for active record ID in modals
         let showDoneToday = false; // Backward compatibility indicator
         let searchTimeout = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        const pageSize = 25;
 
         function cleanProdName(r) {
             if (!r) return 'Sản phẩm';
@@ -995,7 +1006,7 @@
                 }
 
                 // Get active tab records
-                let q = `/api/sewing/records?tab=${activeTab}`;
+                let q = `/api/sewing/records?tab=${activeTab}&page=${currentPage}&limit=${pageSize}`;
                 
                 const searchVal = document.getElementById('searchInput').value.trim();
                 if (searchVal) {
@@ -1017,6 +1028,8 @@
                             const parts = monthVal.split('-');
                             q += `&done_year=${parts[0]}&done_month=${parts[1]}`;
                         }
+                    } else if (timeVal === 'done_all') {
+                        q += `&status=done_all`;
                     } else {
                         q += `&status=incomplete`;
                     }
@@ -1024,6 +1037,9 @@
                 
                 const activeRes = await callApi(q);
                 originalRecords = activeRes.records || [];
+                const totalCount = activeRes.totalCount || 0;
+                totalPages = Math.ceil(totalCount / pageSize) || 1;
+                renderPagination(totalCount);
                 
                 // Fill Team filter dropdown for Tab 4
                 if (activeTab === '4') {
@@ -1062,6 +1078,7 @@
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             event.currentTarget.classList.add('active');
             activeTab = tabId;
+            currentPage = 1;
 
             // Show/Hide search filters specific to Tab 4
             document.getElementById('tab4Filters').style.display = tabId === '4' ? 'flex' : 'none';
@@ -1078,6 +1095,7 @@
         }
 
         function handleSearchInput() {
+            currentPage = 1;
             filterLocalList();
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
@@ -1086,6 +1104,7 @@
         }
 
         function handleTimeFilterChange() {
+            currentPage = 1;
             const timeVal = document.getElementById('filterTime').value;
             document.getElementById('filterCustomDateContainer').style.display = timeVal === 'custom_date' ? 'block' : 'none';
             document.getElementById('filterCustomMonthContainer').style.display = timeVal === 'custom_month' ? 'block' : 'none';
@@ -1101,6 +1120,34 @@
                 }
             }
             loadData();
+        }
+
+        function renderPagination(totalCount) {
+            const pagContainer = document.getElementById('paginationContainer');
+            const btnPrev = document.getElementById('btnPrevPage');
+            const btnNext = document.getElementById('btnNextPage');
+            const pageInfo = document.getElementById('pageInfo');
+            
+            if (totalPages > 1) {
+                pagContainer.style.display = 'flex';
+                pageInfo.textContent = `Trang ${currentPage} / ${totalPages}`;
+                
+                btnPrev.disabled = currentPage <= 1;
+                btnNext.disabled = currentPage >= totalPages;
+                
+                btnPrev.style.opacity = currentPage <= 1 ? '0.4' : '1';
+                btnNext.style.opacity = currentPage >= totalPages ? '0.4' : '1';
+            } else {
+                pagContainer.style.display = 'none';
+            }
+        }
+
+        async function changePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage < 1 || newPage > totalPages) return;
+            currentPage = newPage;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            await loadData();
         }
 
         // Search & dropdown filter logic on client-side

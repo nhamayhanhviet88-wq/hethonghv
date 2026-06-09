@@ -243,7 +243,16 @@ module.exports = async function(fastify) {
         }
 
         if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
-        const records = await db.all(`
+        let limitVal = null;
+        let offsetVal = null;
+        if (req.query.page) {
+            const page = Number(req.query.page) || 1;
+            const limit = Number(req.query.limit) || 25;
+            limitVal = limit;
+            offsetVal = (page - 1) * limit;
+        }
+
+        let queryStr = `
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
                    o.expected_ship_date, o.shipping_date,
@@ -252,7 +261,8 @@ module.exports = async function(fastify) {
                    cc.name AS category_name,
                    oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
                    ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   COUNT(*) OVER() AS total_count
             FROM sewing_records sr 
             LEFT JOIN users u ON sr.sewer_id=u.id 
             LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
@@ -270,8 +280,16 @@ module.exports = async function(fastify) {
                 CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
                 CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
                 sr.expected_date ASC NULLS LAST,
-                sr.created_at DESC`, params);
-        return { records };
+                sr.created_at DESC`;
+
+        if (limitVal !== null) {
+            queryStr += ` LIMIT $${idx++} OFFSET $${idx++}`;
+            params.push(limitVal, offsetVal);
+        }
+
+        const records = await db.all(queryStr, params);
+        const totalCount = records.length > 0 ? Number(records[0].total_count) : 0;
+        return { records, totalCount };
     });
 
     // ========== CREATE ==========
