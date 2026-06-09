@@ -65,6 +65,7 @@ function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p
 function fdDM(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]}catch(e){return d}}
 function fn(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN')}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
+function ftFull(d){if(!d)return'—';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return d}}
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
         if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bo_phan_may || !cu.permissions.bo_phan_may.can_view)) {
             sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bộ Phận May!');
@@ -84,7 +85,7 @@ const rA=r.is_reported?'undo_report':'report',sA=r.salary_approved?'undo_salary'
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
 +'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ngày Bàn Giao</span><span class="cv">'+fd(r.handover_date)+'</span></div>'
++'<div class="cr"><span class="cl">📅 Ngày Bàn Giao</span><span class="cv">'+ftFull(r.handover_date)+'</span></div>'
 +'<div class="cr"><span class="cl">📅 QLX Hẹn Ra</span><span class="cv">'+fdDM(r.expected_date)+'</span></div>'
 +'<div class="cr"><span class="cl">👤 NV May</span><span class="cv" style="color:#5eead4">'+nv+'</span></div>'
 +'<div class="cd"></div>'

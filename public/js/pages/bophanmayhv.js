@@ -148,6 +148,7 @@ function _bpmFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return
 function _bpmFDDM(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1];}catch(e){return d;}}
 function _bpmFN(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('vi-VN');}
 function _bpmFDT(d){if(!d)return'';try{return new Date(d).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}).replace(',','').trim();}catch(e){return d;}}
+function _bpmFDTFull(d){if(!d)return'—';try{var dt=new Date(d);if(isNaN(dt.getTime()))return d;return dt.toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}).replace(',','').trim();}catch(e){return d;}}
 
 function _bpmFormatOrderQty(qty, categoryName, productName) {
     if (qty === null || qty === undefined || qty === '' || qty === '—') return '—';
@@ -277,7 +278,7 @@ function _bpmRender(){
         +'<td style="text-align:right;font-weight:800;color:#f59e0b">'+_bpmFN(r.salary)+'</td>'
         +'<td style="font-size:9px">'+(r.shared_sewing||'—')+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
-        +'<td style="font-size:10px">'+_bpmFD(r.handover_date)+'</td>'
+        +'<td style="font-size:10px">'+_bpmFDTFull(r.handover_date)+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
     var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.status==='incomplete')parts.push('⏳ Chưa May Xong');if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);if(_bpm.filter.sewer_id==='none')parts.push('👤 Chưa phân công');
@@ -679,7 +680,7 @@ async function _bpmShowHandoverModal(recordId) {
             { label: '🎨 Màu', val: colBadge },
             { label: '🏷️ Sản Phẩm May', val: catBadge },
             { label: '👤 NV May', val: nvMay },
-            { label: '📅 Ngày Bàn Giao NV May', val: '<span style="font-weight: 700; color: #1e293b;">' + _bpmFD(rec.handover_date) + '</span>' },
+            { label: '📅 Ngày Bàn Giao NV May', val: '<span style="font-weight: 700; color: #1e293b;">' + _bpmFDTFull(rec.handover_date) + '</span>' },
             { label: '📦 SL Đơn', val: '<span style="font-weight: 800; color: #0284c7; font-size: 14px;">' + slFormatted + '</span>' }
         ];
 

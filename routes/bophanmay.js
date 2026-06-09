@@ -250,7 +250,7 @@ module.exports = async function(fastify) {
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         let detail = '';
         if (action === 'report') {
-            await db.run(`UPDATE sewing_records SET is_reported=true, reported_at=$1, reported_by=$2, handover_date = COALESCE(handover_date, $3), updated_at=$1 WHERE id=$4`, [now, req.user.id, vnDateStr(now), id]);
+            await db.run(`UPDATE sewing_records SET is_reported=true, reported_at=$1, reported_by=$2, handover_date = COALESCE(handover_date, $1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
             detail = '📋 Báo cáo may';
         } else if (action === 'undo_report') {
             if (!rec.contractor_id) {

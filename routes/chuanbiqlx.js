@@ -2050,7 +2050,7 @@ module.exports = async function(fastify) {
                 ass.notes || null,
                 request.user.id,
                 now,
-                isGiaCong ? vnDateStr(now) : null
+                isGiaCong ? now : null
             ]);
         }
 
