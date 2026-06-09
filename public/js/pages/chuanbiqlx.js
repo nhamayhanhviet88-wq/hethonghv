@@ -1698,15 +1698,21 @@ async function _qlxAssignMay(orderId, itemId) {
         // TSAM base row
         var techDetailsHtml = '';
         if (res.pricing && res.pricing.sewing_tech) {
-            techDetailsHtml = '<div style="font-size:10px;font-weight:500;color:#475569;margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">';
-            var techParts = res.pricing.sewing_tech.split(/,|;|\+/);
-            for (var pIdx = 0; pIdx < techParts.length; pIdx++) {
-                var pTrim = techParts[pIdx].trim();
-                if (pTrim) {
-                    techDetailsHtml += '<span style="background:#e0f2fe;color:#0369a1;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">' + pTrim + '</span>';
+            var tsamSewing = [];
+            try {
+                tsamSewing = typeof res.pricing.sewing_tech === 'string' ? JSON.parse(res.pricing.sewing_tech) : (res.pricing.sewing_tech || []);
+            } catch(e) {}
+            if (Array.isArray(tsamSewing) && tsamSewing.length > 0) {
+                techDetailsHtml = '<div style="font-size:10px;font-weight:500;color:#475569;margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">';
+                for (var pIdx = 0; pIdx < tsamSewing.length; pIdx++) {
+                    var tItem = tsamSewing[pIdx];
+                    var nameStr = typeof tItem === 'string' ? tItem : (tItem.name || '');
+                    if (nameStr) {
+                        techDetailsHtml += '<span style="background:#e0f2fe;color:#0369a1;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">' + nameStr + '</span>';
+                    }
                 }
+                techDetailsHtml += '</div>';
             }
-            techDetailsHtml += '</div>';
         }
 
         html += '<tr style="border-bottom:1px solid #e2e8f0;background:#f0f9ff">';
