@@ -595,7 +595,7 @@ module.exports = async function(fastify) {
 
     // ========== TEAMS ==========
     fastify.get('/api/sewing/teams', { preHandler: [authenticate] }, async () => {
-        return { teams: await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 OR id = 14 ORDER BY name`) };
+        return { teams: await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 ORDER BY name`) };
     });
 
     // ========== UPLOAD IMAGES ==========
