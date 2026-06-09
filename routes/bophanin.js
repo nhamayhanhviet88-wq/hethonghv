@@ -458,9 +458,17 @@ module.exports = async function(fastify) {
             idx++;
         }
 
-        let orderBy = 'ORDER BY up.print_date DESC NULLS LAST, COALESCE(up.order_code, \'\'), up.order_item_id ASC NULLS FIRST, up.created_at DESC';
+        let orderBy = `ORDER BY 
+                MAX(up.print_date) OVER (PARTITION BY COALESCE(up.order_code, up.id::text)) DESC NULLS LAST,
+                COALESCE(up.order_code, ''),
+                up.order_item_id ASC NULLS FIRST,
+                up.created_at DESC`;
         if (status === 'done') {
-            orderBy = 'ORDER BY COALESCE(up.print_done_at, up.print_date) DESC NULLS LAST, COALESCE(up.order_code, \'\'), up.order_item_id ASC NULLS FIRST, up.created_at DESC';
+            orderBy = `ORDER BY 
+                MAX(COALESCE(up.print_done_at, up.print_date)) OVER (PARTITION BY COALESCE(up.order_code, up.id::text)) DESC NULLS LAST,
+                COALESCE(up.order_code, ''),
+                up.order_item_id ASC NULLS FIRST,
+                up.created_at DESC`;
         } else if (status === 'pending') {
             orderBy = `ORDER BY 
                 CASE 
