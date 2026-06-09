@@ -1889,12 +1889,61 @@ module.exports = async function(fastify) {
         const cut_qty = Math.round(rawCutQty / numPhois);
 
         // 3. Get existing sewing records
-        const assignments = await db.all(`
-            SELECT id, contractor_id, quantity, expected_date, notes, is_reported, salary_approved
+        const rawAssignments = await db.all(`
+            SELECT id, contractor_id, quantity, expected_date, notes, is_reported, salary_approved, done_date
             FROM sewing_records
             WHERE order_item_id = $1
             ORDER BY id ASC
         `, [itemId]);
+
+        // Gộp các bản ghi May Nhà (contractor_id IS NULL) thành 1 dòng duy nhất
+        const assignments = [];
+        let mayNhaRow = null;
+        for (const a of rawAssignments) {
+            if (a.contractor_id === null) {
+                if (!mayNhaRow) {
+                    mayNhaRow = {
+                        id: a.id,
+                        contractor_id: null,
+                        quantity: Number(a.quantity) || 0,
+                        expected_date: a.expected_date,
+                        notes: a.notes,
+                        is_reported: a.is_reported,
+                        salary_approved: a.salary_approved,
+                        done_date: a.done_date
+                    };
+                    assignments.push(mayNhaRow);
+                } else {
+                    mayNhaRow.quantity += Number(a.quantity) || 0;
+                    // Lấy ngày hẹn ra sớm nhất
+                    if (a.expected_date) {
+                        const aTime = new Date(a.expected_date).getTime();
+                        const currentMinTime = mayNhaRow.expected_date ? new Date(mayNhaRow.expected_date).getTime() : Infinity;
+                        if (aTime < currentMinTime) {
+                            mayNhaRow.expected_date = a.expected_date;
+                        }
+                    }
+                    // Giữ lại ghi chú đầu tiên có nội dung
+                    if (a.notes && !mayNhaRow.notes) {
+                        mayNhaRow.notes = a.notes;
+                    }
+                    if (a.is_reported) mayNhaRow.is_reported = true;
+                    if (a.salary_approved) mayNhaRow.salary_approved = true;
+                    if (a.done_date) mayNhaRow.done_date = a.done_date;
+                }
+            } else {
+                assignments.push({
+                    id: a.id,
+                    contractor_id: a.contractor_id,
+                    quantity: Number(a.quantity) || 0,
+                    expected_date: a.expected_date,
+                    notes: a.notes,
+                    is_reported: a.is_reported,
+                    salary_approved: a.salary_approved,
+                    done_date: a.done_date
+                });
+            }
+        }
 
         // 4. Get active sewing contractors
         const contractors = await db.all(`
@@ -1954,14 +2003,14 @@ module.exports = async function(fastify) {
 
         const productName = item.product_name || item.description || 'N/A';
 
-        // 2. Check if any existing sewing records are reported or salary approved
+        // 2. Check if any existing sewing records are completed or salary approved
         const lockedCheck = await db.get(`
             SELECT COUNT(*)::int AS cnt
             FROM sewing_records
-            WHERE order_item_id = $1 AND (is_reported = true OR salary_approved = true)
+            WHERE order_item_id = $1 AND (done_date IS NOT NULL OR salary_approved = true)
         `, [itemId]);
         if (lockedCheck && lockedCheck.cnt > 0) {
-            return reply.code(400).send({ error: 'Đơn may này đã có báo cáo sản lượng hoặc duyệt lương. Không thể thay đổi phân công!' });
+            return reply.code(400).send({ error: 'Đơn may này đã báo cáo hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân công!' });
         }
 
         // 3. Get total completed cut quantity

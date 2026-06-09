@@ -5,9 +5,9 @@ async function main() {
         const users = await db.all(`
             SELECT id, username, full_name, role, status, department_id
             FROM users
-            WHERE username ILIKE '%team%' OR full_name ILIKE '%team%' OR full_name ILIKE '%tiên phong%' OR full_name ILIKE '%tinh hoa%'
+            ORDER BY role, username
         `);
-        console.log("MATCHING USERS:", users);
+        console.log("ALL USERS:", users);
     } catch (e) {
         console.error(e);
     } finally {
