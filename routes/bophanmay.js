@@ -254,6 +254,8 @@ module.exports = async function(fastify) {
                 }
             } else if (status === 'undone_past_today') {
                 where += ` AND sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
+            } else if (status === 'all') {
+                // Return all orders (no done_date conditions)
             } else {
                 where += ` AND sr.done_date IS NULL`;
             }

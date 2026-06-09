@@ -630,6 +630,7 @@
                 <option value="custom_date">📅 Xong ngày khác...</option>
                 <option value="custom_month">🗓️ Xong tháng/năm...</option>
                 <option value="done_all">📁 Xong tất cả</option>
+                <option value="all">📦 Tất cả</option>
             </select>
         </div>
         <div id="filterCustomDateContainer" style="display:none; width:100%;">
@@ -1067,6 +1068,8 @@
                         }
                     } else if (timeVal === 'done_all') {
                         q += `&status=done_all`;
+                    } else if (timeVal === 'all') {
+                        q += `&status=all`;
                     } else if (timeVal === 'undone') {
                         q += `&status=incomplete`;
                     } else {
