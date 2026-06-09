@@ -1,5 +1,4 @@
-// ========== BỘ PHẬN MAY — Desktop SPA ==========
-var _bpm={records:[],tree:null,filter:{year:null,month:null,sewer_id:null,contractor_id:null,status:null},search:'',page:1,ps:100,contractors:[]};
+var _bpm={records:[],tree:null,filter:{year:null,month:null,sewer_id:null,contractor_id:null,sewing_team_id:null,status:null},search:'',page:1,ps:100,contractors:[]};
 var _bpmOpen={};
 
 function renderBophanmayPage(content){
@@ -59,7 +58,7 @@ function _bpmRenderSb(){
     var t = _bpm.tree, f = _bpm.filter;
 
     var h = '<div class="bpm-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#0d9488;font-weight:900">🧵 Bộ Phận May</span> <span style="color:var(--navy)">───</span></div>';
-    var totActive = !f.year && !f.month && !f.sewer_id && !f.contractor_id && !f.status;
+    var totActive = !f.year && !f.month && !f.sewer_id && !f.contractor_id && !f.sewing_team_id && !f.status;
     h += '<div class="bpm-sb-total' + (totActive ? ' active' : '') + '" onclick="_bpmFilter()"><span>📦 Tổng đơn may</span><span style="font-size:16px">' + (t.total || 0) + '</span></div>';
 
     var unassignedCount = 0;
@@ -74,8 +73,8 @@ function _bpmRenderSb(){
             }
         });
     }
-    var unassignedActive = !f.year && !f.month && f.sewer_id === 'none' && !f.contractor_id && !f.status;
-    h += '<div class="bpm-sb-unassigned' + (unassignedActive ? ' active' : '') + '" onclick="_bpmFilter(null, null, \'none\', null)"><span>👤 Chưa phân công</span><span style="font-size:16px">' + unassignedCount + '</span></div>';
+    var unassignedActive = !f.year && !f.month && f.sewer_id === 'none' && !f.contractor_id && !f.sewing_team_id && !f.status;
+    h += '<div class="bpm-sb-unassigned' + (unassignedActive ? ' active' : '') + '" onclick="_bpmFilter(null, null, \'none\', null, null)"><span>👤 Chưa phân công</span><span style="font-size:16px">' + unassignedCount + '</span></div>';
 
     if (t.tree) {
         t.tree.forEach(function(yr) {
@@ -85,7 +84,7 @@ function _bpmRenderSb(){
                 _bpmOpen[yKey] = true;
             }
             var yOpen = !!_bpmOpen[yKey];
-            var yAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && !f.month && !f.status;
+            var yAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && !f.sewing_team_id && !f.month && !f.status;
             h += '<div class="bpm-sb-year' + (yAct ? ' active' : '') + '" onclick="_bpmFilter(' + yr.year + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + yKey + '\')">' + (yOpen ? '▼' : '▶') + '</span> 📅 Năm ' + yr.year + '</span><span style="background:rgba(255,255,255,0.25);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:800">' + yr.count + '</span></div>';
             
             if (yOpen && yr.sewers) {
@@ -95,34 +94,39 @@ function _bpmRenderSb(){
                     totalIncomplete += (s.incomplete_count || 0);
                 });
                 
-                var incYearAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && f.status === 'incomplete';
-                h += '<div class="bpm-sb-sub incomplete' + (incYearAct ? ' active' : '') + '" style="padding-left:23px" onclick="event.stopPropagation(); _bpmFilterStatus(' + yr.year + ', null, null, \'incomplete\')">';
+                var incYearAct = f.year == yr.year && !f.sewer_id && !f.contractor_id && !f.sewing_team_id && f.status === 'incomplete';
+                h += '<div class="bpm-sb-sub incomplete' + (incYearAct ? ' active' : '') + '" style="padding-left:23px" onclick="event.stopPropagation(); _bpmFilterStatus(' + yr.year + ', null, null, null, \'incomplete\')">';
                 h += '  <span>⏳ Chưa May Xong</span>';
                 h += '  <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800">' + totalIncomplete + '</span>';
                 h += '</div>';
 
                 yr.sewers.forEach(function(s) {
                     if (!s.is_contractor && !s.is_team && !s.id) return;
-                    var sKey = 's' + yr.year + '_' + (s.is_contractor ? 'c' : 'i') + '_' + (s.id || 0);
+                    var sType = s.is_contractor ? 'c' : (s.is_team ? 't' : 'i');
+                    var sKey = 's' + yr.year + '_' + sType + '_' + (s.id || 0);
                     var sOpen = !!_bpmOpen[sKey];
-                    var isCurrentSewer = !s.is_contractor && f.sewer_id == s.id;
+                    var isCurrentSewer = !s.is_contractor && !s.is_team && f.sewer_id == s.id;
+                    var isCurrentTeam = s.is_team && f.sewing_team_id == s.id;
                     var isCurrentContractor = s.is_contractor && f.contractor_id == s.id;
-                    var sAct = f.year == yr.year && (isCurrentSewer || isCurrentContractor) && !f.status && !f.month;
+                    var sAct = f.year == yr.year && (isCurrentSewer || isCurrentTeam || isCurrentContractor) && !f.status && !f.month;
                     
-                    var icon = s.is_contractor ? '🏭 ' : '👤 ';
-                    h += '<div class="bpm-sb-sewer' + (sAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilter(' + yr.year + ', null, ' + (s.is_contractor ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + sKey + '\')">' + (sOpen ? '▼' : '▶') + '</span> ' + icon + (s.name || 'Chưa PC') + '</span><span style="font-weight:800">' + s.total + '</span></div>';
+                    var icon = s.is_contractor ? '🏭 ' : (s.is_team ? '👥 ' : '👤 ');
+                    var filterArgs = yr.year + ', null, ' + (s.is_contractor || s.is_team ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + (s.is_team ? s.id : 'null');
+                    h += '<div class="bpm-sb-sewer' + (sAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilter(' + filterArgs + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + sKey + '\')">' + (sOpen ? '▼' : '▶') + '</span> ' + icon + (s.name || 'Chưa PC') + '</span><span style="font-weight:800">' + s.total + '</span></div>';
                     
                     if (sOpen) {
-                        // Đơn Chưa May Xong of this sewer/contractor
+                        // Đơn Chưa May Xong of this sewer/contractor/team
                         if (s.incomplete_count > 0) {
-                            var incAct = f.year == yr.year && (isCurrentSewer || isCurrentContractor) && f.status === 'incomplete';
-                            h += '<div class="bpm-sb-sub incomplete' + (incAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterStatus(' + yr.year + ', ' + (s.is_contractor ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', \'incomplete\')"><span>⏳ Chưa May Xong</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">' + s.incomplete_count + '</span></div>';
+                            var incAct = f.year == yr.year && (isCurrentSewer || isCurrentTeam || isCurrentContractor) && f.status === 'incomplete';
+                            var filterStatusArgs = yr.year + ', ' + (s.is_contractor || s.is_team ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + (s.is_team ? s.id : 'null') + ', \'incomplete\'';
+                            h += '<div class="bpm-sb-sub incomplete' + (incAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterStatus(' + filterStatusArgs + ')"><span>⏳ Chưa May Xong</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">' + s.incomplete_count + '</span></div>';
                         }
                         // Tháng đã hoàn thành
                         if (s.months) {
                             s.months.forEach(function(m) {
-                                var mAct = f.year == yr.year && (isCurrentSewer || isCurrentContractor) && f.month == m.month && f.status === 'done';
-                                h += '<div class="bpm-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterMonth(' + yr.year + ', ' + (s.is_contractor ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + m.month + ')"><span>📅 T' + String(m.month).padStart(2, '0') + '</span><span>' + m.count + '</span></div>';
+                                var mAct = f.year == yr.year && (isCurrentSewer || isCurrentTeam || isCurrentContractor) && f.month == m.month && f.status === 'done';
+                                var filterMonthArgs = yr.year + ', ' + (s.is_contractor || s.is_team ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + (s.is_team ? s.id : 'null') + ', ' + m.month;
+                                h += '<div class="bpm-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterMonth(' + filterMonthArgs + ')"><span>📅 T' + String(m.month).padStart(2, '0') + '</span><span>' + m.count + '</span></div>';
                             });
                         }
                     }
@@ -134,13 +138,14 @@ function _bpmRenderSb(){
 }
 
 function _bpmTgl(k){_bpmOpen[k]=!_bpmOpen[k];_bpmRenderSb();}
-function _bpmFilter(y,m,s,c){_bpm.filter={year:y||null,month:m||null,sewer_id:s||null,contractor_id:c||null,status:null};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
-function _bpmFilterStatus(y,s,c,status){_bpm.filter={year:y,month:null,sewer_id:s||null,contractor_id:c||null,status:status};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
-function _bpmFilterMonth(y,s,c,m){_bpm.filter={year:y,month:m,sewer_id:s||null,contractor_id:c||null,status:'done'};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
+function _bpmFilter(y,m,s,c,t){_bpm.filter={year:y||null,month:m||null,sewer_id:s||null,contractor_id:c||null,sewing_team_id:t||null,status:null};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
+function _bpmFilterStatus(y,s,c,t,status){_bpm.filter={year:y,month:null,sewer_id:s||null,contractor_id:c||null,sewing_team_id:t||null,status:status};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
+function _bpmFilterMonth(y,s,c,t,m){_bpm.filter={year:y,month:m,sewer_id:s||null,contractor_id:c||null,sewing_team_id:t||null,status:'done'};_bpm.page=1;_bpmRenderSb();_bpmLoadRecs();}
 
 async function _bpmLoadRecs(){var f=_bpm.filter,qs='?_=1';
 if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;
 if(f.sewer_id)qs+='&sewer_id='+f.sewer_id;if(f.contractor_id)qs+='&contractor_id='+f.contractor_id;
+if(f.sewing_team_id)qs+='&sewing_team_id='+f.sewing_team_id;
 if(f.status)qs+='&status='+f.status;
 try{var res=await apiCall('/api/sewing/records'+qs);_bpm.records=res.records||[];_bpm.page=1;_bpmRender();}catch(e){console.error('[BPM]',e);}}
 
