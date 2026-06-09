@@ -135,7 +135,7 @@ function _bpmRenderSb(){
                     var isCurrentContractor = s.is_contractor && f.contractor_id == s.id;
                     var sAct = f.year == yr.year && (isCurrentSewer || isCurrentTeam || isCurrentContractor) && !f.status && !f.month;
                     
-                    var icon = s.is_contractor ? '🏭 ' : (s.is_team ? '👥 ' : '👤 ');
+                    var icon = s.is_contractor ? '🏭 ' : (s.is_team ? '' : '👤 ');
                     var filterArgs = yr.year + ', null, ' + (s.is_contractor || s.is_team ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + (s.is_team ? s.id : 'null');
                     h += '<div class="bpm-sb-sewer' + (sAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilter(' + filterArgs + ')"><span><span class="bpm-sb-toggle-btn" onclick="event.stopPropagation(); _bpmTgl(\'' + sKey + '\')">' + (sOpen ? '▼' : '▶') + '</span> ' + icon + (s.name || 'Chưa PC') + '</span><span style="font-weight:800">' + s.total + '</span></div>';
                     
