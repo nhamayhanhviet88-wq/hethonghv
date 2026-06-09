@@ -263,7 +263,7 @@ function _bpmRender(){
         }
 
         var salStyle = r.salary_approved ? 'font-weight:800;color:#059669;' : 'font-weight:600;color:#64748b;opacity:0.85;';
-        var salTitle = r.salary_approved ? 'Lương đã duyệt (tính theo Giá KTra)' : 'Lương tạm tính (chưa duyệt, tính theo Giá May)';
+        var salTitle = r.salary_approved ? 'Lương đã duyệt (tính theo Giá KTra)' : 'Lương chưa duyệt (tính theo Giá KTra)';
         var salDisplay = _bpmFN(r.salary) + (r.salary_approved ? ' <span style="color:#059669;font-weight:800;font-size:9px">✓</span>' : '');
 
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'

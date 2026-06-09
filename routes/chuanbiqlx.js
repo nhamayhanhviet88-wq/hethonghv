@@ -2045,7 +2045,7 @@ module.exports = async function(fastify) {
                 ass.contractor_id ? Number(ass.contractor_id) : null,
                 Number(ass.quantity),
                 price,
-                sal,
+                0,
                 ass.expected_date || ass.due_date || null,
                 ass.notes || null,
                 request.user.id,
