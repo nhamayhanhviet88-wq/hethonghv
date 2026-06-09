@@ -458,9 +458,9 @@ module.exports = async function(fastify) {
             idx++;
         }
 
-        let orderBy = 'ORDER BY up.print_date DESC NULLS LAST, up.created_at DESC';
+        let orderBy = 'ORDER BY up.print_date DESC NULLS LAST, COALESCE(up.order_code, \'\'), up.order_item_id ASC NULLS FIRST, up.created_at DESC';
         if (status === 'done') {
-            orderBy = 'ORDER BY COALESCE(up.print_done_at, up.print_date) DESC NULLS LAST, up.created_at DESC';
+            orderBy = 'ORDER BY COALESCE(up.print_done_at, up.print_date) DESC NULLS LAST, COALESCE(up.order_code, \'\'), up.order_item_id ASC NULLS FIRST, up.created_at DESC';
         } else if (status === 'pending') {
             orderBy = `ORDER BY 
                 CASE 
@@ -472,7 +472,9 @@ module.exports = async function(fastify) {
                        OR COALESCE(up.order_code, '') ILIKE '%SUATEM%') THEN 0 
                     ELSE 1 
                 END ASC,
-                up.expected_ship_date ASC NULLS LAST,
+                MIN(up.expected_ship_date) OVER (PARTITION BY COALESCE(up.order_code, up.id::text)) ASC NULLS LAST,
+                COALESCE(up.order_code, ''),
+                up.order_item_id ASC NULLS FIRST,
                 up.print_date DESC NULLS LAST, 
                 up.created_at DESC`;
         }
