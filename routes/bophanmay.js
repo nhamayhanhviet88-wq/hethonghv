@@ -251,6 +251,27 @@ module.exports = async function(fastify) {
             offsetVal = (page - 1) * limit;
         }
 
+        const orderByClause = tab ? `
+                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                CASE 
+                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'CHUẨN' THEN 1
+                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GẤP' THEN 2
+                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GỬI' THEN 3
+                    ELSE 4
+                END ASC,
+                COALESCE(o.expected_ship_date, o.shipping_date) ASC NULLS LAST,
+                CASE 
+                    WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 1
+                    WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 2
+                    ELSE 3
+                END ASC,
+                sr.expected_date ASC NULLS LAST,
+                sr.created_at DESC` : `
+                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
+                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                sr.expected_date ASC NULLS LAST,
+                sr.created_at DESC`;
+
         let queryStr = `
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
@@ -275,11 +296,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY 
-                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
-                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
-                sr.expected_date ASC NULLS LAST,
-                sr.created_at DESC`;
+            ${where} ORDER BY ${orderByClause}`;
 
         if (limitVal !== null) {
             queryStr += ` LIMIT $${idx++} OFFSET $${idx++}`;
