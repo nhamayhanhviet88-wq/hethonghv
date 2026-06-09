@@ -298,6 +298,7 @@ async function _bpcLoadRecords() {
             try {
                 var unassignedRes = await apiCall('/api/cutting/unassigned');
                 var unassignedOrders = unassignedRes.orders || [];
+                _bpc.unassignedOrders = unassignedOrders;
                 
                 // Map unassigned items to match cutting_record structure
                 var unassignedRecords = unassignedOrders.map(function(ur) {
@@ -1227,8 +1228,17 @@ async function _bpcClaimOrder(orderId, itemId, orderCode) {
     // Find all rows for this phiếu from unassigned data
     var groupKey = orderId + '_' + (itemId || 0);
     var rows = _bpc.unassignedOrders.filter(function(r) { return (r.id + '_' + (r.item_id || 0)) === groupKey; });
+    if (rows.length === 0) {
+        try {
+            var unassignedRes = await apiCall('/api/cutting/unassigned');
+            _bpc.unassignedOrders = unassignedRes.orders || [];
+            rows = _bpc.unassignedOrders.filter(function(r) { return (r.id + '_' + (r.item_id || 0)) === groupKey; });
+        } catch (eUnassigned) {
+            console.error('[BPC] failed to fetch unassigned on the fly:', eUnassigned);
+        }
+    }
     var o = rows[0] || {};
-    var title = (o.total_items_in_order > 1) ? o.order_code + ' — Phiếu ' + o.item_index : o.order_code;
+    var title = o.order_code ? ((o.total_items_in_order > 1) ? o.order_code + ' — Phiếu ' + o.item_index : o.order_code) : orderCode;
     var priMap = { 'GẤP': ['🔴 GẤP','background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff'], 'GỬI': ['🟡 GỬI','background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff'] };
     var pri = priMap[o.shipping_priority] || ['🟣 CHUẨN','background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff'];
 
