@@ -1,6 +1,31 @@
 var _bpm={records:[],tree:null,filter:{year:null,month:null,sewer_id:null,contractor_id:null,sewing_team_id:null,status:null},search:'',page:1,ps:100,contractors:[]};
 var _bpmOpen={};
 
+function _bpmGetContractorStyle(id) {
+    if (!id) return 'background:#f4f4f5;color:#3f3f46;border:1px solid #e4e4e7';
+    var palettes = [
+        { bg: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe' }, // Purple
+        { bg: '#fffbeb', text: '#b45309', border: '#fde68a' }, // Amber
+        { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' }, // Emerald
+        { bg: '#fff1f2', text: '#be123c', border: '#ffe4e6' }, // Rose
+        { bg: '#eef2ff', text: '#4338ca', border: '#e0e7ff' }, // Indigo
+        { bg: '#fdf2f8', text: '#be185d', border: '#fce7f3' }, // Pink
+        { bg: '#ecfeff', text: '#0e7490', border: '#cffafe' }, // Cyan
+        { bg: '#fff7ed', text: '#c2410c', border: '#ffedd5' }, // Orange
+        { bg: '#f0fdf4', text: '#166534', border: '#dcfce7' }, // Light green
+        { bg: '#faf5ff', text: '#6b21a8', border: '#f3e8ff' }, // Violet
+        { bg: '#f5f5f4', text: '#44403c', border: '#e7e5e4' }  // Stone
+    ];
+    var str = String(id);
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    var index = Math.abs(hash) % palettes.length;
+    var p = palettes[index];
+    return 'background:' + p.bg + ';color:' + p.text + ';border:1px solid ' + p.border;
+}
+
 function renderBophanmayPage(content){
     if(!document.getElementById('_bpmS')){var st=document.createElement('style');st.id='_bpmS';
     st.textContent='.bpm-wrap{display:flex;min-height:calc(100vh - 110px);overflow:visible;align-items:flex-start}'
@@ -249,7 +274,7 @@ function _bpmRender(){
         var nvN = '—';
         if (r.contractor_id) {
             var contractorLabel = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
-            var contractorColor = 'background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe';
+            var contractorColor = _bpmGetContractorStyle(r.contractor_id);
             nvN = '<span class="badge" style="' + contractorColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + contractorLabel + '</span>';
         } else {
             var badgeColor = r.sewing_team_id ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
@@ -457,9 +482,10 @@ async function _bpmManageContractors() {
             html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9">';
             html += '<th style="padding:8px;text-align:left">#</th><th style="padding:8px;text-align:left">Tên</th><th style="padding:8px;text-align:left">SĐT</th><th style="padding:8px;text-align:left">Ghi chú</th><th style="padding:8px;text-align:center">Thao tác</th></tr></thead><tbody>';
             cons.forEach(function(c, i) {
-                html += '<tr style="border-bottom:1px solid #e2e8f0">';
+                var style = _bpmGetContractorStyle(c.id);
+                html += '<tr style="border-bottom:1px solid #e2e8f0;height:45px">';
                 html += '<td style="padding:8px;color:#94a3b8;font-weight:700">' + (i+1) + '</td>';
-                html += '<td style="padding:8px;font-weight:700;color:#1e293b">🏭 ' + c.name + '</td>';
+                html += '<td style="padding:8px"><span class="badge" style="' + style + ';padding:4px 8px;border-radius:6px;font-weight:800;display:inline-block">🏭 ' + c.name + '</span></td>';
                 html += '<td style="padding:8px;color:#6b7280">' + (c.phone || '—') + '</td>';
                 html += '<td style="padding:8px;color:#6b7280;max-width:120px;overflow:hidden;text-overflow:ellipsis">' + (c.notes || '—') + '</td>';
                 html += '<td style="padding:8px;text-align:center">';
@@ -583,7 +609,8 @@ async function _bpmShowHandoverModal(recordId) {
         
         var nvMay = '—';
         if (rec.contractor_id) {
-            nvMay = '<span style="color:#0284c7;font-weight:700;">🏭 ' + (rec.contractor_name || 'Gia công') + '</span>';
+            var contractorColor = _bpmGetContractorStyle(rec.contractor_id);
+            nvMay = '<span class="badge" style="' + contractorColor + ';padding:4px 8px;border-radius:6px;font-weight:800;display:inline-block;">🏭 ' + (rec.contractor_name || 'Gia công') + '</span>';
         } else if (rec.sewer_name) {
             nvMay = '<span style="color:#059669;font-weight:700;">👤 ' + rec.sewer_name + '</span>';
         }
