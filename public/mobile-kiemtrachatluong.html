@@ -801,6 +801,17 @@
             }).trim();
         }
 
+        function getUnitText(r) {
+            if (!r) return 'Cái';
+            const name = ((r.cut_product_name || r.product_name || '').toLowerCase());
+            if (name.includes('áo')) return 'Áo';
+            if (name.includes('quần')) return 'Quần';
+            if (name.includes('mũ') || name.includes('nón')) return 'Mũ';
+            if (name.includes('váy') || name.includes('đầm')) return 'Váy';
+            if (name.includes('tạp dề')) return 'Cái';
+            return 'Cái';
+        }
+
         function getProgress(exp, done) {
             if (!exp) return '<span style="color:#94a3b8">—</span>';
             try {
@@ -1282,8 +1293,8 @@
                         <div class="meta-section">
                             <div class="meta-grid" style="margin-top:0;">
                                 <div class="meta-item">
-                                    <span class="meta-label">📦 Số lượng</span>
-                                    <span class="meta-value accent" style="font-size:15px;">${r.quantity || 0}</span>
+                                    <span class="meta-label">📦 SL (Đơn / May)</span>
+                                    <span class="meta-value accent" style="font-size:15px;">${r.order_qty || 0} / ${r.quantity || 0} ${getUnitText(r)}</span>
                                 </div>
                                 <div class="meta-item">
                                     <span class="meta-label">👤 Đơn vị may</span>
