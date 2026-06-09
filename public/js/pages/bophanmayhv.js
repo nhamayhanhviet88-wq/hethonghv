@@ -665,7 +665,7 @@ async function _bpmShowHandoverModal(recordId) {
         // Header (Indigo/Lavender gradient)
         html += '  <div style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; padding: 20px 24px; position: relative;">';
         html += '    <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">📋 CHI TIẾT BÀN GIAO MAY</h3>';
-        html += '    <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Mã số đơn may: #' + rec.id + '</p>';
+        html += '    <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.85;">Mã đơn: ' + prodFullName + '</p>';
         html += '    <button onclick="document.getElementById(\'_bpmHandoverOverlay\').remove()" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.15); border: none; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 700; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'">✕</button>';
         html += '  </div>';
 
