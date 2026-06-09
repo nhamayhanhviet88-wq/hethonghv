@@ -285,7 +285,7 @@ function _bpmRender(){
             nvN = '<span class="badge" style="' + contractorColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + contractorLabel + '</span>';
         } else {
             var badgeColor = r.sewing_team_id ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
-            var teamLabel = r.sewer_name ? '👥 ' + r.sewer_name : '❌ Chưa Phân Tổ';
+            var teamLabel = r.sewer_name ? r.sewer_name : '❌ Chưa Phân Tổ';
             nvN = '<span class="badge" style="' + badgeColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + teamLabel + '</span>';
         }
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<span class="badge" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmView('+r.id+')" title="Xem ảnh">📸 '+ia.length+'</span>';}catch(e){}
@@ -306,7 +306,7 @@ function _bpmRender(){
         var salDisplay = _bpmFN(r.salary) + (r.salary_approved ? ' <span style="color:#059669;font-weight:800;font-size:9px">✓</span>' : '');
 
         var actionsCell = '<div style="display:flex;gap:4px;justify-content:center;align-items:center">'
-        + (r.contractor_id ? '' : '<button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button>')
+        + (r.contractor_id ? '<button class="bpm-ib" style="visibility:hidden;pointer-events:none"></button>' : '<button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button>')
         + salaryCell
         + '<button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button>'
         + '</div>';
