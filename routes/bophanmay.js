@@ -199,8 +199,9 @@ module.exports = async function(fastify) {
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab1,
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab2,
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
-                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (sr.expected_date IS NULL OR sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4
+                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4
             FROM sewing_records sr
+            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
             ${where}
         `, params);
         return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0 };
@@ -252,7 +253,7 @@ module.exports = async function(fastify) {
                     params.push(Number(req.query.done_year));
                 }
             } else if (status === 'undone_past_today') {
-                where += ` AND sr.done_date IS NULL AND (sr.expected_date IS NULL OR sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
+                where += ` AND sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
             } else {
                 where += ` AND sr.done_date IS NULL`;
             }

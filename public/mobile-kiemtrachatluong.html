@@ -618,7 +618,7 @@
     </div>
 
     <!-- Tab 4 Filters (visible only when tab 4 is active) -->
-    <div class="tab4-filters" id="tab4Filters" style="display:none; flex-direction:column; gap:8px;">
+    <div class="tab4-filters" id="tab4Filters" style="display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; gap:8px; width:100%;">
             <select id="filterTeam" style="flex:1;" onchange="filterLocalList()">
                 <option value="">Tất cả Tổ/Gia công</option>
@@ -657,7 +657,14 @@
 
     <!-- Bottom Navigation Bar -->
     <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('1')">
+        <div class="nav-item active" onclick="switchTab('4')">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">🔍</span>
+                <span class="badge" id="badgeTab4" style="display:none">0</span>
+            </div>
+            <span>Kiểm Tra</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('1')">
             <div class="nav-icon-wrapper">
                 <span class="nav-icon">⏰</span>
                 <span class="badge" id="badgeTab1" style="display:none">0</span>
@@ -677,13 +684,6 @@
                 <span class="badge" id="badgeTab3" style="display:none">0</span>
             </div>
             <span>Phân Tổ</span>
-        </div>
-        <div class="nav-item" onclick="switchTab('4')">
-            <div class="nav-icon-wrapper">
-                <span class="nav-icon">🔍</span>
-                <span class="badge" id="badgeTab4" style="display:none">0</span>
-            </div>
-            <span>Kiểm Tra</span>
         </div>
     </div>
 
@@ -782,7 +782,7 @@
     <!-- Scripts -->
     <script>
         let currentUser = null;
-        let activeTab = '1';
+        let activeTab = '4';
         let originalRecords = []; // Full raw records returned by API
         let filteredRecords = []; // Records after tab division and search filters
         let teamsList = []; // Canned team list
