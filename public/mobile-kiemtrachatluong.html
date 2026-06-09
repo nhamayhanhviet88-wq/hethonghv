@@ -586,6 +586,114 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* QC detail premium styles */
+        .qc-section-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .qc-section-title {
+            font-size: 11.5px;
+            font-weight: 800;
+            color: #818cf8;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .qc-info-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .qc-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12.5px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding-bottom: 6px;
+        }
+        .qc-info-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .qc-info-label {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+        .qc-info-val {
+            color: #f3f4f6;
+            text-align: right;
+            word-break: break-word;
+        }
+        .badge-material {
+            background: rgba(245, 158, 11, 0.1) !important;
+            color: #f59e0b !important;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11.5px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-color {
+            background: rgba(16, 185, 129, 0.1) !important;
+            color: #10b981 !important;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11.5px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-category {
+            background: rgba(59, 130, 246, 0.1) !important;
+            color: #3b82f6 !important;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11.5px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .qc-tech-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 6px;
+            color: #e5e7eb;
+        }
+        .qc-tech-table th {
+            text-align: left;
+            padding: 6px 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #9ca3af;
+            border-bottom: 1.5px solid rgba(255,255,255,0.1);
+        }
+        .qc-tech-table td {
+            padding: 8px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            vertical-align: middle;
+        }
+        .qc-tech-table tr:last-child td {
+            border-bottom: none;
+        }
+        .qc-tech-total-box {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-top: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            color: #f59e0b;
+        }
     </style>
 </head>
 <body>
@@ -748,6 +856,96 @@
             <p style="font-size:13px; font-weight:700; color:#38bdf8;" id="qcOrderInfo"></p>
             <p style="font-size:12px; color:#e5e7eb; margin-top:3px;" id="qcProductInfo"></p>
             <p style="font-size:12px; color:#ef4444; font-style:italic; font-weight:700; margin-top:5px;" id="qcNotesInfo"></p>
+        </div>
+
+        <!-- NEW SECTIONS CONTAINER -->
+        <div id="qcProductDetailsContainer" style="display: none; margin-bottom: 16px;">
+            <!-- Card 1: Thông tin sản phẩm -->
+            <div class="qc-section-card">
+                <div class="qc-section-title">📦 THÔNG TIN SẢN PHẨM</div>
+                <div class="qc-info-grid">
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">📋 Tên SP</span>
+                        <span class="qc-info-val" id="qcDetProdName" style="font-weight: 700;"></span>
+                    </div>
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">👤 CSKH</span>
+                        <span class="qc-info-val" id="qcDetCskh"></span>
+                    </div>
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">🧵 Chất liệu</span>
+                        <span class="qc-info-val badge-material" id="qcDetMaterial"></span>
+                    </div>
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">🎨 Màu</span>
+                        <span class="qc-info-val badge-color" id="qcDetColor"></span>
+                    </div>
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">🏷️ Sản phẩm May</span>
+                        <span class="qc-info-val badge-category" id="qcDetCategory"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Số lượng May / Thực tế -->
+            <div class="qc-section-card" style="margin-top: 12px;">
+                <div class="qc-section-title">📦 SỐ LƯỢNG MAY / THỰC TẾ</div>
+                <div class="qc-info-grid">
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">📦 SL Thực Tế</span>
+                        <span class="qc-info-val" id="qcDetQtyActual" style="font-weight: 800; color: #3b82f6;"></span>
+                    </div>
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">📦 SL May</span>
+                        <span class="qc-info-val" id="qcDetQtySew" style="font-weight: 800; color: #10b981;"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Thông số mẫu áo -->
+            <div class="qc-section-card" style="margin-top: 12px;" id="qcSpecCard">
+                <div class="qc-section-title">📐 THÔNG SỐ MẪU ÁO</div>
+                <div class="qc-info-grid">
+                    <div class="qc-info-row">
+                        <span class="qc-info-label">Mẫu áo</span>
+                        <span class="qc-info-val" id="qcDetSpecName" style="font-weight: 700; color: #a855f7;"></span>
+                    </div>
+                </div>
+                <div id="qcSpecImageArea" style="margin-top: 10px; border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 6px; text-align: center; background: rgba(0,0,0,0.2);">
+                    <div style="font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 6px;">📷 Hình Ảnh Thông Số</div>
+                    <img id="qcSpecImg" src="" style="max-width: 100%; border-radius: 6px; cursor: pointer;" onclick="viewFullImage(this.src)">
+                </div>
+            </div>
+
+            <!-- Card 4: Kỹ thuật may -->
+            <div class="qc-section-card" style="margin-top: 12px;" id="qcTechCard">
+                <div class="qc-section-title">✂️ KỸ THUẬT MAY</div>
+                
+                <!-- Table listing techniques with checkbox -->
+                <div style="overflow-x: auto; margin-top: 8px;">
+                    <table class="qc-tech-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">Tích</th>
+                                <th>Kỹ thuật</th>
+                                <th style="width: 40px; text-align: center;">SL</th>
+                                <th style="text-align: right;">May nhà</th>
+                                <th style="text-align: right;">May GC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qcTechTableBody">
+                            <!-- Rendered dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Total summary box (yellowish / glowing) -->
+                <div class="qc-tech-total-box" id="qcTechTotalBox">
+                    💰 Tổng giá may &nbsp;|&nbsp; 
+                    <span style="color: #10b981;">MAY NHÀ: <strong id="qcTotalHomePrice">0đ</strong></span> &nbsp;•&nbsp; 
+                    <span style="color: #3b82f6;">MAY GC: <strong id="qcTotalGCOrderPrice">0đ</strong></span>
+                </div>
+            </div>
         </div>
         
         <div class="form-group">
@@ -1561,6 +1759,75 @@
             document.getElementById('qcNotesInfo').textContent = r.notes ? `QLX Lưu Ý May: ${r.notes}` : '';
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
             document.getElementById('qcNotes').value = r.notes || '';
+
+            // Populate product details & quantities
+            document.getElementById('qcDetProdName').textContent = cleanProdName(r);
+            document.getElementById('qcDetCskh').textContent = r.cskh_name || '—';
+            document.getElementById('qcDetMaterial').textContent = r.material_name || '—';
+            document.getElementById('qcDetColor').textContent = r.color_name || '—';
+            document.getElementById('qcDetCategory').textContent = r.category_name || '—';
+            
+            document.getElementById('qcDetQtyActual').textContent = `${r.order_qty || 0} Áo`;
+            document.getElementById('qcDetQtySew').textContent = `${r.quantity || 0} Áo`;
+
+            if (r.pattern_name) {
+                document.getElementById('qcSpecCard').style.display = 'block';
+                document.getElementById('qcTechCard').style.display = 'block';
+                document.getElementById('qcDetSpecName').textContent = r.pattern_name;
+                
+                if (r.ts_spec_image) {
+                    document.getElementById('qcSpecImg').src = r.ts_spec_image;
+                    document.getElementById('qcSpecImageArea').style.display = 'block';
+                } else {
+                    document.getElementById('qcSpecImageArea').style.display = 'none';
+                }
+                
+                // Render techniques table
+                let techniques = [];
+                try {
+                    techniques = typeof r.ts_sewing_tech === 'string' ? JSON.parse(r.ts_sewing_tech) : (r.ts_sewing_tech || []);
+                } catch (e) {
+                    techniques = [];
+                }
+                
+                let checkedIds = [];
+                try {
+                    checkedIds = JSON.parse(r.checked_techniques || '[]');
+                } catch (e) {
+                    checkedIds = [];
+                }
+                
+                const isFirstTime = (r.checked_techniques === null || r.checked_techniques === undefined);
+                
+                const tbody = document.getElementById('qcTechTableBody');
+                tbody.innerHTML = '';
+                if (techniques.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#9ca3af;">Không có dữ liệu kỹ thuật</td></tr>';
+                } else {
+                    techniques.forEach(tech => {
+                        const isChecked = isFirstTime || checkedIds.includes(tech.id);
+                        const checkedAttr = isChecked ? 'checked' : '';
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td style="text-align: center;">
+                                <input type="checkbox" class="qc-tech-cb" data-id="${tech.id}" data-fp="${tech.fp || 0}" data-pp="${tech.pp || 0}" ${checkedAttr} onchange="recalcQcTechPrices()" style="width:18px; height:18px; cursor:pointer;">
+                            </td>
+                            <td style="font-weight: 600;">${tech.name || ''}</td>
+                            <td style="text-align: center; color: #9ca3af;">${tech.qty || 1}</td>
+                            <td style="text-align: right; color: #10b981; font-weight: 600;">${Number(tech.fp || 0).toLocaleString('vi-VN')}đ</td>
+                            <td style="text-align: right; color: #3b82f6; font-weight: 600;">${Number(tech.pp || 0).toLocaleString('vi-VN')}đ</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+                
+                document.getElementById('qcProductDetailsContainer').style.display = 'block';
+                recalcQcTechPrices();
+            } else {
+                document.getElementById('qcSpecCard').style.display = 'none';
+                document.getElementById('qcTechCard').style.display = 'none';
+                document.getElementById('qcProductDetailsContainer').style.display = 'block';
+            }
             
             // Display update history
             const historyEl = document.getElementById('qcUpdateHistory');
@@ -1580,6 +1847,30 @@
             renderQCImagesPreview(r.finish_images);
 
             openSheet('sheetQC');
+        }
+
+        // Recalculate prices from checked techniques
+        function recalcQcTechPrices() {
+            const checkboxes = document.querySelectorAll('.qc-tech-cb');
+            let totalFP = 0;
+            let totalPP = 0;
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    totalFP += Number(cb.dataset.fp) || 0;
+                    totalPP += Number(cb.dataset.pp) || 0;
+                }
+            });
+            
+            document.getElementById('qcTotalHomePrice').textContent = totalFP.toLocaleString('vi-VN') + 'đ';
+            document.getElementById('qcTotalGCOrderPrice').textContent = totalPP.toLocaleString('vi-VN') + 'đ';
+            
+            // Auto fill the checked price input field
+            const r = originalRecords.find(x => x.id === currentRecordId);
+            if (r) {
+                const isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+                const autoPrice = isTeam ? totalFP : totalPP;
+                document.getElementById('qcCheckedPrice').value = autoPrice;
+            }
         }
 
         // Render images inside preview box
@@ -1629,10 +1920,18 @@
             }
         }
 
-        // Submit QC (save checked price & notes)
+        // Submit QC (save checked price & notes & checked techniques)
         async function submitQC() {
             const cpVal = document.getElementById('qcCheckedPrice').value;
             const notesVal = document.getElementById('qcNotes').value;
+
+            const checkboxes = document.querySelectorAll('.qc-tech-cb');
+            const checkedIds = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    checkedIds.push(Number(cb.dataset.id));
+                }
+            });
 
             try {
                 showLoading(true);
@@ -1647,6 +1946,20 @@
                     field: 'notes',
                     value: notesVal || null
                 });
+
+                // Save checked_techniques
+                if (checkboxes.length > 0) {
+                    await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                        field: 'checked_techniques',
+                        value: JSON.stringify(checkedIds)
+                    });
+                } else {
+                    // Save empty array or null if no checkboxes (e.g. no pattern linked)
+                    await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                        field: 'checked_techniques',
+                        value: null
+                    });
+                }
 
                 toast('Đã lưu thông tin kiểm tra!');
                 closeAllSheets();

@@ -440,7 +440,7 @@ module.exports = async function(fastify) {
     fastify.patch('/api/sewing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { field, value } = req.body||{}, now = vnNow();
         const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','sewing_team_id','product_name',
-            'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes'];
+            'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes','checked_techniques'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
         const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
