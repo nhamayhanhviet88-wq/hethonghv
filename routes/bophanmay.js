@@ -733,4 +733,126 @@ module.exports = async function(fastify) {
         }
         return { success: true };
     });
+
+    // 8. POST send Telegram notification for QC checklist
+    fastify.post('/api/qc/checklist/notify/:sewingRecordId', { preHandler: [authenticate] }, async (req, reply) => {
+        const sewingRecordId = parseInt(req.params.sewingRecordId);
+        
+        // Fetch sewing record with order, product, sewer details
+        const rec = await db.get(`
+            SELECT sr.*, COALESCE(dt.name, u.full_name, sc.name) AS sewer_name,
+                   o.order_code,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques,
+                   ts.sewing_tech
+            FROM sewing_records sr
+            LEFT JOIN users u ON sr.sewer_id = u.id
+            LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
+            LEFT JOIN sewing_contractors sc ON sr.contractor_id = sc.id
+            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
+            WHERE sr.id = $1
+        `, [sewingRecordId]);
+
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
+
+        // Fetch answers and active checklist templates
+        const qa = await db.all(`
+            SELECT a.answer_value, t.content, t.type
+            FROM qc_checklist_answers a
+            JOIN qc_checklist_templates t ON a.template_id = t.id
+            WHERE a.sewing_record_id = $1 AND t.is_active = true
+            ORDER BY t.sort_order, t.id
+        `, [sewingRecordId]);
+
+        // Get techniques name checked
+        let techNames = '—';
+        if (rec.checked_techniques) {
+            try {
+                const ids = JSON.parse(rec.checked_techniques);
+                if (Array.isArray(ids) && ids.length > 0) {
+                    let allTechs = [];
+                    try {
+                        const t1 = typeof rec.sewing_techniques === 'string' ? JSON.parse(rec.sewing_techniques) : (rec.sewing_techniques || []);
+                        const t2 = typeof rec.sewing_tech === 'string' ? JSON.parse(rec.sewing_tech) : (rec.sewing_tech || []);
+                        allTechs = [...t1, ...t2];
+                    } catch(e){}
+                    
+                    const matched = [];
+                    const seen = new Set();
+                    allTechs.forEach(t => {
+                        if (t && t.id && ids.includes(t.id) && !seen.has(t.id)) {
+                            seen.add(t.id);
+                            matched.push(t.name);
+                        }
+                    });
+                    if (matched.length > 0) {
+                        techNames = matched.join(', ');
+                    }
+                }
+            } catch(e){}
+        }
+
+        const isMissingPrice = rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]');
+        let msg = '';
+        if (isMissingPrice) {
+            msg += `⚠️ <b>BÁO CÁO THIẾU GIÁ CHI TIẾT (QC)</b>\n`;
+        } else {
+            msg += `✅ <b>BÁO CÁO KIỂM TRA CHẤT LƯỢNG (QC)</b>\n`;
+        }
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `📋 <b>Mã đơn:</b> ${rec.order_code || '—'}\n`;
+        msg += `👕 <b>Sản phẩm:</b> ${rec.product_name || '—'}\n`;
+        msg += `👤 <b>Thợ may:</b> ${rec.sewer_name || '—'}\n`;
+        msg += `💰 <b>Giá gốc may:</b> ${Number(rec.base_price || 0).toLocaleString('vi-VN')}đ\n`;
+        msg += `💰 <b>Giá kiểm tra:</b> ${Number(rec.checked_price || 0).toLocaleString('vi-VN')}đ\n`;
+        msg += `🛠️ <b>Kỹ thuật may:</b> ${techNames}\n`;
+        if (rec.notes) {
+            msg += `📝 <b>Ghi chú:</b> ${rec.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}\n`;
+        }
+        
+        if (!isMissingPrice && qa.length > 0) {
+            msg += `\n📋 <b>KẾT QUẢ CHECKLIST:</b>\n`;
+            qa.forEach(ans => {
+                let valLabel = ans.answer_value;
+                if (ans.type === 'yes_no') {
+                    valLabel = ans.answer_value === 'yes' ? 'Có' : 'Không';
+                } else if (ans.type === 'percentage') {
+                    valLabel = ans.answer_value + '%';
+                }
+                msg += `• ${ans.content}: <b>${valLabel}</b>\n`;
+            });
+        }
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `👤 <b>Người kiểm tra:</b> ${req.user.full_name}\n`;
+
+        // Send to Telegram
+        const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
+        const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_thanh_may'");
+        const chatId = tgConfigRow?.value?.trim();
+
+        if (chatId) {
+            let photoSent = false;
+            try {
+                const images = JSON.parse(rec.finish_images || '[]');
+                if (Array.isArray(images) && images.length > 0) {
+                    const firstImage = images[0];
+                    if (firstImage.startsWith('/uploads/')) {
+                        const absolutePath = path.join(__dirname, '..', 'public', firstImage);
+                        if (fs.existsSync(absolutePath)) {
+                            photoSent = await sendTelegramPhoto(chatId, absolutePath, msg);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error('[QC Telegram] Error sending photo:', e);
+            }
+            
+            if (!photoSent) {
+                await sendTelegramMessage(chatId, msg);
+            }
+        }
+
+        return { success: true };
+    });
 };

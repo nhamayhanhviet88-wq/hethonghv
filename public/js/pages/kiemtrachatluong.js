@@ -1442,7 +1442,7 @@ async function _ktclChecklistSetup() {
         html += '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0">';
         html += '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">➕ Thêm Mới Câu Hỏi/Checklist</div>';
         html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
-        html += '<select id="_qcClNewType" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px"><option value="yes_no">✔️ Câu hỏi (Có/Không)</option><option value="text">📝 Câu hỏi (Văn bản)</option></select>';
+        html += '<select id="_qcClNewType" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px"><option value="yes_no">✔️ Câu hỏi (Có/Không)</option><option value="text">📝 Câu hỏi (Văn bản)</option><option value="percentage">📈 Thanh kéo (0% - 100%)</option></select>';
         html += '<input id="_qcClNewContent" placeholder="Nội dung câu hỏi..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
         html += '<input id="_qcClNewOrder" type="number" value="0" placeholder="TT" style="width:60px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;text-align:center">';
         html += '<button onclick="_qcClAdd()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Thêm</button>';
@@ -1450,7 +1450,14 @@ async function _ktclChecklistSetup() {
         if (templates.length) {
             html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left">Loại</th><th style="padding:8px;text-align:left">Nội dung</th><th style="padding:8px;text-align:center">TT</th><th style="padding:8px;text-align:center">Trạng thái</th><th style="padding:8px;text-align:center">Thao tác</th></tr></thead><tbody>';
             templates.forEach(function(t) {
-                const tp = t.type === 'yes_no' ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">✔️ Có/Không</span>' : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📝 Văn bản</span>';
+                let tp = '';
+                if (t.type === 'yes_no') {
+                    tp = '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">✔️ Có/Không</span>';
+                } else if (t.type === 'percentage') {
+                    tp = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📈 Thanh kéo (%)</span>';
+                } else {
+                    tp = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📝 Văn bản</span>';
+                }
                 const st = t.is_active ? '<span style="color:#059669;font-weight:700">Bật</span>' : '<span style="color:#dc2626;font-weight:700">Tắt</span>';
                 html += `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">${tp}</td><td style="padding:8px;font-weight:600">${t.content}</td><td style="padding:8px;text-align:center">${t.sort_order}</td><td style="padding:8px;text-align:center">${st}</td>`;
                 html += `<td style="padding:8px;text-align:center"><button onclick="_qcClToggleActive(${t.id},${!t.is_active})" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;cursor:pointer;background:#fff;margin-right:4px">${t.is_active ? '🔇 Tắt' : '🔔 Bật'}</button>`;

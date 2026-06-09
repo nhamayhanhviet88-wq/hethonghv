@@ -10,6 +10,7 @@ const TELEGRAM_EVENTS = [
     { key: 'cap_cuu_sep',      label: '🚨 Cấp Cứu Sếp',        scope: 'global',    icon: '🚨' },
     { key: 'huy_khach',        label: '❌ Hủy Khách',            scope: 'global',    icon: '❌' },
     { key: 'huy_don_tra_coc',  label: '🚫 Hủy Đơn Trả Cọc',    scope: 'global',    icon: '🚫' },
+    { key: 'hoan_thanh_may',  label: '✅ Hoàn Thành May (QC)',  scope: 'global',    icon: '✅' },
 
     // === PER-STAFF: Mỗi NV cài Group ID riêng ===
     { key: 'chuyen_so',        label: '📱 Chuyển Số',            scope: 'per_staff', icon: '📱' },
