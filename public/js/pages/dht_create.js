@@ -1227,6 +1227,7 @@ function _ppCalcFree() {
 }
 
 function _dhtSavePhieuFree(idx) {
+    var existing = _dhtCreate.phieuItems[idx] || {};
     var prod = document.getElementById('_ppf_product')?.value;
     var vp = Number(document.getElementById('_ppf_vat')?.value) || 0;
     if (!prod) { showToast('Chọn Sản Phẩm', 'error'); return; }
@@ -1560,6 +1561,7 @@ async function _dhtLoadColorsPopup(preselect) {
 }
 
 function _dhtSavePhieu(idx) {
+    var existing = _dhtCreate.phieuItems[idx] || {};
     var po=_dhtCreate.phieuOpts||{};
     var sale=document.getElementById('_pp_sale')?.value;
     var prod=document.getElementById('_pp_product')?.value;
