@@ -209,9 +209,9 @@ module.exports = async function(fastify) {
         if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
         
         if (tab === '1') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            where += ` AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date)`;
         } else if (tab === '2') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            where += ` AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date)`;
         } else if (tab === '3') {
             where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
         } else if (tab === '4') {
