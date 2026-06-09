@@ -1619,7 +1619,10 @@ async function _qlxAssignMay(orderId, itemId) {
         }
 
         // 2. Fetch current assignment and configuration data
-        var res = await apiCall('/api/qlx/sewing-assignment/' + itemId);
+        var [res, holidayRes] = await Promise.all([
+            apiCall('/api/qlx/sewing-assignment/' + itemId),
+            apiCall('/api/penalty/holidays').catch(function() { return { holidays: [] }; })
+        ]);
         
         // Store config and state globally/window
         window._qlxMayData = {
@@ -1628,7 +1631,8 @@ async function _qlxAssignMay(orderId, itemId) {
             cut_qty: res.cut_qty,
             item: res.item,
             contractors: res.contractors,
-            pricing: res.pricing
+            pricing: res.pricing,
+            holidays: holidayRes.holidays || []
         };
 
         // Render modal
@@ -1976,7 +1980,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     html += '<div><input type="number" class="form-control may-qty" value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" oninput="_qlxAssignMayUpdateTotal()"></div>';
 
     // Target completion Date
-    html += '<div><input type="date" class="form-control may-date" value="' + date + '" min="' + minDateStr + '" style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
+    html += '<div><input type="date" class="form-control may-date" value="' + date + '" min="' + minDateStr + '" onchange="_qlxAssignMayHandleDateChange(this)" style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
 
     // Notes
     html += '<div><input type="text" class="form-control may-notes" value="' + noteText.replace(/"/g, '&quot;') + '" placeholder="Ghi chú hạn/phối..." style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
@@ -2033,6 +2037,28 @@ function _qlxAssignMayUpdateTotal() {
             badge.style.background = '#fee2e2';
             badge.style.color = '#b91c1c';
         }
+    }
+}
+
+function _qlxAssignMayHandleDateChange(input) {
+    var val = input.value;
+    if (!val) return;
+    var tzToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    var yyyy = tzToday.getFullYear();
+    var mm = String(tzToday.getMonth() + 1).padStart(2, '0');
+    var dd = String(tzToday.getDate()).padStart(2, '0');
+    var todayStr = yyyy + '-' + mm + '-' + dd;
+    if (val < todayStr) {
+        showToast('⚠️ QLX Hẹn Ra không được ở quá khứ!', 'error');
+        input.value = '';
+        return;
+    }
+    var holidays = (window._qlxMayData && window._qlxMayData.holidays) || [];
+    var match = holidays.find(function(h) { return h.holiday_date === val; });
+    if (match) {
+        var dateFormatted = val.split('-').reverse().join('/');
+        showToast('⚠️ Ngày ' + dateFormatted + ' là ngày lễ (' + match.holiday_name + '), không thể chọn!', 'error');
+        input.value = '';
     }
 }
 
@@ -2098,6 +2124,13 @@ async function _qlxAssignMaySave() {
             }
             if (date < todayStr) {
                 validationError = 'QLX Hẹn Ra không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
+                return;
+            }
+            var holidays = (window._qlxMayData && window._qlxMayData.holidays) || [];
+            var holidayMatch = holidays.find(function(h) { return h.holiday_date === date; });
+            if (holidayMatch) {
+                var dateFormatted = date.split('-').reverse().join('/');
+                validationError = 'Ngày ' + dateFormatted + ' là ngày lễ (' + holidayMatch.holiday_name + '), không thể chọn!';
                 return;
             }
 

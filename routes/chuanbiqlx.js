@@ -2033,6 +2033,14 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Sản phẩm này chưa được cắt xong. Không thể phân công May!' });
         }
 
+        // Fetch holidays from DB
+        const holidayRows = await db.all('SELECT holiday_date::text as holiday_date, holiday_name FROM holidays');
+        const holidayMap = {};
+        for (const h of holidayRows) {
+            holidayMap[h.holiday_date] = h.holiday_name;
+        }
+        const todayStr = vnDateStr(now);
+
         // 4. Validate total assignment quantity matches cut quantity exactly
         let totalAssignQty = 0;
         for (const ass of assignments) {
@@ -2041,6 +2049,20 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Số lượng phân công phải lớn hơn 0!' });
             }
             totalAssignQty += qty;
+
+            const expectedDate = ass.expected_date || ass.due_date;
+            if (qty > 0) {
+                if (!expectedDate) {
+                    return reply.code(400).send({ error: 'Vui lòng chọn QLX Hẹn Ra!' });
+                }
+                if (expectedDate < todayStr) {
+                    return reply.code(400).send({ error: 'QLX Hẹn Ra không được ở quá khứ!' });
+                }
+                if (holidayMap[expectedDate]) {
+                    const dateFormatted = expectedDate.split('-').reverse().join('/');
+                    return reply.code(400).send({ error: `Ngày ${dateFormatted} là ngày lễ (${holidayMap[expectedDate]}), không thể chọn!` });
+                }
+            }
         }
 
         if (assignments.length > 0 && totalAssignQty !== cut_qty) {
