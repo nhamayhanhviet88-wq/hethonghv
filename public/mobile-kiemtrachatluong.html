@@ -1025,14 +1025,13 @@
             try {
                 showLoading(true);
                 
-                // Fetch badge counts dynamically by hitting active tabs endpoints
+                // Fetch badge counts dynamically
+                const counts = await callApi(`/api/sewing/counts`);
                 const countTabs = ['1', '2', '3', '4'];
-                const badgePromises = countTabs.map(t => callApi(`/api/sewing/records?tab=${t}`));
-                const results = await Promise.all(badgePromises);
                 
                 // Set badges
                 for (let i = 0; i < countTabs.length; i++) {
-                    const cnt = results[i].records ? results[i].records.length : 0;
+                    const cnt = counts[`tab${countTabs[i]}`] || 0;
                     const b = document.getElementById(`badgeTab${countTabs[i]}`);
                     if (cnt > 0) {
                         b.textContent = cnt;

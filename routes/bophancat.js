@@ -68,6 +68,7 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_cutting_order ON cutting_records(dht_order_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_cutting_cutter ON cutting_records(cutter_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_cutting_date ON cutting_records(cut_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_cutting_order_item ON cutting_records(order_item_id)`);
     } catch(e) { console.error('[BPC] cutting_records:', e.message); }
     // Add cutting_category column if not exists
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS cutting_category TEXT`); } catch(e) {}

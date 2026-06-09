@@ -637,11 +637,11 @@ function _ktclSwitchTab(tab) {
 async function _ktclLoadData() {
     try {
         // Load counts for badges
+        const counts = await apiCall(`/api/sewing/counts`);
         const countTabs = ['1', '2', '3', '4'];
-        const results = await Promise.all(countTabs.map(t => apiCall(`/api/sewing/records?tab=${t}`)));
         
         for (let i = 0; i < countTabs.length; i++) {
-            const count = results[i].records ? results[i].records.length : 0;
+            const count = counts[`tab${countTabs[i]}`] || 0;
             const el = document.getElementById(`ktclCountTab${countTabs[i]}`);
             if (el) el.textContent = count;
         }

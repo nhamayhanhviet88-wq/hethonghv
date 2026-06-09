@@ -186,6 +186,26 @@ module.exports = async function(fastify) {
         return { tree, total, stats: stats || {total:0,in_progress:0,done:0,approved:0} };
     });
 
+    // ========== TABS COUNTS ==========
+    fastify.get('/api/sewing/counts', { preHandler: [authenticate] }, async (req) => {
+        const mgr = await isSewManager(req);
+        let where = 'WHERE 1=1', params = [];
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
+            where += ' AND (sr.sewer_id = $1 OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id = $1))'; 
+            params.push(req.user.id);
+        }
+        const counts = await db.get(`
+            SELECT 
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab1,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab2,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
+                COUNT(*) FILTER (WHERE sr.done_date IS NULL)::int AS tab4
+            FROM sewing_records sr
+            ${where}
+        `, params);
+        return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0 };
+    });
+
     // ========== LIST ==========
     fastify.get('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isSewManager(req);

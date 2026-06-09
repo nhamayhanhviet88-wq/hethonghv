@@ -126,6 +126,7 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_free_customers ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT '{}'`); } catch(e) {}
     // ★ Cutting Category: link products to a cutting product type
     try { await db.run(`ALTER TABLE dht_products ADD COLUMN IF NOT EXISTS cutting_category_id INTEGER REFERENCES dht_settings_options(id)`); } catch(e) {}
+    try { await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_products_name ON dht_products(name)`); } catch(e) {}
     // Seed default cutting categories if none exist
     try {
         const ccCount = await db.get(`SELECT COUNT(*)::int AS cnt FROM dht_settings_options WHERE category = 'cutting_category' AND is_active = true`);
