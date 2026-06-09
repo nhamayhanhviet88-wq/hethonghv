@@ -858,9 +858,9 @@
             <h2 class="sheet-title">🔎 Chi Tiết Kiểm Tra & Đơn Giá</h2>
             <span class="sheet-close" onclick="closeAllSheets()">×</span>
         </div>
-        <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
-            <p style="font-size:13px; font-weight:700; color:#38bdf8;" id="qcOrderInfo"></p>
-            <p style="font-size:12px; color:#e5e7eb; margin-top:3px;" id="qcProductInfo"></p>
+        <div id="qcHeaderInfoArea" style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; display: none;">
+            <p style="font-size:13px; font-weight:700; color:#38bdf8; display: none;" id="qcOrderInfo"></p>
+            <p style="font-size:12px; color:#e5e7eb; margin-top:3px; display: none;" id="qcProductInfo"></p>
             <p style="font-size:12px; color:#ef4444; font-style:italic; font-weight:700; margin-top:5px;" id="qcNotesInfo"></p>
         </div>
 
@@ -1791,9 +1791,11 @@
             if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
                 document.getElementById('qcNotesInfo').textContent = `⚠️ Thiếu giá chi tiết: ${r.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}`;
                 document.getElementById('qcNotesInfo').style.display = 'block';
+                document.getElementById('qcHeaderInfoArea').style.display = 'block';
             } else {
                 document.getElementById('qcNotesInfo').textContent = '';
                 document.getElementById('qcNotesInfo').style.display = 'none';
+                document.getElementById('qcHeaderInfoArea').style.display = 'none';
             }
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
             document.getElementById('qcNotes').value = r.notes || '';
