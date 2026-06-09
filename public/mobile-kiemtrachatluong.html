@@ -1494,8 +1494,9 @@
 
                 let urgentBadge = isUnassigned ? `<div class="badge-urgent">🚨 CHƯA CHIA TỔ MAY!</div>` : '';
                 
-                // Photos preview
+                // Photos preview (hidden as per user request)
                 let imgsHtml = '';
+                /*
                 try {
                     const arr = JSON.parse(r.finish_images || '[]');
                     if (arr.length > 0) {
@@ -1504,6 +1505,7 @@
                         </div>`;
                     }
                 } catch(e){}
+                */
 
                 // Tab Actions
                 let actionButtons = '';
@@ -1600,10 +1602,11 @@
                             </div>
                         </div>
                         ${imgsHtml}
+                        ${(r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? `
                         <div style="font-size:11.5px; color:#9ca3af; margin-top:8px; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border: 1px solid rgba(239,68,68,0.15); display:flex; justify-content:space-between; align-items:center;">
-                            <span>QLX Lưu Ý May:</span>
-                            <span style="color:#ef4444; font-style:italic; font-weight:700;">${r.notes || '—'}</span>
-                        </div>
+                            <span>⚠️ Báo thiếu giá:</span>
+                            <span style="color:#ef4444; font-style:italic; font-weight:700;">${r.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}</span>
+                        </div>` : ''}
                     </div>
                     <div class="card-actions">
                         ${actionButtons}
@@ -1784,7 +1787,14 @@
             const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
             document.getElementById('qcOrderInfo').textContent = `Đơn: ${r.order_code || ''} — SL: ${r.quantity} — Thợ: ${assignee}`;
             document.getElementById('qcProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
-            document.getElementById('qcNotesInfo').textContent = r.notes ? `QLX Lưu Ý May: ${r.notes}` : '';
+            // Handle QLX Lưu Ý May / Thiếu giá chi tiết warning
+            if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
+                document.getElementById('qcNotesInfo').textContent = `⚠️ Thiếu giá chi tiết: ${r.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}`;
+                document.getElementById('qcNotesInfo').style.display = 'block';
+            } else {
+                document.getElementById('qcNotesInfo').textContent = '';
+                document.getElementById('qcNotesInfo').style.display = 'none';
+            }
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
             document.getElementById('qcNotes').value = r.notes || '';
 
@@ -1818,8 +1828,10 @@
                 
                 if (r.ts_spec_image) {
                     document.getElementById('qcSpecImg').src = r.ts_spec_image;
+                    document.getElementById('qcSpecImageArea').style.display = 'block';
+                } else {
+                    document.getElementById('qcSpecImageArea').style.display = 'none';
                 }
-                document.getElementById('qcSpecImageArea').style.display = 'none'; // Always hide spec image box
                 
                 // Render techniques table
                 let tsamTechs = [];
@@ -2049,6 +2061,12 @@
             // Validation: Checked price must be > 0 if not already done and NOT missing price
             if (!isAlreadyDone && !isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
                 toast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
+                return;
+            }
+
+            // Validation: Must select at least 1 technique if checkboxes exist and NOT missing price
+            if (!isMissingPrice && checkboxes.length > 0 && checkedIds.length === 0) {
+                toast('Vui lòng tích chọn ít nhất 1 kỹ thuật may!', 'error');
                 return;
             }
 
