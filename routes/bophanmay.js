@@ -218,6 +218,20 @@ module.exports = async function(fastify) {
             where += ` AND (sr.sewing_team_id IS NOT NULL OR sr.contractor_id IS NOT NULL)`;
             if (status === 'done_today') {
                 where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            } else if (status === 'done_all') {
+                where += ` AND sr.done_date IS NOT NULL`;
+                if (req.query.done_date) {
+                    where += ` AND sr.done_date::date = $${idx++}`;
+                    params.push(req.query.done_date);
+                }
+                if (req.query.done_month) {
+                    where += ` AND EXTRACT(MONTH FROM sr.done_date) = $${idx++}`;
+                    params.push(Number(req.query.done_month));
+                }
+                if (req.query.done_year) {
+                    where += ` AND EXTRACT(YEAR FROM sr.done_date) = $${idx++}`;
+                    params.push(Number(req.query.done_year));
+                }
             } else {
                 where += ` AND sr.done_date IS NULL`;
             }

@@ -125,6 +125,18 @@
             background: #111827;
             color: #f3f4f6;
         }
+        .tab4-filters input[type="date"],
+        .tab4-filters input[type="month"] {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 12.5px;
+            color: #f3f4f6;
+            outline: none;
+            box-sizing: border-box;
+        }
         .filter-toggle {
             display: flex;
             align-items: center;
@@ -575,17 +587,28 @@
     <div class="search-container">
         <div class="search-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" class="search-input" placeholder="Tìm theo mã đơn hoặc tên sản phẩm..." oninput="filterLocalList()">
+            <input type="text" id="searchInput" class="search-input" placeholder="Tìm theo mã đơn hoặc tên sản phẩm..." oninput="handleSearchInput()">
         </div>
     </div>
 
     <!-- Tab 4 Filters (visible only when tab 4 is active) -->
-    <div class="tab4-filters" id="tab4Filters" style="display:none">
-        <select id="filterTeam" onchange="filterLocalList()">
-            <option value="">Tất cả Tổ/Gia công</option>
-        </select>
-        <div class="filter-toggle" id="btnDoneToday" onclick="toggleDoneToday()">
-            <span>✅</span> Đơn xong hôm nay
+    <div class="tab4-filters" id="tab4Filters" style="display:none; flex-direction:column; gap:8px;">
+        <div style="display:flex; gap:8px; width:100%;">
+            <select id="filterTeam" style="flex:1;" onchange="filterLocalList()">
+                <option value="">Tất cả Tổ/Gia công</option>
+            </select>
+            <select id="filterTime" style="flex:1;" onchange="handleTimeFilterChange()">
+                <option value="undone">⏳ Chưa xong</option>
+                <option value="today">✅ Xong hôm nay</option>
+                <option value="custom_date">📅 Xong ngày khác...</option>
+                <option value="custom_month">🗓️ Xong tháng/năm...</option>
+            </select>
+        </div>
+        <div id="filterCustomDateContainer" style="display:none; width:100%;">
+            <input type="date" id="filterDoneDate" onchange="loadData()">
+        </div>
+        <div id="filterCustomMonthContainer" style="display:none; width:100%;">
+            <input type="month" id="filterDoneMonth" onchange="loadData()">
         </div>
     </div>
 
@@ -713,6 +736,8 @@
             <div class="card-images" id="qcImagesPreview" style="margin-top:8px;"></div>
         </div>
 
+        <div style="font-size:11.5px; color:#9ca3af; margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); line-height:1.4; display:none;" id="qcUpdateHistory"></div>
+
         <div style="margin-top:20px; display:flex; gap:10px;">
             <button class="btn btn-secondary" onclick="closeAllSheets()">Đóng</button>
             <button class="btn btn-primary" onclick="submitQC()">Lưu Thông Tin</button>
@@ -728,7 +753,8 @@
         let teamsList = []; // Canned team list
         let holidaysList = []; // Loaded holidays
         let currentRecordId = null; // Temp holder for active record ID in modals
-        let showDoneToday = false;
+        let showDoneToday = false; // Backward compatibility indicator
+        let searchTimeout = null;
 
         function cleanProdName(r) {
             if (!r) return 'Sản phẩm';
@@ -808,6 +834,23 @@
             try {
                 const parts = d.split('T')[0].split('-');
                 return parts[2] + '/' + parts[1] + '/' + parts[0];
+            } catch(e) { return d; }
+        }
+        function fdt(d) {
+            if (!d) return '—';
+            try {
+                const dateObj = new Date(d);
+                if (isNaN(dateObj.getTime())) return d;
+                const formatter = new Intl.DateTimeFormat('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                return formatter.format(dateObj).replace(',', '');
             } catch(e) { return d; }
         }
 
@@ -953,15 +996,39 @@
 
                 // Get active tab records
                 let q = `/api/sewing/records?tab=${activeTab}`;
-                if (activeTab === '4' && showDoneToday) {
-                    q += `&status=done_today`;
+                
+                const searchVal = document.getElementById('searchInput').value.trim();
+                if (searchVal) {
+                    q += `&search=${encodeURIComponent(searchVal)}`;
                 }
+
+                if (activeTab === '4') {
+                    const timeVal = document.getElementById('filterTime')?.value || 'undone';
+                    if (timeVal === 'today') {
+                        q += `&status=done_today`;
+                    } else if (timeVal === 'custom_date') {
+                        const dateVal = document.getElementById('filterDoneDate').value;
+                        q += `&status=done_all`;
+                        if (dateVal) q += `&done_date=${encodeURIComponent(dateVal)}`;
+                    } else if (timeVal === 'custom_month') {
+                        const monthVal = document.getElementById('filterDoneMonth').value;
+                        q += `&status=done_all`;
+                        if (monthVal) {
+                            const parts = monthVal.split('-');
+                            q += `&done_year=${parts[0]}&done_month=${parts[1]}`;
+                        }
+                    } else {
+                        q += `&status=incomplete`;
+                    }
+                }
+                
                 const activeRes = await callApi(q);
                 originalRecords = activeRes.records || [];
                 
                 // Fill Team filter dropdown for Tab 4
                 if (activeTab === '4') {
                     const sel = document.getElementById('filterTeam');
+                    const currentSelVal = sel.value;
                     sel.innerHTML = '<option value="">Tất cả Tổ/Gia công</option>';
                     const added = new Set();
                     originalRecords.forEach(r => {
@@ -979,6 +1046,7 @@
                             }
                         }
                     });
+                    sel.value = currentSelVal;
                 }
 
                 filterLocalList();
@@ -997,20 +1065,42 @@
 
             // Show/Hide search filters specific to Tab 4
             document.getElementById('tab4Filters').style.display = tabId === '4' ? 'flex' : 'none';
+            if (tabId === '4') {
+                const timeSel = document.getElementById('filterTime');
+                if (timeSel) {
+                    timeSel.value = 'undone';
+                    document.getElementById('filterCustomDateContainer').style.display = 'none';
+                    document.getElementById('filterCustomMonthContainer').style.display = 'none';
+                }
+            }
 
             await loadData();
         }
 
-        // Toggle done today in Tab 4
-        async function toggleDoneToday() {
-            showDoneToday = !showDoneToday;
-            const btn = document.getElementById('btnDoneToday');
-            if (showDoneToday) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
+        function handleSearchInput() {
+            filterLocalList();
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadData();
+            }, 400);
+        }
+
+        function handleTimeFilterChange() {
+            const timeVal = document.getElementById('filterTime').value;
+            document.getElementById('filterCustomDateContainer').style.display = timeVal === 'custom_date' ? 'block' : 'none';
+            document.getElementById('filterCustomMonthContainer').style.display = timeVal === 'custom_month' ? 'block' : 'none';
+            
+            if (timeVal === 'custom_date') {
+                const dateInput = document.getElementById('filterDoneDate');
+                if (!dateInput.value) dateInput.value = getVnTodayStr();
+            } else if (timeVal === 'custom_month') {
+                const monthInput = document.getElementById('filterDoneMonth');
+                if (!monthInput.value) {
+                    const todayStr = getVnTodayStr();
+                    monthInput.value = todayStr.substring(0, 7);
+                }
             }
-            await loadData();
+            loadData();
         }
 
         // Search & dropdown filter logic on client-side
@@ -1112,6 +1202,10 @@
                     <div class="card-body">
                         ${urgentBadge}
                         <div class="product-name">${cleanProdName(r)}</div>
+                        ${r.done_date ? `<div style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                            <span>✅ Đã xong:</span>
+                            <span>${fdt(r.done_date)}</span>
+                        </div>` : ''}
                         <!-- Khúc 1: Thông tin sản xuất & Chất liệu -->
                         <div class="meta-section">
                             <div class="meta-grid" style="margin-top:0;">
@@ -1353,6 +1447,20 @@
             document.getElementById('qcNotesInfo').textContent = r.notes ? `QLX Lưu Ý May: ${r.notes}` : '';
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
             document.getElementById('qcNotes').value = r.notes || '';
+            
+            // Display update history
+            const historyEl = document.getElementById('qcUpdateHistory');
+            if (historyEl) {
+                if (r.last_update_at) {
+                    const updater = r.last_update_by || 'Hệ thống';
+                    const updateTime = fdt(r.last_update_at);
+                    const detail = r.last_update_detail ? ` (${r.last_update_detail})` : '';
+                    historyEl.innerHTML = `✍️ Cập nhật cuối: <strong>${updater}</strong> lúc <strong>${updateTime}</strong>${detail}`;
+                    historyEl.style.display = 'block';
+                } else {
+                    historyEl.style.display = 'none';
+                }
+            }
             
             // Display existing images
             renderQCImagesPreview(r.finish_images);
