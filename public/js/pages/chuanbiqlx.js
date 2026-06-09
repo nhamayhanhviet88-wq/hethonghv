@@ -1696,8 +1696,21 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '</tr></thead><tbody>';
         
         // TSAM base row
+        var techDetailsHtml = '';
+        if (res.pricing && res.pricing.sewing_tech) {
+            techDetailsHtml = '<div style="font-size:10px;font-weight:500;color:#475569;margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">';
+            var techParts = res.pricing.sewing_tech.split(/,|;|\+/);
+            for (var pIdx = 0; pIdx < techParts.length; pIdx++) {
+                var pTrim = techParts[pIdx].trim();
+                if (pTrim) {
+                    techDetailsHtml += '<span style="background:#e0f2fe;color:#0369a1;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">' + pTrim + '</span>';
+                }
+            }
+            techDetailsHtml += '</div>';
+        }
+
         html += '<tr style="border-bottom:1px solid #e2e8f0;background:#f0f9ff">';
-        html += '<td style="padding:6px 8px;font-weight:800;color:#0284c7">📐 ' + (res.item.pattern_name || 'TSAM') + '</td>';
+        html += '<td style="padding:6px 8px;font-weight:800;color:#0284c7;line-height:1.3">📐 ' + (res.item.pattern_name || 'TSAM') + techDetailsHtml + '</td>';
         html += '<td style="padding:6px 8px;text-align:center;font-weight:700">1</td>';
         html += '<td style="padding:6px 8px;text-align:right;font-weight:800">' + tsamFP.toLocaleString('vi-VN') + 'đ</td>';
         html += '<td style="padding:6px 8px;text-align:right;font-weight:800">' + tsamPP.toLocaleString('vi-VN') + 'đ</td>';
