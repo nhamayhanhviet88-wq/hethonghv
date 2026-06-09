@@ -38,8 +38,10 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewing_team ON sewing_records(sewing_team_id)`);
     try {
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS salary_note TEXT`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS is_rescheduled BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS original_expected_date DATE`);
     } catch(err) {
-        console.error('[BPM] Migration error for salary_note:', err.message);
+        console.error('[BPM] Migration error for fields:', err.message);
     }
     } catch(e) { console.error('[BPM] records:', e.message); }
 
@@ -59,6 +61,16 @@ module.exports = async function(fastify) {
     const MGMT = ['giam_doc', 'quan_ly_cap_cao'];
     async function isSewManager(req) {
         if (MGMT.includes(req.user.role)) return true;
+        // Check if user has kiem_tra_chat_luong permission
+        const hasQCPerm = await db.get(`
+            SELECT 1 FROM (
+                SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'kiem_tra_chat_luong'
+                UNION ALL
+                SELECT dp.can_view FROM department_permissions dp JOIN users u ON u.department_id = dp.department_id WHERE u.id = $1 AND dp.feature_key = 'kiem_tra_chat_luong'
+            ) t WHERE can_view > 0 LIMIT 1
+        `, [req.user.id]);
+        if (hasQCPerm) return true;
+
         const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('may') || n.includes('quản lý xưởng')) return true; }
         return false;
@@ -176,7 +188,7 @@ module.exports = async function(fastify) {
     // ========== LIST ==========
     fastify.get('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isSewManager(req);
-        const { year, month, sewer_id, contractor_id, sewing_team_id, status, search } = req.query;
+        const { year, month, sewer_id, contractor_id, sewing_team_id, status, search, tab } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
         if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
             where += ` AND (sr.sewer_id=$${idx} OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$${idx}))`; 
@@ -194,10 +206,27 @@ module.exports = async function(fastify) {
         }
         if (contractor_id) { where += ` AND sr.contractor_id=$${idx++}`; params.push(Number(contractor_id)); }
         if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
-        if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
-        else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
-        else if (status==='approved') where += ` AND sr.salary_approved=true`;
-        else if (status==='incomplete') where += ` AND sr.done_date IS NULL`;
+        
+        if (tab === '1') {
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+        } else if (tab === '2') {
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+        } else if (tab === '3') {
+            where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
+        } else if (tab === '4') {
+            where += ` AND (sr.sewing_team_id IS NOT NULL OR sr.contractor_id IS NOT NULL)`;
+            if (status === 'done_today') {
+                where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            } else {
+                where += ` AND sr.done_date IS NULL`;
+            }
+        } else {
+            if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
+            else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
+            else if (status==='approved') where += ` AND sr.salary_approved=true`;
+            else if (status==='incomplete') where += ` AND sr.done_date IS NULL`;
+        }
+
         if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
@@ -299,9 +328,17 @@ module.exports = async function(fastify) {
         const bp = b.base_price!==undefined ? Number(b.base_price)||0 : Number(rec.base_price)||0;
         const cp = b.checked_price!==undefined ? Number(b.checked_price)||0 : Number(rec.checked_price)||0;
         const sal = calcSalary(rec.salary_approved, qty, bp, cp);
+        let isRescheduled = rec.is_rescheduled;
+        let origExpected = rec.original_expected_date;
+        if (b.expected_date !== undefined && b.expected_date !== rec.expected_date) {
+            origExpected = rec.original_expected_date || rec.expected_date;
+            isRescheduled = true;
+        }
+
         await db.run(`UPDATE sewing_records SET expected_date=$1,handover_date=$2,done_date=$3,sewer_id=$4,contractor_id=$5,
             product_name=$6,quantity=$7,base_price=$8,checked_price=$9,salary=$10,sewing_details=$11,
-            inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16,sewing_team_id=$17 WHERE id=$18`,
+            inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16,sewing_team_id=$17,
+            is_rescheduled=$18, original_expected_date=$19 WHERE id=$20`,
             [b.expected_date!==undefined?b.expected_date:rec.expected_date, b.handover_date!==undefined?b.handover_date:rec.handover_date,
              b.done_date!==undefined?b.done_date:rec.done_date, b.sewer_id!==undefined?b.sewer_id:rec.sewer_id,
              b.contractor_id!==undefined?b.contractor_id:rec.contractor_id, b.product_name!==undefined?b.product_name:rec.product_name,
@@ -309,7 +346,8 @@ module.exports = async function(fastify) {
              b.inventory_notes!==undefined?b.inventory_notes:rec.inventory_notes,
              b.shared_sewing!==undefined?b.shared_sewing:rec.shared_sewing,
              b.finish_images!==undefined?b.finish_images:rec.finish_images,
-             b.notes!==undefined?b.notes:rec.notes, now, b.sewing_team_id!==undefined?b.sewing_team_id:rec.sewing_team_id, id]);
+             b.notes!==undefined?b.notes:rec.notes, now, b.sewing_team_id!==undefined?b.sewing_team_id:rec.sewing_team_id,
+             isRescheduled, origExpected, id]);
         await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin may', req.user.id, now]);
         return { success: true, salary: sal };
@@ -323,7 +361,17 @@ module.exports = async function(fastify) {
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
         const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
-        await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+        if (field === 'expected_date') {
+            const rec = await db.get('SELECT expected_date, original_expected_date FROM sewing_records WHERE id=$1', [id]);
+            if (rec && value !== rec.expected_date) {
+                const orig = rec.original_expected_date || rec.expected_date;
+                await db.run(`UPDATE sewing_records SET expected_date=$1, is_rescheduled=true, original_expected_date=$2, updated_at=$3 WHERE id=$4`, [value, orig, now, id]);
+                await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                    [id, 'inline_update', `Hẹn Lại: ${rec.expected_date} ➔ ${value}`, req.user.id, now]);
+            }
+        } else {
+            await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+        }
         // Recalc salary if price/qty changed
         if (['quantity','base_price','checked_price'].includes(field)) {
             const rec = await db.get('SELECT salary_approved, quantity, base_price, checked_price FROM sewing_records WHERE id=$1', [id]);

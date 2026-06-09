@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🔍 Kiểm Tra Chất Lượng — Đồng Phục HV</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #090d16, #111827);
+            min-height: 100vh;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            padding-bottom: 90px;
+        }
+
+        /* Header Styling */
+        .header {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-brand img {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+        }
+        .header-brand h1 {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            background: linear-gradient(to right, #2dd4bf, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .user-badge {
+            font-size: 11px;
+            color: #2dd4bf;
+            font-weight: 700;
+            background: rgba(45, 212, 191, 0.12);
+            border: 1px solid rgba(45, 212, 191, 0.25);
+            padding: 4px 10px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Search bar */
+        .search-container {
+            padding: 10px 16px 4px 16px;
+        }
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .search-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 10px 14px 10px 36px;
+            font-size: 13px;
+            color: #f3f4f6;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .search-input:focus {
+            border-color: #2dd4bf;
+            background: rgba(255, 255, 255, 0.09);
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        /* Tab 4 Filters */
+        .tab4-filters {
+            display: flex;
+            gap: 8px;
+            padding: 8px 16px 2px 16px;
+            flex-wrap: wrap;
+        }
+        .tab4-filters select {
+            flex: 1;
+            min-width: 120px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: #f3f4f6;
+            outline: none;
+        }
+        .tab4-filters select option {
+            background: #111827;
+            color: #f3f4f6;
+        }
+        .filter-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #9ca3af;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+        }
+        .filter-toggle.active {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        /* Cards List container */
+        .cards-list {
+            padding: 12px 16px;
+        }
+
+        /* Skeleton loader */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Order Card */
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+        .card-header {
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-code {
+            font-size: 14px;
+            font-weight: 800;
+            color: #2dd4bf;
+            background: rgba(45, 212, 191, 0.08);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .card-client {
+            font-size: 12px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+        .card-body {
+            padding: 12px 14px;
+        }
+        .product-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #f3f4f6;
+            margin-bottom: 6px;
+        }
+        .badge-urgent {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 8px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .meta-label {
+            font-size: 10px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .meta-value {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+        .meta-value.accent {
+            color: #38bdf8;
+        }
+        .meta-value.highlight {
+            color: #fbbf24;
+        }
+
+        .sewing-tech-box {
+            background: rgba(255,255,255,0.02);
+            border: 1px dashed rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 6px 8px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: #a1a1aa;
+        }
+
+        .card-images {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            margin-top: 10px;
+            padding-bottom: 4px;
+        }
+        .card-images img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .card-actions {
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.01);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+        .btn:active {
+            transform: scale(0.96);
+        }
+        .btn-primary {
+            background: linear-gradient(to right, #0d9488, #14b8a6);
+            color: #fff;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.07);
+            color: #e5e7eb;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .btn-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .btn-success {
+            background: linear-gradient(to right, #059669, #10b981);
+            color: #fff;
+        }
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        /* Navigation Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(17, 24, 39, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 90;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            gap: 4px;
+            width: 20%;
+            cursor: pointer;
+        }
+        .nav-item.active {
+            color: #2dd4bf;
+        }
+        .nav-icon-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-icon {
+            font-size: 22px;
+            transition: transform 0.2s;
+        }
+        .nav-item.active .nav-icon {
+            transform: translateY(-2px);
+        }
+        .badge {
+            position: absolute;
+            top: -5px;
+            right: -8px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 800;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #111827;
+        }
+
+        /* Bottom Sheet Modal Drawer */
+        .backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            display: none;
+            backdrop-filter: blur(4px);
+        }
+        .sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #111827;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px 24px 0 0;
+            z-index: 210;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 20px 18px 30px 18px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .sheet.open {
+            transform: translateY(0);
+        }
+        .sheet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .sheet-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #f3f4f6;
+        }
+        .sheet-close {
+            font-size: 24px;
+            color: #9ca3af;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #9ca3af;
+            margin-bottom: 6px;
+        }
+        .form-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: #f3f4f6;
+            outline: none;
+        }
+        .form-input:focus {
+            border-color: #2dd4bf;
+        }
+
+        /* Split Team Item */
+        .split-team-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .split-team-select {
+            flex: 2;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 13px;
+            color: #f3f4f6;
+            outline: none;
+        }
+        .split-team-qty {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 13px;
+            color: #f3f4f6;
+            text-align: center;
+            outline: none;
+        }
+        .split-team-remove {
+            color: #f87171;
+            font-size: 16px;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 16px;
+            right: 16px;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn 0.3s ease forwards;
+        }
+        .toast.success { background: linear-gradient(135deg, #10b981, #059669); }
+        .toast.error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(2px);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #2dd4bf;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- Toast System -->
+    <div class="toast-container" id="toastBox"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-brand">
+            <img src="/images/logo.png" alt="Logo">
+            <h1>KIỂM TRA CHẤT LƯỢNG</h1>
+        </div>
+        <div class="user-badge">
+            <span>👤</span>
+            <span id="userFullname">...</span>
+        </div>
+    </div>
+
+    <!-- Search Input -->
+    <div class="search-container">
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" class="search-input" placeholder="Tìm theo mã đơn hoặc tên sản phẩm..." oninput="filterLocalList()">
+        </div>
+    </div>
+
+    <!-- Tab 4 Filters (visible only when tab 4 is active) -->
+    <div class="tab4-filters" id="tab4Filters" style="display:none">
+        <select id="filterTeam" onchange="filterLocalList()">
+            <option value="">Tất cả Tổ/Gia công</option>
+        </select>
+        <div class="filter-toggle" id="btnDoneToday" onclick="toggleDoneToday()">
+            <span>✅</span> Đơn xong hôm nay
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <div class="cards-list" id="cardsContainer">
+        <!-- Skeleton Loaders -->
+        <div style="height:120px;margin-bottom:12px;" class="skeleton"></div>
+        <div style="height:120px;margin-bottom:12px;" class="skeleton"></div>
+        <div style="height:120px;margin-bottom:12px;" class="skeleton"></div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('1')">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">⏰</span>
+                <span class="badge" id="badgeTab1" style="display:none">0</span>
+            </div>
+            <span>Đến Hẹn</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('2')">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">⏳</span>
+                <span class="badge" id="badgeTab2" style="display:none">0</span>
+            </div>
+            <span>Hẹn Lại</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('3')">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">❌</span>
+                <span class="badge" id="badgeTab3" style="display:none">0</span>
+            </div>
+            <span>Phân Tổ</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('4')">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">🔍</span>
+                <span class="badge" id="badgeTab4" style="display:none">0</span>
+            </div>
+            <span>Kiểm Tra</span>
+        </div>
+    </div>
+
+    <!-- Backdrops -->
+    <div class="backdrop" id="backdrop" onclick="closeAllSheets()"></div>
+
+    <!-- Bottom Sheet: Phân Tổ -->
+    <div class="sheet" id="sheetPhanTo">
+        <div class="sheet-header">
+            <h2 class="sheet-title">🧵 Phân Đơn Tổ May</h2>
+            <span class="sheet-close" onclick="closeAllSheets()">×</span>
+        </div>
+        <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
+            <p style="font-size:13px; font-weight:700; color:#2dd4bf;" id="ptOrderInfo"></p>
+            <p style="font-size:12px; color:#9ca3af; margin-top:3px;" id="ptProductInfo"></p>
+        </div>
+        <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span class="form-label" style="margin-bottom:0;">Danh sách Tổ Nhận</span>
+                <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="addTeamRow()">+ Thêm Tổ</button>
+            </div>
+            <div id="splitTeamsContainer">
+                <!-- Rows injected dynamically -->
+            </div>
+        </div>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn btn-secondary" onclick="closeAllSheets()">Hủy</button>
+            <button class="btn btn-primary" onclick="submitPhanTo()">Bàn Giao</button>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet: Hẹn Lại -->
+    <div class="sheet" id="sheetHenLai">
+        <div class="sheet-header">
+            <h2 class="sheet-title">📅 Lùi Lịch Hẹn</h2>
+            <span class="sheet-close" onclick="closeAllSheets()">×</span>
+        </div>
+        <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
+            <p style="font-size:13px; font-weight:700; color:#fbbf24;" id="hlOrderInfo"></p>
+            <p style="font-size:12px; color:#9ca3af; margin-top:3px;" id="hlProductInfo"></p>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Chọn ngày hẹn mới</label>
+            <input type="date" id="hlNewDate" class="form-input" required>
+        </div>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn btn-secondary" onclick="closeAllSheets()">Hủy</button>
+            <button class="btn btn-primary" style="background:linear-gradient(to right, #d97706, #f59e0b);" onclick="submitHenLai()">Cập Nhật Hẹn</button>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet: QC / Kiểm Tra Chi Tiết -->
+    <div class="sheet" id="sheetQC">
+        <div class="sheet-header">
+            <h2 class="sheet-title">🔎 Chi Tiết Kiểm Tra & Đơn Giá</h2>
+            <span class="sheet-close" onclick="closeAllSheets()">×</span>
+        </div>
+        <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
+            <p style="font-size:13px; font-weight:700; color:#38bdf8;" id="qcOrderInfo"></p>
+            <p style="font-size:12px; color:#e5e7eb; margin-top:3px;" id="qcProductInfo"></p>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
+            <input type="number" pattern="[0-9]*" inputmode="numeric" id="qcCheckedPrice" class="form-input" placeholder="Nhập đơn giá kiểm tra...">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Ghi Chú Đơn May</label>
+            <input type="text" id="qcNotes" class="form-input" placeholder="Ghi chú về lỗi hoặc tiến độ...">
+        </div>
+
+        <!-- Hidden uploader -->
+        <input type="file" id="imageUploaderInput" accept="image/*" multiple style="display:none" onchange="uploadQCImages(event)">
+        
+        <div class="form-group">
+            <label class="form-label">Ảnh QC Thành Phẩm</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-secondary" style="flex:none; width:auto; padding:10px 14px;" onclick="document.getElementById('imageUploaderInput').click()">📸 Chụp / Tải ảnh</button>
+                <span style="font-size:12px; color:#6b7280;" id="uploadStatus">Chưa chọn ảnh</span>
+            </div>
+            <div class="card-images" id="qcImagesPreview" style="margin-top:8px;"></div>
+        </div>
+
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn btn-secondary" onclick="closeAllSheets()">Đóng</button>
+            <button class="btn btn-primary" onclick="submitQC()">Lưu Thông Tin</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        let currentUser = null;
+        let activeTab = '1';
+        let originalRecords = []; // Full raw records returned by API
+        let filteredRecords = []; // Records after tab division and search filters
+        let teamsList = []; // Canned team list
+        let currentRecordId = null; // Temp holder for active record ID in modals
+        let showDoneToday = false;
+
+        // Formats
+        function fn(n) {
+            if (!n && n !== 0) return '—';
+            return Number(n).toLocaleString('vi-VN');
+        }
+        function fd(d) {
+            if (!d) return '—';
+            try {
+                const parts = d.split('T')[0].split('-');
+                return parts[2] + '/' + parts[1] + '/' + parts[0];
+            } catch(e) { return d; }
+        }
+
+        // Toasts
+        function toast(msg, type = 'success') {
+            const container = document.getElementById('toastBox');
+            const d = document.createElement('div');
+            d.className = `toast ${type}`;
+            d.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            container.appendChild(d);
+            setTimeout(() => { d.style.animation = 'none'; d.remove(); }, 3500);
+        }
+
+        // Loading
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        // API Caller
+        async function callApi(url, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            };
+            if (body) options.body = JSON.stringify(body);
+            
+            const res = await fetch(url, options);
+            if (res.status === 401) {
+                location.href = '/index.html';
+                return;
+            }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Đã xảy ra lỗi');
+            return data;
+        }
+
+        // Initialize App
+        async function initApp() {
+            try {
+                const me = await callApi('/api/auth/me');
+                currentUser = me.user;
+                if (!currentUser) {
+                    location.href = '/index.html';
+                    return;
+                }
+                
+                // Enforce permissions: giam_doc, quan_ly_cap_cao, or has kiem_tra_chat_luong permission
+                const hasPerm = currentUser.role === 'giam_doc' || 
+                                currentUser.role === 'quan_ly_cap_cao' ||
+                                (currentUser.permissions && currentUser.permissions.kiem_tra_chat_luong && currentUser.permissions.kiem_tra_chat_luong.can_view);
+                
+                if (!hasPerm) {
+                    sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang Kiểm Tra Chất Lượng!');
+                    window.location.href = '/';
+                    return;
+                }
+
+                document.getElementById('userFullname').textContent = currentUser.full_name || currentUser.username;
+
+                // Load initial data
+                await loadTeams();
+                await loadData();
+            } catch(err) {
+                toast(err.message, 'error');
+            }
+        }
+
+        // Fetch Teams
+        async function loadTeams() {
+            try {
+                const res = await callApi('/api/sewing/teams');
+                teamsList = res.teams || [];
+            } catch(e) {
+                console.error('Lỗi tải danh sách tổ:', e);
+            }
+        }
+
+        // Fetch Data & Refresh badges
+        async function loadData() {
+            try {
+                showLoading(true);
+                
+                // Fetch badge counts dynamically by hitting active tabs endpoints
+                const countTabs = ['1', '2', '3', '4'];
+                const badgePromises = countTabs.map(t => callApi(`/api/sewing/records?tab=${t}`));
+                const results = await Promise.all(badgePromises);
+                
+                // Set badges
+                for (let i = 0; i < countTabs.length; i++) {
+                    const cnt = results[i].records ? results[i].records.length : 0;
+                    const b = document.getElementById(`badgeTab${countTabs[i]}`);
+                    if (cnt > 0) {
+                        b.textContent = cnt;
+                        b.style.display = 'flex';
+                    } else {
+                        b.style.display = 'none';
+                    }
+                }
+
+                // Get active tab records
+                let q = `/api/sewing/records?tab=${activeTab}`;
+                if (activeTab === '4' && showDoneToday) {
+                    q += `&status=done_today`;
+                }
+                const activeRes = await callApi(q);
+                originalRecords = activeRes.records || [];
+                
+                // Fill Team filter dropdown for Tab 4
+                if (activeTab === '4') {
+                    const sel = document.getElementById('filterTeam');
+                    sel.innerHTML = '<option value="">Tất cả Tổ/Gia công</option>';
+                    const added = new Set();
+                    originalRecords.forEach(r => {
+                        if (r.contractor_id) {
+                            const val = `c_${r.contractor_id}`;
+                            if (!added.has(val)) {
+                                added.add(val);
+                                sel.innerHTML += `<option value="${val}">🏭 ${r.contractor_name || 'Gia công'}</option>`;
+                            }
+                        } else if (r.sewing_team_id) {
+                            const val = `t_${r.sewing_team_id}`;
+                            if (!added.has(val)) {
+                                added.add(val);
+                                sel.innerHTML += `<option value="${val}">🧵 ${r.sewer_name || 'Tổ may'}</option>`;
+                            }
+                        }
+                    });
+                }
+
+                filterLocalList();
+            } catch(err) {
+                toast(err.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Switch bottom tab
+        async function switchTab(tabId) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            activeTab = tabId;
+
+            // Show/Hide search filters specific to Tab 4
+            document.getElementById('tab4Filters').style.display = tabId === '4' ? 'flex' : 'none';
+
+            await loadData();
+        }
+
+        // Toggle done today in Tab 4
+        async function toggleDoneToday() {
+            showDoneToday = !showDoneToday;
+            const btn = document.getElementById('btnDoneToday');
+            if (showDoneToday) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            await loadData();
+        }
+
+        // Search & dropdown filter logic on client-side
+        function filterLocalList() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            const filterTeamVal = document.getElementById('filterTeam')?.value || '';
+
+            filteredRecords = originalRecords.filter(r => {
+                // Search filter
+                const nameMatch = (r.product_name || '').toLowerCase().includes(search) || 
+                                  (r.order_code || '').toLowerCase().includes(search);
+                
+                if (!nameMatch) return false;
+
+                // Team filter in Tab 4
+                if (activeTab === '4' && filterTeamVal) {
+                    if (filterTeamVal.startsWith('c_')) {
+                        const cid = Number(filterTeamVal.split('_')[1]);
+                        return r.contractor_id === cid;
+                    } else if (filterTeamVal.startsWith('t_')) {
+                        const tid = Number(filterTeamVal.split('_')[1]);
+                        return r.sewing_team_id === tid;
+                    }
+                }
+                return true;
+            });
+
+            renderCards();
+        }
+
+        // Render List Cards
+        function renderCards() {
+            const container = document.getElementById('cardsContainer');
+            if (!filteredRecords.length) {
+                container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:#6b7280;">
+                    <div style="font-size:40px;margin-bottom:10px;">🔍</div>
+                    <div style="font-size:14px;font-weight:700;">Không tìm thấy đơn hàng</div>
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = filteredRecords.map(r => {
+                const isUnassigned = !r.sewing_team_id && !r.contractor_id;
+                const dateLabel = activeTab === '2' ? '📅 Ngày Hẹn Mới' : '📅 Ngày QLX Hẹn';
+                const assigneeName = r.contractor_id 
+                    ? `🏭 ${r.contractor_name || 'Gia công'}` 
+                    : (r.sewer_name ? `🧵 ${r.sewer_name}` : '—');
+                
+                // Show delay if rescheduled
+                let delayStr = '';
+                if (r.is_rescheduled && r.original_expected_date) {
+                    delayStr = `<div class="meta-item" style="grid-column: span 2;">
+                        <span class="meta-label">📅 Lịch sử hẹn</span>
+                        <span class="meta-value" style="color:#fbbf24;">Gốc: ${fd(r.original_expected_date)} ➔ Mới: ${fd(r.expected_date)}</span>
+                    </div>`;
+                }
+
+                let urgentBadge = isUnassigned ? `<div class="badge-urgent">🚨 CHƯA CHIA TỔ MAY!</div>` : '';
+                
+                // Photos preview
+                let imgsHtml = '';
+                try {
+                    const arr = JSON.parse(r.finish_images || '[]');
+                    if (arr.length > 0) {
+                        imgsHtml = `<div class="card-images">
+                            ${arr.map(img => `<img src="${img}" onclick="viewFullImage('${img}')">`).join('')}
+                        </div>`;
+                    }
+                } catch(e){}
+
+                // Tab Actions
+                let actionButtons = '';
+                if (activeTab === '1' || activeTab === '2') {
+                    if (isUnassigned) {
+                        actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>
+                                         <button class="btn btn-warning" onclick="openHenLai(${r.id})">📅 HẸN LẠI</button>`;
+                    } else {
+                        actionButtons = `<button class="btn btn-secondary" onclick="openHenLai(${r.id})">📅 HẸN LẠI</button>
+                                         <button class="btn btn-primary" onclick="openQC(${r.id})">🔎 KIỂM TRA (QC)</button>`;
+                    }
+                } else if (activeTab === '3') {
+                    actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>`;
+                } else if (activeTab === '4') {
+                    if (r.done_date) {
+                        actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 XEM CHI TIẾT</button>
+                                         <button class="btn btn-danger" onclick="toggleDone(${r.id}, 'undo_done')">↩️ CHƯA XONG</button>`;
+                    } else {
+                        actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 QC / NHẬP GIÁ</button>
+                                         <button class="btn btn-success" onclick="toggleDone(${r.id}, 'mark_done')">✅ MAY XONG</button>`;
+                    }
+                }
+
+                return `<div class="card">
+                    <div class="card-header">
+                        <span class="card-code">${r.order_code || '—'}</span>
+                        <span class="card-client">${r.cskh_name || 'Sale'}</span>
+                    </div>
+                    <div class="card-body">
+                        ${urgentBadge}
+                        <div class="product-name">${r.product_name || 'Sản phẩm'}</div>
+                        <div class="meta-grid">
+                            <div class="meta-item">
+                                <span class="meta-label">📦 Số lượng</span>
+                                <span class="meta-value accent" style="font-size:15px;">${r.quantity || 0}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">👤 Đơn vị may</span>
+                                <span class="meta-value highlight">${assigneeName}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">${dateLabel}</span>
+                                <span class="meta-value">${fd(r.expected_date)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">💵 Đơn giá May</span>
+                                <span class="meta-value">${fn(r.base_price)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">🔍 Giá kiểm tra</span>
+                                <span class="meta-value highlight">${fn(r.checked_price)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">💰 Lương thợ</span>
+                                <span class="meta-value" style="color:#10b981; font-weight:800;">${fn(r.salary)}</span>
+                            </div>
+                            ${delayStr}
+                        </div>
+                        ${r.sewing_techniques ? `<div class="sewing-tech-box">✂️ Kỹ thuật: ${r.sewing_techniques}</div>` : ''}
+                        ${imgsHtml}
+                        ${r.notes ? `<div style="font-size:11px; color:#9ca3af; margin-top:8px; background:rgba(255,255,255,0.02); padding:6px; border-radius:6px;">📝 Ghi chú: ${r.notes}</div>` : ''}
+                    </div>
+                    <div class="card-actions">
+                        ${actionButtons}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // View image
+        function viewFullImage(src) {
+            window.open(src, '_blank');
+        }
+
+        // Modals Management
+        function openSheet(id) {
+            document.getElementById('backdrop').style.display = 'block';
+            document.getElementById(id).classList.add('open');
+        }
+        function closeAllSheets() {
+            document.getElementById('backdrop').style.display = 'none';
+            document.querySelectorAll('.sheet').forEach(el => el.classList.remove('open'));
+        }
+
+        // Open Phân Tổ modal
+        function openPhanTo(recordId) {
+            currentRecordId = recordId;
+            const r = originalRecords.find(x => x.id === recordId);
+            if (!r) return;
+
+            document.getElementById('ptOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
+            document.getElementById('ptProductInfo').textContent = `Sản phẩm: ${r.product_name || ''}`;
+
+            const container = document.getElementById('splitTeamsContainer');
+            container.innerHTML = '';
+            
+            // Add first row
+            addTeamRow(r.quantity);
+            openSheet('sheetPhanTo');
+        }
+
+        // Add a row in split handover form
+        function addTeamRow(defaultQty = '') {
+            const container = document.getElementById('splitTeamsContainer');
+            const row = document.createElement('div');
+            row.className = 'split-team-row';
+            
+            let options = '<option value="">-- Chọn Tổ May --</option>';
+            teamsList.forEach(t => {
+                options += `<option value="${t.id}">${t.name}</option>`;
+            });
+
+            row.innerHTML = `
+                <select class="split-team-select">${options}</select>
+                <input type="number" pattern="[0-9]*" inputmode="numeric" class="split-team-qty" placeholder="SL" value="${defaultQty}">
+                <span class="split-team-remove" onclick="this.parentElement.remove()">🗑️</span>
+            `;
+            container.appendChild(row);
+        }
+
+        // Submit Phân Tổ
+        async function submitPhanTo() {
+            const rows = document.querySelectorAll('#splitTeamsContainer .split-team-row');
+            const assignments = [];
+            let total = 0;
+
+            for (const row of rows) {
+                const teamId = row.querySelector('.split-team-select').value;
+                const qty = Number(row.querySelector('.split-team-qty').value);
+
+                if (!teamId) {
+                    toast('Vui lòng chọn tổ may cho tất cả dòng', 'error');
+                    return;
+                }
+                if (!qty || qty <= 0) {
+                    toast('Số lượng chia phải lớn hơn 0', 'error');
+                    return;
+                }
+                assignments.push({ team_id: Number(teamId), quantity: qty });
+                total += qty;
+            }
+
+            if (!assignments.length) {
+                toast('Vui lòng thêm ít nhất một tổ may', 'error');
+                return;
+            }
+
+            try {
+                showLoading(true);
+                await callApi(`/api/sewing/records/${currentRecordId}/split-handover`, 'POST', { assignments });
+                toast('Bàn giao tổ may thành công!');
+                closeAllSheets();
+                await loadData();
+            } catch(err) {
+                toast(err.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Open Hẹn Lại modal
+        function openHenLai(recordId) {
+            currentRecordId = recordId;
+            const r = originalRecords.find(x => x.id === recordId);
+            if (!r) return;
+
+            document.getElementById('hlOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
+            document.getElementById('hlProductInfo').textContent = `Sản phẩm: ${r.product_name || ''}`;
+            
+            // Set current date or tomorrow in picker
+            const expectedVal = r.expected_date ? r.expected_date.split('T')[0] : '';
+            document.getElementById('hlNewDate').value = expectedVal;
+            
+            openSheet('sheetHenLai');
+        }
+
+        // Submit Hẹn Lại
+        async function submitHenLai() {
+            const val = document.getElementById('hlNewDate').value;
+            if (!val) {
+                toast('Vui lòng chọn ngày hẹn mới', 'error');
+                return;
+            }
+
+            try {
+                showLoading(true);
+                await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                    field: 'expected_date',
+                    value: val
+                });
+                toast('Cập nhật lịch hẹn thành công!');
+                closeAllSheets();
+                await loadData();
+            } catch(err) {
+                toast(err.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Open QC Modal
+        function openQC(recordId) {
+            currentRecordId = recordId;
+            const r = originalRecords.find(x => x.id === recordId);
+            if (!r) return;
+
+            const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
+            document.getElementById('qcOrderInfo').textContent = `Đơn: ${r.order_code || ''} — SL: ${r.quantity} — Thợ: ${assignee}`;
+            document.getElementById('qcProductInfo').textContent = `Sản phẩm: ${r.product_name || ''}`;
+            document.getElementById('qcCheckedPrice').value = r.checked_price || '';
+            document.getElementById('qcNotes').value = r.notes || '';
+            
+            // Display existing images
+            renderQCImagesPreview(r.finish_images);
+
+            openSheet('sheetQC');
+        }
+
+        // Render images inside preview box
+        function renderQCImagesPreview(imagesStr) {
+            const container = document.getElementById('qcImagesPreview');
+            container.innerHTML = '';
+            try {
+                const arr = JSON.parse(imagesStr || '[]');
+                if (arr.length > 0) {
+                    container.innerHTML = arr.map(src => `<img src="${src}" onclick="viewFullImage('${src}')">`).join('');
+                }
+            } catch(e){}
+        }
+
+        // Upload images dynamically
+        async function uploadQCImages(event) {
+            const files = event.target.files;
+            if (!files.length) return;
+
+            const fd = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                fd.append('file', files[i]);
+            }
+
+            try {
+                document.getElementById('uploadStatus').textContent = 'Đang tải lên...';
+                const res = await fetch(`/api/sewing/records/${currentRecordId}/images`, {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Lỗi upload');
+                
+                toast('Đã tải ảnh lên thành công');
+                document.getElementById('uploadStatus').textContent = `Đã tải lên ${data.images.length} ảnh`;
+                
+                // Update preview in sheet
+                renderQCImagesPreview(JSON.stringify(data.images));
+
+                // Also update local list so the card updates immediately
+                const r = originalRecords.find(x => x.id === currentRecordId);
+                if (r) r.finish_images = JSON.stringify(data.images);
+            } catch(err) {
+                toast(err.message, 'error');
+                document.getElementById('uploadStatus').textContent = 'Tải ảnh thất bại!';
+            }
+        }
+
+        // Submit QC (save checked price & notes)
+        async function submitQC() {
+            const cpVal = document.getElementById('qcCheckedPrice').value;
+            const notesVal = document.getElementById('qcNotes').value;
+
+            try {
+                showLoading(true);
+                // Save checked_price
+                await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                    field: 'checked_price',
+                    value: cpVal ? Number(cpVal) : null
+                });
+
+                // Save notes
+                await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                    field: 'notes',
+                    value: notesVal || null
+                });
+
+                toast('Đã lưu thông tin kiểm tra!');
+                closeAllSheets();
+                await loadData();
+            } catch(err) {
+                toast(err.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Toggle Mark Done / Undo done
+        async function toggleDone(recordId, action) {
+            // If action is mark_done, first check if checked_price exists
+            if (action === 'mark_done') {
+                const r = originalRecords.find(x => x.id === recordId);
+                if (r && (!r.checked_price || Number(r.checked_price) <= 0)) {
+                    // Force the manager to input the QC price first to make sure salary is correct!
+                    openQC(recordId);
+                    toast('Vui lòng nhập Giá Kiểm Tra trước khi hoàn thành đơn!', 'error');
+                    return;
+                }
+            }
+
+            try {
+                showLoading(true);
+                await callApi(`/api/sewing/toggle/${recordId}`, 'POST', { action });
+                toast(action === 'mark_done' ? '✅ Đã hoàn thành đơn may!' : '↩️ Đã hoàn tác!');
+                await loadData();
+            } catch(err) {
+                toast(err.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Init on page load
+        window.addEventListener('load', initApp);
+    </script>
+</body>
+</html>

@@ -1159,6 +1159,11 @@ async function start() {
         return reply.sendFile('mobile-bophanmay.html');
     });
 
+    // Mobile Kiểm Tra Chất Lượng — standalone touch-optimized page
+    fastify.get('/m/kiemtrachatluong', async (request, reply) => {
+        return reply.sendFile('mobile-kiemtrachatluong.html');
+    });
+
     // Mobile Cắt Chỉ & Hoàn Thiện — standalone touch-optimized page
     fastify.get('/m/bophanhoanthien', async (request, reply) => {
         return reply.sendFile('mobile-bophanhoanthien.html');
