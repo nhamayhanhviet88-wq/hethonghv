@@ -1893,7 +1893,7 @@ function _dhtShowItemDetail(idx) {
         let totalMayGC = tsamPP;
         for (const t of techniques) { totalMayNha += (Number(t.fp) || 0) * (Number(t.qty) || 1); totalMayGC += (Number(t.pp) || 0) * (Number(t.qty) || 1); }
 
-        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Kỹ thuật may (${techniques.length + 1})</div>`;
+        html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">✂️ Chi Tiết May Thêm (${techniques.length + 1})</div>`;
         if (canSeeCost) {
             html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px 10px;text-align:left;font-weight:700">Kỹ thuật</th><th style="padding:6px 10px;text-align:center;font-weight:700">SL</th><th style="padding:6px 10px;text-align:right;font-weight:700">MAY NHÀ</th><th style="padding:6px 10px;text-align:right;font-weight:700">MAY GC</th></tr></thead><tbody>`;
             // TSAM base row (always first)
@@ -1979,7 +1979,7 @@ async function _dhtShowPhieuSX(orderId) {
                     <div>🏷️ Loại: <b>${it.sale_type || '—'}</b></div>
                     <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
                     <div>🧵 Chất liệu: <b>${matStr}</b></div>
-                    <div>✂️ KT May: <b>${sewStr}</b></div>
+                    <div>✂️ CT May Thêm: <b>${sewStr}</b></div>
                 </div>
                 ${qs.length > 0 ? `<div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:6px;font-size:10px;color:#64748b">
                     ${qs.map((q, qi) => `<span style="background:#f1f5f9;padding:2px 6px;border-radius:3px;margin-right:4px">SL${qi+1}: <b>${q.qty}</b> × ${fmt(q.price)}đ</span>`).join('')}
