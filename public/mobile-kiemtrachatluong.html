@@ -1508,8 +1508,7 @@
                         actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 XEM CHI TIẾT</button>
                                          <button class="btn btn-danger" onclick="toggleDone(${r.id}, 'undo_done')">↩️ CHƯA XONG</button>`;
                     } else {
-                        actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 QC / NHẬP GIÁ</button>
-                                         <button class="btn btn-success" onclick="toggleDone(${r.id}, 'mark_done')">✅ MAY XONG</button>`;
+                        actionButtons = `<button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA CHẤT LƯỢNG (QC)</button>`;
                     }
                 }
 
@@ -1941,6 +1940,15 @@
                 }
             });
 
+            const r = originalRecords.find(x => x.id === currentRecordId);
+            const isAlreadyDone = !!(r && r.done_date);
+
+            // Validation: Checked price must be > 0 if not already done
+            if (!isAlreadyDone && (!cpVal || Number(cpVal) <= 0)) {
+                toast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
+                return;
+            }
+
             try {
                 showLoading(true);
                 // Save checked_price
@@ -1969,7 +1977,14 @@
                     });
                 }
 
-                toast('Đã lưu thông tin kiểm tra!');
+                // Automatically mark done if not already done
+                if (!isAlreadyDone) {
+                    await callApi(`/api/sewing/toggle/${currentRecordId}`, 'POST', { action: 'mark_done' });
+                    toast('Đã lưu thông tin và hoàn thành đơn may!');
+                } else {
+                    toast('Đã lưu thông tin kiểm tra!');
+                }
+
                 closeAllSheets();
                 await loadData();
             } catch(err) {
