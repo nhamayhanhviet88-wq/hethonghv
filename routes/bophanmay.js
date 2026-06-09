@@ -274,16 +274,16 @@ module.exports = async function(fastify) {
         const orderByClause = tab ? `
                 CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
                 CASE 
+                    WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 1
+                    WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 2
+                    ELSE 3
+                END ASC,
+                COALESCE(o.expected_ship_date, o.shipping_date) ASC NULLS LAST,
+                CASE 
                     WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'CHUẨN' THEN 1
                     WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GẤP' THEN 2
                     WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GỬI' THEN 3
                     ELSE 4
-                END ASC,
-                COALESCE(o.expected_ship_date, o.shipping_date) ASC NULLS LAST,
-                CASE 
-                    WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 1
-                    WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 2
-                    ELSE 3
                 END ASC,
                 sr.expected_date ASC NULLS LAST,
                 sr.created_at DESC` : `
