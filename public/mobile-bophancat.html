@@ -442,14 +442,25 @@ function mRenderUncut(){
 
     // Group by phiếu (item) — use Map to preserve API sort order
     const grouped=new Map();
+    let idx = 0;
     itemsToRender.forEach(r=>{
         const k=r.id+'_'+(r.item_id||0);
-        if(!grouped.has(k))grouped.set(k,{order:r,phois:[]});
+        if(!grouped.has(k))grouped.set(k,{order:r,phois:[],index:idx++});
         grouped.get(k).phois.push(r);
     });
 
+    // Sort: ready (fabric_arrived && has_pc_in) first, then original order
+    const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
+        const aReady = a.order.fabric_arrived && a.order.has_pc_in;
+        const bReady = b.order.fabric_arrived && b.order.has_pc_in;
+        if (aReady !== bReady) {
+            return aReady ? -1 : 1;
+        }
+        return a.index - b.index;
+    });
+
     let cardHtml='';
-    grouped.forEach(g=>{
+    sortedGroups.forEach(g=>{
         const o=g.order, ready=o.fabric_arrived&&o.has_pc_in;
         const priCls=mPriClass(o.shipping_priority);
         const priLbl=mPriLabel(o.shipping_priority);
