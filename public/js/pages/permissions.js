@@ -79,6 +79,7 @@ const PERM_FEATURES = [
     { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET/TEM', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_ep', label: 'Bộ Phận Ép', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_may', label: 'Bộ Phận May', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'kiem_tra_chat_luong', label: 'Kiểm Tra Chất Lượng', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_hoan_thien', label: 'Bộ Phận Hoàn Thiện', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'luong_san_xuat', label: 'Lương Sản Xuất', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
     { key: 'bang_gia_may', label: 'Bảng Giá May', perms: ['view','create','edit','delete'], section: 'MẪU & GIÁ SẢN XUẤT' },
