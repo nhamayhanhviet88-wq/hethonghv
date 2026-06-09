@@ -1930,7 +1930,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
 
-        const { vnNow } = require('../utils/timezone');
+        const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();
 
         // 1. Fetch item and order info
@@ -2035,9 +2035,9 @@ module.exports = async function(fastify) {
             await db.run(`
                 INSERT INTO sewing_records (
                     dht_order_id, order_item_id, product_name, contractor_id, quantity,
-                    base_price, salary, expected_date, notes, created_by, created_at
+                    base_price, salary, expected_date, notes, created_by, created_at, handover_date
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             `, [
                 item.dht_order_id,
                 itemId,
@@ -2049,7 +2049,8 @@ module.exports = async function(fastify) {
                 ass.expected_date || ass.due_date || null,
                 ass.notes || null,
                 request.user.id,
-                now
+                now,
+                isGiaCong ? vnDateStr(now) : null
             ]);
         }
 
