@@ -1790,12 +1790,31 @@
                 }
                 
                 // Render techniques table
-                let techniques = [];
+                let tsamTechs = [];
                 try {
-                    techniques = typeof r.ts_sewing_tech === 'string' ? JSON.parse(r.ts_sewing_tech) : (r.ts_sewing_tech || []);
+                    tsamTechs = typeof r.ts_sewing_tech === 'string' ? JSON.parse(r.ts_sewing_tech) : (r.ts_sewing_tech || []);
                 } catch (e) {
-                    techniques = [];
+                    tsamTechs = [];
                 }
+                if (!Array.isArray(tsamTechs)) tsamTechs = [];
+
+                let orderTechs = [];
+                try {
+                    orderTechs = typeof r.sewing_techniques === 'string' ? JSON.parse(r.sewing_techniques) : (r.sewing_techniques || []);
+                } catch (e) {
+                    orderTechs = [];
+                }
+                if (!Array.isArray(orderTechs)) orderTechs = [];
+
+                // Combine and de-duplicate by technique ID
+                const techniques = [];
+                const seenIds = new Set();
+                [...tsamTechs, ...orderTechs].forEach(tech => {
+                    if (tech && tech.id && !seenIds.has(tech.id)) {
+                        seenIds.add(tech.id);
+                        techniques.push(tech);
+                    }
+                });
                 
                 let checkedIds = [];
                 try {
