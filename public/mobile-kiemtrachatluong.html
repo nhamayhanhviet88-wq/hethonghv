@@ -1305,11 +1305,11 @@
                             <div class="meta-grid" style="margin-top:0;">
                                 <div class="meta-item">
                                     <span class="meta-label">${dateLabel}</span>
-                                    <span class="meta-value">${fd(r.expected_date)}${((r.shipping_priority || 'CHUẨN').toUpperCase() === 'CHUẨN' && r.standard_delivery_time) ? ' ⏰ ' + r.standard_delivery_time : ''}</span>
+                                    <span class="meta-value">${fd(r.expected_date)}</span>
                                 </div>
                                 <div class="meta-item">
                                     <span class="meta-label">📅 Hạn trả hàng</span>
-                                    <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}</span>
+                                    <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}${((r.shipping_priority || 'CHUẨN').toUpperCase() === 'CHUẨN' && r.standard_delivery_time) ? ' ⏰ ' + r.standard_delivery_time : ''}</span>
                                 </div>
                                 <div class="meta-item">
                                     <span class="meta-label">📈 Tiến độ</span>
