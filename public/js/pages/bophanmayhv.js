@@ -26,6 +26,30 @@ function _bpmGetContractorStyle(id) {
     return 'background:' + p.bg + ';color:' + p.text + ';border:1px solid ' + p.border;
 }
 
+function _bpmGetTeamStyle(id) {
+    if (!id) return 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
+    var palettes = [
+        { bg: '#eff6ff', text: '#1e40af', border: '#bfdbfe' }, // Blue
+        { bg: '#fdf2f8', text: '#9d174d', border: '#fbcfe8' }, // Pink
+        { bg: '#f5f3ff', text: '#5b21b6', border: '#ddd6fe' }, // Purple
+        { bg: '#ecfdf5', text: '#065f46', border: '#a7f3d0' }, // Emerald
+        { bg: '#fffbeb', text: '#92400e', border: '#fde68a' }, // Amber
+        { bg: '#fff1f2', text: '#9f1239', border: '#fecdd3' }, // Rose
+        { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' }, // Green
+        { bg: '#faf5ff', text: '#6b21a8', border: '#e9d5ff' }, // Violet
+        { bg: '#f0f9ff', text: '#0369a1', border: '#bae6fd' }, // Cyan
+        { bg: '#fff7ed', text: '#9a3412', border: '#ffedd5' }  // Orange
+    ];
+    var str = 'team_' + id;
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    var index = Math.abs(hash) % palettes.length;
+    var p = palettes[index];
+    return 'background:' + p.bg + ';color:' + p.text + ';border:1px solid ' + p.border;
+}
+
 function renderBophanmayPage(content){
     if(!document.getElementById('_bpmS')){var st=document.createElement('style');st.id='_bpmS';
     st.textContent='.bpm-wrap{display:flex;min-height:calc(100vh - 110px);overflow:visible;align-items:flex-start}'
@@ -284,7 +308,7 @@ function _bpmRender(){
             var contractorColor = _bpmGetContractorStyle(r.contractor_id);
             nvN = '<span class="badge" style="' + contractorColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + contractorLabel + '</span>';
         } else {
-            var badgeColor = r.sewing_team_id ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
+            var badgeColor = _bpmGetTeamStyle(r.sewing_team_id);
             var teamLabel = r.sewer_name ? r.sewer_name : '❌ Chưa Phân Tổ';
             nvN = '<span class="badge" style="' + badgeColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + teamLabel + '</span>';
         }
