@@ -248,7 +248,9 @@ function _bpmRender(){
         
         var nvN = '—';
         if (r.contractor_id) {
-            nvN = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
+            var contractorLabel = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
+            var contractorColor = 'background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe';
+            nvN = '<span class="badge" style="' + contractorColor + ';padding:4px 8px;border-radius:6px;font-weight:800;cursor:pointer" onclick="_bpmShowHandoverModal(' + r.id + ')" title="Nhấp để bàn giao/phân tổ may">' + contractorLabel + '</span>';
         } else {
             var badgeColor = r.sewing_team_id ? 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
             var teamLabel = r.sewer_name ? '👥 ' + r.sewer_name : '❌ Chưa Phân Tổ';
