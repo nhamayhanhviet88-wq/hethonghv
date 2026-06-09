@@ -218,6 +218,17 @@
             50% { opacity: 0.6; }
         }
 
+        .meta-section {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+        .meta-section:last-child {
+            margin-bottom: 0;
+        }
+
         .meta-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1098,54 +1109,69 @@
                     <div class="card-body">
                         ${urgentBadge}
                         <div class="product-name">${cleanProdName(r)}</div>
-                        <div class="meta-grid">
-                            <div class="meta-item">
-                                <span class="meta-label">📦 Số lượng</span>
-                                <span class="meta-value accent" style="font-size:15px;">${r.quantity || 0}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">👤 Đơn vị may</span>
-                                <span class="meta-value highlight">${assigneeName}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">🧵 Chất liệu</span>
-                                <span class="meta-value" style="color:#fbbf24; line-height: 1.4;">${(r.material_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">🎨 Màu</span>
-                                <span class="meta-value" style="line-height: 1.4;">${(r.color_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">💵 Giá gốc</span>
-                                <span class="meta-value">${fn(r.base_price)}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">🔍 Giá kiểm tra</span>
-                                <span class="meta-value highlight">${fn(r.checked_price)}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">${dateLabel}</span>
-                                <span class="meta-value">${fd(r.expected_date)}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">📅 Hạn trả hàng</span>
-                                <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">📈 Tiến độ</span>
-                                <span class="meta-value">${getProgress(r.expected_ship_date || r.shipping_date, r.done_date)}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">🏆 Tiêu chuẩn đơn</span>
-                                <span class="meta-value">${getPriorityBadge(r.shipping_priority)}</span>
-                            </div>
-                            <div class="meta-item" style="grid-column: span 2;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 6px; margin-top: 4px;">
-                                    <span class="meta-label" style="margin: 0;">💰 Lương thợ</span>
-                                    <span class="meta-value" style="color:#10b981; font-weight:800; font-size:14px;">${fn(r.salary)}</span>
+                        <!-- Khúc 1: Thông tin sản xuất & Chất liệu -->
+                        <div class="meta-section">
+                            <div class="meta-grid" style="margin-top:0;">
+                                <div class="meta-item">
+                                    <span class="meta-label">📦 Số lượng</span>
+                                    <span class="meta-value accent" style="font-size:15px;">${r.quantity || 0}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">👤 Đơn vị may</span>
+                                    <span class="meta-value highlight">${assigneeName}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">🧵 Chất liệu</span>
+                                    <span class="meta-value" style="color:#fbbf24; line-height: 1.4;">${(r.material_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">🎨 Màu</span>
+                                    <span class="meta-value" style="line-height: 1.4;">${(r.color_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
                                 </div>
                             </div>
-                            ${delayStr}
+                        </div>
+
+                        <!-- Khúc 2: Thời hạn & Tiến độ -->
+                        <div class="meta-section">
+                            <div class="meta-grid" style="margin-top:0;">
+                                <div class="meta-item">
+                                    <span class="meta-label">${dateLabel}</span>
+                                    <span class="meta-value">${fd(r.expected_date)}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">📅 Hạn trả hàng</span>
+                                    <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">📈 Tiến độ</span>
+                                    <span class="meta-value">${getProgress(r.expected_ship_date || r.shipping_date, r.done_date)}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">🏆 Tiêu chuẩn đơn</span>
+                                    <span class="meta-value">${getPriorityBadge(r.shipping_priority)}</span>
+                                </div>
+                                ${delayStr}
+                            </div>
+                        </div>
+
+                        <!-- Khúc 3: Đơn giá & Lương -->
+                        <div class="meta-section">
+                            <div class="meta-grid" style="margin-top:0;">
+                                <div class="meta-item">
+                                    <span class="meta-label">💵 Giá gốc</span>
+                                    <span class="meta-value">${fn(r.base_price)}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">🔍 Giá kiểm tra</span>
+                                    <span class="meta-value highlight">${fn(r.checked_price)}</span>
+                                </div>
+                                <div class="meta-item" style="grid-column: span 2;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 6px; margin-top: 4px;">
+                                        <span class="meta-label" style="margin: 0;">💰 Lương thợ</span>
+                                        <span class="meta-value" style="color:#10b981; font-weight:800; font-size:14px;">${fn(r.salary)}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         ${r.sewing_techniques ? `<div class="sewing-tech-box">✂️ Kỹ thuật: ${r.sewing_techniques}</div>` : ''}
                         ${imgsHtml}
