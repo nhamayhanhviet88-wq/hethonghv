@@ -1502,7 +1502,9 @@
                 } else if (activeTab === '3') {
                     actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>`;
                 } else if (activeTab === '4') {
-                    if (r.done_date) {
+                    if (isUnassigned) {
+                        actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>`;
+                    } else if (r.done_date) {
                         actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 XEM CHI TIẾT</button>
                                          <button class="btn btn-danger" onclick="toggleDone(${r.id}, 'undo_done')">↩️ CHƯA XONG</button>`;
                     } else {
