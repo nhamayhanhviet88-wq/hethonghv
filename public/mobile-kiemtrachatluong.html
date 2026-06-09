@@ -1117,6 +1117,11 @@
 
         // Switch bottom tab
         async function switchTab(tabId) {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             event.currentTarget.classList.add('active');
             activeTab = tabId;
@@ -1141,33 +1146,26 @@
             const searchInput = document.getElementById('searchInput');
             const searchVal = searchInput ? searchInput.value.trim() : '';
 
-            if (searchVal !== '') {
-                // If not on Tab 4, switch to Tab 4
-                if (activeTab !== '4') {
-                    activeTab = '4';
-                    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-                    const tab4Item = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick')?.includes("'4'"));
-                    if (tab4Item) tab4Item.classList.add('active');
-                    
-                    document.getElementById('tab4Filters').style.display = 'flex';
-                }
-
-                // Reset filters to "All" (Tất cả)
-                const filterTeam = document.getElementById('filterTeam');
-                if (filterTeam && filterTeam.value !== '') {
-                    filterTeam.value = '';
-                }
-                const filterTime = document.getElementById('filterTime');
-                if (filterTime && filterTime.value !== 'all') {
-                    filterTime.value = 'all';
-                    document.getElementById('filterCustomDateContainer').style.display = 'none';
-                    document.getElementById('filterCustomMonthContainer').style.display = 'none';
-                }
-            } else {
-                // If search is cleared, restore default filterTime
-                const filterTime = document.getElementById('filterTime');
-                if (filterTime) {
-                    filterTime.value = 'undone_past_today';
+            // TÌM KIẾM TẤT CẢ VÀ TẤT CẢ TỔ CHỈ ÁP DỤNG CHO MỤC KIỂM TRA (TAB 4)
+            if (activeTab === '4') {
+                if (searchVal !== '') {
+                    // Reset filters to "All" (Tất cả)
+                    const filterTeam = document.getElementById('filterTeam');
+                    if (filterTeam && filterTeam.value !== '') {
+                        filterTeam.value = '';
+                    }
+                    const filterTime = document.getElementById('filterTime');
+                    if (filterTime && filterTime.value !== 'all') {
+                        filterTime.value = 'all';
+                        document.getElementById('filterCustomDateContainer').style.display = 'none';
+                        document.getElementById('filterCustomMonthContainer').style.display = 'none';
+                    }
+                } else {
+                    // If search is cleared, restore default filterTime
+                    const filterTime = document.getElementById('filterTime');
+                    if (filterTime) {
+                        filterTime.value = 'undone_past_today';
+                    }
                 }
             }
 
