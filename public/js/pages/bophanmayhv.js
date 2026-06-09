@@ -63,15 +63,15 @@ function renderBophanmayPage(content){
     +'.bpm-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.bpm-ib.on-rpt{background:#ccfbf1;border-color:#14b8a6}.bpm-ib.on-err{background:#fee2e2;border-color:#ef4444}.bpm-ib.on-sal{background:#e0f2fe;border-color:#0ea5e9;color:#0284c7;font-weight:bold}'
     +'.bpm-team-card{transition:all 0.2s ease}.bpm-team-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.05);border-color:#cbd5e1}.bpm-team-card.active{box-shadow:0 4px 12px rgba(13,148,136,0.15)}'
-    +'@media(max-width:768px){.bpm-sb{display:none}}.bpm-progress{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800}@keyframes bpmBlink{0%,100%{opacity:1}50%{opacity:0.4}}';
+    +'@media(max-width:768px){.bpm-sb{display:none}}.bpm-progress{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800}@keyframes bpmBlink{0%,100%{opacity:1}50%{opacity:0.4}}.card-body::-webkit-scrollbar{height:8px}.card-body::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}.card-body::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}.card-body::-webkit-scrollbar-thumb:hover{background:#0d9488}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bpm-wrap"><div class="bpm-sb" id="bpmSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpm-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpmInfo" style="font-size:12px"></div><div id="bpmStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpmSearch" placeholder="🔍 Tìm SP..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800);color:#fff">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">📋</th><th style="text-align:center">💰</th><th style="text-align:center">⚠️</th><th style="text-align:left">NV May</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:center">Tiến Độ</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">SL Thực Tế</th><th style="text-align:center">SL May</th><th style="text-align:right">Giá Gốc</th><th style="text-align:right">Giá KTra</th><th style="text-align:right">Lương Giá KTra</th><th style="text-align:center">Ảnh Kiểm Tra</th><th style="text-align:left">Ngày Bàn Giao</th><th style="text-align:left">Cập Nhật</th>'
-    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th style="text-align:center">STT</th><th style="text-align:center">Thao Tác</th><th style="text-align:left">NV May</th><th style="text-align:left">Ngày Bàn Giao</th><th style="text-align:left">QLX Hẹn Ra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:center">Tiến Độ</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">SL (Đơn / May)</th><th style="text-align:right">Giá (Gốc / KTra)</th><th style="text-align:right">Lương</th><th style="text-align:center">Ảnh KTra</th><th style="text-align:left">Cập Nhật</th>'
+    +'</tr></thead><tbody id="bpmTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
 }
@@ -231,7 +231,7 @@ function _bpmRender(){
     if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.cut_product_name||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bpmTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="18"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var rI=r.is_reported?'📋':'⬜',rC=r.is_reported?' on-rpt':'',rA=r.is_reported?'undo_report':'report';
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
@@ -305,23 +305,29 @@ function _bpmRender(){
         var salTitle = r.salary_approved ? 'Lương đã duyệt (tính theo Giá KTra)' : 'Lương chưa duyệt (tính theo Giá KTra)';
         var salDisplay = _bpmFN(r.salary) + (r.salary_approved ? ' <span style="color:#059669;font-weight:800;font-size:9px">✓</span>' : '');
 
+        var actionsCell = '<div style="display:flex;gap:4px;justify-content:center;align-items:center">'
+        + (r.contractor_id ? '' : '<button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button>')
+        + salaryCell
+        + '<button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button>'
+        + '</div>';
+
+        var slText = '<span style="color:#2563eb;font-weight:700" title="SL Thực Tế">' + (r.order_qty || r.quantity) + '</span> / <span style="color:#0d9488;font-weight:700" title="SL May">' + _bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name) + '</span>';
+
+        var priceText = '<span style="color:#475569" title="Giá Gốc">' + _bpmFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _bpmFN(r.checked_price) + '</span>';
+
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center">'+(r.contractor_id ? '—' : '<button class="bpm-ib'+rC+'" onclick="_bpmShowHandoverModal('+r.id+')" title="Bàn giao">'+rI+'</button>')+'</td>'
-        +'<td style="text-align:center">' + salaryCell + '</td>'
-        +'<td style="text-align:center"><button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button></td>'
+        +'<td style="text-align:center">'+actionsCell+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
+        +'<td style="font-size:10px">'+_bpmFDTFull(r.handover_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle;font-weight:700;font-size:11px;color:#4f46e5;white-space:nowrap">'+_bpmFDDM(r.expected_date)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May Xong</span>')+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_ship_date || r.shipping_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpmDisplayProdName(r)+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#2563eb">'+_bpmFormatOrderQty(r.order_qty || r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#0d9488">'+_bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name)+'</td>'
-        +'<td style="text-align:right;font-size:10px">'+_bpmFN(r.base_price)+'</td>'
-        +'<td style="text-align:right;font-size:10px;color:#dc2626;font-weight:700">'+_bpmFN(r.checked_price)+'</td>'
+        +'<td style="text-align:center;font-size:11px">'+slText+'</td>'
+        +'<td style="text-align:right;font-size:11px">'+priceText+'</td>'
         +'<td style="text-align:right;font-size:10px;'+salStyle+'" title="'+salTitle+'">'+salDisplay+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
-        +'<td style="font-size:10px">'+_bpmFDTFull(r.handover_date)+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
     var el=document.getElementById('bpmInfo');if(el){var parts=['🧵 Bộ Phận May'];if(_bpm.filter.year)parts.push('📆 '+_bpm.filter.year);if(_bpm.filter.status==='incomplete')parts.push('⏳ Chưa May Xong');if(_bpm.filter.month)parts.push('🗓️ T'+_bpm.filter.month);if(_bpm.filter.sewer_id==='none')parts.push('👤 Chưa phân công');
