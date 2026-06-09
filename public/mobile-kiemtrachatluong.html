@@ -641,6 +641,7 @@
         <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
             <p style="font-size:13px; font-weight:700; color:#2dd4bf;" id="ptOrderInfo"></p>
             <p style="font-size:12px; color:#9ca3af; margin-top:3px;" id="ptProductInfo"></p>
+            <p style="font-size:12px; color:#ef4444; font-style:italic; font-weight:700; margin-top:5px;" id="ptNotesInfo"></p>
         </div>
         <div class="form-group">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -666,6 +667,7 @@
         <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
             <p style="font-size:13px; font-weight:700; color:#fbbf24;" id="hlOrderInfo"></p>
             <p style="font-size:12px; color:#9ca3af; margin-top:3px;" id="hlProductInfo"></p>
+            <p style="font-size:12px; color:#ef4444; font-style:italic; font-weight:700; margin-top:5px;" id="hlNotesInfo"></p>
         </div>
         <div class="form-group">
             <label class="form-label">Chọn ngày hẹn mới</label>
@@ -686,6 +688,7 @@
         <div style="margin-bottom:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
             <p style="font-size:13px; font-weight:700; color:#38bdf8;" id="qcOrderInfo"></p>
             <p style="font-size:12px; color:#e5e7eb; margin-top:3px;" id="qcProductInfo"></p>
+            <p style="font-size:12px; color:#ef4444; font-style:italic; font-weight:700; margin-top:5px;" id="qcNotesInfo"></p>
         </div>
         
         <div class="form-group">
@@ -1154,7 +1157,7 @@
                             </div>
                         </div>
 
-                        <!-- Khúc 3: Đơn giá & Lương -->
+                        <!-- Khúc 3: Đơn giá -->
                         <div class="meta-section">
                             <div class="meta-grid" style="margin-top:0;">
                                 <div class="meta-item">
@@ -1165,20 +1168,13 @@
                                     <span class="meta-label">🔍 Giá kiểm tra</span>
                                     <span class="meta-value highlight">${fn(r.checked_price)}</span>
                                 </div>
-                                <div class="meta-item" style="grid-column: span 2;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 6px; margin-top: 4px;">
-                                        <span class="meta-label" style="margin: 0;">💰 Lương thợ</span>
-                                        <span class="meta-value" style="color:#10b981; font-weight:800; font-size:14px;">${fn(r.salary)}</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
-                        ${r.sewing_techniques ? `<div class="sewing-tech-box">✂️ Kỹ thuật: ${r.sewing_techniques}</div>` : ''}
                         ${imgsHtml}
-                        ${r.notes ? `<div style="font-size:11px; color:#9ca3af; margin-top:8px; background:rgba(255,255,255,0.02); padding:6px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-size:11.5px; color:#9ca3af; margin-top:8px; background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; border: 1px solid rgba(239,68,68,0.15); display:flex; justify-content:space-between; align-items:center;">
                             <span>QLX Lưu Ý May:</span>
-                            <span style="color:#ef4444; font-style:italic; font-weight:700;">${r.notes}</span>
-                        </div>` : ''}
+                            <span style="color:#ef4444; font-style:italic; font-weight:700;">${r.notes || '—'}</span>
+                        </div>
                     </div>
                     <div class="card-actions">
                         ${actionButtons}
@@ -1210,6 +1206,7 @@
 
             document.getElementById('ptOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
             document.getElementById('ptProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
+            document.getElementById('ptNotesInfo').textContent = r.notes ? `QLX Lưu Ý May: ${r.notes}` : '';
 
             const container = document.getElementById('splitTeamsContainer');
             container.innerHTML = '';
@@ -1295,6 +1292,7 @@
 
             document.getElementById('hlOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
             document.getElementById('hlProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
+            document.getElementById('hlNotesInfo').textContent = r.notes ? `QLX Lưu Ý May: ${r.notes}` : '';
             
             // Set current date or tomorrow in picker
             const expectedVal = r.expected_date ? r.expected_date.split('T')[0] : '';
@@ -1352,6 +1350,7 @@
             const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
             document.getElementById('qcOrderInfo').textContent = `Đơn: ${r.order_code || ''} — SL: ${r.quantity} — Thợ: ${assignee}`;
             document.getElementById('qcProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
+            document.getElementById('qcNotesInfo').textContent = r.notes ? `QLX Lưu Ý May: ${r.notes}` : '';
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
             document.getElementById('qcNotes').value = r.notes || '';
             
