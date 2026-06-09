@@ -716,6 +716,14 @@
         let currentRecordId = null; // Temp holder for active record ID in modals
         let showDoneToday = false;
 
+        function cleanProdName(r) {
+            if (!r) return 'Sản phẩm';
+            const name = r.cut_product_name || r.product_name || 'Sản phẩm';
+            return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
+                return p1 === '—' ? ' — ' : '';
+            }).trim();
+        }
+
         // Formats
         function fn(n) {
             if (!n && n !== 0) return '—';
@@ -1029,7 +1037,7 @@
                     </div>
                     <div class="card-body">
                         ${urgentBadge}
-                        <div class="product-name">${r.cut_product_name || r.product_name || 'Sản phẩm'}</div>
+                        <div class="product-name">${cleanProdName(r)}</div>
                         <div class="meta-grid">
                             <div class="meta-item">
                                 <span class="meta-label">📦 Số lượng</span>
@@ -1093,7 +1101,7 @@
             if (!r) return;
 
             document.getElementById('ptOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
-            document.getElementById('ptProductInfo').textContent = `Sản phẩm: ${r.cut_product_name || r.product_name || ''}`;
+            document.getElementById('ptProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
 
             const container = document.getElementById('splitTeamsContainer');
             container.innerHTML = '';
@@ -1178,7 +1186,7 @@
             if (!r) return;
 
             document.getElementById('hlOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
-            document.getElementById('hlProductInfo').textContent = `Sản phẩm: ${r.cut_product_name || r.product_name || ''}`;
+            document.getElementById('hlProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
             
             // Set current date or tomorrow in picker
             const expectedVal = r.expected_date ? r.expected_date.split('T')[0] : '';
@@ -1235,7 +1243,7 @@
 
             const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
             document.getElementById('qcOrderInfo').textContent = `Đơn: ${r.order_code || ''} — SL: ${r.quantity} — Thợ: ${assignee}`;
-            document.getElementById('qcProductInfo').textContent = `Sản phẩm: ${r.cut_product_name || r.product_name || ''}`;
+            document.getElementById('qcProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
             document.getElementById('qcNotes').value = r.notes || '';
             

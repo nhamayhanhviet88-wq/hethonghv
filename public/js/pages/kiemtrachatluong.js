@@ -793,7 +793,12 @@ function _ktclRenderTable() {
             priBadge = '<span class="ktcl-badge ktcl-badge-normal">Chuẩn</span>';
         }
         
-        const prodName = r.cut_product_name || r.product_name || '—';
+        let prodName = r.cut_product_name || r.product_name || '—';
+        if (prodName && prodName !== '—') {
+            prodName = prodName.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
+                return p1 === '—' ? ' — ' : '';
+            }).trim();
+        }
         const orderInfoHtml = `
             <div style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
                 ${priBadge}
