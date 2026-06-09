@@ -83,7 +83,7 @@ const nv=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia 
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const rA=r.is_reported?'undo_report':'report',sA=r.salary_approved?'undo_salary':'approve_salary';
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
+return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.cut_product_name||r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Ngày Bàn Giao</span><span class="cv">'+ftFull(r.handover_date)+'</span></div>'
 +'<div class="cr"><span class="cl">📅 QLX Hẹn Ra</span><span class="cv">'+fdDM(r.expected_date)+'</span></div>'
@@ -109,7 +109,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'</div>'}).join('')}
 async function mTog(id,a){try{await api('/api/sewing/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
 function mErr(id){location.href='/donloikhachhang'}
-function mView(id){const r=mr.find(x=>x.id===id);if(r)toast('📄 Phiếu #'+id+': '+(r.product_name||'')+' — SL:'+r.quantity+' — Lương:'+fn(r.salary))}
+function mView(id){const r=mr.find(x=>x.id===id);if(r)toast('📄 Phiếu #'+id+': '+(r.cut_product_name||r.product_name||'')+' — SL:'+r.quantity+' — Lương:'+fn(r.salary))}
 mInit();
 </script>
 </body>
