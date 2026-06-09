@@ -255,7 +255,7 @@ module.exports = async function(fastify) {
         let queryStr = `
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
-                   o.expected_ship_date, o.shipping_date,
+                   o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
                    u_cskh.full_name AS cskh_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                    cc.name AS category_name,

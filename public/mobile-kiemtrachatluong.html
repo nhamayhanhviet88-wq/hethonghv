@@ -8,6 +8,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
     <style>
+        @keyframes sparkleGlow {
+            0% {
+                box-shadow: 0 0 4px rgba(168, 85, 247, 0.4);
+                border-color: rgba(168, 85, 247, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 12px rgba(168, 85, 247, 0.8), 0 0 4px rgba(168, 85, 247, 0.4) inset;
+                border-color: rgba(168, 85, 247, 0.8);
+            }
+            100% {
+                box-shadow: 0 0 4px rgba(168, 85, 247, 0.4);
+                border-color: rgba(168, 85, 247, 0.3);
+            }
+        }
+        .badge-chuan {
+            background: rgba(168, 85, 247, 0.12) !important;
+            color: #d8b4fe !important;
+            border: 1.5px solid rgba(168, 85, 247, 0.5) !important;
+            font-size: 11px;
+            padding: 2.5px 7px;
+            border-radius: 4px;
+            font-weight: 800;
+            display: inline-block;
+            animation: sparkleGlow 2s infinite ease-in-out;
+            text-shadow: 0 0 4px rgba(168, 85, 247, 0.6);
+        }
         * {
             box-sizing: border-box;
             margin: 0;
@@ -832,7 +858,7 @@
             } else if (p === 'GỬI') {
                 return '<span style="background: rgba(2, 132, 199, 0.15); color: #38bdf8; border: 1px solid rgba(2, 132, 199, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✈️ GỬI</span>';
             }
-            return '<span style="background: rgba(100, 116, 139, 0.15); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">CHUẨN</span>';
+            return '<span class="badge-chuan">CHUẨN</span>';
         }
 
         // Formats
@@ -1279,7 +1305,7 @@
                             <div class="meta-grid" style="margin-top:0;">
                                 <div class="meta-item">
                                     <span class="meta-label">${dateLabel}</span>
-                                    <span class="meta-value">${fd(r.expected_date)}</span>
+                                    <span class="meta-value">${fd(r.expected_date)}${((r.shipping_priority || 'CHUẨN').toUpperCase() === 'CHUẨN' && r.standard_delivery_time) ? ' ⏰ ' + r.standard_delivery_time : ''}</span>
                                 </div>
                                 <div class="meta-item">
                                     <span class="meta-label">📅 Hạn trả hàng</span>
