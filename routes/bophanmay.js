@@ -54,6 +54,30 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_sh_sid ON sewing_history(sewing_id)`);
     } catch(e) { console.error('[BPM] history:', e.message); }
 
+    // QC Checklist database tables
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qc_checklist_templates (
+            id SERIAL PRIMARY KEY,
+            type VARCHAR(20) DEFAULT 'yes_no',
+            content TEXT NOT NULL,
+            sort_order INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS qc_checklist_answers (
+            id SERIAL PRIMARY KEY,
+            sewing_record_id INTEGER NOT NULL REFERENCES sewing_records(id) ON DELETE CASCADE,
+            template_id INTEGER NOT NULL REFERENCES qc_checklist_templates(id) ON DELETE CASCADE,
+            answer_value TEXT,
+            answered_by INTEGER REFERENCES users(id),
+            answered_at TIMESTAMPTZ,
+            UNIQUE(sewing_record_id, template_id)
+        )`);
+    } catch(e) {
+        console.error('[QC Checklist Migration] Error:', e.message);
+    }
+
     // Ensure uploads dir
     const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'sewing');
     try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
@@ -636,5 +660,77 @@ module.exports = async function(fastify) {
     // ========== STAFF ==========
     fastify.get('/api/sewing/staff', { preHandler: [authenticate] }, async () => {
         return { staff: await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
+    });
+
+    // ========== QC CHECKLIST TEMPLATES & ANSWERS ==========
+    // 1. GET active templates
+    fastify.get('/api/qc/checklist/templates', { preHandler: [authenticate] }, async (req) => {
+        const templates = await db.all(`SELECT * FROM qc_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        return { templates };
+    });
+
+    // 2. GET all templates for administration
+    fastify.get('/api/qc/checklist/templates/all', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const templates = await db.all(`SELECT t.*, u.full_name AS created_by_name FROM qc_checklist_templates t LEFT JOIN users u ON t.created_by = u.id ORDER BY t.sort_order, t.id`);
+        return { templates };
+    });
+
+    // 3. POST create template
+    fastify.post('/api/qc/checklist/templates', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { type, content, sort_order } = req.body || {};
+        if (!content || !content.trim()) return reply.code(400).send({ error: 'Nội dung không được trống' });
+        const row = await db.get(`INSERT INTO qc_checklist_templates (type, content, sort_order, created_by) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [type || 'yes_no', content.trim(), sort_order || 0, req.user.id]);
+        return { success: true, template: row };
+    });
+
+    // 4. PUT update template
+    fastify.put('/api/qc/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { content, sort_order, is_active, type } = req.body || {};
+        await db.run(`UPDATE qc_checklist_templates SET content = COALESCE($1, content), sort_order = COALESCE($2, sort_order), is_active = COALESCE($3, is_active), type = COALESCE($4, type) WHERE id = $5`,
+            [content, sort_order, is_active, type, req.params.id]);
+        return { success: true };
+    });
+
+    // 5. DELETE template
+    fastify.delete('/api/qc/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        await db.run(`DELETE FROM qc_checklist_answers WHERE template_id = $1`, [req.params.id]);
+        await db.run(`DELETE FROM qc_checklist_templates WHERE id = $1`, [req.params.id]);
+        return { success: true };
+    });
+
+    // 6. GET answers and templates for a sewing record
+    fastify.get('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
+        const sewingRecordId = parseInt(req.params.sewingRecordId);
+        const templates = await db.all(`SELECT * FROM qc_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        const answers = await db.all(`SELECT a.*, u.full_name AS answered_by_name FROM qc_checklist_answers a LEFT JOIN users u ON a.answered_by = u.id WHERE a.sewing_record_id = $1`, [sewingRecordId]);
+        return { templates, answers };
+    });
+
+    // 7. POST submit answers for a sewing record
+    fastify.post('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
+        const sewingRecordId = parseInt(req.params.sewingRecordId);
+        const { answers } = req.body || {};
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        if (Array.isArray(answers)) {
+            for (const ans of answers) {
+                const templateId = parseInt(ans.template_id);
+                const val = ans.answer_value;
+                
+                await db.run(`
+                    INSERT INTO qc_checklist_answers (sewing_record_id, template_id, answer_value, answered_by, answered_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT(sewing_record_id, template_id)
+                    DO UPDATE SET answer_value = EXCLUDED.answer_value, answered_by = EXCLUDED.answered_by, answered_at = EXCLUDED.answered_at
+                `, [sewingRecordId, templateId, val, req.user.id, now]);
+            }
+        }
+        return { success: true };
     });
 };

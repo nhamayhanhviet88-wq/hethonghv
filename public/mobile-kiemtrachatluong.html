@@ -975,6 +975,16 @@
             <input type="number" pattern="[0-9]*" inputmode="numeric" id="qcCheckedPrice" class="form-input" placeholder="Nhập đơn giá kiểm tra..." readonly style="background: rgba(255, 255, 255, 0.05); color: #9ca3af; cursor: not-allowed;">
         </div>
 
+        <!-- QC Checklist Area -->
+        <div class="form-group" id="qcChecklistGroup" style="margin-top:16px; display:none;">
+            <label class="form-label" style="font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+                🔍 Kiểm Tra Chất Lượng (QC) <span style="font-size: 10px; font-weight: normal; color: #ef4444;">(Bắt buộc trả lời tất cả)</span>
+            </label>
+            <div id="qcChecklistContainer" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+                <!-- QC questions will be rendered dynamically here -->
+            </div>
+        </div>
+
         <div class="form-group" style="display:none;">
             <label class="form-label">QLX Lưu Ý May:</label>
             <input type="text" id="qcNotes" class="form-input" placeholder="Nhập lưu ý/ghi chú về lỗi hoặc tiến độ...">
@@ -1778,8 +1788,65 @@
             document.getElementById('qcMissingPriceDetailsGroup').style.display = isChecked ? 'block' : 'none';
         }
 
+        // Load QC Checklist dynamically
+        async function loadQcChecklist(recordId) {
+            const container = document.getElementById('qcChecklistContainer');
+            const group = document.getElementById('qcChecklistGroup');
+            if (!container || !group) return;
+
+            container.innerHTML = '<div style="font-size:12px;color:#9ca3af;">⏳ Đang tải câu hỏi QC...</div>';
+            group.style.display = 'block';
+
+            try {
+                const res = await callApi(`/api/qc/checklist/answers/${recordId}`);
+                const templates = res.templates || [];
+                const answers = res.answers || [];
+
+                if (templates.length === 0) {
+                    group.style.display = 'none';
+                    return;
+                }
+
+                container.innerHTML = '';
+                templates.forEach(q => {
+                    const ans = answers.find(a => a.template_id === q.id);
+                    const val = ans ? ans.answer_value : '';
+
+                    const row = document.createElement('div');
+                    row.className = 'qc-cl-question-row';
+                    row.dataset.id = q.id;
+                    row.dataset.type = q.type;
+                    row.style.cssText = 'display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 10px; margin-top: 10px;';
+                    
+                    if (q.type === 'yes_no') {
+                        const hasYes = val === 'yes';
+                        const hasNo = val === 'no';
+                        row.innerHTML = `
+                            <div style="font-size: 13px; font-weight: 600; color: #f3f4f6; line-height: 1.4;">${q.content} <span style="color: #ef4444;">*</span></div>
+                            <div style="display: flex; gap: 24px; margin-top: 4px;">
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: #cbd5e1; user-select: none;">
+                                    <input type="radio" class="qc-cl-radio" name="qc_question_${q.id}" value="yes" ${hasYes ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: #2dd4bf;"> Có
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: #cbd5e1; user-select: none;">
+                                    <input type="radio" class="qc-cl-radio" name="qc_question_${q.id}" value="no" ${hasNo ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: #f87171;"> Không
+                                </label>
+                            </div>
+                        `;
+                    } else {
+                        row.innerHTML = `
+                            <div style="font-size: 13px; font-weight: 600; color: #f3f4f6; line-height: 1.4;">${q.content} <span style="color: #ef4444;">*</span></div>
+                            <input type="text" class="form-input qc-cl-text-input" value="${val}" placeholder="Nhập câu trả lời..." style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px; border-radius: 8px; padding: 8px 12px; width: 100%; outline: none; box-sizing: border-box;">
+                        `;
+                    }
+                    container.appendChild(row);
+                });
+            } catch(e) {
+                container.innerHTML = `<div style="font-size:12px;color:#f87171;">⚠️ Lỗi tải checklist: ${e.message}</div>`;
+            }
+        }
+
         // Open QC Modal
-        function openQC(recordId) {
+        async function openQC(recordId) {
             currentRecordId = recordId;
             const r = originalRecords.find(x => x.id === recordId);
             if (!r) return;
@@ -1917,6 +1984,9 @@
             
             // Display existing images
             renderQCImagesPreview(r.finish_images);
+
+            // Load QC Checklist
+            await loadQcChecklist(recordId);
 
             openSheet('sheetQC');
         }
@@ -2060,6 +2130,53 @@
             const r = originalRecords.find(x => x.id === currentRecordId);
             const isAlreadyDone = !!(r && r.done_date);
 
+            // Validation: QC Checklist answers are mandatory if NOT missing price
+            const qcRows = document.querySelectorAll('.qc-cl-question-row');
+            const qcAnswers = [];
+            
+            if (!isMissingPrice && qcRows.length > 0) {
+                for (const row of qcRows) {
+                    const qId = Number(row.dataset.id);
+                    const qType = row.dataset.type;
+                    let val = '';
+                    
+                    if (qType === 'yes_no') {
+                        const selectedRadio = row.querySelector(`.qc-cl-radio[name="qc_question_${qId}"]:checked`);
+                        if (!selectedRadio) {
+                            toast('Vui lòng trả lời đầy đủ các câu hỏi QC!', 'error');
+                            return;
+                        }
+                        val = selectedRadio.value;
+                    } else {
+                        const txtInput = row.querySelector('.qc-cl-text-input');
+                        val = txtInput ? txtInput.value.trim() : '';
+                        if (!val) {
+                            toast('Vui lòng nhập đầy đủ câu trả lời cho các câu hỏi QC!', 'error');
+                            if (txtInput) txtInput.focus();
+                            return;
+                        }
+                    }
+                    qcAnswers.push({ template_id: qId, answer_value: val });
+                }
+            } else if (isMissingPrice && qcRows.length > 0) {
+                // If missing price, collect whatever they answered so far (optional)
+                for (const row of qcRows) {
+                    const qId = Number(row.dataset.id);
+                    const qType = row.dataset.type;
+                    let val = '';
+                    if (qType === 'yes_no') {
+                        const selectedRadio = row.querySelector(`.qc-cl-radio[name="qc_question_${qId}"]:checked`);
+                        val = selectedRadio ? selectedRadio.value : '';
+                    } else {
+                        const txtInput = row.querySelector('.qc-cl-text-input');
+                        val = txtInput ? txtInput.value.trim() : '';
+                    }
+                    if (val) {
+                        qcAnswers.push({ template_id: qId, answer_value: val });
+                    }
+                }
+            }
+
             // Validation: Checked price must be > 0 if not already done and NOT missing price
             if (!isAlreadyDone && !isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
                 toast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
@@ -2085,6 +2202,12 @@
 
             try {
                 showLoading(true);
+                
+                // Save QC Checklist Answers
+                if (qcAnswers.length > 0) {
+                    await callApi(`/api/qc/checklist/answers/${currentRecordId}`, 'POST', { answers: qcAnswers });
+                }
+
                 // Save checked_price
                 await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
                     field: 'checked_price',

@@ -427,6 +427,55 @@ function renderKiemtrachatluongPage(content) {
                     grid-template-columns: 1fr !important;
                 }
             }
+            .qlx-cl-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(15,23,42,0.6);
+                backdrop-filter: blur(4px);
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: qlxFadeIn .2s;
+            }
+            @keyframes qlxFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .qlx-cl-popup {
+                background: #fff;
+                border-radius: 16px;
+                width: 520px;
+                max-width: 95vw;
+                max-height: 85vh;
+                overflow-y: auto;
+                box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+                animation: qlxSlideUp .3s;
+            }
+            @keyframes qlxSlideUp {
+                from { transform: translateY(30px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            .qlx-cl-header {
+                background: linear-gradient(135deg, #0f172a, #1e3a5f, #0369a1);
+                color: #fff;
+                padding: 20px 24px;
+                border-radius: 16px 16px 0 0;
+            }
+            .qlx-cl-header h3 {
+                margin: 0;
+                font-size: 16px;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+            }
+            .qlx-cl-header p {
+                margin: 4px 0 0;
+                font-size: 11px;
+                opacity: 0.8;
+            }
         `;
         document.head.appendChild(st);
     }
@@ -442,7 +491,12 @@ function renderKiemtrachatluongPage(content) {
                         <p class="ktcl-subtitle">Xem báo cáo chất lượng, tiến độ may và truy vết lịch sử nghiệp vụ</p>
                     </div>
                 </div>
-                <div class="ktcl-header-right">
+                <div class="ktcl-header-right" style="display:flex; gap:10px;">
+                    ${(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') ? `
+                        <button class="ktcl-btn-secondary" onclick="_ktclChecklistSetup()" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;">
+                            ⚙️ Setup Checklist QC
+                        </button>
+                    ` : ''}
                     <button class="ktcl-btn-secondary" onclick="_ktclToggleSimulator()">
                         📱 Trình Giả Lập Mobile
                     </button>
@@ -1378,3 +1432,70 @@ function _ktclToggleShowDoneToday(checked) {
     _ktclState.showDoneToday = checked;
     _ktclLoadData();
 }
+
+// ========== QC CHECKLIST SETUP (Giám Đốc) ==========
+async function _ktclChecklistSetup() {
+    try {
+        const data = await apiCall('/api/qc/checklist/templates/all');
+        const templates = data.templates || [];
+        let html = '<div style="padding:20px"><h3 style="margin:0 0 16px;color:#0f172a">⚙️ Quản Lý Checklist Kiểm Tra Chất Lượng (QC)</h3>';
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0">';
+        html += '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">➕ Thêm Mới Câu Hỏi/Checklist</div>';
+        html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+        html += '<select id="_qcClNewType" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px"><option value="yes_no">✔️ Câu hỏi (Có/Không)</option><option value="text">📝 Câu hỏi (Văn bản)</option></select>';
+        html += '<input id="_qcClNewContent" placeholder="Nội dung câu hỏi..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
+        html += '<input id="_qcClNewOrder" type="number" value="0" placeholder="TT" style="width:60px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;text-align:center">';
+        html += '<button onclick="_qcClAdd()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Thêm</button>';
+        html += '</div></div>';
+        if (templates.length) {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left">Loại</th><th style="padding:8px;text-align:left">Nội dung</th><th style="padding:8px;text-align:center">TT</th><th style="padding:8px;text-align:center">Trạng thái</th><th style="padding:8px;text-align:center">Thao tác</th></tr></thead><tbody>';
+            templates.forEach(function(t) {
+                const tp = t.type === 'yes_no' ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">✔️ Có/Không</span>' : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📝 Văn bản</span>';
+                const st = t.is_active ? '<span style="color:#059669;font-weight:700">Bật</span>' : '<span style="color:#dc2626;font-weight:700">Tắt</span>';
+                html += `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">${tp}</td><td style="padding:8px;font-weight:600">${t.content}</td><td style="padding:8px;text-align:center">${t.sort_order}</td><td style="padding:8px;text-align:center">${st}</td>`;
+                html += `<td style="padding:8px;text-align:center"><button onclick="_qcClToggleActive(${t.id},${!t.is_active})" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;cursor:pointer;background:#fff;margin-right:4px">${t.is_active ? '🔇 Tắt' : '🔔 Bật'}</button>`;
+                html += `<button onclick="_qcClDelete(${t.id})" style="padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626">🗑️ Xóa</button></td></tr>`;
+            });
+            html += '</tbody></table>';
+        } else { html += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Chưa có câu hỏi nào</div>'; }
+        html += '<div style="padding:16px 20px;border-top:1px solid #e2e8f0;text-align:right"><button onclick="document.getElementById(\'_qcSetupOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button></div>';
+        html += '</div>';
+        
+        let old = document.getElementById('_qcSetupOverlay'); if (old) old.remove();
+        let ov = document.createElement('div');
+        ov.className = 'qlx-cl-overlay'; ov.id = '_qcSetupOverlay';
+        ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="qlx-cl-popup" style="width:700px"><div class="qlx-cl-header"><h3>⚙️ Setup Checklist QC</h3><p>Quản lý câu hỏi kiểm tra chất lượng sản phẩm</p></div>' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _qcClAdd() {
+    const t = document.getElementById('_qcClNewType').value;
+    const c = document.getElementById('_qcClNewContent').value;
+    const s = parseInt(document.getElementById('_qcClNewOrder').value) || 0;
+    if (!c.trim()) return showToast('Nhập nội dung câu hỏi', 'error');
+    try {
+        await apiCall('/api/qc/checklist/templates', 'POST', { type: t, content: c, sort_order: s });
+        showToast('✅ Đã thêm');
+        _ktclChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _qcClToggleActive(id, val) {
+    try {
+        await apiCall('/api/qc/checklist/templates/' + id, 'PUT', { is_active: val });
+        showToast('✅ Cập nhật');
+        _ktclChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _qcClDelete(id) {
+    if (!confirm('Xóa câu hỏi này?')) return;
+    try {
+        await apiCall('/api/qc/checklist/templates/' + id, 'DELETE');
+        showToast('✅ Đã xóa');
+        _ktclChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
