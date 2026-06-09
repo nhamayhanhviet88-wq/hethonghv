@@ -523,7 +523,7 @@ function renderKiemtrachatluongPage(content) {
                                         <th style="text-align: left; white-space: nowrap;">Phân Công Cho</th>
                                         <th style="text-align: center; white-space: nowrap; width: 120px;">Hạn Trả / QLX Hẹn</th>
                                         <th style="text-align: center; white-space: nowrap; width: 100px;">QC / Lương</th>
-                                        <th style="text-align: left; white-space: nowrap; width: 150px;">Ghi Chú & Ảnh QC</th>
+                                        <th style="text-align: left; white-space: nowrap; width: 150px;">QLX Lưu Ý May & Ảnh QC</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ktclTableBody">
@@ -869,9 +869,9 @@ function _ktclRenderTable() {
         
         const notesHtml = `
             <div style="font-size: 11px; max-width: 250px; word-break: break-word;">
-                ${r.notes ? `<div style="color: #334155; margin-bottom: 4px;">📝 <strong>QC:</strong> ${r.notes}</div>` : ''}
+                ${r.notes ? `<div style="color: #334155; margin-bottom: 4px;">📝 <strong>QLX Lưu Ý May:</strong> <span style="color:#ef4444; font-style:italic; font-weight:700;">${r.notes}</span></div>` : ''}
                 ${r.sewing_details ? `<div style="color: #0f766e; font-style: italic;">🧵 <strong>Chi tiết:</strong> ${r.sewing_details}</div>` : ''}
-                ${!r.notes && !r.sewing_details ? '<span style="color:#94a3b8; font-style:italic;">Không có ghi chú</span>' : ''}
+                ${!r.notes && !r.sewing_details ? '<span style="color:#94a3b8; font-style:italic;">Không có lưu ý</span>' : ''}
             </div>
             ${imagesHtml !== '—' ? imagesHtml : ''}
         `;
@@ -1160,8 +1160,8 @@ function _ktclOpenQCModal(recordId) {
                     </div>
                     
                     <div style="margin-bottom:16px;">
-                        <label style="display:block; font-weight:800; margin-bottom:6px; color:#475569;">GHI CHÚ QC</label>
-                        <textarea id="ktclNotesInput" placeholder="Nhập ghi chú kiểm tra chất lượng..." style="width:100%; height:80px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; outline:none; resize:none; box-sizing:border-box;">${r.notes || ''}</textarea>
+                        <label style="display:block; font-weight:800; margin-bottom:6px; color:#475569;">QLX LƯU Ý MAY</label>
+                        <textarea id="ktclNotesInput" placeholder="Nhập lưu ý của QLX cho tổ may..." style="width:100%; height:80px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; outline:none; resize:none; box-sizing:border-box;">${r.notes || ''}</textarea>
                     </div>
                     
                     <div>
