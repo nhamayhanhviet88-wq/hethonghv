@@ -1243,12 +1243,11 @@
 
                 return `<div class="card">
                     <div class="card-header">
-                        <span class="card-code">${r.order_code || '—'}</span>
+                        <span class="card-code">${cleanProdName(r)}</span>
                         <span class="card-client">${r.cskh_name || 'Sale'}</span>
                     </div>
                     <div class="card-body">
                         ${urgentBadge}
-                        <div class="product-name">${cleanProdName(r)}</div>
                         ${r.done_date ? `<div style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
                             <span>✅ Đã xong:</span>
                             <span>${fdt(r.done_date)}</span>
