@@ -1669,15 +1669,6 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<input type="text" value="' + res.cut_qty + ' cái" readonly style="width:100%;padding:8px 12px;border:1.5px solid #bbf7d0;border-radius:8px;font-size:12px;font-weight:700;color:#15803d;background:#f0fdf4;text-align:center;cursor:not-allowed"></div>';
         html += '</div>';
 
-        // Pricing Info Banner
-        var factoryPriceText = res.pricing.factory_price > 0 ? (res.pricing.factory_price.toLocaleString('vi-VN') + 'đ') : '🔴 Chưa thiết lập';
-        var processingPriceText = res.pricing.processing_price > 0 ? (res.pricing.processing_price.toLocaleString('vi-VN') + 'đ') : '🔴 Chưa thiết lập';
-        
-        html += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#475569">';
-        html += '<span>💵 Đơn giá May nhà: <b style="color:#0f172a">' + factoryPriceText + '</b></span>';
-        html += '<span>💵 Đơn giá Gia công: <b style="color:#0f172a">' + processingPriceText + '</b></span>';
-        html += '</div>';
-
         // Sewing techniques table
         var techniques = [];
         try {
