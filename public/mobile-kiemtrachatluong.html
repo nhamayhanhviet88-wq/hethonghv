@@ -1049,11 +1049,11 @@
                             </div>
                             <div class="meta-item">
                                 <span class="meta-label">🧵 Chất liệu</span>
-                                <span class="meta-value" style="color:#fbbf24;">${r.material_name || '—'}</span>
+                                <span class="meta-value" style="color:#fbbf24; line-height: 1.4;">${(r.material_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
                             </div>
                             <div class="meta-item">
                                 <span class="meta-label">🎨 Màu</span>
-                                <span class="meta-value">${r.color_name || '—'}</span>
+                                <span class="meta-value" style="line-height: 1.4;">${(r.color_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
                             </div>
                             <div class="meta-item">
                                 <span class="meta-label">${dateLabel}</span>
