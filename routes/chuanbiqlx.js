@@ -1897,16 +1897,17 @@ module.exports = async function(fastify) {
         `);
 
         // 5. Get pricing from tsam_samples based on pattern_name
-        let pricing = { factory_price: 0, processing_price: 0 };
+        let pricing = { factory_price: 0, processing_price: 0, spec_image: '' };
         if (item.pattern_name) {
             const tsam = await db.get(`
-                SELECT factory_price, processing_price
+                SELECT factory_price, processing_price, spec_image
                 FROM tsam_samples
                 WHERE sample_code = $1 AND is_active = true
             `, [item.pattern_name]);
             if (tsam) {
                 pricing.factory_price = Number(tsam.factory_price) || 0;
                 pricing.processing_price = Number(tsam.processing_price) || 0;
+                pricing.spec_image = tsam.spec_image || '';
             }
         }
 

@@ -1724,6 +1724,24 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '</div>';
         html += '</div>';
 
+        // Thông Số Mẫu Áo Section
+        html += '<div style="margin-bottom:16px;">';
+        html += '<label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">Thông Số Mẫu Áo *</label>';
+        var patternNameValue = res.item.pattern_name || '—';
+        html += '<input type="text" value="' + patternNameValue.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed;margin-bottom:8px">';
+        
+        if (res.pricing && res.pricing.spec_image) {
+            html += '<div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:10px;padding:10px;text-align:center">';
+            html += '<div style="font-size:11px;font-weight:800;color:#0284c7;margin-bottom:6px">📷 Hình Ảnh Thông Số</div>';
+            html += '<img src="' + res.pricing.spec_image + '" style="max-width:100%;max-height:250px;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.1)" onclick="window.open(\'' + res.pricing.spec_image + '\',\'_blank\')" title="Click để xem lớn">';
+            html += '</div>';
+        } else {
+            html += '<div style="background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:10px;padding:12px;text-align:center;font-size:11px;color:#94a3b8">';
+            html += '📷 Chưa cập nhật hình ảnh thông số mẫu áo';
+            html += '</div>';
+        }
+        html += '</div>';
+
         // High priority Info banner card - styled professionally in light mode
         var bannerBg = '#f8fafc';
         var bannerBorder = '#e2e8f0';
