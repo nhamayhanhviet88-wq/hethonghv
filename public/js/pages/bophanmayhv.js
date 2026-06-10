@@ -94,7 +94,7 @@ function renderBophanmayPage(content){
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800);color:#fff">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">Thao Tác</th><th style="text-align:left">NV May</th><th style="text-align:left">Bàn Giao</th><th style="text-align:left">QLX Hẹn</th><th style="text-align:center">Ngày May HT</th><th style="text-align:center">Tiến Độ</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">SL (Đơn / May)</th><th style="text-align:right">Giá (Gốc / KTra)</th><th style="text-align:center">Ngày KTra</th><th style="text-align:center">Ảnh KTra</th><th style="text-align:left">Cập Nhật</th>'
+    +'<th style="text-align:center">STT</th><th style="text-align:center">Thao Tác</th><th style="text-align:left">NV May</th><th style="text-align:left">Bàn Giao</th><th style="text-align:left">QLX Hẹn</th><th style="text-align:center">Ngày KTra</th><th style="text-align:center">Ngày May HT</th><th style="text-align:center">Tiến Độ</th><th style="text-align:left">Tên SP / Phối</th><th style="text-align:left">CSKH</th><th style="text-align:center">SL (Đơn / May)</th><th style="text-align:right">Giá (Gốc / KTra)</th><th style="text-align:center">Ảnh KTra</th><th style="text-align:left">Cập Nhật</th>'
     +'</tr></thead><tbody id="bpmTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bpmSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpm.search=document.getElementById('bpmSearch').value||'';_bpm.page=1;_bpmRender();},300);});
     _bpmLoadAll();
@@ -351,13 +351,13 @@ function _bpmRender(){
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
         +'<td style="font-size:10px">'+(r.handover_date?_bpmFDT(r.handover_date):'—')+'</td>'
         +'<td style="text-align:center;vertical-align:middle;font-weight:700;font-size:11px;color:#4f46e5;white-space:nowrap">'+_bpmFDDM(r.expected_date)+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+qcDateDisplay+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May</span>')+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_ship_date || r.shipping_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpmDisplayProdName(r)+'</a></td>'
         +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-size:11px">'+slText+'</td>'
         +'<td style="text-align:right;font-size:11px">'+priceText+'</td>'
-        +'<td style="text-align:center;vertical-align:middle">'+qcDateDisplay+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     // Stats
