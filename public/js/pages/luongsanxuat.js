@@ -989,7 +989,13 @@ function _lsxRenderTable() {
                     if (noteText.toLowerCase().startsWith('may thiếu:')) {
                         noteText = noteText.substring('may thiếu:'.length).trim();
                     }
-                    parts.push(`<div style="font-size:10px;color:#ef4444;font-weight:600">${noteText}</div>`);
+                    var items = noteText.split(/[,;]/).map(function(item) {
+                        return item.trim();
+                    }).filter(Boolean);
+                    var itemsHtml = items.map(function(item) {
+                        return `<div style="font-size:10px;color:#ef4444;font-weight:600;margin-bottom:2px">${item}</div>`;
+                    }).join('');
+                    parts.push(itemsHtml);
                 }
                 if (hasImages) {
                     var imgHtmls = images.map(function(src) {
