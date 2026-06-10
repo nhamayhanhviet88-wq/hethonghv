@@ -748,7 +748,11 @@ function _lsxRenderTable() {
             if (hasNotes || hasImages) {
                 var parts = [];
                 if (hasNotes) {
-                    parts.push(`<div style="font-size:10px;color:#ef4444;font-weight:600">${r.qc_missing_notes}</div>`);
+                    var noteText = r.qc_missing_notes;
+                    if (noteText.toLowerCase().startsWith('may thiếu:')) {
+                        noteText = noteText.substring('may thiếu:'.length).trim();
+                    }
+                    parts.push(`<div style="font-size:10px;color:#ef4444;font-weight:600">${noteText}</div>`);
                 }
                 if (hasImages) {
                     var imgHtmls = images.map(function(src) {
