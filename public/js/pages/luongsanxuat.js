@@ -521,6 +521,7 @@ function _lsxGetHeaderHTML() {
     }
     
     if (_lsx.filter.dept === 'sewing') {
+        var isContractor = !!_lsx.filter.contractor_id;
         return `
             <tr style="background:var(--gray-800)">
                 <th style="width:50px">STT</th>
@@ -529,13 +530,13 @@ function _lsxGetHeaderHTML() {
                 <th>Tên SP / Phối</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
                 <th style="text-align:right">Giá (Gốc / KTra)</th>
-                <th style="text-align:right">Giá ( CPM/ KTra )</th>
+                ${!isContractor ? '<th style="text-align:right">Giá ( CPM/ KTra )</th>' : ''}
                 <th>May Thiếu</th>
                 <th>Thiếu KT May</th>
                 <th style="text-align:right">Lương Thợ</th>
-                <th style="text-align:right">Lương CPM</th>
+                ${!isContractor ? '<th style="text-align:right">Lương CPM</th>' : ''}
                 <th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn Thợ</th>
-                <th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn CPM</th>
+                ${!isContractor ? '<th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn CPM</th>' : ''}
                 <th style="text-align:center">
                     Kiểm Tra
                     <br>
@@ -665,7 +666,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 15 : 13);
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? (_lsx.filter.contractor_id ? 12 : 15) : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -902,6 +903,7 @@ function _lsxRenderTable() {
             var cumThoCell = `<td style="text-align:right;font-weight:800;color:#d97706;background:#fffbeb">${r.is_approved ? _lsxFN(cumulativeTho[i]) : '—'}</td>`;
             var cumCPMCell = `<td style="text-align:right;font-weight:800;color:#1d4ed8;background:#eff6ff">${r.is_approved ? _lsxFN(cumulativeCPM[i]) : '—'}</td>`;
 
+            var isContractor = !!_lsx.filter.contractor_id;
             return `<tr>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px">${doneDateHtml}</td>`
@@ -909,13 +911,13 @@ function _lsxRenderTable() {
                 + `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodPhieuHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
                 + `<td style="text-align:right;font-size:11px">${priceText}</td>`
-                + `<td style="text-align:right;font-size:11px">${gcPriceHtml}</td>`
+                + (!isContractor ? `<td style="text-align:right;font-size:11px">${gcPriceHtml}</td>` : '')
                 + `<td>${missingHtml}</td>`
                 + `<td style="text-align:center">${thieuKyThuatHtml}</td>`
                 + salCell
-                + cpmSalCell
+                + (!isContractor ? cpmSalCell : '')
                 + cumThoCell
-                + cumCPMCell
+                + (!isContractor ? cumCPMCell : '')
                 + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
