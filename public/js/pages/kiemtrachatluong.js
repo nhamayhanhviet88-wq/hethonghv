@@ -1597,21 +1597,7 @@ function _ktclRecalcTechPrices() {
     if (notesDisplay) notesDisplay.textContent = missingStr;
     if (notesInput) notesInput.value = missingStr;
 
-    const evidenceCard = document.getElementById('ktclQCEvidenceCard');
-    if (evidenceCard) {
-        if (isNotAllTechs) {
-            evidenceCard.style.display = 'block';
-        } else {
-            evidenceCard.style.display = 'none';
-            if (notesInput) notesInput.value = '';
-            if (notesDisplay) notesDisplay.textContent = '';
-            const statusEl = document.getElementById('ktclEvidenceUploadStatus');
-            if (statusEl) statusEl.textContent = 'Chưa chọn ảnh';
-            const container = document.getElementById('ktclQCEvidenceImagesContainer');
-            if (container) container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
-            if (r) r.qc_evidence_images = '[]';
-        }
-    }
+    _ktclUpdateEvidenceGroupVisibility();
 }
 
 // Helper to toggle missing price textarea
@@ -1620,6 +1606,44 @@ function _ktclToggleMissingPriceArea() {
     const group = document.getElementById('ktclMissingPriceDetailsGroup');
     if (checkbox && group) {
         group.style.display = checkbox.checked ? 'block' : 'none';
+    }
+    _ktclUpdateEvidenceGroupVisibility();
+}
+
+function _ktclUpdateEvidenceGroupVisibility() {
+    const isMissingPrice = document.getElementById('ktclMissingPriceCheckbox').checked;
+    const checkboxes = document.querySelectorAll('.ktcl-tech-cb');
+    const checkedIds = [];
+    checkboxes.forEach(cb => {
+        if (cb.checked) checkedIds.push(Number(cb.dataset.id));
+    });
+    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
+
+    const evidenceCard = document.getElementById('ktclQCEvidenceCard');
+    const labelEl = document.querySelector('#ktclQCEvidenceCard .qc-section-title');
+    const titleLabel = document.querySelector('#ktclQCEvidenceCard .form-label');
+
+    if (evidenceCard) {
+        if (isMissingPrice || isNotAllTechs) {
+            evidenceCard.style.display = 'block';
+            if (isMissingPrice) {
+                if (labelEl) labelEl.textContent = '⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU';
+                if (titleLabel) titleLabel.innerHTML = 'Ảnh Thiếu Kỹ Thuật (Bắt buộc) <span style="color:#ef4444;">*</span>';
+            } else {
+                if (labelEl) labelEl.textContent = '⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU';
+                if (titleLabel) titleLabel.innerHTML = 'Ảnh May Thiếu (Chụp Ảnh) <span style="color:#ef4444;">*</span>';
+            }
+        } else {
+            evidenceCard.style.display = 'none';
+            document.getElementById('ktclQCMissingNotes').value = '';
+            document.getElementById('ktclQCMissingNotesDisplay').textContent = '';
+            const statusEl = document.getElementById('ktclEvidenceUploadStatus');
+            if (statusEl) statusEl.textContent = 'Chưa chọn ảnh';
+            const container = document.getElementById('ktclQCEvidenceImagesContainer');
+            if (container) container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
+            const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+            if (r) r.qc_evidence_images = '[]';
+        }
     }
 }
 
@@ -2025,9 +2049,10 @@ async function _ktclOpenQCModal(recordId) {
 
     // Load checklist
     await _ktclLoadQcChecklist(recordId);
+    _ktclUpdateEvidenceGroupVisibility();
 }
 
-function _ktclResizeImage(file, maxW = 1024, maxH = 1024, quality = 0.7) {
+function _ktclResizeImage(file, maxW = 800, maxH = 800, quality = 0.6) {
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -2072,7 +2097,7 @@ async function _ktclUploadQCImages(event) {
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.type.startsWith('image/')) {
-                const resized = await _ktclResizeImage(file, 1024, 1024, 0.7);
+                const resized = await _ktclResizeImage(file, 800, 800, 0.6);
                 fd.append('file', resized);
             } else {
                 fd.append('file', file);
@@ -2160,7 +2185,7 @@ async function _ktclUploadEvidenceImages(event) {
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.type.startsWith('image/')) {
-                const resized = await _ktclResizeImage(file, 1024, 1024, 0.7);
+                const resized = await _ktclResizeImage(file, 800, 800, 0.6);
                 fd.append('file', resized);
             } else {
                 fd.append('file', file);
@@ -2343,6 +2368,16 @@ async function _ktclSubmitQC() {
         }
     }
 
+    if (isMissingPrice) {
+        const evidImagesStr = r ? (r.qc_evidence_images || '[]') : '[]';
+        let evidImagesArr = [];
+        try { evidImagesArr = JSON.parse(evidImagesStr); } catch(e){}
+        if (!evidImagesArr || evidImagesArr.length === 0) {
+            showToast('⚠️ Vui lòng chụp/tải lên "Ảnh Thiếu Kỹ Thuật"!', 'error');
+            return;
+        }
+    }
+
     // Validation: Must provide notes & evidence image if not all techniques checked
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
     if (!isMissingPrice && isNotAllTechs) {
@@ -2391,7 +2426,7 @@ async function _ktclSubmitQC() {
         const evidenceImagesVal = r ? (r.qc_evidence_images || '[]') : '[]';
         await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
             field: 'qc_evidence_images',
-            value: isNotAllTechs ? evidenceImagesVal : '[]'
+            value: (isNotAllTechs || isMissingPrice) ? evidenceImagesVal : '[]'
         });
 
         // Save checked_techniques
