@@ -2406,10 +2406,15 @@ async function _ktclReportError(recordId) {
 }
 
 // Image Viewer Modal
+function _ktclCloseModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
 function _ktclViewFullImage(src, recordId) {
     const modalHtml = `
-        <div class="bpm-modal-overlay show" id="ktclImageOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:40px;">
-            <div style="position:relative; max-width:90vw; max-height:90vh; text-align:center;">
+        <div class="bpm-modal-overlay show" id="ktclImageOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:40px;" onclick="_ktclCloseModal('ktclImageOverlay')">
+            <div style="position:relative; max-width:90vw; max-height:90vh; text-align:center;" onclick="event.stopPropagation()">
                 <img src="${src}" style="max-width:100%; max-height:80vh; object-fit:contain; border-radius:8px; border:3px solid white; box-shadow:0 25px 50px rgba(0,0,0,0.5);">
                 <div style="margin-top:12px; color:white; font-size:13px; font-weight:700;">Ảnh chụp thực tế đơn may #${recordId}</div>
                 <button onclick="_ktclCloseModal('ktclImageOverlay')" style="position:absolute; top:-30px; right:0; background:none; border:none; color:white; font-size:24px; cursor:pointer; font-weight:700;">✕</button>
