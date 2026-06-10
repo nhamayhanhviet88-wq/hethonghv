@@ -1126,10 +1126,20 @@ function _lsxRenderInfo(count) {
 }
 
 async function _lsxToggleAppr(id, dept) {
+    if (dept === 'sewing') {
+        var r = _lsx.records.find(function(x) { return x.id === id && x.dept === dept; });
+        if (r && !r.is_approved && r.notes && r.notes.indexOf('[THIẾU GIÁ CHI TIẾT]') === 0) {
+            if (!confirm('Đơn hàng này đang bị báo "Thiếu Kỹ Thuật May" (lương thợ đang là 0đ hoặc chưa chuẩn).\nBạn có chắc chắn muốn duyệt lương không?')) {
+                await _lsxLoadAll();
+                return;
+            }
+        }
+    }
     try {
         var res = await apiCall(`/api/production-salary/toggle/${dept}/${id}`, 'POST');
         if (res && res.error) {
             showToast(res.error, 'error');
+            await _lsxLoadAll();
             return;
         }
         showToast('Cập nhật trạng thái duyệt thành công');
@@ -1138,6 +1148,7 @@ async function _lsxToggleAppr(id, dept) {
     } catch(e) {
         console.error(e);
         showToast(e.message || 'Lỗi khi cập nhật trạng thái', 'error');
+        await _lsxLoadAll();
     }
 }
 
@@ -1225,8 +1236,19 @@ async function _lsxApproveAllVisible() {
         return;
     }
 
-    if (!confirm('Bạn có chắc chắn muốn duyệt tất cả ' + unapproved.length + ' bản ghi đang hiển thị?')) {
-        return;
+    var flagged = unapproved.filter(function(r) {
+        return r.dept === 'sewing' && r.notes && r.notes.indexOf('[THIẾU GIÁ CHI TIẾT]') === 0;
+    });
+
+    if (flagged.length > 0) {
+        var names = flagged.map(function(f) { return (f.order_code || '') + ' (' + (f.product_name || '') + ')'; }).join(', ');
+        if (!confirm('Trong danh sách duyệt có ' + flagged.length + ' đơn hàng đang bị báo "Thiếu Kỹ Thuật May":\n' + names + '\n\nBạn có chắc chắn vẫn muốn duyệt hàng loạt cả các đơn này không?')) {
+            return;
+        }
+    } else {
+        if (!confirm('Bạn có chắc chắn muốn duyệt tất cả ' + unapproved.length + ' bản ghi đang hiển thị?')) {
+            return;
+        }
     }
 
     try {
@@ -2031,9 +2053,30 @@ function _lsxClearSelection() {
 }
 
 async function _lsxBulkAction(approve) {
-    var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
-    if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
-        return;
+    if (approve) {
+        var flagged = [];
+        _lsx.selectedRecords.forEach(function(sel) {
+            var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === sel.dept; });
+            if (r && r.dept === 'sewing' && !r.is_approved && r.notes && r.notes.indexOf('[THIẾU GIÁ CHI TIẾT]') === 0) {
+                flagged.push(r);
+            }
+        });
+        if (flagged.length > 0) {
+            var names = flagged.map(function(f) { return (f.order_code || '') + ' (' + (f.product_name || '') + ')'; }).join(', ');
+            if (!confirm('Trong danh sách chọn có ' + flagged.length + ' đơn hàng đang bị báo "Thiếu Kỹ Thuật May":\n' + names + '\n\nBạn có chắc chắn vẫn muốn tiếp tục duyệt hàng loạt tất cả không?')) {
+                return;
+            }
+        } else {
+            var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
+            if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
+                return;
+            }
+        }
+    } else {
+        var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
+        if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
+            return;
+        }
     }
     
     var targets = _lsx.selectedRecords.map(function(r) {

@@ -624,21 +624,7 @@ module.exports = async function(fastify) {
         }
 
         if (sewingIds.length > 0) {
-            if (approved) {
-                const flagged = await db.all(`
-                    SELECT sr.id, o.order_code, sr.product_name 
-                    FROM sewing_records sr
-                    LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
-                    WHERE sr.id IN (${sewingIds.join(',')}) 
-                      AND sr.notes LIKE '[THIẾU GIÁ CHI TIẾT]%'
-                `);
-                if (flagged.length > 0) {
-                    const names = flagged.map(f => `${f.order_code || ''} (${f.product_name || ''})`).join(', ');
-                    return reply.code(400).send({ 
-                        error: `Không thể duyệt lương hàng loạt vì có đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May": ${names}. Vui lòng sửa lại đơn giá/kỹ thuật trước khi duyệt!` 
-                    });
-                }
-            }
+
 
             await db.run(`
                 UPDATE sewing_records 
@@ -707,9 +693,7 @@ module.exports = async function(fastify) {
 
         const newApproved = !rec.salary_approved;
         
-        if (newApproved && dept === 'sewing' && rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
-            return reply.code(400).send({ error: 'Chưa thể duyệt lương vì đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May". Vui lòng sửa lại đơn hàng trước khi duyệt!' });
-        }
+
         
         if (dept === 'cutting') {
             await db.run(`
