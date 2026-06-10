@@ -2180,6 +2180,7 @@ async function renderDashboardPage(container) {
 // Key = page id (từ MENU_CONFIG), Value = tên hàm init
 var _PAGE_INIT_REGISTRY = {
     'luong-san-xuat': 'renderLuongSanXuatPage',
+    'luongsanxuat': 'renderLuongSanXuatPage',
     'nhantintimdoitackh': '_poInit',
     'addcmtdoitackh': '_acInit',
     'dangvideo': '_dvInit',
