@@ -950,19 +950,13 @@ function _ktclRenderTable() {
                 </button>
             `;
         } else if (_ktclState.activeTab === '4') {
-            const isDone = !!r.done_date;
             actionsHtml = `
                 <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    🔍 QC & Nghiệm Thu
+                    🔍 Kiểm Tra Chất Lượng (QC)
                 </button>
-                ${isDone ? 
-                    `<button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclToggleDone(${r.id}, 'undo_done')" style="justify-content:center; white-space:nowrap;">
-                        ↩️ Hoàn Tác
-                    </button>` : 
-                    `<button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclToggleDone(${r.id}, 'mark_done')" style="justify-content:center; white-space:nowrap;">
-                        ✅ Xong May
-                    </button>`
-                }
+                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">
+                    ⚠️ Báo Lỗi
+                </button>
             `;
         } else if (_ktclState.activeTab === '5') {
             actionsHtml = `
@@ -1532,11 +1526,15 @@ async function _ktclResolveError(recordId) {
     }
 }
 
-// Report Error Action (Redirects to internal/customer error list page)
-function _ktclReportError(recordId) {
-    if (typeof navigate === 'function') {
-        navigate('don-loi-khach-hang');
-        showToast('📋 Chuyển sang Đơn Lỗi');
+// Report Error Action (Sets error_reported = true)
+async function _ktclReportError(recordId) {
+    if (!confirm('Bạn có chắc chắn muốn BÁO LỖI cho đơn hàng này?')) return;
+    try {
+        await apiCall(`/api/sewing/toggle/${recordId}`, 'POST', { action: 'report_error' });
+        showToast('⚠️ Đã báo lỗi đơn hàng!');
+        await _ktclLoadData();
+    } catch(err) {
+        showToast(err.message || 'Lỗi', 'error');
     }
 }
 
