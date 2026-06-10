@@ -527,7 +527,6 @@ function _lsxGetHeaderHTML() {
                 <th>Ngày May HT</th>
                 <th>NV May</th>
                 <th>Tên SP / Phối</th>
-                <th>CSKH</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
                 <th style="text-align:right">Giá (Gốc / KTra)</th>
                 <th style="text-align:right">GC / KTra</th>
@@ -611,7 +610,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 14 : 13);
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : 13;
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -821,7 +820,6 @@ function _lsxRenderTable() {
                 + `<td style="font-size:10px">${doneDateHtml}</td>`
                 + `<td>${nvMayHtml}</td>`
                 + `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodPhieuHtml}</td>`
-                + `<td>${cskhHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
                 + `<td style="text-align:right;font-size:11px">${priceText}</td>`
                 + `<td style="text-align:right;font-size:11px">${gcPriceHtml}</td>`
