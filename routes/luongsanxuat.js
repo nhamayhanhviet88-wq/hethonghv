@@ -545,12 +545,14 @@ module.exports = async function(fastify) {
             return reply.code(403).send({ error: 'Không có quyền duyệt lương' });
         }
 
-        const { records } = req.body || {}; // array of { id, dept }
+        const { records, approved = true } = req.body || {}; // array of { id, dept }
         if (!Array.isArray(records) || records.length === 0) {
             return { success: true, count: 0 };
         }
 
         const now = vnNow();
+        const action = approved ? 'approve_salary' : 'undo_approve_salary';
+        const details = approved ? '💰 Duyệt lương sản xuất (Hàng loạt)' : '↩️ Hoàn tác duyệt lương sản xuất (Hàng loạt)';
         
         // Group by department to run updates efficiently
         const cuttingIds = [];
@@ -579,21 +581,21 @@ module.exports = async function(fastify) {
                 await db.run(`
                     UPDATE cutting_records 
                     SET 
-                        salary_approved = true, 
-                        salary_approved_at = $1, 
-                        salary_approved_by = $2, 
-                        updated_at = $1 
-                    WHERE order_item_id = $3
-                      AND ((COALESCE(cut_warning, '') LIKE '%Cắt bù%') = (COALESCE($4, '') LIKE '%Cắt bù%'))
-                `, [now, req.user.id, item.order_item_id, item.cut_warning]);
+                        salary_approved = $1, 
+                        salary_approved_at = $2, 
+                        salary_approved_by = $3, 
+                        updated_at = $4 
+                    WHERE order_item_id = $5
+                      AND ((COALESCE(cut_warning, '') LIKE '%Cắt bù%') = (COALESCE($6, '') LIKE '%Cắt bù%'))
+                `, [approved, approved ? now : null, approved ? req.user.id : null, now, item.order_item_id, item.cut_warning]);
             }
 
             // Insert into history
             for (const id of cuttingIds) {
                 await db.run(`
                     INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at)
-                    VALUES ($1, 'approve_salary', '💰 Duyệt lương sản xuất (Hàng loạt)', $2, $3)
-                `, [id, req.user.id, now]);
+                    VALUES ($1, $2, $3, $4, $5)
+                `, [id, action, details, req.user.id, now]);
             }
             updatedCount += cuttingIds.length;
         }
@@ -602,51 +604,53 @@ module.exports = async function(fastify) {
             await db.run(`
                 UPDATE pressing_records 
                 SET 
-                    salary_approved = true, 
-                    salary_approved_at = $1, 
-                    salary_approved_by = $2, 
-                    updated_at = $1 
+                    salary_approved = $1, 
+                    salary_approved_at = $2, 
+                    salary_approved_by = $3, 
+                    updated_at = $4 
                 WHERE id IN (${pressingIds.join(',')})
-            `, [now, req.user.id]);
+            `, [approved, approved ? now : null, approved ? req.user.id : null, now]);
 
             for (const id of pressingIds) {
                 await db.run(`
                     INSERT INTO pressing_history (pressing_id, action, details, performed_by, performed_at)
-                    VALUES ($1, 'approve_salary', '💰 Duyệt lương sản xuất (Hàng loạt)', $2, $3)
-                `, [id, req.user.id, now]);
+                    VALUES ($1, $2, $3, $4, $5)
+                `, [id, action, details, req.user.id, now]);
             }
             updatedCount += pressingIds.length;
         }
 
         if (sewingIds.length > 0) {
-            const flagged = await db.all(`
-                SELECT id, order_code, product_name 
-                FROM sewing_records 
-                WHERE id IN (${sewingIds.join(',')}) 
-                  AND notes LIKE '[THIẾU GIÁ CHI TIẾT]%'
-            `);
-            if (flagged.length > 0) {
-                const names = flagged.map(f => `${f.order_code || ''} (${f.product_name || ''})`).join(', ');
-                return reply.code(400).send({ 
-                    error: `Không thể duyệt lương hàng loạt vì có đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May": ${names}. Vui lòng sửa lại đơn giá/kỹ thuật trước khi duyệt!` 
-                });
+            if (approved) {
+                const flagged = await db.all(`
+                    SELECT id, order_code, product_name 
+                    FROM sewing_records 
+                    WHERE id IN (${sewingIds.join(',')}) 
+                      AND notes LIKE '[THIẾU GIÁ CHI TIẾT]%'
+                `);
+                if (flagged.length > 0) {
+                    const names = flagged.map(f => `${f.order_code || ''} (${f.product_name || ''})`).join(', ');
+                    return reply.code(400).send({ 
+                        error: `Không thể duyệt lương hàng loạt vì có đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May": ${names}. Vui lòng sửa lại đơn giá/kỹ thuật trước khi duyệt!` 
+                    });
+                }
             }
 
             await db.run(`
                 UPDATE sewing_records 
                 SET 
-                    salary_approved = true, 
-                    salary_approved_at = $1, 
-                    salary_approved_by = $2, 
-                    updated_at = $1 
+                    salary_approved = $1, 
+                    salary_approved_at = $2, 
+                    salary_approved_by = $3, 
+                    updated_at = $4 
                 WHERE id IN (${sewingIds.join(',')})
-            `, [now, req.user.id]);
+            `, [approved, approved ? now : null, approved ? req.user.id : null, now]);
 
             for (const id of sewingIds) {
                 await db.run(`
                     INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
-                    VALUES ($1, 'approve_salary', '💰 Duyệt lương sản xuất (Hàng loạt)', $2, $3)
-                `, [id, req.user.id, now]);
+                    VALUES ($1, $2, $3, $4, $5)
+                `, [id, action, details, req.user.id, now]);
             }
             updatedCount += sewingIds.length;
         }

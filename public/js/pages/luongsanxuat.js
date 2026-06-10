@@ -11,7 +11,9 @@ var _lsx = {
         status: '' // '', 'approved', 'pending'
     },
     search: '',
-    is_manager: false
+    is_manager: false,
+    selectedRecords: [],
+    lastSelectedIndex: undefined
 };
 var _lsxOpen = {};
 
@@ -84,6 +86,74 @@ function renderLuongSanXuatPage(content) {
             .bpc-detail-section-title{font-size:11px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
             .bpe-detail-thumb{width:80px;height:80px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;transition:transform .2s,border-color .2s}
             .bpe-detail-thumb:hover{transform:scale(1.05);border-color:#6366f1}
+
+            .lsx-row-selected {
+                background-color: #f0fdf4 !important;
+                border-left: 4px solid #10b981 !important;
+            }
+            .lsx-row-selected td {
+                font-weight: 800 !important;
+            }
+            .lsx-floating-bar {
+                position: fixed;
+                bottom: 24px;
+                left: 50%;
+                transform: translateX(-50%) translateY(120px);
+                background: rgba(15, 23, 42, 0.95);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                color: #fff;
+                padding: 12px 24px;
+                border-radius: 50px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .lsx-floating-bar.show {
+                transform: translateX(-50%) translateY(0);
+            }
+            .lsx-floating-btn {
+                padding: 6px 16px;
+                border: none;
+                border-radius: 30px;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .lsx-floating-btn.approve {
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: #fff;
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            }
+            .lsx-floating-btn.approve:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+            }
+            .lsx-floating-btn.unapprove {
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+                color: #fff;
+                box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+            }
+            .lsx-floating-btn.unapprove:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+            }
+            .lsx-floating-btn.cancel {
+                background: transparent;
+                border: 1px solid rgba(255, 255, 255, 0.4);
+                color: rgba(255, 255, 255, 0.8);
+            }
+            .lsx-floating-btn.cancel:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+            }
         `;
         document.head.appendChild(st);
     }
@@ -168,6 +238,9 @@ function renderLuongSanXuatPage(content) {
     document.getElementById('lsxSearch').addEventListener('input', function() {
         clearTimeout(_t);
         _t = setTimeout(function() {
+            _lsx.selectedRecords = [];
+            _lsx.lastSelectedIndex = undefined;
+            _lsxUpdateFloatingBar();
             _lsx.search = document.getElementById('lsxSearch').value || '';
             _lsxRenderTable();
         }, 300);
@@ -369,6 +442,9 @@ function _lsxChangeMonth(val) {
 }
 
 async function _lsxLoadRecs() {
+    _lsx.selectedRecords = [];
+    _lsx.lastSelectedIndex = undefined;
+    _lsxUpdateFloatingBar();
     _lsxEnforceRestrictedFilter();
     var f = _lsx.filter;
     
@@ -490,8 +566,17 @@ function _lsxGetTeamStyle(id) {
 }
 
 function _lsxGetHeaderHTML() {
-    var showApproveAll = _lsx.is_manager && _lsx.records.some(function(r) { return !r.is_approved; });
-    var btnStyle = showApproveAll ? 'inline-block' : 'none';
+    var masterCheckHtml = '';
+    if (_lsx.is_manager) {
+        masterCheckHtml = `
+            <div style="margin-top:4px; display:flex; flex-direction:column; align-items:center; gap:2px; user-select:none; white-space:nowrap;">
+                <input type="checkbox" id="lsxMasterCheck" onclick="event.stopPropagation(); _lsxToggleSelectAll(this)" style="transform: scale(1.25); cursor: pointer;">
+                <span id="lsxMasterCheckText" onclick="var mc=document.getElementById('lsxMasterCheck'); if(mc){mc.checked=!mc.checked; _lsxToggleSelectAll(mc);}" style="font-size: 10px; color: #fff; font-weight: bold; cursor: pointer; display: block; margin-top: 2px;">Chọn tất cả</span>
+            </div>
+        `;
+    } else {
+        masterCheckHtml = 'Kiểm Tra';
+    }
     
     if (_lsx.filter.dept === 'pressing') {
         var posHeaders = (window._bpePositions || []).map(function(pos) {
@@ -510,10 +595,8 @@ function _lsxGetHeaderHTML() {
                 ${posHeaders}
                 <th style="text-align:right">Lương NV</th>
                 <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
-                <th style="text-align:center">
-                    Kiểm Tra
-                    <br>
-                    <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+                <th style="text-align:center; min-width: 90px; vertical-align: middle;">
+                    ${masterCheckHtml}
                 </th>
                 <th>Cập Nhật</th>
             </tr>
@@ -534,10 +617,8 @@ function _lsxGetHeaderHTML() {
                 <th style="text-align:right">Đơn Giá (đ)</th>
                 <th style="text-align:right">Lương NV</th>
                 <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
-                <th style="text-align:center">
-                    Kiểm Tra
-                    <br>
-                    <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+                <th style="text-align:center; min-width: 90px; vertical-align: middle;">
+                    ${masterCheckHtml}
                 </th>
                 <th>Lịch Sử Cập Nhật</th>
             </tr>
@@ -561,10 +642,8 @@ function _lsxGetHeaderHTML() {
                 ${!isContractor ? '<th style="text-align:right">Lương CPM</th>' : ''}
                 <th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn Thợ</th>
                 ${!isContractor ? '<th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn CPM</th>' : ''}
-                <th style="text-align:center">
-                    Kiểm Tra
-                    <br>
-                    <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+                <th style="text-align:center; min-width: 90px; vertical-align: middle;">
+                    ${masterCheckHtml}
                 </th>
                 <th>Lịch Sử CN</th>
             </tr>
@@ -583,10 +662,8 @@ function _lsxGetHeaderHTML() {
             <th>Tên Sản Phẩm</th>
             <th style="text-align:right">Đơn Giá (đ)</th>
             <th style="text-align:right">Thành Tiền (đ)</th>
-            <th style="text-align:center">
-                Kiểm Tra
-                <br>
-                <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+            <th style="text-align:center; min-width: 90px; vertical-align: middle;">
+                ${masterCheckHtml}
             </th>
             <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
             <th>Lịch Sử Cập Nhật</th>
@@ -734,6 +811,22 @@ function _lsxRenderTable() {
         var checkCls = isAppr ? 'lsx-ib on-approved' : 'lsx-ib';
         var checkAction = _lsx.is_manager ? `onclick="_lsxToggleAppr(${r.id}, '${r.dept}')"` : 'disabled';
 
+        var isSel = _lsx.is_manager && _lsx.selectedRecords && _lsx.selectedRecords.some(function(sel) { return sel.id === r.id && sel.dept === r.dept; });
+        var trClass = isSel ? ' class="lsx-row-selected"' : '';
+        var trAttrs = `data-row-id="${r.id}" data-row-dept="${r.dept}" data-row-index="${i}" onclick="_lsxOnRowClick(this, event)" style="cursor: pointer;"`;
+
+        var checkCellContent = '';
+        if (_lsx.is_manager) {
+            checkCellContent = `
+                <div style="display:inline-flex; align-items:center; gap:8px;" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="lsx-row-check" data-id="${r.id}" data-dept="${r.dept}" data-approved="${isAppr}" ${isSel ? 'checked' : ''} style="transform: scale(1.25); cursor: pointer;" onclick="event.stopPropagation(); _lsxOnRowCheckClick(this, event)">
+                    <button class="${checkCls}" ${checkAction} title="Duyệt lương" style="vertical-align: middle; padding: 2px 4px; font-size: 11px;">${checkIcon}</button>
+                </div>
+            `;
+        } else {
+            checkCellContent = `<button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button>`;
+        }
+
         var lastUpd = '—';
         if (r.last_update_at) {
             var timeStr = '';
@@ -777,7 +870,7 @@ function _lsxRenderTable() {
         var cutColor = isPhoi ? '#2dd4bf' : '#0d9488';
 
         if (_lsx.filter.dept === 'pressing') {
-            return `<tr>`
+            return `<tr${trClass} ${trAttrs}>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
                 + `<td>${deptBadge}</td>`
@@ -796,7 +889,7 @@ function _lsxRenderTable() {
                 }).join('')
                 + `<td style="text-align:right;font-weight:700;color:#f59e0b">${r.is_approved ? _lsxFN(r.salary) : '—'}</td>`
                 + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${r.is_approved ? _lsxFN(cumulative[i]) : '—'}</td>`
-                + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
+                + `<td style="text-align:center">${checkCellContent}</td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
@@ -930,7 +1023,7 @@ function _lsxRenderTable() {
             var cumCPMCell = `<td style="text-align:right;font-weight:800;color:#1d4ed8;background:#eff6ff">${r.is_approved ? _lsxFN(cumulativeCPM[i]) : '—'}</td>`;
 
             var isContractor = !!_lsx.filter.contractor_id;
-            return `<tr>`
+            return `<tr${trClass} ${trAttrs}>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px;text-align:center;color:#94a3b8">—</td>`
                 + `<td>${nvMayHtml}</td>`
@@ -944,13 +1037,13 @@ function _lsxRenderTable() {
                 + (!isContractor ? cpmSalCell : '')
                 + cumThoCell
                 + (!isContractor ? cumCPMCell : '')
-                + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
+                + `<td style="text-align:center">${checkCellContent}</td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
 
         if (_lsx.filter.dept === 'cutting') {
-            return `<tr>`
+            return `<tr${trClass} ${trAttrs}>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
                 + `<td>${deptBadge}</td>`
@@ -962,7 +1055,7 @@ function _lsxRenderTable() {
                 + priceCell
                 + `<td style="text-align:right;font-weight:700;color:#f59e0b">${r.is_approved ? _lsxFN(r.salary) : '—'}</td>`
                 + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${r.is_approved ? _lsxFN(cumulative[i]) : '—'}</td>`
-                + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
+                + `<td style="text-align:center">${checkCellContent}</td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
@@ -972,7 +1065,7 @@ function _lsxRenderTable() {
             prodCell = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenPressingDetail(${r.id})">${displayName}</span>`;
         }
 
-        return `<tr>`
+        return `<tr${trClass} ${trAttrs}>`
             + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
             + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
             + `<td>${deptBadge}</td>`
@@ -983,17 +1076,15 @@ function _lsxRenderTable() {
             + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodCell}</td>`
             + priceCell
             + salCell
-            + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
+            + `<td style="text-align:center">${checkCellContent}</td>`
             + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${r.is_approved ? _lsxFN(cumulative[i]) : '—'}</td>`
             + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
             + `</tr>`;
     }).join('');
 
-    // Show/hide bulk approve button
-    var showApproveAll = _lsx.is_manager && all.some(function(r) { return !r.is_approved; });
-    var btnApproveAll = document.getElementById('lsxBtnApproveAll');
-    if (btnApproveAll) {
-        btnApproveAll.style.display = showApproveAll ? 'inline-block' : 'none';
+    if (_lsx.is_manager) {
+        _lsxUpdateMasterCheckboxState();
+        _lsxUpdateFloatingBar();
     }
 
     _lsxRenderInfo(all.length);
@@ -1596,18 +1687,313 @@ function _lsxGetPrintStatusHtml(r) {
     if (types.indexOf('IN PET') >= 0) {
         if (pending.indexOf('IN PET') >= 0) {
             badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Pet</span>');
-        } else {
-            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Pet</span>');
-        }
-    }
-    
-    if (types.indexOf('IN DECAL') >= 0) {
-        if (pending.indexOf('IN DECAL') >= 0) {
-            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Decal</span>');
-        } else {
-            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Decal</span>');
-        }
-    }
-    
     return badges.join('');
+}
+
+// ========== BATCH SELECTION & APPROVAL HELPERS ==========
+
+function _lsxOnRowClick(rowEl, event) {
+    if (!_lsx.is_manager) return;
+    
+    // Do not trigger selection when clicking on interactive children
+    var tag = event.target.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'button' || tag === 'a' || tag === 'img' || (tag === 'span' && event.target.onclick)) {
+        return;
+    }
+    if (event.target.closest('button') || event.target.closest('input') || event.target.closest('a') || event.target.closest('img') || (event.target.closest('span') && event.target.closest('span').onclick)) {
+        return;
+    }
+    
+    var chk = rowEl.querySelector('.lsx-row-check');
+    if (chk) {
+        chk.checked = !chk.checked;
+        _lsxOnRowCheckClick(chk, event);
+    }
+}
+
+function _lsxOnRowCheckClick(chk, event) {
+    if (!_lsx.is_manager) return;
+    
+    var id = Number(chk.getAttribute('data-id'));
+    var dept = chk.getAttribute('data-dept');
+    var approved = chk.getAttribute('data-approved') === 'true';
+    
+    // Find index of this item in the currently visible records
+    var allVisible = _lsx.records.slice();
+    if (_lsx.search) {
+        var q = _lsx.search.toLowerCase();
+        allVisible = allVisible.filter(function(r) {
+            return (r.product_name || '').toLowerCase().indexOf(q) >= 0 
+                || (r.order_code || '').toLowerCase().indexOf(q) >= 0
+                || (r.worker_name || '').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+    
+    var currentIndex = -1;
+    for (var idx = 0; idx < allVisible.length; idx++) {
+        if (allVisible[idx].id === id && allVisible[idx].dept === dept) {
+            currentIndex = idx;
+            break;
+        }
+    }
+    
+    // Range select with Shift key
+    if (event && event.shiftKey && _lsx.lastSelectedIndex !== undefined && currentIndex !== -1) {
+        var start = Math.min(_lsx.lastSelectedIndex, currentIndex);
+        var end = Math.max(_lsx.lastSelectedIndex, currentIndex);
+        
+        var shouldSelect = chk.checked;
+        
+        for (var idx = start; idx <= end; idx++) {
+            var item = allVisible[idx];
+            var chkEl = document.querySelector(`.lsx-row-check[data-id="${item.id}"][data-dept="${item.dept}"]`);
+            if (chkEl) chkEl.checked = shouldSelect;
+            
+            _lsxUpdateSelectionState(item.id, item.dept, item.is_approved, shouldSelect);
+        }
+    } else {
+        _lsxUpdateSelectionState(id, dept, approved, chk.checked);
+        if (chk.checked) {
+            _lsx.lastSelectedIndex = currentIndex;
+        } else {
+            _lsx.lastSelectedIndex = undefined;
+        }
+    }
+    
+    // Update visual row highlighting
+    var rows = document.querySelectorAll('#lsxTb tr');
+    rows.forEach(function(row) {
+        var rId = Number(row.getAttribute('data-row-id'));
+        var rDept = row.getAttribute('data-row-dept');
+        if (rId && rDept) {
+            var isSel = _lsx.selectedRecords.some(function(sel) { return sel.id === rId && sel.dept === rDept; });
+            if (isSel) {
+                row.classList.add('lsx-row-selected');
+            } else {
+                row.classList.remove('lsx-row-selected');
+            }
+        }
+    });
+    
+    _lsxUpdateMasterCheckboxState();
+    _lsxUpdateFloatingBar();
+}
+
+function _lsxUpdateSelectionState(id, dept, is_approved, isSelected) {
+    if (isSelected) {
+        // Add if not already present
+        var exists = _lsx.selectedRecords.some(function(sel) { return sel.id === id && sel.dept === dept; });
+        if (!exists) {
+            _lsx.selectedRecords.push({ id: id, dept: dept, is_approved: is_approved });
+        }
+    } else {
+        // Remove if present
+        _lsx.selectedRecords = _lsx.selectedRecords.filter(function(sel) {
+            return !(sel.id === id && sel.dept === dept);
+        });
+    }
+}
+
+function _lsxToggleSelectAll(masterChk) {
+    if (!_lsx.is_manager) return;
+    
+    var allVisible = _lsx.records.slice();
+    if (_lsx.search) {
+        var q = _lsx.search.toLowerCase();
+        allVisible = allVisible.filter(function(r) {
+            return (r.product_name || '').toLowerCase().indexOf(q) >= 0 
+                || (r.order_code || '').toLowerCase().indexOf(q) >= 0
+                || (r.worker_name || '').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+    
+    var shouldSelect = masterChk.checked;
+    
+    // Update label text
+    var labelEl = document.getElementById('lsxMasterCheckText');
+    if (labelEl) {
+        labelEl.textContent = shouldSelect ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
+    }
+    
+    allVisible.forEach(function(item) {
+        var chkEl = document.querySelector(`.lsx-row-check[data-id="${item.id}"][data-dept="${item.dept}"]`);
+        if (chkEl) chkEl.checked = shouldSelect;
+        
+        _lsxUpdateSelectionState(item.id, item.dept, item.is_approved, shouldSelect);
+    });
+    
+    // Update visual row highlighting
+    var rows = document.querySelectorAll('#lsxTb tr');
+    rows.forEach(function(row) {
+        var rId = Number(row.getAttribute('data-row-id'));
+        var rDept = row.getAttribute('data-row-dept');
+        if (rId && rDept) {
+            var isSel = _lsx.selectedRecords.some(function(sel) { return sel.id === rId && sel.dept === rDept; });
+            if (isSel) {
+                row.classList.add('lsx-row-selected');
+            } else {
+                row.classList.remove('lsx-row-selected');
+            }
+        }
+    });
+    
+    if (!shouldSelect) {
+        _lsx.lastSelectedIndex = undefined;
+    }
+    
+    _lsxUpdateFloatingBar();
+}
+
+function _lsxUpdateMasterCheckboxState() {
+    var masterChk = document.getElementById('lsxMasterCheck');
+    var labelEl = document.getElementById('lsxMasterCheckText');
+    if (!masterChk) return;
+    
+    var allVisible = _lsx.records.slice();
+    if (_lsx.search) {
+        var q = _lsx.search.toLowerCase();
+        allVisible = allVisible.filter(function(r) {
+            return (r.product_name || '').toLowerCase().indexOf(q) >= 0 
+                || (r.order_code || '').toLowerCase().indexOf(q) >= 0
+                || (r.worker_name || '').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+    
+    if (allVisible.length === 0) {
+        masterChk.checked = false;
+        masterChk.indeterminate = false;
+        if (labelEl) labelEl.textContent = 'Chọn tất cả';
+        return;
+    }
+    
+    var selectedCount = 0;
+    allVisible.forEach(function(item) {
+        var isSel = _lsx.selectedRecords.some(function(sel) { return sel.id === item.id && sel.dept === item.dept; });
+        if (isSel) selectedCount++;
+    });
+    
+    if (selectedCount === 0) {
+        masterChk.checked = false;
+        masterChk.indeterminate = false;
+        if (labelEl) labelEl.textContent = 'Chọn tất cả';
+    } else if (selectedCount === allVisible.length) {
+        masterChk.checked = true;
+        masterChk.indeterminate = false;
+        if (labelEl) labelEl.textContent = 'Bỏ chọn tất cả';
+    } else {
+        masterChk.checked = false;
+        masterChk.indeterminate = true;
+        if (labelEl) labelEl.textContent = 'Chọn tất cả';
+    }
+}
+
+function _lsxUpdateFloatingBar() {
+    var bar = document.getElementById('lsxFloatingBar');
+    
+    if (!_lsx.selectedRecords || _lsx.selectedRecords.length === 0) {
+        if (bar) {
+            bar.classList.remove('show');
+            setTimeout(function() {
+                if (bar && (!_lsx.selectedRecords || _lsx.selectedRecords.length === 0)) {
+                    bar.remove();
+                }
+            }, 300);
+        }
+        return;
+    }
+    
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'lsxFloatingBar';
+        bar.className = 'lsx-floating-bar';
+        document.body.appendChild(bar);
+    }
+    
+    var count = _lsx.selectedRecords.length;
+    var hasPending = _lsx.selectedRecords.some(function(r) { return !r.is_approved; });
+    var hasApproved = _lsx.selectedRecords.some(function(r) { return r.is_approved; });
+    
+    var approveBtnHtml = '';
+    if (hasPending) {
+        approveBtnHtml = `
+            <button class="lsx-floating-btn approve" onclick="_lsxBulkAction(true)">
+                <span>💰</span> Duyệt ${count} dòng
+            </button>
+        `;
+    }
+    
+    var unapproveBtnHtml = '';
+    if (hasApproved) {
+        unapproveBtnHtml = `
+            <button class="lsx-floating-btn unapprove" onclick="_lsxBulkAction(false)">
+                <span>↩️</span> Hủy duyệt ${count} dòng
+            </button>
+        `;
+    }
+    
+    bar.innerHTML = `
+        <span style="font-size: 13px; font-weight: 700; color: #fff;">Đã chọn ${count} bản ghi</span>
+        ${approveBtnHtml}
+        ${unapproveBtnHtml}
+        <button class="lsx-floating-btn cancel" onclick="_lsxClearSelection()">Bỏ chọn</button>
+    `;
+    
+    // Force DOM reflow to trigger CSS entry transition
+    bar.offsetHeight;
+    bar.classList.add('show');
+}
+
+function _lsxClearSelection() {
+    _lsx.selectedRecords = [];
+    _lsx.lastSelectedIndex = undefined;
+    
+    // Uncheck all row checkboxes
+    var checkElList = document.querySelectorAll('.lsx-row-check');
+    checkElList.forEach(function(chk) {
+        chk.checked = false;
+    });
+    
+    // Remove selected highlighting from all rows
+    var rows = document.querySelectorAll('#lsxTb tr');
+    rows.forEach(function(row) {
+        row.classList.remove('lsx-row-selected');
+    });
+    
+    _lsxUpdateMasterCheckboxState();
+    _lsxUpdateFloatingBar();
+}
+
+async function _lsxBulkAction(approve) {
+    var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
+    if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
+        return;
+    }
+    
+    var targets = _lsx.selectedRecords.map(function(r) {
+        return { id: r.id, dept: r.dept };
+    });
+    
+    try {
+        showToast('Đang xử lý...', 'info');
+        var res = await apiCall('/api/production-salary/approve-bulk', {
+            method: 'POST',
+            body: JSON.stringify({
+                records: targets,
+                approved: approve
+            })
+        });
+        
+        if (res.success || res.count !== undefined) {
+            showToast(`${approve ? 'Duyệt' : 'Hủy duyệt'} thành công!`, 'success');
+            _lsx.selectedRecords = [];
+            _lsx.lastSelectedIndex = undefined;
+            _lsxUpdateFloatingBar();
+            await _lsxLoadAll();
+        } else {
+            showToast(res.error || 'Có lỗi xảy ra', 'error');
+        }
+    } catch (e) {
+        console.error('[LSX Bulk]', e);
+        showToast(e.message || 'Không thể thực hiện thao tác hàng loạt', 'error');
+    }
 }
