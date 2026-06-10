@@ -2004,17 +2004,58 @@ async function _ktclOpenQCModal(recordId) {
     await _ktclLoadQcChecklist(recordId);
 }
 
+function _ktclResizeImage(file, maxW = 1024, maxH = 1024, quality = 0.7) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const img = new Image();
+            img.onload = function () {
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > maxW) {
+                        height = Math.round((height * maxW) / width);
+                        width = maxW;
+                    }
+                } else {
+                    if (height > maxH) {
+                        width = Math.round((width * maxH) / height);
+                        height = maxH;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                }, 'image/jpeg', quality);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function _ktclUploadQCImages(event) {
     const files = event.target.files;
     if (!files.length) return;
     
-    const fd = new FormData();
-    for (let i = 0; i < files.length; i++) {
-        fd.append('file', files[i]);
-    }
-    
     const statusEl = document.getElementById('ktclUploadStatus');
     try {
+        if (statusEl) statusEl.textContent = 'Đang xử lý ảnh...';
+        const fd = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                const resized = await _ktclResizeImage(file, 1024, 1024, 0.7);
+                fd.append('file', resized);
+            } else {
+                fd.append('file', file);
+            }
+        }
+        
         if (statusEl) statusEl.textContent = 'Đang tải lên...';
         
         const res = await fetch(`/api/sewing/records/${_ktclState.currentRecordId}/images`, {
@@ -2089,13 +2130,20 @@ async function _ktclUploadEvidenceImages(event) {
     const files = event.target.files;
     if (!files.length) return;
     
-    const fd = new FormData();
-    for (let i = 0; i < files.length; i++) {
-        fd.append('file', files[i]);
-    }
-    
     const statusEl = document.getElementById('ktclEvidenceUploadStatus');
     try {
+        if (statusEl) statusEl.textContent = 'Đang xử lý ảnh...';
+        const fd = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                const resized = await _ktclResizeImage(file, 1024, 1024, 0.7);
+                fd.append('file', resized);
+            } else {
+                fd.append('file', file);
+            }
+        }
+        
         if (statusEl) statusEl.textContent = 'Đang tải lên...';
         
         const res = await fetch(`/api/sewing/records/${_ktclState.currentRecordId}/evidence-images`, {
