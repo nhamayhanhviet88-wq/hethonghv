@@ -995,7 +995,6 @@
         <div class="form-group">
             <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
             <input type="number" pattern="[0-9]*" inputmode="numeric" id="qcCheckedPrice" class="form-input" placeholder="Nhập đơn giá kiểm tra..." readonly style="background: rgba(255, 255, 255, 0.05); color: #9ca3af; cursor: not-allowed;">
-            <p id="qcValidationWarning" style="display:none; color:#f87171; font-size:12px; font-weight:700; margin-top:6px; margin-bottom:0; line-height:1.4;"></p>
         </div>
 
         <!-- QC Checklist Area -->
@@ -2085,7 +2084,7 @@
             }
 
             // Show validation warning dynamically
-            const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+            const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
             const evidenceGroup = document.getElementById('qcMissingEvidenceGroup');
             if (evidenceGroup) {
                 if (isNotAllTechs) {
@@ -2096,25 +2095,6 @@
                     document.getElementById('evidenceUploadStatus').textContent = 'Chưa chọn ảnh';
                     renderQCEvidenceImagesPreview('[]');
                     if (r) r.qc_evidence_images = '[]';
-                }
-            }
-
-            let maxFP = 0;
-            let maxPP = 0;
-            checkboxes.forEach(cb => {
-                maxFP += Number(cb.dataset.fp) || 0;
-                maxPP += Number(cb.dataset.pp) || 0;
-            });
-            const maxPriceOfAllTechs = isTeam ? maxFP : maxPP;
-            const enteredPrice = Number(document.getElementById('qcCheckedPrice').value) || 0;
-
-            const warningEl = document.getElementById('qcValidationWarning');
-            if (warningEl) {
-                if (isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
-                    warningEl.style.display = 'block';
-                    warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập chi tiết thiếu & tải Ảnh dẫn chứng!';
-                } else {
-                    warningEl.style.display = 'none';
                 }
             }
         }
@@ -2372,7 +2352,7 @@
             }
 
             // Validation: Must provide notes & evidence image if not all techniques checked
-            const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+            const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
             if (!isMissingPrice && isNotAllTechs) {
                 const missingNotesVal = document.getElementById('qcMissingNotes').value.trim();
                 if (!missingNotesVal) {

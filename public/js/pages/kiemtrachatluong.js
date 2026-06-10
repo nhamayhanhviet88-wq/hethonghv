@@ -1563,7 +1563,7 @@ function _ktclRecalcTechPrices() {
     }
 
     // Show validation warning dynamically
-    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
     const evidenceCard = document.getElementById('ktclQCEvidenceCard');
     if (evidenceCard) {
         if (isNotAllTechs) {
@@ -1577,25 +1577,6 @@ function _ktclRecalcTechPrices() {
             const container = document.getElementById('ktclQCEvidenceImagesContainer');
             if (container) container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
             if (r) r.qc_evidence_images = '[]';
-        }
-    }
-
-    let maxFP = 0;
-    let maxPP = 0;
-    checkboxes.forEach(cb => {
-        maxFP += Number(cb.dataset.fp) || 0;
-        maxPP += Number(cb.dataset.pp) || 0;
-    });
-    const maxPriceOfAllTechs = isTeam ? maxFP : maxPP;
-    const enteredPrice = document.getElementById('ktclCheckedPriceInput') ? (Number(document.getElementById('ktclCheckedPriceInput').value) || 0) : 0;
-
-    const warningEl = document.getElementById('ktclValidationWarning');
-    if (warningEl) {
-        if (isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
-            warningEl.style.display = 'block';
-            warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập mô tả & Ảnh dẫn chứng thiếu!';
-        } else {
-            warningEl.style.display = 'none';
         }
     }
 }
@@ -1863,7 +1844,6 @@ async function _ktclOpenQCModal(recordId) {
                             <div class="form-group" style="margin-top:12px;">
                                 <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
                                 <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" class="form-input" placeholder="Giá tự động tính theo kỹ thuật may được chọn..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
-                                <p id="ktclValidationWarning" style="display:none; color:#ef4444; font-size:12px; font-weight:700; margin-top:6px; margin-bottom:0; line-height:1.4;"></p>
                             </div>
                         </div>
 
@@ -2281,7 +2261,7 @@ async function _ktclSubmitQC() {
     }
 
     // Validation: Must provide notes & evidence image if not all techniques checked
-    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
     if (!isMissingPrice && isNotAllTechs) {
         const missingNotesVal = document.getElementById('ktclQCMissingNotes').value.trim();
         if (!missingNotesVal) {
