@@ -598,6 +598,13 @@ function _lsxRenderTable() {
         });
     }
 
+    // Pre-calculate / override salary for sewing records so that all calculations (including cumulative sums) are correct
+    all.forEach(function(r) {
+        if (r.dept === 'sewing') {
+            r.salary = (Number(r.quantity) || 0) * (Number(r.checked_price) || 0);
+        }
+    });
+
     // Dynamically render the table header based on active department filter
     var tableEl = document.getElementById('lsxTable');
     if (tableEl) {
