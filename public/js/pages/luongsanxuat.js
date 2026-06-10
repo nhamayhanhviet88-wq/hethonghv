@@ -1128,6 +1128,10 @@ function _lsxRenderInfo(count) {
 async function _lsxToggleAppr(id, dept) {
     try {
         var res = await apiCall(`/api/production-salary/toggle/${dept}/${id}`, 'POST');
+        if (res && res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
         showToast('Cập nhật trạng thái duyệt thành công');
         // Reload all to refresh aggregates & tree sums
         await _lsxLoadAll();
@@ -1167,6 +1171,11 @@ function _lsxStartEdit(id, dept, field, currentVal, cell) {
             body[field] = newVal;
             
             var res = await apiCall(`/api/production-salary/record/${dept}/${id}`, 'PUT', body);
+            if (res && res.error) {
+                showToast(res.error, 'error');
+                cell.innerHTML = _lsxFN(currentVal);
+                return;
+            }
             showToast('Đã lưu thay đổi');
             await _lsxLoadAll();
         } catch(e) {
@@ -1226,7 +1235,11 @@ async function _lsxApproveAllVisible() {
                 return { id: r.id, dept: r.dept };
             })
         };
-        await apiCall('/api/production-salary/approve-bulk', 'POST', payload);
+        var res = await apiCall('/api/production-salary/approve-bulk', 'POST', payload);
+        if (res && res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
         showToast('Đã duyệt thành công ' + unapproved.length + ' bản ghi');
         await _lsxLoadAll();
     } catch(e) {
@@ -2029,22 +2042,19 @@ async function _lsxBulkAction(approve) {
     
     try {
         showToast('Đang xử lý...', 'info');
-        var res = await apiCall('/api/production-salary/approve-bulk', {
-            method: 'POST',
-            body: JSON.stringify({
-                records: targets,
-                approved: approve
-            })
+        var res = await apiCall('/api/production-salary/approve-bulk', 'POST', {
+            records: targets,
+            approved: approve
         });
         
-        if (res.success || res.count !== undefined) {
+        if (res && (res.success || res.count !== undefined)) {
             showToast(`${approve ? 'Duyệt' : 'Hủy duyệt'} thành công!`, 'success');
             _lsx.selectedRecords = [];
             _lsx.lastSelectedIndex = undefined;
             _lsxUpdateFloatingBar();
             await _lsxLoadAll();
         } else {
-            showToast(res.error || 'Có lỗi xảy ra', 'error');
+            showToast((res && res.error) || 'Có lỗi xảy ra', 'error');
         }
     } catch (e) {
         console.error('[LSX Bulk]', e);
