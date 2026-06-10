@@ -1908,7 +1908,8 @@
                 document.getElementById('qcHeaderInfoArea').style.display = 'none';
             }
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
-            document.getElementById('qcNotes').value = r.notes || '';
+            const generalNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
+            document.getElementById('qcNotes').value = generalNotes;
 
             // Handle Thiếu Giá May Chi Tiết state on open
             const noteText = r.notes || '';
@@ -2249,6 +2250,27 @@
                 try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
                 if (!imagesArr || imagesArr.length === 0) {
                     toast('Vui lòng chụp/tải ảnh QC thành phẩm trước khi xác nhận!', 'error');
+                    return;
+                }
+            }
+
+            // Validation: Must provide notes & evidence image if not all techniques checked and price is reduced
+            const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+            const originalPrice = Number(r ? r.base_price : 0);
+            const enteredPrice = cpVal ? Number(cpVal) : 0;
+            if (!isMissingPrice && isNotAllTechs && originalPrice > enteredPrice) {
+                const notesVal = document.getElementById('qcNotes').value.trim();
+                if (!notesVal) {
+                    toast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải nhập lý do/nội dung giải trình vào phần Ghi Chú!', 'error');
+                    document.getElementById('qcNotes').focus();
+                    return;
+                }
+                
+                const finishImagesStr = r ? (r.finish_images || '[]') : '[]';
+                let imagesArr = [];
+                try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
+                if (!imagesArr || imagesArr.length === 0) {
+                    toast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải tải lên hình ảnh dẫn chứng sản phẩm lỗi/thiếu!', 'error');
                     return;
                 }
             }

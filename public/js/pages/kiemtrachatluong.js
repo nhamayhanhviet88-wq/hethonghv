@@ -1641,6 +1641,7 @@ async function _ktclOpenQCModal(recordId) {
     if (!r) return;
     
     _ktclState.currentRecordId = recordId;
+    const generalNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
     
     const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
     
@@ -1782,6 +1783,11 @@ async function _ktclOpenQCModal(recordId) {
                             <div class="form-group" style="margin-top:12px;">
                                 <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
                                 <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" class="form-input" placeholder="Giá tự động tính theo kỹ thuật may được chọn..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
+                            </div>
+
+                            <div class="form-group" style="margin-top:12px;">
+                                <label class="form-label">Ghi Chú</label>
+                                <textarea id="ktclQCNotes" class="form-input" rows="2" placeholder="Nhập ghi chú hoặc nguyên nhân lỗi/giảm giá...">${generalNotes}</textarea>
                             </div>
                         </div>
 
@@ -2006,6 +2012,8 @@ async function _ktclSubmitQC() {
             return;
         }
         finalNotes = `[THIẾU GIÁ CHI TIẾT] ${details}`;
+    } else {
+        finalNotes = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
     }
 
     const cpVal = document.getElementById('ktclCheckedPriceInput').value;
@@ -2093,6 +2101,27 @@ async function _ktclSubmitQC() {
         try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
         if (!imagesArr || imagesArr.length === 0) {
             showToast('Vui lòng chụp/tải ảnh QC thành phẩm trước khi xác nhận!', 'error');
+            return;
+        }
+    }
+
+    // Validation: Must provide notes & evidence image if not all techniques checked and price is reduced
+    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+    const originalPrice = Number(r ? r.base_price : 0);
+    const enteredPrice = cpVal ? Number(cpVal) : 0;
+    if (!isMissingPrice && isNotAllTechs && originalPrice > enteredPrice) {
+        const notesVal = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
+        if (!notesVal) {
+            showToast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải nhập lý do/nội dung giải trình vào phần Ghi Chú!', 'error');
+            if (document.getElementById('ktclQCNotes')) document.getElementById('ktclQCNotes').focus();
+            return;
+        }
+        
+        const finishImagesStr = r ? (r.finish_images || '[]') : '[]';
+        let imagesArr = [];
+        try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
+        if (!imagesArr || imagesArr.length === 0) {
+            showToast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải tải lên hình ảnh dẫn chứng sản phẩm lỗi/thiếu!', 'error');
             return;
         }
     }
