@@ -41,6 +41,8 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS salary_note TEXT`);
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS is_rescheduled BOOLEAN DEFAULT false`);
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS original_expected_date DATE`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_notes TEXT`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_evidence_images TEXT DEFAULT '[]'`);
     } catch(err) {
         console.error('[BPM] Migration error for fields:', err.message);
     }
@@ -470,7 +472,8 @@ module.exports = async function(fastify) {
     fastify.patch('/api/sewing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { field, value } = req.body||{}, now = vnNow();
         const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','sewing_team_id','product_name',
-            'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes','checked_techniques'];
+            'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes','checked_techniques',
+            'qc_missing_notes','qc_evidence_images'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
         const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
@@ -648,6 +651,28 @@ module.exports = async function(fastify) {
         await db.run(`UPDATE sewing_records SET finish_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
         await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'upload_image', `Upload ${images.length} ảnh`, req.user.id, now]);
+        return { success: true, images };
+    });
+
+    fastify.post('/api/sewing/records/:id/evidence-images', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), now = vnNow();
+        const rec = await db.get('SELECT qc_evidence_images FROM sewing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const parts = await req.parts();
+        let images = []; try { images = JSON.parse(rec.qc_evidence_images || '[]'); } catch(e) { images = []; }
+        for await (const part of parts) {
+            if (part.file) {
+                const ext = path.extname(part.filename || '.jpg');
+                const fname = `sew_evid_${id}_${Date.now()}${ext}`;
+                const dest = path.join(uploadsDir, fname);
+                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
+                fs.writeFileSync(dest, Buffer.concat(chunks));
+                images.push(`/uploads/sewing/${fname}`);
+            }
+        }
+        await db.run(`UPDATE sewing_records SET qc_evidence_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'upload_evidence_image', `Upload ${images.length} ảnh dẫn chứng`, req.user.id, now]);
         return { success: true, images };
     });
 

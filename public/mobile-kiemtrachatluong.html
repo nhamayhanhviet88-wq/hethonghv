@@ -965,6 +965,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Missing Techniques Evidence (shown only when techniques are incomplete) -->
+        <div class="form-group" id="qcMissingEvidenceGroup" style="display:none; margin-top: 12px; background: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 12px;">
+            <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu <span style="color:#ef4444;">*</span></label>
+            <textarea id="qcMissingNotes" class="form-input" rows="2" placeholder="Nhập lý do thiếu/chi tiết kỹ thuật chưa đạt yêu cầu..." style="background: rgba(0,0,0,0.2); color:#fff; border-color:rgba(255,255,255,0.1); margin-bottom: 10px;"></textarea>
+
+            <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Ảnh Dẫn Chứng Thiếu (chụp ảnh) <span style="color:#ef4444;">*</span></label>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom: 8px;">
+                <button class="btn btn-secondary" style="flex:none; width:auto; padding:8px 12px; font-size:12px; border-color:rgba(239, 68, 68, 0.4);" onclick="document.getElementById('evidenceUploaderInput').click()">📸 Chụp / Tải ảnh dẫn chứng</button>
+                <span style="font-size:12px; color:#9ca3af;" id="evidenceUploadStatus">Chưa chọn ảnh</span>
+            </div>
+            <input type="file" id="evidenceUploaderInput" accept="image/*" multiple style="display:none" onchange="uploadQCEvidenceImages(event)">
+            <div class="card-images" id="qcEvidenceImagesPreview" style="margin-top:8px;"></div>
+        </div>
         
         <!-- Checkbox Thiếu Giá May Chi Tiết -->
         <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-bottom: 12px; margin-top: 10px;">
@@ -994,21 +1008,21 @@
             </div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label" id="qcNotesLabel">Ghi Chú Lỗi/Giảm Giá</label>
-            <textarea id="qcNotes" class="form-input" rows="2" placeholder="Nhập ghi chú hoặc nguyên nhân lỗi/giảm giá..."></textarea>
-        </div>
-
         <!-- Hidden uploader -->
         <input type="file" id="imageUploaderInput" accept="image/*" multiple style="display:none" onchange="uploadQCImages(event)">
         
         <div class="form-group">
-            <label class="form-label">Ảnh QC Thành Phẩm</label>
+            <label class="form-label">Ảnh QC Thành Phẩm <span style="color:#ef4444;">*</span></label>
             <div style="display:flex; gap:8px; align-items:center;">
                 <button class="btn btn-secondary" style="flex:none; width:auto; padding:10px 14px;" onclick="document.getElementById('imageUploaderInput').click()">📸 Chụp / Tải ảnh</button>
                 <span style="font-size:12px; color:#6b7280;" id="uploadStatus">Chưa chọn ảnh</span>
             </div>
             <div class="card-images" id="qcImagesPreview" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" id="qcNotesLabel">Ghi chú quản lý may <span style="font-weight: normal; color: #9ca3af;">(Không bắt buộc)</span></label>
+            <textarea id="qcNotes" class="form-input" rows="2" placeholder="Nhập ghi chú của quản lý may..."></textarea>
         </div>
 
         <div style="font-size:11.5px; color:#9ca3af; margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); line-height:1.4; display:none;" id="qcUpdateHistory"></div>
@@ -2029,6 +2043,14 @@
             
             // Display existing images
             renderQCImagesPreview(r.finish_images);
+            let fCount = 0; try { fCount = JSON.parse(r.finish_images || '[]').length; } catch(e){}
+            document.getElementById('uploadStatus').textContent = fCount > 0 ? `Đã tải lên ${fCount} ảnh` : 'Chưa chọn ảnh';
+
+            // Display existing evidence images
+            renderQCEvidenceImagesPreview(r.qc_evidence_images);
+            document.getElementById('qcMissingNotes').value = r.qc_missing_notes || '';
+            let evidCount = 0; try { evidCount = JSON.parse(r.qc_evidence_images || '[]').length; } catch(e){}
+            document.getElementById('evidenceUploadStatus').textContent = evidCount > 0 ? `Đã tải lên ${evidCount} ảnh dẫn chứng` : 'Chưa chọn ảnh';
 
             // Load QC Checklist
             await loadQcChecklist(recordId);
@@ -2064,6 +2086,19 @@
 
             // Show validation warning dynamically
             const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+            const evidenceGroup = document.getElementById('qcMissingEvidenceGroup');
+            if (evidenceGroup) {
+                if (isNotAllTechs) {
+                    evidenceGroup.style.display = 'block';
+                } else {
+                    evidenceGroup.style.display = 'none';
+                    document.getElementById('qcMissingNotes').value = '';
+                    document.getElementById('evidenceUploadStatus').textContent = 'Chưa chọn ảnh';
+                    renderQCEvidenceImagesPreview('[]');
+                    if (r) r.qc_evidence_images = '[]';
+                }
+            }
+
             let maxFP = 0;
             let maxPP = 0;
             checkboxes.forEach(cb => {
@@ -2074,19 +2109,12 @@
             const enteredPrice = Number(document.getElementById('qcCheckedPrice').value) || 0;
 
             const warningEl = document.getElementById('qcValidationWarning');
-            const notesLabel = document.getElementById('qcNotesLabel');
             if (warningEl) {
                 if (isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
                     warningEl.style.display = 'block';
-                    warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập Ghi Chú & Tải Ảnh dẫn chứng!';
-                    if (notesLabel) {
-                        notesLabel.innerHTML = 'Ghi Chú Lỗi/Giảm Giá <span style="color:#ef4444;">*</span>';
-                    }
+                    warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập chi tiết thiếu & tải Ảnh dẫn chứng!';
                 } else {
                     warningEl.style.display = 'none';
-                    if (notesLabel) {
-                        notesLabel.textContent = 'Ghi Chú Lỗi/Giảm Giá';
-                    }
                 }
             }
         }
@@ -2181,6 +2209,63 @@
                 toast(err.message, 'error');
                 document.getElementById('uploadStatus').textContent = 'Tải ảnh thất bại!';
             }
+        }
+
+        // Upload evidence images dynamically
+        async function uploadQCEvidenceImages(event) {
+            const files = event.target.files;
+            if (!files.length) return;
+
+            try {
+                document.getElementById('evidenceUploadStatus').textContent = 'Đang xử lý ảnh...';
+                const fd = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type.startsWith('image/')) {
+                        const resized = await resizeImage(file, 1024, 1024, 0.75);
+                        fd.append('file', resized);
+                    } else {
+                        fd.append('file', file);
+                    }
+                }
+
+                document.getElementById('evidenceUploadStatus').textContent = 'Đang tải lên...';
+                const res = await fetch(`/api/sewing/records/${currentRecordId}/evidence-images`, {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Lỗi upload');
+                
+                toast('Đã tải ảnh dẫn chứng thành công');
+                document.getElementById('evidenceUploadStatus').textContent = `Đã tải lên ${data.images.length} ảnh dẫn chứng`;
+                
+                // Update preview in sheet
+                renderQCEvidenceImagesPreview(JSON.stringify(data.images));
+
+                // Also update local list so the card updates immediately
+                const r = originalRecords.find(x => x.id === currentRecordId);
+                if (r) r.qc_evidence_images = JSON.stringify(data.images);
+            } catch(err) {
+                toast(err.message, 'error');
+                document.getElementById('evidenceUploadStatus').textContent = 'Tải ảnh thất bại!';
+            }
+        }
+
+        function renderQCEvidenceImagesPreview(imagesStr) {
+            const container = document.getElementById('qcEvidenceImagesPreview');
+            container.innerHTML = '';
+            try {
+                const arr = JSON.parse(imagesStr || '[]');
+                if (arr.length > 0) {
+                    const t = Date.now();
+                    container.innerHTML = arr.map(src => {
+                        const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                        return `<img src="${src}${buster}" onclick="viewFullImage('${src}${buster}')">`;
+                    }).join('');
+                }
+            } catch(e){}
         }
 
         // Submit QC (save checked price & notes & checked techniques)
@@ -2286,33 +2371,21 @@
                 }
             }
 
-            // Validation: Must provide notes & evidence image if not all techniques checked and price is reduced
+            // Validation: Must provide notes & evidence image if not all techniques checked
             const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
-            
-            // Calculate total price of ALL techniques in the template (not just checked ones)
-            let maxFP = 0;
-            let maxPP = 0;
-            checkboxes.forEach(cb => {
-                maxFP += Number(cb.dataset.fp) || 0;
-                maxPP += Number(cb.dataset.pp) || 0;
-            });
-            const isTeam = (r && r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
-            const maxPriceOfAllTechs = isTeam ? maxFP : maxPP;
-            const enteredPrice = cpVal ? Number(cpVal) : 0;
-            
-            if (!isMissingPrice && isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
-                const notesVal = document.getElementById('qcNotes').value.trim();
-                if (!notesVal) {
-                    toast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải nhập lý do/nội dung giải trình vào phần Ghi Chú!', 'error');
-                    document.getElementById('qcNotes').focus();
+            if (!isMissingPrice && isNotAllTechs) {
+                const missingNotesVal = document.getElementById('qcMissingNotes').value.trim();
+                if (!missingNotesVal) {
+                    toast('⚠️ Vui lòng nhập lý do/nội dung giải trình tại mục "Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu"!', 'error');
+                    document.getElementById('qcMissingNotes').focus();
                     return;
                 }
                 
-                const finishImagesStr = r ? (r.finish_images || '[]') : '[]';
-                let imagesArr = [];
-                try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
-                if (!imagesArr || imagesArr.length === 0) {
-                    toast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải tải lên hình ảnh dẫn chứng sản phẩm lỗi/thiếu!', 'error');
+                const evidImagesStr = r ? (r.qc_evidence_images || '[]') : '[]';
+                let evidImagesArr = [];
+                try { evidImagesArr = JSON.parse(evidImagesStr); } catch(e){}
+                if (!evidImagesArr || evidImagesArr.length === 0) {
+                    toast('⚠️ Vui lòng chụp/tải lên "Ảnh Dẫn Chứng Thiếu"!', 'error');
                     return;
                 }
             }
@@ -2331,10 +2404,24 @@
                     value: cpVal ? Number(cpVal) : null
                 });
 
-                // Save notes
+                // Save notes (Ghi chú quản lý may hoặc Thiếu giá chi tiết)
+                const genNotesVal = document.getElementById('qcNotes').value.trim();
                 await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
                     field: 'notes',
-                    value: finalNotes || null
+                    value: isMissingPrice ? finalNotes : (genNotesVal || null)
+                });
+
+                // Save qc_missing_notes
+                await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                    field: 'qc_missing_notes',
+                    value: isNotAllTechs ? document.getElementById('qcMissingNotes').value.trim() : null
+                });
+
+                // Save qc_evidence_images
+                const evidenceImagesVal = r ? (r.qc_evidence_images || '[]') : '[]';
+                await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                    field: 'qc_evidence_images',
+                    value: isNotAllTechs ? evidenceImagesVal : '[]'
                 });
 
                 // Save checked_techniques

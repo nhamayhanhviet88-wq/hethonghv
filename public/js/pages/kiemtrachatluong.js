@@ -1564,6 +1564,22 @@ function _ktclRecalcTechPrices() {
 
     // Show validation warning dynamically
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+    const evidenceCard = document.getElementById('ktclQCEvidenceCard');
+    if (evidenceCard) {
+        if (isNotAllTechs) {
+            evidenceCard.style.display = 'block';
+        } else {
+            evidenceCard.style.display = 'none';
+            const notesInput = document.getElementById('ktclQCMissingNotes');
+            if (notesInput) notesInput.value = '';
+            const statusEl = document.getElementById('ktclEvidenceUploadStatus');
+            if (statusEl) statusEl.textContent = 'Chưa chọn ảnh';
+            const container = document.getElementById('ktclQCEvidenceImagesContainer');
+            if (container) container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
+            if (r) r.qc_evidence_images = '[]';
+        }
+    }
+
     let maxFP = 0;
     let maxPP = 0;
     checkboxes.forEach(cb => {
@@ -1574,19 +1590,12 @@ function _ktclRecalcTechPrices() {
     const enteredPrice = document.getElementById('ktclCheckedPriceInput') ? (Number(document.getElementById('ktclCheckedPriceInput').value) || 0) : 0;
 
     const warningEl = document.getElementById('ktclValidationWarning');
-    const notesLabel = document.getElementById('ktclQCNotesLabel');
     if (warningEl) {
         if (isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
             warningEl.style.display = 'block';
-            warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập Ghi Chú & Tải Ảnh dẫn chứng!';
-            if (notesLabel) {
-                notesLabel.innerHTML = 'Ghi Chú <span style="color:#ef4444;">*</span>';
-            }
+            warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập mô tả & Ảnh dẫn chứng thiếu!';
         } else {
             warningEl.style.display = 'none';
-            if (notesLabel) {
-                notesLabel.textContent = 'Ghi Chú';
-            }
         }
     }
 }
@@ -1688,6 +1697,24 @@ async function _ktclOpenQCModal(recordId) {
                 <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
                     <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
                     <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                </div>
+                `;
+            }).join('');
+        }
+    } catch(e) {}
+
+    // Preview evidence images
+    let evidenceImagesHtml = '';
+    try {
+        const evidImgs = JSON.parse(r.qc_evidence_images || '[]');
+        if (evidImgs.length > 0) {
+            const t = Date.now();
+            evidenceImagesHtml = evidImgs.map(src => {
+                const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                return `
+                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
+                    <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+                    <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                 </div>
                 `;
             }).join('');
@@ -1797,6 +1824,28 @@ async function _ktclOpenQCModal(recordId) {
                             </div>
                         </div>
 
+                        <!-- Card 4b: Ảnh Dẫn Chứng Thiếu (Bắt buộc khi thiếu kỹ thuật) -->
+                        <div class="qc-section-card" id="ktclQCEvidenceCard" style="display:none; border: 1px dashed #fca5a5; background: #fff5f5;">
+                            <div class="qc-section-title" style="color:#ef4444;">⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU</div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" style="color:#ef4444; font-weight:700;">Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu <span style="color:#ef4444;">*</span></label>
+                                <textarea id="ktclQCMissingNotes" class="form-input" rows="2" placeholder="Nhập lý do thiếu/chi tiết kỹ thuật chưa đạt yêu cầu...">${r.qc_missing_notes || ''}</textarea>
+                            </div>
+
+                            <div class="form-group" style="margin-top:12px;">
+                                <label class="form-label" style="color:#ef4444; font-weight:700;">Ảnh Dẫn Chứng Thiếu <span style="color:#ef4444;">*</span></label>
+                                <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
+                                    <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700; border-color:#fca5a5; color:#ef4444;" onclick="document.getElementById('ktclQCEvidenceFileInput').click()"> Tải ảnh dẫn chứng</button>
+                                    <span style="font-size:12px; color:#64748b;" id="ktclEvidenceUploadStatus">Chưa chọn ảnh</span>
+                                    <input type="file" multiple id="ktclQCEvidenceFileInput" accept="image/*" style="display:none;" onchange="_ktclUploadEvidenceImages(event)">
+                                </div>
+                                <div style="display:flex; gap:8px; flex-wrap:wrap;" id="ktclQCEvidenceImagesContainer">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Card 5: Báo Lỗi / Thiếu Giá -->
                         <div class="qc-section-card">
                             <div class="qc-section-title">⚠️ BÁO LỖI / THIẾU GIÁ</div>
@@ -1816,11 +1865,6 @@ async function _ktclOpenQCModal(recordId) {
                                 <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" class="form-input" placeholder="Giá tự động tính theo kỹ thuật may được chọn..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
                                 <p id="ktclValidationWarning" style="display:none; color:#ef4444; font-size:12px; font-weight:700; margin-top:6px; margin-bottom:0; line-height:1.4;"></p>
                             </div>
-
-                            <div class="form-group" style="margin-top:12px;">
-                                <label class="form-label" id="ktclQCNotesLabel">Ghi Chú</label>
-                                <textarea id="ktclQCNotes" class="form-input" rows="2" placeholder="Nhập ghi chú hoặc nguyên nhân lỗi/giảm giá...">${generalNotes}</textarea>
-                            </div>
                         </div>
 
                         <!-- Card 6: QC Checklist Questions -->
@@ -1833,14 +1877,19 @@ async function _ktclOpenQCModal(recordId) {
 
                         <!-- Card 7: Ảnh QC Thành Phẩm -->
                         <div class="qc-section-card">
-                            <div class="qc-section-title">📸 ẢNH QC THÀNH PHẨM</div>
+                            <div class="qc-section-title">📸 ẢNH QC THÀNH PHẨM <span style="color:#ef4444;">*</span></div>
                             <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
                                 <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700;" onclick="document.getElementById('ktclQCFileInput').click()"> Tải ảnh lên</button>
                                 <span style="font-size:12px; color:#64748b;" id="ktclUploadStatus">Chưa chọn ảnh</span>
                                 <input type="file" multiple id="ktclQCFileInput" accept="image/*" style="display:none;" onchange="_ktclUploadQCImages(event)">
                             </div>
-                            <div style="display:flex; gap:8px; flex-wrap:wrap;" id="ktclQCImagesContainer">
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;" id="ktclQCImagesContainer">
                                 ${imagesHtml || '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh chụp thực tế.</span>'}
+                            </div>
+
+                            <div class="form-group" style="margin-top:12px; border-top: 1px solid #e2e8f0; padding-top:12px;">
+                                <label class="form-label" id="ktclQCNotesLabel">Ghi chú quản lý may <span style="font-weight: normal; color: #64748b;">(Không bắt buộc)</span></label>
+                                <textarea id="ktclQCNotes" class="form-input" rows="2" placeholder="Nhập ghi chú của quản lý may...">${generalNotes}</textarea>
                             </div>
                         </div>
 
@@ -1929,9 +1978,22 @@ async function _ktclOpenQCModal(recordId) {
             });
         }
         _ktclRecalcTechPrices();
+        let evidCount = 0;
+        try { evidCount = JSON.parse(r.qc_evidence_images || '[]').length; } catch(e){}
+        const evidStatusEl = document.getElementById('ktclEvidenceUploadStatus');
+        if (evidStatusEl) {
+            evidStatusEl.textContent = evidCount > 0 ? `Đã tải lên ${evidCount} ảnh dẫn chứng.` : 'Chưa chọn ảnh';
+        }
     } else {
         document.getElementById('ktclQcSpecCard').style.display = 'none';
         document.getElementById('ktclQcTechCard').style.display = 'none';
+    }
+
+    let finishCount = 0;
+    try { finishCount = JSON.parse(r.finish_images || '[]').length; } catch(e){}
+    const finishStatusEl = document.getElementById('ktclUploadStatus');
+    if (finishStatusEl) {
+        finishStatusEl.textContent = finishCount > 0 ? `Đã tải lên ${finishCount} ảnh.` : 'Chưa chọn ảnh';
     }
 
     // Display history
@@ -2024,6 +2086,87 @@ async function _ktclDeleteQCImage(imgSrc) {
                     <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
                         <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
                         <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch(err) {
+        showToast('Lỗi khi xóa ảnh: ' + err.message, 'error');
+    }
+}
+
+async function _ktclUploadEvidenceImages(event) {
+    const files = event.target.files;
+    if (!files.length) return;
+    
+    const fd = new FormData();
+    for (let i = 0; i < files.length; i++) {
+        fd.append('file', files[i]);
+    }
+    
+    const statusEl = document.getElementById('ktclEvidenceUploadStatus');
+    try {
+        if (statusEl) statusEl.textContent = 'Đang tải lên...';
+        
+        const res = await fetch(`/api/sewing/records/${_ktclState.currentRecordId}/evidence-images`, {
+            method: 'POST',
+            body: fd,
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Lỗi upload');
+        
+        showToast('Tải ảnh dẫn chứng thành công!');
+        if (statusEl) statusEl.textContent = `Đã tải lên ${data.images.length} ảnh dẫn chứng.`;
+        
+        const container = document.getElementById('ktclQCEvidenceImagesContainer');
+        if (container) {
+            container.innerHTML = data.images.map(src => `
+                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
+                    <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
+                    <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+        if (r) r.qc_evidence_images = JSON.stringify(data.images);
+        
+    } catch(err) {
+        showToast(err.message || 'Lỗi tải lên', 'error');
+        if (statusEl) statusEl.textContent = 'Lỗi tải ảnh!';
+    }
+}
+
+async function _ktclDeleteEvidenceImage(imgSrc) {
+    const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+    if (!r) return;
+    
+    let currentImgs = [];
+    try {
+        currentImgs = JSON.parse(r.qc_evidence_images || '[]');
+    } catch(e) {}
+    
+    const updatedImgs = currentImgs.filter(src => src !== imgSrc);
+    
+    try {
+        await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+            field: 'qc_evidence_images',
+            value: JSON.stringify(updatedImgs)
+        });
+        
+        r.qc_evidence_images = JSON.stringify(updatedImgs);
+        showToast('Đã xóa ảnh dẫn chứng.');
+        
+        const container = document.getElementById('ktclQCEvidenceImagesContainer');
+        if (container) {
+            if (updatedImgs.length === 0) {
+                container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
+            } else {
+                container.innerHTML = updatedImgs.map(src => `
+                    <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
+                        <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
+                        <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                     </div>
                 `).join('');
             }
@@ -2137,33 +2280,21 @@ async function _ktclSubmitQC() {
         }
     }
 
-    // Validation: Must provide notes & evidence image if not all techniques checked and price is reduced
+    // Validation: Must provide notes & evidence image if not all techniques checked
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
-    
-    // Calculate total price of ALL techniques in the template (not just checked ones)
-    let maxFP = 0;
-    let maxPP = 0;
-    checkboxes.forEach(cb => {
-        maxFP += Number(cb.dataset.fp) || 0;
-        maxPP += Number(cb.dataset.pp) || 0;
-    });
-    const isTeam = (r && r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
-    const maxPriceOfAllTechs = isTeam ? maxFP : maxPP;
-    const enteredPrice = cpVal ? Number(cpVal) : 0;
-    
-    if (!isMissingPrice && isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
-        const notesVal = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
-        if (!notesVal) {
-            showToast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải nhập lý do/nội dung giải trình vào phần Ghi Chú!', 'error');
-            if (document.getElementById('ktclQCNotes')) document.getElementById('ktclQCNotes').focus();
+    if (!isMissingPrice && isNotAllTechs) {
+        const missingNotesVal = document.getElementById('ktclQCMissingNotes').value.trim();
+        if (!missingNotesVal) {
+            showToast('⚠️ Vui lòng nhập lý do/nội dung giải trình tại mục "Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu"!', 'error');
+            document.getElementById('ktclQCMissingNotes').focus();
             return;
         }
         
-        const finishImagesStr = r ? (r.finish_images || '[]') : '[]';
-        let imagesArr = [];
-        try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
-        if (!imagesArr || imagesArr.length === 0) {
-            showToast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải tải lên hình ảnh dẫn chứng sản phẩm lỗi/thiếu!', 'error');
+        const evidImagesStr = r ? (r.qc_evidence_images || '[]') : '[]';
+        let evidImagesArr = [];
+        try { evidImagesArr = JSON.parse(evidImagesStr); } catch(e){}
+        if (!evidImagesArr || evidImagesArr.length === 0) {
+            showToast('⚠️ Vui lòng chụp/tải lên "Ảnh Dẫn Chứng Thiếu"!', 'error');
             return;
         }
     }
@@ -2180,10 +2311,24 @@ async function _ktclSubmitQC() {
             value: cpVal ? Number(cpVal) : null
         });
 
-        // Save notes
+        // Save notes (Ghi chú quản lý may hoặc Thiếu giá chi tiết)
+        const genNotesVal = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
         await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
             field: 'notes',
-            value: finalNotes || null
+            value: isMissingPrice ? finalNotes : (genNotesVal || null)
+        });
+
+        // Save qc_missing_notes
+        await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+            field: 'qc_missing_notes',
+            value: isNotAllTechs ? document.getElementById('ktclQCMissingNotes').value.trim() : null
+        });
+
+        // Save qc_evidence_images
+        const evidenceImagesVal = r ? (r.qc_evidence_images || '[]') : '[]';
+        await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+            field: 'qc_evidence_images',
+            value: isNotAllTechs ? evidenceImagesVal : '[]'
         });
 
         // Save checked_techniques
