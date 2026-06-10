@@ -305,7 +305,7 @@ function _lsxRenderSb() {
                         var wActive = f.year == yr.year && f.dept == dp.dept && (wk.is_contractor ? f.contractor_id == wk.id : f.worker_id == wk.id);
                         var wo = !!_lsxOpen[wkKey];
                         
-                        var wPrefix = wk.is_contractor ? '🏭 ' : '👤 ';
+                        var wPrefix = wk.is_contractor ? '🏭 ' : (dp.dept === 'sewing' ? '👥 ' : '👤 ');
                         
                         h += `<div class="lsx-sb-worker${wActive ? ' active' : ''}" onclick="event.stopPropagation(); _lsxFilter(${yr.year}, '${dp.dept}', ${wk.is_contractor ? null : wk.id}, ${wk.is_contractor ? wk.id : null})">`
                             + `<span><span onclick="event.stopPropagation(); _lsxTgl('${wkKey}')" style="cursor:pointer; padding-right:6px; display:inline-block;">${wo ? '▼' : '▶'}</span>${wPrefix}${wk.name}</span>`
@@ -557,7 +557,7 @@ function _lsxRenderTable() {
         else if (r.dept === 'pressing') deptBadge = '<span class="lsx-badge press">Ép</span>';
         else if (r.dept === 'sewing') deptBadge = '<span class="lsx-badge sew">May</span>';
 
-        var wPrefix = r.contractor_id ? '🏭 ' : '👤 ';
+        var wPrefix = r.contractor_id ? '🏭 ' : (r.dept === 'sewing' ? '👥 ' : '👤 ');
         var workerName = r.contractor_id ? (r.contractor_name || 'Gia công') : (r.worker_name || '—');
 
         var isAppr = !!r.is_approved;

@@ -111,16 +111,17 @@ module.exports = async function(fastify) {
                 SELECT 
                     'sewing' AS dept,
                     COALESCE(sr.handover_date, sr.created_at::date) AS work_date,
-                    sr.sewer_id AS worker_id,
+                    sr.sewing_team_id AS worker_id,
                     sr.contractor_id,
-                    u.full_name AS worker_name,
+                    dt.name AS worker_name,
                     c.name AS contractor_name,
                     COALESCE(sr.salary, 0) AS salary
                 FROM sewing_records sr
-                LEFT JOIN users u ON sr.sewer_id = u.id
+                LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
                 WHERE ${whereSewing}
                   AND sr.done_date IS NOT NULL
+                  AND (sr.sewing_team_id IS NOT NULL OR sr.contractor_id IS NOT NULL)
             ) sub
             GROUP BY year, month, dept, worker_id, contractor_id, worker_name, contractor_name
             ORDER BY year DESC, month DESC, dept, worker_name, contractor_name
@@ -219,7 +220,7 @@ module.exports = async function(fastify) {
                 UNION ALL
                 SELECT presser_id AS worker_id, salary, salary_approved AS is_approved FROM pressing_records WHERE is_reported = true
                 UNION ALL
-                SELECT sewer_id AS worker_id, salary, salary_approved AS is_approved FROM sewing_records WHERE done_date IS NOT NULL
+                SELECT sewer_id AS worker_id, salary, salary_approved AS is_approved FROM sewing_records WHERE done_date IS NOT NULL AND (sewing_team_id IS NOT NULL OR contractor_id IS NOT NULL)
             ) sub
             ${statusWhere}
         `, statusParams);
@@ -250,7 +251,7 @@ module.exports = async function(fastify) {
                 const wId = Number(worker_id);
                 whereCutting += ` AND cr.cutter_id = $${idx}`;
                 wherePressing += ` AND pr.presser_id = $${idx}`;
-                whereSewing += ` AND sr.sewer_id = $${idx}`;
+                whereSewing += ` AND sr.sewing_team_id = $${idx}`;
                 params.push(wId);
                 idx++;
             }
@@ -431,9 +432,9 @@ module.exports = async function(fastify) {
                     COALESCE(sr.handover_date, sr.created_at::date) AS work_date,
                     CASE WHEN sr.done_date IS NOT NULL THEN true ELSE false END AS is_completed,
                     COALESCE(sr.reported_at, sr.updated_at, sr.created_at) AS completion_time,
-                    sr.sewer_id AS worker_id,
+                    sr.sewing_team_id AS worker_id,
                     sr.contractor_id,
-                    u.full_name AS worker_name,
+                    dt.name AS worker_name,
                     c.name AS contractor_name,
                     o.order_code,
                     COALESCE(sr.quantity, 0) AS order_quantity,
@@ -452,7 +453,7 @@ module.exports = async function(fastify) {
                     NULL::text AS cutting_category
                     ${selectColsSewing}
                 FROM sewing_records sr
-                LEFT JOIN users u ON sr.sewer_id = u.id
+                LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
                 LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
                 LEFT JOIN users u_app ON sr.salary_approved_by = u_app.id
@@ -464,6 +465,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
                 WHERE ${whereSewing}
                   AND sr.done_date IS NOT NULL
+                  AND (sr.sewing_team_id IS NOT NULL OR sr.contractor_id IS NOT NULL)
             `);
         }
 
