@@ -680,14 +680,17 @@ function _lsxRenderTable() {
     var runningSumCPM = 0;
     for (var idx = all.length - 1; idx >= 0; idx--) {
         var r = all[idx];
-        runningSum += Number(r.salary) || 0;
+        if (r.is_approved) {
+            runningSum += Number(r.salary) || 0;
+        }
         cumulative[idx] = runningSum;
 
         if (r.dept === 'sewing') {
-            runningSumTho += Number(r.salary) || 0;
+            if (r.is_approved) {
+                runningSumTho += Number(r.salary) || 0;
+                runningSumCPM += Number(r.cpm_salary) || 0;
+            }
             cumulativeTho[idx] = runningSumTho;
-
-            runningSumCPM += Number(r.cpm_salary) || 0;
             cumulativeCPM[idx] = runningSumCPM;
         }
     }
@@ -896,8 +899,8 @@ function _lsxRenderTable() {
                 cpmSalCell = `<td style="text-align:right;font-weight:700;color:#2563eb">${_lsxFN(r.cpm_salary)}</td>`;
             }
 
-            var cumThoCell = `<td style="text-align:right;font-weight:800;color:#d97706;background:#fffbeb">${_lsxFN(cumulativeTho[i])}</td>`;
-            var cumCPMCell = `<td style="text-align:right;font-weight:800;color:#1d4ed8;background:#eff6ff">${_lsxFN(cumulativeCPM[i])}</td>`;
+            var cumThoCell = `<td style="text-align:right;font-weight:800;color:#d97706;background:#fffbeb">${r.is_approved ? _lsxFN(cumulativeTho[i]) : '—'}</td>`;
+            var cumCPMCell = `<td style="text-align:right;font-weight:800;color:#1d4ed8;background:#eff6ff">${r.is_approved ? _lsxFN(cumulativeCPM[i]) : '—'}</td>`;
 
             return `<tr>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
@@ -935,7 +938,7 @@ function _lsxRenderTable() {
             + priceCell
             + salCell
             + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
-            + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
+            + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${r.is_approved ? _lsxFN(cumulative[i]) : '—'}</td>`
             + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
             + `</tr>`;
     }).join('');

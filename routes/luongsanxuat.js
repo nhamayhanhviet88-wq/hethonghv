@@ -77,7 +77,7 @@ module.exports = async function(fastify) {
                     NULL::integer AS contractor_id,
                     u.full_name AS worker_name,
                     NULL::text AS contractor_name,
-                    COALESCE(cr.salary, 0) AS salary
+                    CASE WHEN cr.salary_approved = true THEN COALESCE(cr.salary, 0) ELSE 0 END AS salary
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 WHERE ${whereCutting}
@@ -100,7 +100,7 @@ module.exports = async function(fastify) {
                     NULL::integer AS contractor_id,
                     u.full_name AS worker_name,
                     NULL::text AS contractor_name,
-                    COALESCE(pr.salary, 0) AS salary
+                    CASE WHEN pr.salary_approved = true THEN COALESCE(pr.salary, 0) ELSE 0 END AS salary
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
                 WHERE ${wherePressing}
@@ -115,7 +115,7 @@ module.exports = async function(fastify) {
                     sr.contractor_id,
                     dt.name AS worker_name,
                     c.name AS contractor_name,
-                    COALESCE(sr.salary, 0) AS salary
+                    CASE WHEN sr.salary_approved = true THEN COALESCE(sr.salary, 0) ELSE 0 END AS salary
                 FROM sewing_records sr
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
@@ -204,7 +204,7 @@ module.exports = async function(fastify) {
 
         const stats = await db.get(`
             SELECT 
-                COALESCE(SUM(salary), 0)::numeric AS total,
+                COALESCE(SUM(salary) FILTER (WHERE is_approved), 0)::numeric AS total,
                 COALESCE(SUM(salary) FILTER (WHERE is_approved), 0)::numeric AS approved,
                 COALESCE(SUM(salary) FILTER (WHERE NOT is_approved), 0)::numeric AS pending,
                 COUNT(*)::int AS count
@@ -223,7 +223,15 @@ module.exports = async function(fastify) {
                 UNION ALL
                 SELECT presser_id AS worker_id, salary, salary_approved AS is_approved FROM pressing_records WHERE is_reported = true
                 UNION ALL
-                SELECT sewer_id AS worker_id, salary, salary_approved AS is_approved FROM sewing_records WHERE done_date IS NOT NULL AND (sewing_team_id IS NOT NULL OR contractor_id IS NOT NULL)
+                SELECT 
+                    sewer_id AS worker_id, 
+                    CASE 
+                        WHEN salary_approved = true THEN COALESCE(salary, 0) 
+                        ELSE COALESCE(quantity, 0) * COALESCE(NULLIF(checked_price, 0), base_price, 0) 
+                    END AS salary, 
+                    salary_approved AS is_approved 
+                FROM sewing_records 
+                WHERE done_date IS NOT NULL AND (sewing_team_id IS NOT NULL OR contractor_id IS NOT NULL)
             ) sub
             ${statusWhere}
         `, statusParams);
