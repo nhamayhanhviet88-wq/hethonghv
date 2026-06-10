@@ -2107,9 +2107,19 @@ async function _ktclSubmitQC() {
 
     // Validation: Must provide notes & evidence image if not all techniques checked and price is reduced
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
-    const originalPrice = Number(r ? r.base_price : 0);
+    
+    // Calculate total price of ALL techniques in the template (not just checked ones)
+    let maxFP = 0;
+    let maxPP = 0;
+    checkboxes.forEach(cb => {
+        maxFP += Number(cb.dataset.fp) || 0;
+        maxPP += Number(cb.dataset.pp) || 0;
+    });
+    const isTeam = (r && r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+    const maxPriceOfAllTechs = isTeam ? maxFP : maxPP;
     const enteredPrice = cpVal ? Number(cpVal) : 0;
-    if (!isMissingPrice && isNotAllTechs && originalPrice > enteredPrice) {
+    
+    if (!isMissingPrice && isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
         const notesVal = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
         if (!notesVal) {
             showToast('Khi không tích đủ kỹ thuật may và giảm đơn giá, bắt buộc phải nhập lý do/nội dung giải trình vào phần Ghi Chú!', 'error');
