@@ -1,7 +1,7 @@
 // ========== KIỂM TRA CHẤT LƯỢNG — Desktop SPA Embed ==========
 
 var _ktclState = {
-    activeTab: '1',
+    activeTab: '4',
     originalRecords: [],
     teams: [],
     contractors: [],
@@ -139,7 +139,7 @@ function renderKiemtrachatluongPage(content) {
             }
             .ktcl-kpi-grid {
                 display: grid;
-                grid-template-columns: repeat(4, 1fr);
+                grid-template-columns: repeat(5, 1fr);
                 gap: 20px;
             }
             .ktcl-kpi-card {
@@ -202,6 +202,14 @@ function renderKiemtrachatluongPage(content) {
             .ktcl-kpi-card.kpi-tab-4 .ktcl-kpi-val { color: #064e3b; }
             .ktcl-kpi-card.kpi-tab-4 .ktcl-kpi-icon { background: #d1fae5; color: #059669; }
 
+            .ktcl-kpi-card.kpi-tab-5 {
+                background: linear-gradient(135deg, #fff5f5, #fed7d7);
+                border: 1.5px solid #feb2b2;
+            }
+            .ktcl-kpi-card.kpi-tab-5 .ktcl-kpi-label { color: #9b2c2c; opacity: 0.85; }
+            .ktcl-kpi-card.kpi-tab-5 .ktcl-kpi-val { color: #742a2a; }
+            .ktcl-kpi-card.kpi-tab-5 .ktcl-kpi-icon { background: #fed7d7; color: #e53e3e; }
+
             /* KPI Card Active States: Opaque glowing gradients with white text */
             .ktcl-kpi-card.kpi-tab-1.active {
                 background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
@@ -238,6 +246,15 @@ function renderKiemtrachatluongPage(content) {
             .ktcl-kpi-card.kpi-tab-4.active .ktcl-kpi-label { color: rgba(255, 255, 255, 0.9); }
             .ktcl-kpi-card.kpi-tab-4.active .ktcl-kpi-val { color: #ffffff; }
             .ktcl-kpi-card.kpi-tab-4.active .ktcl-kpi-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
+
+            .ktcl-kpi-card.kpi-tab-5.active {
+                background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+                border-color: #9b2c2c;
+                box-shadow: 0 15px 25px -5px rgba(229, 62, 62, 0.4);
+            }
+            .ktcl-kpi-card.kpi-tab-5.active .ktcl-kpi-label { color: rgba(255, 255, 255, 0.9); }
+            .ktcl-kpi-card.kpi-tab-5.active .ktcl-kpi-val { color: #ffffff; }
+            .ktcl-kpi-card.kpi-tab-5.active .ktcl-kpi-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
 
             .ktcl-kpi-icon {
                 font-size: 24px;
@@ -625,7 +642,14 @@ function renderKiemtrachatluongPage(content) {
                 <div class="ktcl-audit-area" id="ktclAuditArea">
                     <!-- KPI Cards Block -->
                     <div class="ktcl-kpi-grid">
-                        <div class="ktcl-kpi-card kpi-tab-1 active" onclick="_ktclSwitchTab('1')" id="ktclKpiCard1">
+                        <div class="ktcl-kpi-card kpi-tab-4 active" onclick="_ktclSwitchTab('4')" id="ktclKpiCard4">
+                            <div class="ktcl-kpi-icon">✅</div>
+                            <div class="ktcl-kpi-info">
+                                <div class="ktcl-kpi-label">CẦN KIỂM TRA / QC</div>
+                                <div class="ktcl-kpi-val" id="ktclCountTab4">0</div>
+                            </div>
+                        </div>
+                        <div class="ktcl-kpi-card kpi-tab-1" onclick="_ktclSwitchTab('1')" id="ktclKpiCard1">
                             <div class="ktcl-kpi-icon">📅</div>
                             <div class="ktcl-kpi-info">
                                 <div class="ktcl-kpi-label">ĐẾN HẸN (TRONG NHÀ)</div>
@@ -646,11 +670,11 @@ function renderKiemtrachatluongPage(content) {
                                 <div class="ktcl-kpi-val" id="ktclCountTab3">0</div>
                             </div>
                         </div>
-                        <div class="ktcl-kpi-card kpi-tab-4" onclick="_ktclSwitchTab('4')" id="ktclKpiCard4">
-                            <div class="ktcl-kpi-icon">✅</div>
+                        <div class="ktcl-kpi-card kpi-tab-5" onclick="_ktclSwitchTab('5')" id="ktclKpiCard5">
+                            <div class="ktcl-kpi-icon">⚠️</div>
                             <div class="ktcl-kpi-info">
-                                <div class="ktcl-kpi-label">CẦN KIỂM TRA / QC</div>
-                                <div class="ktcl-kpi-val" id="ktclCountTab4">0</div>
+                                <div class="ktcl-kpi-label">ĐƠN LỖI</div>
+                                <div class="ktcl-kpi-val" id="ktclCountTab5">0</div>
                             </div>
                         </div>
                     </div>
@@ -783,8 +807,8 @@ function _ktclPopulateDropdowns() {
 function _ktclSwitchTab(tab) {
     _ktclState.activeTab = tab;
     
-    // Toggle active classes on KPI cards
-    for (let i = 1; i <= 4; i++) {
+        // Toggle active classes on KPI cards
+    for (let i = 1; i <= 5; i++) {
         const el = document.getElementById(`ktclKpiCard${i}`);
         if (el) {
             if (String(i) === tab) {
@@ -808,7 +832,7 @@ async function _ktclLoadData() {
     try {
         // Load counts for badges
         const counts = await apiCall(`/api/sewing/counts`);
-        const countTabs = ['1', '2', '3', '4'];
+        const countTabs = ['1', '2', '3', '4', '5'];
         
         for (let i = 0; i < countTabs.length; i++) {
             const count = counts[`tab${countTabs[i]}`] || 0;
@@ -939,6 +963,15 @@ function _ktclRenderTable() {
                         ✅ Xong May
                     </button>`
                 }
+            `;
+        } else if (_ktclState.activeTab === '5') {
+            actionsHtml = `
+                <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
+                    🔍 QC & Nghiệm Thu
+                </button>
+                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclResolveError(${r.id})" style="justify-content:center; white-space:nowrap;">
+                    ⚠️ Đã Sửa Lỗi
+                </button>
             `;
         }
         
@@ -1481,6 +1514,18 @@ async function _ktclToggleDone(recordId, action) {
     try {
         await apiCall(`/api/sewing/toggle/${recordId}`, 'POST', { action });
         showToast(action === 'mark_done' ? '✅ Đã hoàn thành đơn may!' : '↩️ Đã hoàn tác!');
+        await _ktclLoadData();
+    } catch(err) {
+        showToast(err.message || 'Lỗi', 'error');
+    }
+}
+
+// Resolve error (mark as fixed)
+async function _ktclResolveError(recordId) {
+    if (!confirm('Bạn có chắc chắn đã sửa xong lỗi cho đơn này?')) return;
+    try {
+        await apiCall(`/api/sewing/toggle/${recordId}`, 'POST', { action: 'resolve_error' });
+        showToast('✅ Đã sửa xong lỗi!');
         await _ktclLoadData();
     } catch(err) {
         showToast(err.message || 'Lỗi', 'error');
