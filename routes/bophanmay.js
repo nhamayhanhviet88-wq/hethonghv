@@ -224,8 +224,8 @@ module.exports = async function(fastify) {
         }
         const counts = await db.get(`
             SELECT 
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab1,
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab2,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab1,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab2,
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
                 COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4,
                 COUNT(*) FILTER (WHERE sr.error_reported = true)::int AS tab5
@@ -259,9 +259,9 @@ module.exports = async function(fastify) {
         if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
         
         if (tab === '1') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
         } else if (tab === '2') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
         } else if (tab === '3') {
             where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
         } else if (tab === '4') {
@@ -309,6 +309,7 @@ module.exports = async function(fastify) {
 
         const orderByClause = tab ? `
                 CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                sr.expected_date ASC NULLS LAST,
                 CASE 
                     WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 1
                     WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 2
@@ -321,11 +322,10 @@ module.exports = async function(fastify) {
                     WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GỬI' THEN 3
                     ELSE 4
                 END ASC,
-                sr.expected_date ASC NULLS LAST,
                 sr.created_at DESC` : `
-                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
                 CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
                 sr.expected_date ASC NULLS LAST,
+                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
                 sr.created_at DESC`;
 
         let queryStr = `
