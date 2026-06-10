@@ -440,6 +440,55 @@ function _lsxFN(n) {
     return Number(n).toLocaleString('vi-VN');
 }
 
+function _lsxGetContractorStyle(id) {
+    if (!id) return 'background:#f4f4f5;color:#3f3f46;border:1px solid #e4e4e7';
+    var palettes = [
+        { bg: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe' }, // Purple
+        { bg: '#fffbeb', text: '#b45309', border: '#fde68a' }, // Amber
+        { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' }, // Emerald
+        { bg: '#fff1f2', text: '#be123c', border: '#ffe4e6' }, // Rose
+        { bg: '#eef2ff', text: '#4338ca', border: '#e0e7ff' }, // Indigo
+        { bg: '#fdf2f8', text: '#be185d', border: '#fce7f3' }, // Pink
+        { bg: '#ecfeff', text: '#0e7490', border: '#cffafe' }, // Cyan
+        { bg: '#fff7ed', text: '#c2410c', border: '#ffedd5' }, // Orange
+        { bg: '#f0fdf4', text: '#166534', border: '#dcfce7' }, // Light green
+        { bg: '#faf5ff', text: '#6b21a8', border: '#f3e8ff' }, // Violet
+        { bg: '#f5f5f4', text: '#44403c', border: '#e7e5e4' }  // Stone
+    ];
+    var str = String(id);
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    var index = Math.abs(hash) % palettes.length;
+    var p = palettes[index];
+    return 'background:' + p.bg + ';color:' + p.text + ';border:1px solid ' + p.border;
+}
+
+function _lsxGetTeamStyle(id) {
+    if (!id) return 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca';
+    var palettes = [
+        { bg: '#eff6ff', text: '#1e40af', border: '#bfdbfe' }, // Blue
+        { bg: '#fdf2f8', text: '#9d174d', border: '#fbcfe8' }, // Pink
+        { bg: '#f5f3ff', text: '#5b21b6', border: '#ddd6fe' }, // Purple
+        { bg: '#ecfdf5', text: '#065f46', border: '#a7f3d0' }, // Emerald
+        { bg: '#fffbeb', text: '#92400e', border: '#fde68a' }, // Amber
+        { bg: '#fff1f2', text: '#9f1239', border: '#fecdd3' }, // Rose
+        { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' }, // Green
+        { bg: '#faf5ff', text: '#6b21a8', border: '#e9d5ff' }, // Violet
+        { bg: '#f0f9ff', text: '#0369a1', border: '#bae6fd' }, // Cyan
+        { bg: '#fff7ed', text: '#9a3412', border: '#ffedd5' }  // Orange
+    ];
+    var str = 'team_' + id;
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    var index = Math.abs(hash) % palettes.length;
+    var p = palettes[index];
+    return 'background:' + p.bg + ';color:' + p.text + ';border:1px solid ' + p.border;
+}
+
 function _lsxGetHeaderHTML() {
     var showApproveAll = _lsx.is_manager && _lsx.records.some(function(r) { return !r.is_approved; });
     var btnStyle = showApproveAll ? 'inline-block' : 'none';
@@ -477,7 +526,6 @@ function _lsxGetHeaderHTML() {
                 <th style="width:50px">STT</th>
                 <th>Ngày May HT</th>
                 <th>NV May</th>
-                <th>Tiến Độ</th>
                 <th>Tên SP / Phối</th>
                 <th>CSKH</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
@@ -563,7 +611,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 15 : 13);
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 14 : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -664,8 +712,16 @@ function _lsxRenderTable() {
                 doneDateHtml = `<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">${_lsxFormatDoneDate(r.done_date)}</span>`;
             }
 
-            var nvMayHtml = `<span style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</span>`;
-            var progressHtml = _lsxProgress(r.expected_ship_date || r.shipping_date, r.done_date);
+            var nvMayHtml = '—';
+            if (r.contractor_id) {
+                var contractorLabel = r.contractor_name ? '🏭 ' + r.contractor_name : '🏭 Gia công';
+                var contractorColor = _lsxGetContractorStyle(r.contractor_id);
+                nvMayHtml = `<span class="badge" style="${contractorColor};padding:4px 8px;border-radius:6px;font-weight:800">${contractorLabel}</span>`;
+            } else {
+                var badgeColor = _lsxGetTeamStyle(r.worker_id);
+                var teamLabel = r.worker_name ? r.worker_name : '❌ Chưa Phân Tổ';
+                nvMayHtml = `<span class="badge" style="${badgeColor};padding:4px 8px;border-radius:6px;font-weight:800">${teamLabel}</span>`;
+            }
 
             var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
             var priBadge = '';
@@ -702,8 +758,7 @@ function _lsxRenderTable() {
             return `<tr>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px">${doneDateHtml}</td>`
-                + `<td style="font-size:10px;color:#059669;font-weight:600">${nvMayHtml}</td>`
-                + `<td style="text-align:center;vertical-align:middle">${progressHtml}</td>`
+                + `<td>${nvMayHtml}</td>`
                 + `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodPhieuHtml}</td>`
                 + `<td>${cskhHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
