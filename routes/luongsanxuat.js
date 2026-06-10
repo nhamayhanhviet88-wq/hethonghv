@@ -136,6 +136,14 @@ module.exports = async function(fastify) {
         let grandPending = 0;
 
         for (const r of rows) {
+            const isContractor = !!r.contractor_id;
+            const wId = isContractor ? r.contractor_id : r.worker_id;
+            const wName = isContractor ? (r.contractor_name || 'Gia công') : (r.worker_name || 'Chưa PC');
+
+            if (r.dept === 'sewing' && (wName === 'Chưa PC' || (!r.worker_id && !r.contractor_id))) {
+                continue;
+            }
+
             const yr = r.year || 2026;
             const mo = r.month || 1;
             
@@ -155,11 +163,6 @@ module.exports = async function(fastify) {
             const dNode = yNode.depts[r.dept];
             dNode.count += r.count;
             dNode.total_salary += Number(r.total_salary) || 0;
-
-            // Worker ID can be user or contractor
-            const isContractor = !!r.contractor_id;
-            const wId = isContractor ? r.contractor_id : r.worker_id;
-            const wName = isContractor ? (r.contractor_name || 'Gia công') : (r.worker_name || 'Chưa PC');
             
             let wNode = dNode.workers.find(x => x.id === wId && x.is_contractor === isContractor);
             if (!wNode) {
@@ -356,7 +359,18 @@ module.exports = async function(fastify) {
                     lh_u.full_name AS last_update_by,
                     cr.created_at,
                     cr.cut_warning,
-                    cr.cutting_category
+                    cr.cutting_category,
+                    NULL::date AS expected_date,
+                    NULL::timestamptz AS done_date,
+                    NULL::date AS expected_ship_date,
+                    NULL::date AS shipping_date,
+                    NULL::text AS cut_product_name,
+                    NULL::text AS cskh_name,
+                    NULL::text AS qc_missing_notes,
+                    '[]'::text AS qc_evidence_images,
+                    NULL::text AS notes,
+                    cr.unit_price::numeric AS base_price,
+                    0::numeric AS checked_price
                     ${selectColsCutting}
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
@@ -407,7 +421,18 @@ module.exports = async function(fastify) {
                     lh_u.full_name AS last_update_by,
                     pr.created_at,
                     NULL::text AS cut_warning,
-                    NULL::text AS cutting_category
+                    NULL::text AS cutting_category,
+                    NULL::date AS expected_date,
+                    NULL::timestamptz AS done_date,
+                    NULL::date AS expected_ship_date,
+                    NULL::date AS shipping_date,
+                    NULL::text AS cut_product_name,
+                    NULL::text AS cskh_name,
+                    NULL::text AS qc_missing_notes,
+                    '[]'::text AS qc_evidence_images,
+                    NULL::text AS notes,
+                    pr.unit_price::numeric AS base_price,
+                    0::numeric AS checked_price
                     ${selectColsPressing}
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
@@ -437,7 +462,7 @@ module.exports = async function(fastify) {
                     dt.name AS worker_name,
                     c.name AS contractor_name,
                     o.order_code,
-                    COALESCE(sr.quantity, 0) AS order_quantity,
+                    COALESCE(oi.quantity, sr.quantity, 0) AS order_quantity,
                     sr.quantity AS quantity,
                     sr.product_name,
                     COALESCE(CASE WHEN sr.checked_price > 0 THEN sr.checked_price ELSE sr.base_price END, 0) AS unit_price,
@@ -450,13 +475,28 @@ module.exports = async function(fastify) {
                     lh_u.full_name AS last_update_by,
                     sr.created_at,
                     NULL::text AS cut_warning,
-                    NULL::text AS cutting_category
+                    cc.name AS cutting_category,
+                    sr.expected_date AS expected_date,
+                    sr.done_date AS done_date,
+                    o.expected_ship_date AS expected_ship_date,
+                    o.shipping_date AS shipping_date,
+                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
+                    u_cskh.full_name AS cskh_name,
+                    sr.qc_missing_notes AS qc_missing_notes,
+                    sr.qc_evidence_images AS qc_evidence_images,
+                    sr.notes AS notes,
+                    sr.base_price::numeric AS base_price,
+                    sr.checked_price::numeric AS checked_price
                     ${selectColsSewing}
                 FROM sewing_records sr
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
                 LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
                 LEFT JOIN users u_app ON sr.salary_approved_by = u_app.id
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 LEFT JOIN LATERAL (
                     SELECT h.details, h.performed_at, h.performed_by 
                     FROM sewing_history h WHERE h.sewing_id = sr.id 

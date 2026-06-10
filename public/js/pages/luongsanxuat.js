@@ -471,6 +471,32 @@ function _lsxGetHeaderHTML() {
         `;
     }
     
+    if (_lsx.filter.dept === 'sewing') {
+        return `
+            <tr style="background:var(--gray-800)">
+                <th style="width:50px">STT</th>
+                <th>Ngày May HT</th>
+                <th>NV May</th>
+                <th>Tiến Độ</th>
+                <th>Tên SP / Phối</th>
+                <th>CSKH</th>
+                <th style="text-align:center">SL (Đơn / May)</th>
+                <th style="text-align:right">Giá (Gốc / KTra)</th>
+                <th>May Thiếu</th>
+                <th>Ảnh May Thiếu</th>
+                <th>Thiếu Kỹ Thuật May</th>
+                <th style="text-align:right">Lương KTra</th>
+                <th style="text-align:center">
+                    Kiểm Tra
+                    <br>
+                    <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
+                </th>
+                <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
+                <th>Lịch Sử CN</th>
+            </tr>
+        `;
+    }
+    
     return `
         <tr style="background:var(--gray-800)">
             <th style="width:50px">STT</th>
@@ -537,7 +563,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : 13;
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 15 : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -631,6 +657,67 @@ function _lsxRenderTable() {
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
+
+        if (_lsx.filter.dept === 'sewing') {
+            var doneDateHtml = '—';
+            if (r.done_date) {
+                doneDateHtml = `<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">${_lsxFormatDoneDate(r.done_date)}</span>`;
+            }
+
+            var nvMayHtml = `<span style="font-weight:600;color:#0f172a">${wPrefix}${workerName}</span>`;
+            var progressHtml = _lsxProgress(r.expected_ship_date || r.shipping_date, r.done_date);
+
+            var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
+            var priBadge = '';
+            if (priority === 'GẤP') {
+                priBadge = '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gấp</span>';
+            } else if (priority === 'GỬI') {
+                priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
+            }
+            var dispName = _lsxDisplayProdName(r);
+            var prodPhieuHtml = `<span style="font-weight:600;color:#1e293b">${priBadge}${dispName}</span>`;
+
+            var cskhHtml = `<span style="font-size:10px;color:#475569;font-weight:600">${r.cskh_name || '—'}</span>`;
+            var slText = '<span style="color:#2563eb;font-weight:700" title="SL Thực Tế">' + (r.order_quantity || r.quantity) + '</span> / <span style="color:#0d9488;font-weight:700" title="SL May">' + _lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, 'sewing') + '</span>';
+
+            var priceText = '<span style="color:#475569" title="Giá Gốc">' + _lsxFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _lsxFN(r.checked_price) + '</span>';
+            var missingNotesHtml = `<span style="font-size:10px;color:#ef4444;font-weight:600">${r.qc_missing_notes || '—'}</span>`;
+
+            var evidenceImagesHtml = '—';
+            try {
+                var images = JSON.parse(r.qc_evidence_images || '[]');
+                if (images && images.length > 0) {
+                    evidenceImagesHtml = images.map(function(src) {
+                        return `<img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:2px;cursor:pointer;border:1px solid #cbd5e1" onclick="_lsxViewImage('${src}')" title="Xem ảnh đầy đủ">`;
+                    }).join('');
+                }
+            } catch (e) {}
+
+            var thieuKyThuatHtml = '—';
+            if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
+                var detailStr = r.notes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim();
+                thieuKyThuatHtml = `<span style="font-size:10px;color:#b91c1c;font-weight:700;background:#fef2f2;border:1px solid #fca5a5;padding:2px 6px;border-radius:4px;display:inline-block">${detailStr || 'Thiếu KT'}</span>`;
+            }
+
+            return `<tr>`
+                + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
+                + `<td style="font-size:10px">${doneDateHtml}</td>`
+                + `<td style="font-size:10px;color:#059669;font-weight:600">${nvMayHtml}</td>`
+                + `<td style="text-align:center;vertical-align:middle">${progressHtml}</td>`
+                + `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodPhieuHtml}</td>`
+                + `<td>${cskhHtml}</td>`
+                + `<td style="text-align:center;font-size:11px">${slText}</td>`
+                + `<td style="text-align:right;font-size:11px">${priceText}</td>`
+                + `<td>${missingNotesHtml}</td>`
+                + `<td style="text-align:center">${evidenceImagesHtml}</td>`
+                + `<td style="text-align:center">${thieuKyThuatHtml}</td>`
+                + salCell
+                + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
+                + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
+                + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
+                + `</tr>`;
+        }
+
         var prodCell = displayName;
         if (r.dept === 'pressing' && r.id) {
             prodCell = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenPressingDetail(${r.id})">${displayName}</span>`;
@@ -793,7 +880,7 @@ async function _lsxApproveAllVisible() {
 
 function _lsxFormatOrderQty(qty, prodName, category, dept) {
     if (!qty && qty !== 0) return '0';
-    if (dept === 'cutting') {
+    if (dept === 'cutting' || dept === 'sewing') {
         var isPhoi = false;
         if (prodName) {
             var match = prodName.match(/— P(\d+)/);
@@ -807,6 +894,152 @@ function _lsxFormatOrderQty(qty, prodName, category, dept) {
         }
     }
     return qty.toLocaleString('vi-VN');
+}
+
+function _lsxProgress(exp, done) {
+    if (!exp) return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">—</span>';
+    try {
+        var expD = _lsxGetDatePart(exp);
+        if (!expD) return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">—</span>';
+        
+        if (done) {
+            var doneD = _lsxGetDatePart(done);
+            if (!doneD) return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">—</span>';
+            
+            var diff = Math.round((doneD - expD) / 86400000);
+            if (diff < 0) {
+                return '<span class="bpm-progress" style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">⚡ Nhanh ' + Math.abs(diff) + ' ngày</span>';
+            }
+            if (diff === 0) {
+                return '<span class="bpm-progress" style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">✅ Ra kịp hàng</span>';
+            }
+            return '<span class="bpm-progress" style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">🔴 Chậm ' + diff + ' ngày</span>';
+        }
+        
+        var today = _lsxGetDatePart();
+        var diff2 = Math.round((expD - today) / 86400000);
+        if (diff2 > 0) {
+            return '<span class="bpm-progress" style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">⏳ Còn ' + diff2 + ' ngày</span>';
+        }
+        if (diff2 === 0) {
+            return '<span class="bpm-progress" style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">⏳ Ra kịp hàng</span>';
+        }
+        return '<span class="bpm-progress" style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">🔥 Chậm ' + Math.abs(diff2) + ' ngày</span>';
+    } catch (e) {
+        return '<span class="bpm-progress" style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;display:inline-block">—</span>';
+    }
+}
+
+function _lsxGetDatePart(d) {
+    try {
+        var dateStr = '';
+        if (typeof vnISOStr === 'function') {
+            dateStr = vnISOStr(d).split('T')[0];
+        } else {
+            var dateObj = d ? new Date(d) : new Date();
+            dateStr = dateObj.toISOString().split('T')[0];
+        }
+        var parts = dateStr.split('-');
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0, 0);
+    } catch(e) {
+        return null;
+    }
+}
+
+function _lsxFormatDoneDate(d) {
+    if (!d) return '—';
+    try {
+        var dObj = new Date(d);
+        var formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            hour12: false
+        });
+        var parts = formatter.formatToParts(dObj);
+        var hour = '', minute = '', day = '', month = '';
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === 'hour') hour = parts[i].value;
+            else if (parts[i].type === 'minute') minute = parts[i].value;
+            else if (parts[i].type === 'day') day = parts[i].value;
+            else if (parts[i].type === 'month') month = parts[i].value;
+        }
+        return hour + ':' + minute + ' ' + day + '/' + month;
+    } catch(e) {
+        return '—';
+    }
+}
+
+function _lsxDisplayProdName(r) {
+    if (!r) return '—';
+    var name = r.cut_product_name || r.product_name || r.order_code || '—';
+    return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
+        return p1 === '—' ? ' — ' : '';
+    }).trim();
+}
+
+function _lsxViewImage(src) {
+    var overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.85)';
+    overlay.style.zIndex = '999999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.cursor = 'zoom-out';
+
+    var img = document.createElement('img');
+    img.src = src;
+    img.style.maxWidth = '90%';
+    img.style.maxHeight = '90%';
+    img.style.objectFit = 'contain';
+    img.style.borderRadius = '8px';
+    img.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    img.style.cursor = 'default';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '20px';
+    closeBtn.style.right = '20px';
+    closeBtn.style.background = 'rgba(255,255,255,0.2)';
+    closeBtn.style.color = '#fff';
+    closeBtn.style.border = 'none';
+    closeBtn.style.borderRadius = '50%';
+    closeBtn.style.width = '44px';
+    closeBtn.style.height = '44px';
+    closeBtn.style.fontSize = '30px';
+    closeBtn.style.fontWeight = 'bold';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.display = 'flex';
+    closeBtn.style.alignItems = 'center';
+    closeBtn.style.justifyContent = 'center';
+    closeBtn.style.lineHeight = '1';
+    closeBtn.style.transition = 'background 0.2s';
+    closeBtn.onmouseenter = function() { closeBtn.style.background = 'rgba(255,255,255,0.4)'; };
+    closeBtn.onmouseleave = function() { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+
+    overlay.onclick = function() {
+        overlay.remove();
+    };
+    img.onclick = function(e) {
+        e.stopPropagation();
+    };
+    closeBtn.onclick = function(e) {
+        e.stopPropagation();
+        overlay.remove();
+    };
+
+    document.body.appendChild(overlay);
 }
 
 // ========== DETAIL MODAL: Xem chi tiết đơn cắt từ Lương Sản Xuất ==========
