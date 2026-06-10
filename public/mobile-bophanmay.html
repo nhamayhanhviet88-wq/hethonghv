@@ -28,7 +28,7 @@
         .cr{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
         .cl{font-size:11px;color:#94a3b8;font-weight:600}.cv{font-size:13px;color:#e2e8f0;font-weight:700}
         .cd{border-top:1px solid rgba(255,255,255,.06);margin:8px 0}
-        .ca{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)}
+        .ca{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)}
         .ab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px;border-radius:12px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
         .ab:active{transform:scale(.92)}.ab .ai{font-size:20px}.ab .al{font-size:8px;font-weight:700;color:#94a3b8;letter-spacing:.3px}
         .ab.on{border-color:#14b8a6;background:rgba(20,184,166,.15)}.ab.on .al{color:#5eead4}
@@ -99,7 +99,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="cr"><span class="cl">📦 Số lượng</span><span class="cv" style="color:#5eead4;font-size:16px">'+(r.quantity||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">💵 Giá gốc</span><span class="cv">'+fn(r.base_price)+'</span></div>'
 +'<div class="cr"><span class="cl">🔍 Giá KT</span><span class="cv" style="color:#fbbf24">'+fn(r.checked_price)+'</span></div>'
-+'<div class="cr"><span class="cl">💰 Lương</span><span class="cv" style="color:#fbbf24;font-size:16px;font-weight:900">'+fn(r.salary)+'</span></div>'
++'<div class="cr"><span class="cl">🔍 Ngày KTra</span><span class="cv" style="color:#fbbf24">'+(r.qc_date || r.done_date ? ft(r.qc_date || r.done_date) : 'Chưa KTra')+'</span></div>'
 +(r.sewing_details?'<div class="cr"><span class="cl">📝 Chi tiết</span><span class="cv" style="font-size:11px">'+r.sewing_details+'</span></div>':'')
 +(r.shared_sewing?'<div class="cr"><span class="cl">🔗 May chung</span><span class="cv" style="font-size:11px">'+r.shared_sewing+'</span></div>':'')
 +imgs
@@ -109,7 +109,6 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<button class="ab'+(r.is_reported?' on':'')+'" onclick="mTog('+r.id+',\''+rA+'\')"><span class="ai">📋</span><span class="al">BÁO CÁO</span></button>'
 +'<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr('+r.id+')"><span class="ai">⚠️</span><span class="al">LỖI</span></button>'
 +'<button class="ab" onclick="mView('+r.id+')"><span class="ai">📄</span><span class="al">PHIẾU</span></button>'
-+'<button class="ab'+(r.salary_approved?' on':'')+'" onclick="mTog('+r.id+',\''+sA+'\')"><span class="ai">💰</span><span class="al">LƯƠNG</span></button>'
 +'<button class="ab" onclick="toast(\'✏️ Edit — phát triển thêm\')"><span class="ai">✏️</span><span class="al">EDIT</span></button>'
 +'</div>'
 +(hl?'<div class="ch">'+hl+'</div>':'')
