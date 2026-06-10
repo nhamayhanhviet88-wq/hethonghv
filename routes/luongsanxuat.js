@@ -553,6 +553,19 @@ module.exports = async function(fastify) {
         }
 
         if (sewingIds.length > 0) {
+            const flagged = await db.all(`
+                SELECT id, order_code, product_name 
+                FROM sewing_records 
+                WHERE id IN (${sewingIds.join(',')}) 
+                  AND notes LIKE '[THIẾU GIÁ CHI TIẾT]%'
+            `);
+            if (flagged.length > 0) {
+                const names = flagged.map(f => `${f.order_code || ''} (${f.product_name || ''})`).join(', ');
+                return reply.code(400).send({ 
+                    error: `Không thể duyệt lương hàng loạt vì có đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May": ${names}. Vui lòng sửa lại đơn giá/kỹ thuật trước khi duyệt!` 
+                });
+            }
+
             await db.run(`
                 UPDATE sewing_records 
                 SET 
@@ -605,12 +618,16 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Bộ phận không hợp lệ' });
         }
 
-        const rec = await db.get(`SELECT salary_approved, order_item_id, cut_warning FROM ${table} WHERE id = $1`, [recordId]);
+        const rec = await db.get(`SELECT salary_approved, order_item_id, cut_warning, notes FROM ${table} WHERE id = $1`, [recordId]);
         if (!rec) {
             return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
         }
 
         const newApproved = !rec.salary_approved;
+        
+        if (newApproved && dept === 'sewing' && rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
+            return reply.code(400).send({ error: 'Chưa thể duyệt lương vì đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May". Vui lòng sửa lại đơn hàng trước khi duyệt!' });
+        }
         
         if (dept === 'cutting') {
             await db.run(`

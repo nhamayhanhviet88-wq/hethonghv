@@ -9,6 +9,7 @@ var _ktclState = {
     search: '',
     teamFilterVal: '',
     timeFilterVal: 'undone_past_today',
+    filterMissingTech: false,
     doneDate: '',
     doneMonth: '',
     showSimulator: false,
@@ -835,6 +836,10 @@ function renderKiemtrachatluongPage(content) {
                             <div id="ktclCustomMonthContainer" style="display: ${_ktclState.activeTab === '4' && _ktclState.timeFilterVal === 'custom_month' ? 'flex' : 'none'}; align-items: center; gap: 6px;">
                                 <input type="month" id="ktclDoneMonth" onchange="_ktclHandleCustomMonthChange(this.value)" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #ffffff; font-size: 13px; color: #334155; font-weight: 600;">
                             </div>
+                            <label id="ktclMissingTechFilterLabel" style="display: ${_ktclState.activeTab === '4' ? 'flex' : 'none'}; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #ef4444; cursor: pointer; user-select: none; margin-left: 10px;">
+                                <input type="checkbox" id="ktclMissingTechFilter" onchange="_ktclHandleMissingTechFilterChange(this.checked)" style="width: 16px; height: 16px; cursor: pointer;">
+                                ⚠️ Thiếu kỹ thuật
+                            </label>
                         </div>
                     </div>
 
@@ -954,6 +959,11 @@ function _ktclSwitchTab(tab) {
     const customDateContainer = document.getElementById('ktclCustomDateContainer');
     const customMonthContainer = document.getElementById('ktclCustomMonthContainer');
     
+    const missingTechLabel = document.getElementById('ktclMissingTechFilterLabel');
+    const missingTechFilter = document.getElementById('ktclMissingTechFilter');
+    if (missingTechFilter) missingTechFilter.checked = false;
+    _ktclState.filterMissingTech = false;
+
     if (tab === '4') {
         if (timeFilter) {
             timeFilter.style.display = 'block';
@@ -961,10 +971,12 @@ function _ktclSwitchTab(tab) {
         }
         if (customDateContainer) customDateContainer.style.display = _ktclState.timeFilterVal === 'custom_date' ? 'flex' : 'none';
         if (customMonthContainer) customMonthContainer.style.display = _ktclState.timeFilterVal === 'custom_month' ? 'flex' : 'none';
+        if (missingTechLabel) missingTechLabel.style.display = 'flex';
     } else {
         if (timeFilter) timeFilter.style.display = 'none';
         if (customDateContainer) customDateContainer.style.display = 'none';
         if (customMonthContainer) customMonthContainer.style.display = 'none';
+        if (missingTechLabel) missingTechLabel.style.display = 'none';
     }
     
     _ktclLoadData();
@@ -1110,6 +1122,11 @@ function _ktclRenderTable() {
             filtered = filtered.filter(r => r.sewing_team_id === tid);
         }
     }
+
+    // Apply missing technique filter
+    if (_ktclState.activeTab === '4' && _ktclState.filterMissingTech) {
+        filtered = filtered.filter(r => r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]'));
+    }
     
     if (!filtered.length) {
         body.innerHTML = `
@@ -1188,12 +1205,18 @@ function _ktclRenderTable() {
             }).trim();
         }
         const orderInfoHtml = `
-            <div style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
+            <div style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 ${priBadge}
                 <span>${r.order_code || '—'}</span>
+                ${r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]') ? 
+                    `<span class="ktcl-badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">⚠️ Thiếu kỹ thuật</span>` : ''
+                }
             </div>
             <div style="font-weight: 600; color: #334155; margin-top: 4px; font-size:11.5px;">${prodName}</div>
             <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">CSKH: <strong>${r.cskh_name || '—'}</strong></div>
+            ${r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]') ? 
+                `<div style="font-size:11px; color:#b91c1c; font-weight:700; margin-top:4px; font-style:italic;">⚠️ Thiếu: ${r.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}</div>` : ''
+            }
         `;
         
         // Fabrics / techniques info
@@ -2382,17 +2405,20 @@ async function _ktclSubmitQC() {
             });
         }
 
-        // Automatically mark done if not already done and not missing price
-        if (!isAlreadyDone && !isMissingPrice) {
+        // Automatically mark done if not already done
+        if (!isAlreadyDone) {
             await apiCall(`/api/sewing/toggle/${_ktclState.currentRecordId}`, 'POST', { action: 'mark_done' });
-            showToast('Đã lưu thông tin và hoàn thành đơn may!');
-        } else if (isMissingPrice) {
-            if (isAlreadyDone) {
-                await apiCall(`/api/sewing/toggle/${_ktclState.currentRecordId}`, 'POST', { action: 'undo_done' });
+            if (isMissingPrice) {
+                showToast('Đã ghi nhận báo thiếu kỹ thuật may và hoàn thành đơn!');
+            } else {
+                showToast('Đã lưu thông tin và hoàn thành đơn may!');
             }
-            showToast('Đã ghi nhận báo thiếu đơn giá chi tiết!');
         } else {
-            showToast('Đã lưu thông tin kiểm tra!');
+            if (isMissingPrice) {
+                showToast('Đã cập nhật báo thiếu kỹ thuật may!');
+            } else {
+                showToast('Đã lưu thông tin kiểm tra!');
+            }
         }
 
         // Send Telegram Notification
@@ -2497,6 +2523,11 @@ function _ktclHandleSearch(val) {
 
 function _ktclFilterTeam(val) {
     _ktclState.teamFilterVal = val;
+    _ktclRenderTable();
+}
+
+function _ktclHandleMissingTechFilterChange(checked) {
+    _ktclState.filterMissingTech = checked;
     _ktclRenderTable();
 }
 

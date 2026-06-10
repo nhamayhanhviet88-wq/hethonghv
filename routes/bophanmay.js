@@ -397,6 +397,9 @@ module.exports = async function(fastify) {
             detail = '↩️ Hoàn tác báo cáo';
         } else if (action === 'approve_salary') {
             if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền tính lương!' });
+            if (rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
+                return reply.code(400).send({ error: 'Chưa thể duyệt lương vì đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May". Vui lòng sửa lại đơn hàng (bỏ tích cờ Thiếu kỹ thuật và cập nhật lại Giá kiểm tra chính xác) trước khi duyệt lương.' });
+            }
             if (!rec.checked_price || Number(rec.checked_price) <= 0) {
                 return reply.code(400).send({ error: 'Cần nhập Giá KTra trước khi tính lương!' });
             }
