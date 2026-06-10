@@ -1604,8 +1604,15 @@
                         const errBtn = r.error_reported
                             ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
                             : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
-                        const timeFilter = document.getElementById('filterTime') ? document.getElementById('filterTime').value : '';
-                        const undoBtn = (timeFilter === 'today')
+                        let isDoneToday = false;
+                        if (r.done_date) {
+                            try {
+                                const d = new Date(r.done_date);
+                                const doneStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+                                isDoneToday = (doneStr === getVnTodayStr());
+                            } catch(e){}
+                        }
+                        const undoBtn = isDoneToday
                             ? `<button class="btn btn-warning" style="background:#f59e0b; color:#fff;" onclick="openQC(${r.id})">📝 SỬA BÁO CÁO</button>`
                             : `<button class="btn btn-danger" onclick="toggleDone(${r.id}, 'undo_done')">↩️ CHƯA XONG</button>`;
                         actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 XEM CHI TIẾT</button>
