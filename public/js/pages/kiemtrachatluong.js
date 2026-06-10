@@ -1566,9 +1566,9 @@ function _ktclRecalcTechPrices() {
     const checkedIds = [];
     const uncheckedNames = [];
     checkboxes.forEach(cb => {
+        totalPP += Number(cb.dataset.pp) || 0;
         if (cb.checked) {
             totalFP += Number(cb.dataset.fp) || 0;
-            totalPP += Number(cb.dataset.pp) || 0;
             checkedIds.push(Number(cb.dataset.id));
         } else {
             uncheckedNames.push(cb.dataset.name || '');
