@@ -508,13 +508,13 @@ function _lsxGetHeaderHTML() {
                 <th style="text-align:center">SL Đơn</th>
                 <th style="text-align:center">SL Ép</th>
                 ${posHeaders}
-                <th style="text-align:right">Thành Tiền (đ)</th>
+                <th style="text-align:right">Lương NV</th>
+                <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
                 <th style="text-align:center">
                     Kiểm Tra
                     <br>
                     <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
                 </th>
-                <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
                 <th>Cập Nhật</th>
             </tr>
         `;
@@ -770,9 +770,9 @@ function _lsxRenderTable() {
                     var price = r[prcCol];
                     return `<td style="background:#f0fdf4">${_lsxFormatPressingPos(qty, price)}</td>`;
                 }).join('')
-                + salCell
+                + `<td style="text-align:right;font-weight:700;color:#f59e0b">${r.is_approved ? _lsxFN(r.salary) : '—'}</td>`
+                + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${r.is_approved ? _lsxFN(cumulative[i]) : '—'}</td>`
                 + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
-                + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
