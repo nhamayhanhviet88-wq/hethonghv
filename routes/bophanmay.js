@@ -79,7 +79,7 @@ module.exports = async function(fastify) {
     }
 
     // Ensure uploads dir
-    const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'sewing');
+    const uploadsDir = path.join(__dirname, '..', 'uploads', 'sewing');
     try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
 
     // ========== HELPERS ==========

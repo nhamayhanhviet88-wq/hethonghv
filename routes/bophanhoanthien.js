@@ -32,7 +32,7 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPHT] history:', e.message); }
 
     // Ensure uploads dir
-    const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'finishing');
+    const uploadsDir = path.join(__dirname, '..', 'uploads', 'finishing');
     try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
 
     // ========== HELPERS ==========

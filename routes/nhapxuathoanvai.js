@@ -148,7 +148,7 @@ module.exports = async function(fastify) {
         const id = Number(req.params.id), now = vnNow();
         const data = await req.file();
         if (!data) return reply.code(400).send({ error: 'Không có file' });
-        const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'fabrictx');
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'fabrictx');
         if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
         const ext = path.extname(data.filename) || '.jpg';
         const fn = `ftx_${id}_${Date.now()}${ext}`;

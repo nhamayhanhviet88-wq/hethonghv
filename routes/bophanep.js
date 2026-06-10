@@ -42,7 +42,7 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ph_pid ON pressing_history(pressing_id)`);
     } catch(e) { console.error('[BPE] history:', e.message); }
 
-    const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'pressing');
+    const uploadsDir = path.join(__dirname, '..', 'uploads', 'pressing');
     try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
 
     // ========== HELPERS ==========
