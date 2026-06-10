@@ -572,12 +572,12 @@ function renderKiemtrachatluongPage(content) {
                                         <th style="width: 50px; text-align: center;">STT</th>
                                         <th style="text-align: center; white-space: nowrap;">Thao Tác</th>
                                         <th style="text-align: left; white-space: nowrap;">Mã Đơn / Sản Phẩm / CSKH</th>
-                                        <th style="text-align: left; white-space: nowrap;">Kỹ Thuật / Vải / Màu</th>
+                                        <th style="text-align: left; white-space: nowrap;">Vải / Màu</th>
                                         <th style="text-align: center; white-space: nowrap; width: 120px;">SL Đơn / SL May</th>
                                         <th style="text-align: left; white-space: nowrap;">Phân Công Cho</th>
                                         <th style="text-align: center; white-space: nowrap; width: 120px;">Hạn Trả / QLX Hẹn</th>
                                         <th style="text-align: center; white-space: nowrap; width: 100px;">QC / Lương</th>
-                                        <th style="text-align: left; white-space: nowrap; width: 150px;">QLX Lưu Ý May & Ảnh QC</th>
+                                        <th style="text-align: left; white-space: nowrap; width: 150px;">QLX Lưu Ý May</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ktclTableBody">
@@ -866,7 +866,6 @@ function _ktclRenderTable() {
         const fabricInfoHtml = `
             <div style="color: #475569;">Vải: <strong>${r.material_name || '—'}</strong></div>
             <div style="color: #475569; margin-top: 2px;">Màu: <strong>${r.color_name || '—'}</strong></div>
-            <div style="color: #0f766e; margin-top: 2px; font-size: 11px;">Kỹ thuật: <strong>${r.sewing_techniques || '—'}</strong></div>
         `;
         
         // Quantities
@@ -932,7 +931,6 @@ function _ktclRenderTable() {
                 ${r.sewing_details ? `<div style="color: #0f766e; font-style: italic;">🧵 <strong>Chi tiết:</strong> ${r.sewing_details}</div>` : ''}
                 ${!r.notes && !r.sewing_details ? '<span style="color:#94a3b8; font-style:italic;">Không có lưu ý</span>' : ''}
             </div>
-            ${imagesHtml !== '—' ? imagesHtml : ''}
         `;
         
         return `
