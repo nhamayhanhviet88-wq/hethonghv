@@ -531,7 +531,7 @@ function _lsxGetHeaderHTML() {
                 <th style="text-align:right">Giá (Gốc / KTra)</th>
                 <th style="text-align:right">Giá ( CPM/ KTra )</th>
                 <th>May Thiếu</th>
-                <th>Thiếu Kỹ Thuật May</th>
+                <th>Thiếu KT May</th>
                 <th style="text-align:right">Lương Thợ</th>
                 <th style="text-align:right">Lương CPM</th>
                 <th style="text-align:center">
@@ -822,7 +822,7 @@ function _lsxRenderTable() {
             var thieuKyThuatHtml = '—';
             if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
                 var detailStr = r.notes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim();
-                thieuKyThuatHtml = `<span style="font-size:10px;color:#b91c1c;font-weight:700;background:#fef2f2;border:1px solid #fca5a5;padding:2px 6px;border-radius:4px;display:inline-block">${detailStr || 'Thiếu KT'}</span>`;
+                thieuKyThuatHtml = `<div style="font-size:10.5px;font-weight:600;line-height:1.3">${detailStr || 'Thiếu KT'}</div>`;
             }
 
             var cpmSalCell = '<td style="text-align:right;font-size:11px;color:#94a3b8">—</td>';
