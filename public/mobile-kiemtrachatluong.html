@@ -2061,7 +2061,11 @@
             try {
                 const arr = JSON.parse(imagesStr || '[]');
                 if (arr.length > 0) {
-                    container.innerHTML = arr.map(src => `<img src="${src}" onclick="viewFullImage('${src}')">`).join('');
+                    const t = Date.now();
+                    container.innerHTML = arr.map(src => {
+                        const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                        return `<img src="${src}${buster}" onclick="viewFullImage('${src}${buster}')">`;
+                    }).join('');
                 }
             } catch(e){}
         }
@@ -2222,8 +2226,8 @@
                 }
             }
 
-            // Validation: Checked price must be > 0 if not already done and NOT missing price
-            if (!isAlreadyDone && !isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
+            // Validation: Checked price must be > 0 if NOT missing price
+            if (!isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
                 toast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
                 return;
             }

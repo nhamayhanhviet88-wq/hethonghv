@@ -1251,9 +1251,13 @@ function _ktclRenderTable() {
         try {
             const imgs = JSON.parse(r.finish_images || '[]');
             if (imgs.length > 0) {
+                const t = Date.now();
                 imagesHtml = `
                     <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
-                        ${imgs.map(src => `<img src="${src}" class="ktcl-qc-img-thumb" onclick="_ktclViewFullImage('${src}', ${r.id})">`).join('')}
+                        ${imgs.map(src => {
+                            const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                            return `<img src="${src}${buster}" class="ktcl-qc-img-thumb" onclick="_ktclViewFullImage('${src}${buster}', ${r.id})">`;
+                        }).join('')}
                     </div>
                 `;
             }
@@ -1645,12 +1649,16 @@ async function _ktclOpenQCModal(recordId) {
     try {
         const imgs = JSON.parse(r.finish_images || '[]');
         if (imgs.length > 0) {
-            imagesHtml = imgs.map(src => `
+            const t = Date.now();
+            imagesHtml = imgs.map(src => {
+                const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                return `
                 <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
+                    <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
                     <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
     } catch(e) {}
     
@@ -2066,8 +2074,8 @@ async function _ktclSubmitQC() {
         }
     }
 
-    // Validation: Checked price must be > 0 if not already done and NOT missing price
-    if (!isAlreadyDone && !isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
+    // Validation: Checked price must be > 0 if NOT missing price
+    if (!isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
         showToast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
         return;
     }
