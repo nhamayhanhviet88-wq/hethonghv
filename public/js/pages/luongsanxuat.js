@@ -822,7 +822,13 @@ function _lsxRenderTable() {
             var thieuKyThuatHtml = '—';
             if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
                 var detailStr = r.notes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim();
-                thieuKyThuatHtml = `<div style="font-size:10.5px;font-weight:600;line-height:1.3">${detailStr || 'Thiếu KT'}</div>`;
+                var words = (detailStr || '').split(/\s+/);
+                var chunked = [];
+                for (var wIdx = 0; wIdx < words.length; wIdx += 3) {
+                    chunked.push(words.slice(wIdx, wIdx + 3).join(' '));
+                }
+                var formattedStr = chunked.join('<br>');
+                thieuKyThuatHtml = `<div style="font-size:10.5px;font-weight:600;line-height:1.3">${formattedStr || 'Thiếu KT'}</div>`;
             }
 
             var cpmSalCell = '<td style="text-align:right;font-size:11px;color:#94a3b8">—</td>';
