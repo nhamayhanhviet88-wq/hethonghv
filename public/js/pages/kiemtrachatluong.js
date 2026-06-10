@@ -2318,8 +2318,10 @@ async function _ktclSubmitQC() {
         }
     }
 
-    // Validation: Checked price must be > 0 if NOT missing price
-    if (!isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
+    // Validation: Checked price must be >= 0 if techniques ticked, otherwise > 0 if NOT missing price
+    const hasCheckedTechs = checkboxes.length > 0 && checkedIds.length > 0;
+    const isValidPrice = hasCheckedTechs ? (Number(cpVal) >= 0) : (Number(cpVal) > 0);
+    if (!isMissingPrice && (!cpVal || !isValidPrice)) {
         showToast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
         return;
     }
@@ -2439,10 +2441,23 @@ async function _ktclSubmitQC() {
 async function _ktclToggleDone(recordId, action) {
     if (action === 'mark_done') {
         const r = _ktclState.originalRecords.find(x => x.id === recordId);
-        if (r && (!r.checked_price || Number(r.checked_price) <= 0)) {
-            _ktclOpenQCModal(recordId);
-            showToast('Vui lòng nhập Giá Kiểm Tra trước khi hoàn thành đơn!', 'error');
-            return;
+        if (r) {
+            const isMissingPrice = !!(r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]'));
+            let hasCheckedTechs = false;
+            if (r.checked_techniques) {
+                try {
+                    const parsed = JSON.parse(r.checked_techniques);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        hasCheckedTechs = true;
+                    }
+                } catch (e) {}
+            }
+            const isValidPrice = (isMissingPrice || hasCheckedTechs) ? (Number(r.checked_price) >= 0) : (Number(r.checked_price) > 0);
+            if (!isValidPrice) {
+                _ktclOpenQCModal(recordId);
+                showToast('Vui lòng nhập Giá Kiểm Tra trước khi hoàn thành đơn!', 'error');
+                return;
+            }
         }
     }
     
