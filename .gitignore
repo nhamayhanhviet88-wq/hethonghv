@@ -26,3 +26,7 @@ ecosystem.config.js
 # Backup files (DB dumps)
 backups/
 local_backups/
+
+# Scratch directory
+scratch/
+

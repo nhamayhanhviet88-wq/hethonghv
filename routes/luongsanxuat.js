@@ -626,10 +626,11 @@ module.exports = async function(fastify) {
         if (sewingIds.length > 0) {
             if (approved) {
                 const flagged = await db.all(`
-                    SELECT id, order_code, product_name 
-                    FROM sewing_records 
-                    WHERE id IN (${sewingIds.join(',')}) 
-                      AND notes LIKE '[THIẾU GIÁ CHI TIẾT]%'
+                    SELECT sr.id, o.order_code, sr.product_name 
+                    FROM sewing_records sr
+                    LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
+                    WHERE sr.id IN (${sewingIds.join(',')}) 
+                      AND sr.notes LIKE '[THIẾU GIÁ CHI TIẾT]%'
                 `);
                 if (flagged.length > 0) {
                     const names = flagged.map(f => `${f.order_code || ''} (${f.product_name || ''})`).join(', ');
@@ -691,7 +692,15 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Bộ phận không hợp lệ' });
         }
 
-        const rec = await db.get(`SELECT salary_approved, order_item_id, cut_warning, notes FROM ${table} WHERE id = $1`, [recordId]);
+        let queryStr = '';
+        if (dept === 'cutting') {
+            queryStr = 'SELECT salary_approved, order_item_id, cut_warning FROM cutting_records WHERE id = $1';
+        } else if (dept === 'pressing') {
+            queryStr = 'SELECT salary_approved FROM pressing_records WHERE id = $1';
+        } else if (dept === 'sewing') {
+            queryStr = 'SELECT salary_approved, notes FROM sewing_records WHERE id = $1';
+        }
+        const rec = await db.get(queryStr, [recordId]);
         if (!rec) {
             return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
         }
