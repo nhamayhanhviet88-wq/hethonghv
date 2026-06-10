@@ -501,13 +501,13 @@ module.exports = async function(fastify) {
                     (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                     u_cskh.full_name AS cskh_name,
                     sr.qc_missing_notes AS qc_missing_notes,
-                    sr.qc_evidence_images AS qc_evidence_images,
+                    sr.qc_evidence_images::text AS qc_evidence_images,
                     sr.notes AS notes,
                     sr.base_price::numeric AS base_price,
                     sr.checked_price::numeric AS checked_price,
-                    sr.checked_techniques AS checked_techniques,
-                    oi.sewing_techniques AS order_sewing_techniques,
-                    ts.sewing_tech AS sample_sewing_tech,
+                    sr.checked_techniques::text AS checked_techniques,
+                    oi.sewing_techniques::text AS order_sewing_techniques,
+                    ts.sewing_tech::text AS sample_sewing_tech,
                     ts.factory_price AS sample_factory_price,
                     ts.processing_price AS sample_processing_price
                     ${selectColsSewing}
