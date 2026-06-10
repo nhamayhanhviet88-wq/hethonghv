@@ -531,7 +531,6 @@ function _lsxGetHeaderHTML() {
                 <th style="text-align:center">SL (Đơn / May)</th>
                 <th style="text-align:right">Giá (Gốc / KTra)</th>
                 <th>May Thiếu</th>
-                <th>Ảnh May Thiếu</th>
                 <th>Thiếu Kỹ Thuật May</th>
                 <th style="text-align:right">Lương KTra</th>
                 <th style="text-align:center">
@@ -611,7 +610,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 14 : 13);
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : 13;
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -737,17 +736,28 @@ function _lsxRenderTable() {
             var slText = '<span style="color:#2563eb;font-weight:700" title="SL Thực Tế">' + (r.order_quantity || r.quantity) + '</span> / <span style="color:#0d9488;font-weight:700" title="SL May">' + _lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, 'sewing') + '</span>';
 
             var priceText = '<span style="color:#475569" title="Giá Gốc">' + _lsxFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _lsxFN(r.checked_price) + '</span>';
-            var missingNotesHtml = `<span style="font-size:10px;color:#ef4444;font-weight:600">${r.qc_missing_notes || '—'}</span>`;
 
-            var evidenceImagesHtml = '—';
+            var missingHtml = '—';
+            var hasNotes = r.qc_missing_notes && r.qc_missing_notes !== '—';
+            var images = [];
             try {
-                var images = JSON.parse(r.qc_evidence_images || '[]');
-                if (images && images.length > 0) {
-                    evidenceImagesHtml = images.map(function(src) {
+                images = JSON.parse(r.qc_evidence_images || '[]');
+            } catch (e) {}
+            var hasImages = images && images.length > 0;
+
+            if (hasNotes || hasImages) {
+                var parts = [];
+                if (hasNotes) {
+                    parts.push(`<div style="font-size:10px;color:#ef4444;font-weight:600">${r.qc_missing_notes}</div>`);
+                }
+                if (hasImages) {
+                    var imgHtmls = images.map(function(src) {
                         return `<img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:2px;cursor:pointer;border:1px solid #cbd5e1" onclick="_lsxViewImage('${src}')" title="Xem ảnh đầy đủ">`;
                     }).join('');
+                    parts.push(`<div style="margin-top:4px;line-height:0">${imgHtmls}</div>`);
                 }
-            } catch (e) {}
+                missingHtml = parts.join('');
+            }
 
             var thieuKyThuatHtml = '—';
             if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
@@ -763,8 +773,7 @@ function _lsxRenderTable() {
                 + `<td>${cskhHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
                 + `<td style="text-align:right;font-size:11px">${priceText}</td>`
-                + `<td>${missingNotesHtml}</td>`
-                + `<td style="text-align:center">${evidenceImagesHtml}</td>`
+                + `<td>${missingHtml}</td>`
                 + `<td style="text-align:center">${thieuKyThuatHtml}</td>`
                 + salCell
                 + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
