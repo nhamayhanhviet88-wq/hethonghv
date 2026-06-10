@@ -1619,20 +1619,11 @@ function _ktclUpdateEvidenceGroupVisibility() {
     });
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
 
+    // 1. Evidence Card for Checklist "Ảnh May Thiếu"
     const evidenceCard = document.getElementById('ktclQCEvidenceCard');
-    const labelEl = document.querySelector('#ktclQCEvidenceCard .qc-section-title');
-    const titleLabel = document.querySelector('#ktclQCEvidenceCard .form-label');
-
     if (evidenceCard) {
-        if (isMissingPrice || isNotAllTechs) {
+        if (isNotAllTechs) {
             evidenceCard.style.display = 'block';
-            if (isMissingPrice) {
-                if (labelEl) labelEl.textContent = '⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU';
-                if (titleLabel) titleLabel.innerHTML = 'Ảnh Thiếu Kỹ Thuật (Bắt buộc) <span style="color:#ef4444;">*</span>';
-            } else {
-                if (labelEl) labelEl.textContent = '⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU';
-                if (titleLabel) titleLabel.innerHTML = 'Ảnh May Thiếu (Chụp Ảnh) <span style="color:#ef4444;">*</span>';
-            }
         } else {
             evidenceCard.style.display = 'none';
             document.getElementById('ktclQCMissingNotes').value = '';
@@ -1643,6 +1634,22 @@ function _ktclUpdateEvidenceGroupVisibility() {
             if (container) container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
             const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
             if (r) r.qc_evidence_images = '[]';
+        }
+    }
+
+    // 2. Evidence Card for "Ảnh Thiếu Kỹ Thuật"
+    const mpEvidenceCard = document.getElementById('ktclQCMissingPriceEvidenceCard');
+    if (mpEvidenceCard) {
+        if (isMissingPrice) {
+            mpEvidenceCard.style.display = 'block';
+        } else {
+            mpEvidenceCard.style.display = 'none';
+            const statusEl = document.getElementById('ktclMissingPriceEvidenceUploadStatus');
+            if (statusEl) statusEl.textContent = 'Chưa chọn ảnh';
+            const container = document.getElementById('ktclQCMissingPriceEvidenceImagesContainer');
+            if (container) container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
+            const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+            if (r) r.qc_missing_price_images = '[]';
         }
     }
 }
@@ -1753,6 +1760,24 @@ async function _ktclOpenQCModal(recordId) {
                 <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
                     <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
                     <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                </div>
+                `;
+            }).join('');
+        }
+    } catch(e) {}
+    
+    // Preview missing price evidence images
+    let missingPriceEvidenceImagesHtml = '';
+    try {
+        const mpEvidImgs = JSON.parse(r.qc_missing_price_images || '[]');
+        if (mpEvidImgs.length > 0) {
+            const t = Date.now();
+            missingPriceEvidenceImagesHtml = mpEvidImgs.map(src => {
+                const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                return `
+                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
+                    <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+                    <button onclick="_ktclDeleteMissingPriceEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                 </div>
                 `;
             }).join('');
@@ -1896,6 +1921,21 @@ async function _ktclOpenQCModal(recordId) {
                             <div id="ktclMissingPriceDetailsGroup" style="display:none; margin-bottom: 12px;">
                                 <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu kỹ thuật may (Bắt buộc):</label>
                                 <textarea id="ktclMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết/kỹ thuật may còn thiếu..." style="background: #fef2f2; border-color: #fca5a5; color: #b91c1c;"></textarea>
+                            </div>
+
+                            <!-- Ảnh Thiếu Kỹ Thuật May (Bắt buộc khi tích Thiếu Kỹ Thuật May) -->
+                            <div id="ktclQCMissingPriceEvidenceCard" style="display:none; border: 1px dashed #fca5a5; background: #fff5f5; border-radius: 8px; padding: 12px; margin-bottom: 12px; margin-top: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label" style="color:#ef4444; font-weight:700; margin-bottom:6px;">Ảnh Thiếu Kỹ Thuật (Bắt buộc) <span style="color:#ef4444;">*</span></label>
+                                    <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
+                                        <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700; border-color:#fca5a5; color:#ef4444;" onclick="document.getElementById('ktclQCMissingPriceEvidenceFileInput').click()"> Tải ảnh thiếu kỹ thuật</button>
+                                        <span style="font-size:12px; color:#64748b;" id="ktclMissingPriceEvidenceUploadStatus">Chưa chọn ảnh</span>
+                                        <input type="file" multiple id="ktclQCMissingPriceEvidenceFileInput" accept="image/*" style="display:none;" onchange="_ktclUploadMissingPriceImages(event)">
+                                    </div>
+                                    <div style="display:flex; gap:8px; flex-wrap:wrap;" id="ktclQCMissingPriceEvidenceImagesContainer">
+                                        ${missingPriceEvidenceImagesHtml || '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh thiếu kỹ thuật.</span>'}
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="form-group" style="margin-top:12px;">
@@ -2262,6 +2302,97 @@ async function _ktclDeleteEvidenceImage(imgSrc) {
     }
 }
 
+async function _ktclUploadMissingPriceImages(event) {
+    const files = event.target.files;
+    if (!files.length) return;
+    
+    const statusEl = document.getElementById('ktclMissingPriceEvidenceUploadStatus');
+    try {
+        if (statusEl) statusEl.textContent = 'Đang xử lý ảnh...';
+        const fd = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                const resized = await _ktclResizeImage(file, 800, 800, 0.6);
+                fd.append('file', resized);
+            } else {
+                fd.append('file', file);
+            }
+        }
+        
+        if (statusEl) statusEl.textContent = 'Đang tải lên...';
+        
+        const res = await fetch(`/api/sewing/records/${_ktclState.currentRecordId}/missing-price-images`, {
+            method: 'POST',
+            body: fd,
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Lỗi upload');
+        
+        showToast('Tải ảnh thiếu kỹ thuật thành công!');
+        if (statusEl) statusEl.textContent = `Đã tải lên ${data.images.length} ảnh thiếu kỹ thuật.`;
+        
+        _ktclRenderMissingPriceEvidenceImages(JSON.stringify(data.images));
+        
+        const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+        if (r) r.qc_missing_price_images = JSON.stringify(data.images);
+        
+    } catch(err) {
+        showToast(err.message || 'Lỗi tải lên', 'error');
+        if (statusEl) statusEl.textContent = 'Lỗi tải ảnh!';
+    }
+}
+
+function _ktclRenderMissingPriceEvidenceImages(imagesStr) {
+    const container = document.getElementById('ktclQCMissingPriceEvidenceImagesContainer');
+    if (!container) return;
+    
+    let arr = [];
+    try { arr = JSON.parse(imagesStr || '[]'); } catch(e) {}
+    
+    if (arr.length === 0) {
+        container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh thiếu kỹ thuật.</span>';
+    } else {
+        container.innerHTML = arr.map(src => `
+            <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
+                <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
+                <button onclick="_ktclDeleteMissingPriceEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+            </div>
+        `).join('');
+    }
+}
+
+async function _ktclDeleteMissingPriceEvidenceImage(imgSrc) {
+    const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+    if (!r) return;
+    
+    let currentImgs = [];
+    try {
+        currentImgs = JSON.parse(r.qc_missing_price_images || '[]');
+    } catch(e) {}
+    
+    const updatedImgs = currentImgs.filter(src => src !== imgSrc);
+    
+    try {
+        await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+            field: 'qc_missing_price_images',
+            value: JSON.stringify(updatedImgs)
+        });
+        
+        r.qc_missing_price_images = JSON.stringify(updatedImgs);
+        showToast('Đã xóa ảnh thiếu kỹ thuật.');
+        _ktclRenderMissingPriceEvidenceImages(JSON.stringify(updatedImgs));
+        
+        const statusEl = document.getElementById('ktclMissingPriceEvidenceUploadStatus');
+        if (statusEl) {
+            statusEl.textContent = updatedImgs.length > 0 ? `Đã tải lên ${updatedImgs.length} ảnh thiếu kỹ thuật.` : 'Chưa chọn ảnh';
+        }
+    } catch(err) {
+        showToast('Lỗi khi xóa ảnh: ' + err.message, 'error');
+    }
+}
+
 async function _ktclSubmitQC() {
     const isMissingPrice = document.getElementById('ktclMissingPriceCheckbox').checked;
     let finalNotes = '';
@@ -2369,10 +2500,10 @@ async function _ktclSubmitQC() {
     }
 
     if (isMissingPrice) {
-        const evidImagesStr = r ? (r.qc_evidence_images || '[]') : '[]';
-        let evidImagesArr = [];
-        try { evidImagesArr = JSON.parse(evidImagesStr); } catch(e){}
-        if (!evidImagesArr || evidImagesArr.length === 0) {
+        const mpEvidImagesStr = r ? (r.qc_missing_price_images || '[]') : '[]';
+        let mpEvidImagesArr = [];
+        try { mpEvidImagesArr = JSON.parse(mpEvidImagesStr); } catch(e){}
+        if (!mpEvidImagesArr || mpEvidImagesArr.length === 0) {
             showToast('⚠️ Vui lòng chụp/tải lên "Ảnh Thiếu Kỹ Thuật"!', 'error');
             return;
         }
@@ -2426,7 +2557,14 @@ async function _ktclSubmitQC() {
         const evidenceImagesVal = r ? (r.qc_evidence_images || '[]') : '[]';
         await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
             field: 'qc_evidence_images',
-            value: (isNotAllTechs || isMissingPrice) ? evidenceImagesVal : '[]'
+            value: isNotAllTechs ? evidenceImagesVal : '[]'
+        });
+
+        // Save qc_missing_price_images
+        const mpEvidenceImagesVal = r ? (r.qc_missing_price_images || '[]') : '[]';
+        await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+            field: 'qc_missing_price_images',
+            value: isMissingPrice ? mpEvidenceImagesVal : '[]'
         });
 
         // Save checked_techniques
