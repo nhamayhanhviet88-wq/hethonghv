@@ -397,7 +397,8 @@
             font-size: 10px;
             font-weight: 700;
             gap: 4px;
-            width: 22%;
+            flex: 1;
+            max-width: 20%;
             cursor: pointer;
             padding: 6px 4px;
             border-radius: 14px;
@@ -799,6 +800,13 @@
                 <span class="badge" id="badgeTab3" style="display:none">0</span>
             </div>
             <span>Phân Tổ</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('5')">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">⚠️</span>
+                <span class="badge" id="badgeTab5" style="display:none">0</span>
+            </div>
+            <span>Đơn Lỗi</span>
         </div>
     </div>
 
@@ -1259,7 +1267,7 @@
                 
                 // Fetch badge counts dynamically
                 const counts = await callApi(`/api/sewing/counts`);
-                const countTabs = ['1', '2', '3', '4'];
+                const countTabs = ['1', '2', '3', '4', '5'];
                 
                 // Set badges
                 for (let i = 0; i < countTabs.length; i++) {
@@ -1524,8 +1532,12 @@
                         actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>
                                          <button class="btn btn-warning" onclick="openHenLai(${r.id})">📅 HẸN LẠI</button>`;
                     } else {
+                        const errBtn = r.error_reported
+                            ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
+                            : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
                         actionButtons = `<button class="btn btn-secondary" onclick="openHenLai(${r.id})">📅 HẸN LẠI</button>
-                                         <button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA (QC)</button>`;
+                                         <button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA (QC)</button>
+                                         ${errBtn}`;
                     }
                 } else if (activeTab === '3') {
                     actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>`;
@@ -1533,17 +1545,30 @@
                     if (isUnassigned) {
                         actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>`;
                     } else if (r.done_date) {
+                        const errBtn = r.error_reported
+                            ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
+                            : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
                         actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 XEM CHI TIẾT</button>
-                                         <button class="btn btn-danger" onclick="toggleDone(${r.id}, 'undo_done')">↩️ CHƯA XONG</button>`;
+                                         <button class="btn btn-danger" onclick="toggleDone(${r.id}, 'undo_done')">↩️ CHƯA XONG</button>
+                                         ${errBtn}`;
                     } else {
-                        actionButtons = `<button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA CHẤT LƯỢNG (QC)</button>`;
+                        const errBtn = r.error_reported
+                            ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
+                            : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
+                        actionButtons = `<button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA CHẤT LƯỢNG (QC)</button>
+                                         ${errBtn}`;
                     }
+                } else if (activeTab === '5') {
+                    actionButtons = `<button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA (QC)</button>
+                                     <button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA LỖI</button>`;
                 }
 
+                const errorBadge = r.error_reported ? `<span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">⚠️ LỖI</span>` : '';
                 return `<div class="card">
                     <div class="card-header">
                         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; max-width:80%;">
                             ${getPriorityBadge(r.shipping_priority)}
+                            ${errorBadge}
                             <span class="card-code">${cleanProdName(r)}</span>
                         </div>
                         <span class="card-client">${r.cskh_name || 'Sale'}</span>
@@ -2296,6 +2321,25 @@
                 showLoading(true);
                 await callApi(`/api/sewing/toggle/${recordId}`, 'POST', { action });
                 toast(action === 'mark_done' ? '✅ Đã hoàn thành đơn may!' : '↩️ Đã hoàn tác!');
+                await loadData();
+            } catch(err) {
+                toast(err.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Toggle Error / Resolve Error
+        async function toggleError(recordId, action) {
+            const confirmMsg = action === 'report_error'
+                ? 'Bạn có chắc chắn muốn BÁO LỖI cho đơn hàng này?'
+                : 'Bạn có chắc chắn muốn xác nhận đã SỬA XONG LỖI cho đơn hàng này?';
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                showLoading(true);
+                await callApi(`/api/sewing/toggle/${recordId}`, 'POST', { action });
+                toast(action === 'report_error' ? '⚠️ Đã báo lỗi đơn hàng!' : '✅ Đã khắc phục lỗi đơn hàng!');
                 await loadData();
             } catch(err) {
                 toast(err.message, 'error');

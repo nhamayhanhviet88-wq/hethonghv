@@ -223,12 +223,13 @@ module.exports = async function(fastify) {
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab1,
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date))::int AS tab2,
                 COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
-                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4
+                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4,
+                COUNT(*) FILTER (WHERE sr.error_reported = true)::int AS tab5
             FROM sewing_records sr
             LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
             ${where}
         `, params);
-        return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0 };
+        return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0, tab5: 0 };
     });
 
     // ========== LIST ==========
@@ -283,6 +284,8 @@ module.exports = async function(fastify) {
             } else {
                 where += ` AND sr.done_date IS NULL`;
             }
+        } else if (tab === '5') {
+            where += ` AND sr.error_reported = true`;
         } else {
             if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
             else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
@@ -406,6 +409,9 @@ module.exports = async function(fastify) {
         } else if (action === 'report_error') {
             await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
             detail = '⚠️ Báo lỗi nội bộ';
+        } else if (action === 'resolve_error') {
+            await db.run(`UPDATE sewing_records SET error_reported=false, error_order_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            detail = '✅ Sửa xong lỗi nội bộ';
         } else if (action === 'mark_done') {
             await db.run(`UPDATE sewing_records SET done_date=$1, is_reported=true, reported_at=COALESCE(reported_at,$1), updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '✅ May xong';
