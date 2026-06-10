@@ -533,6 +533,7 @@ function _lsxGetHeaderHTML() {
                 <th>May Thiếu</th>
                 <th>Thiếu Kỹ Thuật May</th>
                 <th style="text-align:right">Lương Thợ</th>
+                <th style="text-align:right">Lương CPM</th>
                 <th style="text-align:center">
                     Kiểm Tra
                     <br>
@@ -610,7 +611,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : 13;
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 14 : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -738,6 +739,7 @@ function _lsxRenderTable() {
 
             var priceText = '<span style="color:#475569" title="Giá Gốc">' + _lsxFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _lsxFN(r.checked_price) + '</span>';
 
+            var gcCheckedPrice = 0;
             var gcPriceHtml = '<span style="color:#94a3b8">—</span>';
             if (!r.contractor_id) {
                 var gcBasePrice = Number(r.sample_processing_price) || 0;
@@ -750,7 +752,7 @@ function _lsxRenderTable() {
                     }
                 } catch (e) {}
 
-                var gcCheckedPrice = 0;
+                gcCheckedPrice = 0;
                 var checkedIds = [];
                 try {
                     checkedIds = typeof r.checked_techniques === 'string' ? JSON.parse(r.checked_techniques) : (r.checked_techniques || []);
@@ -816,6 +818,12 @@ function _lsxRenderTable() {
                 thieuKyThuatHtml = `<span style="font-size:10px;color:#b91c1c;font-weight:700;background:#fef2f2;border:1px solid #fca5a5;padding:2px 6px;border-radius:4px;display:inline-block">${detailStr || 'Thiếu KT'}</span>`;
             }
 
+            var cpmSalCell = '<td style="text-align:right;font-size:11px;color:#94a3b8">—</td>';
+            if (!r.contractor_id) {
+                var cpmSalary = (Number(r.quantity) || 0) * gcCheckedPrice;
+                cpmSalCell = `<td style="text-align:right;font-weight:700;color:#2563eb">${_lsxFN(cpmSalary)}</td>`;
+            }
+
             return `<tr>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px">${doneDateHtml}</td>`
@@ -827,6 +835,7 @@ function _lsxRenderTable() {
                 + `<td>${missingHtml}</td>`
                 + `<td style="text-align:center">${thieuKyThuatHtml}</td>`
                 + salCell
+                + cpmSalCell
                 + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
                 + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
