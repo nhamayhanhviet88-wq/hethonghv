@@ -534,12 +534,13 @@ function _lsxGetHeaderHTML() {
                 <th>Thiếu KT May</th>
                 <th style="text-align:right">Lương Thợ</th>
                 <th style="text-align:right">Lương CPM</th>
+                <th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn Thợ</th>
+                <th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn CPM</th>
                 <th style="text-align:center">
                     Kiểm Tra
                     <br>
                     <button id="lsxBtnApproveAll" class="btn btn-xs" onclick="_lsxApproveAllVisible()" style="padding:2px 6px;font-size:9px;margin-top:2px;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:800;display:${btnStyle};">Duyệt hết</button>
                 </th>
-                <th style="text-align:right;font-weight:bold;color:#fff">Cộng dồn (đ)</th>
                 <th>Lịch Sử CN</th>
             </tr>
         `;
@@ -602,6 +603,52 @@ function _lsxRenderTable() {
     all.forEach(function(r) {
         if (r.dept === 'sewing') {
             r.salary = (Number(r.quantity) || 0) * (Number(r.checked_price) || 0);
+
+            // Compute Lương CPM
+            var gcCheckedPrice = 0;
+            if (!r.contractor_id) {
+                var gcBasePrice = Number(r.sample_processing_price) || 0;
+                try {
+                    var orderTechs = typeof r.order_sewing_techniques === 'string' ? JSON.parse(r.order_sewing_techniques) : (r.order_sewing_techniques || []);
+                    if (Array.isArray(orderTechs)) {
+                        orderTechs.forEach(function(t) {
+                            gcBasePrice += (Number(t.pp) || 0) * (Number(t.qty) || 1);
+                        });
+                    }
+                } catch (e) {}
+
+                var checkedIds = [];
+                try {
+                    checkedIds = typeof r.checked_techniques === 'string' ? JSON.parse(r.checked_techniques) : (r.checked_techniques || []);
+                } catch (e) {}
+
+                if (Array.isArray(checkedIds) && checkedIds.length > 0) {
+                    var allTechs = [];
+                    try {
+                        var tsamTechs = typeof r.sample_sewing_tech === 'string' ? JSON.parse(r.sample_sewing_tech) : (r.sample_sewing_tech || []);
+                        if (Array.isArray(tsamTechs)) allTechs = allTechs.concat(tsamTechs);
+                    } catch (e) {}
+                    try {
+                        var orderTechs2 = typeof r.order_sewing_techniques === 'string' ? JSON.parse(r.order_sewing_techniques) : (r.order_sewing_techniques || []);
+                        if (Array.isArray(orderTechs2)) allTechs = allTechs.concat(orderTechs2);
+                    } catch (e) {}
+
+                    var seenIds = new Set();
+                    var matchedPP = 0;
+                    allTechs.forEach(function(t) {
+                        var tid = Number(t.id);
+                        if (t && t.id && checkedIds.indexOf(tid) >= 0 && !seenIds.has(tid)) {
+                            seenIds.add(tid);
+                            matchedPP += (Number(t.pp) || 0) * (Number(t.qty) || 1);
+                        }
+                    });
+                    gcCheckedPrice = matchedPP;
+                } else {
+                    gcCheckedPrice = gcBasePrice;
+                }
+            }
+            r.cpm_salary = r.contractor_id ? 0 : (Number(r.quantity) || 0) * gcCheckedPrice;
+            r.gc_checked_price = gcCheckedPrice;
         }
     });
 
@@ -618,7 +665,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 14 : 13);
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 15 : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -626,10 +673,23 @@ function _lsxRenderTable() {
 
     // Compute cumulative sum from bottom to top (chronological order)
     var cumulative = [];
+    var cumulativeTho = [];
+    var cumulativeCPM = [];
     var runningSum = 0;
+    var runningSumTho = 0;
+    var runningSumCPM = 0;
     for (var idx = all.length - 1; idx >= 0; idx--) {
-        runningSum += Number(all[idx].salary) || 0;
+        var r = all[idx];
+        runningSum += Number(r.salary) || 0;
         cumulative[idx] = runningSum;
+
+        if (r.dept === 'sewing') {
+            runningSumTho += Number(r.salary) || 0;
+            cumulativeTho[idx] = runningSumTho;
+
+            runningSumCPM += Number(r.cpm_salary) || 0;
+            cumulativeCPM[idx] = runningSumCPM;
+        }
     }
 
     tb.innerHTML = all.map(function(r, i) {
@@ -833,9 +893,11 @@ function _lsxRenderTable() {
 
             var cpmSalCell = '<td style="text-align:right;font-size:11px;color:#94a3b8">—</td>';
             if (!r.contractor_id) {
-                var cpmSalary = (Number(r.quantity) || 0) * gcCheckedPrice;
-                cpmSalCell = `<td style="text-align:right;font-weight:700;color:#2563eb">${_lsxFN(cpmSalary)}</td>`;
+                cpmSalCell = `<td style="text-align:right;font-weight:700;color:#2563eb">${_lsxFN(r.cpm_salary)}</td>`;
             }
+
+            var cumThoCell = `<td style="text-align:right;font-weight:800;color:#d97706;background:#fffbeb">${_lsxFN(cumulativeTho[i])}</td>`;
+            var cumCPMCell = `<td style="text-align:right;font-weight:800;color:#1d4ed8;background:#eff6ff">${_lsxFN(cumulativeCPM[i])}</td>`;
 
             return `<tr>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
@@ -849,8 +911,9 @@ function _lsxRenderTable() {
                 + `<td style="text-align:center">${thieuKyThuatHtml}</td>`
                 + salCell
                 + cpmSalCell
+                + cumThoCell
+                + cumCPMCell
                 + `<td style="text-align:center"><button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button></td>`
-                + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${_lsxFN(cumulative[i])}</td>`
                 + `<td style="font-size:9.5px;color:#64748b">${lastUpd}</td>`
                 + `</tr>`;
         }
