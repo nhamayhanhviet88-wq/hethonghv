@@ -370,7 +370,12 @@ module.exports = async function(fastify) {
                     '[]'::text AS qc_evidence_images,
                     NULL::text AS notes,
                     cr.unit_price::numeric AS base_price,
-                    0::numeric AS checked_price
+                    0::numeric AS checked_price,
+                    NULL::text AS checked_techniques,
+                    NULL::text AS order_sewing_techniques,
+                    NULL::text AS sample_sewing_tech,
+                    0::numeric AS sample_factory_price,
+                    0::numeric AS sample_processing_price
                     ${selectColsCutting}
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
@@ -432,7 +437,12 @@ module.exports = async function(fastify) {
                     '[]'::text AS qc_evidence_images,
                     NULL::text AS notes,
                     pr.unit_price::numeric AS base_price,
-                    0::numeric AS checked_price
+                    0::numeric AS checked_price,
+                    NULL::text AS checked_techniques,
+                    NULL::text AS order_sewing_techniques,
+                    NULL::text AS sample_sewing_tech,
+                    0::numeric AS sample_factory_price,
+                    0::numeric AS sample_processing_price
                     ${selectColsPressing}
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
@@ -486,7 +496,12 @@ module.exports = async function(fastify) {
                     sr.qc_evidence_images AS qc_evidence_images,
                     sr.notes AS notes,
                     sr.base_price::numeric AS base_price,
-                    sr.checked_price::numeric AS checked_price
+                    sr.checked_price::numeric AS checked_price,
+                    sr.checked_techniques AS checked_techniques,
+                    oi.sewing_techniques AS order_sewing_techniques,
+                    ts.sewing_tech AS sample_sewing_tech,
+                    ts.factory_price AS sample_factory_price,
+                    ts.processing_price AS sample_processing_price
                     ${selectColsSewing}
                 FROM sewing_records sr
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
@@ -495,6 +510,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u_app ON sr.salary_approved_by = u_app.id
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
                 LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+                LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 LEFT JOIN LATERAL (

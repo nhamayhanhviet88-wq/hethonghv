@@ -530,6 +530,7 @@ function _lsxGetHeaderHTML() {
                 <th>CSKH</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
                 <th style="text-align:right">Giá (Gốc / KTra)</th>
+                <th style="text-align:right">GC / KTra</th>
                 <th>May Thiếu</th>
                 <th>Thiếu Kỹ Thuật May</th>
                 <th style="text-align:right">Lương KTra</th>
@@ -610,7 +611,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : 13;
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? 14 : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -737,6 +738,52 @@ function _lsxRenderTable() {
 
             var priceText = '<span style="color:#475569" title="Giá Gốc">' + _lsxFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _lsxFN(r.checked_price) + '</span>';
 
+            var gcPriceHtml = '<span style="color:#94a3b8">—</span>';
+            if (!r.contractor_id) {
+                var gcBasePrice = Number(r.sample_processing_price) || 0;
+                try {
+                    var orderTechs = typeof r.order_sewing_techniques === 'string' ? JSON.parse(r.order_sewing_techniques) : (r.order_sewing_techniques || []);
+                    if (Array.isArray(orderTechs)) {
+                        orderTechs.forEach(function(t) {
+                            gcBasePrice += (Number(t.pp) || 0) * (Number(t.qty) || 1);
+                        });
+                    }
+                } catch (e) {}
+
+                var gcCheckedPrice = 0;
+                var checkedIds = [];
+                try {
+                    checkedIds = typeof r.checked_techniques === 'string' ? JSON.parse(r.checked_techniques) : (r.checked_techniques || []);
+                } catch (e) {}
+
+                if (Array.isArray(checkedIds) && checkedIds.length > 0) {
+                    var allTechs = [];
+                    try {
+                        var tsamTechs = typeof r.sample_sewing_tech === 'string' ? JSON.parse(r.sample_sewing_tech) : (r.sample_sewing_tech || []);
+                        if (Array.isArray(tsamTechs)) allTechs = allTechs.concat(tsamTechs);
+                    } catch (e) {}
+                    try {
+                        var orderTechs = typeof r.order_sewing_techniques === 'string' ? JSON.parse(r.order_sewing_techniques) : (r.order_sewing_techniques || []);
+                        if (Array.isArray(orderTechs)) allTechs = allTechs.concat(orderTechs);
+                    } catch (e) {}
+
+                    var seenIds = new Set();
+                    var matchedPP = 0;
+                    allTechs.forEach(function(t) {
+                        var tid = Number(t.id);
+                        if (t && t.id && checkedIds.indexOf(tid) >= 0 && !seenIds.has(tid)) {
+                            seenIds.add(tid);
+                            matchedPP += (Number(t.pp) || 0) * (Number(t.qty) || 1);
+                        }
+                    });
+                    gcCheckedPrice = matchedPP;
+                } else {
+                    gcCheckedPrice = gcBasePrice;
+                }
+
+                gcPriceHtml = '<span style="color:#475569" title="Giá Gia Công Gốc">' + _lsxFN(gcBasePrice) + '</span> / <span style="color:#2563eb;font-weight:700" title="Giá Gia Công KTra">' + _lsxFN(gcCheckedPrice) + '</span>';
+            }
+
             var missingHtml = '—';
             var hasNotes = r.qc_missing_notes && r.qc_missing_notes !== '—';
             var images = [];
@@ -777,6 +824,7 @@ function _lsxRenderTable() {
                 + `<td>${cskhHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
                 + `<td style="text-align:right;font-size:11px">${priceText}</td>`
+                + `<td style="text-align:right;font-size:11px">${gcPriceHtml}</td>`
                 + `<td>${missingHtml}</td>`
                 + `<td style="text-align:center">${thieuKyThuatHtml}</td>`
                 + salCell
