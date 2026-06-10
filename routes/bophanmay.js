@@ -44,6 +44,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_notes TEXT`);
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_evidence_images TEXT DEFAULT '[]'`);
         await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_price_images TEXT DEFAULT '[]'`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS sew_notes TEXT`);
     } catch(err) {
         console.error('[BPM] Migration error for fields:', err.message);
     }
@@ -478,7 +479,7 @@ module.exports = async function(fastify) {
         const id = Number(req.params.id), { field, value } = req.body||{}, now = vnNow();
         const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','sewing_team_id','product_name',
             'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes','checked_techniques',
-            'qc_missing_notes','qc_evidence_images','qc_missing_price_images'];
+            'qc_missing_notes','qc_evidence_images','qc_missing_price_images','sew_notes'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
         const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);

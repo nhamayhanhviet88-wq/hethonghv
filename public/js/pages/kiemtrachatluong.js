@@ -1286,11 +1286,13 @@ function _ktclRenderTable() {
             }
         } catch(e) {}
         
+        const qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
         const notesHtml = `
             <div style="font-size: 11px; max-width: 250px; word-break: break-word;">
-                ${r.notes ? `<div style="color: #334155; margin-bottom: 4px;">📝 <strong>QLX Lưu Ý May:</strong> <span style="color:#ef4444; font-style:italic; font-weight:700;">${r.notes}</span></div>` : ''}
+                ${qlxNotes ? `<div style="color: #334155; margin-bottom: 4px;">📝 <strong>QLX Lưu Ý May:</strong> <span style="color:#ef4444; font-style:italic; font-weight:700;">${qlxNotes}</span></div>` : ''}
+                ${r.sew_notes ? `<div style="color: #0d9488; margin-bottom: 4px;">📝 <strong>QL May Ghi Chú:</strong> <span style="font-style:italic; font-weight:700;">${r.sew_notes}</span></div>` : ''}
                 ${r.sewing_details ? `<div style="color: #0f766e; font-style: italic;">🧵 <strong>Chi tiết:</strong> ${r.sewing_details}</div>` : ''}
-                ${!r.notes && !r.sewing_details ? '<span style="color:#94a3b8; font-style:italic;">Không có lưu ý</span>' : ''}
+                ${!qlxNotes && !r.sew_notes && !r.sewing_details ? '<span style="color:#94a3b8; font-style:italic;">Không có lưu ý</span>' : ''}
             </div>
         `;
         
@@ -1726,7 +1728,8 @@ async function _ktclOpenQCModal(recordId) {
     if (!r) return;
     
     _ktclState.currentRecordId = recordId;
-    const generalNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
+    const generalNotes = r.sew_notes || '';
+    const qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
     
     const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
     
@@ -1824,6 +1827,10 @@ async function _ktclOpenQCModal(recordId) {
                                 <div class="qc-info-row">
                                     <span class="qc-info-label">👤 NV May</span>
                                     <span class="qc-info-val" id="ktclQcDetAssignee" style="color: #0d9488; font-weight: 700;">${assignee || '—'}</span>
+                                </div>
+                                <div class="qc-info-row" id="ktclQcDetQlxNotesRow" style="${qlxNotes ? 'display:flex;' : 'display:none;'}">
+                                    <span class="qc-info-label">📝 QLX Lưu Ý May</span>
+                                    <span class="qc-info-val" id="ktclQcDetQlxNotes" style="font-style: italic; color: #ef4444; font-weight: 700;">${qlxNotes || ''}</span>
                                 </div>
                             </div>
                         </div>
@@ -2540,11 +2547,18 @@ async function _ktclSubmitQC() {
             value: cpVal ? Number(cpVal) : null
         });
 
-        // Save notes (Ghi chú quản lý may hoặc Thiếu giá chi tiết)
+        // Save sew_notes (Ghi chú quản lý may)
         const genNotesVal = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
         await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+            field: 'sew_notes',
+            value: genNotesVal || null
+        });
+
+        // Save notes (Thiếu giá chi tiết or preserve/clear QLX note)
+        const preservedNotes = (r && r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : null;
+        await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
             field: 'notes',
-            value: isMissingPrice ? finalNotes : (genNotesVal || null)
+            value: isMissingPrice ? finalNotes : preservedNotes
         });
 
         // Save qc_missing_notes

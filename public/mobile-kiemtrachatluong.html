@@ -906,6 +906,10 @@
                         <span class="qc-info-label">👤 NV May</span>
                         <span class="qc-info-val" id="qcDetAssignee" style="font-weight: 700; color: #38bdf8;"></span>
                     </div>
+                    <div class="qc-info-row" id="qcDetQlxNotesRow" style="display: none;">
+                        <span class="qc-info-label">📝 QLX Lưu Ý May</span>
+                        <span class="qc-info-val" id="qcDetQlxNotes" style="font-style: italic; color: #f87171; font-weight: 700;"></span>
+                    </div>
                 </div>
             </div>
 
@@ -2023,8 +2027,16 @@
                 document.getElementById('qcHeaderInfoArea').style.display = 'none';
             }
             document.getElementById('qcCheckedPrice').value = r.checked_price || '';
-            const generalNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
-            document.getElementById('qcNotes').value = generalNotes;
+            document.getElementById('qcNotes').value = r.sew_notes || '';
+
+            const qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
+            if (qlxNotes) {
+                document.getElementById('qcDetQlxNotes').textContent = qlxNotes;
+                document.getElementById('qcDetQlxNotesRow').style.display = 'flex';
+            } else {
+                document.getElementById('qcDetQlxNotes').textContent = '';
+                document.getElementById('qcDetQlxNotesRow').style.display = 'none';
+            }
 
             // Handle Thiếu Giá May Chi Tiết state on open
             const noteText = r.notes || '';
@@ -2561,11 +2573,18 @@
                     value: cpVal ? Number(cpVal) : null
                 });
 
-                // Save notes (Ghi chú quản lý may hoặc Thiếu giá chi tiết)
+                // Save sew_notes (Ghi chú quản lý may)
                 const genNotesVal = document.getElementById('qcNotes').value.trim();
                 await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
+                    field: 'sew_notes',
+                    value: genNotesVal || null
+                });
+
+                // Save notes (Thiếu giá chi tiết or preserve/clear QLX note)
+                const preservedNotes = (r && r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : null;
+                await callApi(`/api/sewing/records/${currentRecordId}/field`, 'PATCH', {
                     field: 'notes',
-                    value: isMissingPrice ? finalNotes : (genNotesVal || null)
+                    value: isMissingPrice ? finalNotes : preservedNotes
                 });
 
                 // Save qc_missing_notes
