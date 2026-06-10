@@ -1539,11 +1539,14 @@ function _ktclRecalcTechPrices() {
     let totalFP = 0;
     let totalPP = 0;
     const checkedIds = [];
+    const uncheckedNames = [];
     checkboxes.forEach(cb => {
         if (cb.checked) {
             totalFP += Number(cb.dataset.fp) || 0;
             totalPP += Number(cb.dataset.pp) || 0;
             checkedIds.push(Number(cb.dataset.id));
+        } else {
+            uncheckedNames.push(cb.dataset.name || '');
         }
     });
     
@@ -1564,14 +1567,21 @@ function _ktclRecalcTechPrices() {
 
     // Show validation warning dynamically
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
+    
+    const missingStr = isNotAllTechs && uncheckedNames.length > 0 ? ('Thiếu chi tiết: ' + uncheckedNames.filter(Boolean).join(', ')) : '';
+    const notesDisplay = document.getElementById('ktclQCMissingNotesDisplay');
+    const notesInput = document.getElementById('ktclQCMissingNotes');
+    if (notesDisplay) notesDisplay.textContent = missingStr;
+    if (notesInput) notesInput.value = missingStr;
+
     const evidenceCard = document.getElementById('ktclQCEvidenceCard');
     if (evidenceCard) {
         if (isNotAllTechs) {
             evidenceCard.style.display = 'block';
         } else {
             evidenceCard.style.display = 'none';
-            const notesInput = document.getElementById('ktclQCMissingNotes');
             if (notesInput) notesInput.value = '';
+            if (notesDisplay) notesDisplay.textContent = '';
             const statusEl = document.getElementById('ktclEvidenceUploadStatus');
             if (statusEl) statusEl.textContent = 'Chưa chọn ảnh';
             const container = document.getElementById('ktclQCEvidenceImagesContainer');
@@ -1811,7 +1821,8 @@ async function _ktclOpenQCModal(recordId) {
                             
                             <div class="form-group">
                                 <label class="form-label" style="color:#ef4444; font-weight:700;">Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu <span style="color:#ef4444;">*</span></label>
-                                <textarea id="ktclQCMissingNotes" class="form-input" rows="2" placeholder="Nhập lý do thiếu/chi tiết kỹ thuật chưa đạt yêu cầu...">${r.qc_missing_notes || ''}</textarea>
+                                <div id="ktclQCMissingNotesDisplay" style="background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; padding: 10px 12px; font-weight: 600; margin-bottom: 12px; font-size: 13.5px; line-height: 1.4;">${r.qc_missing_notes || ''}</div>
+                                <input type="hidden" id="ktclQCMissingNotes" value="${r.qc_missing_notes || ''}">
                             </div>
 
                             <div class="form-group" style="margin-top:12px;">
@@ -1947,7 +1958,7 @@ async function _ktclOpenQCModal(recordId) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td style="text-align: center;">
-                        <input type="checkbox" class="ktcl-tech-cb" data-id="${tech.id}" data-fp="${tech.fp || 0}" data-pp="${tech.pp || 0}" ${checkedAttr} onchange="_ktclRecalcTechPrices()" style="width:18px; height:18px; cursor:pointer;">
+                        <input type="checkbox" class="ktcl-tech-cb" data-id="${tech.id}" data-name="${tech.name || ''}" data-fp="${tech.fp || 0}" data-pp="${tech.pp || 0}" ${checkedAttr} onchange="_ktclRecalcTechPrices()" style="width:18px; height:18px; cursor:pointer;">
                     </td>
                     <td style="font-weight: 600; color: #1e293b;">${tech.name || ''}</td>
                     <td style="text-align: center; color: #64748b;">${tech.qty || 1}</td>
