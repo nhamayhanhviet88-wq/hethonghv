@@ -1015,8 +1015,13 @@
         </div>
 
         <div class="form-group">
-            <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
+            <label class="form-label">Giá Kiểm Tra May Nhà</label>
             <input type="number" pattern="[0-9]*" inputmode="numeric" id="qcCheckedPrice" class="form-input" placeholder="Nhập đơn giá kiểm tra..." readonly style="background: rgba(255, 255, 255, 0.05); color: #9ca3af; cursor: not-allowed;">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Giá Kiểm Tra May GC</label>
+            <input type="number" pattern="[0-9]*" inputmode="numeric" id="qcCheckedGCPrice" class="form-input" placeholder="Nhập đơn giá kiểm tra..." readonly style="background: rgba(255, 255, 255, 0.05); color: #9ca3af; cursor: not-allowed;">
         </div>
 
         <!-- QC Checklist Area -->
@@ -2029,7 +2034,14 @@
                 document.getElementById('qcNotesInfo').style.display = 'none';
                 document.getElementById('qcHeaderInfoArea').style.display = 'none';
             }
-            document.getElementById('qcCheckedPrice').value = r.checked_price || '';
+            const isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+            if (isTeam) {
+                document.getElementById('qcCheckedPrice').value = r.checked_price || '';
+                document.getElementById('qcCheckedGCPrice').value = '';
+            } else {
+                document.getElementById('qcCheckedPrice').value = '';
+                document.getElementById('qcCheckedGCPrice').value = r.checked_price || '';
+            }
             document.getElementById('qcNotes').value = r.sew_notes || '';
 
             const qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
@@ -2200,13 +2212,11 @@
             document.getElementById('qcTotalHomePrice').textContent = totalFP.toLocaleString('vi-VN') + 'đ';
             document.getElementById('qcTotalGCOrderPrice').textContent = totalPP.toLocaleString('vi-VN') + 'đ';
             
-            // Auto fill the checked price input field
+            // Auto fill the checked price input fields
             const r = originalRecords.find(x => x.id === currentRecordId);
-            let isTeam = false;
             if (r) {
-                isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
-                const autoPrice = isTeam ? totalFP : totalPP;
-                document.getElementById('qcCheckedPrice').value = autoPrice;
+                document.getElementById('qcCheckedPrice').value = totalFP;
+                document.getElementById('qcCheckedGCPrice').value = totalPP;
             }
 
             // Show validation warning dynamically
@@ -2442,7 +2452,11 @@
                 finalNotes = `[THIẾU GIÁ CHI TIẾT] ${details}`;
             }
 
-            const cpVal = document.getElementById('qcCheckedPrice').value;
+            const r = originalRecords.find(x => x.id === currentRecordId);
+            const isTeam = !!(r && r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+            const cpVal = isTeam 
+                ? document.getElementById('qcCheckedPrice').value 
+                : document.getElementById('qcCheckedGCPrice').value;
 
             const checkboxes = document.querySelectorAll('.qc-tech-cb');
             const checkedIds = [];
@@ -2451,8 +2465,6 @@
                     checkedIds.push(Number(cb.dataset.id));
                 }
             });
-
-            const r = originalRecords.find(x => x.id === currentRecordId);
             const isAlreadyDone = !!(r && r.done_date);
 
             // Validation: QC Checklist answers are mandatory if NOT missing price
