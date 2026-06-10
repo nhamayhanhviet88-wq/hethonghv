@@ -1001,15 +1001,32 @@ function _lsxRenderTable() {
             }
 
             var thieuKyThuatHtml = '—';
-            if (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
-                var detailStr = r.notes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim();
-                var words = (detailStr || '').split(/\s+/);
-                var chunked = [];
-                for (var wIdx = 0; wIdx < words.length; wIdx += 3) {
-                    chunked.push(words.slice(wIdx, wIdx + 3).join(' '));
+            var hasTechNotes = r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]');
+            var techImages = [];
+            try {
+                techImages = JSON.parse(r.qc_missing_price_images || '[]');
+            } catch (e) {}
+            var hasTechImages = techImages && techImages.length > 0;
+
+            if (hasTechNotes || hasTechImages) {
+                var techParts = [];
+                if (hasTechNotes) {
+                    var detailStr = r.notes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim();
+                    var words = (detailStr || '').split(/\s+/);
+                    var chunked = [];
+                    for (var wIdx = 0; wIdx < words.length; wIdx += 3) {
+                        chunked.push(words.slice(wIdx, wIdx + 3).join(' '));
+                    }
+                    var formattedStr = chunked.join('<br>');
+                    techParts.push(`<div style="font-size:10.5px;font-weight:600;line-height:1.3">${formattedStr || 'Thiếu KT'}</div>`);
                 }
-                var formattedStr = chunked.join('<br>');
-                thieuKyThuatHtml = `<div style="font-size:10.5px;font-weight:600;line-height:1.3">${formattedStr || 'Thiếu KT'}</div>`;
+                if (hasTechImages) {
+                    var techImgHtmls = techImages.map(function(src) {
+                        return `<img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:2px;cursor:pointer;border:1px solid #cbd5e1" onclick="_lsxViewImage('${src}')" title="Xem ảnh đầy đủ">`;
+                    }).join('');
+                    techParts.push(`<div style="margin-top:4px;line-height:0">${techImgHtmls}</div>`);
+                }
+                thieuKyThuatHtml = techParts.join('');
             }
 
             var salCell = `<td style="text-align:right;font-weight:700;color:#1e293b">${r.is_approved ? _lsxFN(r.salary) : '—'}</td>`;
