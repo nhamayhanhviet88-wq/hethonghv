@@ -1538,10 +1538,12 @@ function _ktclRecalcTechPrices() {
     const checkboxes = document.querySelectorAll('.ktcl-tech-cb');
     let totalFP = 0;
     let totalPP = 0;
+    const checkedIds = [];
     checkboxes.forEach(cb => {
         if (cb.checked) {
             totalFP += Number(cb.dataset.fp) || 0;
             totalPP += Number(cb.dataset.pp) || 0;
+            checkedIds.push(Number(cb.dataset.id));
         }
     });
     
@@ -1552,11 +1554,40 @@ function _ktclRecalcTechPrices() {
     
     // Auto fill the checked price input field
     const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+    let isTeam = false;
     if (r) {
-        const isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+        isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
         const autoPrice = isTeam ? totalFP : totalPP;
         const checkedPriceInput = document.getElementById('ktclCheckedPriceInput');
         if (checkedPriceInput) checkedPriceInput.value = autoPrice;
+    }
+
+    // Show validation warning dynamically
+    const isNotAllTechs = checkboxes.length > 0 && checkedIds.length < checkboxes.length;
+    let maxFP = 0;
+    let maxPP = 0;
+    checkboxes.forEach(cb => {
+        maxFP += Number(cb.dataset.fp) || 0;
+        maxPP += Number(cb.dataset.pp) || 0;
+    });
+    const maxPriceOfAllTechs = isTeam ? maxFP : maxPP;
+    const enteredPrice = document.getElementById('ktclCheckedPriceInput') ? (Number(document.getElementById('ktclCheckedPriceInput').value) || 0) : 0;
+
+    const warningEl = document.getElementById('ktclValidationWarning');
+    const notesLabel = document.getElementById('ktclQCNotesLabel');
+    if (warningEl) {
+        if (isNotAllTechs && maxPriceOfAllTechs > enteredPrice) {
+            warningEl.style.display = 'block';
+            warningEl.textContent = '⚠️ Thiếu kỹ thuật: Bắt buộc nhập Ghi Chú & Tải Ảnh dẫn chứng!';
+            if (notesLabel) {
+                notesLabel.innerHTML = 'Ghi Chú <span style="color:#ef4444;">*</span>';
+            }
+        } else {
+            warningEl.style.display = 'none';
+            if (notesLabel) {
+                notesLabel.textContent = 'Ghi Chú';
+            }
+        }
     }
 }
 
@@ -1783,10 +1814,11 @@ async function _ktclOpenQCModal(recordId) {
                             <div class="form-group" style="margin-top:12px;">
                                 <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
                                 <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" class="form-input" placeholder="Giá tự động tính theo kỹ thuật may được chọn..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
+                                <p id="ktclValidationWarning" style="display:none; color:#ef4444; font-size:12px; font-weight:700; margin-top:6px; margin-bottom:0; line-height:1.4;"></p>
                             </div>
 
                             <div class="form-group" style="margin-top:12px;">
-                                <label class="form-label">Ghi Chú</label>
+                                <label class="form-label" id="ktclQCNotesLabel">Ghi Chú</label>
                                 <textarea id="ktclQCNotes" class="form-input" rows="2" placeholder="Nhập ghi chú hoặc nguyên nhân lỗi/giảm giá...">${generalNotes}</textarea>
                             </div>
                         </div>
