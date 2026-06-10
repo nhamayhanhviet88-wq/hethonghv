@@ -1687,6 +1687,43 @@ function _lsxGetPrintStatusHtml(r) {
     if (types.indexOf('IN PET') >= 0) {
         if (pending.indexOf('IN PET') >= 0) {
             badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Pet</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Pet</span>');
+        }
+    }
+    
+    if (types.indexOf('IN LỤA') >= 0) {
+        if (pending.indexOf('IN LỤA') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fef3c7; color: #d97706; border: 1px solid #fde68a; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In Lụa</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In Lụa</span>');
+        }
+    }
+    
+    if (types.indexOf('IN KỸ THUẬT SỐ') >= 0) {
+        if (pending.indexOf('IN KỸ THUẬT SỐ') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In KTS</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In KTS</span>');
+        }
+    }
+    
+    if (types.indexOf('IN CHUYỂN NHIỆT') >= 0) {
+        if (pending.indexOf('IN CHUYỂN NHIỆT') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa In CN</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã In CN</span>');
+        }
+    }
+    
+    if (types.indexOf('THÊU') >= 0) {
+        if (pending.indexOf('THÊU') >= 0) {
+            badges.push('<span style="margin-left: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Chưa Thêu</span>');
+        } else {
+            badges.push('<span style="margin-left: 6px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; vertical-align: middle;">Đã Thêu</span>');
+        }
+    }
+    
     return badges.join('');
 }
 
