@@ -59,9 +59,9 @@ function renderKiemtrachatluongPage(content) {
             .ktcl-page-wrapper {
                 display: flex;
                 flex-direction: column;
-                gap: 20px;
+                gap: 24px;
                 padding: 24px;
-                background: #f8fafc;
+                background: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%);
                 min-height: calc(100vh - 80px);
                 font-family: 'Inter', sans-serif;
                 color: #1e293b;
@@ -71,45 +71,58 @@ function renderKiemtrachatluongPage(content) {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                border-bottom: 1px solid #e2e8f0;
-                padding-bottom: 16px;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 20px;
             }
             .ktcl-header-left {
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: 16px;
             }
             .ktcl-header-icon {
                 font-size: 28px;
+                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                color: #ffffff;
+                padding: 12px;
+                border-radius: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
             }
             .ktcl-title {
-                font-size: 20px;
-                font-weight: 800;
+                font-size: 22px;
+                font-weight: 900;
                 color: #0f172a;
                 margin: 0;
+                letter-spacing: -0.5px;
             }
             .ktcl-subtitle {
-                font-size: 13px;
+                font-size: 13.5px;
                 color: #64748b;
                 margin: 4px 0 0;
+                font-weight: 500;
             }
             .ktcl-btn-secondary {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
                 background: #ffffff;
-                border: 1px solid #cbd5e1;
+                border: 1.5px solid #cbd5e1;
                 color: #334155;
-                padding: 8px 16px;
-                border-radius: 8px;
+                padding: 10px 18px;
+                border-radius: 10px;
                 font-weight: 700;
-                font-size: 12px;
+                font-size: 12.5px;
                 cursor: pointer;
-                transition: all 0.2s;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             }
             .ktcl-btn-secondary:hover {
-                background: #f1f5f9;
+                background: #f8fafc;
                 border-color: #94a3b8;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             }
             .ktcl-body-container {
                 display: flex;
@@ -122,83 +135,162 @@ function renderKiemtrachatluongPage(content) {
                 min-width: 0;
                 display: flex;
                 flex-direction: column;
-                gap: 20px;
+                gap: 24px;
             }
             .ktcl-kpi-grid {
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
-                gap: 16px;
+                gap: 20px;
             }
             .ktcl-kpi-card {
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                padding: 16px;
+                border-radius: 16px;
+                padding: 20px;
                 display: flex;
                 align-items: center;
-                gap: 14px;
+                gap: 16px;
                 cursor: pointer;
-                transition: all 0.2s;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                overflow: hidden;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.02);
+            }
+            .ktcl-kpi-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+                pointer-events: none;
             }
             .ktcl-kpi-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                transform: translateY(-4px);
+                box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.15);
             }
-            .ktcl-kpi-card.active {
-                border-color: #3b82f6;
-                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+            
+            /* KPI Card Custom Color Themes */
+            .ktcl-kpi-card.kpi-tab-1 {
+                background: linear-gradient(135deg, #eff6ff, #dbeafe);
+                border: 1.5px solid #bfdbfe;
             }
+            .ktcl-kpi-card.kpi-tab-1 .ktcl-kpi-label { color: #1e40af; opacity: 0.85; }
+            .ktcl-kpi-card.kpi-tab-1 .ktcl-kpi-val { color: #1e3a8a; }
+            .ktcl-kpi-card.kpi-tab-1 .ktcl-kpi-icon { background: #dbeafe; color: #1d4ed8; }
+
+            .ktcl-kpi-card.kpi-tab-2 {
+                background: linear-gradient(135deg, #fffbeb, #fef3c7);
+                border: 1.5px solid #fde68a;
+            }
+            .ktcl-kpi-card.kpi-tab-2 .ktcl-kpi-label { color: #92400e; opacity: 0.85; }
+            .ktcl-kpi-card.kpi-tab-2 .ktcl-kpi-val { color: #78350f; }
+            .ktcl-kpi-card.kpi-tab-2 .ktcl-kpi-icon { background: #fef3c7; color: #d97706; }
+
+            .ktcl-kpi-card.kpi-tab-3 {
+                background: linear-gradient(135deg, #fef2f2, #fee2e2);
+                border: 1.5px solid #fecaca;
+            }
+            .ktcl-kpi-card.kpi-tab-3 .ktcl-kpi-label { color: #991b1b; opacity: 0.85; }
+            .ktcl-kpi-card.kpi-tab-3 .ktcl-kpi-val { color: #7f1d1d; }
+            .ktcl-kpi-card.kpi-tab-3 .ktcl-kpi-icon { background: #fee2e2; color: #dc2626; }
+
+            .ktcl-kpi-card.kpi-tab-4 {
+                background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+                border: 1.5px solid #a7f3d0;
+            }
+            .ktcl-kpi-card.kpi-tab-4 .ktcl-kpi-label { color: #065f46; opacity: 0.85; }
+            .ktcl-kpi-card.kpi-tab-4 .ktcl-kpi-val { color: #064e3b; }
+            .ktcl-kpi-card.kpi-tab-4 .ktcl-kpi-icon { background: #d1fae5; color: #059669; }
+
+            /* KPI Card Active States: Opaque glowing gradients with white text */
+            .ktcl-kpi-card.kpi-tab-1.active {
+                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                border-color: #1e40af;
+                box-shadow: 0 15px 25px -5px rgba(37, 99, 235, 0.4);
+            }
+            .ktcl-kpi-card.kpi-tab-1.active .ktcl-kpi-label { color: rgba(255, 255, 255, 0.9); }
+            .ktcl-kpi-card.kpi-tab-1.active .ktcl-kpi-val { color: #ffffff; }
+            .ktcl-kpi-card.kpi-tab-1.active .ktcl-kpi-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
+
+            .ktcl-kpi-card.kpi-tab-2.active {
+                background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+                border-color: #92400e;
+                box-shadow: 0 15px 25px -5px rgba(217, 119, 6, 0.4);
+            }
+            .ktcl-kpi-card.kpi-tab-2.active .ktcl-kpi-label { color: rgba(255, 255, 255, 0.9); }
+            .ktcl-kpi-card.kpi-tab-2.active .ktcl-kpi-val { color: #ffffff; }
+            .ktcl-kpi-card.kpi-tab-2.active .ktcl-kpi-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
+
+            .ktcl-kpi-card.kpi-tab-3.active {
+                background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+                border-color: #7f1d1d;
+                box-shadow: 0 15px 25px -5px rgba(220, 38, 38, 0.4);
+            }
+            .ktcl-kpi-card.kpi-tab-3.active .ktcl-kpi-label { color: rgba(255, 255, 255, 0.9); }
+            .ktcl-kpi-card.kpi-tab-3.active .ktcl-kpi-val { color: #ffffff; }
+            .ktcl-kpi-card.kpi-tab-3.active .ktcl-kpi-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
+
+            .ktcl-kpi-card.kpi-tab-4.active {
+                background: linear-gradient(135deg, #059669 0%, #047857 100%);
+                border-color: #065f46;
+                box-shadow: 0 15px 25px -5px rgba(5, 150, 101, 0.4);
+            }
+            .ktcl-kpi-card.kpi-tab-4.active .ktcl-kpi-label { color: rgba(255, 255, 255, 0.9); }
+            .ktcl-kpi-card.kpi-tab-4.active .ktcl-kpi-val { color: #ffffff; }
+            .ktcl-kpi-card.kpi-tab-4.active .ktcl-kpi-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
+
             .ktcl-kpi-icon {
                 font-size: 24px;
-                width: 44px;
-                height: 44px;
-                border-radius: 10px;
+                width: 46px;
+                height: 46px;
+                border-radius: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                transition: all 0.2s;
             }
-            .kpi-tab-1 .ktcl-kpi-icon { background: #eff6ff; color: #2563eb; }
-            .kpi-tab-2 .ktcl-kpi-icon { background: #fffbeb; color: #d97706; }
-            .kpi-tab-3 .ktcl-kpi-icon { background: #fef2f2; color: #dc2626; }
-            .kpi-tab-4 .ktcl-kpi-icon { background: #ecfdf5; color: #059669; }
-
             .ktcl-kpi-info {
                 display: flex;
                 flex-direction: column;
             }
             .ktcl-kpi-label {
-                font-size: 9px;
+                font-size: 10px;
                 font-weight: 800;
-                color: #64748b;
                 letter-spacing: 0.5px;
             }
             .ktcl-kpi-val {
-                font-size: 18px;
+                font-size: 22px;
                 font-weight: 900;
-                color: #0f172a;
                 margin-top: 2px;
             }
             .ktcl-metrics-summary {
                 display: flex;
                 gap: 16px;
                 flex-wrap: wrap;
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                padding: 12px 20px;
-                font-size: 12px;
-                color: #475569;
+                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+                border: 1.5px solid #cbd5e1;
+                border-radius: 14px;
+                padding: 16px 20px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #334155;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
             }
             .ktcl-metric-item {
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                gap: 8px;
+                background: #ffffff;
+                padding: 6px 14px;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.02);
             }
             .ktcl-metric-dot {
-                width: 8px;
-                height: 8px;
+                width: 10px;
+                height: 10px;
                 border-radius: 50%;
+                box-shadow: 0 0 4px rgba(0,0,0,0.1);
             }
             .ktcl-filter-bar {
                 display: flex;
@@ -206,18 +298,28 @@ function renderKiemtrachatluongPage(content) {
                 align-items: center;
                 gap: 16px;
                 flex-wrap: wrap;
+                background: #ffffff;
+                padding: 16px 20px;
+                border-radius: 14px;
+                border: 1.5px solid #e2e8f0;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
             }
             .ktcl-search-wrapper input {
-                width: 280px;
-                padding: 8px 14px;
-                border: 1px solid #cbd5e1;
-                border-radius: 8px;
-                font-size: 13px;
+                width: 300px;
+                padding: 10px 16px;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 10px;
+                font-size: 13.5px;
                 outline: none;
+                background: #f8fafc;
+                font-weight: 600;
+                color: #1e293b;
+                transition: all 0.2s;
             }
             .ktcl-search-wrapper input:focus {
+                background: #ffffff;
                 border-color: #3b82f6;
-                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
             }
             .ktcl-filters-group {
                 display: flex;
@@ -225,12 +327,21 @@ function renderKiemtrachatluongPage(content) {
                 gap: 10px;
             }
             .ktcl-filters-group select {
-                padding: 8px 12px;
-                border: 1px solid #cbd5e1;
-                border-radius: 8px;
-                font-size: 13px;
+                padding: 10px 16px;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 10px;
+                font-size: 13.5px;
                 outline: none;
-                background: white;
+                background: #f8fafc;
+                font-weight: 600;
+                color: #1e293b;
+                transition: all 0.2s;
+                cursor: pointer;
+            }
+            .ktcl-filters-group select:focus {
+                background: #ffffff;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
             }
             .ktcl-checkbox-wrapper {
                 display: flex;
@@ -244,10 +355,10 @@ function renderKiemtrachatluongPage(content) {
             }
             .ktcl-table-card {
                 background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
+                border: 1.5px solid #e2e8f0;
+                border-radius: 16px;
                 overflow: hidden;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
             }
             .ktcl-table-responsive {
                 overflow-x: auto;
@@ -255,24 +366,29 @@ function renderKiemtrachatluongPage(content) {
             .ktcl-table {
                 width: 100%;
                 border-collapse: collapse;
-                font-size: 12px;
+                font-size: 12.5px;
                 text-align: left;
             }
             .ktcl-table th {
-                background: #f8fafc;
-                color: #475569;
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                color: #f1f5f9;
                 font-weight: 700;
-                padding: 12px 16px;
-                border-bottom: 1.5px solid #e2e8f0;
+                padding: 14px 16px;
+                border-bottom: 3px solid #3b82f6;
                 white-space: nowrap;
+                letter-spacing: 0.5px;
             }
             .ktcl-table td {
-                padding: 12px 16px;
+                padding: 14px 16px;
                 border-bottom: 1px solid #f1f5f9;
-                vertical-align: top;
+                vertical-align: middle;
+            }
+            .ktcl-table tr:nth-child(even) {
+                background: #fdfdfd;
             }
             .ktcl-table tr:hover {
-                background: #f8fafc;
+                background: #f1f5f9 !important;
+                transition: background 0.15s ease-in-out;
             }
             .ktcl-btn-sm {
                 padding: 5px 10px;
