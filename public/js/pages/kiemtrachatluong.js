@@ -610,6 +610,132 @@ function renderKiemtrachatluongPage(content) {
                 font-size: 11px;
                 opacity: 0.8;
             }
+
+            /* QC detail premium styles */
+            .ktcl-qc-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+                max-height: 70vh;
+                overflow-y: auto;
+                padding: 24px;
+                background: #f8fafc;
+            }
+            @media (max-width: 820px) {
+                .ktcl-qc-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .qc-section-card {
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            }
+            .qc-section-title {
+                font-size: 11px;
+                font-weight: 800;
+                color: #4f46e5;
+                letter-spacing: 0.5px;
+                margin-bottom: 12px;
+                text-transform: uppercase;
+                border-bottom: 1.5px solid #e2e8f0;
+                padding-bottom: 6px;
+            }
+            .qc-info-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .qc-info-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 12.5px;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 6px;
+            }
+            .qc-info-row:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            .qc-info-label {
+                color: #64748b;
+                font-size: 12px;
+            }
+            .qc-info-val {
+                color: #1e293b;
+                text-align: right;
+                word-break: break-word;
+            }
+            .badge-material {
+                background: rgba(245, 158, 11, 0.1) !important;
+                color: #d97706 !important;
+                border: 1px solid rgba(245, 158, 11, 0.25);
+                padding: 2px 8px;
+                border-radius: 30px;
+                font-size: 11px;
+                font-weight: 700;
+                display: inline-block;
+            }
+            .badge-color {
+                background: rgba(16, 185, 129, 0.1) !important;
+                color: #059669 !important;
+                border: 1px solid rgba(16, 185, 129, 0.25);
+                padding: 2px 8px;
+                border-radius: 30px;
+                font-size: 11px;
+                font-weight: 700;
+                display: inline-block;
+            }
+            .badge-category {
+                background: rgba(59, 130, 246, 0.1) !important;
+                color: #2563eb !important;
+                border: 1px solid rgba(59, 130, 246, 0.25);
+                padding: 2px 8px;
+                border-radius: 30px;
+                font-size: 11px;
+                font-weight: 700;
+                display: inline-block;
+            }
+            .qc-tech-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+                margin-top: 6px;
+                color: #1e293b;
+            }
+            .qc-tech-table th {
+                text-align: left;
+                padding: 8px 6px;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                color: #64748b;
+                border-bottom: 2px solid #e2e8f0;
+            }
+            .qc-tech-table td {
+                padding: 10px 6px;
+                border-bottom: 1px solid #e2e8f0;
+                vertical-align: middle;
+            }
+            .qc-tech-table tr:last-child td {
+                border-bottom: none;
+            }
+            .qc-tech-total-box {
+                background: #fffbeb;
+                border: 1px solid #fef3c7;
+                border-radius: 10px;
+                padding: 12px 14px;
+                margin-top: 14px;
+                font-size: 12px;
+                font-weight: 700;
+                text-align: center;
+                color: #b45309;
+                box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+            }
         `;
         document.head.appendChild(st);
     }
@@ -1382,14 +1508,137 @@ async function _ktclSubmitPhanTo() {
     }
 }
 
+// Helper to clean product names
+function _ktclCleanProdName(r) {
+    if (!r) return 'Sản phẩm';
+    const name = r.cut_product_name || r.product_name || 'Sản phẩm';
+    return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
+        return p1 === '—' ? ' — ' : '';
+    }).trim();
+}
+
+// Helper to determine unit text
+function getUnitText(r) {
+    if (!r) return 'Cái';
+    const name = ((r.cut_product_name || r.product_name || '').toLowerCase());
+    if (name.includes('áo')) return 'Áo';
+    if (name.includes('quần')) return 'Quần';
+    if (name.includes('mũ') || name.includes('nón')) return 'Mũ';
+    if (name.includes('váy') || name.includes('đầm')) return 'Váy';
+    if (name.includes('tạp dề')) return 'Cái';
+    return 'Cái';
+}
+
+// Helper to recalculate prices from checked techniques
+function _ktclRecalcTechPrices() {
+    const checkboxes = document.querySelectorAll('.ktcl-tech-cb');
+    let totalFP = 0;
+    let totalPP = 0;
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            totalFP += Number(cb.dataset.fp) || 0;
+            totalPP += Number(cb.dataset.pp) || 0;
+        }
+    });
+    
+    const totalHomeEl = document.getElementById('ktclTotalHomePrice');
+    const totalGCEl = document.getElementById('ktclTotalGCOrderPrice');
+    if (totalHomeEl) totalHomeEl.textContent = totalFP.toLocaleString('vi-VN') + 'đ';
+    if (totalGCEl) totalGCEl.textContent = totalPP.toLocaleString('vi-VN') + 'đ';
+    
+    // Auto fill the checked price input field
+    const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+    if (r) {
+        const isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+        const autoPrice = isTeam ? totalFP : totalPP;
+        const checkedPriceInput = document.getElementById('ktclCheckedPriceInput');
+        if (checkedPriceInput) checkedPriceInput.value = autoPrice;
+    }
+}
+
+// Helper to toggle missing price textarea
+function _ktclToggleMissingPriceArea() {
+    const checkbox = document.getElementById('ktclMissingPriceCheckbox');
+    const group = document.getElementById('ktclMissingPriceDetailsGroup');
+    if (checkbox && group) {
+        group.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
+// Helper to load QC Checklist questions
+async function _ktclLoadQcChecklist(recordId) {
+    const container = document.getElementById('ktclQcChecklistContainer');
+    const group = document.getElementById('ktclQcChecklistGroup');
+    if (!container || !group) return;
+
+    container.innerHTML = '<div style="font-size:12px;color:#64748b;">⏳ Đang tải câu hỏi QC...</div>';
+    group.style.display = 'block';
+
+    try {
+        const res = await apiCall(`/api/qc/checklist/answers/${recordId}`);
+        const templates = res.templates || [];
+        const answers = res.answers || [];
+
+        if (templates.length === 0) {
+            group.style.display = 'none';
+            return;
+        }
+
+        container.innerHTML = '';
+        templates.forEach(q => {
+            const ans = answers.find(a => a.template_id === q.id);
+            const val = ans ? ans.answer_value : '';
+
+            const row = document.createElement('div');
+            row.className = 'ktcl-qc-question-row';
+            row.dataset.id = q.id;
+            row.dataset.type = q.type;
+            row.style.cssText = 'display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-top: 10px;';
+            
+            if (q.type === 'yes_no') {
+                const hasYes = val === 'yes';
+                const hasNo = val === 'no';
+                row.innerHTML = `
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b; line-height: 1.4;">${q.content} <span style="color: #ef4444;">*</span></div>
+                    <div style="display: flex; gap: 24px; margin-top: 4px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: #334155; user-select: none;">
+                            <input type="radio" class="ktcl-qc-radio" name="ktcl_question_${q.id}" value="yes" ${hasYes ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: #0d9488;"> Có
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: #334155; user-select: none;">
+                            <input type="radio" class="ktcl-qc-radio" name="ktcl_question_${q.id}" value="no" ${hasNo ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;"> Không
+                        </label>
+                    </div>
+                `;
+            } else if (q.type === 'percentage') {
+                const pctVal = val !== '' ? val : '50';
+                row.innerHTML = `
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b; line-height: 1.4;">${q.content} <span style="color: #ef4444;">*</span></div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
+                        <input type="range" class="ktcl-qc-range" name="ktcl_question_${q.id}" min="0" max="100" value="${pctVal}" style="flex: 1; height: 6px; border-radius: 3px; accent-color: #10b981; cursor: pointer;" oninput="this.nextElementSibling.textContent = this.value + '%'">
+                        <span style="font-size: 14px; font-weight: 800; color: #10b981; min-width: 45px; text-align: right;">${pctVal}%</span>
+                    </div>
+                `;
+            } else {
+                row.innerHTML = `
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b; line-height: 1.4;">${q.content} <span style="color: #ef4444;">*</span></div>
+                    <input type="text" class="form-input ktcl-qc-text-input" value="${val}" placeholder="Nhập câu trả lời..." style="background: #ffffff; border: 1px solid #cbd5e1; color: #1e293b; font-size: 13px; border-radius: 8px; padding: 8px 12px; width: 100%; outline: none; box-sizing: border-box;">
+                `;
+            }
+            container.appendChild(row);
+        });
+    } catch(e) {
+        container.innerHTML = `<div style="font-size:12px;color:#ef4444;">⚠️ Lỗi tải checklist: ${e.message}</div>`;
+    }
+}
+
 // QC / Audit Modal (Checked price, notes, images upload/delete)
-function _ktclOpenQCModal(recordId) {
+async function _ktclOpenQCModal(recordId) {
     const r = _ktclState.originalRecords.find(x => x.id === recordId);
     if (!r) return;
     
     _ktclState.currentRecordId = recordId;
     
-    const assignee = r.contractor_id ? `🏭 ${r.contractor_name}` : (r.sewer_name ? `👥 ${r.sewer_name}` : '—');
+    const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
     
     // Preview images
     let imagesHtml = '';
@@ -1398,7 +1647,7 @@ function _ktclOpenQCModal(recordId) {
         if (imgs.length > 0) {
             imagesHtml = imgs.map(src => `
                 <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}" style="width:100%; height:100%; object-fit:cover;">
+                    <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
                     <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                 </div>
             `).join('');
@@ -1406,46 +1655,156 @@ function _ktclOpenQCModal(recordId) {
     } catch(e) {}
     
     const modalHtml = `
-        <div class="bpm-modal-overlay show" id="ktclQCModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
-            <div style="background:#fff;border-radius:16px;width:500px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s">
-                <div style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
-                    <div style="font-weight:800; font-size:15px;">🔍 KIỂM TRA CHẤT LƯỢNG & NGHIỆM THU</div>
-                    <button onclick="_ktclCloseModal('ktclQCModal')" style="background:none; border:none; color:white; font-size:18px; cursor:pointer;">✕</button>
+        <div class="bpm-modal-overlay show" id="ktclQCModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto">
+            <div style="background:#fff;border-radius:16px;width:900px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;margin-bottom:40px;">
+                <div style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:800; font-size:16px; display:flex; align-items:center; gap:8px;">
+                        <span>🔎 Chi Tiết Kiểm Tra & Đơn Giá</span>
+                    </div>
+                    <button onclick="_ktclCloseModal('ktclQCModal')" style="background:none; border:none; color:white; font-size:20px; cursor:pointer; font-weight:bold;">✕</button>
                 </div>
-                <div style="padding:24px; font-size:13px; color:#334155;">
-                    <div style="margin-bottom:12px; display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                        <div><strong>Mã Đơn:</strong> ${r.order_code || '—'}</div>
-                        <div><strong>Số lượng:</strong> ${r.quantity}</div>
-                    </div>
-                    <div style="margin-bottom:16px;"><strong>Đơn vị thực hiện:</strong> ${assignee}</div>
-                    
-                    <div style="margin-bottom:16px;">
-                        <label style="display:block; font-weight:800; margin-bottom:6px; color:#475569;">ĐƠN GIÁ QC / KIỂM TRA (đ)</label>
-                        <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" placeholder="Nhập đơn giá QC..." style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; outline:none; box-sizing:border-box;">
-                    </div>
-                    
-                    <div style="margin-bottom:16px;">
-                        <label style="display:block; font-weight:800; margin-bottom:6px; color:#475569;">QLX LƯU Ý MAY</label>
-                        <textarea id="ktclNotesInput" placeholder="Nhập lưu ý của QLX cho tổ may..." style="width:100%; height:80px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; outline:none; resize:none; box-sizing:border-box;">${r.notes || ''}</textarea>
-                    </div>
-                    
+                
+                <div class="ktcl-qc-grid">
+                    <!-- LEFT COLUMN: PRODUCT INFO & SPECS -->
                     <div>
-                        <label style="display:block; font-weight:800; margin-bottom:6px; color:#475569;">ẢNH THỰC TẾ NGHIỆM THU</label>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;" id="ktclQCImagesContainer">
-                            ${imagesHtml || '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh chụp thực tế.</span>'}
+                        <!-- Card 1: Thông tin sản phẩm -->
+                        <div class="qc-section-card">
+                            <div class="qc-section-title">📦 THÔNG TIN SẢN PHẨM</div>
+                            <div class="qc-info-grid">
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">📋 Tên SP</span>
+                                    <span class="qc-info-val" id="ktclQcDetProdName">${_ktclCleanProdName(r)}</span>
+                                </div>
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">👤 CSKH</span>
+                                    <span class="qc-info-val" id="ktclQcDetCskh">${r.cskh_name || '—'}</span>
+                                </div>
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">🧵 Chất liệu</span>
+                                    <span class="badge-material" id="ktclQcDetMaterial">${r.material_name || '—'}</span>
+                                </div>
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">🎨 Màu</span>
+                                    <span class="badge-color" id="ktclQcDetColor">${r.color_name || '—'}</span>
+                                </div>
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">🏷️ Sản phẩm May</span>
+                                    <span class="badge-category" id="ktclQcDetCategory">${r.category_name || '—'}</span>
+                                </div>
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">👤 NV May</span>
+                                    <span class="qc-info-val" id="ktclQcDetAssignee" style="color: #0d9488; font-weight: 700;">${assignee || '—'}</span>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div style="background:#f8fafc; border: 1.5px dashed #cbd5e1; border-radius:8px; padding:16px; text-align:center; cursor:pointer;" onclick="document.getElementById('ktclQCFileInput').click()">
-                            <span style="font-size:20px; display:block; margin-bottom:4px;">📸</span>
-                            <span style="font-size:12px; font-weight:700; color:#3b82f6;">Tải ảnh từ máy tính</span>
-                            <input type="file" multiple id="ktclQCFileInput" accept="image/*" style="display:none;" onchange="_ktclUploadQCImages(event)">
+
+                        <!-- Card 2: Số lượng May / Thực tế -->
+                        <div class="qc-section-card">
+                            <div class="qc-section-title">📦 SỐ LƯỢNG MAY / THỰC TẾ</div>
+                            <div class="qc-info-grid">
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">📦 SL Thực Tế</span>
+                                    <span class="qc-info-val" id="ktclQcDetQtyActual" style="color: #2563eb; font-weight: 800;">${r.order_qty || 0} ${getUnitText(r)}</span>
+                                </div>
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">📦 SL May</span>
+                                    <span class="qc-info-val" id="ktclQcDetQtySew" style="color: #059669; font-weight: 800;">${r.quantity || 0} ${getUnitText(r)}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div id="ktclUploadStatus" style="font-size:11px; color:#64748b; margin-top:6px; text-align:center;"></div>
+
+                        <!-- Card 3: Thông số mẫu áo -->
+                        <div class="qc-section-card" id="ktclQcSpecCard" style="display:none;">
+                            <div class="qc-section-title">📐 THÔNG SỐ MẪU ÁO</div>
+                            <div class="qc-info-grid" style="margin-bottom: 10px;">
+                                <div class="qc-info-row">
+                                    <span class="qc-info-label">Mẫu áo</span>
+                                    <span class="qc-info-val" id="ktclQcDetSpecName" style="color: #7c3aed; font-weight: 700;">${r.pattern_name || ''}</span>
+                                </div>
+                            </div>
+                            <div id="ktclQcSpecImageArea" style="border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; background: #f8fafc; display: none;">
+                                <div style="font-size: 11px; color: #0d9488; font-weight: 700; margin-bottom: 6px;">📷 Hình Ảnh Thông Số</div>
+                                <img id="ktclQcSpecImg" src="${r.ts_spec_image || ''}" style="max-width: 100%; max-height:250px; border-radius: 6px; cursor: pointer; object-fit: contain;" onclick="window.open(this.src, '_blank')">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: TECHNIQUES & CHECKLIST -->
+                    <div>
+                        <!-- Card 4: Kỹ thuật may -->
+                        <div class="qc-section-card" id="ktclQcTechCard" style="display:none;">
+                            <div class="qc-section-title">✂️ KỸ THUẬT MAY</div>
+                            <div style="overflow-x: auto; max-height: 200px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <table class="qc-tech-table">
+                                    <thead>
+                                        <tr style="background: #f1f5f9;">
+                                            <th style="width: 50px; text-align: center;">Tích</th>
+                                            <th>Kỹ thuật</th>
+                                            <th style="width: 50px; text-align: center;">SL</th>
+                                            <th style="text-align: right; padding-right:10px; color: #059669;">May nhà</th>
+                                            <th style="text-align: right; padding-right:10px; color: #2563eb;">May GC</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ktclQcTechTableBody">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="qc-tech-total-box" id="ktclQcTechTotalBox">
+                                💰 Tổng giá may &nbsp;|&nbsp; 
+                                <span style="color: #059669;">MAY NHÀ: <strong id="ktclTotalHomePrice">0đ</strong></span> &nbsp;•&nbsp; 
+                                <span style="color: #2563eb;">MAY GC: <strong id="ktclTotalGCOrderPrice">0đ</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Card 5: Báo Lỗi / Thiếu Giá -->
+                        <div class="qc-section-card">
+                            <div class="qc-section-title">⚠️ BÁO LỖI / THIẾU GIÁ</div>
+                            
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom: 12px;">
+                                <input type="checkbox" id="ktclMissingPriceCheckbox" onchange="_ktclToggleMissingPriceArea()" style="width:18px; height:18px; cursor:pointer;">
+                                <label for="ktclMissingPriceCheckbox" style="font-size:13px; font-weight:700; color:#ef4444; cursor:pointer;">Thiếu Giá May Chi Tiết</label>
+                            </div>
+
+                            <div id="ktclMissingPriceDetailsGroup" style="display:none; margin-bottom: 12px;">
+                                <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu giá (Bắt buộc):</label>
+                                <textarea id="ktclMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết may/kỹ thuật may còn thiếu giá..." style="background: #fef2f2; border-color: #fca5a5; color: #b91c1c;"></textarea>
+                            </div>
+
+                            <div class="form-group" style="margin-top:12px;">
+                                <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
+                                <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" class="form-input" placeholder="Giá tự động tính theo kỹ thuật may được chọn..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
+                            </div>
+                        </div>
+
+                        <!-- Card 6: QC Checklist Questions -->
+                        <div class="qc-section-card" id="ktclQcChecklistGroup" style="display:none;">
+                            <div class="qc-section-title" style="color: #d97706;">🔍 KIỂM TRA CHẤT LƯỢNG (QC) <span style="font-size: 10px; font-weight: normal; color: #ef4444;">(Bắt buộc trả lời tất cả)</span></div>
+                            <div id="ktclQcChecklistContainer" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                                <!-- QC questions will be rendered dynamically here -->
+                            </div>
+                        </div>
+
+                        <!-- Card 7: Ảnh QC Thành Phẩm -->
+                        <div class="qc-section-card">
+                            <div class="qc-section-title">📸 ẢNH QC THÀNH PHẨM</div>
+                            <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
+                                <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700;" onclick="document.getElementById('ktclQCFileInput').click()"> Tải ảnh lên</button>
+                                <span style="font-size:12px; color:#64748b;" id="ktclUploadStatus">Chưa chọn ảnh</span>
+                                <input type="file" multiple id="ktclQCFileInput" accept="image/*" style="display:none;" onchange="_ktclUploadQCImages(event)">
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;" id="ktclQCImagesContainer">
+                                ${imagesHtml || '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh chụp thực tế.</span>'}
+                            </div>
+                        </div>
+
+                        <div style="font-size:11.5px; color:#64748b; margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0; line-height:1.4; display:none;" id="ktclQcUpdateHistory"></div>
                     </div>
                 </div>
-                <div style="padding:14px 24px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
-                    <button onclick="_ktclCloseModal('ktclQCModal')" class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 16px;">Đóng</button>
-                    <button onclick="_ktclSubmitQC()" class="ktcl-btn-sm ktcl-btn-success" style="padding:8px 20px;">💾 Lưu Thông Tin</button>
+
+                <div style="padding:16px 24px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:12px; border-radius: 0 0 16px 16px;">
+                    <button onclick="_ktclCloseModal('ktclQCModal')" class="ktcl-btn-sm ktcl-btn-outline" style="padding:10px 20px; font-weight:700;">Đóng</button>
+                    <button onclick="_ktclSubmitQC()" class="ktcl-btn-sm ktcl-btn-success" style="padding:10px 24px; font-weight:700; background:linear-gradient(135deg,#0d9488,#14b8a6); color:#fff; border:none; border-radius:8px; cursor:pointer;">Xác Nhận</button>
                 </div>
             </div>
         </div>
@@ -1453,6 +1812,98 @@ function _ktclOpenQCModal(recordId) {
     
     _ktclCloseModal('ktclQCModal');
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Populate missing price details
+    const noteText = r.notes || '';
+    if (noteText.startsWith('[THIẾU GIÁ CHI TIẾT] ')) {
+        document.getElementById('ktclMissingPriceCheckbox').checked = true;
+        document.getElementById('ktclMissingPriceDetailsGroup').style.display = 'block';
+        document.getElementById('ktclMissingPriceDetails').value = noteText.replace('[THIẾU GIÁ CHI TIẾT] ', '');
+    } else {
+        document.getElementById('ktclMissingPriceCheckbox').checked = false;
+        document.getElementById('ktclMissingPriceDetailsGroup').style.display = 'none';
+        document.getElementById('ktclMissingPriceDetails').value = '';
+    }
+
+    // Populate Spec / Techniques
+    if (r.pattern_name) {
+        document.getElementById('ktclQcSpecCard').style.display = 'block';
+        document.getElementById('ktclQcTechCard').style.display = 'block';
+        
+        if (r.ts_spec_image) {
+            document.getElementById('ktclQcSpecImageArea').style.display = 'block';
+        }
+        
+        // Combine techniques
+        let tsamTechs = [];
+        try {
+            tsamTechs = typeof r.ts_sewing_tech === 'string' ? JSON.parse(r.ts_sewing_tech) : (r.ts_sewing_tech || []);
+        } catch (e) { tsamTechs = []; }
+        if (!Array.isArray(tsamTechs)) tsamTechs = [];
+
+        let orderTechs = [];
+        try {
+            orderTechs = typeof r.sewing_techniques === 'string' ? JSON.parse(r.sewing_techniques) : (r.sewing_techniques || []);
+        } catch (e) { orderTechs = []; }
+        if (!Array.isArray(orderTechs)) orderTechs = [];
+
+        const techniques = [];
+        const seenIds = new Set();
+        [...tsamTechs, ...orderTechs].forEach(tech => {
+            if (tech && tech.id && !seenIds.has(tech.id)) {
+                seenIds.add(tech.id);
+                techniques.push(tech);
+            }
+        });
+
+        let checkedIds = [];
+        try {
+            checkedIds = JSON.parse(r.checked_techniques || '[]');
+        } catch (e) { checkedIds = []; }
+
+        const tbody = document.getElementById('ktclQcTechTableBody');
+        tbody.innerHTML = '';
+        if (techniques.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding: 12px 0;">Không có dữ liệu kỹ thuật</td></tr>';
+        } else {
+            techniques.forEach(tech => {
+                const isChecked = checkedIds.includes(tech.id);
+                const checkedAttr = isChecked ? 'checked' : '';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="ktcl-tech-cb" data-id="${tech.id}" data-fp="${tech.fp || 0}" data-pp="${tech.pp || 0}" ${checkedAttr} onchange="_ktclRecalcTechPrices()" style="width:18px; height:18px; cursor:pointer;">
+                    </td>
+                    <td style="font-weight: 600; color: #1e293b;">${tech.name || ''}</td>
+                    <td style="text-align: center; color: #64748b;">${tech.qty || 1}</td>
+                    <td style="text-align: right; color: #059669; font-weight: 600; padding-right:10px;">${Number(tech.fp || 0).toLocaleString('vi-VN')}đ</td>
+                    <td style="text-align: right; color: #2563eb; font-weight: 600; padding-right:10px;">${Number(tech.pp || 0).toLocaleString('vi-VN')}đ</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        _ktclRecalcTechPrices();
+    } else {
+        document.getElementById('ktclQcSpecCard').style.display = 'none';
+        document.getElementById('ktclQcTechCard').style.display = 'none';
+    }
+
+    // Display history
+    const historyEl = document.getElementById('ktclQcUpdateHistory');
+    if (historyEl) {
+        if (r.last_update_at) {
+            const updater = r.last_update_by || 'Hệ thống';
+            const updateTime = typeof vnFormat === 'function' ? vnFormat(r.last_update_at, 'HH:mm DD/MM/YYYY') : new Date(r.last_update_at).toLocaleString();
+            const detail = r.last_update_detail ? ` (${r.last_update_detail})` : '';
+            historyEl.innerHTML = `✍️ Cập nhật cuối: <strong>${updater}</strong> lúc <strong>${updateTime}</strong>${detail}`;
+            historyEl.style.display = 'block';
+        } else {
+            historyEl.style.display = 'none';
+        }
+    }
+
+    // Load checklist
+    await _ktclLoadQcChecklist(recordId);
 }
 
 async function _ktclUploadQCImages(event) {
@@ -1483,7 +1934,7 @@ async function _ktclUploadQCImages(event) {
         if (container) {
             container.innerHTML = data.images.map(src => `
                 <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}" style="width:100%; height:100%; object-fit:cover;">
+                    <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
                     <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                 </div>
             `).join('');
@@ -1525,7 +1976,7 @@ async function _ktclDeleteQCImage(imgSrc) {
             } else {
                 container.innerHTML = updatedImgs.map(src => `
                     <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                        <img src="${src}" style="width:100%; height:100%; object-fit:cover;">
+                        <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
                         <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
                     </div>
                 `).join('');
@@ -1537,25 +1988,162 @@ async function _ktclDeleteQCImage(imgSrc) {
 }
 
 async function _ktclSubmitQC() {
-    const checkedPrice = document.getElementById('ktclCheckedPriceInput').value;
-    const notes = document.getElementById('ktclNotesInput').value;
+    const isMissingPrice = document.getElementById('ktclMissingPriceCheckbox').checked;
+    let finalNotes = '';
+
+    if (isMissingPrice) {
+        const details = document.getElementById('ktclMissingPriceDetails').value.trim();
+        if (!details) {
+            showToast('Vui lòng nhập chi tiết phần thiếu giá!', 'error');
+            return;
+        }
+        finalNotes = `[THIẾU GIÁ CHI TIẾT] ${details}`;
+    }
+
+    const cpVal = document.getElementById('ktclCheckedPriceInput').value;
+
+    const checkboxes = document.querySelectorAll('.ktcl-tech-cb');
+    const checkedIds = [];
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            checkedIds.push(Number(cb.dataset.id));
+        }
+    });
+
+    const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+    const isAlreadyDone = !!(r && r.done_date);
+
+    // Validation: QC Checklist answers are mandatory if NOT missing price
+    const qcRows = document.querySelectorAll('.ktcl-qc-question-row');
+    const qcAnswers = [];
     
+    if (!isMissingPrice && qcRows.length > 0) {
+        for (const row of qcRows) {
+            const qId = Number(row.dataset.id);
+            const qType = row.dataset.type;
+            let val = '';
+            
+            if (qType === 'yes_no') {
+                const selectedRadio = row.querySelector(`.ktcl-qc-radio[name="ktcl_question_${qId}"]:checked`);
+                if (!selectedRadio) {
+                    showToast('Vui lòng trả lời đầy đủ các câu hỏi QC!', 'error');
+                    return;
+                }
+                val = selectedRadio.value;
+            } else if (qType === 'percentage') {
+                const rangeInput = row.querySelector(`.ktcl-qc-range[name="ktcl_question_${qId}"]`);
+                val = rangeInput ? rangeInput.value : '50';
+            } else {
+                const txtInput = row.querySelector('.ktcl-qc-text-input');
+                val = txtInput ? txtInput.value.trim() : '';
+                if (!val) {
+                    showToast('Vui lòng nhập đầy đủ câu trả lời cho các câu hỏi QC!', 'error');
+                    if (txtInput) txtInput.focus();
+                    return;
+                }
+            }
+            qcAnswers.push({ template_id: qId, answer_value: val });
+        }
+    } else if (isMissingPrice && qcRows.length > 0) {
+        // If missing price, collect whatever they answered so far (optional)
+        for (const row of qcRows) {
+            const qId = Number(row.dataset.id);
+            const qType = row.dataset.type;
+            let val = '';
+            if (qType === 'yes_no') {
+                const selectedRadio = row.querySelector(`.ktcl-qc-radio[name="ktcl_question_${qId}"]:checked`);
+                val = selectedRadio ? selectedRadio.value : '';
+            } else if (qType === 'percentage') {
+                const rangeInput = row.querySelector(`.ktcl-qc-range[name="ktcl_question_${qId}"]`);
+                val = rangeInput ? rangeInput.value : '50';
+            } else {
+                const txtInput = row.querySelector('.ktcl-qc-text-input');
+                val = txtInput ? txtInput.value.trim() : '';
+            }
+            if (val) {
+                qcAnswers.push({ template_id: qId, answer_value: val });
+            }
+        }
+    }
+
+    // Validation: Checked price must be > 0 if not already done and NOT missing price
+    if (!isAlreadyDone && !isMissingPrice && (!cpVal || Number(cpVal) <= 0)) {
+        showToast('Vui lòng nhập Giá Kiểm Tra hợp lệ trước khi hoàn thành đơn!', 'error');
+        return;
+    }
+
+    // Validation: Must select at least 1 technique if checkboxes exist and NOT missing price
+    if (!isMissingPrice && checkboxes.length > 0 && checkedIds.length === 0) {
+        showToast('Vui lòng tích chọn ít nhất 1 kỹ thuật may!', 'error');
+        return;
+    }
+
+    // Validation: QC Image is mandatory if NOT missing price
+    if (!isMissingPrice) {
+        const finishImagesStr = r ? (r.finish_images || '[]') : '[]';
+        let imagesArr = [];
+        try { imagesArr = JSON.parse(finishImagesStr); } catch(e){}
+        if (!imagesArr || imagesArr.length === 0) {
+            showToast('Vui lòng chụp/tải ảnh QC thành phẩm trước khi xác nhận!', 'error');
+            return;
+        }
+    }
+
     try {
+        // Save QC Checklist Answers
+        if (qcAnswers.length > 0) {
+            await apiCall(`/api/qc/checklist/answers/${_ktclState.currentRecordId}`, 'POST', { answers: qcAnswers });
+        }
+
+        // Save checked_price
         await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
             field: 'checked_price',
-            value: checkedPrice ? Number(checkedPrice) : null
+            value: cpVal ? Number(cpVal) : null
         });
-        
+
+        // Save notes
         await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
             field: 'notes',
-            value: notes || null
+            value: finalNotes || null
         });
-        
-        showToast('Lưu thông tin QC thành công!');
+
+        // Save checked_techniques
+        if (checkboxes.length > 0) {
+            await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+                field: 'checked_techniques',
+                value: JSON.stringify(checkedIds)
+            });
+        } else {
+            await apiCall(`/api/sewing/records/${_ktclState.currentRecordId}/field`, 'PATCH', {
+                field: 'checked_techniques',
+                value: null
+            });
+        }
+
+        // Automatically mark done if not already done and not missing price
+        if (!isAlreadyDone && !isMissingPrice) {
+            await apiCall(`/api/sewing/toggle/${_ktclState.currentRecordId}`, 'POST', { action: 'mark_done' });
+            showToast('Đã lưu thông tin và hoàn thành đơn may!');
+        } else if (isMissingPrice) {
+            if (isAlreadyDone) {
+                await apiCall(`/api/sewing/toggle/${_ktclState.currentRecordId}`, 'POST', { action: 'undo_done' });
+            }
+            showToast('Đã ghi nhận báo thiếu đơn giá chi tiết!');
+        } else {
+            showToast('Đã lưu thông tin kiểm tra!');
+        }
+
+        // Send Telegram Notification
+        try {
+            await apiCall(`/api/qc/checklist/notify/${_ktclState.currentRecordId}`, 'POST');
+        } catch (tgErr) {
+            console.error('Lỗi gửi Telegram:', tgErr);
+        }
+
         _ktclCloseModal('ktclQCModal');
         await _ktclLoadData();
     } catch(err) {
-        showToast('Lỗi khi lưu thông tin QC: ' + err.message, 'error');
+        showToast(err.message, 'error');
     }
 }
 
