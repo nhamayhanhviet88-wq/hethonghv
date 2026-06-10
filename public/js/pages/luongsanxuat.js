@@ -529,10 +529,10 @@ function _lsxGetHeaderHTML() {
                 <th>Tên SP / Phối</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
                 <th style="text-align:right">Giá (Gốc / KTra)</th>
-                <th style="text-align:right">GC / KTra</th>
+                <th style="text-align:right">Giá ( CPM/ KTra )</th>
                 <th>May Thiếu</th>
                 <th>Thiếu Kỹ Thuật May</th>
-                <th style="text-align:right">Lương KTra</th>
+                <th style="text-align:right">Lương Thợ</th>
                 <th style="text-align:center">
                     Kiểm Tra
                     <br>
