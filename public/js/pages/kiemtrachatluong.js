@@ -1568,7 +1568,7 @@ function _ktclRecalcTechPrices() {
     // Show validation warning dynamically
     const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
     
-    const missingStr = isNotAllTechs && uncheckedNames.length > 0 ? ('Thiếu chi tiết: ' + uncheckedNames.filter(Boolean).join(', ')) : '';
+    const missingStr = isNotAllTechs && uncheckedNames.length > 0 ? ('May Thiếu: ' + uncheckedNames.filter(Boolean).join(', ')) : '';
     const notesDisplay = document.getElementById('ktclQCMissingNotesDisplay');
     const notesInput = document.getElementById('ktclQCMissingNotes');
     if (notesDisplay) notesDisplay.textContent = missingStr;
@@ -1820,13 +1820,12 @@ async function _ktclOpenQCModal(recordId) {
                             <div class="qc-section-title" style="color:#ef4444;">⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU</div>
                             
                             <div class="form-group">
-                                <label class="form-label" style="color:#ef4444; font-weight:700;">Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu <span style="color:#ef4444;">*</span></label>
                                 <div id="ktclQCMissingNotesDisplay" style="background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; padding: 10px 12px; font-weight: 600; margin-bottom: 12px; font-size: 13.5px; line-height: 1.4;">${r.qc_missing_notes || ''}</div>
                                 <input type="hidden" id="ktclQCMissingNotes" value="${r.qc_missing_notes || ''}">
                             </div>
 
                             <div class="form-group" style="margin-top:12px;">
-                                <label class="form-label" style="color:#ef4444; font-weight:700;">Ảnh Dẫn Chứng Thiếu <span style="color:#ef4444;">*</span></label>
+                                <label class="form-label" style="color:#ef4444; font-weight:700;">Ảnh May Thiếu (Chụp Ảnh) <span style="color:#ef4444;">*</span></label>
                                 <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
                                     <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700; border-color:#fca5a5; color:#ef4444;" onclick="document.getElementById('ktclQCEvidenceFileInput').click()"> Tải ảnh dẫn chứng</button>
                                     <span style="font-size:12px; color:#64748b;" id="ktclEvidenceUploadStatus">Chưa chọn ảnh</span>
@@ -1840,16 +1839,16 @@ async function _ktclOpenQCModal(recordId) {
 
                         <!-- Card 5: Báo Lỗi / Thiếu Giá -->
                         <div class="qc-section-card">
-                            <div class="qc-section-title">⚠️ BÁO LỖI / THIẾU GIÁ</div>
+                            <div class="qc-section-title">⚠️ BÁO LỖI / THIẾU KỸ THUẬT</div>
                             
                             <div style="display:flex; align-items:center; gap:8px; margin-bottom: 12px;">
                                 <input type="checkbox" id="ktclMissingPriceCheckbox" onchange="_ktclToggleMissingPriceArea()" style="width:18px; height:18px; cursor:pointer;">
-                                <label for="ktclMissingPriceCheckbox" style="font-size:13px; font-weight:700; color:#ef4444; cursor:pointer;">Thiếu Giá May Chi Tiết</label>
+                                <label for="ktclMissingPriceCheckbox" style="font-size:13px; font-weight:700; color:#ef4444; cursor:pointer;">Thiếu Kỹ Thuật May</label>
                             </div>
 
                             <div id="ktclMissingPriceDetailsGroup" style="display:none; margin-bottom: 12px;">
-                                <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu giá (Bắt buộc):</label>
-                                <textarea id="ktclMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết may/kỹ thuật may còn thiếu giá..." style="background: #fef2f2; border-color: #fca5a5; color: #b91c1c;"></textarea>
+                                <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu kỹ thuật may (Bắt buộc):</label>
+                                <textarea id="ktclMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết/kỹ thuật may còn thiếu..." style="background: #fef2f2; border-color: #fca5a5; color: #b91c1c;"></textarea>
                             </div>
 
                             <div class="form-group" style="margin-top:12px;">

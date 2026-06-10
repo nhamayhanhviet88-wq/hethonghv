@@ -968,11 +968,10 @@
 
         <!-- Missing Techniques Evidence (shown only when techniques are incomplete) -->
         <div class="form-group" id="qcMissingEvidenceGroup" style="display:none; margin-top: 12px; background: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 12px;">
-            <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Thiếu chi tiết kỹ thuật nào mà không tích đánh dấu <span style="color:#ef4444;">*</span></label>
             <div id="qcMissingNotesDisplay" style="background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; padding: 10px 12px; font-weight: 600; margin-bottom: 12px; font-size: 13.5px; line-height: 1.4;"></div>
             <input type="hidden" id="qcMissingNotes" value="">
 
-            <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Ảnh Dẫn Chứng Thiếu (chụp ảnh) <span style="color:#ef4444;">*</span></label>
+            <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Ảnh May Thiếu (Chụp Ảnh) <span style="color:#ef4444;">*</span></label>
             <div style="display:flex; gap:8px; align-items:center; margin-bottom: 8px;">
                 <button class="btn btn-secondary" style="flex:none; width:auto; padding:8px 12px; font-size:12px; border-color:rgba(239, 68, 68, 0.4);" onclick="document.getElementById('evidenceUploaderInput').click()">📸 Chụp / Tải ảnh dẫn chứng</button>
                 <span style="font-size:12px; color:#9ca3af;" id="evidenceUploadStatus">Chưa chọn ảnh</span>
@@ -984,13 +983,13 @@
         <!-- Checkbox Thiếu Giá May Chi Tiết -->
         <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-bottom: 12px; margin-top: 10px;">
             <input type="checkbox" id="qcMissingPriceCheckbox" onchange="toggleMissingPriceArea()" style="width:18px; height:18px; cursor:pointer;">
-            <label for="qcMissingPriceCheckbox" style="font-size:13px; font-weight:700; color:#ef4444; cursor:pointer;">⚠️ Thiếu Giá May Chi Tiết</label>
+            <label for="qcMissingPriceCheckbox" style="font-size:13px; font-weight:700; color:#ef4444; cursor:pointer;">⚠️ Thiếu Kỹ Thuật May</label>
         </div>
 
         <!-- Chi tiết thiếu giá -->
         <div class="form-group" id="qcMissingPriceDetailsGroup" style="display:none; margin-bottom: 12px;">
-            <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu giá (Bắt buộc):</label>
-            <textarea id="qcMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết may/kỹ thuật may còn thiếu giá..." style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.4); color: #f87171;"></textarea>
+            <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu kỹ thuật may (Bắt buộc):</label>
+            <textarea id="qcMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết/kỹ thuật may còn thiếu..." style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.4); color: #f87171;"></textarea>
         </div>
 
         <div class="form-group">
@@ -2090,7 +2089,7 @@
             // Show validation warning dynamically
             const isNotAllTechs = checkboxes.length > 0 && checkedIds.length > 0 && checkedIds.length < checkboxes.length;
             
-            const missingStr = isNotAllTechs && uncheckedNames.length > 0 ? ('Thiếu chi tiết: ' + uncheckedNames.filter(Boolean).join(', ')) : '';
+            const missingStr = isNotAllTechs && uncheckedNames.length > 0 ? ('May Thiếu: ' + uncheckedNames.filter(Boolean).join(', ')) : '';
             const notesDisplay = document.getElementById('qcMissingNotesDisplay');
             const notesInput = document.getElementById('qcMissingNotes');
             if (notesDisplay) notesDisplay.textContent = missingStr;
