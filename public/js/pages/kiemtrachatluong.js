@@ -7,9 +7,10 @@ var _ktclState = {
     contractors: [],
     holidays: [],
     search: '',
-    teamFilter: '',
-    contractorFilter: '',
-    showDoneToday: false,
+    teamFilterVal: '',
+    timeFilterVal: 'undone_past_today',
+    doneDate: '',
+    doneMonth: '',
     showSimulator: false,
     currentRecordId: null
 };
@@ -690,15 +691,23 @@ function renderKiemtrachatluongPage(content) {
                             <input type="text" id="ktclSearch" placeholder="Tìm theo mã đơn, sản phẩm..." oninput="_ktclHandleSearch(this.value)">
                         </div>
                         <div class="ktcl-filters-group">
-                            <select id="ktclTeamFilter" onchange="_ktclFilterTeam(this.value)">
-                                <option value="">-- Tất cả Tổ May --</option>
+                            <select id="ktclTeamFilter" onchange="_ktclFilterTeam(this.value)" style="width: 220px;">
+                                <option value="">Tất cả Tổ/Gia công</option>
                             </select>
-                            <select id="ktclContractorFilter" onchange="_ktclFilterContractor(this.value)">
-                                <option value="">-- Tất cả Nhà Gia Công --</option>
+                            <select id="ktclTimeFilter" onchange="_ktclHandleTimeFilterChange(this.value)" style="width: 240px; display: ${_ktclState.activeTab === '4' ? 'block' : 'none'};">
+                                <option value="undone_past_today">⏳ Chưa xong QK & Hôm nay</option>
+                                <option value="undone">⏳ Chưa xong tất cả</option>
+                                <option value="today">✅ Xong hôm nay</option>
+                                <option value="custom_date">📅 Xong ngày khác...</option>
+                                <option value="custom_month">🗓️ Xong tháng/năm...</option>
+                                <option value="done_all">📁 Xong tất cả</option>
+                                <option value="all">📦 Tất cả</option>
                             </select>
-                            <div class="ktcl-checkbox-wrapper" id="ktclDoneTodayWrapper" style="display:none;">
-                                <input type="checkbox" id="ktclShowDoneToday" onchange="_ktclToggleShowDoneToday(this.checked)">
-                                <label for="ktclShowDoneToday">Xem đơn đã xong hôm nay</label>
+                            <div id="ktclCustomDateContainer" style="display: ${_ktclState.activeTab === '4' && _ktclState.timeFilterVal === 'custom_date' ? 'flex' : 'none'}; align-items: center; gap: 6px;">
+                                <input type="date" id="ktclDoneDate" onchange="_ktclHandleCustomDateChange(this.value)" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #ffffff; font-size: 13px; color: #334155; font-weight: 600;">
+                            </div>
+                            <div id="ktclCustomMonthContainer" style="display: ${_ktclState.activeTab === '4' && _ktclState.timeFilterVal === 'custom_month' ? 'flex' : 'none'}; align-items: center; gap: 6px;">
+                                <input type="month" id="ktclDoneMonth" onchange="_ktclHandleCustomMonthChange(this.value)" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #ffffff; font-size: 13px; color: #334155; font-weight: 600;">
                             </div>
                         </div>
                     </div>
@@ -790,24 +799,14 @@ async function _ktclLoadHolidays() {
 }
 
 function _ktclPopulateDropdowns() {
-    const teamSelect = document.getElementById('ktclTeamFilter');
-    if (teamSelect) {
-        teamSelect.innerHTML = '<option value="">-- Tất cả Tổ May --</option>' + 
-            _ktclState.teams.map(t => `<option value="${t.id}">👥 ${t.name}</option>`).join('');
-    }
-    
-    const contractorSelect = document.getElementById('ktclContractorFilter');
-    if (contractorSelect) {
-        contractorSelect.innerHTML = '<option value="">-- Tất cả Nhà Gia Công --</option>' + 
-            _ktclState.contractors.map(c => `<option value="${c.id}">🏭 ${c.name}</option>`).join('');
-    }
+    // Dynamically populated in _ktclLoadData
 }
 
 // Switch tabs and load corresponding tab records
 function _ktclSwitchTab(tab) {
     _ktclState.activeTab = tab;
     
-        // Toggle active classes on KPI cards
+    // Toggle active classes on KPI cards
     for (let i = 1; i <= 5; i++) {
         const el = document.getElementById(`ktclKpiCard${i}`);
         if (el) {
@@ -819,10 +818,27 @@ function _ktclSwitchTab(tab) {
         }
     }
     
-    // Show/hide done today checkbox
-    const wrapper = document.getElementById('ktclDoneTodayWrapper');
-    if (wrapper) {
-        wrapper.style.display = tab === '4' ? 'flex' : 'none';
+    // Reset filters state when tab changes
+    _ktclState.teamFilterVal = '';
+    const teamSel = document.getElementById('ktclTeamFilter');
+    if (teamSel) teamSel.value = '';
+    
+    // Show/hide time filter based on Tab 4
+    const timeFilter = document.getElementById('ktclTimeFilter');
+    const customDateContainer = document.getElementById('ktclCustomDateContainer');
+    const customMonthContainer = document.getElementById('ktclCustomMonthContainer');
+    
+    if (tab === '4') {
+        if (timeFilter) {
+            timeFilter.style.display = 'block';
+            timeFilter.value = _ktclState.timeFilterVal || 'undone_past_today';
+        }
+        if (customDateContainer) customDateContainer.style.display = _ktclState.timeFilterVal === 'custom_date' ? 'flex' : 'none';
+        if (customMonthContainer) customMonthContainer.style.display = _ktclState.timeFilterVal === 'custom_month' ? 'flex' : 'none';
+    } else {
+        if (timeFilter) timeFilter.style.display = 'none';
+        if (customDateContainer) customDateContainer.style.display = 'none';
+        if (customMonthContainer) customMonthContainer.style.display = 'none';
     }
     
     _ktclLoadData();
@@ -842,11 +858,59 @@ async function _ktclLoadData() {
 
         // Load active tab records
         let url = `/api/sewing/records?tab=${_ktclState.activeTab}`;
-        if (_ktclState.activeTab === '4' && _ktclState.showDoneToday) {
-            url += `&status=done_today`;
+        if (_ktclState.activeTab === '4') {
+            const timeVal = _ktclState.timeFilterVal || 'undone_past_today';
+            if (timeVal === 'today') {
+                url += `&status=done_today`;
+            } else if (timeVal === 'custom_date') {
+                url += `&status=done_all`;
+                if (_ktclState.doneDate) url += `&done_date=${encodeURIComponent(_ktclState.doneDate)}`;
+            } else if (timeVal === 'custom_month') {
+                url += `&status=done_all`;
+                if (_ktclState.doneMonth) {
+                    const parts = _ktclState.doneMonth.split('-');
+                    url += `&done_year=${parts[0]}&done_month=${parts[1]}`;
+                }
+            } else if (timeVal === 'done_all') {
+                url += `&status=done_all`;
+            } else if (timeVal === 'all') {
+                url += `&status=all`;
+            } else if (timeVal === 'undone') {
+                url += `&status=incomplete`;
+            } else {
+                url += `&status=undone_past_today`;
+            }
         }
         const res = await apiCall(url);
         _ktclState.originalRecords = res.records || [];
+        
+        // Fill Team/Gia công filter dropdown dynamically
+        const sel = document.getElementById('ktclTeamFilter');
+        if (sel) {
+            const currentSelVal = _ktclState.teamFilterVal;
+            sel.innerHTML = '<option value="">Tất cả Tổ/Gia công</option>';
+            const added = new Set();
+            _ktclState.originalRecords.forEach(r => {
+                if (r.contractor_id) {
+                    const val = `c_${r.contractor_id}`;
+                    if (!added.has(val)) {
+                        added.add(val);
+                        sel.innerHTML += `<option value="${val}">🏭 ${r.contractor_name || 'Gia công'}</option>`;
+                    }
+                } else if (r.sewing_team_id) {
+                    const val = `t_${r.sewing_team_id}`;
+                    if (!added.has(val)) {
+                        added.add(val);
+                        sel.innerHTML += `<option value="${val}">🧵 ${r.sewer_name || 'Tổ may'}</option>`;
+                    }
+                }
+            });
+            sel.value = currentSelVal;
+            if (sel.value !== currentSelVal) {
+                _ktclState.teamFilterVal = '';
+                sel.value = '';
+            }
+        }
         
         _ktclRenderTable();
         _ktclRenderMetrics();
@@ -910,14 +974,15 @@ function _ktclRenderTable() {
         );
     }
     
-    // Apply team filter
-    if (_ktclState.teamFilter) {
-        filtered = filtered.filter(r => String(r.sewing_team_id) === String(_ktclState.teamFilter));
-    }
-    
-    // Apply contractor filter
-    if (_ktclState.contractorFilter) {
-        filtered = filtered.filter(r => String(r.contractor_id) === String(_ktclState.contractorFilter));
+    // Apply team/contractor filter
+    if (_ktclState.teamFilterVal) {
+        if (_ktclState.teamFilterVal.startsWith('c_')) {
+            const cid = Number(_ktclState.teamFilterVal.split('_')[1]);
+            filtered = filtered.filter(r => r.contractor_id === cid);
+        } else if (_ktclState.teamFilterVal.startsWith('t_')) {
+            const tid = Number(_ktclState.teamFilterVal.split('_')[1]);
+            filtered = filtered.filter(r => r.sewing_team_id === tid);
+        }
     }
     
     if (!filtered.length) {
@@ -1576,17 +1641,44 @@ function _ktclHandleSearch(val) {
 }
 
 function _ktclFilterTeam(val) {
-    _ktclState.teamFilter = val;
+    _ktclState.teamFilterVal = val;
     _ktclRenderTable();
 }
 
-function _ktclFilterContractor(val) {
-    _ktclState.contractorFilter = val;
-    _ktclRenderTable();
+function _ktclHandleTimeFilterChange(val) {
+    _ktclState.timeFilterVal = val;
+    
+    const customDateContainer = document.getElementById('ktclCustomDateContainer');
+    const customMonthContainer = document.getElementById('ktclCustomMonthContainer');
+    
+    if (customDateContainer) customDateContainer.style.display = val === 'custom_date' ? 'flex' : 'none';
+    if (customMonthContainer) customMonthContainer.style.display = val === 'custom_month' ? 'flex' : 'none';
+    
+    if (val === 'custom_date') {
+        const dateInput = document.getElementById('ktclDoneDate');
+        if (dateInput && !dateInput.value) {
+            dateInput.value = _ktclGetVnTodayStr();
+            _ktclState.doneDate = dateInput.value;
+        }
+    } else if (val === 'custom_month') {
+        const monthInput = document.getElementById('ktclDoneMonth');
+        if (monthInput && !monthInput.value) {
+            const todayStr = _ktclGetVnTodayStr();
+            monthInput.value = todayStr.substring(0, 7);
+            _ktclState.doneMonth = monthInput.value;
+        }
+    }
+    
+    _ktclLoadData();
 }
 
-function _ktclToggleShowDoneToday(checked) {
-    _ktclState.showDoneToday = checked;
+function _ktclHandleCustomDateChange(val) {
+    _ktclState.doneDate = val;
+    _ktclLoadData();
+}
+
+function _ktclHandleCustomMonthChange(val) {
+    _ktclState.doneMonth = val;
     _ktclLoadData();
 }
 
