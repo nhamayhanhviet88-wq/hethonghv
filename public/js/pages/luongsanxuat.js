@@ -895,9 +895,11 @@ function _lsxRenderTable() {
                 thieuKyThuatHtml = `<div style="font-size:10.5px;font-weight:600;line-height:1.3">${formattedStr || 'Thiếu KT'}</div>`;
             }
 
+            var salCell = `<td style="text-align:right;font-weight:700;color:#1e293b">${r.is_approved ? _lsxFN(r.salary) : '—'}</td>`;
+
             var cpmSalCell = '<td style="text-align:right;font-size:11px;color:#94a3b8">—</td>';
             if (!r.contractor_id) {
-                cpmSalCell = `<td style="text-align:right;font-weight:700;color:#2563eb">${_lsxFN(r.cpm_salary)}</td>`;
+                cpmSalCell = `<td style="text-align:right;font-weight:700;color:#2563eb">${r.is_approved ? _lsxFN(r.cpm_salary) : '—'}</td>`;
             }
 
             var cumThoCell = `<td style="text-align:right;font-weight:800;color:#d97706;background:#fffbeb">${r.is_approved ? _lsxFN(cumulativeTho[i]) : '—'}</td>`;
