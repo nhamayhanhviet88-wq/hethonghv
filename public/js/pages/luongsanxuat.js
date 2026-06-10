@@ -525,7 +525,6 @@ function _lsxGetHeaderHTML() {
         return `
             <tr style="background:var(--gray-800)">
                 <th style="width:50px">STT</th>
-                <th>Ngày May HT</th>
                 <th>NV May</th>
                 <th>Tên SP / Phối</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
@@ -666,7 +665,7 @@ function _lsxRenderTable() {
     if (!tb) return;
     
     if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? (_lsx.filter.contractor_id ? 12 : 15) : 13);
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? (_lsx.filter.contractor_id ? 11 : 14) : 13);
         tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
         _lsxRenderInfo(0);
         return;
@@ -908,7 +907,6 @@ function _lsxRenderTable() {
             var isContractor = !!_lsx.filter.contractor_id;
             return `<tr>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
-                + `<td style="font-size:10px">${doneDateHtml}</td>`
                 + `<td>${nvMayHtml}</td>`
                 + `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodPhieuHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
