@@ -994,21 +994,24 @@
             <label for="qcMissingPriceCheckbox" style="font-size:13px; font-weight:700; color:#ef4444; cursor:pointer;">⚠️ Thiếu Kỹ Thuật May</label>
         </div>
 
-        <!-- Chi tiết thiếu giá -->
-        <div class="form-group" id="qcMissingPriceDetailsGroup" style="display:none; margin-bottom: 12px;">
-            <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu kỹ thuật may (Bắt buộc):</label>
-            <textarea id="qcMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết/kỹ thuật may còn thiếu..." style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.4); color: #f87171;"></textarea>
-        </div>
-
-        <!-- Ảnh Thiếu Kỹ Thuật (chạy độc lập, chỉ hiện khi tích Thiếu Kỹ Thuật May) -->
-        <div class="form-group" id="qcMissingPriceEvidenceGroup" style="display:none; margin-bottom: 12px; background: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 12px;">
-            <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Ảnh Thiếu Kỹ Thuật (Bắt buộc) <span style="color:#ef4444;">*</span></label>
-            <div style="display:flex; gap:8px; align-items:center; margin-bottom: 8px;">
-                <button class="btn btn-secondary" style="flex:none; width:auto; padding:8px 12px; font-size:12px; border-color:rgba(239, 68, 68, 0.4);" onclick="document.getElementById('missingPriceEvidenceUploaderInput').click()">📸 Chụp / Tải ảnh thiếu kỹ thuật</button>
-                <span style="font-size:12px; color:#9ca3af;" id="missingPriceEvidenceUploadStatus">Chưa chọn ảnh</span>
+        <!-- Wrapper for Thiếu Kỹ Thuật May to draw a dashed border around the whole section -->
+        <div id="qcMissingPriceAreaWrapper" style="display:none; margin-top: 12px; background: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
+            <!-- Chi tiết thiếu giá -->
+            <div class="form-group" id="qcMissingPriceDetailsGroup" style="margin-bottom: 12px;">
+                <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu kỹ thuật may (Bắt buộc):</label>
+                <textarea id="qcMissingPriceDetails" class="form-input" rows="2" placeholder="Nhập tên chi tiết/kỹ thuật may còn thiếu..."></textarea>
             </div>
-            <input type="file" id="missingPriceEvidenceUploaderInput" accept="image/*" multiple style="display:none" onchange="uploadQCMissingPriceImages(event)">
-            <div class="card-images" id="qcMissingPriceEvidenceImagesPreview" style="margin-top:8px;"></div>
+
+            <!-- Ảnh Thiếu Kỹ Thuật (chạy độc lập, chỉ hiện khi tích Thiếu Kỹ Thuật May) -->
+            <div class="form-group" id="qcMissingPriceEvidenceGroup" style="margin-bottom: 0;">
+                <label class="form-label" style="color:#ef4444; font-weight: 700; margin-bottom: 6px;">Ảnh Thiếu Kỹ Thuật (Bắt buộc) <span style="color:#ef4444;">*</span></label>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom: 8px;">
+                    <button class="btn btn-secondary" style="flex:none; width:auto; padding:8px 12px; font-size:12px; border-color:rgba(239, 68, 68, 0.4);" onclick="document.getElementById('missingPriceEvidenceUploaderInput').click()">📸 Chụp / Tải ảnh thiếu kỹ thuật</button>
+                    <span style="font-size:12px; color:#9ca3af;" id="missingPriceEvidenceUploadStatus">Chưa chọn ảnh</span>
+                </div>
+                <input type="file" id="missingPriceEvidenceUploaderInput" accept="image/*" multiple style="display:none" onchange="uploadQCMissingPriceImages(event)">
+                <div class="card-images" id="qcMissingPriceEvidenceImagesPreview" style="margin-top:8px;"></div>
+            </div>
         </div>
 
         <div class="form-group">
@@ -1897,7 +1900,7 @@
 
         function toggleMissingPriceArea() {
             const isChecked = document.getElementById('qcMissingPriceCheckbox').checked;
-            document.getElementById('qcMissingPriceDetailsGroup').style.display = isChecked ? 'block' : 'none';
+            document.getElementById('qcMissingPriceAreaWrapper').style.display = isChecked ? 'block' : 'none';
             updateEvidenceGroupVisibility();
         }
 
@@ -2042,11 +2045,11 @@
             const noteText = r.notes || '';
             if (noteText.startsWith('[THIẾU GIÁ CHI TIẾT] ')) {
                 document.getElementById('qcMissingPriceCheckbox').checked = true;
-                document.getElementById('qcMissingPriceDetailsGroup').style.display = 'block';
+                document.getElementById('qcMissingPriceAreaWrapper').style.display = 'block';
                 document.getElementById('qcMissingPriceDetails').value = noteText.replace('[THIẾU GIÁ CHI TIẾT] ', '');
             } else {
                 document.getElementById('qcMissingPriceCheckbox').checked = false;
-                document.getElementById('qcMissingPriceDetailsGroup').style.display = 'none';
+                document.getElementById('qcMissingPriceAreaWrapper').style.display = 'none';
                 document.getElementById('qcMissingPriceDetails').value = '';
             }
 
