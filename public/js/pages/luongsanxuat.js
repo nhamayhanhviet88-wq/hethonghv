@@ -719,9 +719,7 @@ function _lsxRenderTable() {
             } else {
                 var badgeColor = _lsxGetTeamStyle(r.worker_id);
                 var teamLabel = r.worker_name ? r.worker_name : '❌ Chưa Phân Tổ';
-                if (teamLabel === 'Team May Tiên Phong') {
-                    teamLabel = 'TM Tiên Phong';
-                }
+                teamLabel = teamLabel.replace('Team May', 'TM');
                 nvMayHtml = `<span class="badge" style="${badgeColor};padding:4px 8px;border-radius:6px;font-weight:800">${teamLabel}</span>`;
             }
 
