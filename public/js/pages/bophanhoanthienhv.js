@@ -312,7 +312,7 @@ async function _bphtOpenCompleteModal(recordId) {
                     </div>
 
                     <div>
-                        <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ảnh Sản Phẩm Hoàn Thiện</label>
+                        <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ảnh Sản Phẩm Hoàn Thiện <span style="color:#ef4444;">*</span></label>
                         <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
                             <button onclick="document.getElementById('bphtFileInput').click()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:11px; font-weight:700; background:#f8fafc; cursor:pointer; color:#334155;">📷 Tải ảnh lên</button>
                             <span id="bphtUploadStatus" style="font-size:11px; color:#64748b;">${_bphtState.finishImages.length > 0 ? `Đã tải ${_bphtState.finishImages.length} ảnh` : 'Chưa có ảnh'}</span>
@@ -470,6 +470,11 @@ async function _bphtSubmitComplete() {
 
     if (!finisherId) {
         showToast('Vui lòng chọn Nhân viên Hoàn Thiện', 'error');
+        return;
+    }
+
+    if (!_bphtState.finishImages || _bphtState.finishImages.length === 0) {
+        showToast('Bắt buộc phải chụp ảnh/tải lên ảnh sản phẩm hoàn thiện!', 'error');
         return;
     }
 
