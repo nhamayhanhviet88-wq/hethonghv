@@ -495,8 +495,8 @@ module.exports = async function(fastify) {
                     'sewing' AS dept,
                     sr.id,
                     COALESCE(sr.handover_date, sr.created_at::date) AS work_date,
-                    CASE WHEN sr.done_date IS NOT NULL THEN true ELSE false END AS is_completed,
-                    COALESCE(sr.reported_at, sr.updated_at, sr.created_at) AS completion_time,
+                    COALESCE(fr.is_completed, false) AS is_completed,
+                    fr.completed_at AS completion_time,
                     sr.sewing_team_id AS worker_id,
                     sr.contractor_id,
                     dt.name AS worker_name,
@@ -551,6 +551,7 @@ module.exports = async function(fastify) {
                     ORDER BY h.performed_at DESC LIMIT 1
                 ) lh ON true
                 LEFT JOIN users lh_u ON lh.performed_by = lh_u.id
+                LEFT JOIN finishing_records fr ON sr.id = fr.sewing_record_id
                 WHERE ${whereSewing}
                   AND sr.done_date IS NOT NULL
                   AND (sr.sewing_team_id IS NOT NULL OR sr.contractor_id IS NOT NULL)

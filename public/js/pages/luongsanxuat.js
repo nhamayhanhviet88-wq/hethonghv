@@ -1128,7 +1128,7 @@ function _lsxRenderTable() {
             var isContractor = !!_lsx.filter.contractor_id;
             return `<tr${trClass} ${trAttrs}>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
-                + `<td style="font-size:10px;text-align:center;color:#94a3b8">—</td>`
+                + `<td style="font-size:10px;text-align:center;font-weight:600;color:#0f172a">${_lsxFormatWorkDate(r)}</td>`
                 + `<td>${nvMayHtml}</td>`
                 + `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${prodPhieuHtml}</td>`
                 + `<td style="text-align:center;font-size:11px">${slText}</td>`
