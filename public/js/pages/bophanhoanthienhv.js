@@ -106,10 +106,10 @@ if(t.tree){
     });
 }
 
-var finishersList = Object.values(finishers);
+var finishersList = Object.values(finishers).filter(function(fin){
+    return fin.id !== 'unassigned';
+});
 finishersList.sort(function(a,b){
-    if(a.id === 'unassigned') return -1;
-    if(b.id === 'unassigned') return 1;
     return a.name.localeCompare(b.name, 'vi');
 });
 
