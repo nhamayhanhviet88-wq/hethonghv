@@ -261,6 +261,20 @@
             border-color: #10b981;
             color: #6ee7b7;
         }
+        .m-page-btn {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .m-page-btn:active {
+            background: rgba(255,255,255,0.15);
+        }
     </style>
 </head>
 <body>
@@ -284,13 +298,26 @@
     <div id="mDoneFilterContainer" style="display:none; padding: 10px 16px; gap: 8px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); -webkit-overflow-scrolling: touch;">
         <button class="m-filter-btn" id="mBtnDoneToday" onclick="mSelectDoneFilter('today')">Hôm nay</button>
         <button class="m-filter-btn" id="mBtnDoneWeek" onclick="mSelectDoneFilter('week')">Tuần này</button>
-        <div class="m-filter-btn" style="position: relative;" id="mBtnDoneDate">
+        <div class="m-filter-btn" style="position: relative; cursor: pointer;" onclick="mOpenDatePicker()">
             📅 <span id="mDoneDateLabel">Chọn ngày</span>
-            <input type="date" id="mDoneDatePicker" onchange="mDoneDateChange(this.value)" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+            <input type="date" id="mDoneDatePicker" onchange="mDoneDateChange(this.value)" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;">
         </div>
-        <div class="m-filter-btn" style="position: relative;" id="mBtnDoneMonth">
+        <div class="m-filter-btn" style="position: relative; cursor: pointer;" onclick="mOpenMonthPicker()">
             📅 <span id="mDoneMonthLabel">Chọn tháng</span>
-            <input type="month" id="mDoneMonthPicker" onchange="mDoneMonthChange(this.value)" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+            <input type="month" id="mDoneMonthPicker" onchange="mDoneMonthChange(this.value)" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;">
+        </div>
+        <div class="m-filter-btn" style="position: relative; cursor: pointer;">
+            📅 <span id="mDoneYearLabel">Chọn năm</span>
+            <select id="mDoneYearSelect" onchange="mDoneYearChange(this.value)" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+                <option value="">Chọn năm</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+                <option value="2029">2029</option>
+                <option value="2030">2030</option>
+            </select>
         </div>
         <button class="m-filter-btn" id="mBtnDoneAll" onclick="mSelectDoneFilter('all')">Tất cả</button>
     </div>
@@ -322,9 +349,12 @@
 
 <script>
 let cu=null,mr=[],activeTab='undone';
-let doneFilter = 'week'; // 'today', 'week', 'date', 'month', 'all'
+let doneFilter = 'week'; // 'today', 'week', 'date', 'month', 'year', 'all'
 let selectedDoneDate = '';
 let selectedDoneMonth = '';
+let selectedDoneYear = '';
+let currentPage = 1;
+let totalFilteredCount = 0;
 async function api(u,m='GET',b=null){const o={method:m,headers:{},credentials:'include'};if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b)}const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
@@ -412,18 +442,25 @@ function switchTab(tabId) {
     const inp = document.getElementById('mSearch');
     if (inp) inp.value = '';
     
+    currentPage = 1;
+    
     if (tabId === 'done') {
         doneFilter = 'week';
         selectedDoneDate = '';
         selectedDoneMonth = '';
+        selectedDoneYear = '';
         const datePicker = document.getElementById('mDoneDatePicker');
         const monthPicker = document.getElementById('mDoneMonthPicker');
+        const yearSelect = document.getElementById('mDoneYearSelect');
         if (datePicker) datePicker.value = '';
         if (monthPicker) monthPicker.value = '';
+        if (yearSelect) yearSelect.value = '';
         const dateLabel = document.getElementById('mDoneDateLabel');
         const monthLabel = document.getElementById('mDoneMonthLabel');
+        const yearLabel = document.getElementById('mDoneYearLabel');
         if (dateLabel) dateLabel.textContent = 'Chọn ngày';
         if (monthLabel) monthLabel.textContent = 'Chọn tháng';
+        if (yearLabel) yearLabel.textContent = 'Chọn năm';
         updateActiveDoneFilterBtn();
     }
     
@@ -447,17 +484,47 @@ function mSelectDoneFilter(filterType) {
     doneFilter = filterType;
     selectedDoneDate = '';
     selectedDoneMonth = '';
+    selectedDoneYear = '';
+    currentPage = 1;
     const datePicker = document.getElementById('mDoneDatePicker');
     const monthPicker = document.getElementById('mDoneMonthPicker');
+    const yearSelect = document.getElementById('mDoneYearSelect');
     if (datePicker) datePicker.value = '';
     if (monthPicker) monthPicker.value = '';
+    if (yearSelect) yearSelect.value = '';
     const dateLabel = document.getElementById('mDoneDateLabel');
     const monthLabel = document.getElementById('mDoneMonthLabel');
+    const yearLabel = document.getElementById('mDoneYearLabel');
     if (dateLabel) dateLabel.textContent = 'Chọn ngày';
     if (monthLabel) monthLabel.textContent = 'Chọn tháng';
+    if (yearLabel) yearLabel.textContent = 'Chọn năm';
     
     updateActiveDoneFilterBtn();
     mCards();
+}
+
+function mOpenDatePicker() {
+    const picker = document.getElementById('mDoneDatePicker');
+    if (picker) {
+        try {
+            picker.showPicker();
+        } catch(e) {
+            picker.focus();
+            picker.click();
+        }
+    }
+}
+
+function mOpenMonthPicker() {
+    const picker = document.getElementById('mDoneMonthPicker');
+    if (picker) {
+        try {
+            picker.showPicker();
+        } catch(e) {
+            picker.focus();
+            picker.click();
+        }
+    }
 }
 
 function mDoneDateChange(val) {
@@ -465,10 +532,16 @@ function mDoneDateChange(val) {
     doneFilter = 'date';
     selectedDoneDate = val;
     selectedDoneMonth = '';
+    selectedDoneYear = '';
+    currentPage = 1;
     const monthPicker = document.getElementById('mDoneMonthPicker');
+    const yearSelect = document.getElementById('mDoneYearSelect');
     if (monthPicker) monthPicker.value = '';
+    if (yearSelect) yearSelect.value = '';
     const monthLabel = document.getElementById('mDoneMonthLabel');
+    const yearLabel = document.getElementById('mDoneYearLabel');
     if (monthLabel) monthLabel.textContent = 'Chọn tháng';
+    if (yearLabel) yearLabel.textContent = 'Chọn năm';
     
     const parts = val.split('-');
     const dateLabel = document.getElementById('mDoneDateLabel');
@@ -483,14 +556,43 @@ function mDoneMonthChange(val) {
     doneFilter = 'month';
     selectedDoneMonth = val;
     selectedDoneDate = '';
+    selectedDoneYear = '';
+    currentPage = 1;
     const datePicker = document.getElementById('mDoneDatePicker');
+    const yearSelect = document.getElementById('mDoneYearSelect');
     if (datePicker) datePicker.value = '';
+    if (yearSelect) yearSelect.value = '';
     const dateLabel = document.getElementById('mDoneDateLabel');
+    const yearLabel = document.getElementById('mDoneYearLabel');
     if (dateLabel) dateLabel.textContent = 'Chọn ngày';
+    if (yearLabel) yearLabel.textContent = 'Chọn năm';
     
     const parts = val.split('-');
     const monthLabel = document.getElementById('mDoneMonthLabel');
     if (monthLabel) monthLabel.textContent = `${parts[1]}/${parts[0]}`;
+    
+    updateActiveDoneFilterBtn();
+    mCards();
+}
+
+function mDoneYearChange(val) {
+    if (!val) return;
+    doneFilter = 'year';
+    selectedDoneYear = val;
+    selectedDoneDate = '';
+    selectedDoneMonth = '';
+    currentPage = 1;
+    const datePicker = document.getElementById('mDoneDatePicker');
+    const monthPicker = document.getElementById('mDoneMonthPicker');
+    if (datePicker) datePicker.value = '';
+    if (monthPicker) monthPicker.value = '';
+    const dateLabel = document.getElementById('mDoneDateLabel');
+    const monthLabel = document.getElementById('mDoneMonthLabel');
+    if (dateLabel) dateLabel.textContent = 'Chọn ngày';
+    if (monthLabel) monthLabel.textContent = 'Chọn tháng';
+    
+    const yearLabel = document.getElementById('mDoneYearLabel');
+    if (yearLabel) yearLabel.textContent = val;
     
     updateActiveDoneFilterBtn();
     mCards();
@@ -510,13 +612,35 @@ function updateActiveDoneFilterBtn() {
     } else if (doneFilter === 'month') {
         const btn = document.getElementById('mBtnDoneMonth');
         if (btn) btn.classList.add('active');
+    } else if (doneFilter === 'year') {
+        const select = document.getElementById('mDoneYearSelect');
+        if (select && select.parentElement) select.parentElement.classList.add('active');
     } else if (doneFilter === 'all') {
         const btn = document.getElementById('mBtnDoneAll');
         if (btn) btn.classList.add('active');
     }
 }
+
+function mPrevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        mCards();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function mNextPage() {
+    const totalPages = Math.ceil(totalFilteredCount / 50);
+    if (currentPage < totalPages) {
+        currentPage++;
+        mCards();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
 let searchTimeout=null;
 function mSearchInput(){
+    currentPage = 1;
     clearTimeout(searchTimeout);
     searchTimeout=setTimeout(()=>mCards(),200);
 }
@@ -604,6 +728,8 @@ if (activeTab === 'undone') {
             return recordDate === selectedDoneDate;
         } else if (doneFilter === 'month') {
             return recordDate.startsWith(selectedDoneMonth);
+        } else if (doneFilter === 'year') {
+            return recordDate.startsWith(selectedDoneYear);
         } else if (doneFilter === 'all') {
             return true;
         }
@@ -620,8 +746,27 @@ if(sv){
                (r.cut_product_name || '').toLowerCase().includes(sv);
     });
 }
-if(!filtered.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hàng</div></div>';return}
-c.innerHTML=filtered.map(r=>{
+totalFilteredCount = filtered.length;
+const totalPages = Math.ceil(totalFilteredCount / 50);
+if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
+
+const startIdx = (currentPage - 1) * 50;
+const paginated = filtered.slice(startIdx, startIdx + 50);
+
+if(!paginated.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hàng</div></div>';return}
+
+let paginationHtml = '';
+if (totalPages > 1) {
+    paginationHtml = `
+        <div class="m-pagination-container" style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:20px; padding: 10px 16px 30px 16px;">
+            <button class="m-page-btn" onclick="mPrevPage()" ${currentPage === 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>← Trước</button>
+            <span style="font-size:12px; color:#94a3b8; font-weight:700;">Trang ${currentPage} / ${totalPages}</span>
+            <button class="m-page-btn" onclick="mNextPage()" ${currentPage === totalPages ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>Sau →</button>
+        </div>
+    `;
+}
+
+c.innerHTML=paginated.map(r=>{
 const ic=r.done_date?'✅':r.is_completed?'📋':'🧵';
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const cA=r.is_completed?'undo_complete':'complete';
@@ -644,7 +789,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr()"><span class="ai">⚠️</span><span class="al">BÁO LỖI</span></button>'
 +'</div>'
 +(hl?'<div class="ch">'+hl+'</div>':'')
-+'</div>'}).join('')}
++'</div>'}).join('') + paginationHtml}
 async function mTog(id,a){
     if (a === 'undo_complete') {
         if (!confirm('Bạn có chắc chắn muốn hoàn tác trạng thái hoàn thành?')) return;
