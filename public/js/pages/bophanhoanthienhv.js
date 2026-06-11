@@ -157,11 +157,16 @@ function _bphtGetCompletedTime(r) {
             var minutes = String(dt.getMinutes()).padStart(2, '0');
             var day = String(dt.getDate()).padStart(2, '0');
             var month = String(dt.getMonth() + 1).padStart(2, '0');
-            var year = dt.getFullYear();
-            return hours + ':' + minutes + ' ' + day + '/' + month + '/' + year;
+            return hours + ':' + minutes + ' ' + day + '/' + month;
         } catch(e) {}
     }
-    return _bphtFD(r.done_date);
+    if (r.done_date) {
+        try {
+            var p = r.done_date.split('T')[0].split('-');
+            return p[2] + '/' + p[1];
+        } catch(e) {}
+    }
+    return '—';
 }
 
 function _bphtGetRaDukien(r) {
@@ -171,7 +176,6 @@ function _bphtGetRaDukien(r) {
         var dt = new Date(targetDateStr);
         var day = String(dt.getDate()).padStart(2, '0');
         var month = String(dt.getMonth() + 1).padStart(2, '0');
-        var year = dt.getFullYear();
         if (r.shipping_standard === 'chuan') {
             var timeStr = '';
             if (r.standard_delivery_time) {
@@ -181,12 +185,17 @@ function _bphtGetRaDukien(r) {
                 var mins = String(dt.getMinutes()).padStart(2, '0');
                 timeStr = hrs + ':' + mins;
             }
-            return timeStr + ' ' + day + '/' + month + '/' + year;
+            return timeStr + ' ' + day + '/' + month;
         } else {
-            return day + '/' + month + '/' + year;
+            return day + '/' + month;
         }
     } catch(e) {
-        return _bphtFD(targetDateStr);
+        try {
+            var p = targetDateStr.split('T')[0].split('-');
+            return p[2] + '/' + p[1];
+        } catch(ex) {
+            return targetDateStr;
+        }
     }
 }
 
