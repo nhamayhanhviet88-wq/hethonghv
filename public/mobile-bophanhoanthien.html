@@ -525,20 +525,27 @@ async function mOpenCompleteModal(recordId) {
     }
 
     let formattedExpectedDate = '—';
-    if (r.expected_date) {
+    const targetDateStr = r.expected_ship_date || r.expected_date;
+    if (targetDateStr) {
         try {
-            const dt = new Date(r.expected_date);
-            const hrs = String(dt.getHours()).padStart(2, '0');
-            const mins = String(dt.getMinutes()).padStart(2, '0');
+            const dt = new Date(targetDateStr);
             const day = String(dt.getDate()).padStart(2, '0');
             const month = String(dt.getMonth() + 1).padStart(2, '0');
             if (r.shipping_standard === 'chuan') {
-                formattedExpectedDate = `${hrs}:${mins} ngày ${day}/${month}`;
+                let timeStr = '';
+                if (r.standard_delivery_time) {
+                    timeStr = r.standard_delivery_time.trim();
+                } else {
+                    const hrs = String(dt.getHours()).padStart(2, '0');
+                    const mins = String(dt.getMinutes()).padStart(2, '0');
+                    timeStr = `${hrs}:${mins}`;
+                }
+                formattedExpectedDate = `${timeStr} ngày ${day}/${month}`;
             } else {
                 formattedExpectedDate = `ngày ${day}/${month}`;
             }
         } catch(e) {
-            formattedExpectedDate = r.expected_date;
+            formattedExpectedDate = targetDateStr;
         }
     }
 
