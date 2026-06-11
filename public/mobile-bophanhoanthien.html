@@ -43,25 +43,111 @@
         .sp{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:#10b981;border-radius:50%;animation:sn .6s linear infinite;display:inline-block;margin-bottom:8px}
         @keyframes sn{to{transform:rotate(360deg)}}
         .mb{display:inline-flex;align-items:center;gap:6px;color:#6ee7b7;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,.05);border-radius:8px}
+
+        /* Navigation Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(17, 24, 39, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 90;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            gap: 4px;
+            flex: 1;
+            max-width: 33%;
+            cursor: pointer;
+            padding: 6px 4px;
+            border-radius: 14px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-item.active {
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.05);
+        }
+        .nav-icon-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-icon {
+            font-size: 22px;
+            transition: transform 0.2s;
+        }
+        .nav-item.active .nav-icon {
+            transform: translateY(-2px);
+        }
+        .badge {
+            position: absolute;
+            top: -5px;
+            right: -8px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 800;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #111827;
+        }
     </style>
 </head>
 <body>
     <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>✅ CẮT CHỈ & HOÀN THIỆN</h1><span class="mu" id="mU">...</span></div>
     <div class="tc" id="mTC"></div>
-    <div id="mFB" class="mf" style="display:none">
-        <input type="date" id="mFD" onchange="mLoad()">
-        <select id="mFS" onchange="mLoad()"><option value="">Tất cả</option><option value="progress">Đang làm</option><option value="done">Xong</option><option value="error">Lỗi</option></select>
-    </div>
-    <div id="mSB" class="ms" style="display:none">
-        <div style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mv" id="sT">0</div><div class="ml">TỔNG</div></div>
-        <div style="background:linear-gradient(135deg,#3b82f6,#2563eb)"><div class="mv" id="sP">0</div><div class="ml">ĐANG LÀM</div></div>
-        <div style="background:linear-gradient(135deg,#047857,#059669)"><div class="mv" id="sD">0</div><div class="ml">XONG</div></div>
-        <div style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="mv" id="sE">0</div><div class="ml">LỖI</div></div>
+    <div id="mFB" class="mf" style="display:none; padding: 10px 16px;">
+        <input type="date" id="mFD" onchange="mLoad()" style="width: 100%;">
     </div>
     <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
-    <a href="/bophanhoanthienhv" class="mb">← Về trang Desktop</a>
+    <a href="/bophanhoanthienhv" class="mb" style="margin-bottom: 90px;">← Về trang Desktop</a>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('undone')" id="tab_undone">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">🧵</span>
+                <span class="badge" id="badge_undone" style="display:none">0</span>
+            </div>
+            <span>Chưa Hoàn Thiện</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('done')" id="tab_done">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">✅</span>
+            </div>
+            <span>Xong</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('error')" id="tab_error">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">⚠️</span>
+            </div>
+            <span>Đơn Lỗi</span>
+        </div>
+    </div>
+
 <script>
-let cu=null,mr=[];
+let cu=null,mr=[],activeTab='undone';
 async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
@@ -84,10 +170,25 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
             window.location.href = '/';
             return;
         }
-    document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
-async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
-try{const r=await api('/api/finishing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
-function mStats(){const t=mr.length,p=mr.filter(r=>r.is_completed&&!r.done_date).length,d=mr.filter(r=>r.done_date).length,e=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sP').textContent=p;document.getElementById('sD').textContent=d;document.getElementById('sE').textContent=e}
+    document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
+async function mLoad(){const dt=document.getElementById('mFD')?.value||'';
+try{const r=await api('/api/finishing/records');mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
+function mStats(){
+    const undoneCount = mr.filter(r => !r.done_date).length;
+    const badge = document.getElementById('badge_undone');
+    if (undoneCount > 0) {
+        badge.textContent = undoneCount;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+function switchTab(tabId) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab_' + tabId).classList.add('active');
+    activeTab = tabId;
+    mCards();
+}
 function cleanProdName(r) {
     if (!r) return 'Sản phẩm';
     var name = r.cut_product_name || r.product_name || '';
@@ -114,8 +215,17 @@ function cleanProdName(r) {
     else res.push(r.product_name || 'Sản phẩm');
     return res.join(' — ');
 }
-function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hoàn thiện</div></div>';return}
-c.innerHTML=mr.map(r=>{
+function mCards(){const c=document.getElementById('mC');
+let filtered = mr;
+if (activeTab === 'undone') {
+    filtered = mr.filter(r => !r.done_date);
+} else if (activeTab === 'done') {
+    filtered = mr.filter(r => r.done_date);
+} else if (activeTab === 'error') {
+    filtered = mr.filter(r => r.error_reported);
+}
+if(!filtered.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hàng</div></div>';return}
+c.innerHTML=filtered.map(r=>{
 const ic=r.done_date?'✅':r.is_completed?'📋':'🧵';
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const cA=r.is_completed?'undo_complete':'complete';
