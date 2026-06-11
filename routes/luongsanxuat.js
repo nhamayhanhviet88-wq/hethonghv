@@ -44,9 +44,16 @@ module.exports = async function(fastify) {
         return false;
     }
 
+    async function canManageSewingSalary(req) {
+        if (req.user.role === 'giam_doc') return true;
+        const u = await db.get(`SELECT username, role FROM users WHERE id = $1`, [req.user.id]);
+        return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
+    }
+
     // ========== TREE ==========
     fastify.get('/api/production-salary/tree', { preHandler: [authenticate] }, async (req) => {
         const isMgr = await isSalaryManager(req);
+        const isSewMgr = await canManageSewingSalary(req);
         let whereCutting = '1=1', wherePressing = '1=1', whereSewing = '1=1';
         const params = [];
         
@@ -236,12 +243,13 @@ module.exports = async function(fastify) {
             ${statusWhere}
         `, statusParams);
 
-        return { tree, stats: stats || { total: 0, approved: 0, pending: 0, count: 0 }, is_manager: isMgr };
+        return { tree, stats: stats || { total: 0, approved: 0, pending: 0, count: 0 }, is_manager: isMgr, is_sewing_manager: isSewMgr };
     });
 
     // ========== LIST ==========
     fastify.get('/api/production-salary/records', { preHandler: [authenticate] }, async (req) => {
         const isMgr = await isSalaryManager(req);
+        const isSewMgr = await canManageSewingSalary(req);
         const { year, month, dept, worker_id, contractor_id, status, search } = req.query;
 
         let whereCutting = '1=1', wherePressing = '1=1', whereSewing = '1=1';
@@ -539,7 +547,7 @@ module.exports = async function(fastify) {
         const query = queryParts.join('\n UNION ALL \n') + '\n ORDER BY work_date DESC, created_at DESC';
 
         const records = await db.all(query, params);
-        return { records, is_manager: isMgr };
+        return { records, is_manager: isMgr, is_sewing_manager: isSewMgr };
     });
 
     // ========== BULK APPROVAL ==========
@@ -568,6 +576,10 @@ module.exports = async function(fastify) {
             if (r.dept === 'cutting') cuttingIds.push(id);
             else if (r.dept === 'pressing') pressingIds.push(id);
             else if (r.dept === 'sewing') sewingIds.push(id);
+        }
+
+        if (sewingIds.length > 0 && !(await canManageSewingSalary(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền duyệt lương bộ phận may!' });
         }
 
         let updatedCount = 0;
@@ -624,17 +636,29 @@ module.exports = async function(fastify) {
         }
 
         if (sewingIds.length > 0) {
-
-
-            await db.run(`
-                UPDATE sewing_records 
-                SET 
-                    salary_approved = $1, 
-                    salary_approved_at = $2, 
-                    salary_approved_by = $3, 
-                    updated_at = $4 
-                WHERE id IN (${sewingIds.join(',')})
-            `, [approved, approved ? now : null, approved ? req.user.id : null, now]);
+            if (approved) {
+                await db.run(`
+                    UPDATE sewing_records 
+                    SET 
+                        salary_approved = true, 
+                        salary_approved_at = $1, 
+                        salary_approved_by = $2, 
+                        salary = COALESCE(quantity, 0) * COALESCE(checked_price, base_price, 0),
+                        updated_at = $3 
+                    WHERE id IN (${sewingIds.join(',')})
+                `, [now, req.user.id, now]);
+            } else {
+                await db.run(`
+                    UPDATE sewing_records 
+                    SET 
+                        salary_approved = false, 
+                        salary_approved_at = null, 
+                        salary_approved_by = null, 
+                        salary = 0,
+                        updated_at = $1 
+                    WHERE id IN (${sewingIds.join(',')})
+                `, [now]);
+            }
 
             for (const id of sewingIds) {
                 await db.run(`
@@ -655,6 +679,9 @@ module.exports = async function(fastify) {
         }
 
         const { dept, id } = req.params;
+        if (dept === 'sewing' && !(await canManageSewingSalary(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền duyệt lương bộ phận may!' });
+        }
         const recordId = Number(id);
         const now = vnNow();
 
@@ -706,6 +733,19 @@ module.exports = async function(fastify) {
                 WHERE order_item_id = $4
                   AND ((COALESCE(cut_warning, '') LIKE '%Cắt bù%') = (COALESCE($5, '') LIKE '%Cắt bù%'))
             `, [newApproved, now, req.user.id, rec.order_item_id, rec.cut_warning]);
+        } else if (dept === 'sewing') {
+            const rSew = await db.get('SELECT quantity, checked_price, base_price FROM sewing_records WHERE id = $1', [recordId]);
+            const sal = newApproved ? (Number(rSew.quantity || 0) * Number(rSew.checked_price || rSew.base_price || 0)) : 0;
+            await db.run(`
+                UPDATE sewing_records 
+                SET 
+                    salary_approved = $1, 
+                    salary_approved_at = $2, 
+                    salary_approved_by = $3, 
+                    salary = $4,
+                    updated_at = $2 
+                WHERE id = $5
+            `, [newApproved, now, req.user.id, sal, recordId]);
         } else {
             await db.run(`
                 UPDATE ${table} 
@@ -736,6 +776,9 @@ module.exports = async function(fastify) {
         }
 
         const { dept, id } = req.params;
+        if (dept === 'sewing' && !(await canManageSewingSalary(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền chỉnh sửa lương bộ phận may!' });
+        }
         const recordId = Number(id);
         const { unit_price, salary } = req.body || {};
         const now = vnNow();
@@ -806,5 +849,56 @@ module.exports = async function(fastify) {
         } else {
             return reply.code(400).send({ error: 'Bộ phận không hợp lệ' });
         }
+    });
+
+    // Update sewing techniques for a specific sewing record's order item
+    fastify.post('/api/production-salary/sewing/:id/techniques', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await canManageSewingSalary(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền chỉnh sửa kỹ thuật may!' });
+        }
+        const recordId = Number(req.params.id);
+        const { sewing_techniques, checked_techniques, checked_price } = req.body || {};
+        const now = vnNow();
+
+        const rec = await db.get('SELECT order_item_id, quantity, salary_approved FROM sewing_records WHERE id = $1', [recordId]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
+
+        if (sewing_techniques) {
+            await db.run(
+                `UPDATE dht_order_items SET sewing_techniques = $1 WHERE id = $2`,
+                [JSON.stringify(sewing_techniques), rec.order_item_id]
+            );
+        }
+
+        let notesUpdateQuery = '';
+        const recNotes = await db.get('SELECT notes FROM sewing_records WHERE id = $1', [recordId]);
+        let updatedNotes = recNotes && recNotes.notes ? recNotes.notes : null;
+        if (updatedNotes && updatedNotes.includes('[THIẾU GIÁ CHI TIẾT]')) {
+            updatedNotes = updatedNotes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim();
+            if (updatedNotes === '') updatedNotes = null;
+            notesUpdateQuery = `, notes = $5`;
+        }
+
+        const cp = Number(checked_price) || 0;
+        const sal = rec.salary_approved ? (Number(rec.quantity || 0) * cp) : 0;
+
+        if (notesUpdateQuery) {
+            await db.run(
+                `UPDATE sewing_records SET checked_techniques = $1, checked_price = $2, salary = $3, updated_at = $4, notes = $5 WHERE id = $6`,
+                [JSON.stringify(checked_techniques), cp, sal, now, updatedNotes, recordId]
+            );
+        } else {
+            await db.run(
+                `UPDATE sewing_records SET checked_techniques = $1, checked_price = $2, salary = $3, updated_at = $4 WHERE id = $5`,
+                [JSON.stringify(checked_techniques), cp, sal, now, recordId]
+            );
+        }
+
+        await db.run(`
+            INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [recordId, 'update_techniques', `Cập nhật kỹ thuật & đơn giá kiểm tra: ${cp}`, req.user.id, now]);
+
+        return { success: true, salary: sal };
     });
 };

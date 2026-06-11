@@ -269,6 +269,7 @@ async function _lsxLoadAll() {
         var res = await apiCall('/api/production-salary/tree');
         _lsx.tree = res.tree;
         _lsx.is_manager = res.is_manager || false;
+        _lsx.is_sewing_manager = res.is_sewing_manager || false;
         
         _lsxEnforceRestrictedFilter();
         
@@ -466,6 +467,8 @@ async function _lsxLoadRecs() {
 
     try {
         var res = await apiCall('/api/production-salary/records' + qs);
+        _lsx.is_manager = res.is_manager || false;
+        _lsx.is_sewing_manager = res.is_sewing_manager || false;
         _lsx.records = res.records || [];
         _lsxRenderTable();
     } catch(e) {
@@ -566,8 +569,9 @@ function _lsxGetTeamStyle(id) {
 }
 
 function _lsxGetHeaderHTML() {
+    var isAllowedToApprove = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
     var masterCheckHtml = '';
-    if (_lsx.is_manager) {
+    if (isAllowedToApprove) {
         masterCheckHtml = `
             <div style="margin-top:4px; display:flex; flex-direction:column; align-items:center; gap:2px; user-select:none; white-space:nowrap;">
                 <input type="checkbox" id="lsxMasterCheck" onclick="event.stopPropagation(); _lsxToggleSelectAll(this)" style="transform: scale(1.25); cursor: pointer;">
@@ -809,14 +813,16 @@ function _lsxRenderTable() {
         var isAppr = !!r.is_approved;
         var checkIcon = isAppr ? '💰' : '⬜';
         var checkCls = isAppr ? 'lsx-ib on-approved' : 'lsx-ib';
-        var checkAction = _lsx.is_manager ? `onclick="_lsxToggleAppr(${r.id}, '${r.dept}')"` : 'disabled';
+        
+        var isAllowedToApprove = r.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+        var checkAction = isAllowedToApprove ? `onclick="_lsxToggleAppr(${r.id}, '${r.dept}')"` : 'disabled';
 
-        var isSel = _lsx.is_manager && _lsx.selectedRecords && _lsx.selectedRecords.some(function(sel) { return sel.id === r.id && sel.dept === r.dept; });
+        var isSel = isAllowedToApprove && _lsx.selectedRecords && _lsx.selectedRecords.some(function(sel) { return sel.id === r.id && sel.dept === r.dept; });
         var trClass = isSel ? ' class="lsx-row-selected"' : '';
         var trAttrs = `data-row-id="${r.id}" data-row-dept="${r.dept}" data-row-index="${i}" onclick="_lsxOnRowClick(this, event)" style="cursor: pointer;"`;
 
         var checkCellContent = '';
-        if (_lsx.is_manager) {
+        if (isAllowedToApprove) {
             checkCellContent = `
                 <div style="display:inline-flex; align-items:center; gap:8px;" onclick="event.stopPropagation();">
                     <input type="checkbox" class="lsx-row-check" data-id="${r.id}" data-dept="${r.dept}" data-approved="${isAppr}" ${isSel ? 'checked' : ''} style="transform: scale(1.25); cursor: pointer;" onclick="event.stopPropagation(); _lsxOnRowCheckClick(this, event)">
@@ -824,7 +830,7 @@ function _lsxRenderTable() {
                 </div>
             `;
         } else {
-            checkCellContent = `<button class="${checkCls}" ${checkAction} title="Duyệt lương">${checkIcon}</button>`;
+            checkCellContent = `<button class="${checkCls}" disabled title="Không có quyền duyệt lương">${checkIcon}</button>`;
         }
 
         var lastUpd = '—';
@@ -1134,11 +1140,9 @@ function _lsxRenderInfo(count) {
 async function _lsxToggleAppr(id, dept) {
     if (dept === 'sewing') {
         var r = _lsx.records.find(function(x) { return x.id === id && x.dept === dept; });
-        if (r && !r.is_approved && r.notes && r.notes.indexOf('[THIẾU GIÁ CHI TIẾT]') === 0) {
-            if (!confirm('Đơn hàng này đang bị báo "Thiếu Kỹ Thuật May" (lương thợ đang là 0đ hoặc chưa chuẩn).\nBạn có chắc chắn muốn duyệt lương không?')) {
-                await _lsxLoadAll();
-                return;
-            }
+        if (r && !r.is_approved) {
+            _lsxOpenSewingQCModal(id);
+            return;
         }
     }
     try {
@@ -2114,5 +2118,372 @@ async function _lsxBulkAction(approve) {
     } catch (e) {
         console.error('[LSX Bulk]', e);
         showToast(e.message || 'Không thể thực hiện thao tác hàng loạt', 'error');
+    }
+}
+
+// ========== SEWING QC MODAL & TECHNIQUES EDITING ==========
+
+function _lsxOpenSewingQCModal(id) {
+    var r = _lsx.records.find(function(x) { return x.id === id && x.dept === 'sewing'; });
+    if (!r) return;
+
+    // Compile list of available techniques
+    var tsamTechs = [];
+    try {
+        tsamTechs = typeof r.sample_sewing_tech === 'string' ? JSON.parse(r.sample_sewing_tech) : (r.sample_sewing_tech || []);
+    } catch (e) {}
+    if (!Array.isArray(tsamTechs)) tsamTechs = [];
+
+    var orderTechs = [];
+    try {
+        orderTechs = typeof r.order_sewing_techniques === 'string' ? JSON.parse(r.order_sewing_techniques) : (r.order_sewing_techniques || []);
+    } catch (e) {}
+    if (!Array.isArray(orderTechs)) orderTechs = [];
+
+    // Combine unique techniques by ID
+    var techniques = [];
+    var seenIds = new Set();
+    
+    function addTechToList(t, isSample) {
+        var tid = Number(t.id);
+        if (t && t.id && !seenIds.has(tid)) {
+            seenIds.add(tid);
+            techniques.push({
+                id: tid,
+                name: t.name || '',
+                qty: Number(t.qty) || 1,
+                fp: Number(t.fp) || 0,
+                pp: Number(t.pp) || 0,
+                is_sample: isSample
+            });
+        }
+    }
+
+    tsamTechs.forEach(function(t) { addTechToList(t, true); });
+    orderTechs.forEach(function(t) { addTechToList(t, false); });
+
+    // Checked technique IDs
+    var checkedIds = [];
+    try {
+        checkedIds = typeof r.checked_techniques === 'string' ? JSON.parse(r.checked_techniques) : (r.checked_techniques || []);
+    } catch (e) {}
+    if (!Array.isArray(checkedIds)) checkedIds = [];
+
+    var modalId = '_lsxSewingQCModal';
+    var existing = document.getElementById(modalId);
+    if (existing) existing.remove();
+
+    var h = '<div id="' + modalId + '" onclick="if(event.target===this) _lsxCloseSewingQCModal()">';
+    h += '<style>';
+    h += '#' + modalId + ' { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.25s ease; }';
+    h += '#' + modalId + '.show { opacity: 1; }';
+    h += '#' + modalId + ' .bpc-modal { background: #ffffff; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); overflow: hidden; }';
+    h += '#' + modalId + '.show .bpc-modal { transform: scale(1); }';
+    h += '.lsx-modal-tech-cb { accent-color: #2563eb; }';
+    h += '#lsxSewTechBody tr:hover { background-color: #f8fafc; }';
+    h += '</style>';
+    h += '<div class="bpc-modal" style="width: 700px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">';
+    
+    // Header
+    h += '<div class="bpc-modal-header" style="background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; padding: 18px 24px; display: flex; align-items: center; gap: 12px;">';
+    h += '<div class="m-icon" style="font-size:28px;">🔎</div>';
+    h += '<div>';
+    h += '<div class="m-title" style="font-size:16px; font-weight:800;">Chi Tiết Kiểm Tra & Đơn Giá</div>';
+    h += '<div class="m-sub" style="font-size:11px; opacity:0.85; margin-top:2px;">Đơn hàng #' + (r.order_code || '—') + ' — ' + (r.product_name || '—') + '</div>';
+    h += '</div>';
+    h += '</div>';
+
+    // Body
+    h += '<div class="bpc-modal-body" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 15px;">';
+    
+    // Info block
+    var assignee = r.contractor_id ? '🏭 Gia công: ' + (r.contractor_name || '') : '👥 Tổ may: ' + (r.worker_name || '');
+    h += '<div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">';
+    h += '<div><b>Đối tượng:</b> ' + assignee + '</div>';
+    h += '<div><b>Số lượng may:</b> <span style="color: #0d9488; font-weight: 700;">' + r.quantity + ' sp</span></div>';
+    h += '</div>';
+
+    // Techniques Table
+    h += '<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">';
+    h += '<table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">';
+    h += '<thead style="background: #f1f5f9; font-weight: 700; color: #475569;">';
+    h += '<tr>';
+    h += '<th style="padding: 10px; width: 50px; text-align: center;">Chọn</th>';
+    h += '<th style="padding: 10px;">Tên kỹ thuật</th>';
+    h += '<th style="padding: 10px; width: 60px; text-align: center;">SL</th>';
+    h += '<th style="padding: 10px; text-align: right; width: 120px;">May Nhà (đ)</th>';
+    h += '<th style="padding: 10px; text-align: right; width: 120px;">May GC (đ)</th>';
+    h += '</tr>';
+    h += '</thead>';
+    h += '<tbody id="lsxSewTechBody">';
+    h += '</tbody>';
+    h += '</table>';
+    h += '</div>';
+
+    // Add Technique Form
+    h += '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px;">';
+    h += '<div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">➕ Thêm Kỹ Thuật May Mới</div>';
+    h += '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
+    h += '<input type="text" id="newTechName" placeholder="Tên kỹ thuật..." style="flex: 2; min-width: 150px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">';
+    h += '<input type="number" id="newTechQty" value="1" min="1" placeholder="SL..." style="width: 60px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center;">';
+    h += '<input type="number" id="newTechFP" placeholder="Giá Nhà..." style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right;">';
+    h += '<input type="number" id="newTechPP" placeholder="Giá GC..." style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right;">';
+    h += '<button type="button" onclick="_lsxAddSewingTech(' + id + ')" style="background: #166534; color: #fff; padding: 6px 15px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background 0.15s;">Thêm</button>';
+    h += '</div>';
+    h += '<div id="newTechError" style="color: #dc2626; font-size: 11px; font-weight: 600; display: none;"></div>';
+    h += '</div>';
+
+    // Summary Totals
+    h += '<div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;">';
+    
+    h += '<div style="display: flex; justify-content: space-between;">';
+    h += '<span>Đơn Giá May Nhà:</span>';
+    h += '<span id="sumFP" style="font-weight: 700; color: #166534;">0đ</span>';
+    h += '</div>';
+    h += '<div style="display: flex; justify-content: space-between;">';
+    h += '<span>Đơn Giá May GC:</span>';
+    h += '<span id="sumPP" style="font-weight: 700; color: #2563eb;">0đ</span>';
+    h += '</div>';
+    
+    h += '<div style="border-top: 1px dashed #cbd5e1; margin: 5px 0;"></div>';
+    
+    h += '<div style="display: flex; justify-content: space-between; font-size: 15px;">';
+    h += '<span><b>Lương Thợ (May Nhà):</b></span>';
+    h += '<span id="sumSalTho" style="font-weight: 800; color: #166534;">0đ</span>';
+    h += '</div>';
+    if (!r.contractor_id) {
+        h += '<div style="display: flex; justify-content: space-between; font-size: 15px;">';
+        h += '<span><b>Lương CPM (May GC):</b></span>';
+        h += '<span id="sumSalCPM" style="font-weight: 800; color: #2563eb;">0đ</span>';
+        h += '</div>';
+    }
+    h += '</div>';
+
+    h += '</div>'; // End body
+
+    // Actions
+    h += '<div class="bpc-modal-actions" style="display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid #f1f5f9;">';
+    h += '<button class="bpc-modal-btn cancel" onclick="_lsxCloseSewingQCModal()" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: #f1f5f9; color: #475569;">Hủy</button>';
+    h += '<button class="bpc-modal-btn confirm" onclick="_lsxSaveAndApproveSewing(' + id + ')" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);">Lưu & Duyệt Lương</button>';
+    h += '</div>';
+
+    h += '</div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', h);
+    
+    window._lsxCurrentModalRecord = r;
+    window._lsxCurrentModalTechs = techniques;
+    window._lsxCurrentModalChecked = checkedIds;
+
+    _lsxRenderModalTechs();
+
+    setTimeout(function() {
+        var m = document.getElementById(modalId);
+        if (m) m.classList.add('show');
+    }, 50);
+}
+
+function _lsxCloseSewingQCModal() {
+    var m = document.getElementById('_lsxSewingQCModal');
+    if (m) {
+        m.classList.remove('show');
+        setTimeout(function() {
+            m.remove();
+        }, 300);
+    }
+    delete window._lsxCurrentModalRecord;
+    delete window._lsxCurrentModalTechs;
+    delete window._lsxCurrentModalChecked;
+}
+
+function _lsxRenderModalTechs() {
+    var tbody = document.getElementById('lsxSewTechBody');
+    if (!tbody) return;
+
+    var techniques = window._lsxCurrentModalTechs || [];
+    var checkedIds = window._lsxCurrentModalChecked || [];
+
+    tbody.innerHTML = '';
+    if (techniques.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:15px;">Không có dữ liệu kỹ thuật</td></tr>';
+        return;
+    }
+
+    techniques.forEach(function(tech) {
+        var isChecked = checkedIds.indexOf(tech.id) >= 0;
+        var checkedAttr = isChecked ? 'checked' : '';
+        var row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #f1f5f9';
+        
+        row.innerHTML = `
+            <td style="text-align: center; padding: 10px;">
+                <input type="checkbox" class="lsx-modal-tech-cb" data-id="${tech.id}" ${checkedAttr} onchange="_lsxOnModalTechCheckChange(${tech.id}, this.checked)" style="width:18px; height:18px; cursor:pointer;">
+            </td>
+            <td style="padding: 10px; font-weight: 600; color: #1e293b;">${tech.name || ''}</td>
+            <td style="padding: 10px; text-align: center; color: #64748b;">${tech.qty || 1}</td>
+            <td style="padding: 10px; text-align: right; color: #166534; font-weight: 600;">${Number(tech.fp || 0).toLocaleString('vi-VN')}đ</td>
+            <td style="padding: 10px; text-align: right; color: #2563eb; font-weight: 600;">${Number(tech.pp || 0).toLocaleString('vi-VN')}đ</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    _lsxRecalcModalTotals();
+}
+
+function _lsxOnModalTechCheckChange(id, isChecked) {
+    var checkedIds = window._lsxCurrentModalChecked || [];
+    var idx = checkedIds.indexOf(id);
+    if (isChecked) {
+        if (idx === -1) checkedIds.push(id);
+    } else {
+        if (idx !== -1) checkedIds.splice(idx, 1);
+    }
+    window._lsxCurrentModalChecked = checkedIds;
+    _lsxRecalcModalTotals();
+}
+
+function _lsxRecalcModalTotals() {
+    var techniques = window._lsxCurrentModalTechs || [];
+    var checkedIds = window._lsxCurrentModalChecked || [];
+    var r = window._lsxCurrentModalRecord;
+    if (!r) return;
+
+    var totalFP = 0;
+    var totalPP = 0;
+
+    techniques.forEach(function(tech) {
+        if (checkedIds.indexOf(tech.id) >= 0) {
+            totalFP += (Number(tech.fp) || 0) * (Number(tech.qty) || 1);
+            totalPP += (Number(tech.pp) || 0) * (Number(tech.qty) || 1);
+        }
+    });
+
+    var quantity = Number(r.quantity) || 0;
+    var totalSalTho = quantity * totalFP;
+    var totalSalCPM = quantity * totalPP;
+
+    var elFP = document.getElementById('sumFP');
+    var elPP = document.getElementById('sumPP');
+    var elTho = document.getElementById('sumSalTho');
+    var elCPM = document.getElementById('sumSalCPM');
+
+    if (elFP) elFP.textContent = totalFP.toLocaleString('vi-VN') + 'đ';
+    if (elPP) elPP.textContent = totalPP.toLocaleString('vi-VN') + 'đ';
+    if (elTho) elTho.textContent = totalSalTho.toLocaleString('vi-VN') + 'đ';
+    if (elCPM) elCPM.textContent = totalSalCPM.toLocaleString('vi-VN') + 'đ';
+}
+
+function _lsxAddSewingTech(recordId) {
+    var errEl = document.getElementById('newTechError');
+    if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+    }
+
+    var nameEl = document.getElementById('newTechName');
+    var qtyEl = document.getElementById('newTechQty');
+    var fpEl = document.getElementById('newTechFP');
+    var ppEl = document.getElementById('newTechPP');
+
+    var name = nameEl ? nameEl.value.trim() : '';
+    var qty = qtyEl ? Number(qtyEl.value) || 1 : 1;
+    var fpRaw = fpEl ? fpEl.value.trim() : '';
+    var ppRaw = ppEl ? ppEl.value.trim() : '';
+
+    if (!name) {
+        if (errEl) {
+            errEl.textContent = 'Vui lòng nhập tên kỹ thuật!';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    if (fpRaw === '' || ppRaw === '') {
+        if (errEl) {
+            errEl.textContent = 'Bắt buộc phải điền đầy đủ cả giá may nhà và giá may GC!';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    var fp = Number(fpRaw);
+    var pp = Number(ppRaw);
+
+    if (isNaN(fp) || fp < 0 || isNaN(pp) || pp < 0) {
+        if (errEl) {
+            errEl.textContent = 'Đơn giá phải là số lớn hơn hoặc bằng 0!';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    var newId = Date.now();
+    var newTech = {
+        id: newId,
+        name: name,
+        qty: qty,
+        fp: fp,
+        pp: pp,
+        is_sample: false
+    };
+
+    window._lsxCurrentModalTechs.push(newTech);
+    window._lsxCurrentModalChecked.push(newId);
+
+    if (nameEl) nameEl.value = '';
+    if (qtyEl) qtyEl.value = '1';
+    if (fpEl) fpEl.value = '';
+    if (ppEl) ppEl.value = '';
+
+    _lsxRenderModalTechs();
+}
+
+async function _lsxSaveAndApproveSewing(id) {
+    var r = window._lsxCurrentModalRecord;
+    var techniques = window._lsxCurrentModalTechs || [];
+    var checkedIds = window._lsxCurrentModalChecked || [];
+    if (!r) return;
+
+    var orderTechs = techniques.filter(function(t) { return !t.is_sample; }).map(function(t) {
+        return {
+            id: t.id,
+            name: t.name,
+            qty: t.qty,
+            fp: t.fp,
+            pp: t.pp
+        };
+    });
+
+    var totalFP = 0;
+    techniques.forEach(function(t) {
+        if (checkedIds.indexOf(t.id) >= 0) {
+            totalFP += (Number(t.fp) || 0) * (Number(t.qty) || 1);
+        }
+    });
+
+    try {
+        var saveRes = await apiCall('/api/production-salary/sewing/' + id + '/techniques', 'POST', {
+            sewing_techniques: orderTechs,
+            checked_techniques: checkedIds,
+            checked_price: totalFP
+        });
+
+        if (saveRes && saveRes.error) {
+            showToast(saveRes.error, 'error');
+            return;
+        }
+
+        var approveRes = await apiCall('/api/production-salary/toggle/sewing/' + id, 'POST');
+        if (approveRes && approveRes.error) {
+            showToast(approveRes.error, 'error');
+            return;
+        }
+
+        showToast('Lưu kỹ thuật và duyệt lương thành công!');
+        _lsxCloseSewingQCModal();
+        await _lsxLoadAll();
+    } catch (e) {
+        console.error(e);
+        showToast(e.message || 'Lỗi khi thực hiện thao tác', 'error');
     }
 }
