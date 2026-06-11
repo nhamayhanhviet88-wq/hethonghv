@@ -329,18 +329,29 @@ function _lsxRenderStats(stats) {
     var s = stats || { total: 0, approved: 0, pending: 0, count: 0 };
     
     if (s.isSewing) {
-        sc.innerHTML = `
-            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
-                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 TỔNG LƯƠNG THỢ</div>
-                <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingTho)} đ</div>
-                <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
-            </div>
-            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
-                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ TỔNG LƯƠNG CPM</div>
-                <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingCPM)} đ</div>
-                <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
-            </div>
-        `;
+        var isContractor = !!_lsx.filter.contractor_id;
+        if (isContractor) {
+            sc.innerHTML = `
+                <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
+                    <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 CỘNG DỒN GIA CÔNG</div>
+                    <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingTho)} đ</div>
+                    <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
+                </div>
+            `;
+        } else {
+            sc.innerHTML = `
+                <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
+                    <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 CỘNG DỒN THỢ</div>
+                    <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingTho)} đ</div>
+                    <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
+                </div>
+                <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
+                    <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ CỘNG DỒN CPM</div>
+                    <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingCPM)} đ</div>
+                    <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
+                </div>
+            `;
+        }
     } else {
         sc.innerHTML = `
             <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
@@ -351,10 +362,6 @@ function _lsxRenderStats(stats) {
             <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
                 <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ ĐÃ DUYỆT</div>
                 <div style="font-size:15px;font-weight:900">${_lsxFN(s.approved)} đ</div>
-            </div>
-            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
-                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA DUYỆT</div>
-                <div style="font-size:15px;font-weight:900">${_lsxFN(s.pending)} đ</div>
             </div>
         `;
     }
@@ -658,9 +665,9 @@ function _lsxGetHeaderHTML() {
                 ${!isContractor ? '<th style="text-align:center">Giá<br>( CPM/ KTra )</th>' : ''}
                 <th>May Thiếu</th>
                 <th>Thiếu KT May</th>
-                <th style="text-align:right">Lương Thợ</th>
+                <th style="text-align:right">${isContractor ? 'Lương Gia Công' : 'Lương Thợ'}</th>
                 ${!isContractor ? '<th style="text-align:right">Lương CPM</th>' : ''}
-                <th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn Thợ</th>
+                <th style="text-align:right;font-weight:bold;color:#fff">${isContractor ? 'Cộng Dồn Gia Công' : 'Cộng Dồn Thợ'}</th>
                 ${!isContractor ? '<th style="text-align:right;font-weight:bold;color:#fff">Cộng Dồn CPM</th>' : ''}
                 <th style="text-align:center; min-width: 90px; vertical-align: middle;">
                     ${masterCheckHtml}
@@ -2371,7 +2378,7 @@ function _lsxOpenSewingQCModal(id) {
     h += '<div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;">';
     
     h += '<div style="display: flex; justify-content: space-between; font-size: 15px;">';
-    h += '<span><b>Lương Thợ (May Nhà):</b></span>';
+    h += '<span><b>' + (r.contractor_id ? 'Lương Gia Công:' : 'Lương Thợ (May Nhà):') + '</b></span>';
     h += '<span id="sumSalTho" style="font-weight: 800; color: #166534;">0đ</span>';
     h += '</div>';
     if (!r.contractor_id) {
@@ -2482,7 +2489,9 @@ function _lsxRecalcModalTotals() {
     });
 
     var quantity = Number(r.quantity) || 0;
-    var totalSalTho = quantity * totalFP;
+    var isContractor = !!r.contractor_id;
+    var unitPrice = isContractor ? totalPP : totalFP;
+    var totalSalTho = quantity * unitPrice;
     var totalSalCPM = quantity * totalPP;
 
     var elFP = document.getElementById('sumFP');
@@ -2492,7 +2501,7 @@ function _lsxRecalcModalTotals() {
 
     if (elFP) elFP.textContent = totalFP.toLocaleString('vi-VN') + 'đ';
     if (elPP) elPP.textContent = totalPP.toLocaleString('vi-VN') + 'đ';
-    if (elTho) elTho.innerHTML = '<span style="color:#64748b; font-size:13px; font-weight:normal;">' + quantity + ' sp x ' + totalFP.toLocaleString('vi-VN') + 'đ = </span>' + totalSalTho.toLocaleString('vi-VN') + 'đ';
+    if (elTho) elTho.innerHTML = '<span style="color:#64748b; font-size:13px; font-weight:normal;">' + quantity + ' sp x ' + unitPrice.toLocaleString('vi-VN') + 'đ = </span>' + totalSalTho.toLocaleString('vi-VN') + 'đ';
     if (elCPM) elCPM.innerHTML = '<span style="color:#64748b; font-size:13px; font-weight:normal;">' + quantity + ' sp x ' + totalPP.toLocaleString('vi-VN') + 'đ = </span>' + totalSalCPM.toLocaleString('vi-VN') + 'đ';
 }
 
@@ -2578,17 +2587,22 @@ async function _lsxSaveAndApproveSewing(id) {
     });
 
     var totalFP = 0;
+    var totalPP = 0;
     techniques.forEach(function(t) {
         if (checkedIds.indexOf(t.id) >= 0) {
             totalFP += (Number(t.fp) || 0) * (Number(t.qty) || 1);
+            totalPP += (Number(t.pp) || 0) * (Number(t.qty) || 1);
         }
     });
+
+    var isContractor = !!r.contractor_id;
+    var checkedPriceVal = isContractor ? totalPP : totalFP;
 
     try {
         var saveRes = await apiCall('/api/production-salary/sewing/' + id + '/techniques', 'POST', {
             sewing_techniques: orderTechs,
             checked_techniques: checkedIds,
-            checked_price: totalFP
+            checked_price: checkedPriceVal
         });
 
         if (saveRes && saveRes.error) {
