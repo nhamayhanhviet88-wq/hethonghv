@@ -64,6 +64,21 @@ module.exports = async function(fastify) {
             is_visible BOOLEAN NOT NULL DEFAULT TRUE,
             UNIQUE(source_type, source_id)
         )`);
+        const count = await db.get(`SELECT COUNT(*)::int AS count FROM finishing_display_settings`);
+        if (count && count.count === 0) {
+            // Seed all active contractors as is_visible = true
+            await db.run(`
+                INSERT INTO finishing_display_settings (source_type, source_id, is_visible)
+                SELECT 'contractor', id, true FROM sewing_contractors WHERE is_active = true
+                ON CONFLICT (source_type, source_id) DO NOTHING
+            `);
+            // Seed all teams as is_visible = true
+            await db.run(`
+                INSERT INTO finishing_display_settings (source_type, source_id, is_visible)
+                SELECT 'team', id, true FROM departments WHERE parent_id = 14
+                ON CONFLICT (source_type, source_id) DO NOTHING
+            `);
+        }
     } catch(e) { console.error('[BPHT] display settings table:', e.message); }
 
     // Ensure uploads dir
@@ -102,9 +117,9 @@ module.exports = async function(fastify) {
                           WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
                       ))
                       AND
-                      (sr.contractor_id IS NULL OR NOT EXISTS (
+                      (sr.contractor_id IS NULL OR EXISTS (
                           SELECT 1 FROM finishing_display_settings 
-                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = false
+                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = true
                       ))
                   )
               )
@@ -134,9 +149,9 @@ module.exports = async function(fastify) {
                           WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
                       ))
                       AND
-                      (sr.contractor_id IS NULL OR NOT EXISTS (
+                      (sr.contractor_id IS NULL OR EXISTS (
                           SELECT 1 FROM finishing_display_settings 
-                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = false
+                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = true
                       ))
                   )
               )`, params);
@@ -188,9 +203,9 @@ module.exports = async function(fastify) {
                           WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
                       ))
                       AND
-                      (sr.contractor_id IS NULL OR NOT EXISTS (
+                      (sr.contractor_id IS NULL OR EXISTS (
                           SELECT 1 FROM finishing_display_settings 
-                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = false
+                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = true
                       ))
                   )
               )
@@ -307,23 +322,23 @@ module.exports = async function(fastify) {
     fastify.get('/api/finishing/display-settings', { preHandler: [authenticate] }, async (req) => {
         const teams = await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 ORDER BY name`);
         const contractors = await db.all(`SELECT id, name FROM sewing_contractors WHERE is_active=true ORDER BY display_order, name`);
-        const disabledSettings = await db.all(`SELECT source_type, source_id FROM finishing_display_settings WHERE is_visible = false`);
+        const dbSettings = await db.all(`SELECT source_type, source_id, is_visible FROM finishing_display_settings`);
         
-        const disabledMap = {};
-        disabledSettings.forEach(s => {
-            disabledMap[s.source_type + '_' + s.source_id] = true;
+        const visibilityMap = {};
+        dbSettings.forEach(s => {
+            visibilityMap[s.source_type + '_' + s.source_id] = s.is_visible;
         });
 
         return {
             teams: teams.map(t => ({
                 id: t.id,
                 name: t.name,
-                is_visible: !disabledMap['team_' + t.id]
+                is_visible: visibilityMap['team_' + t.id] !== undefined ? visibilityMap['team_' + t.id] : true
             })),
             contractors: contractors.map(c => ({
                 id: c.id,
                 name: c.name,
-                is_visible: !disabledMap['contractor_' + c.id]
+                is_visible: visibilityMap['contractor_' + c.id] !== undefined ? visibilityMap['contractor_' + c.id] : false
             }))
         };
     });
@@ -338,12 +353,12 @@ module.exports = async function(fastify) {
         try {
             await db.run('DELETE FROM finishing_display_settings');
             for (const item of settings) {
-                if (item.is_visible === false) {
-                    await db.run(`
-                        INSERT INTO finishing_display_settings (source_type, source_id, is_visible)
-                        VALUES ($1, $2, false)
-                    `, [item.source_type, Number(item.source_id)]);
+                await db.run(`
+                    INSERT INTO finishing_display_settings (source_type, source_id, is_visible)
+                    VALUES ($1, $2, $3)
+                `, [item.source_type, Number(item.source_id), item.is_visible === true]);
 
+                if (item.is_visible === false) {
                     // Auto-complete existing undone finishing records for the hidden source
                     const recordsToUpdate = await db.all(`
                         SELECT fr.id FROM finishing_records fr

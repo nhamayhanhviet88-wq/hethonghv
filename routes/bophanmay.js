@@ -150,14 +150,19 @@ module.exports = async function(fastify) {
                                                  ((sRec.shipping_priority || 'CHUẨN').toLowerCase() === 'gửi' ? 'gui' : 'chuan');
                         
                         let isVisible = true;
-                        if (sRec.sewing_team_id || sRec.contractor_id) {
-                            const checkDs = await db.get(`
+                        if (sRec.sewing_team_id) {
+                            const checkTeam = await db.get(`
                                 SELECT 1 FROM finishing_display_settings
-                                WHERE (source_type = 'team' AND source_id = $1 AND is_visible = false)
-                                   OR (source_type = 'contractor' AND source_id = $2 AND is_visible = false)
-                                LIMIT 1
-                            `, [sRec.sewing_team_id || 0, sRec.contractor_id || 0]);
-                            if (checkDs) isVisible = false;
+                                WHERE source_type = 'team' AND source_id = $1 AND is_visible = false
+                            `, [sRec.sewing_team_id]);
+                            if (checkTeam) isVisible = false;
+                        }
+                        if (sRec.contractor_id) {
+                            const checkContractor = await db.get(`
+                                SELECT 1 FROM finishing_display_settings
+                                WHERE source_type = 'contractor' AND source_id = $1 AND is_visible = true
+                            `, [sRec.contractor_id]);
+                            if (!checkContractor) isVisible = false;
                         }
 
                         const doneDate = isVisible ? null : now.split('T')[0];
