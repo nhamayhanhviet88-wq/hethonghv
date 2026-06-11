@@ -225,10 +225,10 @@ async function _bphtOpenCompleteModal(recordId) {
         console.error('Lỗi tải checklist:', e);
     }
 
-    // Render modal
-    let staffOptions = '<option value="">-- Chọn NV Hoàn Thiện --</option>';
+    const activeFinisherId = r.finisher_id || (window.currentUser ? window.currentUser.id : '');
+    let staffOptions = '';
     _bphtState.staff.forEach(s => {
-        const sel = r.finisher_id === s.id ? 'selected' : '';
+        const sel = activeFinisherId === s.id ? 'selected' : '';
         staffOptions += `<option value="${s.id}" ${sel}>${s.full_name} (${s.username})</option>`;
     });
 
@@ -297,7 +297,7 @@ async function _bphtOpenCompleteModal(recordId) {
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                         <div>
                             <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Nhân Viên Hoàn Thiện <span style="color:#ef4444;">*</span></label>
-                            <select id="bphtFinisherId" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; background:#fff;">
+                            <select id="bphtFinisherId" disabled style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; background:#f1f5f9; color:#64748b; cursor:not-allowed;">
                                 ${staffOptions}
                             </select>
                         </div>

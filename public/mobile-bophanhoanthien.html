@@ -461,9 +461,10 @@ async function mOpenCompleteModal(recordId) {
     }
 
     // Staff options
-    let staffOptions = '<option value="">-- Chọn NV Hoàn Thiện --</option>';
+    const activeFinisherId = r.finisher_id || (cu ? cu.id : '');
+    let staffOptions = '';
     mState.staff.forEach(s => {
-        const sel = r.finisher_id === s.id ? 'selected' : '';
+        const sel = activeFinisherId === s.id ? 'selected' : '';
         staffOptions += `<option value="${s.id}" ${sel}>${s.full_name} (${s.username})</option>`;
     });
 
@@ -534,7 +535,7 @@ async function mOpenCompleteModal(recordId) {
                 <div style="display:flex; flex-direction:column; gap:16px;">
                     <div>
                         <label class="m-label">Nhân Viên Hoàn Thiện <span style="color:#ef4444;">*</span></label>
-                        <select id="mFinisherId" class="m-select">
+                        <select id="mFinisherId" class="m-select" disabled style="background:rgba(255,255,255,0.04); color:#9ca3af; cursor:not-allowed; opacity:0.8;">
                             ${staffOptions}
                         </select>
                     </div>
