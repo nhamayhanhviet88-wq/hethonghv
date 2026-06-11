@@ -2091,6 +2091,10 @@ async function _lsxOpenCuttingQCDetail(sewingRecordId) {
                                 <div class="qc-section-title">📦 THÔNG TIN SẢN PHẨM</div>
                                 <div class="qc-info-grid">
                                     <div class="qc-info-row">
+                                        <span class="qc-info-label">📋 Mã Đơn</span>
+                                        <span class="qc-info-val" style="font-weight:700; color:#1e3a8a;">${r.order_code || '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row">
                                         <span class="qc-info-label">📋 Tên SP</span>
                                         <span class="qc-info-val" style="font-weight:700;">${cleanName}</span>
                                     </div>
