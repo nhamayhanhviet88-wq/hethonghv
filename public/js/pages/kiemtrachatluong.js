@@ -2824,6 +2824,54 @@ function _ktclToggleSimulator() {
 // Filters listeners
 function _ktclHandleSearch(val) {
     _ktclState.search = val;
+    
+    if (_ktclState.activeTab === '4') {
+        const searchVal = val.trim();
+        if (searchVal !== '') {
+            let changed = false;
+            
+            // 1. Reset team filter to "All" (Tất cả tổ/gia công)
+            if (_ktclState.teamFilterVal !== '') {
+                _ktclState.teamFilterVal = '';
+                const teamSel = document.getElementById('ktclTeamFilter');
+                if (teamSel) teamSel.value = '';
+                changed = true;
+            }
+            
+            // 2. Reset time filter to "All" (Tất cả)
+            if (_ktclState.timeFilterVal !== 'all') {
+                _ktclState.timeFilterVal = 'all';
+                const timeSel = document.getElementById('ktclTimeFilter');
+                if (timeSel) timeSel.value = 'all';
+                
+                const customDateContainer = document.getElementById('ktclCustomDateContainer');
+                const customMonthContainer = document.getElementById('ktclCustomMonthContainer');
+                if (customDateContainer) customDateContainer.style.display = 'none';
+                if (customMonthContainer) customMonthContainer.style.display = 'none';
+                changed = true;
+            }
+            
+            if (changed) {
+                _ktclLoadData();
+                return;
+            }
+        } else {
+            // If search is cleared, restore default filterTime
+            if (_ktclState.timeFilterVal !== 'undone_past_today') {
+                _ktclState.timeFilterVal = 'undone_past_today';
+                const timeSel = document.getElementById('ktclTimeFilter');
+                if (timeSel) timeSel.value = 'undone_past_today';
+                
+                const customDateContainer = document.getElementById('ktclCustomDateContainer');
+                const customMonthContainer = document.getElementById('ktclCustomMonthContainer');
+                if (customDateContainer) customDateContainer.style.display = 'none';
+                if (customMonthContainer) customMonthContainer.style.display = 'none';
+                
+                _ktclLoadData();
+                return;
+            }
+        }
+    }
     _ktclRenderTable();
 }
 
