@@ -192,9 +192,8 @@ function _bphtRender(){
             clickHtml = '<button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button>';
             errHtml = '<button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button>';
         } else {
-            var isCooldown = _bphtRemindCooldown[r.id] || false;
-            clickHtml = '<button class="bpht-ib" style="background:#fee2e2;border-color:#fca5a5;cursor:pointer;" onclick="_bphtRemindQc('+r.id+')" title="'+(isCooldown?'Đã nhắc QC':'Nhấn để Nhắc QC kiểm tra')+'">'+(isCooldown?'🔔':'⏳')+'</button>';
-            errHtml = '<button class="bpht-ib" style="background:#fee2e2;border-color:#fca5a5;cursor:not-allowed;opacity:0.5;" onclick="showToast(\'⚠️ Đơn hàng chưa kiểm tra chất lượng. Hãy nhắc QC kiểm tra trước!\',\'error\')" title="Chưa kiểm tra chất lượng">⬜</button>';
+            clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="Chưa kiểm tra chất lượng">⚠️ Chưa KTCL</div>';
+            errHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.1); color:#fca5a5; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed;" title="Chưa kiểm tra chất lượng">⬜</div>';
         }
 
         var completedTimeHtml = isQcOk 

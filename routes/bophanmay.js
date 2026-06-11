@@ -515,6 +515,7 @@ module.exports = async function(fastify) {
         if (action === 'report') {
             await db.run(`UPDATE sewing_records SET is_reported=true, reported_at=$1, reported_by=$2, handover_date = COALESCE(handover_date, $1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
             detail = '📋 Báo cáo may';
+            await syncFinishingRecord(id, req.user.id, now);
         } else if (action === 'undo_report') {
             if (!rec.contractor_id) {
                 await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, handover_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
@@ -522,6 +523,11 @@ module.exports = async function(fastify) {
                 await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             }
             detail = '↩️ Hoàn tác báo cáo';
+            try {
+                await db.run(`DELETE FROM finishing_records WHERE sewing_record_id = $1 AND is_completed = false AND done_date IS NULL`, [id]);
+            } catch(e) {
+                console.error('[BPHT] Error deleting linked finishing record on undo_report:', e.message);
+            }
         } else if (action === 'approve_salary') {
             if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền tính lương!' });
             if (rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
