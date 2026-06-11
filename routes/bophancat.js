@@ -1162,7 +1162,14 @@ module.exports = async function(fastify) {
         const isManager = await isCutManager(request);
         if (!isManager) return reply.code(403).send({ error: 'Chỉ QLX/GĐ mới xóa được' });
 
-        await db.run('DELETE FROM cutting_records WHERE id = $1', [Number(request.params.id)]);
+        const cutId = Number(request.params.id);
+        const cut = await db.get('SELECT is_cut_done, selected_roll_ids, kg_cut FROM cutting_records WHERE id = $1', [cutId]);
+        if (cut) {
+            const { restoreRollWeightsForCuts } = require('../utils/kv_restore_roll');
+            await restoreRollWeightsForCuts(db, [cut]);
+        }
+
+        await db.run('DELETE FROM cutting_records WHERE id = $1', [cutId]);
         return { success: true };
     });
 

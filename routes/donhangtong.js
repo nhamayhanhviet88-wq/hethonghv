@@ -1356,6 +1356,11 @@ module.exports = async function(fastify) {
             // 1. Identify deleted items
             const deletedItemIds = oldItemIds.filter(id => !sentItemIds.includes(id));
             if (deletedItemIds.length > 0) {
+                // Fetch cutting records to restore roll weights first
+                const cuts = await db.all('SELECT is_cut_done, selected_roll_ids, kg_cut FROM cutting_records WHERE order_item_id = ANY($1)', [deletedItemIds]);
+                const { restoreRollWeightsForCuts } = require('../utils/kv_restore_roll');
+                await restoreRollWeightsForCuts(db, cuts);
+
                 // Delete cutting records for deleted items
                 await db.run('DELETE FROM cutting_records WHERE order_item_id = ANY($1)', [deletedItemIds]);
                 // Delete the items (will cascade delete sewing_records, etc.)
@@ -1559,6 +1564,12 @@ module.exports = async function(fastify) {
         if (order.created_by !== request.user.id && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ người tạo hoặc Giám Đốc mới được xóa' });
         }
+
+        // Fetch cutting records to restore roll weights first
+        const cuts = await db.all('SELECT is_cut_done, selected_roll_ids, kg_cut FROM cutting_records WHERE dht_order_id = $1', [orderId]);
+        const { restoreRollWeightsForCuts } = require('../utils/kv_restore_roll');
+        await restoreRollWeightsForCuts(db, cuts);
+
         await db.run('DELETE FROM dht_orders WHERE id = $1', [orderId]);
         return { success: true };
     });
