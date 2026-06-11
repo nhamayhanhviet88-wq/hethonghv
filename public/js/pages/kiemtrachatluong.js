@@ -737,6 +737,82 @@ function renderKiemtrachatluongPage(content) {
                 color: #b45309;
                 box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
             }
+            .qc-image-wrapper {
+                position: relative;
+                width: 80px;
+                height: 80px;
+                border-radius: 12px;
+                overflow: hidden;
+                border: 1.5px solid #cbd5e1;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+                transition: all 0.2s ease;
+            }
+            .qc-image-wrapper:hover {
+                border-color: #3b82f6;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px -2px rgba(59, 130, 246, 0.15);
+            }
+            .qc-image-wrapper img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                cursor: pointer;
+                border-radius: 12px;
+                transition: transform 0.2s ease;
+            }
+            .qc-image-wrapper img:hover {
+                transform: scale(1.08);
+            }
+            .qc-image-delete-btn {
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                background: rgba(239, 68, 68, 0.9);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                font-size: 11px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 800;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                transition: all 0.15s ease;
+                z-index: 10;
+            }
+            .qc-image-delete-btn:hover {
+                background: #ef4444;
+                transform: scale(1.15);
+            }
+            #ktclQCModal textarea, #ktclQCModal input.form-input,
+            .qlx-cl-popup textarea, .qlx-cl-popup input.form-input {
+                border-radius: 12px !important;
+                border: 1.5px solid #cbd5e1 !important;
+                padding: 10px 14px !important;
+                font-size: 13px !important;
+                outline: none !important;
+                transition: all 0.2s ease-in-out !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+            }
+            #ktclQCModal textarea:focus, #ktclQCModal input.form-input:focus {
+                border-color: #3b82f6 !important;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+                background-color: #ffffff !important;
+            }
+            #ktclMissingPriceDetails {
+                background: #fff5f5 !important;
+                border-color: #fca5a5 !important;
+                color: #b91c1c !important;
+                border-radius: 12px !important;
+            }
+            #ktclMissingPriceDetails:focus {
+                border-color: #f87171 !important;
+                box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+            }
         `;
         document.head.appendChild(st);
     }
@@ -1742,9 +1818,9 @@ async function _ktclOpenQCModal(recordId) {
             imagesHtml = imgs.map(src => {
                 const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
                 return `
-                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
-                    <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                <div class="qc-image-wrapper">
+                    <img src="${src}${buster}" onclick="window.open('${src}${buster}', '_blank')">
+                    <button onclick="_ktclDeleteQCImage('${src}')" class="qc-image-delete-btn">✕</button>
                 </div>
                 `;
             }).join('');
@@ -1760,9 +1836,9 @@ async function _ktclOpenQCModal(recordId) {
             evidenceImagesHtml = evidImgs.map(src => {
                 const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
                 return `
-                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
-                    <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                <div class="qc-image-wrapper">
+                    <img src="${src}${buster}" onclick="window.open('${src}${buster}', '_blank')">
+                    <button onclick="_ktclDeleteEvidenceImage('${src}')" class="qc-image-delete-btn">✕</button>
                 </div>
                 `;
             }).join('');
@@ -1778,9 +1854,9 @@ async function _ktclOpenQCModal(recordId) {
             missingPriceEvidenceImagesHtml = mpEvidImgs.map(src => {
                 const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
                 return `
-                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
-                    <button onclick="_ktclDeleteMissingPriceEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                <div class="qc-image-wrapper">
+                    <img src="${src}${buster}" onclick="window.open('${src}${buster}', '_blank')">
+                    <button onclick="_ktclDeleteMissingPriceEvidenceImage('${src}')" class="qc-image-delete-btn">✕</button>
                 </div>
                 `;
             }).join('');
@@ -2167,9 +2243,9 @@ async function _ktclUploadQCImages(event) {
         const container = document.getElementById('ktclQCImagesContainer');
         if (container) {
             container.innerHTML = data.images.map(src => `
-                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
-                    <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                <div class="qc-image-wrapper">
+                    <img src="${src}" onclick="window.open('${src}', '_blank')">
+                    <button onclick="_ktclDeleteQCImage('${src}')" class="qc-image-delete-btn">✕</button>
                 </div>
             `).join('');
         }
@@ -2209,9 +2285,9 @@ async function _ktclDeleteQCImage(imgSrc) {
                 container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh chụp thực tế.</span>';
             } else {
                 container.innerHTML = updatedImgs.map(src => `
-                    <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                        <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
-                        <button onclick="_ktclDeleteQCImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                    <div class="qc-image-wrapper">
+                        <img src="${src}" onclick="window.open('${src}', '_blank')">
+                        <button onclick="_ktclDeleteQCImage('${src}')" class="qc-image-delete-btn">✕</button>
                     </div>
                 `).join('');
             }
@@ -2255,9 +2331,9 @@ async function _ktclUploadEvidenceImages(event) {
         const container = document.getElementById('ktclQCEvidenceImagesContainer');
         if (container) {
             container.innerHTML = data.images.map(src => `
-                <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                    <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
-                    <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                <div class="qc-image-wrapper">
+                    <img src="${src}" onclick="window.open('${src}', '_blank')">
+                    <button onclick="_ktclDeleteEvidenceImage('${src}')" class="qc-image-delete-btn">✕</button>
                 </div>
             `).join('');
         }
@@ -2297,9 +2373,9 @@ async function _ktclDeleteEvidenceImage(imgSrc) {
                 container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh dẫn chứng.</span>';
             } else {
                 container.innerHTML = updatedImgs.map(src => `
-                    <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                        <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
-                        <button onclick="_ktclDeleteEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+                    <div class="qc-image-wrapper">
+                        <img src="${src}" onclick="window.open('${src}', '_blank')">
+                        <button onclick="_ktclDeleteEvidenceImage('${src}')" class="qc-image-delete-btn">✕</button>
                     </div>
                 `).join('');
             }
@@ -2362,9 +2438,9 @@ function _ktclRenderMissingPriceEvidenceImages(imagesStr) {
         container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh thiếu kỹ thuật.</span>';
     } else {
         container.innerHTML = arr.map(src => `
-            <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                <img src="${src}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}', '_blank')">
-                <button onclick="_ktclDeleteMissingPriceEvidenceImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(239,68,68,0.85); color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700;">✕</button>
+            <div class="qc-image-wrapper">
+                <img src="${src}" onclick="window.open('${src}', '_blank')">
+                <button onclick="_ktclDeleteMissingPriceEvidenceImage('${src}')" class="qc-image-delete-btn">✕</button>
             </div>
         `).join('');
     }
