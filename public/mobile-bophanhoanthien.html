@@ -36,7 +36,7 @@
         .bd.gap{background:rgba(239,68,68,.2);color:#fca5a5}.bd.gui{background:rgba(59,130,246,.2);color:#93c5fd}.bd.chuan{background:rgba(16,185,129,.2);color:#6ee7b7}
         .pg{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800}
         .ch{padding:8px 16px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,.04)}.ch span{color:#6ee7b7;font-weight:700}
-        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
+        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:100000;display:flex;flex-direction:column;gap:8px}
         .tt{padding:14px 18px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:si .3s ease}
         .ts{background:linear-gradient(135deg,#10b981,#059669)}.te{background:linear-gradient(135deg,#ef4444,#dc2626)}
         @keyframes si{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
@@ -557,8 +557,12 @@ async function mOpenCompleteModal(recordId) {
                     </div>
                 `;
             } else {
+                const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
+                const isCountQuestion = cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
                 checklistHtml += `
-                    <input type="text" class="m-cl-text" value="${val}" placeholder="Nhập câu trả lời..." style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#e2e8f0; font-size:13px; border-radius:10px; padding:10px 12px; width:100%; outline:none; box-sizing:border-box;">
+                    <input type="text" class="m-cl-text" value="${val}" placeholder="Nhập câu trả lời..." style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#e2e8f0; font-size:13px; border-radius:10px; padding:10px 12px; width:100%; outline:none; box-sizing:border-box;"
+                        ${isCountQuestion ? `oninput="mValidateCountInput(this, ${r.quantity || 0})"` : ''}>
+                    ${isCountQuestion ? `<div class="m-count-error-msg" style="color:#f87171; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (!/^\d+$/.test(val.trim()) || parseInt(val.trim(), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
             }
             checklistHtml += '</div>';
@@ -660,6 +664,23 @@ async function mOpenCompleteModal(recordId) {
 
     const old = document.getElementById('mCompleteOverlay'); if (old) old.remove();
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function mValidateCountInput(inputEl, targetQty) {
+    const val = inputEl.value.trim();
+    const errorEl = inputEl.nextElementSibling;
+    if (!errorEl || !errorEl.classList.contains('m-count-error-msg')) return;
+
+    if (val === '') {
+        errorEl.style.display = 'none';
+        return;
+    }
+
+    if (!/^\d+$/.test(val) || parseInt(val, 10) !== parseInt(targetQty, 10)) {
+        errorEl.style.display = 'block';
+    } else {
+        errorEl.style.display = 'none';
+    }
 }
 
 function mResizeImage(file, maxW = 800, maxH = 800, quality = 0.6) {
@@ -837,12 +858,15 @@ async function mSubmitComplete() {
         // Custom validation for "Số lượng đếm là bao nhiêu ?"
         const cleanContent = qContent.toLowerCase().replace(/\s+/g, '');
         if (cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu')) {
+            const errorEl = row.querySelector('.m-count-error-msg');
             if (!/^\d+$/.test(val)) {
+                if (errorEl) errorEl.style.display = 'block';
                 alert('Bạn đã ghi sai số lượng đếm, hãy đếm lại');
                 return;
             }
             const targetQty = r ? parseInt(r.quantity, 10) : null;
             if (targetQty !== null && parseInt(val, 10) !== targetQty) {
+                if (errorEl) errorEl.style.display = 'block';
                 alert('Bạn đã ghi sai số lượng đếm, hãy đếm lại');
                 return;
             }
