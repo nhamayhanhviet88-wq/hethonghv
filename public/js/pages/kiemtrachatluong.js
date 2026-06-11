@@ -429,6 +429,8 @@ function renderKiemtrachatluongPage(content) {
             .ktcl-btn-success:hover { background: #059669; }
             .ktcl-btn-info { background: #6366f1; color: white; }
             .ktcl-btn-info:hover { background: #4f46e5; }
+            .ktcl-btn-warning { background: #f59e0b; color: white; }
+            .ktcl-btn-warning:hover { background: #d97706; }
             .ktcl-btn-outline { background: #ffffff; border: 1px solid #cbd5e1; color: #475569; }
             .ktcl-btn-outline:hover { background: #f1f5f9; }
 
@@ -1218,47 +1220,65 @@ function _ktclRenderTable() {
     body.innerHTML = filtered.map((r, idx) => {
         // Actions cell
         let actionsHtml = '';
-        if (_ktclState.activeTab === '1' || _ktclState.activeTab === '2') {
+        if (r.done_date) {
+            // Already checked
+            const errBtn = _ktclState.activeTab === '5'
+                ? `<button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclResolveError(${r.id})" style="justify-content:center; white-space:nowrap;">⚠️ Đã Sửa Lỗi</button>`
+                : `<button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">⚠️ Báo Lỗi</button>`;
+            
             actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHenLai(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    📅 Hẹn Lại
+                <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
+                    🔎 Xem Chi Tiết
                 </button>
-                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    ⚠️ Báo Lỗi
+                <button class="ktcl-btn-sm ktcl-btn-warning" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
+                    📝 Sửa Báo Cáo
                 </button>
+                ${errBtn}
             `;
-        } else if (_ktclState.activeTab === '3') {
-            actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclOpenPhanTo(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    👥 Phân Tổ
-                </button>
-            `;
-        } else if (_ktclState.activeTab === '4') {
-            actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    🔍 Kiểm Tra Chất Lượng (QC)
-                </button>
-                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    ⚠️ Báo Lỗi
-                </button>
-            `;
-        } else if (_ktclState.activeTab === '5') {
-            actionsHtml = `
-                <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    🔍 QC & Nghiệm Thu
-                </button>
-                <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclResolveError(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    ⚠️ Đã Sửa Lỗi
+        } else {
+            // Not checked yet
+            if (_ktclState.activeTab === '1' || _ktclState.activeTab === '2') {
+                actionsHtml = `
+                    <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHenLai(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        📅 Hẹn Lại
+                    </button>
+                    <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        ⚠️ Báo Lỗi
+                    </button>
+                `;
+            } else if (_ktclState.activeTab === '3') {
+                actionsHtml = `
+                    <button class="ktcl-btn-sm ktcl-btn-primary" onclick="_ktclOpenPhanTo(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        👥 Phân Tổ
+                    </button>
+                `;
+            } else if (_ktclState.activeTab === '4') {
+                actionsHtml = `
+                    <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        🔍 Kiểm Tra Chất Lượng (QC)
+                    </button>
+                    <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        ⚠️ Báo Lỗi
+                    </button>
+                `;
+            } else if (_ktclState.activeTab === '5') {
+                actionsHtml = `
+                    <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        🔍 QC & Nghiệm Thu
+                    </button>
+                    <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclResolveError(${r.id})" style="justify-content:center; white-space:nowrap;">
+                        ⚠️ Đã Sửa Lỗi
+                    </button>
+                `;
+            }
+            
+            // Add audit history button to all rows
+            actionsHtml += `
+                <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHistory(${r.id})" style="justify-content:center; white-space:nowrap;">
+                    📜 Lịch Sử
                 </button>
             `;
         }
-        
-        // Add audit history button to all rows
-        actionsHtml += `
-            <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHistory(${r.id})" style="justify-content:center; white-space:nowrap;">
-                📜 Lịch Sử
-            </button>
-        `;
         
         // Wrap everything in a nowrap flex container
         actionsHtml = `<div style="display:flex; gap:6px; align-items:center; justify-content:center; white-space:nowrap;">${actionsHtml}</div>`;
