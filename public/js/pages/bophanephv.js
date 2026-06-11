@@ -139,7 +139,7 @@ function renderBophanepPage(content) {
         + '<div id="bpePaginationTop" style="margin:8px 0"></div>'
         + '<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:11px;white-space:nowrap;width:100%" id="bpeTable"><thead><tr style="background:var(--gray-800)">'
-        + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th>Ảnh</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
+        + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ép Xong</th><th>NV Ép</th><th>Tên SP</th><th>Ảnh</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
         + '<th title="Ngực, Tay, Tạp Dề Vải Mũ" style="cursor:help">Ngực/Tay</th><th title="Lưng, Bụng, Sườn Áo Sẵn, Mũ Sẵn" style="cursor:help">Lưng/Bụng</th><th title="Bảo Hộ, Bếp, Sơ Mi" style="cursor:help">BH/Bếp</th><th title="Đóng Gói, Cổ Bẻ Vải" style="cursor:help">ĐG/Cổ Bẻ</th><th title="Vị Trí Khác" style="cursor:help">VT Khác</th>'
         + '<th>Ghi Chú</th><th>Cập Nhật</th>'
         + '</tr></thead><tbody id="bpeTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
@@ -478,7 +478,7 @@ function _bpeRender() {
             }).join('');
 
             thead.innerHTML = '<tr style="background:var(--gray-800)">'
-                + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ngày Ép</th><th>NV Ép</th><th>Tên SP</th><th>Ảnh</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
+                + '<th class="bpe-col-stt">STT</th><th class="bpe-col-act">🔥</th><th class="bpe-col-act">⚠️</th><th>Ép Xong</th><th>NV Ép</th><th>Tên SP</th><th>Ảnh</th><th class="bpe-hide-desktop">Chất Liệu</th><th class="bpe-hide-desktop">Màu Vải</th><th>CSKH</th><th>SL Đơn</th><th>SL Ép</th>'
                 + dynamicHeaders
                 + '<th>Ghi Chú</th><th>Cập Nhật</th>'
                 + '</tr>';
@@ -1183,7 +1183,7 @@ function _bpeOpenDetail(recordId, orderItemId) {
     h += '<div>👤 <strong>CSKH:</strong> <span>' + (r.cskh_name || '—') + '</span></div>';
     h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
     h += '<div>🔥 <strong>NV Ép:</strong> <span>' + (r.presser_name || '—') + '</span></div>';
-    h += '<div>📅 <strong>Ngày Ép:</strong> <span>' + (r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</span></div>';
+    h += '<div>📅 <strong>Ép Xong:</strong> <span>' + (r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</span></div>';
     if (r.print_types) {
         h += '<div style="grid-column: span 2; display:flex; align-items:center; flex-wrap:wrap;">🖨️ <strong>Trạng thái in:</strong> ' + _bpeGetPrintStatusHtml(r) + '</div>';
     }
