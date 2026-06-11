@@ -1146,6 +1146,12 @@ function _lsxRenderTable() {
         }
 
         if (_lsx.filter.dept === 'cutting') {
+            var cuttingProdCell = displayName;
+            if (r.sewing_record_id) {
+                cuttingProdCell = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb;" onclick="_lsxOpenCuttingQCDetail(${r.sewing_record_id})" title="Xem Chi Tiết Kiểm Tra & Đơn Giá">${displayName}</span>`;
+            } else {
+                cuttingProdCell = `<span style="color:#64748b; cursor:pointer;" onclick="alert('Đơn hàng này chưa được tạo phiếu may bên tổ may.')" title="Chưa có phiếu may">${displayName}</span>`;
+            }
             return `<tr${trClass} ${trAttrs}>`
                 + `<td style="text-align:center;font-weight:700;color:#94a3b8">${i + 1}</td>`
                 + `<td style="font-size:10px">${_lsxFormatWorkDate(r)}</td>`
@@ -1154,7 +1160,7 @@ function _lsxRenderTable() {
                 + `<td style="font-weight:700;color:#1e3a8a">${codeCell}</td>`
                 + `<td style="text-align:center;font-weight:700;color:${qtyColor}">${_lsxFormatOrderQty(orderQty, r.product_name, r.cutting_category, r.dept)}</td>`
                 + `<td style="text-align:center;font-weight:700;color:${cutColor}">${_lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, r.dept)}</td>`
-                + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${displayName}</td>`
+                + `<td style="font-weight:600;color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${r.product_name || ''}">${cuttingProdCell}</td>`
                 + priceCell
                 + `<td style="text-align:right;font-weight:700;color:#f59e0b">${r.is_approved ? _lsxFN(r.salary) : '—'}</td>`
                 + `<td style="text-align:right;font-weight:800;color:#0f766e;background:#f0fdfa">${r.is_approved ? _lsxFN(cumulative[i]) : '—'}</td>`
@@ -1817,6 +1823,540 @@ async function _lsxOpenPressingDetail(recordId) {
     } catch(e) {
         console.error(e);
         alert('Lỗi tải thông tin phiếu ép');
+    } finally {
+        window._lsxDetailBusy = false;
+    }
+}
+
+function _lsxEnsureQCModalStyles() {
+    if (document.getElementById('_lsxQCModalStyles')) return;
+    var style = document.createElement('style');
+    style.id = '_lsxQCModalStyles';
+    style.innerHTML = `
+        .ktcl-qc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 24px;
+            background: #f8fafc;
+        }
+        @media (max-width: 820px) {
+            .ktcl-qc-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .qc-section-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .qc-section-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: #4f46e5;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            border-bottom: 1.5px solid #e2e8f0;
+            padding-bottom: 6px;
+        }
+        .qc-info-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .qc-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12.5px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 6px;
+        }
+        .qc-info-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .qc-info-label {
+            color: #64748b;
+            font-size: 12px;
+        }
+        .qc-info-val {
+            color: #1e293b;
+            text-align: right;
+            word-break: break-word;
+        }
+        .badge-material {
+            background: rgba(245, 158, 11, 0.1) !important;
+            color: #d97706 !important;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+        }
+        .badge-color {
+            background: rgba(16, 185, 129, 0.1) !important;
+            color: #059669 !important;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+        }
+        .badge-category {
+            background: rgba(59, 130, 246, 0.1) !important;
+            color: #2563eb !important;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+        }
+        .qc-tech-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 6px;
+            color: #1e293b;
+        }
+        .qc-tech-table th {
+            text-align: left;
+            padding: 8px 6px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #64748b;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .qc-tech-table td {
+            padding: 10px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        .qc-tech-table tr:last-child td {
+            border-bottom: none;
+        }
+        .qc-tech-total-box {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-top: 14px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            color: #b45309;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .qc-image-wrapper {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1.5px solid #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        .qc-image-wrapper:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px -2px rgba(59, 130, 246, 0.15);
+        }
+        .qc-image-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+            border-radius: 12px;
+            transition: transform 0.2s ease;
+        }
+        .qc-image-wrapper img:hover {
+            transform: scale(1.08);
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+async function _lsxOpenCuttingQCDetail(sewingRecordId) {
+    if (window._lsxDetailBusy) return;
+    window._lsxDetailBusy = true;
+    try {
+        _lsxEnsureQCModalStyles();
+
+        var res = await apiCall('/api/sewing/records/' + sewingRecordId);
+        var r = res.record;
+        if (!r) {
+            alert('Không tìm thấy thông tin may cho đơn này.');
+            return;
+        }
+
+        var ansRes = await apiCall('/api/qc/checklist/answers/' + sewingRecordId);
+        var answers = ansRes.answers || [];
+
+        var tempRes = await apiCall('/api/qc/checklist/templates/all');
+        var templates = tempRes.templates || [];
+
+        var old = document.getElementById('lsxCuttingQCModal');
+        if (old) old.remove();
+
+        var generalNotes = r.sew_notes || '';
+        var qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
+        var assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
+        var isTeam = !!(r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+
+        var imagesHtml = '';
+        try {
+            var imgs = JSON.parse(r.finish_images || '[]');
+            if (imgs.length > 0) {
+                var t = Date.now();
+                imagesHtml = imgs.map(function(src) {
+                    var buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                    return `
+                    <div class="qc-image-wrapper">
+                        <img src="${src}${buster}" onclick="window.open('${src}${buster}', '_blank')">
+                    </div>
+                    `;
+                }).join('');
+            }
+        } catch(e) {}
+
+        var evidenceImagesHtml = '';
+        try {
+            var evidImgs = JSON.parse(r.qc_evidence_images || '[]');
+            if (evidImgs.length > 0) {
+                var t = Date.now();
+                evidenceImagesHtml = evidImgs.map(function(src) {
+                    var buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                    return `
+                    <div class="qc-image-wrapper">
+                        <img src="${src}${buster}" onclick="window.open('${src}${buster}', '_blank')">
+                    </div>
+                    `;
+                }).join('');
+            }
+        } catch(e) {}
+
+        var missingPriceEvidenceImagesHtml = '';
+        try {
+            var mpEvidImgs = JSON.parse(r.qc_missing_price_images || '[]');
+            if (mpEvidImgs.length > 0) {
+                var t = Date.now();
+                missingPriceEvidenceImagesHtml = mpEvidImgs.map(function(src) {
+                    var buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                    return `
+                    <div class="qc-image-wrapper">
+                        <img src="${src}${buster}" onclick="window.open('${src}${buster}', '_blank')">
+                    </div>
+                    `;
+                }).join('');
+            }
+        } catch(e) {}
+
+        var cleanName = r.cut_product_name || r.product_name || '';
+        var match = cleanName.match(/^(.*?\s*[-—]\s*Phiếu\s+\d+)/i);
+        if (match) cleanName = match[1];
+
+        var getUnitText = function(rec) {
+            if (rec && rec.cutting_category) {
+                if (rec.cutting_category.toLowerCase().indexOf('áo') >= 0) return 'áo';
+                if (rec.cutting_category.toLowerCase().indexOf('quần') >= 0) return 'quần';
+                if (rec.cutting_category.toLowerCase().indexOf('bộ') >= 0) return 'bộ';
+            }
+            return 'sp';
+        };
+
+        var modalHtml = `
+            <div class="bpm-modal-overlay show" id="lsxCuttingQCModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto">
+                <div style="background:#fff;border-radius:16px;width:900px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;margin-bottom:40px;">
+                    <div style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+                        <div style="font-weight:800; font-size:16px; display:flex; align-items:center; gap:8px;">
+                            <span>🔎 Chi Tiết Kiểm Tra & Đơn Giá</span>
+                        </div>
+                        <button onclick="document.getElementById('lsxCuttingQCModal').remove()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer; font-weight:bold;">✕</button>
+                    </div>
+                    
+                    <div class="ktcl-qc-grid">
+                        <div>
+                            <div class="qc-section-card">
+                                <div class="qc-section-title">📦 THÔNG TIN SẢN PHẨM</div>
+                                <div class="qc-info-grid">
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">📋 Tên SP</span>
+                                        <span class="qc-info-val" style="font-weight:700;">${cleanName}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">👤 CSKH</span>
+                                        <span class="qc-info-val">${r.cskh_name || '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">🧵 Chất liệu</span>
+                                        <span class="badge-material">${r.material_name || '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">🎨 Màu</span>
+                                        <span class="badge-color">${r.color_name || '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">🏷️ Sản phẩm May</span>
+                                        <span class="badge-category">${r.category_name || '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">👤 NV May</span>
+                                        <span class="qc-info-val" style="color: #0d9488; font-weight: 700;">${assignee || '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row" style="${qlxNotes ? 'display:flex;' : 'display:none;'}">
+                                        <span class="qc-info-label">📝 QLX Lưu Ý May</span>
+                                        <span class="qc-info-val" style="font-style: italic; color: #ef4444; font-weight: 700;">${qlxNotes}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="qc-section-card">
+                                <div class="qc-section-title">📦 SỐ LƯỢNG MAY / THỰC TẾ</div>
+                                <div class="qc-info-grid">
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">📦 SL Thực Tế</span>
+                                        <span class="qc-info-val" style="color: #2563eb; font-weight: 800;">${r.order_qty || 0} ${getUnitText(r)}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">📦 SL May</span>
+                                        <span class="qc-info-val" style="color: #059669; font-weight: 800;">${r.quantity || 0} ${getUnitText(r)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="qc-section-card" style="${r.pattern_name ? 'display:block;' : 'display:none;'}">
+                                <div class="qc-section-title">📐 THÔNG SỐ MẪU ÁO</div>
+                                <div class="qc-info-grid" style="margin-bottom: 10px;">
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">Mẫu áo</span>
+                                        <span class="qc-info-val" style="color: #7c3aed; font-weight: 700;">${r.pattern_name || ''}</span>
+                                    </div>
+                                </div>
+                                <div style="border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; background: #f8fafc; display: ${r.ts_spec_image ? 'block' : 'none'};">
+                                    <div style="font-size: 11px; color: #0d9488; font-weight: 700; margin-bottom: 6px;">📷 Hình Ảnh Thông Số</div>
+                                    <img src="${r.ts_spec_image || ''}" style="max-width: 100%; max-height:250px; border-radius: 6px; cursor: pointer; object-fit: contain;" onclick="window.open(this.src, '_blank')">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="qc-section-card" style="${r.pattern_name ? 'display:block;' : 'display:none;'}">
+                                <div class="qc-section-title">✂️ KỸ THUẬT MAY</div>
+                                <div style="overflow-x: auto; max-height: 200px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                    <table class="qc-tech-table">
+                                        <thead>
+                                            <tr style="background: #f1f5f9;">
+                                                <th style="width: 50px; text-align: center;">Tích</th>
+                                                <th>Kỹ thuật</th>
+                                                <th style="width: 50px; text-align: center;">SL</th>
+                                                <th style="text-align: right; padding-right:10px; color: #059669;">May nhà</th>
+                                                <th style="text-align: right; padding-right:10px; color: #2563eb;">May GC</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="lsxCuttingQcTechTableBody"></tbody>
+                                    </table>
+                                </div>
+                                <div class="qc-tech-total-box">
+                                    💰 Tổng giá may &nbsp;|&nbsp; 
+                                    <span style="color: #059669;">MAY NHÀ: <strong id="lsxCuttingTotalHomePrice">0đ</strong></span> &nbsp;•&nbsp; 
+                                    <span style="color: #2563eb;">MAY GC: <strong id="lsxCuttingTotalGCOrderPrice">0đ</strong></span>
+                                </div>
+                            </div>
+
+                            <div class="qc-section-card" style="${(r.qc_missing_notes && r.qc_missing_notes !== '—') || evidenceImagesHtml ? 'display:block;' : 'display:none;'} border: 1px dashed #fca5a5; background: #fff5f5;">
+                                <div class="qc-section-title" style="color:#ef4444;">⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU</div>
+                                <div class="form-group">
+                                    <div style="background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; padding: 10px 12px; font-weight: 600; margin-bottom: 12px; font-size: 13.5px; line-height: 1.4;">${r.qc_missing_notes || ''}</div>
+                                </div>
+                                <div class="form-group" style="margin-top:12px; display: ${evidenceImagesHtml ? 'block' : 'none'};">
+                                    <label class="form-label" style="color:#ef4444; font-weight:700;">Ảnh May Thiếu (Chụp Ảnh)</label>
+                                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                        ${evidenceImagesHtml}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="qc-section-card" style="${(r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) || missingPriceEvidenceImagesHtml ? 'display:block;' : 'display:none;'}">
+                                <div class="qc-section-title" style="color:#ef4444;">⚠️ BÁO LỖI / THIẾU KỸ THUẬT</div>
+                                <div style="display:flex; align-items:center; gap:8px; margin-bottom: 12px;">
+                                    <input type="checkbox" checked disabled style="width:18px; height:18px;">
+                                    <span style="font-size:13px; font-weight:700; color:#ef4444;">Thiếu Kỹ Thuật May</span>
+                                </div>
+                                <div style="margin-bottom: 12px; display: ${r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]') ? 'block' : 'none'}">
+                                    <label class="form-label" style="color:#ef4444; font-weight: 700;">Chi tiết thiếu kỹ thuật may:</label>
+                                    <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #b91c1c; border-radius: 6px; padding: 10px 12px; font-size:13px;">${(r.notes || '').replace('[THIẾU GIÁ CHI TIẾT] ', '')}</div>
+                                </div>
+                                <div style="border: 1px dashed #fca5a5; background: #fff5f5; border-radius: 8px; padding: 12px; margin-bottom: 12px; display: ${missingPriceEvidenceImagesHtml ? 'block' : 'none'};">
+                                    <label class="form-label" style="color:#ef4444; font-weight:700; margin-bottom:6px;">Ảnh Thiếu Kỹ Thuật</label>
+                                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                        ${missingPriceEvidenceImagesHtml}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="qc-section-card">
+                                <div class="qc-section-title">💰 ĐƠN GIÁ KIỂM TRA</div>
+                                <div class="qc-info-grid">
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">Giá Kiểm Tra May Nhà</span>
+                                        <span class="qc-info-val" style="font-weight:700; color:#059669;">${isTeam ? (r.checked_price ? _lsxFN(r.checked_price) + 'đ' : '—') : '—'}</span>
+                                    </div>
+                                    <div class="qc-info-row">
+                                        <span class="qc-info-label">Giá Kiểm Tra May GC</span>
+                                        <span class="qc-info-val" style="font-weight:700; color:#2563eb;">${!isTeam ? (r.checked_price ? _lsxFN(r.checked_price) + 'đ' : '—') : '—'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="qc-section-card" id="lsxCuttingQcChecklistGroup" style="display:none;">
+                                <div class="qc-section-title" style="color: #d97706;">🔍 KIỂM TRA CHẤT LƯỢNG (QC)</div>
+                                <div id="lsxCuttingQcChecklistContainer" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 12px;"></div>
+                            </div>
+
+                            <div class="qc-section-card">
+                                <div class="qc-section-title">📸 ẢNH QC THÀNH PHẨM</div>
+                                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                                    ${imagesHtml || '<span style="color:#94a3b8; font-style:italic;">Chưa có ảnh chụp thực tế.</span>'}
+                                </div>
+                                <div style="margin-top:12px; border-top: 1px solid #e2e8f0; padding-top:12px; display: ${generalNotes ? 'block' : 'none'};">
+                                    <label class="form-label" style="font-weight:700;">Ghi chú quản lý may</label>
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; font-size:13px; font-style:italic; color:#475569;">${generalNotes}</div>
+                                </div>
+                            </div>
+
+                            <div style="font-size:11.5px; color:#64748b; margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0; line-height:1.4;" id="lsxCuttingQcUpdateHistory"></div>
+                        </div>
+                    </div>
+
+                    <div style="padding:16px 24px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:12px; border-radius: 0 0 16px 16px;">
+                        <button onclick="document.getElementById('lsxCuttingQCModal').remove()" class="ktcl-btn-sm ktcl-btn-outline" style="padding:10px 20px; font-weight:700; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        if (r.pattern_name) {
+            var tsamTechs = [];
+            try { tsamTechs = typeof r.ts_sewing_tech === 'string' ? JSON.parse(r.ts_sewing_tech) : (r.ts_sewing_tech || []); } catch (e) {}
+            var orderTechs = [];
+            try { orderTechs = typeof r.sewing_techniques === 'string' ? JSON.parse(r.sewing_techniques) : (r.sewing_techniques || []); } catch (e) {}
+            
+            var techniques = [];
+            var seenIds = new Set();
+            [tsamTechs, orderTechs].forEach(function(arr) {
+                if (Array.isArray(arr)) {
+                    arr.forEach(function(tech) {
+                        if (tech && tech.id && !seenIds.has(tech.id)) {
+                            seenIds.add(tech.id);
+                            techniques.push(tech);
+                        }
+                    });
+                }
+            });
+
+            var checkedIds = [];
+            try { checkedIds = typeof r.checked_techniques === 'string' ? JSON.parse(r.checked_techniques) : (r.checked_techniques || []); } catch(e) {}
+            if (!Array.isArray(checkedIds)) checkedIds = [];
+
+            var tbody = document.getElementById('lsxCuttingQcTechTableBody');
+            tbody.innerHTML = '';
+            if (techniques.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding: 12px 0;">Không có dữ liệu kỹ thuật</td></tr>';
+            } else {
+                var sumHomePrice = 0;
+                var sumGCOrderPrice = 0;
+
+                techniques.forEach(function(tech) {
+                    var isChecked = checkedIds.indexOf(tech.id) >= 0;
+                    var checkedAttr = isChecked ? 'checked' : '';
+                    
+                    if (isChecked) {
+                        sumHomePrice += (Number(tech.fp) || 0) * (Number(tech.qty) || 1);
+                        sumGCOrderPrice += (Number(tech.pp) || 0) * (Number(tech.qty) || 1);
+                    }
+
+                    var row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="text-align: center;">
+                            <input type="checkbox" disabled ${checkedAttr} style="width:18px; height:18px; cursor:not-allowed;">
+                        </td>
+                        <td style="font-weight: 600; color: #1e293b;">${tech.name || ''}</td>
+                        <td style="text-align: center; color: #64748b;">${tech.qty || 1}</td>
+                        <td style="text-align: right; color: #059669; font-weight: 600; padding-right:10px;">${_lsxFN(Number(tech.fp || 0))}đ</td>
+                        <td style="text-align: right; color: #2563eb; font-weight: 600; padding-right:10px;">${_lsxFN(Number(tech.pp || 0))}đ</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('lsxCuttingTotalHomePrice').textContent = _lsxFN(sumHomePrice) + 'đ';
+                document.getElementById('lsxCuttingTotalGCOrderPrice').textContent = _lsxFN(sumGCOrderPrice) + 'đ';
+            }
+        }
+
+        var historyEl = document.getElementById('lsxCuttingQcUpdateHistory');
+        if (historyEl) {
+            if (r.last_update_at) {
+                var updater = r.last_update_by || 'Hệ thống';
+                var updateTime = typeof vnFormat === 'function' ? vnFormat(r.last_update_at, 'HH:mm DD/MM/YYYY') : new Date(r.last_update_at).toLocaleString();
+                var detail = r.last_update_detail ? ` (${r.last_update_detail})` : '';
+                historyEl.innerHTML = `✍️ Cập nhật cuối: <strong>${updater}</strong> lúc <strong>${updateTime}</strong>${detail}`;
+                historyEl.style.display = 'block';
+            } else {
+                historyEl.style.display = 'none';
+            }
+        }
+
+        if (templates.length > 0) {
+            var container = document.getElementById('lsxCuttingQcChecklistContainer');
+            container.innerHTML = '';
+            var activeTemplates = templates.filter(function(t) { return t.is_active; });
+            if (activeTemplates.length > 0) {
+                document.getElementById('lsxCuttingQcChecklistGroup').style.display = 'block';
+                activeTemplates.forEach(function(t) {
+                    var ans = answers.find(function(a) { return a.template_id === t.id; });
+                    var ansVal = ans ? ans.answer : '';
+                    
+                    var qRow = document.createElement('div');
+                    qRow.style.borderBottom = '1px solid #e2e8f0';
+                    qRow.style.paddingBottom = '8px';
+                    
+                    var typeLabel = t.type === 'checked' ? '✔️ Tích Chọn' : '📝 Nhập Đăng';
+                    var ansHtml = '';
+                    if (t.type === 'checked') {
+                        var isChecked = ansVal === 'yes';
+                        ansHtml = `<span style="font-weight:700; color: ${isChecked ? '#059669' : '#ef4444'};">${isChecked ? '✅ ĐẠT' : '❌ CHƯA ĐẠT'}</span>`;
+                    } else {
+                        ansHtml = `<span style="font-weight:700; color:#1e293b; font-style:italic;">${ansVal || '—'}</span>`;
+                    }
+
+                    qRow.innerHTML = `
+                        <div style="font-weight:700; color:#1e293b; font-size:12.5px; margin-bottom:4px;">${t.content}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:11px; color:#64748b; font-style:italic;">Loại: ${typeLabel}</span>
+                            ${ansHtml}
+                        </div>
+                    `;
+                    container.appendChild(qRow);
+                });
+            }
+        }
+
+    } catch(err) {
+        console.error(err);
+        alert('Có lỗi xảy ra khi tải thông tin kiểm tra.');
     } finally {
         window._lsxDetailBusy = false;
     }

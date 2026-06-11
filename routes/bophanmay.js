@@ -365,6 +365,38 @@ module.exports = async function(fastify) {
         return { records, totalCount };
     });
 
+    fastify.get('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const record = await db.get(`
+            SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
+                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority,
+                   o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
+                   u_cskh.full_name AS cskh_name,
+                   (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
+                   cc.name AS category_name,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
+                   ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
+                   (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+            FROM sewing_records sr 
+            LEFT JOIN users u ON sr.sewer_id=u.id 
+            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
+            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
+            LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+            LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
+            LEFT JOIN users lhu ON lh.performed_by=lhu.id
+            WHERE sr.id = $1
+        `, [id]);
+        if (!record) return reply.code(404).send({ error: 'Không tìm thấy phiếu may' });
+        return { record };
+    });
+
     // ========== CREATE ==========
     fastify.post('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body||{}, now = vnNow();
