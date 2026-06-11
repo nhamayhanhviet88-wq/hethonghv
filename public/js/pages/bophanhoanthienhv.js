@@ -651,7 +651,7 @@ async function _bphtChecklistSetup() {
                     tp = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📝 Văn bản</span>';
                 }
                 const st = t.is_active ? '<span style="color:#059669;font-weight:700">Bật</span>' : '<span style="color:#dc2626;font-weight:700">Tắt</span>';
-                html += `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">${tp}</td><td style="padding:8px;font-weight:600">${t.content}</td><td style="padding:8px;text-align:center">${t.sort_order}</td><td style="padding:8px;text-align:center">${st}</td>`;
+                html += `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">${tp}</td><td style="padding:8px;"><input type="text" value="${t.content.replace(/"/g, '&quot;')}" onchange="_bphtClUpdate(${t.id}, \'content\', this.value)" style="width:95%; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; background:#fff; color:#1e293b; outline:none;" onfocus="this.style.borderColor=\'#059669\'" onblur="this.style.borderColor=\'#cbd5e1\'"></td><td style="padding:8px;text-align:center;"><input type="number" value="${t.sort_order}" onchange="_bphtClUpdate(${t.id}, \'sort_order\', parseInt(this.value)||0)" style="width:50px; padding:6px 4px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; text-align:center; background:#fff; color:#1e293b; outline:none;" onfocus="this.style.borderColor=\'#059669\'" onblur="this.style.borderColor=\'#cbd5e1\'"></td><td style="padding:8px;text-align:center">${st}</td>`;
                 html += `<td style="padding:8px;text-align:center"><button onclick="_bphtClToggleActive(${t.id},${!t.is_active})" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;cursor:pointer;background:#fff;margin-right:4px">${t.is_active ? '🔇 Tắt' : '🔔 Bật'}</button>`;
                 html += `<button onclick="_bphtClDelete(${t.id})" style="padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626">🗑️ Xóa</button></td></tr>`;
             });
@@ -695,6 +695,16 @@ async function _bphtClDelete(id) {
     try {
         await apiCall('/api/finishing/checklist/templates/' + id, 'DELETE');
         showToast('✅ Đã xóa');
+        _bphtChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bphtClUpdate(id, field, val) {
+    try {
+        const payload = {};
+        payload[field] = val;
+        await apiCall('/api/finishing/checklist/templates/' + id, 'PUT', payload);
+        showToast('✅ Đã lưu thay đổi');
         _bphtChecklistSetup();
     } catch(e) { showToast(e.message, 'error'); }
 }
