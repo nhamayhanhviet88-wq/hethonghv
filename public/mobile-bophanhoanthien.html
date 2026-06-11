@@ -698,77 +698,92 @@ function getOrderCodeWithTicket(r) {
     }
     return orderCode;
 }
+function getRecordTabInfo(r) {
+    if (!r.is_finishing_needed) return null;
+    if (r.error_reported) {
+        return { name: 'Đơn Lỗi', style: 'background: rgba(239, 68, 68, 0.2); color: #fca5a5;' };
+    }
+    if (r.done_date) {
+        return { name: 'Xong', style: 'background: rgba(16, 185, 129, 0.2); color: #6ee7b7;' };
+    }
+    if (r.is_qc_checked === 0 && !r.contractor_id) {
+        return { name: 'Chưa Kiểm Tra', style: 'background: rgba(59, 130, 246, 0.2); color: #93c5fd;' };
+    }
+    return { name: 'Chưa Hoàn Thiện', style: 'background: rgba(245, 158, 11, 0.2); color: #fbbf24;' };
+}
 function mCards(){const c=document.getElementById('mC');
 const dt=document.getElementById('mFD')?.value||'';
-let filtered = mr;
-if (activeTab === 'undone') {
-    filtered = mr.filter(r => {
-        if (r.done_date || !r.is_finishing_needed) return false;
-        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
-        if (r.is_qc_checked === 0) return false;
-        return true;
-    });
-} else if (activeTab === 'done') {
-    filtered = mr.filter(r => {
-        if (!r.is_finishing_needed) return false;
-        if (!r.done_date) return false;
-        const recordDate = r.done_date.split('T')[0];
-        
-        if (doneFilter === 'today') {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const todayStr = `${year}-${month}-${day}`;
-            return recordDate === todayStr;
-        } else if (doneFilter === 'week') {
-            const d = new Date(recordDate);
-            if (isNaN(d.getTime())) return false;
-            
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const dayOfToday = today.getDay();
-            const diffToMonday = today.getDate() - dayOfToday + (dayOfToday === 0 ? -6 : 1);
-            const monday = new Date(today);
-            monday.setDate(diffToMonday);
-            monday.setHours(0,0,0,0);
-            
-            const sunday = new Date(monday);
-            sunday.setDate(monday.getDate() + 6);
-            sunday.setHours(23,59,59,999);
-            
-            return d >= monday && d <= sunday;
-        } else if (doneFilter === 'date') {
-            return recordDate === selectedDoneDate;
-        } else if (doneFilter === 'month') {
-            return recordDate.startsWith(selectedDoneMonth);
-        } else if (doneFilter === 'year') {
-            return recordDate.startsWith(selectedDoneYear);
-        } else if (doneFilter === 'all') {
-            return true;
-        }
-        return true;
-    });
-} else if (activeTab === 'unchecked') {
-    filtered = mr.filter(r => {
-        if (r.is_qc_checked !== 0 || r.contractor_id) return false;
-        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
-        return true;
-    });
-} else if (activeTab === 'error') {
-    filtered = mr.filter(r => {
-        if (!r.error_reported || !r.is_finishing_needed) return false;
-        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
-        return true;
-    });
-}
 const sv = document.getElementById('mSearch')?.value.toLowerCase().trim() || '';
-if(sv){
-    filtered = filtered.filter(r => {
+let filtered = mr;
+
+if (sv) {
+    filtered = mr.filter(r => {
         return (r.order_code || '').toLowerCase().includes(sv) ||
                (r.product_name || '').toLowerCase().includes(sv) ||
                (r.cut_product_name || '').toLowerCase().includes(sv);
     });
+} else {
+    if (activeTab === 'undone') {
+        filtered = mr.filter(r => {
+            if (r.done_date || !r.is_finishing_needed) return false;
+            if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+            if (r.is_qc_checked === 0) return false;
+            return true;
+        });
+    } else if (activeTab === 'done') {
+        filtered = mr.filter(r => {
+            if (!r.is_finishing_needed) return false;
+            if (!r.done_date) return false;
+            const recordDate = r.done_date.split('T')[0];
+            
+            if (doneFilter === 'today') {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                const todayStr = `${year}-${month}-${day}`;
+                return recordDate === todayStr;
+            } else if (doneFilter === 'week') {
+                const d = new Date(recordDate);
+                if (isNaN(d.getTime())) return false;
+                
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const dayOfToday = today.getDay();
+                const diffToMonday = today.getDate() - dayOfToday + (dayOfToday === 0 ? -6 : 1);
+                const monday = new Date(today);
+                monday.setDate(diffToMonday);
+                monday.setHours(0,0,0,0);
+                
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                sunday.setHours(23,59,59,999);
+                
+                return d >= monday && d <= sunday;
+            } else if (doneFilter === 'date') {
+                return recordDate === selectedDoneDate;
+            } else if (doneFilter === 'month') {
+                return recordDate.startsWith(selectedDoneMonth);
+            } else if (doneFilter === 'year') {
+                return recordDate.startsWith(selectedDoneYear);
+            } else if (doneFilter === 'all') {
+                return true;
+            }
+            return true;
+        });
+    } else if (activeTab === 'unchecked') {
+        filtered = mr.filter(r => {
+            if (r.is_qc_checked !== 0 || r.contractor_id) return false;
+            if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+            return true;
+        });
+    } else if (activeTab === 'error') {
+        filtered = mr.filter(r => {
+            if (!r.error_reported || !r.is_finishing_needed) return false;
+            if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+            return true;
+        });
+    }
 }
 totalFilteredCount = filtered.length;
 const totalPages = Math.ceil(totalFilteredCount / 50);
@@ -807,7 +822,10 @@ if (isQcOk || isManager) {
     actionButtonsHtml = '<div style="grid-column: span 2; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">' + bannerText + '</div>';
 }
 
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn" style="font-size:12px;line-height:1.4;">'+cleanProdName(r)+'</div></div>'
+const tabInfo = getRecordTabInfo(r);
+const tabBadgeHtml = (sv && tabInfo) ? `<span class="bd" style="${tabInfo.style} font-size:10px; padding:2px 8px; border-radius:6px; margin-left:auto; font-weight:800; white-space:nowrap;">${tabInfo.name.toUpperCase()}</span>` : '';
+
+return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn" style="font-size:12px;line-height:1.4;">'+cleanProdName(r)+'</div>'+tabBadgeHtml+'</div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Hạn gửi hàng</span><span class="cv">'+getRaDukien(r)+'</span></div>'
 +'<div class="cr"><span class="cl">✅ Hoàn thiện</span><span class="cv" style="color:'+(r.is_completed?'#6ee7b7':'#94a3b8')+'">'+getCompletedTime(r)+'</span></div>'
