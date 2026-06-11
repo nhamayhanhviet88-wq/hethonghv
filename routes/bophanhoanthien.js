@@ -286,13 +286,32 @@ module.exports = async function(fastify) {
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         const parts = await req.parts();
         let images = []; try { images = JSON.parse(rec.finish_images || '[]'); } catch(e) { images = []; }
+
+        const { compressImage } = require('../utils/imageCompressor');
+
         for await (const part of parts) {
             if (part.file) {
-                const ext = path.extname(part.filename || '.jpg');
-                const fname = `fin_${id}_${Date.now()}${ext}`;
-                const dest = path.join(uploadsDir, fname);
                 const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
-                fs.writeFileSync(dest, Buffer.concat(chunks));
+                const fileBuffer = Buffer.concat(chunks);
+                const isImg = part.mimetype && part.mimetype.startsWith('image/');
+
+                let finalBuffer = fileBuffer;
+                let ext = path.extname(part.filename || '.jpg');
+                let fname = `fin_${id}_${Date.now()}${ext}`;
+
+                if (isImg) {
+                    try {
+                        const comp = await compressImage(fileBuffer, { maxWidth: 800, quality: 75, format: 'webp' });
+                        finalBuffer = comp.buffer;
+                        ext = '.webp';
+                        fname = `fin_${id}_${Date.now()}${ext}`;
+                    } catch(err) {
+                        console.error('[BPHT Upload Image] Compression failed:', err);
+                    }
+                }
+
+                const dest = path.join(uploadsDir, fname);
+                fs.writeFileSync(dest, finalBuffer);
                 images.push(`/uploads/finishing/${fname}`);
             }
         }
