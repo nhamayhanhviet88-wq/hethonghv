@@ -322,11 +322,11 @@ async function _bphtOpenCompleteModal(recordId) {
                 `;
             } else {
                 const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
-                const isCountQuestion = cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
+                const isCountQuestion = cleanContent.includes('sốlượngđếmlàbaonhiêu') || cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
                 checklistHtml += `
                     <input type="text" class="bpht-qc-text" value="${val}" placeholder="Nhập câu trả lời..." style="background:#ffffff; border:1px solid #cbd5e1; color:#1e293b; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box;"
                         ${isCountQuestion ? `oninput="_bphtValidateCountInput(this, ${r.quantity || 0})"` : ''}>
-                    ${isCountQuestion ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (!/^\d+$/.test(val.trim()) || parseInt(val.trim(), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
+                    ${isCountQuestion ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
             }
             checklistHtml += '</div>';
@@ -430,6 +430,7 @@ async function _bphtOpenCompleteModal(recordId) {
 }
 
 function _bphtValidateCountInput(inputEl, targetQty) {
+    inputEl.value = inputEl.value.replace(/\D/g, '');
     const val = inputEl.value.trim();
     const errorEl = inputEl.nextElementSibling;
     if (!errorEl || !errorEl.classList.contains('bpht-count-error-msg')) return;
@@ -439,7 +440,7 @@ function _bphtValidateCountInput(inputEl, targetQty) {
         return;
     }
 
-    if (!/^\d+$/.test(val) || parseInt(val, 10) !== parseInt(targetQty, 10)) {
+    if (parseInt(val, 10) !== parseInt(targetQty, 10)) {
         errorEl.style.display = 'block';
     } else {
         errorEl.style.display = 'none';

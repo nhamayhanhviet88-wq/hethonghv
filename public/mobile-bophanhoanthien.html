@@ -558,11 +558,11 @@ async function mOpenCompleteModal(recordId) {
                 `;
             } else {
                 const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
-                const isCountQuestion = cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
+                const isCountQuestion = cleanContent.includes('sốlượngđếmlàbaonhiêu') || cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
                 checklistHtml += `
                     <input type="text" class="m-cl-text" value="${val}" placeholder="Nhập câu trả lời..." style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#e2e8f0; font-size:13px; border-radius:10px; padding:10px 12px; width:100%; outline:none; box-sizing:border-box;"
                         ${isCountQuestion ? `oninput="mValidateCountInput(this, ${r.quantity || 0})"` : ''}>
-                    ${isCountQuestion ? `<div class="m-count-error-msg" style="color:#f87171; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (!/^\d+$/.test(val.trim()) || parseInt(val.trim(), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
+                    ${isCountQuestion ? `<div class="m-count-error-msg" style="color:#f87171; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
             }
             checklistHtml += '</div>';
@@ -667,6 +667,7 @@ async function mOpenCompleteModal(recordId) {
 }
 
 function mValidateCountInput(inputEl, targetQty) {
+    inputEl.value = inputEl.value.replace(/\D/g, '');
     const val = inputEl.value.trim();
     const errorEl = inputEl.nextElementSibling;
     if (!errorEl || !errorEl.classList.contains('m-count-error-msg')) return;
@@ -676,7 +677,7 @@ function mValidateCountInput(inputEl, targetQty) {
         return;
     }
 
-    if (!/^\d+$/.test(val) || parseInt(val, 10) !== parseInt(targetQty, 10)) {
+    if (parseInt(val, 10) !== parseInt(targetQty, 10)) {
         errorEl.style.display = 'block';
     } else {
         errorEl.style.display = 'none';
