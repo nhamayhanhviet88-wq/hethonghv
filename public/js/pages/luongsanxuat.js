@@ -352,6 +352,14 @@ function _lsxRenderStats(stats) {
                 </div>
             `;
         }
+    } else if (s.isPressing) {
+        sc.innerHTML = `
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ TỔNG LƯƠNG ÉP ĐÃ DUYỆT</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(s.approved)} đ</div>
+                <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
+            </div>
+        `;
     } else {
         sc.innerHTML = `
             <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
@@ -839,6 +847,7 @@ function _lsxRenderTable() {
         pending: pendingSum,
         count: all.length,
         isSewing: _lsx.filter.dept === 'sewing',
+        isPressing: _lsx.filter.dept === 'pressing',
         sewingTho: runningSumTho,
         sewingCPM: runningSumCPM,
         sewingPendingTho: pendingTho,
@@ -1194,6 +1203,10 @@ function _lsxRenderInfo(count) {
 async function _lsxToggleAppr(id, dept) {
     if (dept === 'sewing') {
         _lsxOpenSewingQCModal(id);
+        return;
+    }
+    if (dept === 'pressing') {
+        _lsxOpenPressingQCModal(id);
         return;
     }
     try {
@@ -2622,5 +2635,136 @@ async function _lsxSaveAndApproveSewing(id) {
     } catch (e) {
         console.error(e);
         showToast(e.message || 'Lỗi khi thực hiện thao tác', 'error');
+    }
+}
+
+async function _lsxOpenPressingQCModal(id) {
+    if (window._lsxDetailBusy) return;
+    window._lsxDetailBusy = true;
+    try {
+        var res = await apiCall('/api/pressing/records/' + id);
+        var r = res.record;
+        if (!r) return;
+
+        var old = document.getElementById('_bpeQCModal'); if (old) old.remove();
+
+        var matColor = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
+        var statusTxt = r.is_reported ? '✅ Đã báo cáo' : '⏳ Chờ báo cáo';
+        var statusBg = r.is_reported ? '#059669' : '#ea580c';
+
+        var h = '<div class="bpc-modal-overlay" id="_bpeQCModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpeQCModal\').remove()},300)">';
+        h += '<div class="bpc-modal" style="width:560px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,' + statusBg + ',' + statusBg + 'cc)"><div class="m-icon">📋</div><div><div class="m-title">DUYỆT LƯƠNG PHIẾU ÉP</div><div class="m-sub">' + statusTxt + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px;">';
+
+        // Info grid
+        h += '<div style="background:#f8fafc; border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0; display:grid; grid-template-columns:1fr 1fr; gap:8px;">';
+        h += '<div>👕 <strong>Sản phẩm:</strong> <span>' + (r.product_name || '—') + '</span></div>';
+        h += '<div>🎨 <strong>Chất liệu/Màu:</strong> <span>' + matColor + '</span></div>';
+        h += '<div>👤 <strong>CSKH:</strong> <span>' + (r.cskh_name || '—') + '</span></div>';
+        h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
+        h += '<div>🔥 <strong>NV Ép:</strong> <span>' + (r.presser_name || '—') + '</span></div>';
+        h += '<div>📅 <strong>Ép Xong:</strong> <span>' + (r.reported_at ? _lsxFormatWorkDate({ is_completed: true, completion_time: r.reported_at }) : '—') + '</span></div>';
+        if (r.print_types) {
+            h += '<div style="grid-column: span 2; display:flex; align-items:center; flex-wrap:wrap;">🖨️ <strong>Trạng thái in:</strong> ' + _lsxGetPrintStatusHtml(r) + '</div>';
+        }
+        h += '</div>';
+
+        // Detailed positions
+        h += '<div class="bpc-detail-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px; border-left:4px solid #6366f1;">';
+        h += '<div class="bpc-detail-section-title" style="font-size:11px; font-weight:800; color:#6366f1; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">🧩 CHI TIẾT CÁC VỊ TRÍ ÉP</div>';
+        (window._bpePositions || []).forEach(function(pos) {
+            var val = Number(r[pos.key_code]) || 0;
+            var prcCol = pos.key_code.startsWith('pos_') && !['pos_chest_arm', 'pos_back_belly', 'pos_protective', 'pos_packaging', 'pos_other'].includes(pos.key_code)
+                ? 'price_' + pos.key_code
+                : pos.key_code.replace('pos_', 'price_');
+            var price = Number(r[prcCol]) || 0;
+            var cost = val * price;
+
+            h += '<div class="bpc-modal-row">';
+            h += '<span class="bpc-modal-lbl">' + pos.display_name + '</span>';
+            h += '<div class="bpc-modal-val" style="color:#4f46e5;font-weight:700;white-space:nowrap;">';
+            h += val + ' sp';
+            if (!r.is_unpressed) {
+                h += ' <span style="color:#94a3b8;margin:0 4px;font-size:11px;font-weight:normal;">x</span>';
+                h += ' <span style="color:#64748b;font-size:11px;font-weight:normal;">' + _lsxFN(price) + 'đ</span>';
+                h += ' <span style="color:#94a3b8;margin:0 4px;font-size:11px;font-weight:normal;">=</span>';
+                h += ' <span style="color:#059669;font-weight:800;font-size:12px;">' + _lsxFN(cost) + 'đ</span>';
+            }
+            h += '</div></div>';
+        });
+        h += '</div>';
+
+        // Quantities & Salary
+        h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; margin-top:16px;">';
+        h += '<div style="background:#f0fdf4; padding:10px; border-radius:10px; text-align:center; border:1px solid #bbf7d0;"><div style="font-size:9px; font-weight:700; color:#166534">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:18px; font-weight:900; color:#15803d">' + (r.press_quantity || 0) + ' sp</div></div>';
+        h += '<div style="background:#fff7ed; padding:10px; border-radius:10px; text-align:center; border:1px solid #ffedd5;"><div style="font-size:9px; font-weight:700; color:#c2410c">💰 LƯƠNG ÉP</div><div style="font-size:18px; font-weight:900; color:#ea580c">' + _lsxFN(r.press_salary || r.salary || 0) + ' đ</div></div>';
+        h += '</div>';
+
+        // Images & Notes
+        h += '<div class="bpc-detail-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px; border-left:4px solid #8b5cf6;">';
+        h += '<div class="bpc-detail-section-title" style="font-size:11px; font-weight:800; color:#8b5cf6; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">📝 BÁO CÁO CỦA NHÂN VIÊN</div>';
+        h += '<div class="bpc-modal-row" style="flex-direction:column; align-items:flex-start; border-bottom:none; padding:4px 0;"><span class="bpc-modal-lbl" style="margin-bottom:6px;">💬 Ghi chú ép:</span><span class="bpc-modal-val" style="text-align:left; max-width:100%; white-space:pre-wrap; color:#334155; font-weight:500; font-size:12px; background:#fff; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; width:100%; min-height:40px; box-sizing:border-box;">' + (r.notes || '—') + '</span></div>';
+        
+        var imgs = [];
+        try { imgs = typeof r.press_images === 'string' ? JSON.parse(r.press_images) : (r.press_images || []); } catch(e) {}
+        if (Array.isArray(imgs) && imgs.length > 0) {
+            h += '<div style="margin-top:12px;">';
+            h += '<div class="bpc-modal-lbl" style="margin-bottom:8px;">📸 Hình ảnh ép thực tế:</div>';
+            h += '<div style="display:flex; flex-wrap:wrap; gap:10px">';
+            imgs.forEach(function(imgUrl) {
+                h += '<img src="' + imgUrl + '" class="bpe-detail-thumb" onclick="window.open(\'' + imgUrl.replace(/'/g, "\\'") + '\',\'_blank\')">';
+            });
+            h += '</div>';
+            h += '</div>';
+        }
+        h += '</div>';
+
+        h += '</div>'; // End body
+
+        // Footer actions
+        h += '<div class="bpc-modal-actions" style="display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid #f1f5f9;">';
+        h += '<button class="bpc-modal-btn cancel" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: #f1f5f9; color: #475569;" onclick="var m=document.getElementById(\'_bpeQCModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Hủy</button>';
+        
+        if (r.salary_approved) {
+            h += '<button class="bpc-modal-btn confirm" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: #dc2626; color: #fff; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);" onclick="_lsxSubmitPressingApprove(' + id + ', false)">HỦY DUYỆT LƯƠNG</button>';
+        } else {
+            h += '<button class="bpc-modal-btn confirm" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);" onclick="_lsxSubmitPressingApprove(' + id + ', true)">DUYỆT LƯƠNG</button>';
+        }
+        h += '</div>';
+
+        h += '</div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', h);
+        setTimeout(function() {
+            var m = document.getElementById('_bpeQCModal');
+            if (m) m.classList.add('show');
+        }, 50);
+
+    } catch(e) {
+        console.error(e);
+        alert('Lỗi tải thông tin phiếu ép');
+    } finally {
+        window._lsxDetailBusy = false;
+    }
+}
+
+async function _lsxSubmitPressingApprove(id, approved) {
+    try {
+        var res = await apiCall('/api/production-salary/toggle/pressing/' + id, 'POST', { approved: approved });
+        if (res && res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        showToast('Cập nhật trạng thái duyệt thành công');
+        var m = document.getElementById('_bpeQCModal');
+        if (m) {
+            m.classList.remove('show');
+            setTimeout(function() { m.remove(); }, 300);
+        }
+        await _lsxLoadAll();
+    } catch(e) {
+        console.error(e);
+        showToast(e.message || 'Lỗi khi cập nhật trạng thái', 'error');
     }
 }
