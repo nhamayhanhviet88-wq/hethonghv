@@ -192,13 +192,14 @@ function _bphtRender(){
             clickHtml = '<button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button>';
             errHtml = '<button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button>';
         } else {
-            clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="Chưa kiểm tra chất lượng">⚠️ Chưa KTCL</div>';
+            const labelText = !r.sewer_name ? '⚠️ Chưa Phân Công' : '⚠️ Chưa KTCL';
+            clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="' + labelText + '">' + labelText + '</div>';
             errHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.1); color:#fca5a5; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed;" title="Chưa kiểm tra chất lượng">⬜</div>';
         }
 
         var completedTimeHtml = isQcOk 
             ? _bphtGetCompletedTime(r) 
-            : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa KTCL</span>';
+            : (!r.sewer_name ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Phân Công</span>' : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa KTCL</span>');
 
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
@@ -212,7 +213,7 @@ function _bphtRender(){
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.finisher_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#6b7280">' + (r.contractor_id ? '<span style="color:#f59e0b;font-weight:700;">[GIA CÔNG]</span> ' : '') + (r.sewer_name||'—') + '</td>'
+        +'<td style="font-size:10px;color:#6b7280">' + (r.contractor_id ? '<span style="color:#f59e0b;font-weight:700;">[GIA CÔNG]</span> ' : '') + (r.sewer_name || '<span style="color:#ef4444;font-weight:700;">Chưa Phân Công</span>') + '</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td>'+_bphtShip(r.shipping_standard)+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
