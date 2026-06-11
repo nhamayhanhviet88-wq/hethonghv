@@ -512,7 +512,10 @@ function mRender(){
             const code = (o.order_code || '').toLowerCase();
             const cust = (o.customer_name || '').toLowerCase();
             const sale = (o.cskh_name || o.created_by_name || '').toLowerCase();
-            return code.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery);
+            const desc = (o.item_desc || '').toLowerCase();
+            const mat = (o.material_name || '').toLowerCase();
+            const col = (o.color_name || '').toLowerCase();
+            return code.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || desc.includes(mSearchQuery) || mat.includes(mSearchQuery) || col.includes(mSearchQuery);
         });
 
         const matchedMine = mMine.filter(r => {
@@ -521,7 +524,9 @@ function mRender(){
             const cust = (r.customer_name || '').toLowerCase();
             const sale = (r.cskh_name || r.created_by_name || '').toLowerCase();
             const cutter = (r.cutter_name || '').toLowerCase();
-            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery);
+            const mat = (r.material_name || '').toLowerCase();
+            const col = (r.fabric_color || '').toLowerCase();
+            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery) || mat.includes(mSearchQuery) || col.includes(mSearchQuery);
         });
 
         const matchedHist = mHist.filter(r => {
@@ -530,7 +535,9 @@ function mRender(){
             const cust = (r.customer_name || '').toLowerCase();
             const sale = (r.cskh_name || r.created_by_name || '').toLowerCase();
             const cutter = (r.cutter_name || '').toLowerCase();
-            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery);
+            const mat = (r.material_name || '').toLowerCase();
+            const col = (r.fabric_color || '').toLowerCase();
+            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery) || mat.includes(mSearchQuery) || col.includes(mSearchQuery);
         });
 
         const htmlUncut = mRenderUncut(matchedUncut, true);
@@ -560,7 +567,10 @@ function mRenderUncut(items = null, showSectionBadge = false){
             const code = (o.order_code || '').toLowerCase();
             const cust = (o.customer_name || '').toLowerCase();
             const sale = (o.cskh_name || o.created_by_name || '').toLowerCase();
-            return code.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery);
+            const desc = (o.item_desc || '').toLowerCase();
+            const mat = (o.material_name || '').toLowerCase();
+            const col = (o.color_name || '').toLowerCase();
+            return code.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || desc.includes(mSearchQuery) || mat.includes(mSearchQuery) || col.includes(mSearchQuery);
         });
         if (!itemsToRender.length) {
             c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
@@ -673,7 +683,9 @@ function mRenderMine(items = null, showSectionBadge = false){
             const cust = (r.customer_name || '').toLowerCase();
             const sale = (r.cskh_name || r.created_by_name || '').toLowerCase();
             const cutter = (r.cutter_name || '').toLowerCase();
-            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery);
+            const mat = (r.material_name || '').toLowerCase();
+            const col = (r.fabric_color || '').toLowerCase();
+            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery) || mat.includes(mSearchQuery) || col.includes(mSearchQuery);
         });
         if (!itemsToRender.length) {
             c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
@@ -790,7 +802,9 @@ function mRenderHist(items = null, showSectionBadge = false){
             const cust = (r.customer_name || '').toLowerCase();
             const sale = (r.cskh_name || r.created_by_name || '').toLowerCase();
             const cutter = (r.cutter_name || '').toLowerCase();
-            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery);
+            const mat = (r.material_name || '').toLowerCase();
+            const col = (r.fabric_color || '').toLowerCase();
+            return code.includes(mSearchQuery) || prod.includes(mSearchQuery) || cust.includes(mSearchQuery) || sale.includes(mSearchQuery) || cutter.includes(mSearchQuery) || mat.includes(mSearchQuery) || col.includes(mSearchQuery);
         });
         if (!itemsToRender.length) {
             c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
