@@ -1658,12 +1658,11 @@ function _ktclRecalcTechPrices() {
     
     // Auto fill the checked price input field
     const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
-    let isTeam = false;
     if (r) {
-        isTeam = (r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
-        const autoPrice = isTeam ? totalFP : totalPP;
         const checkedPriceInput = document.getElementById('ktclCheckedPriceInput');
-        if (checkedPriceInput) checkedPriceInput.value = autoPrice;
+        const checkedGCPriceInput = document.getElementById('ktclCheckedGCPriceInput');
+        if (checkedPriceInput) checkedPriceInput.value = totalFP;
+        if (checkedGCPriceInput) checkedGCPriceInput.value = totalPP;
     }
 
     // Show validation warning dynamically
@@ -1808,6 +1807,7 @@ async function _ktclOpenQCModal(recordId) {
     const qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
     
     const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
+    const isTeam = !!(r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
     
     // Preview images
     let imagesHtml = '';
@@ -2022,8 +2022,13 @@ async function _ktclOpenQCModal(recordId) {
                             </div>
 
                             <div class="form-group" style="margin-top:12px;">
-                                <label class="form-label">Giá Kiểm Tra (Chỉ Đạo Tính Lương)</label>
-                                <input type="number" id="ktclCheckedPriceInput" value="${r.checked_price || ''}" class="form-input" placeholder="Giá tự động tính theo kỹ thuật may được chọn..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
+                                <label class="form-label">Giá Kiểm Tra May Nhà</label>
+                                <input type="number" id="ktclCheckedPriceInput" value="${isTeam ? (r.checked_price || '') : ''}" class="form-input" placeholder="Giá tự động tính..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
+                            </div>
+
+                            <div class="form-group" style="margin-top:12px;">
+                                <label class="form-label">Giá Kiểm Tra May GC</label>
+                                <input type="number" id="ktclCheckedGCPriceInput" value="${!isTeam ? (r.checked_price || '') : ''}" class="form-input" placeholder="Giá tự động tính..." readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;">
                             </div>
                         </div>
 
@@ -2491,7 +2496,11 @@ async function _ktclSubmitQC() {
         finalNotes = document.getElementById('ktclQCNotes') ? document.getElementById('ktclQCNotes').value.trim() : '';
     }
 
-    const cpVal = document.getElementById('ktclCheckedPriceInput').value;
+    const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
+    const isTeam = !!(r && r.sewing_team_id !== null && r.sewing_team_id !== undefined && !r.contractor_id);
+    const cpVal = isTeam 
+        ? document.getElementById('ktclCheckedPriceInput').value 
+        : document.getElementById('ktclCheckedGCPriceInput').value;
 
     const checkboxes = document.querySelectorAll('.ktcl-tech-cb');
     const checkedIds = [];
@@ -2501,7 +2510,6 @@ async function _ktclSubmitQC() {
         }
     });
 
-    const r = _ktclState.originalRecords.find(x => x.id === _ktclState.currentRecordId);
     const isAlreadyDone = !!(r && r.done_date);
 
     // Validation: QC Checklist answers are mandatory if NOT missing price
