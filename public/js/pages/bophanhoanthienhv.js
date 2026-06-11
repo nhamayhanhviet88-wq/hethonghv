@@ -294,6 +294,17 @@ async function _bphtOpenCompleteModal(recordId) {
                     <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer; font-weight:bold;">✕</button>
                 </div>
                 <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <div>
+                            <span style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px; text-transform:uppercase;">Mã Đơn Hàng</span>
+                            <span style="font-size:13px; color:#0f172a; font-weight:800;">${r.order_code || '—'}</span>
+                        </div>
+                        <div>
+                            <span style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px; text-transform:uppercase;">CSKH</span>
+                            <span style="font-size:13px; color:#059669; font-weight:800;">${r.cskh_name || '—'}</span>
+                        </div>
+                    </div>
+
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                         <div>
                             <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Nhân Viên Hoàn Thiện <span style="color:#ef4444;">*</span></label>
@@ -303,13 +314,15 @@ async function _bphtOpenCompleteModal(recordId) {
                         </div>
                         <div>
                             <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Tiêu Chuẩn Gửi</label>
-                            <select id="bphtShippingStandard" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; background:#fff;">
+                            <select id="bphtShippingStandard" disabled style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; background:#f1f5f9; color:#64748b; cursor:not-allowed;">
                                 <option value="chuan" ${r.shipping_standard === 'chuan' ? 'selected' : ''}>✅ CHUẨN</option>
                                 <option value="gap" ${r.shipping_standard === 'gap' ? 'selected' : ''}>🔴 GẤP</option>
                                 <option value="gui" ${r.shipping_standard === 'gui' ? 'selected' : ''}>📦 GỬI</option>
                             </select>
                         </div>
                     </div>
+
+                    ${checklistHtml}
 
                     <div>
                         <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ảnh Sản Phẩm Hoàn Thiện <span style="color:#ef4444;">*</span></label>
@@ -327,8 +340,6 @@ async function _bphtOpenCompleteModal(recordId) {
                         <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú</label>
                         <textarea id="bphtNotes" rows="2" placeholder="Nhập ghi chú (nếu có)..." style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:#fff;">${r.notes || ''}</textarea>
                     </div>
-
-                    ${checklistHtml}
                 </div>
                 <div style="padding:12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
                     <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="padding:8px 16px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; background:#fff; cursor:pointer; color:#475569;">Hủy</button>
