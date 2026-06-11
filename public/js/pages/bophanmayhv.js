@@ -90,7 +90,7 @@ function renderBophanmayPage(content){
     +'@media(max-width:768px){.bpm-sb{display:none}}.bpm-progress{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800}@keyframes bpmBlink{0%,100%{opacity:1}50%{opacity:0.4}}.card-body::-webkit-scrollbar{height:8px}.card-body::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}.card-body::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}.card-body::-webkit-scrollbar-thumb:hover{background:#0d9488}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="bpm-wrap"><div class="bpm-sb" id="bpmSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpm-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bpmInfo" style="font-size:12px"></div><div id="bpmStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bpmSearch" placeholder="🔍 Tìm SP..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div id="bpmInfo" style="font-size:12px"></div><input id="bpmSearch" placeholder="🔍 Tìm SP / CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div><div id="bpmStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
     +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpmManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công May</button>' : '')
     +'</div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpmTable"><thead><tr style="background:var(--gray-800);color:#fff">'
@@ -252,7 +252,7 @@ function _bpmParseProduct(r) {
 
 function _bpmRender(){
     var all=_bpm.records.slice();
-    if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.cut_product_name||'').toLowerCase().indexOf(q)>=0;});}
+    if(_bpm.search){var q=_bpm.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0||(r.cut_product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bpmTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">🧵</div><h3>Chưa có đơn may</h3></div></td></tr>';}else{
