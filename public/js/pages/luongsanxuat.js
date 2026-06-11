@@ -2162,19 +2162,6 @@ async function _lsxBulkAction(approve) {
         return;
     }
     if (approve && _lsx.filter.dept === 'sewing') {
-        var flagged = [];
-        _lsx.selectedRecords.forEach(function(sel) {
-            var r = _lsx.records.find(function(x) { return x.id == sel.id && x.dept === sel.dept; });
-            if (r && r.dept === 'sewing' && !r.is_approved && r.notes && r.notes.indexOf('[THIẾU GIÁ CHI TIẾT]') === 0) {
-                flagged.push(r);
-            }
-        });
-        if (flagged.length > 0) {
-            var names = flagged.map(function(f) { return (f.order_code || '') + ' (' + (f.product_name || '') + ')'; }).join(', ');
-            if (!confirm('Trong danh sách chọn có ' + flagged.length + ' đơn hàng đang bị báo "Thiếu Kỹ Thuật May":\n' + names + '\n\nBạn có chắc chắn vẫn muốn tiếp tục duyệt hàng loạt tất cả không?')) {
-                return;
-            }
-        }
         _lsxOpenBulkSewingQCModal();
         return;
     }
