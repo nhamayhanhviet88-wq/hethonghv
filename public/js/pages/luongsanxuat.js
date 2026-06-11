@@ -633,9 +633,9 @@ function _lsxGetHeaderHTML() {
                 <th>Thời Gian<br>Hoàn Thiện</th>
                 <th>NV May</th>
                 <th>Tên SP / Phối</th>
-                <th style="text-align:center">SL (Đơn / May)</th>
-                <th style="text-align:right">Giá (Gốc / KTra)</th>
-                ${!isContractor ? '<th style="text-align:right">Giá ( CPM/ KTra )</th>' : ''}
+                <th style="text-align:center">SL<br>(Đơn / May)</th>
+                <th style="text-align:right">Giá<br>(Gốc / KTra)</th>
+                ${!isContractor ? '<th style="text-align:right">Giá<br>( CPM/ KTra )</th>' : ''}
                 <th>May Thiếu</th>
                 <th>Thiếu KT May</th>
                 <th style="text-align:right">Lương Thợ</th>
