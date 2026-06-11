@@ -720,7 +720,10 @@ module.exports = async function(fastify) {
             return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
         }
 
-        const newApproved = !rec.salary_approved;
+        let newApproved = !rec.salary_approved;
+        if (req.body && req.body.approved !== undefined) {
+            newApproved = !!req.body.approved;
+        }
         
 
         

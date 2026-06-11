@@ -1140,11 +1140,8 @@ function _lsxRenderInfo(count) {
 
 async function _lsxToggleAppr(id, dept) {
     if (dept === 'sewing') {
-        var r = _lsx.records.find(function(x) { return x.id === id && x.dept === dept; });
-        if (r && !r.is_approved) {
-            _lsxOpenSewingQCModal(id);
-            return;
-        }
+        _lsxOpenSewingQCModal(id);
+        return;
     }
     try {
         var res = await apiCall(`/api/production-salary/toggle/${dept}/${id}`, 'POST');
@@ -2478,7 +2475,7 @@ async function _lsxSaveAndApproveSewing(id) {
             return;
         }
 
-        var approveRes = await apiCall('/api/production-salary/toggle/sewing/' + id, 'POST');
+        var approveRes = await apiCall('/api/production-salary/toggle/sewing/' + id, 'POST', { approved: true });
         if (approveRes && approveRes.error) {
             showToast(approveRes.error, 'error');
             return;
