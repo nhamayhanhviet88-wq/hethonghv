@@ -2164,7 +2164,7 @@ async function _lsxBulkAction(approve) {
     if (approve && _lsx.filter.dept === 'sewing') {
         var flagged = [];
         _lsx.selectedRecords.forEach(function(sel) {
-            var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === sel.dept; });
+            var r = _lsx.records.find(function(x) { return x.id == sel.id && x.dept === sel.dept; });
             if (r && r.dept === 'sewing' && !r.is_approved && r.notes && r.notes.indexOf('[THIẾU GIÁ CHI TIẾT]') === 0) {
                 flagged.push(r);
             }
@@ -3209,7 +3209,7 @@ async function _lsxSubmitBulkCuttingApprove() {
 function _lsxOpenBulkSewingQCModal() {
     var records = [];
     _lsx.selectedRecords.forEach(function(sel) {
-        var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === 'sewing'; });
+        var r = _lsx.records.find(function(x) { return x.id == sel.id && x.dept === 'sewing'; });
         if (r) records.push(r);
     });
 
