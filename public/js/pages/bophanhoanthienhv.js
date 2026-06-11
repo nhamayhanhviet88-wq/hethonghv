@@ -32,8 +32,8 @@ function renderBophanhoanthienPage(content){
     content.innerHTML='<div class="bpht-wrap"><div class="bpht-sb" id="bphtSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpht-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bphtInfo" style="font-size:12px"></div><div id="bphtStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'+setupBtn+'<input id="bphtSearch" placeholder="🔍 Tìm SP / CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bphtTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>✅</th><th>⚠️</th><th>Ra DK</th><th>Hoàn Thiện</th><th>Tiến Độ</th><th>Tên SP</th><th>CSKH</th><th>SL</th><th>NV HT</th><th>NV May</th><th>Ảnh</th><th>TC Gửi</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-    +'</tr></thead><tbody id="bphtTb"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th>STT</th><th>✅</th><th>⚠️</th><th>Ra DK</th><th>Hoàn Thiện</th><th>Tiến Độ</th><th>Tên SP</th><th>CSKH</th><th>SL</th><th>NV HT</th><th>NV May</th><th>Ảnh</th><th>TC Gửi</th><th>Cập Nhật</th>'
+    +'</tr></thead><tbody id="bphtTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bphtSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpht.search=document.getElementById('bphtSearch').value||'';_bphtRender();},300);});
     _bphtLoadAll();
 }
@@ -59,6 +59,32 @@ if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;if(f.finisher_id)
 try{var res=await apiCall('/api/finishing/records'+qs);_bpht.records=res.records||[];_bphtRender();}catch(e){console.error('[BPHT]',e);}}
 
 function _bphtFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
+
+function _bphtGetRaDukien(r) {
+    var targetDateStr = r.expected_ship_date || r.expected_date;
+    if (!targetDateStr) return '—';
+    try {
+        var dt = new Date(targetDateStr);
+        var day = String(dt.getDate()).padStart(2, '0');
+        var month = String(dt.getMonth() + 1).padStart(2, '0');
+        var year = dt.getFullYear();
+        if (r.shipping_standard === 'chuan') {
+            var timeStr = '';
+            if (r.standard_delivery_time) {
+                timeStr = r.standard_delivery_time.trim();
+            } else {
+                var hrs = String(dt.getHours()).padStart(2, '0');
+                var mins = String(dt.getMinutes()).padStart(2, '0');
+                timeStr = hrs + ':' + mins;
+            }
+            return timeStr + ' ' + day + '/' + month + '/' + year;
+        } else {
+            return day + '/' + month + '/' + year;
+        }
+    } catch(e) {
+        return _bphtFD(targetDateStr);
+    }
+}
 
 function _bphtProgress(exp, done) {
     if (!exp) return '<span class="bpht-progress" style="background:#f1f5f9;color:#94a3b8">— Chưa có DK</span>';
@@ -115,7 +141,7 @@ function _bphtRender(){
     if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.cut_product_name||r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bphtTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="15"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
         var clickAction = r.is_completed ? `_bphtTog(${r.id},'undo_complete')` : `_bphtOpenCompleteModal(${r.id})`;
@@ -125,9 +151,9 @@ function _bphtRender(){
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button></td>'
         +'<td style="text-align:center"><button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button></td>'
-        +'<td style="font-size:10px">'+_bphtFD(r.expected_date)+'</td>'
+        +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
         +'<td style="font-size:10px;color:'+(r.done_date?'#059669':'#94a3b8')+'">'+_bphtFD(r.done_date)+'</td>'
-        +'<td>'+_bphtProgress(r.expected_date, r.done_date)+'</td>'
+        +'<td>'+_bphtProgress(r.expected_ship_date||r.expected_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b;white-space:normal;max-width:250px;word-break:break-word;">'+_bphtCleanProdName(r)+'</td>'
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
@@ -135,7 +161,6 @@ function _bphtRender(){
         +'<td style="font-size:10px;color:#6b7280">'+(r.sewer_name||'—')+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td>'+_bphtShip(r.shipping_standard)+'</td>'
-        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="'+(r.notes||'')+'">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bphtInfo');if(el){var parts=['✅ Cắt Chỉ & Hoàn Thiện'];if(_bpht.filter.year)parts.push('📆 '+_bpht.filter.year);if(_bpht.filter.month)parts.push('🗓️ T'+_bpht.filter.month);
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#bbf7d0;font-weight:900">'+tot+'</span> đơn</div>';}

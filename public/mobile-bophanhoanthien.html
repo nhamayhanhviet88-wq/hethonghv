@@ -292,6 +292,31 @@ let cu=null,mr=[],activeTab='undone';
 async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
+function getRaDukien(r) {
+    const targetDateStr = r.expected_ship_date || r.expected_date;
+    if (!targetDateStr) return '—';
+    try {
+        const dt = new Date(targetDateStr);
+        const day = String(dt.getDate()).padStart(2, '0');
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const year = dt.getFullYear();
+        if (r.shipping_standard === 'chuan') {
+            let timeStr = '';
+            if (r.standard_delivery_time) {
+                timeStr = r.standard_delivery_time.trim();
+            } else {
+                const hrs = String(dt.getHours()).padStart(2, '0');
+                const mins = String(dt.getMinutes()).padStart(2, '0');
+                timeStr = `${hrs}:${mins}`;
+            }
+            return `${timeStr} ${day}/${month}/${year}`;
+        } else {
+            return `${day}/${month}/${year}`;
+        }
+    } catch(e) {
+        return fd(targetDateStr);
+    }
+}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
 function progress(exp,done){
     if(!exp)return'<span class="pg" style="background:rgba(148,163,184,.2);color:#94a3b8">—</span>';
@@ -394,9 +419,9 @@ const cA=r.is_completed?'undo_complete':'complete';
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn" style="font-size:12px;line-height:1.4;">'+cleanProdName(r)+'</div></div>'
 +'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ra dự kiến</span><span class="cv">'+fd(r.expected_date)+'</span></div>'
++'<div class="cr"><span class="cl">📅 Ra dự kiến</span><span class="cv">'+getRaDukien(r)+'</span></div>'
 +'<div class="cr"><span class="cl">✅ Hoàn thiện</span><span class="cv" style="color:'+(r.done_date?'#6ee7b7':'#94a3b8')+'">'+fd(r.done_date)+'</span></div>'
-+'<div class="cr"><span class="cl">📊 Tiến độ</span>'+progress(r.expected_date,r.done_date)+'</div>'
++'<div class="cr"><span class="cl">📊 Tiến độ</span>'+progress(r.expected_ship_date||r.expected_date,r.done_date)+'</div>'
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">👤 CSKH</span><span class="cv" style="color:#93c5fd;font-size:11px">'+(r.cskh_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📦 Số lượng</span><span class="cv" style="color:#6ee7b7;font-size:16px">'+(r.quantity||'—')+'</span></div>'
@@ -404,7 +429,6 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="cr"><span class="cl">🧵 NV May</span><span class="cv" style="font-size:11px">'+(r.sewer_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📦 TC Gửi</span>'+ship(r.shipping_standard)+'</div>'
 +imgs
-+(r.notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.notes+'</span></div>':'')
 +'</div>'
 +'<div class="ca">'
 +'<button class="ab'+(r.is_completed?' on':'')+'" onclick="mTog('+r.id+',\''+cA+'\')"><span class="ai">✅</span><span class="al">HOÀN THÀNH</span></button>'
