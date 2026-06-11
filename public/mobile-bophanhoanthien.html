@@ -298,17 +298,17 @@
     <div id="mDoneFilterContainer" style="display:none; padding: 10px 16px; gap: 8px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); -webkit-overflow-scrolling: touch;">
         <button class="m-filter-btn" id="mBtnDoneToday" onclick="mSelectDoneFilter('today')">Hôm nay</button>
         <button class="m-filter-btn" id="mBtnDoneWeek" onclick="mSelectDoneFilter('week')">Tuần này</button>
-        <div class="m-filter-btn" style="position: relative; cursor: pointer;" onclick="mOpenDatePicker()">
+        <div class="m-filter-btn" style="position: relative; overflow: hidden;">
             📅 <span id="mDoneDateLabel">Chọn ngày</span>
-            <input type="date" id="mDoneDatePicker" onchange="mDoneDateChange(this.value)" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;">
+            <input type="date" id="mDoneDatePicker" onchange="mDoneDateChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0; z-index:10; cursor:pointer; pointer-events:auto;">
         </div>
-        <div class="m-filter-btn" style="position: relative; cursor: pointer;" onclick="mOpenMonthPicker()">
+        <div class="m-filter-btn" style="position: relative; overflow: hidden;">
             📅 <span id="mDoneMonthLabel">Chọn tháng</span>
-            <input type="month" id="mDoneMonthPicker" onchange="mDoneMonthChange(this.value)" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;">
+            <input type="month" id="mDoneMonthPicker" onchange="mDoneMonthChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0; z-index:10; cursor:pointer; pointer-events:auto;">
         </div>
-        <div class="m-filter-btn" style="position: relative; cursor: pointer;">
+        <div class="m-filter-btn" style="position: relative; overflow: hidden;">
             📅 <span id="mDoneYearLabel">Chọn năm</span>
-            <select id="mDoneYearSelect" onchange="mDoneYearChange(this.value)" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+            <select id="mDoneYearSelect" onchange="mDoneYearChange(this.value)" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">
                 <option value="">Chọn năm</option>
                 <option value="2024">2024</option>
                 <option value="2025">2025</option>
@@ -503,29 +503,7 @@ function mSelectDoneFilter(filterType) {
     mCards();
 }
 
-function mOpenDatePicker() {
-    const picker = document.getElementById('mDoneDatePicker');
-    if (picker) {
-        try {
-            picker.showPicker();
-        } catch(e) {
-            picker.focus();
-            picker.click();
-        }
-    }
-}
 
-function mOpenMonthPicker() {
-    const picker = document.getElementById('mDoneMonthPicker');
-    if (picker) {
-        try {
-            picker.showPicker();
-        } catch(e) {
-            picker.focus();
-            picker.click();
-        }
-    }
-}
 
 function mDoneDateChange(val) {
     if (!val) return;
