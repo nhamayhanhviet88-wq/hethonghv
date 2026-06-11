@@ -329,7 +329,6 @@ function _lsxRenderStats(stats) {
     var s = stats || { total: 0, approved: 0, pending: 0, count: 0 };
     
     if (s.isSewing) {
-        var pendingTotal = (s.sewingPendingTho || 0) + (s.sewingPendingCPM || 0);
         sc.innerHTML = `
             <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
                 <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 TỔNG LƯƠNG THỢ</div>
@@ -340,11 +339,6 @@ function _lsxRenderStats(stats) {
                 <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ TỔNG LƯƠNG CPM</div>
                 <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingCPM)} đ</div>
                 <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
-            </div>
-            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
-                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA DUYỆT</div>
-                <div style="font-size:15px;font-weight:900">${_lsxFN(pendingTotal)} đ</div>
-                <div style="font-size:9px;opacity:.7;margin-top:2px">Thợ: ${_lsxFN(s.sewingPendingTho)} | CPM: ${_lsxFN(s.sewingPendingCPM)}</div>
             </div>
         `;
     } else {
