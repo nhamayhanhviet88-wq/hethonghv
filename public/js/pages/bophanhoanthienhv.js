@@ -344,6 +344,7 @@ function _bphtRender(){
         
         var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
         var clickAction = r.is_completed ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
+        var nameClickAction = (r.is_completed || !(isQcOk || isManager)) ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         
         var clickHtml = '';
@@ -370,7 +371,7 @@ function _bphtRender(){
         +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
         +'<td style="font-size:10px;color:'+(r.is_completed?'#059669':(!isQcOk?'#ef4444':'#94a3b8'))+'">'+completedTimeHtml+'</td>'
         +'<td>'+_bphtProgress(r.expected_ship_date||r.expected_date, r.done_date)+'</td>'
-        +'<td style="font-weight:600;color:#1e293b;white-space:normal;max-width:250px;word-break:break-word;">'+_bphtCleanProdName(r)+'</td>'
+        +'<td style="font-weight:600;white-space:normal;max-width:250px;word-break:break-word;"><a href="javascript:void(0)" onclick="'+nameClickAction+'" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+_bphtCleanProdName(r)+'</a></td>'
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.finisher_name||'—')+'</td>'
@@ -605,7 +606,7 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
     if (readOnly) {
         footerBtns = `
             <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="padding:8px 16px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; background:#fff; cursor:pointer; color:#475569;">Đóng</button>
-            <button onclick="document.getElementById('bphtCompleteOverlay').remove(); _bphtTog(${r.id},'undo_complete')" style="padding:8px 20px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Hoàn Tác Hoàn Thành</button>
+            ${r.is_completed ? `<button onclick="document.getElementById('bphtCompleteOverlay').remove(); _bphtTog(${r.id},'undo_complete')" style="padding:8px 20px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Hoàn Tác Hoàn Thành</button>` : ''}
         `;
     } else {
         footerBtns = `
