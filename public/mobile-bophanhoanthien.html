@@ -655,6 +655,11 @@ function mSearchInput(){
 let html5QrcodeScanner = null;
 
 function mScanQR() {
+    if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        toast("❌ Cần kết nối bảo mật HTTPS để dùng camera!", "error");
+        alert("Để sử dụng camera quét mã QR, vui lòng truy cập địa chỉ có bảo mật (https):\nhttps://" + window.location.host + window.location.pathname + window.location.search);
+        return;
+    }
     let overlay = document.getElementById('qrScannerOverlay');
     if (!overlay) {
         overlay = document.createElement('div');
