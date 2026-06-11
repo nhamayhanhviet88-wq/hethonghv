@@ -2278,22 +2278,35 @@ function _lsxOpenSewingQCModal(id) {
         h += '<div style="margin-bottom: 12px;"></div>';
     }
 
-    // Techniques Table
-    h += '<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">';
+    // Techniques Card
+    h += '<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; border-left: 4px solid #6366f1;">';
+    h += '<div style="font-size: 13px; font-weight: 800; color: #4f46e5; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">✂️ KỸ THUẬT MAY</div>';
+    
+    h += '<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 200px; overflow-y: auto;">';
     h += '<table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">';
-    h += '<thead style="background: #f1f5f9; font-weight: 700; color: #475569;">';
+    h += '<thead style="background: #0f172a; font-weight: 700; color: #ffffff; position: sticky; top: 0; z-index: 10;">';
     h += '<tr>';
-    h += '<th style="padding: 10px; width: 50px; text-align: center;">Chọn</th>';
-    h += '<th style="padding: 10px;">Tên kỹ thuật</th>';
-    h += '<th style="padding: 10px; width: 60px; text-align: center;">SL</th>';
-    h += '<th style="padding: 10px; text-align: right; width: 120px;">May Nhà (đ)</th>';
-    h += '<th style="padding: 10px; text-align: right; width: 120px;">May GC (đ)</th>';
+    h += '<th style="padding: 10px; width: 60px; text-align: center; color: #ffffff;">TÍCH</th>';
+    h += '<th style="padding: 10px; color: #ffffff;">KỸ THUẬT</th>';
+    h += '<th style="padding: 10px; width: 60px; text-align: center; color: #ffffff;">SL</th>';
+    h += '<th style="padding: 10px; text-align: right; width: 120px; color: #10b981;">MAY NHÀ</th>';
+    h += '<th style="padding: 10px; text-align: right; width: 120px; color: #3b82f6;">MAY GC</th>';
     h += '</tr>';
     h += '</thead>';
     h += '<tbody id="lsxSewTechBody">';
     h += '</tbody>';
     h += '</table>';
     h += '</div>';
+
+    h += '<div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; font-weight: 700; color: #1e293b;">';
+    h += '💰 Tổng giá may &nbsp;|&nbsp; ';
+    h += '<span style="color: #059669;">MAY NHÀ: <strong id="sumFP">0đ</strong></span> &nbsp;•&nbsp; ';
+    h += '<span style="color: #2563eb;">MAY GC: <strong id="sumPP">0đ</strong></span>';
+    h += '</div>';
+
+    h += '</div>';
+
+    h += '<div style="margin-bottom: 12px;"></div>';
 
     // Add Technique Form
     h += '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px;">';
@@ -2310,17 +2323,6 @@ function _lsxOpenSewingQCModal(id) {
 
     // Summary Totals
     h += '<div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;">';
-    
-    h += '<div style="display: flex; justify-content: space-between;">';
-    h += '<span>Đơn Giá May Nhà:</span>';
-    h += '<span id="sumFP" style="font-weight: 700; color: #166534;">0đ</span>';
-    h += '</div>';
-    h += '<div style="display: flex; justify-content: space-between;">';
-    h += '<span>Đơn Giá May GC:</span>';
-    h += '<span id="sumPP" style="font-weight: 700; color: #2563eb;">0đ</span>';
-    h += '</div>';
-    
-    h += '<div style="border-top: 1px dashed #cbd5e1; margin: 5px 0;"></div>';
     
     h += '<div style="display: flex; justify-content: space-between; font-size: 15px;">';
     h += '<span><b>Lương Thợ (May Nhà):</b></span>';
