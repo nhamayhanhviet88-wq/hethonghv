@@ -419,7 +419,7 @@ const cA=r.is_completed?'undo_complete':'complete';
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn" style="font-size:12px;line-height:1.4;">'+cleanProdName(r)+'</div></div>'
 +'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ra dự kiến</span><span class="cv">'+getRaDukien(r)+'</span></div>'
++'<div class="cr"><span class="cl">📅 Hạn gửi hàng</span><span class="cv">'+getRaDukien(r)+'</span></div>'
 +'<div class="cr"><span class="cl">✅ Hoàn thiện</span><span class="cv" style="color:'+(r.done_date?'#6ee7b7':'#94a3b8')+'">'+fd(r.done_date)+'</span></div>'
 +'<div class="cr"><span class="cl">📊 Tiến độ</span>'+progress(r.expected_ship_date||r.expected_date,r.done_date)+'</div>'
 +'<div class="cd"></div>'

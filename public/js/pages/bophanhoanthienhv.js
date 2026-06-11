@@ -32,7 +32,7 @@ function renderBophanhoanthienPage(content){
     content.innerHTML='<div class="bpht-wrap"><div class="bpht-sb" id="bphtSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpht-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bphtInfo" style="font-size:12px"></div><div id="bphtStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'+setupBtn+'<input id="bphtSearch" placeholder="🔍 Tìm SP / CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bphtTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>✅</th><th>⚠️</th><th>Ra DK</th><th>Hoàn Thiện</th><th>Tiến Độ</th><th>Tên SP</th><th>CSKH</th><th>SL</th><th>NV HT</th><th>NV May</th><th>Ảnh</th><th>TC Gửi</th><th>Cập Nhật</th>'
+    +'<th>STT</th><th>✅</th><th>⚠️</th><th>Hạn gửi hàng</th><th>Hoàn Thiện</th><th>Tiến Độ</th><th>Tên SP</th><th>CSKH</th><th>SL</th><th>NV HT</th><th>NV May</th><th>Ảnh</th><th>TC Gửi</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bphtTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bphtSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpht.search=document.getElementById('bphtSearch').value||'';_bphtRender();},300);});
     _bphtLoadAll();
