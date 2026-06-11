@@ -371,7 +371,7 @@ module.exports = async function (fastify) {
         // Cut history from cutting_records
         const cutHistory = await db.all(
             `SELECT cr.id AS cutting_record_id, cr.cut_date, cr.product_name,
-                    cr.order_quantity, cr.cut_quantity, cr.kg_cut,
+                    cr.order_quantity, cr.cut_quantity, cr.kg_cut, cr.selected_roll_ids,
                     u.full_name AS cutter_name
              FROM cutting_records cr
              LEFT JOIN users u ON u.id = cr.cutter_id
@@ -380,7 +380,47 @@ module.exports = async function (fastify) {
              ORDER BY cr.cut_date DESC`, [request.params.id]
         );
 
-        return { roll, cutHistory };
+        const targetRollId = Number(request.params.id);
+        const mappedHistory = cutHistory.map(cr => {
+            let rollKgCut = Number(cr.kg_cut);
+            
+            if (cr.selected_roll_ids) {
+                let rolls = [];
+                try {
+                    rolls = typeof cr.selected_roll_ids === 'string' ? JSON.parse(cr.selected_roll_ids) : (cr.selected_roll_ids || []);
+                } catch(e) {}
+                
+                const rollObj = rolls.find(r => Number(r.roll_id) === targetRollId);
+                if (rollObj) {
+                    if (rollObj.kg_cut !== undefined && rollObj.kg_cut !== null) {
+                        rollKgCut = Number(rollObj.kg_cut);
+                    } else if (rollObj.kg_used !== undefined && rollObj.kg_used !== null) {
+                        rollKgCut = Number(rollObj.kg_used);
+                    } else if (rolls.length > 1) {
+                        // Proportional fallback for older multi-roll records
+                        const totalStartWeight = rolls.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
+                        if (totalStartWeight > 0) {
+                            const ratio = (Number(rollObj.weight) || 0) / totalStartWeight;
+                            rollKgCut = Number(cr.kg_cut) * ratio;
+                        }
+                    }
+                }
+            }
+            
+            rollKgCut = Math.round(rollKgCut * 100) / 100;
+
+            return {
+                cutting_record_id: cr.cutting_record_id,
+                cut_date: cr.cut_date,
+                product_name: cr.product_name,
+                order_quantity: cr.order_quantity,
+                cut_quantity: cr.cut_quantity,
+                kg_cut: rollKgCut,
+                cutter_name: cr.cutter_name
+            };
+        });
+
+        return { roll, cutHistory: mappedHistory };
     });
 
     // ========== TRANSACTIONS ==========

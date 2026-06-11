@@ -814,11 +814,23 @@ module.exports = async function(fastify) {
                         }
                     }
 
+                    const myUpdatedSnapshot = snapshot.map(s => {
+                        const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
+                        const consumed = Math.max(0, (Number(s.weight) || 0) - rem);
+                        const rollKgCut = totalQtyAll > 0 ? (cutQty / totalQtyAll) * consumed : consumed;
+                        return {
+                            ...s,
+                            weight_end: rem,
+                            kg_cut: Math.round(rollKgCut * 100) / 100
+                        };
+                    });
+
                     const salInfo = await calculateCutterSalary(rec.cutter_id, rec.cutting_category, cutQty);
                     await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                         kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
-                        ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
-                        [now, request.user.id, kgEnd, myKgCut, cutQty, myRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
+                        ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10,
+                        selected_roll_ids = $11, updated_at = $1 WHERE id = $12`,
+                        [now, request.user.id, kgEnd, myKgCut, cutQty, myRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, JSON.stringify(myUpdatedSnapshot), id]);
                     if (need_compensate) {
                         await createCompensationTicket(rec, cutQty, request.user.id, now);
                     }
@@ -828,8 +840,32 @@ module.exports = async function(fastify) {
                         const grQty = Number(gr.cut_quantity) || 0;
                         const grKgCut = totalQtyAll > 0 ? (grQty / totalQtyAll) * totalKgCut : 0;
                         const grRatio = grKgCut > 0 ? Math.round((grQty / grKgCut) * 100) / 100 : 0;
-                        await db.run(`UPDATE cutting_records SET kg_end = $1, kg_cut = $2, cut_ratio = $3, updated_at = $4 WHERE id = $5`,
-                            [kgEnd, grKgCut, grRatio, now, gr.id]);
+                        
+                        // Fetch individual member's snapshot and update
+                        const grRec = await db.get('SELECT selected_roll_ids FROM cutting_records WHERE id = $1', [gr.id]);
+                        let grSnapshot = [];
+                        if (grRec && grRec.selected_roll_ids) {
+                            try {
+                                grSnapshot = typeof grRec.selected_roll_ids === 'string' ? JSON.parse(grRec.selected_roll_ids) : (grRec.selected_roll_ids || []);
+                            } catch(e) {}
+                        }
+                        if (!grSnapshot || grSnapshot.length === 0) {
+                            grSnapshot = snapshot;
+                        }
+                        
+                        const grUpdatedSnapshot = grSnapshot.map(s => {
+                            const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
+                            const consumed = Math.max(0, (Number(s.weight) || 0) - rem);
+                            const rollKgCut = totalQtyAll > 0 ? (grQty / totalQtyAll) * consumed : consumed;
+                            return {
+                                ...s,
+                                weight_end: rem,
+                                kg_cut: Math.round(rollKgCut * 100) / 100
+                            };
+                        });
+
+                        await db.run(`UPDATE cutting_records SET kg_end = $1, kg_cut = $2, cut_ratio = $3, selected_roll_ids = $4, updated_at = $5 WHERE id = $6`,
+                            [kgEnd, grKgCut, grRatio, JSON.stringify(grUpdatedSnapshot), now, gr.id]);
                     }
 
                     const groupOrderIds = [rec.dht_order_id, ...allGroupDone.map(r => r.dht_order_id)].filter(Boolean);
@@ -891,11 +927,22 @@ module.exports = async function(fastify) {
                     }
                 }
 
+                const updatedSnapshot = snapshot.map(s => {
+                    const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
+                    const rollKgCut = Math.max(0, (Number(s.weight) || 0) - rem);
+                    return {
+                        ...s,
+                        weight_end: rem,
+                        kg_cut: Math.round(rollKgCut * 100) / 100
+                    };
+                });
+
                 const salInfo = await calculateCutterSalary(rec.cutter_id, rec.cutting_category, cutQty);
                 await db.run(`UPDATE cutting_records SET is_cut_done = true, cut_done_at = $1, cut_done_by = $2,
                     kg_end = $3, kg_cut = $4, cut_quantity = $5, cut_ratio = $6,
-                    ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10, updated_at = $1 WHERE id = $11`,
-                    [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, id]);
+                    ratio_reason = $7, ratio_image = $8, unit_price = $9, salary = $10,
+                    selected_roll_ids = $11, updated_at = $1 WHERE id = $12`,
+                    [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, JSON.stringify(updatedSnapshot), id]);
                 if (need_compensate) {
                     await createCompensationTicket(rec, cutQty, request.user.id, now);
                 }
