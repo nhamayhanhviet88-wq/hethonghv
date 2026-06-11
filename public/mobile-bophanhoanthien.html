@@ -443,7 +443,7 @@ function mStats(){
         badge.style.display = 'none';
     }
     
-    const uncheckedCount = mr.filter(r => !r.done_date && r.is_qc_checked === 0).length;
+    const uncheckedCount = mr.filter(r => r.is_qc_checked === 0).length;
     const badgeUnchecked = document.getElementById('badge_unchecked');
     if (badgeUnchecked) {
         if (uncheckedCount > 0) {
@@ -734,7 +734,7 @@ if (activeTab === 'undone') {
         return true;
     });
 } else if (activeTab === 'unchecked') {
-    filtered = mr.filter(r => !r.done_date && r.is_qc_checked === 0);
+    filtered = mr.filter(r => r.is_qc_checked === 0);
 } else if (activeTab === 'error') {
     filtered = mr.filter(r => r.error_reported && r.is_finishing_needed);
 }
