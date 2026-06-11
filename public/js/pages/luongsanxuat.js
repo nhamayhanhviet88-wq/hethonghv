@@ -2161,7 +2161,7 @@ async function _lsxBulkAction(approve) {
         _lsxOpenBulkCuttingQCModal();
         return;
     }
-    if (approve) {
+    if (approve && _lsx.filter.dept === 'sewing') {
         var flagged = [];
         _lsx.selectedRecords.forEach(function(sel) {
             var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === sel.dept; });
@@ -2174,17 +2174,14 @@ async function _lsxBulkAction(approve) {
             if (!confirm('Trong danh sách chọn có ' + flagged.length + ' đơn hàng đang bị báo "Thiếu Kỹ Thuật May":\n' + names + '\n\nBạn có chắc chắn vẫn muốn tiếp tục duyệt hàng loạt tất cả không?')) {
                 return;
             }
-        } else {
-            var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
-            if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
-                return;
-            }
         }
-    } else {
-        var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
-        if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
-            return;
-        }
+        _lsxOpenBulkSewingQCModal();
+        return;
+    }
+    
+    var actionText = approve ? 'duyệt hàng loạt' : 'hủy duyệt hàng loạt';
+    if (!confirm(`Bạn có chắc chắn muốn ${actionText} ${_lsx.selectedRecords.length} dòng đã chọn?`)) {
+        return;
     }
     
     var targets = _lsx.selectedRecords.map(function(r) {
@@ -3191,6 +3188,226 @@ async function _lsxSubmitBulkCuttingApprove() {
             
             // Close the bulk QC modal
             var m = document.getElementById('_bpeBulkCuttingQCModal');
+            if (m) {
+                m.classList.remove('show');
+                setTimeout(function() { m.remove(); }, 300);
+            }
+            
+            _lsx.selectedRecords = [];
+            _lsx.lastSelectedIndex = undefined;
+            _lsxUpdateFloatingBar();
+            await _lsxLoadAll();
+        } else {
+            showToast((res && res.error) || 'Có lỗi xảy ra', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast(e.message || 'Lỗi khi duyệt hàng loạt', 'error');
+    }
+}
+
+function _lsxOpenBulkSewingQCModal() {
+    var records = [];
+    _lsx.selectedRecords.forEach(function(sel) {
+        var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === 'sewing'; });
+        if (r) records.push(r);
+    });
+
+    if (records.length === 0) {
+        showToast('Không tìm thấy dữ liệu các dòng đã chọn', 'error');
+        return;
+    }
+
+    var old = document.getElementById('_bpeBulkSewingQCModal'); if (old) old.remove();
+
+    var itemRowsHtml = '';
+    var totalThoGrand = 0;
+    var totalCPMGrand = 0;
+
+    records.forEach(function(r) {
+        var orderCode = r.order_code || '—';
+        var prodName = r.product_name || '—';
+        var isContractor = !!r.contractor_id;
+        var assignee = isContractor ? '🏭 ' + (r.contractor_name || 'Gia công') : '👥 ' + (r.worker_name || 'Tổ may');
+        var quantity = Number(r.quantity) || 0;
+
+        // Compile list of available techniques
+        var tsamTechs = [];
+        try {
+            tsamTechs = typeof r.sample_sewing_tech === 'string' ? JSON.parse(r.sample_sewing_tech) : (r.sample_sewing_tech || []);
+        } catch (e) {}
+        if (!Array.isArray(tsamTechs)) tsamTechs = [];
+
+        var orderTechs = [];
+        try {
+            orderTechs = typeof r.order_sewing_techniques === 'string' ? JSON.parse(r.order_sewing_techniques) : (r.order_sewing_techniques || []);
+        } catch (e) {}
+        if (!Array.isArray(orderTechs)) orderTechs = [];
+
+        var techniques = [];
+        var seenIds = new Set();
+        
+        function addTechToList(t, isSample) {
+            if (!t || !t.id) return;
+            var tid = Number(t.id);
+            if (!seenIds.has(tid)) {
+                seenIds.add(tid);
+                techniques.push({
+                    id: tid,
+                    name: t.name || '',
+                    qty: Number(t.qty) || 1,
+                    fp: Number(t.fp) || 0,
+                    pp: Number(t.pp) || 0,
+                    is_sample: isSample
+                });
+            }
+        }
+
+        tsamTechs.forEach(function(t) { addTechToList(t, true); });
+        orderTechs.forEach(function(t) { addTechToList(t, false); });
+
+        var checkedIds = [];
+        try {
+            checkedIds = typeof r.checked_techniques === 'string' ? JSON.parse(r.checked_techniques) : (r.checked_techniques || []);
+        } catch (e) {}
+        if (!Array.isArray(checkedIds)) checkedIds = [];
+
+        // Compute prices
+        var totalFP = 0;
+        var totalPP = 0;
+        techniques.forEach(function(tech) {
+            if (checkedIds.indexOf(tech.id) >= 0) {
+                totalFP += (Number(tech.fp) || 0) * (Number(tech.qty) || 1);
+                totalPP += (Number(tech.pp) || 0) * (Number(tech.qty) || 1);
+            }
+        });
+
+        var unitPrice = isContractor ? totalPP : totalFP;
+        var salary = quantity * unitPrice;
+        var cpmSalary = isContractor ? 0 : (quantity * totalPP);
+
+        totalThoGrand += salary;
+        totalCPMGrand += cpmSalary;
+
+        // Techniques rendering
+        var techniquesHtml = '';
+        if (techniques.length === 0) {
+            techniquesHtml = '<div style="color:#94a3b8; font-style:italic; font-size:10.5px; padding:4px 0;">Không có dữ liệu kỹ thuật</div>';
+        } else {
+            techniques.forEach(function(tech) {
+                var isChecked = checkedIds.indexOf(tech.id) >= 0;
+                var checkMark = isChecked ? '✅' : '⬜';
+                var opacity = isChecked ? 'opacity: 1;' : 'opacity: 0.55; text-decoration: line-through;';
+                var qtyStr = tech.qty > 1 ? ` (x${tech.qty})` : '';
+                techniquesHtml += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px dashed #e2e8f0; font-size:11px; ${opacity}">
+                        <span style="color:#1e293b; font-weight:600;">${checkMark} ${tech.name}${qtyStr}</span>
+                        <span style="color:#475569; font-weight:700;">
+                            Nhà: ${Number(tech.fp).toLocaleString('vi-VN')}đ | GC/CPM: ${Number(tech.pp).toLocaleString('vi-VN')}đ
+                        </span>
+                    </div>
+                `;
+            });
+        }
+
+        itemRowsHtml += `
+            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:12px; box-shadow:0 2px 4px rgba(0,0,0,0.02); text-align:left;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
+                    <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:10px;">
+                        <span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px; margin-right:6px; display:inline-block; vertical-align:middle;">${orderCode}</span>
+                        <span style="color:#1e293b; font-weight:700; font-size:12px; vertical-align:middle;">${prodName}</span>
+                    </div>
+                    <span style="color:#475569; font-weight:600; font-size:11px; flex-shrink:0;">${assignee}</span>
+                </div>
+                
+                <div style="background:#f8fafc; border-radius:6px; padding:6px 10px; margin-bottom:8px;">
+                    <div style="font-size:10px; font-weight:800; color:#4f46e5; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">✂️ Chi tiết các kỹ thuật may & đơn giá:</div>
+                    ${techniquesHtml}
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; padding-top:4px;">
+                    <span style="color:#64748b; font-weight:600;">Số lượng: <strong style="color:#0f172a;">${quantity} sp</strong></span>
+                    <div style="text-align:right; font-weight:700;">
+                        <div>
+                            <span style="color:#64748b; font-weight:normal;">Lương Thợ (May Nhà):</span>
+                            <span style="color:#166534; font-size:12px;">${quantity} sp x ${unitPrice.toLocaleString('vi-VN')}đ = ${Number(salary).toLocaleString('vi-VN')} đ</span>
+                        </div>
+                        ${!isContractor ? `
+                        <div>
+                            <span style="color:#64748b; font-weight:normal;">Lương CPM (May GC):</span>
+                            <span style="color:#2563eb; font-size:12px;">${quantity} sp x ${totalPP.toLocaleString('vi-VN')}đ = ${Number(cpmSalary).toLocaleString('vi-VN')} đ</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    var h = '<div class="bpc-modal-overlay" id="_bpeBulkSewingQCModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpeBulkSewingQCModal\').remove()},300)">';
+    h += '<div class="bpc-modal" style="width:680px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
+    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#6366f1,#4f46e5)"><div class="m-icon">📋</div><div><div class="m-title">DUYỆT LƯƠNG HÀNG LOẠT — BỘ PHẬN MAY</div><div class="m-sub">Chi tiết danh sách các đơn hàng may được chọn để duyệt lương</div></div></div>';
+    h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px; background:#f1f5f9;">';
+
+    // Scrollable list container
+    h += '<div style="max-height:380px; overflow-y:auto; padding-right:4px; margin-bottom:16px;">';
+    h += itemRowsHtml;
+    h += '</div>';
+
+    // Grand total section
+    h += '<div style="background:#fff; border-radius:10px; padding:14px; border:1px solid #c7d2fe; display:flex; flex-direction:column; gap:8px; box-shadow:0 4px 15px rgba(99, 102, 241, 0.05); text-align:left;">';
+    h += '<div>';
+    h += '<div style="font-size:10px; font-weight:800; color:#4f46e5; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">💰 TỔNG HỢP LƯƠNG TOÀN BỘ CÁC ĐƠN</div>';
+    h += '<div style="font-size:11px; color:#475569; font-weight:500;">Duyệt đồng thời ' + records.length + ' bản ghi đã chọn</div>';
+    h += '</div>';
+    h += '<div style="display:flex; justify-content:space-between; font-size:14px; border-top:1px dashed #e2e8f0; padding-top:8px;">';
+    h += '<span><b>Tổng Lương Thợ (May Nhà):</b></span>';
+    h += '<span style="font-weight:900; color:#166534; font-size:15px;">' + Number(totalThoGrand).toLocaleString('vi-VN') + ' đ</span>';
+    h += '</div>';
+    h += '<div style="display:flex; justify-content:space-between; font-size:14px;">';
+    h += '<span><b>Tổng Lương CPM (May GC):</b></span>';
+    h += '<span style="font-weight:900; color:#2563eb; font-size:15px;">' + Number(totalCPMGrand).toLocaleString('vi-VN') + ' đ</span>';
+    h += '</div>';
+    h += '<div style="display:flex; justify-content:space-between; font-size:15px; border-top:1px solid #cbd5e1; padding-top:6px; margin-top:2px;">';
+    h += '<span><b>TỔNG CỘNG DUYỆT:</b></span>';
+    h += '<span style="font-weight:950; color:#4f46e5; font-size:18px;">' + Number(totalThoGrand + totalCPMGrand).toLocaleString('vi-VN') + ' đ</span>';
+    h += '</div>';
+    h += '</div>';
+
+    h += '</div>'; // End body
+
+    // Footer actions
+    h += '<div class="bpc-modal-actions" style="display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid #e2e8f0; background:#fff;">';
+    h += '<button class="bpc-modal-btn cancel" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: #f1f5f9; color: #475569;" onclick="var m=document.getElementById(\'_bpeBulkSewingQCModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Hủy</button>';
+    h += '<button class="bpc-modal-btn confirm" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);" onclick="_lsxSubmitBulkSewingApprove()">XÁC NHẬN DUYỆT</button>';
+    h += '</div>';
+
+    h += '</div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', h);
+    setTimeout(function() {
+        var m = document.getElementById('_bpeBulkSewingQCModal');
+        if (m) m.classList.add('show');
+    }, 50);
+}
+
+async function _lsxSubmitBulkSewingApprove() {
+    var targets = _lsx.selectedRecords.map(function(r) {
+        return { id: r.id, dept: r.dept };
+    });
+
+    try {
+        showToast('Đang xử lý...', 'info');
+        var res = await apiCall('/api/production-salary/approve-bulk', 'POST', {
+            records: targets,
+            approved: true
+        });
+        
+        if (res && (res.success || res.count !== undefined)) {
+            showToast('Duyệt hàng loạt thành công!', 'success');
+            
+            // Close the bulk QC modal
+            var m = document.getElementById('_bpeBulkSewingQCModal');
             if (m) {
                 m.classList.remove('show');
                 setTimeout(function() { m.remove(); }, 300);
