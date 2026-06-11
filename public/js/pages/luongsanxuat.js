@@ -586,7 +586,7 @@ function _lsxGetHeaderHTML() {
         return `
             <tr style="background:var(--gray-800)">
                 <th style="width:50px">STT</th>
-                <th>Time Ép Xong</th>
+                <th>Ép Xong</th>
                 <th>Bộ Phận</th>
                 <th>Nhân Viên</th>
                 <th>Tên Sản Phẩm</th>
@@ -1462,7 +1462,13 @@ async function _lsxOpenCuttingDetail(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + (r.cut_date ? _lsxDetailFmtDate(r.cut_date) : '—') + '</span></div>';
+        var cutDoneStr = '—';
+        if (r.cut_done_at) {
+            cutDoneStr = _lsxFormatWorkDate({ is_completed: true, completion_time: r.cut_done_at });
+        } else if (r.cut_date) {
+            cutDoneStr = _lsxDetailFmtDate(r.cut_date);
+        }
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Cắt Xong</span><span class="bpc-modal-val">' + cutDoneStr + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + _lsxDetailFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
 
         // Wash reported details
@@ -1652,7 +1658,7 @@ async function _lsxOpenPressingDetail(recordId) {
         h += '<div>👤 <strong>CSKH:</strong> <span>' + (r.cskh_name || '—') + '</span></div>';
         h += '<div>📦 <strong>SL Cắt:</strong> <span style="color:#0369a1; font-weight:700;">' + (r.order_quantity || 0) + ' sp</span></div>';
         h += '<div>🔥 <strong>NV Ép:</strong> <span>' + (r.presser_name || '—') + '</span></div>';
-        h += '<div>📅 <strong>Ngày Ép:</strong> <span>' + (r.reported_at ? (typeof vnFormat === 'function' ? vnFormat(r.reported_at) : _lsxDetailFmtDate(r.reported_at)) : '—') + '</span></div>';
+        h += '<div>📅 <strong>Ép Xong:</strong> <span>' + (r.reported_at ? _lsxFormatWorkDate({ is_completed: true, completion_time: r.reported_at }) : '—') + '</span></div>';
         if (r.print_types) {
             h += '<div style="grid-column: span 2; display:flex; align-items:center; flex-wrap:wrap;">🖨️ <strong>Trạng thái in:</strong> ' + _lsxGetPrintStatusHtml(r) + '</div>';
         }

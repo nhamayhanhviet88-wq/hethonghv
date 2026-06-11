@@ -908,12 +908,35 @@ async function _kvOpenCuttingDetail(cuttingRecordId) {
         bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
         bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
         
-        var cutDateStr = '—';
-        if (r.cut_date) {
+        var cutDoneStr = '—';
+        if (r.cut_done_at) {
+            try {
+                var dObj = new Date(r.cut_done_at);
+                var formatter = new Intl.DateTimeFormat('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour12: false
+                });
+                var parts = formatter.formatToParts(dObj);
+                var hour = '', minute = '', day = '', month = '';
+                for (var i = 0; i < parts.length; i++) {
+                    if (parts[i].type === 'hour') hour = parts[i].value;
+                    else if (parts[i].type === 'minute') minute = parts[i].value;
+                    else if (parts[i].type === 'day') day = parts[i].value;
+                    else if (parts[i].type === 'month') month = parts[i].value;
+                }
+                cutDoneStr = hour + ':' + minute + ' ' + day + '/' + month;
+            } catch(e) {
+                cutDoneStr = '—';
+            }
+        } else if (r.cut_date) {
             var cDate = new Date(r.cut_date);
-            cutDateStr = String(cDate.getDate()).padStart(2,'0') + '/' + String(cDate.getMonth()+1).padStart(2,'0') + '/' + cDate.getFullYear();
+            cutDoneStr = String(cDate.getDate()).padStart(2,'0') + '/' + String(cDate.getMonth()+1).padStart(2,'0') + '/' + cDate.getFullYear();
         }
-        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + cutDateStr + '</span></div>';
+        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Cắt Xong</span><span class="bpc-modal-val">' + cutDoneStr + '</span></div>';
         bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + (r.order_quantity||'—') + '</span></div>';
         
         // Selected rolls
