@@ -708,7 +708,7 @@ function _lsxRenderTable() {
     // Pre-calculate / override salary for sewing records so that all calculations (including cumulative sums) are correct
     all.forEach(function(r) {
         if (r.dept === 'sewing') {
-            r.salary = (Number(r.quantity) || 0) * (Number(r.checked_price) || 0);
+            r.salary = (Number(r.quantity) || 0) * (Number(r.checked_price || r.base_price) || 0);
 
             // Compute Lương CPM
             var gcCheckedPrice = 0;
@@ -1111,7 +1111,8 @@ function _lsxRenderTable() {
             + `</tr>`;
     }).join('');
 
-    if (_lsx.is_manager) {
+    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    if (isAllowed) {
         _lsxUpdateMasterCheckboxState();
         _lsxUpdateFloatingBar();
     }
@@ -1798,7 +1799,8 @@ function _lsxGetPrintStatusHtml(r) {
 // ========== BATCH SELECTION & APPROVAL HELPERS ==========
 
 function _lsxOnRowClick(rowEl, event) {
-    if (!_lsx.is_manager) return;
+    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    if (!isAllowed) return;
     
     // Do not trigger selection when clicking on interactive children
     var tag = event.target.tagName.toLowerCase();
@@ -1817,7 +1819,8 @@ function _lsxOnRowClick(rowEl, event) {
 }
 
 function _lsxOnRowCheckClick(chk, event) {
-    if (!_lsx.is_manager) return;
+    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    if (!isAllowed) return;
     
     var id = Number(chk.getAttribute('data-id'));
     var dept = chk.getAttribute('data-dept');
@@ -1900,7 +1903,8 @@ function _lsxUpdateSelectionState(id, dept, is_approved, isSelected) {
 }
 
 function _lsxToggleSelectAll(masterChk) {
-    if (!_lsx.is_manager) return;
+    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    if (!isAllowed) return;
     
     var allVisible = _lsx.records.slice();
     if (_lsx.search) {
@@ -2145,8 +2149,9 @@ function _lsxOpenSewingQCModal(id) {
     var seenIds = new Set();
     
     function addTechToList(t, isSample) {
+        if (!t || !t.id) return;
         var tid = Number(t.id);
-        if (t && t.id && !seenIds.has(tid)) {
+        if (!seenIds.has(tid)) {
             seenIds.add(tid);
             techniques.push({
                 id: tid,

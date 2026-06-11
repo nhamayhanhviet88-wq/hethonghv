@@ -54,6 +54,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/production-salary/tree', { preHandler: [authenticate] }, async (req) => {
         const isMgr = await isSalaryManager(req);
         const isSewMgr = await canManageSewingSalary(req);
+        console.log('[LSX DEBUG TREE] user:', req.user.username, 'isMgr:', isMgr, 'isSewMgr:', isSewMgr);
         let whereCutting = '1=1', wherePressing = '1=1', whereSewing = '1=1';
         const params = [];
         
@@ -250,6 +251,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/production-salary/records', { preHandler: [authenticate] }, async (req) => {
         const isMgr = await isSalaryManager(req);
         const isSewMgr = await canManageSewingSalary(req);
+        console.log('[LSX DEBUG RECORDS] user:', req.user.username, 'isMgr:', isMgr, 'isSewMgr:', isSewMgr);
         const { year, month, dept, worker_id, contractor_id, status, search } = req.query;
 
         let whereCutting = '1=1', wherePressing = '1=1', whereSewing = '1=1';
