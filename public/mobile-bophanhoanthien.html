@@ -6,6 +6,7 @@
     <title>✅ Cắt Chỉ & Hoàn Thiện — Đồng Phục HV</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         body{font-family:'Inter',-apple-system,sans-serif;background:linear-gradient(135deg,#111827,#1f2937);min-height:100vh;color:#e2e8f0}
@@ -651,8 +652,84 @@ function mSearchInput(){
     clearTimeout(searchTimeout);
     searchTimeout=setTimeout(()=>mCards(),200);
 }
-function mScanQR(){
-    toast('📷 Tính năng quét QR đang được thiết lập...', 'success');
+let html5QrcodeScanner = null;
+
+function mScanQR() {
+    let overlay = document.getElementById('qrScannerOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'qrScannerOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
+        overlay.innerHTML = `
+            <div style="width:100%;max-width:400px;background:#1f2937;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,0.5);display:flex;flex-direction:column;align-items:center;gap:20px;">
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:12px;">
+                    <h3 style="font-size:16px;font-weight:800;color:#34d399;margin:0;">📷 QUÉT MÃ QR</h3>
+                    <button onclick="stopQRScan()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;line-height:1;">&times;</button>
+                </div>
+                <div id="qrReader" style="width:100%;aspect-ratio:1;background:#111827;border-radius:16px;overflow:hidden;border:2px dashed rgba(52,211,153,0.3);position:relative;">
+                </div>
+                <div style="font-size:12px;color:#9ca3af;text-align:center;line-height:1.5;">
+                    Di chuyển camera đến gần mã QR của đơn hàng để quét tự động.
+                </div>
+                <button onclick="stopQRScan()" style="width:100%;padding:12px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                    HỦY BỎ
+                </button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        overlay.style.display = 'flex';
+    }
+
+    html5QrcodeScanner = new Html5Qrcode("qrReader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+    ).catch(err => {
+        console.error("Camera access error:", err);
+        html5QrcodeScanner.start(
+            { facingMode: "user" },
+            config,
+            onScanSuccess,
+            onScanFailure
+        ).catch(err2 => {
+            toast("❌ Không thể truy cập camera. Vui lòng cấp quyền camera!", "error");
+            stopQRScan();
+        });
+    });
+}
+
+function onScanSuccess(decodedText) {
+    toast("✅ Đã quét thành công!", "success");
+    const searchInp = document.getElementById('mSearch');
+    if (searchInp) {
+        searchInp.value = decodedText.trim();
+        mSearchInput();
+    }
+    stopQRScan();
+}
+
+function onScanFailure(error) {
+}
+
+function stopQRScan() {
+    const overlay = document.getElementById('qrScannerOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+            html5QrcodeScanner.clear();
+            html5QrcodeScanner = null;
+        }).catch(err => {
+            console.error("Failed to stop scanner:", err);
+            html5QrcodeScanner = null;
+        });
+    }
 }
 function cleanProdName(r) {
     if (!r) return 'Sản phẩm';
