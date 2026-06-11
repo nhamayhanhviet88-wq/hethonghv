@@ -434,7 +434,7 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
 async function mLoad(){const dt=document.getElementById('mFD')?.value||'';
 try{const r=await api('/api/finishing/records');mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){
-    const undoneCount = mr.filter(r => !r.done_date).length;
+    const undoneCount = mr.filter(r => !r.done_date && r.is_finishing_needed).length;
     const badge = document.getElementById('badge_undone');
     if (undoneCount > 0) {
         badge.textContent = undoneCount;
@@ -691,9 +691,10 @@ function getOrderCodeWithTicket(r) {
 function mCards(){const c=document.getElementById('mC');
 let filtered = mr;
 if (activeTab === 'undone') {
-    filtered = mr.filter(r => !r.done_date);
+    filtered = mr.filter(r => !r.done_date && r.is_finishing_needed);
 } else if (activeTab === 'done') {
     filtered = mr.filter(r => {
+        if (!r.is_finishing_needed) return false;
         if (!r.done_date) return false;
         const recordDate = r.done_date.split('T')[0];
         
@@ -735,7 +736,7 @@ if (activeTab === 'undone') {
 } else if (activeTab === 'unchecked') {
     filtered = mr.filter(r => !r.done_date && r.is_qc_checked === 0);
 } else if (activeTab === 'error') {
-    filtered = mr.filter(r => r.error_reported);
+    filtered = mr.filter(r => r.error_reported && r.is_finishing_needed);
 }
 const sv = document.getElementById('mSearch')?.value.toLowerCase().trim() || '';
 if(sv){
@@ -791,7 +792,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="cr"><span class="cl">👤 CSKH</span><span class="cv" style="color:#93c5fd;font-size:11px">'+(r.cskh_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📦 Số lượng</span><span class="cv" style="color:#6ee7b7;font-size:16px">'+(r.quantity||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">👤 Nhân Viên Hoàn Thiện</span><span class="cv" style="color:#6ee7b7">'+(r.finisher_name||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">🧵 NV May</span><span class="cv" style="font-size:11px">'+(r.sewer_name||'—')+'</span></div>'
++'<div class="cr"><span class="cl">🧵 NV May</span><span class="cv" style="font-size:11px">' + (r.contractor_id ? '<span style="color:#f59e0b;font-weight:700;">[GIA CÔNG]</span> ' : '<span style="color:#3b82f6;font-weight:700;">[TRONG NHÀ]</span> ') + (r.sewer_name||'—') + '</span></div>'
 +'<div class="cr"><span class="cl">📦 TC Gửi</span>'+ship(r.shipping_standard)+'</div>'
 +imgs
 +'</div>'

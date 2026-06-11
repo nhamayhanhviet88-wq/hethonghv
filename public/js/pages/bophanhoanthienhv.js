@@ -212,7 +212,7 @@ function _bphtRender(){
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.finisher_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#6b7280">'+(r.sewer_name||'—')+'</td>'
+        +'<td style="font-size:10px;color:#6b7280">' + (r.contractor_id ? '<span style="color:#f59e0b;font-weight:700;">[GIA CÔNG]</span> ' : '<span style="color:#3b82f6;font-weight:700;">[TRONG NHÀ]</span> ') + (r.sewer_name||'—') + '</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td>'+_bphtShip(r.shipping_standard)+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
