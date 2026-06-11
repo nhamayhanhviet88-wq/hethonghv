@@ -131,7 +131,7 @@ finishersList.forEach(function(fin){
         monthsList.forEach(function(mo){
             var moActive = f.finisher_id == fin.id && f.year == mo.year && f.month == mo.month;
             h+='<div class="bpht-sb-month '+(moActive?'active':'')+'" onclick="event.stopPropagation();_bphtFilter('+mo.year+','+mo.month+',\''+fin.id+'\')">';
-            h+='<span>🗓️ T'+String(mo.month).padStart(2,\'0\')+'/'+mo.year+'</span>';
+            h+='<span>🗓️ T'+String(mo.month).padStart(2,'0')+'/'+mo.year+'</span>';
             h+='<span>'+mo.count+'</span>';
             h+='</div>';
         });
