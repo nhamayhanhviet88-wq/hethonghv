@@ -2100,7 +2100,6 @@ function _lsxUpdateFloatingBar() {
     
     var count = _lsx.selectedRecords.length;
     var hasPending = _lsx.selectedRecords.some(function(r) { return !r.is_approved; });
-    var hasApproved = _lsx.selectedRecords.some(function(r) { return r.is_approved; });
     
     var approveBtnHtml = '';
     if (hasPending) {
@@ -2111,19 +2110,9 @@ function _lsxUpdateFloatingBar() {
         `;
     }
     
-    var unapproveBtnHtml = '';
-    if (hasApproved) {
-        unapproveBtnHtml = `
-            <button class="lsx-floating-btn unapprove" onclick="_lsxBulkAction(false)">
-                <span>↩️</span> Hủy duyệt ${count} dòng
-            </button>
-        `;
-    }
-    
     bar.innerHTML = `
         <span style="font-size: 13px; font-weight: 700; color: #fff;">Đã chọn ${count} bản ghi</span>
         ${approveBtnHtml}
-        ${unapproveBtnHtml}
         <button class="lsx-floating-btn cancel" onclick="_lsxClearSelection()">Bỏ chọn</button>
     `;
     
@@ -2153,6 +2142,10 @@ function _lsxClearSelection() {
 }
 
 async function _lsxBulkAction(approve) {
+    if (!approve) {
+        showToast('Không cho phép hủy duyệt hàng loạt. Vui lòng chỉnh sửa từng đơn bằng cách bấm nút icon lương.', 'error');
+        return;
+    }
     if (approve && _lsx.filter.dept === 'pressing') {
         _lsxOpenBulkPressingQCModal();
         return;
