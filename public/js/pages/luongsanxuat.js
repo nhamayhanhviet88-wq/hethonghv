@@ -2097,15 +2097,14 @@ function _lsxUpdateFloatingBar() {
         bar.className = 'lsx-floating-bar';
         document.body.appendChild(bar);
     }
-    
     var count = _lsx.selectedRecords.length;
-    var hasPending = _lsx.selectedRecords.some(function(r) { return !r.is_approved; });
+    var pendingCount = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).length;
     
     var approveBtnHtml = '';
-    if (hasPending) {
+    if (pendingCount > 0) {
         approveBtnHtml = `
             <button class="lsx-floating-btn approve" onclick="_lsxBulkAction(true)">
-                <span>💰</span> Duyệt ${count} dòng
+                <span>💰</span> Duyệt ${pendingCount} dòng
             </button>
         `;
     }
@@ -2164,7 +2163,7 @@ async function _lsxBulkAction(approve) {
         return;
     }
     
-    var targets = _lsx.selectedRecords.map(function(r) {
+    var targets = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).map(function(r) {
         return { id: r.id, dept: r.dept };
     });
     
@@ -2903,12 +2902,12 @@ async function _lsxSubmitPressingApprove(id, approved) {
 function _lsxOpenBulkPressingQCModal() {
     var records = [];
     _lsx.selectedRecords.forEach(function(sel) {
-        var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === 'pressing'; });
-        if (r) records.push(r);
+        var r = _lsx.records.find(function(x) { return x.id == sel.id && x.dept === 'pressing'; });
+        if (r && !r.is_approved) records.push(r);
     });
 
     if (records.length === 0) {
-        showToast('Không tìm thấy dữ liệu các dòng đã chọn', 'error');
+        showToast('Các dòng đã chọn đều đã được duyệt hoặc không hợp lệ', 'warning');
         return;
     }
 
@@ -3010,7 +3009,7 @@ function _lsxOpenBulkPressingQCModal() {
 }
 
 async function _lsxSubmitBulkPressingApprove() {
-    var targets = _lsx.selectedRecords.map(function(r) {
+    var targets = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).map(function(r) {
         return { id: r.id, dept: r.dept };
     });
 
@@ -3047,12 +3046,12 @@ async function _lsxSubmitBulkPressingApprove() {
 function _lsxOpenBulkCuttingQCModal() {
     var records = [];
     _lsx.selectedRecords.forEach(function(sel) {
-        var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === 'cutting'; });
-        if (r) records.push(r);
+        var r = _lsx.records.find(function(x) { return x.id == sel.id && x.dept === 'cutting'; });
+        if (r && !r.is_approved) records.push(r);
     });
 
     if (records.length === 0) {
-        showToast('Không tìm thấy dữ liệu các dòng đã chọn', 'error');
+        showToast('Các dòng đã chọn đều đã được duyệt hoặc không hợp lệ', 'warning');
         return;
     }
 
@@ -3152,7 +3151,7 @@ function _lsxOpenBulkCuttingQCModal() {
 }
 
 async function _lsxSubmitBulkCuttingApprove() {
-    var targets = _lsx.selectedRecords.map(function(r) {
+    var targets = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).map(function(r) {
         return { id: r.id, dept: r.dept };
     });
 
@@ -3190,11 +3189,11 @@ function _lsxOpenBulkSewingQCModal() {
     var records = [];
     _lsx.selectedRecords.forEach(function(sel) {
         var r = _lsx.records.find(function(x) { return x.id == sel.id && x.dept === 'sewing'; });
-        if (r) records.push(r);
+        if (r && !r.is_approved) records.push(r);
     });
 
     if (records.length === 0) {
-        showToast('Không tìm thấy dữ liệu các dòng đã chọn', 'error');
+        showToast('Các dòng đã chọn đều đã được duyệt hoặc không hợp lệ', 'warning');
         return;
     }
 
@@ -3394,7 +3393,7 @@ function _lsxOpenBulkSewingQCModal() {
 }
 
 async function _lsxSubmitBulkSewingApprove() {
-    var targets = _lsx.selectedRecords.map(function(r) {
+    var targets = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).map(function(r) {
         return { id: r.id, dept: r.dept };
     });
 
