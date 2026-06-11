@@ -1690,6 +1690,7 @@ function _lsxDetailFmtKg(val) {
     var str = String(val).replace(',', '.');
     var num = Number(str);
     if (isNaN(num)) return val;
+    if (num === 0) return '—';
     var parts = str.split('.');
     if (parts.length > 1 && parts[1].length > 0) {
         return parts[0] + '.' + parts[1].substring(0, 1);
@@ -3090,19 +3091,18 @@ function _lsxOpenBulkCuttingQCModal() {
         // Rolls list
         var rolls = [];
         try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
-        var rollsStr = '';
+        var rollsHtml = '';
         if (rolls.length) {
-            rollsStr = rolls.map(function(rl, idx) {
+            var rollsStr = rolls.map(function(rl, idx) {
                 return rl.label || rl.roll_code || 'Cây '+(idx+1);
             }).join(', ');
-        } else {
-            rollsStr = 'Chưa có cây vải';
+            rollsHtml = `<div>📦 <strong>Cây vải:</strong> <span style="color:#0f172a; font-weight:600;">${rollsStr}</span></div>`;
         }
 
         // Details grid for start/end kg, cut qty, etc.
         var detailsHtml = `
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:11px; color:#475569; padding:6px 0;">
-                <div>📦 <strong>Cây vải:</strong> <span style="color:#0f172a; font-weight:600;">${rollsStr}</span></div>
+                ${rollsHtml}
                 <div>🏷️ <strong>Sản phẩm cắt:</strong> <span style="color:#0f172a; font-weight:600;">${r.cutting_category || '—'}</span></div>
                 <div>⚖️ <strong>Kg đầu:</strong> <span style="color:#b45309; font-weight:700;">${_lsxDetailFmtKg(r.kg_start)}</span></div>
                 <div>⚖️ <strong>Kg cuối:</strong> <span style="color:#dc2626; font-weight:700;">${_lsxDetailFmtKg(r.kg_end)}</span></div>
