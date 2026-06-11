@@ -2101,7 +2101,7 @@ function _lsxUpdateFloatingBar() {
     var pendingCount = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).length;
     
     var approveBtnHtml = '';
-    if (pendingCount > 0) {
+    if (pendingCount > 1) {
         approveBtnHtml = `
             <button class="lsx-floating-btn approve" onclick="_lsxBulkAction(true)">
                 <span>💰</span> Duyệt ${pendingCount} dòng
@@ -2143,6 +2143,12 @@ function _lsxClearSelection() {
 async function _lsxBulkAction(approve) {
     if (!approve) {
         showToast('Không cho phép hủy duyệt hàng loạt. Vui lòng chỉnh sửa từng đơn bằng cách bấm nút icon lương.', 'error');
+        return;
+    }
+    
+    var pendingCount = _lsx.selectedRecords.filter(function(r) { return !r.is_approved; }).length;
+    if (pendingCount < 2) {
+        showToast('Chỉ cho phép duyệt hàng loạt từ 2 dòng trở lên. Vui lòng bấm nút icon lương để duyệt đơn lẻ.', 'warning');
         return;
     }
     if (approve && _lsx.filter.dept === 'pressing') {
