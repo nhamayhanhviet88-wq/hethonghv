@@ -556,6 +556,7 @@ module.exports = async function(fastify) {
 
         const query = queryParts.join('\n UNION ALL \n') + '\n ORDER BY work_date DESC, created_at DESC';
 
+        const records = await db.all(query, params);
         return { records, is_manager: isMgr, is_sewing_manager: isSewMgr, is_approve_allowed: isApproveAllowed };
     });
 
