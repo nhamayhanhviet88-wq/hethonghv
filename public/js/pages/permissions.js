@@ -94,6 +94,7 @@ const PERM_FEATURES = [
 
     // ===== QUẢN LÝ XƯỞNG =====
     { key: 'congviec_qlx', label: 'Công Việc QLX', perms: ['view','create','edit'], section: 'QUẢN LÝ XƯỞNG' },
+    { key: 'tra_soat_don_hang', label: 'Tra Soát Đơn Hàng', perms: ['view'], section: 'QUẢN LÝ XƯỞNG' },
 
     // ===== NỘI QUY & TƯ LIỆU NỘI BỘ =====
     { key: 'noi_quy_cong_ty', label: 'Nội Quy & Điều Khoản', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },

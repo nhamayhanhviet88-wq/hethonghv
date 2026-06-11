@@ -160,6 +160,7 @@ const MENU_CONFIG = [
 
     // ========== QUẢN LÝ XƯỞNG ==========
     { id: 'lich-ra-don-hang', label: 'Lịch Ra Đơn Hàng', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN LÝ XƯỞNG', href: '/lichradonhang', permKey: 'lich_ra_don_hang' },
+    { id: 'tra-soat-don-hang', label: 'Tra Soát Đơn Hàng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN LÝ XƯỞNG', href: 'https://hethonghv.top/trasoatdonhang', permKey: 'tra_soat_don_hang' },
     { id: 'congviec-qlx', label: 'Công Việc QLX', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN LÝ XƯỞNG', href: '/congviecqlx', permKey: 'congviec_qlx' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
