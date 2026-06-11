@@ -136,9 +136,9 @@ module.exports = async function(fastify) {
         }
         const tree = Object.values(yearMap).map(y => ({ ...y, months: Object.values(y.months) }));
         const stats = await db.get(`SELECT COUNT(*)::int AS total,
-            COUNT(*) FILTER (WHERE is_completed AND done_date IS NULL)::int AS in_progress,
-            COUNT(*) FILTER (WHERE done_date IS NOT NULL)::int AS done,
-            COUNT(*) FILTER (WHERE error_reported)::int AS errors
+            COUNT(*) FILTER (WHERE fr.is_completed AND fr.done_date IS NULL)::int AS in_progress,
+            COUNT(*) FILTER (WHERE fr.done_date IS NOT NULL)::int AS done,
+            COUNT(*) FILTER (WHERE fr.error_reported)::int AS errors
             FROM finishing_records fr
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             WHERE 1=1 ${where}
