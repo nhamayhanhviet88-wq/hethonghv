@@ -443,7 +443,7 @@ async function _bpcLoadRecords() {
         if (wrap) {
             wrap.innerHTML = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
                 +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-                +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
+                +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
                 +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
                 +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
                 +'</tr></thead><tbody id="bpcTbody"></tbody></table>';
@@ -694,7 +694,7 @@ function _bpcBuildRecordsTableHtml(records) {
     }
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcRecordsTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
         +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
         +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
@@ -1101,7 +1101,7 @@ async function _bpcLoadUnassigned() {
 function _bpcBuildUnassignedTableHtml(all) {
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcUnassignedTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-        +'<th>Ngày Cắt</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
         +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
         +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
@@ -1430,7 +1430,7 @@ async function _bpcOpenDetail(recordId) {
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🎨 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
-        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày cắt</span><span class="bpc-modal-val">' + (r.cut_date ? _bpcFmtDate(r.cut_date) : '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Cắt Xong</span><span class="bpc-modal-val">' + (r.cut_done_at ? (typeof vnFormat === 'function' ? vnFormat(r.cut_done_at) : _bpcFmtDate(r.cut_done_at)) : (r.cut_date ? _bpcFmtDate(r.cut_date) : '—')) + '</span></div>';
         h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
 
         // Wash reported details
