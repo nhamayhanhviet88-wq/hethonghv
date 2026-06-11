@@ -2178,16 +2178,18 @@ function _lsxOpenSewingQCModal(id) {
     var existing = document.getElementById(modalId);
     if (existing) existing.remove();
 
-    var h = '<div id="' + modalId + '" onclick="if(event.target===this) { var box = this.querySelector(\'.bpc-modal\'); if(box) { box.style.filter = \'blur(5px)\'; box.style.opacity = \'0.5\'; } }" ondblclick="if(event.target===this) _lsxCloseSewingQCModal()">';
+    var h = '<div id="' + modalId + '" onclick="if(event.target===this) { this.classList.toggle(\'dimmed\'); }" ondblclick="if(event.target===this) _lsxCloseSewingQCModal()">';
     h += '<style>';
-    h += '#' + modalId + ' { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px); z-index: 99999; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.25s ease; }';
+    h += '#' + modalId + ' { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px); z-index: 99999; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.25s ease; }';
     h += '#' + modalId + '.show { opacity: 1; }';
-    h += '#' + modalId + ' .bpc-modal { background: #ffffff; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease, opacity 0.2s ease; overflow: hidden; }';
+    h += '#' + modalId + ' .bpc-modal { background: #ffffff; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease; overflow: hidden; }';
     h += '#' + modalId + '.show .bpc-modal { transform: scale(1); }';
+    h += '#' + modalId + '.dimmed { background: rgba(15, 23, 42, 0.05) !important; backdrop-filter: none !important; }';
+    h += '#' + modalId + '.dimmed .bpc-modal { opacity: 0.08 !important; }';
     h += '.lsx-modal-tech-cb { accent-color: #2563eb; }';
     h += '#lsxSewTechBody tr:hover { background-color: #f8fafc; }';
     h += '</style>';
-    h += '<div class="bpc-modal" onclick="this.style.filter=\'\'; this.style.opacity=\'\';" style="width: 700px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">';
+    h += '<div class="bpc-modal" onclick="this.parentNode.classList.remove(\'dimmed\');" style="width: 700px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">';
     
     // Header
     h += '<div class="bpc-modal-header" style="background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; padding: 18px 24px; display: flex; align-items: center; gap: 12px;">';
