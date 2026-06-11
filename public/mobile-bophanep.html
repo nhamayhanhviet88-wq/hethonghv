@@ -565,7 +565,11 @@
                 list = list.filter(r => 
                     (r.order_code || '').toLowerCase().includes(query) ||
                     (r.customer_name || '').toLowerCase().includes(query) ||
-                    (r.material_name || '').toLowerCase().includes(query)
+                    (r.material_name || '').toLowerCase().includes(query) ||
+                    (r.color_name || '').toLowerCase().includes(query) ||
+                    (r.item_desc || '').toLowerCase().includes(query) ||
+                    (r.cut_product_name || '').toLowerCase().includes(query) ||
+                    (r.cskh_name || r.created_by_name || '').toLowerCase().includes(query)
                 );
             }
             if (priority) {
@@ -578,10 +582,7 @@
             const query = (document.getElementById('mSearchInp').value || '').toLowerCase();
             let list = pressingRecords.filter(r => r.presser_id === currentUser.id && !r.is_reported);
             if (query) {
-                list = list.filter(r => 
-                    (r.order_code || '').toLowerCase().includes(query) ||
-                    (r.product_name || '').toLowerCase().includes(query)
-                );
+                list = list.filter(r => matchesQuery(r, query));
             }
             return list;
         }
@@ -592,17 +593,17 @@
             return (r.order_code || '').toLowerCase().includes(q) ||
                 (r.product_name || '').toLowerCase().includes(q) ||
                 (r.customer_name || '').toLowerCase().includes(q) ||
-                (r.material_name || '').toLowerCase().includes(q);
+                (r.material_name || '').toLowerCase().includes(q) ||
+                (r.fabric_color || '').toLowerCase().includes(q) ||
+                (r.cskh_name || '').toLowerCase().includes(q) ||
+                (r.presser_name || '').toLowerCase().includes(q);
         }
 
         function getFilteredHistory() {
             const query = (document.getElementById('mSearchInp').value || '').toLowerCase();
             let list = pressingRecords.filter(r => r.presser_id === currentUser.id && r.is_reported);
             if (query) {
-                list = list.filter(r => 
-                    (r.order_code || '').toLowerCase().includes(query) ||
-                    (r.product_name || '').toLowerCase().includes(query)
-                );
+                list = list.filter(r => matchesQuery(r, query));
             }
             return list;
         }
@@ -616,7 +617,11 @@
                 const matchedUnassigned = unassignedOrders.filter(r => 
                     (r.order_code || '').toLowerCase().includes(query) ||
                     (r.customer_name || '').toLowerCase().includes(query) ||
-                    (r.material_name || '').toLowerCase().includes(query)
+                    (r.material_name || '').toLowerCase().includes(query) ||
+                    (r.color_name || '').toLowerCase().includes(query) ||
+                    (r.item_desc || '').toLowerCase().includes(query) ||
+                    (r.cut_product_name || '').toLowerCase().includes(query) ||
+                    (r.cskh_name || r.created_by_name || '').toLowerCase().includes(query)
                 );
 
                 const matchedMine = pressingRecords.filter(r => 
