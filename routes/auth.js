@@ -6,14 +6,16 @@ const { authenticate } = require('../middleware/auth');
 async function authRoutes(fastify, options) {
     // Đăng nhập
     fastify.post('/api/auth/login', async (request, reply) => {
-        const { username, password } = request.body || {};
+        let { username, password } = request.body || {};
         if (!username || !password) {
             return reply.code(400).send({ error: 'Vui lòng nhập tài khoản và mật khẩu' });
         }
 
+        const cleanUsername = username.trim().toLowerCase();
+
         const user = await db.get(
             'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id, department_joined_at, token_version, can_approve_tsam FROM users WHERE username = ?',
-            [username]
+            [cleanUsername]
         );
 
         if (!user) {

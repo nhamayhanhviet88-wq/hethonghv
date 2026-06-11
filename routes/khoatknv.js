@@ -313,13 +313,15 @@ async function khoaTKNVRoutes(fastify, options) {
     // POST: Acknowledge penalties (NV bấm "Tôi đã biết" → mở khóa)
     // No auth required since user is locked and can't login
     fastify.post('/api/penalty/acknowledge', async (request, reply) => {
-        const { username, password } = request.body || {};
+        let { username, password } = request.body || {};
         if (!username || !password) {
             return reply.code(400).send({ error: 'Thiếu thông tin' });
         }
 
+        const cleanUsername = username.trim().toLowerCase();
+
         const bcrypt = require('bcrypt');
-        const user = await db.get('SELECT id, password_hash, status FROM users WHERE username = $1', [username]);
+        const user = await db.get('SELECT id, password_hash, status FROM users WHERE username = $1', [cleanUsername]);
         if (!user) return reply.code(400).send({ error: 'Không tìm thấy tài khoản' });
 
         const valid = await bcrypt.compare(password, user.password_hash);

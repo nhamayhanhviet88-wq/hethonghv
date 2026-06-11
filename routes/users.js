@@ -111,7 +111,7 @@ async function usersRoutes(fastify, options) {
 
     // Tạo tài khoản
     fastify.post('/api/users', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
-        const { username, password, full_name, phone, address, role, contract_info,
+        let { username, password, full_name, phone, address, role, contract_info,
                 start_date, telegram_group_id, commission_tier_id, assigned_to_user_id,
                 bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
                 managed_by_user_id, source_customer_id, province, source_crm_type, position_id,
@@ -120,6 +120,8 @@ async function usersRoutes(fastify, options) {
         if (!username || !password || !full_name || !role) {
             return reply.code(400).send({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc' });
         }
+
+        username = username.trim().toLowerCase();
 
         if (phone && !/^\d{10}$/.test(phone)) {
             return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
