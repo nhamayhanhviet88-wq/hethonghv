@@ -3210,6 +3210,7 @@ function _lsxOpenBulkSewingQCModal() {
     var itemRowsHtml = '';
     var totalThoGrand = 0;
     var totalCPMGrand = 0;
+    var totalGiaCongGrand = 0;
 
     records.forEach(function(r) {
         var orderCode = r.order_code || '—';
@@ -3273,8 +3274,12 @@ function _lsxOpenBulkSewingQCModal() {
         var salary = quantity * unitPrice;
         var cpmSalary = isContractor ? 0 : (quantity * totalPP);
 
-        totalThoGrand += salary;
-        totalCPMGrand += cpmSalary;
+        if (isContractor) {
+            totalGiaCongGrand += salary;
+        } else {
+            totalThoGrand += salary;
+            totalCPMGrand += cpmSalary;
+        }
 
         // Techniques rendering
         var techniquesHtml = '';
@@ -3316,8 +3321,8 @@ function _lsxOpenBulkSewingQCModal() {
                     <span style="color:#64748b; font-weight:600;">Số lượng: <strong style="color:#0f172a;">${quantity} sp</strong></span>
                     <div style="text-align:right; font-weight:700;">
                         <div>
-                            <span style="color:#64748b; font-weight:normal;">Lương Thợ (May Nhà):</span>
-                            <span style="color:#166534; font-size:12px;">${quantity} sp x ${unitPrice.toLocaleString('vi-VN')}đ = ${Number(salary).toLocaleString('vi-VN')} đ</span>
+                            <span style="color:#64748b; font-weight:normal;">${isContractor ? 'Lương Gia Công' : 'Lương Thợ (May Nhà)'}:</span>
+                            <span style="${isContractor ? 'color:#b45309;' : 'color:#166534;'} font-size:12px;">${quantity} sp x ${unitPrice.toLocaleString('vi-VN')}đ = ${Number(salary).toLocaleString('vi-VN')} đ</span>
                         </div>
                         ${!isContractor ? `
                         <div>
@@ -3347,17 +3352,34 @@ function _lsxOpenBulkSewingQCModal() {
     h += '<div style="font-size:10px; font-weight:800; color:#4f46e5; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">💰 TỔNG HỢP LƯƠNG TOÀN BỘ CÁC ĐƠN</div>';
     h += '<div style="font-size:11px; color:#475569; font-weight:500;">Duyệt đồng thời ' + records.length + ' bản ghi đã chọn</div>';
     h += '</div>';
-    h += '<div style="display:flex; justify-content:space-between; font-size:14px; border-top:1px dashed #e2e8f0; padding-top:8px;">';
-    h += '<span><b>Tổng Lương Thợ (May Nhà):</b></span>';
-    h += '<span style="font-weight:900; color:#166534; font-size:15px;">' + Number(totalThoGrand).toLocaleString('vi-VN') + ' đ</span>';
-    h += '</div>';
-    h += '<div style="display:flex; justify-content:space-between; font-size:14px;">';
-    h += '<span><b>Tổng Lương CPM (May GC):</b></span>';
-    h += '<span style="font-weight:900; color:#2563eb; font-size:15px;">' + Number(totalCPMGrand).toLocaleString('vi-VN') + ' đ</span>';
-    h += '</div>';
+    
+    var hasPastTotal = false;
+    if (totalThoGrand > 0) {
+        h += '<div style="display:flex; justify-content:space-between; font-size:14px; border-top:1px dashed #e2e8f0; padding-top:8px;">';
+        h += '<span><b>Tổng Lương Thợ (May Nhà):</b></span>';
+        h += '<span style="font-weight:900; color:#166534; font-size:15px;">' + Number(totalThoGrand).toLocaleString('vi-VN') + ' đ</span>';
+        h += '</div>';
+        hasPastTotal = true;
+    }
+    if (totalCPMGrand > 0) {
+        var borderStyle = !hasPastTotal ? ' border-top:1px dashed #e2e8f0; padding-top:8px;' : '';
+        h += '<div style="display:flex; justify-content:space-between; font-size:14px;' + borderStyle + '">';
+        h += '<span><b>Tổng Lương CPM (May GC):</b></span>';
+        h += '<span style="font-weight:900; color:#2563eb; font-size:15px;">' + Number(totalCPMGrand).toLocaleString('vi-VN') + ' đ</span>';
+        h += '</div>';
+        hasPastTotal = true;
+    }
+    if (totalGiaCongGrand > 0) {
+        var borderStyle = !hasPastTotal ? ' border-top:1px dashed #e2e8f0; padding-top:8px;' : '';
+        h += '<div style="display:flex; justify-content:space-between; font-size:14px;' + borderStyle + '">';
+        h += '<span><b>Tổng Lương Gia Công:</b></span>';
+        h += '<span style="font-weight:900; color:#b45309; font-size:15px;">' + Number(totalGiaCongGrand).toLocaleString('vi-VN') + ' đ</span>';
+        h += '</div>';
+    }
+    
     h += '<div style="display:flex; justify-content:space-between; font-size:15px; border-top:1px solid #cbd5e1; padding-top:6px; margin-top:2px;">';
     h += '<span><b>TỔNG CỘNG DUYỆT:</b></span>';
-    h += '<span style="font-weight:950; color:#4f46e5; font-size:18px;">' + Number(totalThoGrand + totalCPMGrand).toLocaleString('vi-VN') + ' đ</span>';
+    h += '<span style="font-weight:950; color:#4f46e5; font-size:18px;">' + Number(totalThoGrand + totalCPMGrand + totalGiaCongGrand).toLocaleString('vi-VN') + ' đ</span>';
     h += '</div>';
     h += '</div>';
 
