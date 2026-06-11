@@ -90,23 +90,29 @@ try{const r=await api('/api/finishing/records'+q);mr=r.records||[];if(dt)mr=mr.f
 function mStats(){const t=mr.length,p=mr.filter(r=>r.is_completed&&!r.done_date).length,d=mr.filter(r=>r.done_date).length,e=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sP').textContent=p;document.getElementById('sD').textContent=d;document.getElementById('sE').textContent=e}
 function cleanProdName(r) {
     if (!r) return 'Sản phẩm';
-    let name = r.cut_product_name || '';
-    if (!name) {
-        if (r.order_code && r.product_name) {
-            name = `${r.order_code} — ${r.product_name}`;
-        } else {
-            name = r.product_name || 'Sản phẩm';
+    var name = r.cut_product_name || r.product_name || '';
+    if (!name) return 'Sản phẩm';
+    var parts = name.split(/—/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var orderCode = r.order_code || '';
+    var ticketPart = '';
+    var prodNamePart = '';
+    parts.forEach(function(p) {
+        var upper = p.toUpperCase();
+        if (orderCode && upper === orderCode.toUpperCase()) return;
+        var ticketMatch = p.match(/(?:Phiếu\s*|P)(\d+)/i);
+        if (ticketMatch) {
+            if (!ticketPart) ticketPart = 'Phiếu ' + ticketMatch[1];
+            return;
         }
-    }
-    let formatted = name.replace(/\s*—\s*P(\d+)\s*(—|$)/gi, function(match, pNum, ending) {
-        return ' — Phiếu ' + pNum + (ending === '—' ? ' — ' : '');
-    }).replace(/\b(P\d+)\b/gi, function(match) {
-        return 'Phiếu ' + match.substring(1);
-    }).trim();
-    if (r.order_code && !formatted.includes(r.order_code)) {
-        formatted = r.order_code + ' — ' + formatted;
-    }
-    return formatted;
+        if (!prodNamePart) prodNamePart = p;
+        else prodNamePart += ' — ' + p;
+    });
+    var res = [];
+    if (orderCode) res.push(orderCode);
+    if (ticketPart) res.push(ticketPart);
+    if (prodNamePart) res.push(prodNamePart);
+    else res.push(r.product_name || 'Sản phẩm');
+    return res.join(' — ');
 }
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hoàn thiện</div></div>';return}
 c.innerHTML=mr.map(r=>{

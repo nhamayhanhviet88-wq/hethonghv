@@ -1631,16 +1631,29 @@ async function _ktclSubmitPhanTo() {
 // Helper to clean product names
 function _ktclCleanProdName(r) {
     if (!r) return 'Sản phẩm';
-    let name = r.cut_product_name || r.product_name || 'Sản phẩm';
-    let formatted = name.replace(/\s*—\s*P(\d+)\s*(—|$)/gi, function(match, pNum, ending) {
-        return ' — Phiếu ' + pNum + (ending === '—' ? ' — ' : '');
-    }).replace(/\b(P\d+)\b/gi, function(match) {
-        return 'Phiếu ' + match.substring(1);
-    }).trim();
-    if (r.order_code && !formatted.includes(r.order_code)) {
-        formatted = r.order_code + ' — ' + formatted;
-    }
-    return formatted;
+    var name = r.cut_product_name || r.product_name || '';
+    if (!name) return 'Sản phẩm';
+    var parts = name.split(/—/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var orderCode = r.order_code || '';
+    var ticketPart = '';
+    var prodNamePart = '';
+    parts.forEach(function(p) {
+        var upper = p.toUpperCase();
+        if (orderCode && upper === orderCode.toUpperCase()) return;
+        var ticketMatch = p.match(/(?:Phiếu\s*|P)(\d+)/i);
+        if (ticketMatch) {
+            if (!ticketPart) ticketPart = 'Phiếu ' + ticketMatch[1];
+            return;
+        }
+        if (!prodNamePart) prodNamePart = p;
+        else prodNamePart += ' — ' + p;
+    });
+    var res = [];
+    if (orderCode) res.push(orderCode);
+    if (ticketPart) res.push(ticketPart);
+    if (prodNamePart) res.push(prodNamePart);
+    else res.push(r.product_name || 'Sản phẩm');
+    return res.join(' — ');
 }
 
 // Helper to determine unit text
