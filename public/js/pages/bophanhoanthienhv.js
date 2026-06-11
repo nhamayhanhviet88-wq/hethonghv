@@ -8,8 +8,15 @@ function renderBophanhoanthienPage(content){
     if(!document.getElementById('_bphtS')){var st=document.createElement('style');st.id='_bphtS';
     st.textContent='.bpht-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}.bpht-sb{width:270px;min-width:270px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto}.bpht-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.bpht-main>*{flex-shrink:0}'
     +'.bpht-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;color:#059669}'
-    +'.bpht-sb-total{background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer}'
-    +'.bpht-sb-year{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;background:#f8fafc;border-bottom:1px solid var(--gray-200)}'
+    +'.bpht-sb-total{padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;transition:all 0.15s}'
+    +'.bpht-sb-total.active{background:linear-gradient(135deg,#059669,#10b981);color:#fff}'
+    +'.bpht-sb-total:not(.active){background:#f8fafc;color:#334155;border-bottom:1px solid #e2e8f0}'
+    +'.bpht-sb-unassigned{padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;transition:all 0.15s}'
+    +'.bpht-sb-unassigned.active{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}'
+    +'.bpht-sb-unassigned:not(.active){background:#f8fafc;color:#334155;border-bottom:1px solid #e2e8f0}'
+    +'.bpht-sb-finisher{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;background:#f8fafc;border-bottom:1px solid var(--gray-200);transition:all 0.15s}'
+    +'.bpht-sb-finisher:hover{background:#f1f5f9}'
+    +'.bpht-sb-finisher.active{background:#d1fae5;color:#059669}'
     +'.bpht-sb-month{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;color:#059669}'
     +'.bpht-sb-month:hover{background:#ecfdf5}.bpht-sb-month.active{background:#d1fae5;font-weight:800}'
     +'.bpht-sb-item{padding:5px 16px 5px 42px;font-size:10px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid #fafafa;color:#64748b}'
@@ -48,14 +55,90 @@ async function _bphtLoadAll(){try{var tR=await apiCall('/api/finishing/tree');_b
 
 function _bphtRenderSb(){var sb=document.getElementById('bphtSb');if(!sb||!_bpht.tree)return;var t=_bpht.tree,f=_bpht.filter;
 var h='<div class="bpht-sb-title">────── ✅ Cắt Chỉ & Hoàn Thiện ──────</div>';
-h+='<div class="bpht-sb-total" onclick="_bphtFilter()"><span>📦 Tổng đơn</span><span style="font-size:16px">'+(t.total||0)+'</span></div>';
-if(t.tree)t.tree.forEach(function(yr){var yo=!!_bphtOpen['y'+yr.year];
-h+='<div class="bpht-sb-year" onclick="_bphtTgl(\'y'+yr.year+'\')"><span>'+(yo?'▼':'▶')+' 📆 '+yr.year+'</span><span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
-if(yo&&yr.months)yr.months.forEach(function(mo){var mk='m'+yr.year+'_'+mo.month,mo2=!!_bphtOpen[mk],mA=f.year==yr.year&&f.month==mo.month&&!f.finisher_id;
-h+='<div class="bpht-sb-month'+(mA?' active':'')+'" onclick="event.stopPropagation();_bphtTgl(\''+mk+'\');_bphtFilter('+yr.year+','+mo.month+')"><span>'+(mo2?'▼':'▶')+' T'+String(mo.month).padStart(2,'0')+'</span><span>'+mo.count+'</span></div>';
-if(mo2&&mo.finishers)mo.finishers.forEach(function(p){var pId=p.id||'unassigned';var pA=f.year==yr.year&&f.month==mo.month&&f.finisher_id==pId;
-h+='<div class="bpht-sb-item'+(pA?' active':'')+'" onclick="event.stopPropagation();_bphtFilter('+yr.year+','+mo.month+',\''+pId+'\')"><span>👤 '+(p.name||'Chưa PC')+'</span><span>'+p.count+'</span></div>';});
-});});sb.innerHTML=h;}
+
+// Calculate unassigned total globally
+var unassignedTotal = 0;
+if(t.tree){
+    t.tree.forEach(function(yr){
+        if(yr.months){
+            yr.months.forEach(function(mo){
+                if(mo.finishers){
+                    mo.finishers.forEach(function(p){
+                        if(!p.id || p.id === 'unassigned'){
+                            unassignedTotal += p.count;
+                        }
+                    });
+                }
+            });
+        }
+    });
+}
+
+var totalActive = !f.year && !f.month && !f.finisher_id;
+var unassignedActive = !f.year && !f.month && f.finisher_id === 'unassigned';
+
+h+='<div class="bpht-sb-total '+(totalActive?'active':'')+'" onclick="_bphtFilter()"><span>📦 Tổng đơn</span><span style="font-size:16px">'+(t.total||0)+'</span></div>';
+h+='<div class="bpht-sb-unassigned '+(unassignedActive?'active':'')+'" onclick="_bphtFilter(null,null,\'unassigned\')"><span>⚠️ Chưa Phân Công</span><span style="font-size:16px">'+unassignedTotal+'</span></div>';
+
+// Pivot tree to group by finisher
+var finishers = {};
+if(t.tree){
+    t.tree.forEach(function(yr){
+        if(yr.months){
+            yr.months.forEach(function(mo){
+                if(mo.finishers){
+                    mo.finishers.forEach(function(p){
+                        var pId = p.id || 'unassigned';
+                        var pName = p.name || 'Chưa phân công';
+                        if(!finishers[pId]){
+                            finishers[pId] = { id:pId, name:pName, count:0, months:{} };
+                        }
+                        finishers[pId].count += p.count;
+                        var mKey = yr.year + '_' + mo.month;
+                        if(!finishers[pId].months[mKey]){
+                            finishers[pId].months[mKey] = { year:yr.year, month:mo.month, count:0 };
+                        }
+                        finishers[pId].months[mKey].count += p.count;
+                    });
+                }
+            });
+        }
+    });
+}
+
+var finishersList = Object.values(finishers);
+finishersList.sort(function(a,b){
+    if(a.id === 'unassigned') return -1;
+    if(b.id === 'unassigned') return 1;
+    return a.name.localeCompare(b.name, 'vi');
+});
+
+finishersList.forEach(function(fin){
+    var isOpen = !!_bphtOpen['f_'+fin.id];
+    var finActive = f.finisher_id == fin.id && !f.year && !f.month;
+    
+    h+='<div class="bpht-sb-finisher '+(finActive?'active':'')+'" onclick="event.stopPropagation();_bphtTgl(\'f_'+fin.id+'\');_bphtFilter(null,null,\''+fin.id+'\')">';
+    h+='<span>'+(isOpen?'▼':'▶')+' 👤 '+fin.name+'</span>';
+    h+='<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+fin.count+'</span>';
+    h+='</div>';
+
+    if(isOpen){
+        var monthsList = Object.values(fin.months);
+        monthsList.sort(function(a,b){
+            if(a.year !== b.year) return b.year - a.year;
+            return b.month - a.month;
+        });
+        monthsList.forEach(function(mo){
+            var moActive = f.finisher_id == fin.id && f.year == mo.year && f.month == mo.month;
+            h+='<div class="bpht-sb-month '+(moActive?'active':'')+'" onclick="event.stopPropagation();_bphtFilter('+mo.year+','+mo.month+',\''+fin.id+'\')">';
+            h+='<span>🗓️ T'+String(mo.month).padStart(2,\'0\')+'/'+mo.year+'</span>';
+            h+='<span>'+mo.count+'</span>';
+            h+='</div>';
+        });
+    }
+});
+
+sb.innerHTML=h;}
 
 function _bphtTgl(k){_bphtOpen[k]=!_bphtOpen[k];_bphtRenderSb();}
 function _bphtFilter(y,m,f){_bpht.page=1;_bpht.filter={year:y||null,month:m||null,finisher_id:f!==undefined?f:null};_bphtRenderSb();_bphtLoadRecs();}
