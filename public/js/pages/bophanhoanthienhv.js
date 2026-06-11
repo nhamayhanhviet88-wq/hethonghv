@@ -272,7 +272,7 @@ function _bphtRender(){
     var all=_bpht.records.slice();
     if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.cut_product_name||r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
-    var itemsPerPage = 50;
+    var itemsPerPage = 100;
     var totalPages = Math.ceil(tot / itemsPerPage) || 1;
     
     if (!_bpht.page) _bpht.page = 1;
@@ -1140,7 +1140,7 @@ function _bphtNextPage() {
         });
     }
     var tot = all.length;
-    var totalPages = Math.ceil(tot / 50) || 1;
+    var totalPages = Math.ceil(tot / 100) || 1;
     if (_bpht.page < totalPages) {
         _bpht.page++;
         _bphtRender();
