@@ -1000,7 +1000,7 @@ function _lsxRenderTable() {
                 priBadge = '<span style="margin-right: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Gửi</span>';
             }
             var dispName = _lsxDisplayProdName(r);
-            var prodPhieuHtml = `<span style="font-weight:600;color:#1e293b">${priBadge}${dispName}</span>`;
+            var prodPhieuHtml = `<span style="cursor:pointer; text-decoration:underline; color:#2563eb; font-weight:600;" onclick="_lsxOpenCuttingQCDetail(${r.id})" title="Xem Chi Tiết Kiểm Tra & Đơn Giá">${priBadge}${dispName}</span>`;
 
             var cskhHtml = `<span style="font-size:10px;color:#475569;font-weight:600">${r.cskh_name || '—'}</span>`;
             var slText = '<span style="color:#2563eb;font-weight:700" title="SL Thực Tế">' + (r.order_quantity || r.quantity) + '</span> / <span style="color:#0d9488;font-weight:700" title="SL May">' + _lsxFormatOrderQty(r.quantity, r.product_name, r.cutting_category, 'sewing') + '</span>';
