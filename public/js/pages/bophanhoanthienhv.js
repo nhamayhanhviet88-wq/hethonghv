@@ -46,12 +46,12 @@ if(t.tree)t.tree.forEach(function(yr){var yo=!!_bphtOpen['y'+yr.year];
 h+='<div class="bpht-sb-year" onclick="_bphtTgl(\'y'+yr.year+'\')"><span>'+(yo?'▼':'▶')+' 📆 '+yr.year+'</span><span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+yr.count+'</span></div>';
 if(yo&&yr.months)yr.months.forEach(function(mo){var mk='m'+yr.year+'_'+mo.month,mo2=!!_bphtOpen[mk],mA=f.year==yr.year&&f.month==mo.month&&!f.finisher_id;
 h+='<div class="bpht-sb-month'+(mA?' active':'')+'" onclick="event.stopPropagation();_bphtTgl(\''+mk+'\');_bphtFilter('+yr.year+','+mo.month+')"><span>'+(mo2?'▼':'▶')+' T'+String(mo.month).padStart(2,'0')+'</span><span>'+mo.count+'</span></div>';
-if(mo2&&mo.finishers)mo.finishers.forEach(function(p){var pA=f.year==yr.year&&f.month==mo.month&&f.finisher_id==p.id;
-h+='<div class="bpht-sb-item'+(pA?' active':'')+'" onclick="event.stopPropagation();_bphtFilter('+yr.year+','+mo.month+','+p.id+')"><span>👤 '+(p.name||'Chưa PC')+'</span><span>'+p.count+'</span></div>';});
+if(mo2&&mo.finishers)mo.finishers.forEach(function(p){var pId=p.id||'unassigned';var pA=f.year==yr.year&&f.month==mo.month&&f.finisher_id==pId;
+h+='<div class="bpht-sb-item'+(pA?' active':'')+'" onclick="event.stopPropagation();_bphtFilter('+yr.year+','+mo.month+',\''+pId+'\')"><span>👤 '+(p.name||'Chưa PC')+'</span><span>'+p.count+'</span></div>';});
 });});sb.innerHTML=h;}
 
 function _bphtTgl(k){_bphtOpen[k]=!_bphtOpen[k];_bphtRenderSb();}
-function _bphtFilter(y,m,f){_bpht.filter={year:y||null,month:m||null,finisher_id:f||null};_bphtRenderSb();_bphtLoadRecs();}
+function _bphtFilter(y,m,f){_bpht.filter={year:y||null,month:m||null,finisher_id:f!==undefined?f:null};_bphtRenderSb();_bphtLoadRecs();}
 
 async function _bphtLoadRecs(){var f=_bpht.filter,qs='?_=1';
 if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;if(f.finisher_id)qs+='&finisher_id='+f.finisher_id;
@@ -82,9 +82,36 @@ function _bphtShip(s) {
     return '<span class="bpht-badge chuan">✅ CHUẨN</span>';
 }
 
+function _bphtCleanProdName(r) {
+    if (!r) return 'Sản phẩm';
+    var name = r.cut_product_name || r.product_name || '';
+    if (!name) return 'Sản phẩm';
+    var parts = name.split(/—/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var orderCode = r.order_code || '';
+    var ticketPart = '';
+    var prodNamePart = '';
+    parts.forEach(function(p) {
+        var upper = p.toUpperCase();
+        if (orderCode && upper === orderCode.toUpperCase()) return;
+        var ticketMatch = p.match(/(?:Phiếu\s*|P)(\d+)/i);
+        if (ticketMatch) {
+            if (!ticketPart) ticketPart = 'Phiếu ' + ticketMatch[1];
+            return;
+        }
+        if (!prodNamePart) prodNamePart = p;
+        else prodNamePart += ' — ' + p;
+    });
+    var res = [];
+    if (orderCode) res.push(orderCode);
+    if (ticketPart) res.push(ticketPart);
+    if (prodNamePart) res.push(prodNamePart);
+    else res.push(r.product_name || 'Sản phẩm');
+    return res.join(' — ');
+}
+
 function _bphtRender(){
     var all=_bpht.records.slice();
-    if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0;});}
+    if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.cut_product_name||r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
     var tb=document.getElementById('bphtTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="15"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
@@ -100,7 +127,7 @@ function _bphtRender(){
         +'<td style="font-size:10px">'+_bphtFD(r.expected_date)+'</td>'
         +'<td style="font-size:10px;color:'+(r.done_date?'#059669':'#94a3b8')+'">'+_bphtFD(r.done_date)+'</td>'
         +'<td>'+_bphtProgress(r.expected_date, r.done_date)+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+(r.product_name||r.order_code||'—')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b;white-space:normal;max-width:250px;word-break:break-word;">'+_bphtCleanProdName(r)+'</td>'
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.finisher_name||'—')+'</td>'

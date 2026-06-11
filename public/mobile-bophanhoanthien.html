@@ -88,13 +88,33 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
 async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
 try{const r=await api('/api/finishing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){const t=mr.length,p=mr.filter(r=>r.is_completed&&!r.done_date).length,d=mr.filter(r=>r.done_date).length,e=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sP').textContent=p;document.getElementById('sD').textContent=d;document.getElementById('sE').textContent=e}
+function cleanProdName(r) {
+    if (!r) return 'Sản phẩm';
+    let name = r.cut_product_name || '';
+    if (!name) {
+        if (r.order_code && r.product_name) {
+            name = `${r.order_code} — ${r.product_name}`;
+        } else {
+            name = r.product_name || 'Sản phẩm';
+        }
+    }
+    let formatted = name.replace(/\s*—\s*P(\d+)\s*(—|$)/gi, function(match, pNum, ending) {
+        return ' — Phiếu ' + pNum + (ending === '—' ? ' — ' : '');
+    }).replace(/\b(P\d+)\b/gi, function(match) {
+        return 'Phiếu ' + match.substring(1);
+    }).trim();
+    if (r.order_code && !formatted.includes(r.order_code)) {
+        formatted = r.order_code + ' — ' + formatted;
+    }
+    return formatted;
+}
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hoàn thiện</div></div>';return}
 c.innerHTML=mr.map(r=>{
 const ic=r.done_date?'✅':r.is_completed?'📋':'🧵';
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const cA=r.is_completed?'undo_complete':'complete';
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+'</div><div class="cc">'+(r.order_code||'')+'</div></div>'
+return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn" style="font-size:12px;line-height:1.4;">'+cleanProdName(r)+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Ra dự kiến</span><span class="cv">'+fd(r.expected_date)+'</span></div>'
 +'<div class="cr"><span class="cl">✅ Hoàn thiện</span><span class="cv" style="color:'+(r.done_date?'#6ee7b7':'#94a3b8')+'">'+fd(r.done_date)+'</span></div>'

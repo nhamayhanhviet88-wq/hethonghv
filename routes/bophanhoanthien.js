@@ -73,7 +73,10 @@ module.exports = async function(fastify) {
     fastify.get('/api/finishing/tree', { preHandler: [authenticate] }, async (req) => {
         const mgr = await isFinishManager(req);
         let where = '', params = [];
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { where = ' AND fr.finisher_id=$1'; params.push(req.user.id); }
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) {
+            where = ' AND (fr.finisher_id=$1 OR fr.finisher_id IS NULL)';
+            params.push(req.user.id);
+        }
         const rows = await db.all(`
             SELECT EXTRACT(YEAR FROM COALESCE(fr.expected_date,fr.created_at))::int AS year,
                    EXTRACT(MONTH FROM COALESCE(fr.expected_date,fr.created_at))::int AS month,
@@ -104,16 +107,31 @@ module.exports = async function(fastify) {
         const mgr = await isFinishManager(req);
         const { year, month, finisher_id, status, search } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { where += ` AND fr.finisher_id=$${idx++}`; params.push(req.user.id); }
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) {
+            where += ` AND (fr.finisher_id=$${idx++} OR fr.finisher_id IS NULL)`;
+            params.push(req.user.id);
+        }
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(fr.expected_date,fr.created_at))=$${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(fr.expected_date,fr.created_at))=$${idx++}`; params.push(Number(month)); }
-        if (finisher_id) { where += ` AND fr.finisher_id=$${idx++}`; params.push(Number(finisher_id)); }
+        if (finisher_id === 'unassigned') {
+            where += ` AND fr.finisher_id IS NULL`;
+        } else if (finisher_id) {
+            where += ` AND fr.finisher_id=$${idx++}`;
+            params.push(Number(finisher_id));
+        }
         if (status === 'progress') where += ` AND fr.is_completed=true AND fr.done_date IS NULL`;
         else if (status === 'done') where += ` AND fr.done_date IS NOT NULL`;
         else if (status === 'error') where += ` AND fr.error_reported=true`;
-        if (search) { where += ` AND (fr.product_name ILIKE $${idx} OR fr.cskh_name ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+        if (search) { where += ` AND (fr.product_name ILIKE $${idx} OR fr.cskh_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT fr.*, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code,
+                   (
+                       SELECT product_name 
+                       FROM cutting_records 
+                       WHERE order_item_id = (SELECT order_item_id FROM sewing_records WHERE id = fr.sewing_record_id) 
+                       ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC 
+                       LIMIT 1
+                   ) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
             FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id=u.id
             LEFT JOIN users u_c ON fr.completed_by=u_c.id LEFT JOIN dht_orders o ON fr.dht_order_id=o.id

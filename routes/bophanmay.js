@@ -136,9 +136,13 @@ module.exports = async function(fastify) {
                         SELECT 1 FROM dht_product_process pp
                         JOIN dht_process_steps ps ON pp.step_id = ps.id
                         JOIN dht_products p ON pp.product_id = p.id
-                        WHERE p.name = $1 AND ps.short_name = 'CCHT' AND pp.is_active = true AND ps.is_active = true
+                        LEFT JOIN dht_order_items oi ON oi.id = $2
+                        LEFT JOIN dht_settings_options so ON so.category = 'sale_type' AND so.name = oi.sale_type
+                        WHERE ps.short_name = 'CCHT' AND pp.is_active = true AND ps.is_active = true
+                          AND (p.sale_type_id = so.id OR (so.id IS NULL AND p.sale_type_id = 1))
+                          AND (p.name = $1 OR p.name = TRIM(COALESCE(oi.product_name, oi.description)) OR $1 LIKE '%' || p.name)
                         LIMIT 1
-                    `, [prodName]);
+                    `, [prodName, sRec.order_item_id]);
                     
                     if (hasCCHT) {
                         const sewerName = sRec.contractor_id ? sRec.contractor_name : sRec.sewer_name;

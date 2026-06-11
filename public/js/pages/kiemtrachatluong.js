@@ -1294,12 +1294,7 @@ function _ktclRenderTable() {
             priBadge = '<span class="ktcl-badge ktcl-badge-normal">Chuẩn</span>';
         }
         
-        let prodName = r.cut_product_name || r.product_name || '—';
-        if (prodName && prodName !== '—') {
-            prodName = prodName.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
-                return p1 === '—' ? ' — ' : '';
-            }).trim();
-        }
+        let prodName = _ktclCleanProdName(r);
         const orderInfoHtml = `
             <div style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 ${priBadge}
@@ -1636,10 +1631,16 @@ async function _ktclSubmitPhanTo() {
 // Helper to clean product names
 function _ktclCleanProdName(r) {
     if (!r) return 'Sản phẩm';
-    const name = r.cut_product_name || r.product_name || 'Sản phẩm';
-    return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
-        return p1 === '—' ? ' — ' : '';
+    let name = r.cut_product_name || r.product_name || 'Sản phẩm';
+    let formatted = name.replace(/\s*—\s*P(\d+)\s*(—|$)/gi, function(match, pNum, ending) {
+        return ' — Phiếu ' + pNum + (ending === '—' ? ' — ' : '');
+    }).replace(/\b(P\d+)\b/gi, function(match) {
+        return 'Phiếu ' + match.substring(1);
     }).trim();
+    if (r.order_code && !formatted.includes(r.order_code)) {
+        formatted = r.order_code + ' — ' + formatted;
+    }
+    return formatted;
 }
 
 // Helper to determine unit text

@@ -1076,10 +1076,16 @@
 
         function cleanProdName(r) {
             if (!r) return 'Sản phẩm';
-            const name = r.cut_product_name || r.product_name || 'Sản phẩm';
-            return name.replace(/\s*—\s*P\d+\s*(—|$)/gi, function(match, p1) {
-                return p1 === '—' ? ' — ' : '';
+            let name = r.cut_product_name || r.product_name || 'Sản phẩm';
+            let formatted = name.replace(/\s*—\s*P(\d+)\s*(—|$)/gi, function(match, pNum, ending) {
+                return ' — Phiếu ' + pNum + (ending === '—' ? ' — ' : '');
+            }).replace(/\b(P\d+)\b/gi, function(match) {
+                return 'Phiếu ' + match.substring(1);
             }).trim();
+            if (r.order_code && !formatted.includes(r.order_code)) {
+                formatted = r.order_code + ' — ' + formatted;
+            }
+            return formatted;
         }
 
         function getUnitText(r) {
