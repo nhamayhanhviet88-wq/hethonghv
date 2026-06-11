@@ -296,7 +296,7 @@ async function _bphtOpenCompleteModal(recordId) {
             const ans = answers.find(a => a.template_id === q.id);
             const val = ans ? ans.answer_value : '';
 
-            checklistHtml += `<div class="bpht-qc-question-row" data-id="${q.id}" data-type="${q.type}" style="margin-bottom:12px; display:flex; flex-direction:column; gap:6px;">`;
+            checklistHtml += `<div class="bpht-qc-question-row" data-id="${q.id}" data-type="${q.type}" data-content="${q.content.replace(/"/g, '&quot;')}" style="margin-bottom:12px; display:flex; flex-direction:column; gap:6px;">`;
             checklistHtml += `<div style="font-weight:700; font-size:12.5px; color:#334155;">${q.content} <span style="color:#ef4444;">*</span></div>`;
 
             if (q.type === 'yes_no') {
@@ -564,10 +564,12 @@ async function _bphtSubmitComplete() {
     // Validate checklist answers
     const questionRows = document.querySelectorAll('.bpht-qc-question-row');
     const answersList = [];
+    const r = _bpht.records.find(x => x.id === _bphtState.currentRecordId);
 
     for (const row of questionRows) {
         const qId = row.dataset.id;
         const qType = row.dataset.type;
+        const qContent = row.dataset.content || '';
         let val = '';
 
         if (qType === 'yes_no') {
@@ -587,6 +589,20 @@ async function _bphtSubmitComplete() {
                 return;
             }
             val = text.value.trim();
+        }
+
+        // Custom validation for "Số lượng đếm là bao nhiêu ?"
+        const cleanContent = qContent.toLowerCase().replace(/\s+/g, '');
+        if (cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu')) {
+            if (!/^\d+$/.test(val)) {
+                alert('Bạn đã ghi sai số lượng đếm, hãy đếm lại');
+                return;
+            }
+            const targetQty = r ? parseInt(r.quantity, 10) : null;
+            if (targetQty !== null && parseInt(val, 10) !== targetQty) {
+                alert('Bạn đã ghi sai số lượng đếm, hãy đếm lại');
+                return;
+            }
         }
 
         answersList.push({ template_id: parseInt(qId), answer_value: val });
