@@ -2371,8 +2371,8 @@ function _lsxRecalcModalTotals() {
 
     if (elFP) elFP.textContent = totalFP.toLocaleString('vi-VN') + 'đ';
     if (elPP) elPP.textContent = totalPP.toLocaleString('vi-VN') + 'đ';
-    if (elTho) elTho.textContent = totalSalTho.toLocaleString('vi-VN') + 'đ';
-    if (elCPM) elCPM.textContent = totalSalCPM.toLocaleString('vi-VN') + 'đ';
+    if (elTho) elTho.innerHTML = '<span style="color:#64748b; font-size:13px; font-weight:normal;">' + quantity + ' sp x ' + totalFP.toLocaleString('vi-VN') + 'đ = </span>' + totalSalTho.toLocaleString('vi-VN') + 'đ';
+    if (elCPM) elCPM.innerHTML = '<span style="color:#64748b; font-size:13px; font-weight:normal;">' + quantity + ' sp x ' + totalPP.toLocaleString('vi-VN') + 'đ = </span>' + totalSalCPM.toLocaleString('vi-VN') + 'đ';
 }
 
 function _lsxAddSewingTech(recordId) {
