@@ -12,6 +12,7 @@ var _lsx = {
     },
     search: '',
     is_manager: false,
+    is_approve_allowed: false,
     selectedRecords: [],
     lastSelectedIndex: undefined
 };
@@ -270,6 +271,7 @@ async function _lsxLoadAll() {
         _lsx.tree = res.tree;
         _lsx.is_manager = res.is_manager || false;
         _lsx.is_sewing_manager = res.is_sewing_manager || false;
+        _lsx.is_approve_allowed = res.is_approve_allowed || false;
         
         _lsxEnforceRestrictedFilter();
         
@@ -508,6 +510,7 @@ async function _lsxLoadRecs() {
         var res = await apiCall('/api/production-salary/records' + qs);
         _lsx.is_manager = res.is_manager || false;
         _lsx.is_sewing_manager = res.is_sewing_manager || false;
+        _lsx.is_approve_allowed = res.is_approve_allowed || false;
         _lsx.records = res.records || [];
         _lsxRenderTable();
     } catch(e) {
@@ -608,7 +611,7 @@ function _lsxGetTeamStyle(id) {
 }
 
 function _lsxGetHeaderHTML() {
-    var isAllowedToApprove = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    var isAllowedToApprove = !!_lsx.is_approve_allowed;
     var masterCheckHtml = '';
     if (isAllowedToApprove) {
         masterCheckHtml = `
@@ -885,7 +888,7 @@ function _lsxRenderTable() {
         var checkIcon = isAppr ? '💰' : '⬜';
         var checkCls = isAppr ? 'lsx-ib on-approved' : 'lsx-ib';
         
-        var isAllowedToApprove = r.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+        var isAllowedToApprove = !!_lsx.is_approve_allowed;
         var checkAction = isAllowedToApprove ? `onclick="_lsxToggleAppr(${r.id}, '${r.dept}')"` : 'disabled';
 
         var isSel = isAllowedToApprove && _lsx.selectedRecords && _lsx.selectedRecords.some(function(sel) { return sel.id === r.id && sel.dept === r.dept; });
@@ -1182,7 +1185,7 @@ function _lsxRenderTable() {
             + `</tr>`;
     }).join('');
 
-    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    var isAllowed = !!_lsx.is_approve_allowed;
     if (isAllowed) {
         _lsxUpdateMasterCheckboxState();
         _lsxUpdateFloatingBar();
@@ -1876,7 +1879,7 @@ function _lsxGetPrintStatusHtml(r) {
 // ========== BATCH SELECTION & APPROVAL HELPERS ==========
 
 function _lsxOnRowClick(rowEl, event) {
-    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    var isAllowed = !!_lsx.is_approve_allowed;
     if (!isAllowed) return;
     
     // Do not trigger selection when clicking on interactive children
@@ -1896,7 +1899,7 @@ function _lsxOnRowClick(rowEl, event) {
 }
 
 function _lsxOnRowCheckClick(chk, event) {
-    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    var isAllowed = !!_lsx.is_approve_allowed;
     if (!isAllowed) return;
     
     var id = Number(chk.getAttribute('data-id'));
@@ -1980,7 +1983,7 @@ function _lsxUpdateSelectionState(id, dept, is_approved, isSelected) {
 }
 
 function _lsxToggleSelectAll(masterChk) {
-    var isAllowed = _lsx.filter.dept === 'sewing' ? !!_lsx.is_sewing_manager : !!_lsx.is_manager;
+    var isAllowed = !!_lsx.is_approve_allowed;
     if (!isAllowed) return;
     
     var allVisible = _lsx.records.slice();

@@ -50,11 +50,18 @@ module.exports = async function(fastify) {
         return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
     }
 
+    async function canApproveProductionSalary(req) {
+        if (req.user.role === 'giam_doc') return true;
+        const u = await db.get(`SELECT username, role FROM users WHERE id = $1`, [req.user.id]);
+        return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
+    }
+
     // ========== TREE ==========
     fastify.get('/api/production-salary/tree', { preHandler: [authenticate] }, async (req) => {
         const isMgr = await isSalaryManager(req);
         const isSewMgr = await canManageSewingSalary(req);
-        console.log('[LSX DEBUG TREE] user:', req.user.username, 'isMgr:', isMgr, 'isSewMgr:', isSewMgr);
+        const isApproveAllowed = await canApproveProductionSalary(req);
+        console.log('[LSX DEBUG TREE] user:', req.user.username, 'isMgr:', isMgr, 'isSewMgr:', isSewMgr, 'isApproveAllowed:', isApproveAllowed);
         let whereCutting = '1=1', wherePressing = '1=1', whereSewing = '1=1';
         const params = [];
         
@@ -244,14 +251,15 @@ module.exports = async function(fastify) {
             ${statusWhere}
         `, statusParams);
 
-        return { tree, stats: stats || { total: 0, approved: 0, pending: 0, count: 0 }, is_manager: isMgr, is_sewing_manager: isSewMgr };
+        return { tree, stats: stats || { total: 0, approved: 0, pending: 0, count: 0 }, is_manager: isMgr, is_sewing_manager: isSewMgr, is_approve_allowed: isApproveAllowed };
     });
 
     // ========== LIST ==========
     fastify.get('/api/production-salary/records', { preHandler: [authenticate] }, async (req) => {
         const isMgr = await isSalaryManager(req);
         const isSewMgr = await canManageSewingSalary(req);
-        console.log('[LSX DEBUG RECORDS] user:', req.user.username, 'isMgr:', isMgr, 'isSewMgr:', isSewMgr);
+        const isApproveAllowed = await canApproveProductionSalary(req);
+        console.log('[LSX DEBUG RECORDS] user:', req.user.username, 'isMgr:', isMgr, 'isSewMgr:', isSewMgr, 'isApproveAllowed:', isApproveAllowed);
         const { year, month, dept, worker_id, contractor_id, status, search } = req.query;
 
         let whereCutting = '1=1', wherePressing = '1=1', whereSewing = '1=1';
@@ -548,14 +556,13 @@ module.exports = async function(fastify) {
 
         const query = queryParts.join('\n UNION ALL \n') + '\n ORDER BY work_date DESC, created_at DESC';
 
-        const records = await db.all(query, params);
-        return { records, is_manager: isMgr, is_sewing_manager: isSewMgr };
+        return { records, is_manager: isMgr, is_sewing_manager: isSewMgr, is_approve_allowed: isApproveAllowed };
     });
 
     // ========== BULK APPROVAL ==========
     fastify.post('/api/production-salary/approve-bulk', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isSalaryManager(req))) {
-            return reply.code(403).send({ error: 'Không có quyền duyệt lương' });
+        if (!(await canApproveProductionSalary(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền duyệt lương!' });
         }
 
         const { records, approved = true } = req.body || {}; // array of { id, dept }
@@ -580,7 +587,7 @@ module.exports = async function(fastify) {
             else if (r.dept === 'sewing') sewingIds.push(id);
         }
 
-        if (sewingIds.length > 0 && !(await canManageSewingSalary(req))) {
+        if (sewingIds.length > 0 && !(await canApproveProductionSalary(req))) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền duyệt lương bộ phận may!' });
         }
 
@@ -674,14 +681,13 @@ module.exports = async function(fastify) {
         return { success: true, count: updatedCount };
     });
 
-    // ========== TOGGLE APPROVAL ==========
     fastify.post('/api/production-salary/toggle/:dept/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isSalaryManager(req))) {
-            return reply.code(403).send({ error: 'Không có quyền duyệt lương' });
+        if (!(await canApproveProductionSalary(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền duyệt lương!' });
         }
 
         const { dept, id } = req.params;
-        if (dept === 'sewing' && !(await canManageSewingSalary(req))) {
+        if (dept === 'sewing' && !(await canApproveProductionSalary(req))) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền duyệt lương bộ phận may!' });
         }
         const recordId = Number(id);
