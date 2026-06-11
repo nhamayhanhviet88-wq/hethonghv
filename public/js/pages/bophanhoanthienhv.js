@@ -313,7 +313,7 @@ async function _bphtTog(id,action){
         await apiCall('/api/finishing/toggle/'+id,'POST',{action});
         showToast('✅ Cập nhật');
         await _bphtLoadAll();
-    }catch(e){
+    }catch(e){}
 }
 
 async function _bphtRemindQc(id) {
