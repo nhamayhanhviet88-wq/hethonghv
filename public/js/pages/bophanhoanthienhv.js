@@ -370,7 +370,7 @@ async function _bphtOpenCompleteModal(recordId) {
                                 <option value="gui" ${r.shipping_standard === 'gui' ? 'selected' : ''}>📦 GỬI</option>
                             </select>
                             <div style="font-size:11px; font-weight:700; color:#64748b; margin-top:4px;">
-                                Hạn hoàn thiện: <span style="color:#059669; font-weight:800;">${formattedExpectedDate}</span>
+                                Hạn gửi hàng: <span style="color:#059669; font-weight:800;">${formattedExpectedDate}</span>
                             </div>
                         </div>
                     </div>
