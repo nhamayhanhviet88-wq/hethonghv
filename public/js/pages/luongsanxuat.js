@@ -586,7 +586,7 @@ function _lsxGetHeaderHTML() {
         return `
             <tr style="background:var(--gray-800)">
                 <th style="width:50px">STT</th>
-                <th>Time Làm Xong</th>
+                <th>Time Ép Xong</th>
                 <th>Bộ Phận</th>
                 <th>Nhân Viên</th>
                 <th>Tên Sản Phẩm</th>
