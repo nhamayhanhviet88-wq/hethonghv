@@ -112,12 +112,54 @@
             justify-content: center;
             border: 1.5px solid #111827;
         }
+        /* Search bar */
+        .search-container {
+            padding: 12px 16px 4px 16px;
+        }
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .search-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 10px 14px 10px 36px;
+            font-size: 13px;
+            color: #f3f4f6;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .search-input:focus {
+            border-color: #34d399;
+            background: rgba(255, 255, 255, 0.09);
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            font-size: 14px;
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body>
     <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>✅ CẮT CHỈ & HOÀN THIỆN</h1><span class="mu" id="mU">...</span></div>
     <div class="tc" id="mTC"></div>
-    <div id="mFB" class="mf" style="display:none; padding: 10px 16px;">
+    <!-- Search Input -->
+    <div class="search-container" id="mSC" style="display:none">
+        <div class="search-wrapper" style="display: flex; gap: 8px; width: 100%;">
+            <div style="position: relative; flex: 1; display: flex; align-items: center;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="mSearch" class="search-input" placeholder="Tìm theo mã đơn hoặc tên sản phẩm..." oninput="mSearchInput()" style="padding-left: 36px;">
+            </div>
+            <button onclick="mScanQR()" style="background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-size: 18px;" title="Quét mã QR">
+                📷
+            </button>
+        </div>
+    </div>
+    <div id="mFB" class="mf" style="display:none; padding: 4px 16px 10px 16px; border-bottom: none;">
         <input type="date" id="mFD" onchange="mLoad()" style="width: 100%;">
     </div>
     <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
@@ -170,7 +212,10 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
             window.location.href = '/';
             return;
         }
-    document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
+    document.getElementById('mU').textContent=cu.full_name||cu.username;
+    document.getElementById('mSC').style.display='';
+    document.getElementById('mFB').style.display='';
+    await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
 async function mLoad(){const dt=document.getElementById('mFD')?.value||'';
 try{const r=await api('/api/finishing/records');mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){
@@ -187,7 +232,17 @@ function switchTab(tabId) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('tab_' + tabId).classList.add('active');
     activeTab = tabId;
+    const inp = document.getElementById('mSearch');
+    if (inp) inp.value = '';
     mCards();
+}
+let searchTimeout=null;
+function mSearchInput(){
+    clearTimeout(searchTimeout);
+    searchTimeout=setTimeout(()=>mCards(),200);
+}
+function mScanQR(){
+    toast('📷 Tính năng quét QR đang được thiết lập...', 'success');
 }
 function cleanProdName(r) {
     if (!r) return 'Sản phẩm';
@@ -223,6 +278,14 @@ if (activeTab === 'undone') {
     filtered = mr.filter(r => r.done_date);
 } else if (activeTab === 'error') {
     filtered = mr.filter(r => r.error_reported);
+}
+const sv = document.getElementById('mSearch')?.value.toLowerCase().trim() || '';
+if(sv){
+    filtered = filtered.filter(r => {
+        return (r.order_code || '').toLowerCase().includes(sv) ||
+               (r.product_name || '').toLowerCase().includes(sv) ||
+               (r.cut_product_name || '').toLowerCase().includes(sv);
+    });
 }
 if(!filtered.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">✅</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn hàng</div></div>';return}
 c.innerHTML=filtered.map(r=>{
