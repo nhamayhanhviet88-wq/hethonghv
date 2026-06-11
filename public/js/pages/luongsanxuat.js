@@ -2205,6 +2205,79 @@ function _lsxOpenSewingQCModal(id) {
     h += '<div><b>Số lượng may:</b> <span style="color: #0d9488; font-weight: 700;">' + r.quantity + ' sp</span></div>';
     h += '</div>';
 
+    // QC Missing & Price details sections
+    var qcMissingNotes = r.qc_missing_notes || '';
+    var qcEvidenceImages = [];
+    try {
+        qcEvidenceImages = typeof r.qc_evidence_images === 'string' ? JSON.parse(r.qc_evidence_images) : (r.qc_evidence_images || []);
+    } catch(e) {}
+    if (!Array.isArray(qcEvidenceImages)) qcEvidenceImages = [];
+
+    var hasQCMissing = (qcMissingNotes && qcMissingNotes !== '—') || qcEvidenceImages.length > 0;
+    if (hasQCMissing) {
+        h += '<div style="border: 1px dashed #fca5a5; background: #fff5f5; border-radius: 12px; padding: 16px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">';
+        h += '<div style="font-size: 13px; font-weight: 800; color: #ef4444; display: flex; align-items: center; gap: 6px;">⚠️ CHI TIẾT KỸ THUẬT MAY THIẾU</div>';
+        if (qcMissingNotes && qcMissingNotes !== '—') {
+            h += '<div style="background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 8px; padding: 10px 12px; font-weight: 600; font-size: 13px; line-height: 1.4;">' + qcMissingNotes + '</div>';
+        }
+        if (qcEvidenceImages.length > 0) {
+            h += '<div>';
+            h += '<div style="font-size: 12px; font-weight: 700; color: #ef4444; margin-bottom: 6px;">Ảnh May Thiếu (Chụp Ảnh) *</div>';
+            h += '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
+            qcEvidenceImages.forEach(function(imgSrc) {
+                h += '<img src="' + imgSrc + '" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #fca5a5; cursor: pointer; transition: transform 0.15s;" onclick="window.open(\'' + imgSrc + '\', \'_blank\')" title="Xem ảnh đầy đủ" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">';
+            });
+            h += '</div>';
+            h += '</div>';
+        }
+        h += '</div>';
+    }
+
+    var hasTechNotes = r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]');
+    var techImages = [];
+    try {
+        techImages = typeof r.qc_missing_price_images === 'string' ? JSON.parse(r.qc_missing_price_images) : (r.qc_missing_price_images || []);
+    } catch(e) {}
+    if (!Array.isArray(techImages)) techImages = [];
+
+    if (hasTechNotes || techImages.length > 0) {
+        var detailStr = hasTechNotes ? r.notes.replace('[THIẾU GIÁ CHI TIẾT]', '').trim() : '';
+        h += '<div style="border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 12px; padding: 16px; margin-top: 12px; display: flex; flex-direction: column; gap: 12px; border-left: 4px solid #ef4444;">';
+        h += '<div style="font-size: 13px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">⚠️ BÁO LỖI / THIẾU KỸ THUẬT</div>';
+        
+        // Checkbox row
+        h += '<div style="display: flex; align-items: center; gap: 8px;">';
+        h += '<input type="checkbox" checked disabled style="width: 18px; height: 18px; accent-color: #ef4444; cursor: not-allowed;">';
+        h += '<span style="font-size: 13px; font-weight: 700; color: #ef4444;">Thiếu Kỹ Thuật May</span>';
+        h += '</div>';
+        
+        // Detail row
+        if (detailStr) {
+            h += '<div>';
+            h += '<div style="font-size: 12px; font-weight: 700; color: #ef4444; margin-bottom: 6px;">Chi tiết thiếu kỹ thuật may (Bắt buộc):</div>';
+            h += '<div style="background: #fff5f5; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; font-weight: 500;">' + detailStr + '</div>';
+            h += '</div>';
+        }
+        
+        // Images row
+        if (techImages.length > 0) {
+            h += '<div style="border: 1px dashed #fca5a5; background: #fff5f5; border-radius: 8px; padding: 12px; margin-top: 6px;">';
+            h += '<div style="font-size: 12px; font-weight: 700; color: #ef4444; margin-bottom: 6px;">Ảnh Thiếu Kỹ Thuật (Bắt buộc) *</div>';
+            h += '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
+            techImages.forEach(function(imgSrc) {
+                h += '<img src="' + imgSrc + '" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #fca5a5; cursor: pointer; transition: transform 0.15s;" onclick="window.open(\'' + imgSrc + '\', \'_blank\')" title="Xem ảnh đầy đủ" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">';
+            });
+            h += '</div>';
+            h += '</div>';
+        }
+        
+        h += '</div>';
+    }
+
+    if (hasQCMissing || hasTechNotes || techImages.length > 0) {
+        h += '<div style="margin-bottom: 12px;"></div>';
+    }
+
     // Techniques Table
     h += '<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">';
     h += '<table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">';
