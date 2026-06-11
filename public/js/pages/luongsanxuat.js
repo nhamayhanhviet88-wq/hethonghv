@@ -2227,7 +2227,7 @@ function _lsxOpenSewingQCModal(id) {
     h += '<div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">➕ Thêm Kỹ Thuật May Mới</div>';
     h += '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
     h += '<input type="text" id="newTechName" placeholder="Tên kỹ thuật..." style="flex: 2; min-width: 150px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">';
-    h += '<input type="number" id="newTechQty" value="1" min="1" placeholder="SL..." style="width: 60px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center;">';
+    h += '<input type="number" id="newTechQty" value="1" min="1" placeholder="SL..." disabled style="width: 60px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
     h += '<input type="number" id="newTechFP" placeholder="Giá Nhà..." style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right;">';
     h += '<input type="number" id="newTechPP" placeholder="Giá GC..." style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right;">';
     h += '<button type="button" onclick="_lsxAddSewingTech(' + id + ')" style="background: #166534; color: #fff; padding: 6px 15px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background 0.15s;">Thêm</button>';
@@ -2388,7 +2388,7 @@ function _lsxAddSewingTech(recordId) {
     var ppEl = document.getElementById('newTechPP');
 
     var name = nameEl ? nameEl.value.trim() : '';
-    var qty = qtyEl ? Number(qtyEl.value) || 1 : 1;
+    var qty = 1;
     var fpRaw = fpEl ? fpEl.value.trim() : '';
     var ppRaw = ppEl ? ppEl.value.trim() : '';
 
