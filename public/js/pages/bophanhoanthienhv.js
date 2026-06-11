@@ -136,6 +136,25 @@ function _bphtCleanProdName(r) {
     return res.join(' — ');
 }
 
+function _bphtGetOrderCodeWithTicket(r) {
+    if (!r) return '';
+    var orderCode = r.order_code || '';
+    var name = r.cut_product_name || r.product_name || '';
+    if (!name) return orderCode;
+    var parts = name.split(/—/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var ticketPart = '';
+    parts.forEach(function(p) {
+        var ticketMatch = p.match(/(?:Phiếu\s*|P)(\d+)/i);
+        if (ticketMatch && !ticketPart) {
+            ticketPart = 'Phiếu ' + ticketMatch[1];
+        }
+    });
+    if (ticketPart) {
+        return orderCode + ' - ' + ticketPart;
+    }
+    return orderCode;
+}
+
 function _bphtRender(){
     var all=_bpht.records.slice();
     if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.cut_product_name||r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
@@ -347,7 +366,7 @@ async function _bphtOpenCompleteModal(recordId) {
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
                         <div>
                             <span style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px; text-transform:uppercase;">Mã Đơn Hàng</span>
-                            <span style="font-size:13px; color:#0f172a; font-weight:800;">${r.order_code || '—'}</span>
+                            <span style="font-size:13px; color:#0f172a; font-weight:800;">${_bphtGetOrderCodeWithTicket(r)}</span>
                         </div>
                         <div>
                             <span style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px; text-transform:uppercase;">CSKH</span>

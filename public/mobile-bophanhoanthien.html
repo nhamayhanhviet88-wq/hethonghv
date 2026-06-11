@@ -394,6 +394,24 @@ function cleanProdName(r) {
     else res.push(r.product_name || 'Sản phẩm');
     return res.join(' — ');
 }
+function getOrderCodeWithTicket(r) {
+    if (!r) return '';
+    const orderCode = r.order_code || '';
+    const name = r.cut_product_name || r.product_name || '';
+    if (!name) return orderCode;
+    const parts = name.split(/—/).map(p => p.trim()).filter(Boolean);
+    let ticketPart = '';
+    parts.forEach(p => {
+        const ticketMatch = p.match(/(?:Phiếu\s*|P)(\d+)/i);
+        if (ticketMatch && !ticketPart) {
+            ticketPart = 'Phiếu ' + ticketMatch[1];
+        }
+    });
+    if (ticketPart) {
+        return orderCode + ' - ' + ticketPart;
+    }
+    return orderCode;
+}
 function mCards(){const c=document.getElementById('mC');
 let filtered = mr;
 if (activeTab === 'undone') {
@@ -585,7 +603,7 @@ async function mOpenCompleteModal(recordId) {
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:rgba(255,255,255,0.02); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
                         <div>
                             <span style="font-size:10px; color:#94a3b8; font-weight:700; display:block; margin-bottom:2px; text-transform:uppercase;">Mã Đơn Hàng</span>
-                            <span style="font-size:13px; color:#fff; font-weight:800;">${r.order_code || '—'}</span>
+                            <span style="font-size:13px; color:#fff; font-weight:800;">${getOrderCodeWithTicket(r)}</span>
                         </div>
                         <div>
                             <span style="font-size:10px; color:#94a3b8; font-weight:700; display:block; margin-bottom:2px; text-transform:uppercase;">CSKH</span>
