@@ -2153,6 +2153,10 @@ async function _lsxBulkAction(approve) {
         _lsxOpenBulkPressingQCModal();
         return;
     }
+    if (approve && _lsx.filter.dept === 'cutting') {
+        _lsxOpenBulkCuttingQCModal();
+        return;
+    }
     if (approve) {
         var flagged = [];
         _lsx.selectedRecords.forEach(function(sel) {
@@ -3041,6 +3045,149 @@ async function _lsxSubmitBulkPressingApprove() {
             
             // Close the bulk QC modal
             var m = document.getElementById('_bpeBulkQCModal');
+            if (m) {
+                m.classList.remove('show');
+                setTimeout(function() { m.remove(); }, 300);
+            }
+            
+            _lsx.selectedRecords = [];
+            _lsx.lastSelectedIndex = undefined;
+            _lsxUpdateFloatingBar();
+            await _lsxLoadAll();
+        } else {
+            showToast((res && res.error) || 'Có lỗi xảy ra', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast(e.message || 'Lỗi khi duyệt hàng loạt', 'error');
+    }
+}
+
+function _lsxOpenBulkCuttingQCModal() {
+    var records = [];
+    _lsx.selectedRecords.forEach(function(sel) {
+        var r = _lsx.records.find(function(x) { return x.id === sel.id && x.dept === 'cutting'; });
+        if (r) records.push(r);
+    });
+
+    if (records.length === 0) {
+        showToast('Không tìm thấy dữ liệu các dòng đã chọn', 'error');
+        return;
+    }
+
+    var old = document.getElementById('_bpeBulkCuttingQCModal'); if (old) old.remove();
+
+    var itemRowsHtml = '';
+    var grandTotal = 0;
+
+    records.forEach(function(r) {
+        var orderCode = r.order_code || '—';
+        var prodName = r.product_name || '—';
+        var workerName = r.worker_name || '—';
+        var salary = Number(r.salary) || 0;
+        grandTotal += salary;
+
+        // Rolls list
+        var rolls = [];
+        try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
+        var rollsStr = '';
+        if (rolls.length) {
+            rollsStr = rolls.map(function(rl, idx) {
+                return rl.label || rl.roll_code || 'Cây '+(idx+1);
+            }).join(', ');
+        } else {
+            rollsStr = 'Chưa có cây vải';
+        }
+
+        // Details grid for start/end kg, cut qty, etc.
+        var detailsHtml = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:11px; color:#475569; padding:6px 0;">
+                <div>📦 <strong>Cây vải:</strong> <span style="color:#0f172a; font-weight:600;">${rollsStr}</span></div>
+                <div>🏷️ <strong>Sản phẩm cắt:</strong> <span style="color:#0f172a; font-weight:600;">${r.cutting_category || '—'}</span></div>
+                <div>⚖️ <strong>Kg đầu:</strong> <span style="color:#b45309; font-weight:700;">${_lsxDetailFmtKg(r.kg_start)}</span></div>
+                <div>⚖️ <strong>Kg cuối:</strong> <span style="color:#dc2626; font-weight:700;">${_lsxDetailFmtKg(r.kg_end)}</span></div>
+                <div>✂️ <strong>Kg cắt:</strong> <span style="color:#059669; font-weight:700;">${_lsxDetailFmtKg(r.kg_cut)}</span></div>
+                <div>📦 <strong>SL cắt:</strong> <span style="color:#2563eb; font-weight:700;">${r.cut_quantity || r.quantity || 0} sp</span></div>
+            </div>
+        `;
+
+        itemRowsHtml += `
+            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:12px; box-shadow:0 2px 4px rgba(0,0,0,0.02); text-align:left;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
+                    <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:10px;">
+                        <span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px; margin-right:6px; display:inline-block; vertical-align:middle;">${orderCode}</span>
+                        <span style="color:#1e293b; font-weight:700; font-size:12px; vertical-align:middle;">${prodName}</span>
+                    </div>
+                    <span style="color:#475569; font-weight:600; font-size:11px; flex-shrink:0;">👤 ${workerName}</span>
+                </div>
+                
+                <div style="background:#f8fafc; border-radius:6px; padding:6px 10px;">
+                    ${detailsHtml}
+                </div>
+                
+                <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:8px; font-size:11px;">
+                    <span style="color:#64748b; font-weight:600; margin-right:6px;">Lương đơn:</span>
+                    <span style="color:#ea580c; font-weight:800; font-size:12.5px;">
+                        ${r.cut_quantity || r.quantity || 0} sp x ${_lsxFN(r.unit_price || 0)}đ = ${_lsxFN(salary)} đ
+                    </span>
+                </div>
+            </div>
+        `;
+    });
+
+    var h = '<div class="bpc-modal-overlay" id="_bpeBulkCuttingQCModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpeBulkCuttingQCModal\').remove()},300)">';
+    h += '<div class="bpc-modal" style="width:620px; max-height:95vh; overflow-y:auto; display:flex; flex-direction:column;">';
+    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#10b981,#059669)"><div class="m-icon">📋</div><div><div class="m-title">DUYỆT LƯƠNG HÀNG LOẠT — PHIẾU CẮT</div><div class="m-sub">Chi tiết danh sách các đơn hàng cắt được chọn để duyệt lương</div></div></div>';
+    h += '<div class="bpc-modal-body" style="overflow-y:auto; flex:1; padding:16px 20px; font-size:12px; background:#f1f5f9;">';
+
+    // Scrollable list container
+    h += '<div style="max-height:380px; overflow-y:auto; padding-right:4px; margin-bottom:16px;">';
+    h += itemRowsHtml;
+    h += '</div>';
+
+    // Grand total section
+    h += '<div style="background:#fff; border-radius:10px; padding:14px; border:1px solid #bbf7d0; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 15px rgba(16, 185, 129, 0.05); text-align:left;">';
+    h += '<div>';
+    h += '<div style="font-size:10px; font-weight:800; color:#15803d; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">💰 TỔNG LƯƠNG TOÀN BỘ CÁC ĐƠN</div>';
+    h += '<div style="font-size:11px; color:#475569; font-weight:500;">Duyệt đồng thời ' + records.length + ' bản ghi đã chọn</div>';
+    h += '</div>';
+    h += '<div style="font-size:20px; font-weight:900; color:#166534">' + _lsxFN(grandTotal) + ' đ</div>';
+    h += '</div>';
+
+    h += '</div>'; // End body
+
+    // Footer actions
+    h += '<div class="bpc-modal-actions" style="display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid #e2e8f0; background:#fff;">';
+    h += '<button class="bpc-modal-btn cancel" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: #f1f5f9; color: #475569;" onclick="var m=document.getElementById(\'_bpeBulkCuttingQCModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Hủy</button>';
+    h += '<button class="bpc-modal-btn confirm" style="flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);" onclick="_lsxSubmitBulkCuttingApprove()">XÁC NHẬN DUYỆT</button>';
+    h += '</div>';
+
+    h += '</div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', h);
+    setTimeout(function() {
+        var m = document.getElementById('_bpeBulkCuttingQCModal');
+        if (m) m.classList.add('show');
+    }, 50);
+}
+
+async function _lsxSubmitBulkCuttingApprove() {
+    var targets = _lsx.selectedRecords.map(function(r) {
+        return { id: r.id, dept: r.dept };
+    });
+
+    try {
+        showToast('Đang xử lý...', 'info');
+        var res = await apiCall('/api/production-salary/approve-bulk', 'POST', {
+            records: targets,
+            approved: true
+        });
+        
+        if (res && (res.success || res.count !== undefined)) {
+            showToast('Duyệt hàng loạt thành công!', 'success');
+            
+            // Close the bulk QC modal
+            var m = document.getElementById('_bpeBulkCuttingQCModal');
             if (m) {
                 m.classList.remove('show');
                 setTimeout(function() { m.remove(); }, 300);
