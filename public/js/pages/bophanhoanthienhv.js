@@ -23,7 +23,12 @@ function renderBophanhoanthienPage(content){
     +'.qlx-cl-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}'
     +'.qlx-cl-popup{background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s}'
     +'@keyframes qlxSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}'
-    +'@media(max-width:768px){.bpht-sb{display:none}}';
+    +'@media(max-width:768px){.bpht-sb{display:none}}'
+    +'.bpht-pag-btn { background: #ffffff; border: 1.5px solid #cbd5e1; color: #334155; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }'
+    +'.bpht-pag-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }'
+    +'.bpht-pag-btn-num { background: #ffffff; border: 1.5px solid #cbd5e1; color: #334155; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; }'
+    +'.bpht-pag-btn-num:hover { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }'
+    +'.bpht-pag-btn-num.active { background: #059669; border-color: #059669; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.25); }';
     document.head.appendChild(st);}
     
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
@@ -35,7 +40,7 @@ function renderBophanhoanthienPage(content){
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bphtTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th>✅</th><th>⚠️</th><th>Hạn gửi hàng</th><th>Hoàn Thiện</th><th>Tiến Độ</th><th>Tên SP</th><th>CSKH</th><th>SL</th><th>NV HT</th><th>NV May</th><th>Ảnh</th><th>TC Gửi</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bphtTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
-    var _t;document.getElementById('bphtSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpht.search=document.getElementById('bphtSearch').value||'';_bphtRender();},300);});
+    var _t;document.getElementById('bphtSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bpht.page=1;_bpht.search=document.getElementById('bphtSearch').value||'';_bphtRender();},300);});
     _bphtLoadAll();
 }
 
@@ -53,7 +58,7 @@ h+='<div class="bpht-sb-item'+(pA?' active':'')+'" onclick="event.stopPropagatio
 });});sb.innerHTML=h;}
 
 function _bphtTgl(k){_bphtOpen[k]=!_bphtOpen[k];_bphtRenderSb();}
-function _bphtFilter(y,m,f){_bpht.filter={year:y||null,month:m||null,finisher_id:f!==undefined?f:null};_bphtRenderSb();_bphtLoadRecs();}
+function _bphtFilter(y,m,f){_bpht.page=1;_bpht.filter={year:y||null,month:m||null,finisher_id:f!==undefined?f:null};_bphtRenderSb();_bphtLoadRecs();}
 
 async function _bphtLoadRecs(){var f=_bpht.filter,qs='?_=1';
 if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;if(f.finisher_id)qs+='&finisher_id='+f.finisher_id;
@@ -175,9 +180,82 @@ function _bphtRender(){
     var all=_bpht.records.slice();
     if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.cut_product_name||r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
     var tot=all.length;
+    var itemsPerPage = 50;
+    var totalPages = Math.ceil(tot / itemsPerPage) || 1;
+    
+    if (!_bpht.page) _bpht.page = 1;
+    if (_bpht.page > totalPages) _bpht.page = totalPages;
+    if (_bpht.page < 1) _bpht.page = 1;
+    
+    var startIdx = (_bpht.page - 1) * itemsPerPage;
+    var paginated = all.slice(startIdx, startIdx + itemsPerPage);
+    
+    var pagEl = document.getElementById('bphtPagination');
+    if (!pagEl) {
+        pagEl = document.createElement('div');
+        pagEl.id = 'bphtPagination';
+        pagEl.style.cssText = 'display:flex; justify-content:center; align-items:center; gap:12px; padding: 16px; border-top: 1px solid #e2e8f0; background: #ffffff;';
+        var card = document.querySelector('.bpht-main .card');
+        if (card) card.appendChild(pagEl);
+    }
+    
     var tb=document.getElementById('bphtTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
-    tb.innerHTML=all.map(function(r,i){
+    if(!all.length){
+        tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';
+        if (pagEl) pagEl.style.display = 'none';
+    }else{
+        if (pagEl) {
+            pagEl.style.display = 'flex';
+            if (totalPages <= 1) {
+                pagEl.innerHTML = '';
+                pagEl.style.borderTop = 'none';
+                pagEl.style.padding = '0';
+            } else {
+                pagEl.style.borderTop = '1px solid #e2e8f0';
+                pagEl.style.padding = '16px';
+                
+                var pagesHtml = '';
+                var maxVisiblePages = 5;
+                var startPage = Math.max(1, _bpht.page - 2);
+                var endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                if (endPage - startPage < maxVisiblePages - 1) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                }
+                
+                pagesHtml += '<button class="bpht-pag-btn" onclick="_bphtPrevPage()" '+(_bpht.page === 1 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '')+'>&lt; Trước</button>';
+                
+                if (startPage > 1) {
+                    pagesHtml += '<button class="bpht-pag-btn-num" onclick="_bphtGoToPage(1)">1</button>';
+                    if (startPage > 2) {
+                        pagesHtml += '<span style="color:#64748b; padding: 0 4px;">...</span>';
+                    }
+                }
+                
+                for (var p = startPage; p <= endPage; p++) {
+                    var activeClass = p === _bpht.page ? 'active' : '';
+                    pagesHtml += '<button class="bpht-pag-btn-num '+activeClass+'" onclick="_bphtGoToPage('+p+')">'+p+'</button>';
+                }
+                
+                if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                        pagesHtml += '<span style="color:#64748b; padding: 0 4px;">...</span>';
+                    }
+                    pagesHtml += '<button class="bpht-pag-btn-num" onclick="_bphtGoToPage('+totalPages+')">'+totalPages+'</button>';
+                }
+                
+                pagesHtml += '<button class="bpht-pag-btn" onclick="_bphtNextPage()" '+(_bpht.page === totalPages ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '')+'>Sau &gt;</button>';
+                
+                pagEl.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-family:\'Inter\',sans-serif;">'
+                    + '<div style="font-size:12px; color:#64748b; font-weight:600;">'
+                    + 'Hiển thị <strong>'+(startIdx + 1)+'</strong> - <strong>'+Math.min(startIdx + itemsPerPage, tot)+'</strong> trên tổng số <strong>'+tot+'</strong> đơn'
+                    + '</div>'
+                    + '<div style="display:flex; gap:6px; align-items:center;">'
+                    + pagesHtml
+                    + '</div>'
+                    + '</div>';
+            }
+        }
+        tb.innerHTML=paginated.map(function(r,i){
         var isQcOk = (r.is_qc_checked !== 0);
         var isManager = typeof currentUser !== 'undefined' && currentUser && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
         
@@ -203,7 +281,7 @@ function _bphtRender(){
 
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
-        return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+        return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(startIdx+i+1)+'</td>'
         +'<td style="text-align:center">'+clickHtml+'</td>'
         +'<td style="text-align:center">'+errHtml+'</td>'
         +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
@@ -947,4 +1025,37 @@ async function _bphtSaveDisplaySettings() {
     } catch(err) {
         showToast(err.message || 'Lỗi lưu cấu hình', 'error');
     }
+}
+
+function _bphtPrevPage() {
+    if (_bpht.page > 1) {
+        _bpht.page--;
+        _bphtRender();
+        document.querySelector('.bpht-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function _bphtNextPage() {
+    var all = _bpht.records.slice();
+    if (_bpht.search) {
+        var q = _bpht.search.toLowerCase();
+        all = all.filter(function(r) {
+            return (r.cut_product_name || r.product_name || '').toLowerCase().indexOf(q) >= 0 ||
+                   (r.cskh_name || '').toLowerCase().indexOf(q) >= 0 ||
+                   (r.order_code || '').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+    var tot = all.length;
+    var totalPages = Math.ceil(tot / 50) || 1;
+    if (_bpht.page < totalPages) {
+        _bpht.page++;
+        _bphtRender();
+        document.querySelector('.bpht-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function _bphtGoToPage(p) {
+    _bpht.page = p;
+    _bphtRender();
+    document.querySelector('.bpht-main')?.scrollTo({ top: 0, behavior: 'smooth' });
 }

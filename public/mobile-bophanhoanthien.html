@@ -431,10 +431,15 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
     updateFilterVisibility();
     updateActiveDoneFilterBtn();
     await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
-async function mLoad(){const dt=document.getElementById('mFD')?.value||'';
-try{const r=await api('/api/finishing/records');mr=r.records||[];if(dt)mr=mr.filter(r=>r.expected_date&&r.expected_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
+async function mLoad(){
+try{const r=await api('/api/finishing/records');mr=r.records||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){
-    const undoneCount = mr.filter(r => !r.done_date && r.is_finishing_needed).length;
+    const dt=document.getElementById('mFD')?.value||'';
+    const undoneCount = mr.filter(r => {
+        if (r.done_date || !r.is_finishing_needed) return false;
+        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        return true;
+    }).length;
     const badge = document.getElementById('badge_undone');
     if (undoneCount > 0) {
         badge.textContent = undoneCount;
@@ -443,7 +448,11 @@ function mStats(){
         badge.style.display = 'none';
     }
     
-    const uncheckedCount = mr.filter(r => r.is_qc_checked === 0 && !r.contractor_id).length;
+    const uncheckedCount = mr.filter(r => {
+        if (r.is_qc_checked !== 0 || r.contractor_id) return false;
+        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        return true;
+    }).length;
     const badgeUnchecked = document.getElementById('badge_unchecked');
     if (badgeUnchecked) {
         if (uncheckedCount > 0) {
@@ -689,9 +698,14 @@ function getOrderCodeWithTicket(r) {
     return orderCode;
 }
 function mCards(){const c=document.getElementById('mC');
+const dt=document.getElementById('mFD')?.value||'';
 let filtered = mr;
 if (activeTab === 'undone') {
-    filtered = mr.filter(r => !r.done_date && r.is_finishing_needed);
+    filtered = mr.filter(r => {
+        if (r.done_date || !r.is_finishing_needed) return false;
+        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        return true;
+    });
 } else if (activeTab === 'done') {
     filtered = mr.filter(r => {
         if (!r.is_finishing_needed) return false;
@@ -734,9 +748,17 @@ if (activeTab === 'undone') {
         return true;
     });
 } else if (activeTab === 'unchecked') {
-    filtered = mr.filter(r => r.is_qc_checked === 0 && !r.contractor_id);
+    filtered = mr.filter(r => {
+        if (r.is_qc_checked !== 0 || r.contractor_id) return false;
+        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        return true;
+    });
 } else if (activeTab === 'error') {
-    filtered = mr.filter(r => r.error_reported && r.is_finishing_needed);
+    filtered = mr.filter(r => {
+        if (!r.error_reported || !r.is_finishing_needed) return false;
+        if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        return true;
+    });
 }
 const sv = document.getElementById('mSearch')?.value.toLowerCase().trim() || '';
 if(sv){

@@ -13,7 +13,8 @@ var _ktclState = {
     doneDate: '',
     doneMonth: '',
     showSimulator: false,
-    currentRecordId: null
+    currentRecordId: null,
+    currentPage: 1
 };
 
 // Formatter Helpers
@@ -815,6 +816,51 @@ function renderKiemtrachatluongPage(content) {
                 border-color: #f87171 !important;
                 box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
             }
+            .ktcl-pag-btn {
+                background: #ffffff;
+                border: 1.5px solid #cbd5e1;
+                color: #334155;
+                padding: 6px 14px;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .ktcl-pag-btn:hover:not(:disabled) {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+                color: #0f172a;
+            }
+            .ktcl-pag-btn-num {
+                background: #ffffff;
+                border: 1.5px solid #cbd5e1;
+                color: #334155;
+                width: 34px;
+                height: 34px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .ktcl-pag-btn-num:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+                color: #0f172a;
+            }
+            .ktcl-pag-btn-num.active {
+                background: #2563eb;
+                border-color: #2563eb;
+                color: #ffffff;
+                box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+            }
         `;
         document.head.appendChild(st);
     }
@@ -858,7 +904,7 @@ function renderKiemtrachatluongPage(content) {
                         <div class="ktcl-kpi-card kpi-tab-1" onclick="_ktclSwitchTab('1')" id="ktclKpiCard1">
                             <div class="ktcl-kpi-icon">📅</div>
                             <div class="ktcl-kpi-info">
-                                <div class="ktcl-kpi-label">ĐẾN HẸN (TRONG NHÀ)</div>
+                                <div class="ktcl-kpi-label">ĐẾN HẸN</div>
                                 <div class="ktcl-kpi-val" id="ktclCountTab1">0</div>
                             </div>
                         </div>
@@ -1014,6 +1060,7 @@ function _ktclPopulateDropdowns() {
 // Switch tabs and load corresponding tab records
 function _ktclSwitchTab(tab) {
     _ktclState.activeTab = tab;
+    _ktclState.currentPage = 1;
     
     // Toggle active classes on KPI cards
     for (let i = 1; i <= 5; i++) {
@@ -1206,6 +1253,26 @@ function _ktclRenderTable() {
         filtered = filtered.filter(r => r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]'));
     }
     
+    const totalCount = filtered.length;
+    const itemsPerPage = 50;
+    const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
+    
+    if (!_ktclState.currentPage) _ktclState.currentPage = 1;
+    if (_ktclState.currentPage > totalPages) _ktclState.currentPage = totalPages;
+    if (_ktclState.currentPage < 1) _ktclState.currentPage = 1;
+    
+    const startIdx = (_ktclState.currentPage - 1) * itemsPerPage;
+    const paginatedRecords = filtered.slice(startIdx, startIdx + itemsPerPage);
+    
+    let pagEl = document.getElementById('ktclPagination');
+    if (!pagEl) {
+        pagEl = document.createElement('div');
+        pagEl.id = 'ktclPagination';
+        pagEl.style.cssText = 'display:flex; justify-content:center; align-items:center; gap:12px; padding: 20px; border-top: 1px solid #e2e8f0; background: #ffffff; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;';
+        const tableCard = document.querySelector('.ktcl-table-card');
+        if (tableCard) tableCard.appendChild(pagEl);
+    }
+    
     if (!filtered.length) {
         body.innerHTML = `
             <tr>
@@ -1214,10 +1281,65 @@ function _ktclRenderTable() {
                 </td>
             </tr>
         `;
+        if (pagEl) pagEl.style.display = 'none';
         return;
     }
     
-    body.innerHTML = filtered.map((r, idx) => {
+    if (pagEl) {
+        pagEl.style.display = 'flex';
+        if (totalPages <= 1) {
+            pagEl.innerHTML = '';
+            pagEl.style.borderTop = 'none';
+            pagEl.style.padding = '0';
+        } else {
+            pagEl.style.borderTop = '1px solid #e2e8f0';
+            pagEl.style.padding = '20px';
+            
+            let pagesHtml = '';
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, _ktclState.currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            if (endPage - startPage < maxVisiblePages - 1) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            pagesHtml += `<button class="ktcl-pag-btn" onclick="_ktclPrevPage()" ${_ktclState.currentPage === 1 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>&lt; Trước</button>`;
+            
+            if (startPage > 1) {
+                pagesHtml += `<button class="ktcl-pag-btn-num" onclick="_ktclGoToPage(1)">1</button>`;
+                if (startPage > 2) {
+                    pagesHtml += `<span style="color:#64748b; padding: 0 4px;">...</span>`;
+                }
+            }
+            
+            for (let p = startPage; p <= endPage; p++) {
+                const activeClass = p === _ktclState.currentPage ? 'active' : '';
+                pagesHtml += `<button class="ktcl-pag-btn-num ${activeClass}" onclick="_ktclGoToPage(${p})">${p}</button>`;
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    pagesHtml += `<span style="color:#64748b; padding: 0 4px;">...</span>`;
+                }
+                pagesHtml += `<button class="ktcl-pag-btn-num" onclick="_ktclGoToPage(${totalPages})">${totalPages}</button>`;
+            }
+            
+            pagesHtml += `<button class="ktcl-pag-btn" onclick="_ktclNextPage()" ${_ktclState.currentPage === totalPages ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>Sau &gt;</button>`;
+            
+            pagEl.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#64748b; font-weight:600;">
+                        Hiển thị <strong>${startIdx + 1}</strong> - <strong>${Math.min(startIdx + itemsPerPage, totalCount)}</strong> trên tổng số <strong>${totalCount}</strong> đơn
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        ${pagesHtml}
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    body.innerHTML = paginatedRecords.map((r, idx) => {
         // Actions cell
         let actionsHtml = '';
         if (r.done_date) {
@@ -1389,7 +1511,7 @@ function _ktclRenderTable() {
         
         return `
             <tr>
-                <td style="text-align: center; font-weight: 700; color: #94a3b8; vertical-align: middle;">${idx + 1}</td>
+                <td style="text-align: center; font-weight: 700; color: #94a3b8; vertical-align: middle;">${startIdx + idx + 1}</td>
                 <td style="text-align: center; vertical-align: middle;">${actionsHtml}</td>
                 <td>${orderInfoHtml}</td>
                 <td>${fabricInfoHtml}</td>
@@ -2841,6 +2963,7 @@ function _ktclToggleSimulator() {
 
 // Filters listeners
 function _ktclHandleSearch(val) {
+    _ktclState.currentPage = 1;
     _ktclState.search = val;
     
     if (_ktclState.activeTab === '4') {
@@ -2894,16 +3017,20 @@ function _ktclHandleSearch(val) {
 }
 
 function _ktclFilterTeam(val) {
+    _ktclState.currentPage = 1;
     _ktclState.teamFilterVal = val;
     _ktclRenderTable();
 }
 
+// Filters listeners
 function _ktclHandleMissingTechFilterChange(checked) {
+    _ktclState.currentPage = 1;
     _ktclState.filterMissingTech = checked;
     _ktclRenderTable();
 }
 
 function _ktclHandleTimeFilterChange(val) {
+    _ktclState.currentPage = 1;
     _ktclState.timeFilterVal = val;
     
     const customDateContainer = document.getElementById('ktclCustomDateContainer');
@@ -2931,11 +3058,13 @@ function _ktclHandleTimeFilterChange(val) {
 }
 
 function _ktclHandleCustomDateChange(val) {
+    _ktclState.currentPage = 1;
     _ktclState.doneDate = val;
     _ktclLoadData();
 }
 
 function _ktclHandleCustomMonthChange(val) {
+    _ktclState.currentPage = 1;
     _ktclState.doneMonth = val;
     _ktclLoadData();
 }
@@ -3011,5 +3140,50 @@ async function _qcClDelete(id) {
         showToast('✅ Đã xóa');
         _ktclChecklistSetup();
     } catch(e) { showToast(e.message, 'error'); }
+}
+
+function _ktclPrevPage() {
+    if (_ktclState.currentPage > 1) {
+        _ktclState.currentPage--;
+        _ktclRenderTable();
+        document.querySelector('.ktcl-table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function _ktclNextPage() {
+    let filtered = _ktclState.originalRecords.slice();
+    if (_ktclState.search) {
+        const q = _ktclState.search.toLowerCase().trim();
+        filtered = filtered.filter(r => 
+            (r.order_code || '').toLowerCase().includes(q) ||
+            (r.product_name || '').toLowerCase().includes(q) ||
+            (r.cut_product_name || '').toLowerCase().includes(q)
+        );
+    }
+    if (_ktclState.teamFilterVal) {
+        if (_ktclState.teamFilterVal.startsWith('c_')) {
+            const cid = Number(_ktclState.teamFilterVal.split('_')[1]);
+            filtered = filtered.filter(r => r.contractor_id === cid);
+        } else if (_ktclState.teamFilterVal.startsWith('t_')) {
+            const tid = Number(_ktclState.teamFilterVal.split('_')[1]);
+            filtered = filtered.filter(r => r.sewing_team_id === tid);
+        }
+    }
+    if (_ktclState.activeTab === '4' && _ktclState.filterMissingTech) {
+        filtered = filtered.filter(r => r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]'));
+    }
+    const totalCount = filtered.length;
+    const totalPages = Math.ceil(totalCount / 50) || 1;
+    if (_ktclState.currentPage < totalPages) {
+        _ktclState.currentPage++;
+        _ktclRenderTable();
+        document.querySelector('.ktcl-table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function _ktclGoToPage(p) {
+    _ktclState.currentPage = p;
+    _ktclRenderTable();
+    document.querySelector('.ktcl-table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

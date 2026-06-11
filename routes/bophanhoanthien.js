@@ -116,11 +116,7 @@ module.exports = async function(fastify) {
                           SELECT 1 FROM finishing_display_settings 
                           WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
                       ))
-                      AND
-                      (sr.contractor_id IS NULL OR EXISTS (
-                          SELECT 1 FROM finishing_display_settings 
-                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = true
-                      ))
+                      AND sr.contractor_id IS NULL
                   )
               )
             GROUP BY year,month,fr.finisher_id,u.full_name
@@ -148,11 +144,7 @@ module.exports = async function(fastify) {
                           SELECT 1 FROM finishing_display_settings 
                           WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
                       ))
-                      AND
-                      (sr.contractor_id IS NULL OR EXISTS (
-                          SELECT 1 FROM finishing_display_settings 
-                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = true
-                      ))
+                      AND sr.contractor_id IS NULL
                   )
               )`, params);
         return { tree, total, stats: stats || { total: 0, in_progress: 0, done: 0, errors: 0 } };
@@ -212,11 +204,7 @@ module.exports = async function(fastify) {
                           SELECT 1 FROM finishing_display_settings 
                           WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
                       ))
-                      AND
-                      (sr.contractor_id IS NULL OR EXISTS (
-                          SELECT 1 FROM finishing_display_settings 
-                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = true
-                      ))
+                      AND sr.contractor_id IS NULL
                   )
               )
             ORDER BY fr.expected_date DESC NULLS LAST, fr.created_at DESC`, params);
