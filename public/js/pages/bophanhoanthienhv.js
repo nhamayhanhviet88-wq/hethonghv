@@ -286,6 +286,24 @@ async function _bphtOpenCompleteModal(recordId) {
         checklistHtml += '</div>';
     }
 
+    let formattedExpectedDate = '—';
+    if (r.expected_date) {
+        try {
+            const dt = new Date(r.expected_date);
+            const hrs = String(dt.getHours()).padStart(2, '0');
+            const mins = String(dt.getMinutes()).padStart(2, '0');
+            const day = String(dt.getDate()).padStart(2, '0');
+            const month = String(dt.getMonth() + 1).padStart(2, '0');
+            if (r.shipping_standard === 'chuan') {
+                formattedExpectedDate = `${hrs}:${mins} ngày ${day}/${month}`;
+            } else {
+                formattedExpectedDate = `ngày ${day}/${month}`;
+            }
+        } catch(e) {
+            formattedExpectedDate = r.expected_date;
+        }
+    }
+
     const modalHtml = `
         <div id="bphtCompleteOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
             <div style="background:#fff; border-radius:16px; width:550px; max-width:100%; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:90vh; animation:qlxSlideUp .3s;">
@@ -319,6 +337,9 @@ async function _bphtOpenCompleteModal(recordId) {
                                 <option value="gap" ${r.shipping_standard === 'gap' ? 'selected' : ''}>🔴 GẤP</option>
                                 <option value="gui" ${r.shipping_standard === 'gui' ? 'selected' : ''}>📦 GỬI</option>
                             </select>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; margin-top:4px;">
+                                Hạn hoàn thiện: <span style="color:#059669; font-weight:800;">${formattedExpectedDate}</span>
+                            </div>
                         </div>
                     </div>
 
