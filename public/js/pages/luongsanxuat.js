@@ -630,7 +630,7 @@ function _lsxGetHeaderHTML() {
         return `
             <tr style="background:var(--gray-800)">
                 <th style="width:50px">STT</th>
-                <th>Time Hoàn Thiện</th>
+                <th>Thời Gian<br>Hoàn Thiện</th>
                 <th>NV May</th>
                 <th>Tên SP / Phối</th>
                 <th style="text-align:center">SL (Đơn / May)</th>
