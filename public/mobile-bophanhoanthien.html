@@ -71,7 +71,7 @@
             font-weight: 700;
             gap: 4px;
             flex: 1;
-            max-width: 33%;
+            max-width: 25%;
             cursor: pointer;
             padding: 6px 4px;
             border-radius: 14px;
@@ -339,6 +339,13 @@
             </div>
             <span>Xong</span>
         </div>
+        <div class="nav-item" onclick="switchTab('unchecked')" id="tab_unchecked">
+            <div class="nav-icon-wrapper">
+                <span class="nav-icon">🔍</span>
+                <span class="badge" id="badge_unchecked" style="display:none">0</span>
+            </div>
+            <span>Chưa Kiểm Tra</span>
+        </div>
         <div class="nav-item" onclick="switchTab('error')" id="tab_error">
             <div class="nav-icon-wrapper">
                 <span class="nav-icon">⚠️</span>
@@ -434,6 +441,17 @@ function mStats(){
         badge.style.display = 'flex';
     } else {
         badge.style.display = 'none';
+    }
+    
+    const uncheckedCount = mr.filter(r => !r.done_date && r.is_qc_checked === 0).length;
+    const badgeUnchecked = document.getElementById('badge_unchecked');
+    if (badgeUnchecked) {
+        if (uncheckedCount > 0) {
+            badgeUnchecked.textContent = uncheckedCount;
+            badgeUnchecked.style.display = 'flex';
+        } else {
+            badgeUnchecked.style.display = 'none';
+        }
     }
 }
 function switchTab(tabId) {
@@ -714,6 +732,8 @@ if (activeTab === 'undone') {
         }
         return true;
     });
+} else if (activeTab === 'unchecked') {
+    filtered = mr.filter(r => !r.done_date && r.is_qc_checked === 0);
 } else if (activeTab === 'error') {
     filtered = mr.filter(r => r.error_reported);
 }
