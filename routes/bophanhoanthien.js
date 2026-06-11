@@ -56,6 +56,16 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_fh_fid ON finishing_history(finishing_id)`);
     } catch(e) { console.error('[BPHT] history:', e.message); }
 
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS finishing_display_settings (
+            id SERIAL PRIMARY KEY,
+            source_type VARCHAR(50) NOT NULL, -- 'team' or 'contractor'
+            source_id INTEGER NOT NULL,
+            is_visible BOOLEAN NOT NULL DEFAULT TRUE,
+            UNIQUE(source_type, source_id)
+        )`);
+    } catch(e) { console.error('[BPHT] display settings table:', e.message); }
+
     // Ensure uploads dir
     const uploadsDir = path.join(__dirname, '..', 'uploads', 'finishing');
     try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
@@ -81,8 +91,24 @@ module.exports = async function(fastify) {
             SELECT EXTRACT(YEAR FROM COALESCE(fr.expected_date,fr.created_at))::int AS year,
                    EXTRACT(MONTH FROM COALESCE(fr.expected_date,fr.created_at))::int AS month,
                    fr.finisher_id, u.full_name AS finisher_name, COUNT(*)::int AS count
-            FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id=u.id
-            WHERE 1=1 ${where} GROUP BY year,month,fr.finisher_id,u.full_name
+            FROM finishing_records fr 
+            LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+            LEFT JOIN users u ON fr.finisher_id=u.id
+            WHERE 1=1 ${where}
+              AND (
+                  fr.sewing_record_id IS NULL OR (
+                      (sr.sewing_team_id IS NULL OR NOT EXISTS (
+                          SELECT 1 FROM finishing_display_settings 
+                          WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
+                      ))
+                      AND
+                      (sr.contractor_id IS NULL OR NOT EXISTS (
+                          SELECT 1 FROM finishing_display_settings 
+                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = false
+                      ))
+                  )
+              )
+            GROUP BY year,month,fr.finisher_id,u.full_name
             ORDER BY year DESC, month DESC, u.full_name`, params);
         const total = rows.reduce((s,r) => s+r.count, 0);
         const yearMap = {};
@@ -98,7 +124,22 @@ module.exports = async function(fastify) {
             COUNT(*) FILTER (WHERE is_completed AND done_date IS NULL)::int AS in_progress,
             COUNT(*) FILTER (WHERE done_date IS NOT NULL)::int AS done,
             COUNT(*) FILTER (WHERE error_reported)::int AS errors
-            FROM finishing_records fr WHERE 1=1 ${where}`, params);
+            FROM finishing_records fr
+            LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+            WHERE 1=1 ${where}
+              AND (
+                  fr.sewing_record_id IS NULL OR (
+                      (sr.sewing_team_id IS NULL OR NOT EXISTS (
+                          SELECT 1 FROM finishing_display_settings 
+                          WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
+                      ))
+                      AND
+                      (sr.contractor_id IS NULL OR NOT EXISTS (
+                          SELECT 1 FROM finishing_display_settings 
+                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = false
+                      ))
+                  )
+              )`, params);
         return { tree, total, stats: stats || { total: 0, in_progress: 0, done: 0, errors: 0 } };
     });
 
@@ -133,11 +174,27 @@ module.exports = async function(fastify) {
                        LIMIT 1
                    ) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
-            FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id=u.id
+            FROM finishing_records fr 
+            LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+            LEFT JOIN users u ON fr.finisher_id=u.id
             LEFT JOIN users u_c ON fr.completed_by=u_c.id LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM finishing_history h WHERE h.finishing_id=fr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY fr.expected_date DESC NULLS LAST, fr.created_at DESC`, params);
+            ${where}
+              AND (
+                  fr.sewing_record_id IS NULL OR (
+                      (sr.sewing_team_id IS NULL OR NOT EXISTS (
+                          SELECT 1 FROM finishing_display_settings 
+                          WHERE source_type = 'team' AND source_id = sr.sewing_team_id AND is_visible = false
+                      ))
+                      AND
+                      (sr.contractor_id IS NULL OR NOT EXISTS (
+                          SELECT 1 FROM finishing_display_settings 
+                          WHERE source_type = 'contractor' AND source_id = sr.contractor_id AND is_visible = false
+                      ))
+                  )
+              )
+            ORDER BY fr.expected_date DESC NULLS LAST, fr.created_at DESC`, params);
         return { records };
     });
 
@@ -244,6 +301,87 @@ module.exports = async function(fastify) {
     // ========== STAFF ==========
     fastify.get('/api/finishing/staff', { preHandler: [authenticate] }, async () => {
         return { staff: await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
+    });
+
+    // ========== DISPLAY SETTINGS ==========
+    fastify.get('/api/finishing/display-settings', { preHandler: [authenticate] }, async (req) => {
+        const teams = await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 ORDER BY name`);
+        const contractors = await db.all(`SELECT id, name FROM sewing_contractors WHERE is_active=true ORDER BY display_order, name`);
+        const disabledSettings = await db.all(`SELECT source_type, source_id FROM finishing_display_settings WHERE is_visible = false`);
+        
+        const disabledMap = {};
+        disabledSettings.forEach(s => {
+            disabledMap[s.source_type + '_' + s.source_id] = true;
+        });
+
+        return {
+            teams: teams.map(t => ({
+                id: t.id,
+                name: t.name,
+                is_visible: !disabledMap['team_' + t.id]
+            })),
+            contractors: contractors.map(c => ({
+                id: c.id,
+                name: c.name,
+                is_visible: !disabledMap['contractor_' + c.id]
+            }))
+        };
+    });
+
+    fastify.post('/api/finishing/display-settings', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { settings } = req.body || {};
+        if (!Array.isArray(settings)) return reply.code(400).send({ error: 'Cấu hình không hợp lệ' });
+
+        const now = vnNow();
+        await db.run('BEGIN');
+        try {
+            await db.run('DELETE FROM finishing_display_settings');
+            for (const item of settings) {
+                if (item.is_visible === false) {
+                    await db.run(`
+                        INSERT INTO finishing_display_settings (source_type, source_id, is_visible)
+                        VALUES ($1, $2, false)
+                    `, [item.source_type, Number(item.source_id)]);
+
+                    // Auto-complete existing undone finishing records for the hidden source
+                    const recordsToUpdate = await db.all(`
+                        SELECT fr.id FROM finishing_records fr
+                        JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                        WHERE fr.done_date IS NULL
+                          AND (
+                              (sr.sewing_team_id = $1 AND $2 = 'team') OR
+                              (sr.contractor_id = $1 AND $2 = 'contractor')
+                          )
+                    `, [Number(item.source_id), item.source_type]);
+
+                    if (recordsToUpdate.length > 0) {
+                        const ids = recordsToUpdate.map(r => r.id);
+                        await db.run(`
+                            UPDATE finishing_records
+                            SET is_completed = true,
+                                done_date = CURRENT_DATE,
+                                completed_at = $1,
+                                completed_by = $2,
+                                updated_at = $1
+                            WHERE id IN (${ids.join(',')})
+                        `, [now, req.user.id]);
+
+                        for (const id of ids) {
+                            await db.run(`
+                                INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at)
+                                VALUES ($1, 'complete', 'đơn không có ở mục hoàn thiện', $2, $3)
+                            `, [id, req.user.id, now]);
+                        }
+                    }
+                }
+            }
+            await db.run('COMMIT');
+            return { success: true };
+        } catch (e) {
+            await db.run('ROLLBACK');
+            throw e;
+        }
     });
 
     // ========== FINISHING CHECKLIST TEMPLATES & ANSWERS ==========

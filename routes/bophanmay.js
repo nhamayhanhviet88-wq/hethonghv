@@ -149,14 +149,34 @@ module.exports = async function(fastify) {
                         const shippingStandard = (sRec.shipping_priority || 'CHUẨN').toLowerCase() === 'gấp' ? 'gap' : 
                                                  ((sRec.shipping_priority || 'CHUẨN').toLowerCase() === 'gửi' ? 'gui' : 'chuan');
                         
+                        let isVisible = true;
+                        if (sRec.sewing_team_id || sRec.contractor_id) {
+                            const checkDs = await db.get(`
+                                SELECT 1 FROM finishing_display_settings
+                                WHERE (source_type = 'team' AND source_id = $1 AND is_visible = false)
+                                   OR (source_type = 'contractor' AND source_id = $2 AND is_visible = false)
+                                LIMIT 1
+                            `, [sRec.sewing_team_id || 0, sRec.contractor_id || 0]);
+                            if (checkDs) isVisible = false;
+                        }
+
+                        const doneDate = isVisible ? null : now.split('T')[0];
+                        const isCompleted = !isVisible;
+                        const completedAt = isVisible ? null : now;
+                        const completedBy = isVisible ? null : userId;
+
                         const r = await db.get(`
                             INSERT INTO finishing_records (
-                                dht_order_id, sewing_record_id, expected_date, done_date, product_name, cskh_name, quantity, sewer_name, shipping_standard, notes, created_by, created_at
-                            ) VALUES ($1, $2, $3, null, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
+                                dht_order_id, sewing_record_id, expected_date, done_date, is_completed, completed_at, completed_by, product_name, cskh_name, quantity, sewer_name, shipping_standard, notes, created_by, created_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id
                         `, [
                             sRec.dht_order_id,
                             sewingRecordId,
                             sRec.expected_date,
+                            doneDate,
+                            isCompleted,
+                            completedAt,
+                            completedBy,
                             prodName,
                             sRec.cskh_name,
                             sRec.quantity,
@@ -167,8 +187,13 @@ module.exports = async function(fastify) {
                             now
                         ]);
                         
-                        await db.run(`INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
-                            [r.id, 'create', 'Tạo tự động từ kết quả QC', userId, now]);
+                        if (isVisible) {
+                            await db.run(`INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+                                [r.id, 'create', 'Tạo tự động từ kết quả QC', userId, now]);
+                        } else {
+                            await db.run(`INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+                                [r.id, 'complete', 'đơn không có ở mục hoàn thiện', userId, now]);
+                        }
                     }
                 }
             }

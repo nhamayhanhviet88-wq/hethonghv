@@ -26,7 +26,8 @@ function renderBophanhoanthienPage(content){
     document.head.appendChild(st);}
     
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
-    var setupBtn = isGD ? '<button onclick="_bphtChecklistSetup()" style="padding:6px 12px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;color:#334155;transition:all 0.15s;" onmouseover="this.style.borderColor=\'#059669\';this.style.color=\'#059669\';" onmouseout="this.style.borderColor=\'#cbd5e1\';this.style.color=\'#334155\';">⚙️ Setup Checklist Hoàn Thiện</button>' : '';
+    var setupBtn2 = isGD ? '<button onclick="_bphtDisplaySetup()" style="padding:6px 12px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;color:#334155;transition:all 0.15s;margin-right:8px;" onmouseover="this.style.borderColor=\'#059669\';this.style.color=\'#059669\';" onmouseout="this.style.borderColor=\'#cbd5e1\';this.style.color=\'#334155\';">⚙️ Setup Hoàn Thiện</button>' : '';
+    var setupBtn = isGD ? (setupBtn2 + '<button onclick="_bphtChecklistSetup()" style="padding:6px 12px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;color:#334155;transition:all 0.15s;" onmouseover="this.style.borderColor=\'#059669\';this.style.color=\'#059669\';" onmouseout="this.style.borderColor=\'#cbd5e1\';this.style.color=\'#334155\';">⚙️ Setup Checklist Hoàn Thiện</button>') : '';
 
     content.innerHTML='<div class="bpht-wrap"><div class="bpht-sb" id="bphtSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpht-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bphtInfo" style="font-size:12px"></div><div id="bphtStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'+setupBtn+'<input id="bphtSearch" placeholder="🔍 Tìm SP / CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
@@ -608,4 +609,107 @@ async function _bphtClDelete(id) {
         showToast('✅ Đã xóa');
         _bphtChecklistSetup();
     } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ========== DISPLAY SETTINGS SETUP MODAL (Giám Đốc) ==========
+async function _bphtDisplaySetup() {
+    try {
+        const data = await apiCall('/api/finishing/display-settings');
+        const teams = data.teams || [];
+        const contractors = data.contractors || [];
+
+        let html = '<div style="padding:20px"><h3 style="margin:0 0 8px;color:#0f172a">⚙️ Cấu Hình Nguồn Hiển Thị Hoàn Thiện</h3>';
+        html += '<p style="font-size:12px;color:#64748b;margin-bottom:20px;">Tích chọn các Tổ May và Nhà Gia Công được phép hiển thị tại Cắt Chỉ & Hoàn Thiện. Các nguồn bị bỏ tích sẽ <b>tự động hoàn thiện ngay sau khâu QC</b> và không hiện ở đây.</p>';
+        
+        html += '<div style="display:flex;gap:20px;margin-bottom:20px;">';
+        
+        // Left column: Tổ May
+        html += '<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">';
+        html += '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid #059669;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span>TỔ MAY TRONG XƯỞNG</span>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<button onclick="_bphtTglAllDs(\'team\', true)" style="border:none;background:none;color:#059669;font-size:11px;font-weight:700;cursor:pointer;">Tất cả</button>';
+        html += '<span style="color:#cbd5e1;font-size:11px;">|</span>';
+        html += '<button onclick="_bphtTglAllDs(\'team\', false)" style="border:none;background:none;color:#dc2626;font-size:11px;font-weight:700;cursor:pointer;">Bỏ chọn hết</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div style="max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">';
+        if (teams.length) {
+            teams.forEach(t => {
+                html += `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 0;">`;
+                html += `<input type="checkbox" class="bpht-ds-check" data-type="team" data-id="${t.id}" ${t.is_visible ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">`;
+                html += `<span>${t.name}</span>`;
+                html += `</label>`;
+            });
+        } else {
+            html += '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:10px;">Chưa có tổ may</div>';
+        }
+        html += '</div></div>';
+
+        // Right column: Nhà Gia Công
+        html += '<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">';
+        html += '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid #059669;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span>NHÀ GIA CÔNG MAY BÍCH</span>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<button onclick="_bphtTglAllDs(\'contractor\', true)" style="border:none;background:none;color:#059669;font-size:11px;font-weight:700;cursor:pointer;">Tất cả</button>';
+        html += '<span style="color:#cbd5e1;font-size:11px;">|</span>';
+        html += '<button onclick="_bphtTglAllDs(\'contractor\', false)" style="border:none;background:none;color:#dc2626;font-size:11px;font-weight:700;cursor:pointer;">Bỏ chọn hết</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div style="max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">';
+        if (contractors.length) {
+            contractors.forEach(c => {
+                html += `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 0;">`;
+                html += `<input type="checkbox" class="bpht-ds-check" data-type="contractor" data-id="${c.id}" ${c.is_visible ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">`;
+                html += `<span>${c.name}</span>`;
+                html += `</label>`;
+            });
+        } else {
+            html += '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:10px;">Chưa có nhà gia công</div>';
+        }
+        html += '</div></div>';
+
+        html += '</div>';
+
+        html += '<div style="padding:16px 20px;border-top:1px solid #e2e8f0;text-align:right;display:flex;justify-content:flex-end;gap:10px;">';
+        html += '<button onclick="document.getElementById(\'_bphtDsOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;">Đóng</button>';
+        html += '<button onclick="_bphtSaveDisplaySettings()" style="padding:8px 20px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">Lưu Cấu Hình</button>';
+        html += '</div>';
+        html += '</div>';
+
+        let old = document.getElementById('_bphtDsOverlay'); if (old) old.remove();
+        let ov = document.createElement('div');
+        ov.className = 'qlx-cl-overlay'; ov.id = '_bphtDsOverlay';
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="qlx-cl-popup" style="width:750px;background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;"><div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:16px 20px;"><h3>⚙️ Setup Hoàn Thiện</h3><p style="margin:4px 0 0;font-size:11px;opacity:0.85;">Thiết lập hiển thị Tổ may / Nhà gia công tại CCHT</p></div>' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function _bphtTglAllDs(type, val) {
+    const list = document.querySelectorAll(`.bpht-ds-check[data-type="${type}"]`);
+    list.forEach(cb => cb.checked = val);
+}
+
+async function _bphtSaveDisplaySettings() {
+    const checks = document.querySelectorAll('.bpht-ds-check');
+    const settings = [];
+    checks.forEach(cb => {
+        settings.push({
+            source_type: cb.getAttribute('data-type'),
+            source_id: parseInt(cb.getAttribute('data-id')),
+            is_visible: cb.checked
+        });
+    });
+
+    try {
+        await apiCall('/api/finishing/display-settings', 'POST', { settings });
+        showToast('✅ Đã lưu cấu hình thành công!');
+        const overlay = document.getElementById('_bphtDsOverlay');
+        if (overlay) overlay.remove();
+        await _bphtLoadAll();
+    } catch(err) {
+        showToast(err.message || 'Lỗi lưu cấu hình', 'error');
+    }
 }
