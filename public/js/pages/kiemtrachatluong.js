@@ -1974,12 +1974,12 @@ async function _ktclOpenQCModal(recordId) {
                             <div style="overflow-x: auto; max-height: 200px; border: 1px solid #e2e8f0; border-radius: 8px;">
                                 <table class="qc-tech-table">
                                     <thead>
-                                        <tr style="background: #f1f5f9;">
-                                            <th style="width: 50px; text-align: center;">Tích</th>
-                                            <th>Kỹ thuật</th>
-                                            <th style="width: 50px; text-align: center;">SL</th>
-                                            <th style="text-align: right; padding-right:10px; color: #059669;">May nhà</th>
-                                            <th style="text-align: right; padding-right:10px; color: #2563eb;">May GC</th>
+                                        <tr style="background: #0f172a !important;">
+                                            <th style="width: 50px; text-align: center; color: #f1f5f9 !important;">Tích</th>
+                                            <th style="color: #f1f5f9 !important;">Kỹ thuật</th>
+                                            <th style="width: 50px; text-align: center; color: #f1f5f9 !important;">SL</th>
+                                            <th style="text-align: right; padding-right:10px; color: #4ade80 !important;">May nhà</th>
+                                            <th style="text-align: right; padding-right:10px; color: #60a5fa !important;">May GC</th>
                                         </tr>
                                     </thead>
                                     <tbody id="ktclQcTechTableBody">

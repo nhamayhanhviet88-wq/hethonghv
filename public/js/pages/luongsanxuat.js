@@ -2160,12 +2160,12 @@ async function _lsxOpenCuttingQCDetail(sewingRecordId) {
                                 <div style="overflow-x: auto; max-height: 200px; border: 1px solid #e2e8f0; border-radius: 8px;">
                                     <table class="qc-tech-table">
                                         <thead>
-                                            <tr style="background: #f1f5f9;">
-                                                <th style="width: 50px; text-align: center;">Tích</th>
-                                                <th>Kỹ thuật</th>
-                                                <th style="width: 50px; text-align: center;">SL</th>
-                                                <th style="text-align: right; padding-right:10px; color: #059669;">May nhà</th>
-                                                <th style="text-align: right; padding-right:10px; color: #2563eb;">May GC</th>
+                                            <tr style="background: #0f172a !important;">
+                                                <th style="width: 50px; text-align: center; color: #f1f5f9 !important;">Tích</th>
+                                                <th style="color: #f1f5f9 !important;">Kỹ thuật</th>
+                                                <th style="width: 50px; text-align: center; color: #f1f5f9 !important;">SL</th>
+                                                <th style="text-align: right; padding-right:10px; color: #4ade80 !important;">May nhà</th>
+                                                <th style="text-align: right; padding-right:10px; color: #60a5fa !important;">May GC</th>
                                             </tr>
                                         </thead>
                                         <tbody id="lsxCuttingQcTechTableBody"></tbody>
@@ -2906,8 +2906,8 @@ function _lsxOpenSewingQCModal(id) {
     h += '<th style="padding: 10px; width: 60px; text-align: center; color: #ffffff;">TÍCH</th>';
     h += '<th style="padding: 10px; color: #ffffff;">KỸ THUẬT</th>';
     h += '<th style="padding: 10px; width: 60px; text-align: center; color: #ffffff;">SL</th>';
-    h += '<th style="padding: 10px; text-align: right; width: 120px; color: #10b981;">MAY NHÀ</th>';
-    h += '<th style="padding: 10px; text-align: right; width: 120px; color: #3b82f6;">MAY GC</th>';
+    h += '<th style="padding: 10px; text-align: right; width: 120px; color: #4ade80;">MAY NHÀ</th>';
+    h += '<th style="padding: 10px; text-align: right; width: 120px; color: #60a5fa;">MAY GC</th>';
     h += '</tr>';
     h += '</thead>';
     h += '<tbody id="lsxSewTechBody">';
