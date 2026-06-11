@@ -23,6 +23,31 @@ module.exports = async function(fastify) {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_fr_expected ON finishing_records(expected_date)`);
     } catch(e) { console.error('[BPHT] records:', e.message); }
 
+    try {
+        await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS sewing_record_id INTEGER REFERENCES sewing_records(id) ON DELETE CASCADE`);
+    } catch(e) { console.error('[BPHT] migration sewing_record_id:', e.message); }
+
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS finishing_checklist_templates (
+            id SERIAL PRIMARY KEY,
+            type VARCHAR(20) DEFAULT 'yes_no',
+            content TEXT NOT NULL,
+            sort_order INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS finishing_checklist_answers (
+            id SERIAL PRIMARY KEY,
+            finishing_record_id INTEGER NOT NULL REFERENCES finishing_records(id) ON DELETE CASCADE,
+            template_id INTEGER NOT NULL REFERENCES finishing_checklist_templates(id) ON DELETE CASCADE,
+            answer_value TEXT,
+            answered_by INTEGER REFERENCES users(id),
+            answered_at TIMESTAMPTZ,
+            UNIQUE(finishing_record_id, template_id)
+        )`);
+    } catch(e) { console.error('[BPHT] checklist tables:', e.message); }
+
     try { await db.exec(`CREATE TABLE IF NOT EXISTS finishing_history (
         id SERIAL PRIMARY KEY, finishing_id INTEGER NOT NULL REFERENCES finishing_records(id) ON DELETE CASCADE,
         action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
@@ -201,5 +226,159 @@ module.exports = async function(fastify) {
     // ========== STAFF ==========
     fastify.get('/api/finishing/staff', { preHandler: [authenticate] }, async () => {
         return { staff: await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
+    });
+
+    // ========== FINISHING CHECKLIST TEMPLATES & ANSWERS ==========
+    // 1. GET active templates
+    fastify.get('/api/finishing/checklist/templates', { preHandler: [authenticate] }, async (req) => {
+        const templates = await db.all(`SELECT * FROM finishing_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        return { templates };
+    });
+
+    // 2. GET all templates for administration
+    fastify.get('/api/finishing/checklist/templates/all', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const templates = await db.all(`SELECT t.*, u.full_name AS created_by_name FROM finishing_checklist_templates t LEFT JOIN users u ON t.created_by = u.id ORDER BY t.sort_order, t.id`);
+        return { templates };
+    });
+
+    // 3. POST create template
+    fastify.post('/api/finishing/checklist/templates', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { type, content, sort_order } = req.body || {};
+        if (!content || !content.trim()) return reply.code(400).send({ error: 'Nội dung không được trống' });
+        const row = await db.get(`INSERT INTO finishing_checklist_templates (type, content, sort_order, created_by) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [type || 'yes_no', content.trim(), sort_order || 0, req.user.id]);
+        return { success: true, template: row };
+    });
+
+    // 4. PUT update template
+    fastify.put('/api/finishing/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { content, sort_order, is_active, type } = req.body || {};
+        await db.run(`UPDATE finishing_checklist_templates SET content = COALESCE($1, content), sort_order = COALESCE($2, sort_order), is_active = COALESCE($3, is_active), type = COALESCE($4, type) WHERE id = $5`,
+            [content, sort_order, is_active, type, req.params.id]);
+        return { success: true };
+    });
+
+    // 5. DELETE template
+    fastify.delete('/api/finishing/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        await db.run(`DELETE FROM finishing_checklist_answers WHERE template_id = $1`, [req.params.id]);
+        await db.run(`DELETE FROM finishing_checklist_templates WHERE id = $1`, [req.params.id]);
+        return { success: true };
+    });
+
+    // 6. GET answers and templates for a finishing record
+    fastify.get('/api/finishing/checklist/answers/:finishingRecordId', { preHandler: [authenticate] }, async (req) => {
+        const finishingRecordId = parseInt(req.params.finishingRecordId);
+        const templates = await db.all(`SELECT * FROM finishing_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        const answers = await db.all(`SELECT a.*, u.full_name AS answered_by_name FROM finishing_checklist_answers a LEFT JOIN users u ON a.answered_by = u.id WHERE a.finishing_record_id = $1`, [finishingRecordId]);
+        return { templates, answers };
+    });
+
+    // 7. POST submit answers for a finishing record
+    fastify.post('/api/finishing/checklist/answers/:finishingRecordId', { preHandler: [authenticate] }, async (req) => {
+        const finishingRecordId = parseInt(req.params.finishingRecordId);
+        const { answers } = req.body || {};
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        if (Array.isArray(answers)) {
+            for (const ans of answers) {
+                const templateId = parseInt(ans.template_id);
+                const val = ans.answer_value;
+                
+                await db.run(`
+                    INSERT INTO finishing_checklist_answers (finishing_record_id, template_id, answer_value, answered_by, answered_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT(finishing_record_id, template_id)
+                    DO UPDATE SET answer_value = EXCLUDED.answer_value, answered_by = EXCLUDED.answered_by, answered_at = EXCLUDED.answered_at
+                `, [finishingRecordId, templateId, val, req.user.id, now]);
+            }
+        }
+        return { success: true };
+    });
+
+    // 8. POST send Telegram notification for finishing checklist
+    fastify.post('/api/finishing/checklist/notify/:finishingRecordId', { preHandler: [authenticate] }, async (req, reply) => {
+        const finishingRecordId = parseInt(req.params.finishingRecordId);
+        
+        // Fetch finishing record with order, product details
+        const rec = await db.get(`
+            SELECT fr.*, o.order_code, u.full_name AS finisher_name, uc.full_name AS completed_by_name
+            FROM finishing_records fr
+            LEFT JOIN dht_orders o ON fr.dht_order_id = o.id
+            LEFT JOIN users u ON fr.finisher_id = u.id
+            LEFT JOIN users uc ON fr.completed_by = uc.id
+            WHERE fr.id = $1
+        `, [finishingRecordId]);
+
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi hoàn thiện' });
+
+        // Fetch answers and active checklist templates
+        const qa = await db.all(`
+            SELECT a.answer_value, t.content, t.type
+            FROM finishing_checklist_answers a
+            JOIN finishing_checklist_templates t ON a.template_id = t.id
+            WHERE a.finishing_record_id = $1 AND t.is_active = true
+            ORDER BY t.sort_order, t.id
+        `, [finishingRecordId]);
+
+        let msg = `✅ <b>BÁO CÁO CẮT CHỈ & HOÀN THIỆN</b>\n`;
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `📋 <b>Mã đơn:</b> ${rec.order_code || '—'}\n`;
+        msg += `👕 <b>Sản phẩm:</b> ${rec.product_name || '—'}\n`;
+        msg += `👤 <b>Thợ may:</b> ${rec.sewer_name || '—'}\n`;
+        msg += `👤 <b>Nhân viên HT:</b> ${rec.finisher_name || '—'}\n`;
+        msg += `📦 <b>Số lượng:</b> ${rec.quantity || 0}\n`;
+        msg += `🚚 <b>Tiêu chuẩn gửi:</b> ${rec.shipping_standard === 'gap' ? '🔴 GẤP' : (rec.shipping_standard === 'gui' ? '📦 GỬI' : '✅ CHUẨN')}\n`;
+        if (rec.notes) {
+            msg += `📝 <b>Ghi chú:</b> ${rec.notes}\n`;
+        }
+        
+        if (qa.length > 0) {
+            msg += `\n📋 <b>KẾT QUẢ CHECKLIST HOÀN THIỆN:</b>\n`;
+            qa.forEach(ans => {
+                let valLabel = ans.answer_value;
+                if (ans.type === 'yes_no') {
+                    valLabel = ans.answer_value === 'yes' ? 'Có' : 'Không';
+                } else if (ans.type === 'percentage') {
+                    valLabel = ans.answer_value + '%';
+                }
+                msg += `• ${ans.content}: <b>${valLabel}</b>\n`;
+            });
+        }
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `👤 <b>Người báo cáo:</b> ${rec.completed_by_name || req.user.full_name}\n`;
+
+        // Send to Telegram
+        const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
+        const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_thanh_hoan_thien'");
+        const chatId = tgConfigRow?.value?.trim();
+
+        if (chatId) {
+            let photoSent = false;
+            try {
+                const images = JSON.parse(rec.finish_images || '[]');
+                if (Array.isArray(images) && images.length > 0) {
+                    const firstImage = images[0];
+                    if (firstImage.startsWith('/uploads/')) {
+                        const absolutePath = path.join(__dirname, '..', firstImage);
+                        if (fs.existsSync(absolutePath)) {
+                            photoSent = await sendTelegramPhoto(chatId, absolutePath, msg);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error('[Finishing Telegram] Error sending photo:', e);
+            }
+            
+            if (!photoSent) {
+                await sendTelegramMessage(chatId, msg);
+            }
+        }
+
+        return { success: true };
     });
 };

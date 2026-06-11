@@ -115,6 +115,64 @@ module.exports = async function(fastify) {
         return q * c;
     }
 
+    async function syncFinishingRecord(sewingRecordId, userId, now) {
+        try {
+            const existing = await db.get(`SELECT id FROM finishing_records WHERE sewing_record_id = $1`, [sewingRecordId]);
+            if (!existing) {
+                const sRec = await db.get(`
+                    SELECT sr.*, o.shipping_priority, u_cskh.full_name AS cskh_name, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name
+                    FROM sewing_records sr
+                    LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
+                    LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                    LEFT JOIN users u ON sr.sewer_id = u.id
+                    LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
+                    LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
+                    WHERE sr.id = $1
+                `, [sewingRecordId]);
+                
+                if (sRec) {
+                    const prodName = sRec.product_name;
+                    const hasCCHT = await db.get(`
+                        SELECT 1 FROM dht_product_process pp
+                        JOIN dht_process_steps ps ON pp.step_id = ps.id
+                        JOIN dht_products p ON pp.product_id = p.id
+                        WHERE p.name = $1 AND ps.short_name = 'CCHT' AND pp.is_active = true AND ps.is_active = true
+                        LIMIT 1
+                    `, [prodName]);
+                    
+                    if (hasCCHT) {
+                        const sewerName = sRec.contractor_id ? sRec.contractor_name : sRec.sewer_name;
+                        const shippingStandard = (sRec.shipping_priority || 'CHUẨN').toLowerCase() === 'gấp' ? 'gap' : 
+                                                 ((sRec.shipping_priority || 'CHUẨN').toLowerCase() === 'gửi' ? 'gui' : 'chuan');
+                        
+                        const r = await db.get(`
+                            INSERT INTO finishing_records (
+                                dht_order_id, sewing_record_id, expected_date, done_date, product_name, cskh_name, quantity, sewer_name, shipping_standard, notes, created_by, created_at
+                            ) VALUES ($1, $2, $3, null, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
+                        `, [
+                            sRec.dht_order_id,
+                            sewingRecordId,
+                            sRec.expected_date,
+                            prodName,
+                            sRec.cskh_name,
+                            sRec.quantity,
+                            sewerName,
+                            shippingStandard,
+                            sRec.notes,
+                            userId,
+                            now
+                        ]);
+                        
+                        await db.run(`INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+                            [r.id, 'create', 'Tạo tự động từ kết quả QC', userId, now]);
+                    }
+                }
+            }
+        } catch(e) {
+            console.error('[syncFinishingRecord] Error:', e.message);
+        }
+    }
+
     // ========== CONTRACTORS CRUD ==========
     fastify.get('/api/sewing/contractors', { preHandler: [authenticate] }, async () => {
         return { contractors: await db.all(`SELECT * FROM sewing_contractors WHERE is_active=true ORDER BY display_order, name`) };
@@ -455,9 +513,15 @@ module.exports = async function(fastify) {
         } else if (action === 'mark_done') {
             await db.run(`UPDATE sewing_records SET done_date=$1, is_reported=true, reported_at=COALESCE(reported_at,$1), updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '✅ May xong';
+            await syncFinishingRecord(id, req.user.id, now);
         } else if (action === 'undo_done') {
             await db.run(`UPDATE sewing_records SET done_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             detail = '↩️ Hoàn tác may xong';
+            try {
+                await db.run(`DELETE FROM finishing_records WHERE sewing_record_id = $1`, [id]);
+            } catch(e) {
+                console.error('[BPHT] Error deleting linked finishing record:', e.message);
+            }
         } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
         await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, action, detail, req.user.id, now]);
         return { success: true };

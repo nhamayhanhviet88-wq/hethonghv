@@ -1,6 +1,7 @@
 // ========== CẮT CHỈ & HOÀN THIỆN — Desktop SPA ==========
 var _bpht={records:[],tree:null,filter:{year:null,month:null,finisher_id:null},search:'',page:1};
 var _bphtOpen={};
+var _bphtState={currentRecordId:null,finishImages:[],staff:[]};
 
 function renderBophanhoanthienPage(content){
     if(!document.getElementById('_bphtS')){var st=document.createElement('style');st.id='_bphtS';
@@ -18,10 +19,17 @@ function renderBophanhoanthienPage(content){
     +'.bpht-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;letter-spacing:.5px}'
     +'.bpht-badge.gap{background:#fee2e2;color:#dc2626}.bpht-badge.gui{background:#dbeafe;color:#2563eb}.bpht-badge.chuan{background:#d1fae5;color:#059669}'
     +'.bpht-progress{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800}'
+    +'.qlx-cl-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}'
+    +'.qlx-cl-popup{background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s}'
+    +'@keyframes qlxSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}'
     +'@media(max-width:768px){.bpht-sb{display:none}}';
     document.head.appendChild(st);}
+    
+    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    var setupBtn = isGD ? '<button onclick="_bphtChecklistSetup()" style="padding:6px 12px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;color:#334155;transition:all 0.15s;" onmouseover="this.style.borderColor=\'#059669\';this.style.color=\'#059669\';" onmouseout="this.style.borderColor=\'#cbd5e1\';this.style.color=\'#334155\';">⚙️ Setup Checklist Hoàn Thiện</button>' : '';
+
     content.innerHTML='<div class="bpht-wrap"><div class="bpht-sb" id="bphtSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpht-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bphtInfo" style="font-size:12px"></div><div id="bphtStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div><input id="bphtSearch" placeholder="🔍 Tìm SP / CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bphtInfo" style="font-size:12px"></div><div id="bphtStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'+setupBtn+'<input id="bphtSearch" placeholder="🔍 Tìm SP / CSKH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bphtTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th>✅</th><th>⚠️</th><th>Ra DK</th><th>Hoàn Thiện</th><th>Tiến Độ</th><th>Tên SP</th><th>CSKH</th><th>SL</th><th>NV HT</th><th>NV May</th><th>Ảnh</th><th>TC Gửi</th><th>Ghi Chú</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bphtTb"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -81,12 +89,13 @@ function _bphtRender(){
     var tb=document.getElementById('bphtTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="15"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
-        var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'',cA=r.is_completed?'undo_complete':'complete';
+        var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
+        var clickAction = r.is_completed ? `_bphtTog(${r.id},'undo_complete')` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
-        var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='📸 '+ia.length;}catch(e){}
+        var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="bpht-ib'+cC+'" onclick="_bphtTog('+r.id+',\''+cA+'\')" title="Hoàn thành">'+cI+'</button></td>'
+        +'<td style="text-align:center"><button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button></td>'
         +'<td style="text-align:center"><button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bphtFD(r.expected_date)+'</td>'
         +'<td style="font-size:10px;color:'+(r.done_date?'#059669':'#94a3b8')+'">'+_bphtFD(r.done_date)+'</td>'
@@ -98,7 +107,7 @@ function _bphtRender(){
         +'<td style="font-size:10px;color:#6b7280">'+(r.sewer_name||'—')+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td>'+_bphtShip(r.shipping_standard)+'</td>'
-        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
+        +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="'+(r.notes||'')+'">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bphtInfo');if(el){var parts=['✅ Cắt Chỉ & Hoàn Thiện'];if(_bpht.filter.year)parts.push('📆 '+_bpht.filter.year);if(_bpht.filter.month)parts.push('🗓️ T'+_bpht.filter.month);
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#bbf7d0;font-weight:900">'+tot+'</span> đơn</div>';}
@@ -110,5 +119,466 @@ function _bphtRender(){
     +'<div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #ef444430"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div><div style="font-size:15px;font-weight:900">'+err+'</div></div>';}
 }
 
-async function _bphtTog(id,action){try{await apiCall('/api/finishing/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _bphtLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
+async function _bphtTog(id,action){
+    if (action === 'undo_complete') {
+        if (!confirm('Bạn có chắc chắn muốn hoàn tác trạng thái hoàn thành?')) return;
+    }
+    try{
+        await apiCall('/api/finishing/toggle/'+id,'POST',{action});
+        showToast('✅ Cập nhật');
+        await _bphtLoadAll();
+    }catch(e){
+        showToast(e.message||'Lỗi','error');
+    }
+}
+
 function _bphtErr(){if(typeof navigate==='function'){navigate('don-loi-khach-hang');showToast('📋 Chuyển sang Đơn Lỗi');}}
+
+// ========== IMAGE VIEW OVERLAY ==========
+function _bphtViewImages(recordId) {
+    const r = _bpht.records.find(x => x.id === recordId);
+    if (!r) return;
+    let images = [];
+    try { images = JSON.parse(r.finish_images || '[]'); } catch(e) {}
+    if (!images.length) return;
+    
+    let html = `
+        <div id="bphtImageViewOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;" onclick="document.getElementById('bphtImageViewOverlay').remove()">
+            <div style="position:relative;background:#fff;border-radius:12px;padding:20px;max-width:90vw;max-height:85vh;overflow-y:auto;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;" onclick="event.stopPropagation()">
+                <button onclick="document.getElementById('bphtImageViewOverlay').remove()" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#475569;">✕</button>
+                <div style="width:100%;text-align:center;font-weight:800;color:#0f172a;margin-bottom:10px;font-size:14px;">📷 Ảnh hoàn thiện đơn hàng #${r.order_code || r.id}</div>
+    `;
+    const t = Date.now();
+    images.forEach(src => {
+        const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+        html += `
+            <div style="border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;width:200px;height:200px;">
+                <img src="${src}${buster}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+            </div>
+        `;
+    });
+    html += `
+            </div>
+        </div>
+    `;
+    const old = document.getElementById('bphtImageViewOverlay'); if (old) old.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+// ========== COMPLETING CHECKLIST MODAL (Thợ Hoàn Thiện) ==========
+async function _bphtOpenCompleteModal(recordId) {
+    const r = _bpht.records.find(x => x.id === recordId);
+    if (!r) return;
+    
+    _bphtState.currentRecordId = recordId;
+    _bphtState.finishImages = [];
+    try {
+        _bphtState.finishImages = JSON.parse(r.finish_images || '[]');
+    } catch(e) {}
+
+    // Fetch staff if not loaded
+    if (!_bphtState.staff.length) {
+        try {
+            const res = await apiCall('/api/finishing/staff');
+            _bphtState.staff = res.staff || [];
+        } catch(e) {
+            console.error('Lỗi tải nhân viên:', e);
+        }
+    }
+
+    // Load templates & answers
+    let templates = [];
+    let answers = [];
+    try {
+        const res = await apiCall('/api/finishing/checklist/answers/' + recordId);
+        templates = res.templates || [];
+        answers = res.answers || [];
+    } catch(e) {
+        console.error('Lỗi tải checklist:', e);
+    }
+
+    // Render modal
+    let staffOptions = '<option value="">-- Chọn NV Hoàn Thiện --</option>';
+    _bphtState.staff.forEach(s => {
+        const sel = r.finisher_id === s.id ? 'selected' : '';
+        staffOptions += `<option value="${s.id}" ${sel}>${s.full_name} (${s.username})</option>`;
+    });
+
+    let imagesHtml = '';
+    const t = Date.now();
+    _bphtState.finishImages.forEach(src => {
+        const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+        imagesHtml += `
+            <div style="position:relative; width:80px; height:80px; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
+                <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+                <button onclick="_bphtDeleteImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+            </div>
+        `;
+    });
+
+    let checklistHtml = '';
+    if (templates.length > 0) {
+        checklistHtml += '<div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:16px;">';
+        checklistHtml += '<h4 style="margin:0 0 12px; font-size:13px; color:#0f172a;">📋 CHECKLIST HOÀN THIỆN (Bắt buộc trả lời hết)</h4>';
+        templates.forEach(q => {
+            const ans = answers.find(a => a.template_id === q.id);
+            const val = ans ? ans.answer_value : '';
+
+            checklistHtml += `<div class="bpht-qc-question-row" data-id="${q.id}" data-type="${q.type}" style="margin-bottom:12px; display:flex; flex-direction:column; gap:6px;">`;
+            checklistHtml += `<div style="font-weight:700; font-size:12.5px; color:#334155;">${q.content} <span style="color:#ef4444;">*</span></div>`;
+
+            if (q.type === 'yes_no') {
+                const hasYes = val === 'yes' ? 'checked' : '';
+                const hasNo = val === 'no' ? 'checked' : '';
+                checklistHtml += `
+                    <div style="display:flex; gap:24px; margin-top:4px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; color:#334155; user-select:none;">
+                            <input type="radio" name="bpht_q_${q.id}" value="yes" ${hasYes} style="width:18px; height:18px; cursor:pointer; accent-color:#059669;"> Có
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; color:#334155; user-select:none;">
+                            <input type="radio" name="bpht_q_${q.id}" value="no" ${hasNo} style="width:18px; height:18px; cursor:pointer; accent-color:#dc2626;"> Không
+                        </label>
+                    </div>
+                `;
+            } else if (q.type === 'percentage') {
+                const pctVal = val !== '' ? val : '50';
+                checklistHtml += `
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:4px;">
+                        <input type="range" name="bpht_q_${q.id}" min="0" max="100" value="${pctVal}" style="flex:1; height:6px; border-radius:3px; accent-color:#059669; cursor:pointer;" oninput="this.nextElementSibling.textContent = this.value + '%'">
+                        <span style="font-size:14px; font-weight:800; color:#059669; min-width:45px; text-align:right;">${pctVal}%</span>
+                    </div>
+                `;
+            } else {
+                checklistHtml += `
+                    <input type="text" class="bpht-qc-text" value="${val}" placeholder="Nhập câu trả lời..." style="background:#ffffff; border:1px solid #cbd5e1; color:#1e293b; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box;">
+                `;
+            }
+            checklistHtml += '</div>';
+        });
+        checklistHtml += '</div>';
+    }
+
+    const modalHtml = `
+        <div id="bphtCompleteOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
+            <div style="background:#fff; border-radius:16px; width:550px; max-width:100%; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:90vh; animation:qlxSlideUp .3s;">
+                <div style="background:linear-gradient(135deg,#059669,#10b981); color:#fff; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:800; font-size:14px;">📦 Xác Nhận Hoàn Thiện & Checklist</div>
+                    <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer; font-weight:bold;">✕</button>
+                </div>
+                <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Nhân Viên Hoàn Thiện <span style="color:#ef4444;">*</span></label>
+                            <select id="bphtFinisherId" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; background:#fff;">
+                                ${staffOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Tiêu Chuẩn Gửi</label>
+                            <select id="bphtShippingStandard" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; background:#fff;">
+                                <option value="chuan" ${r.shipping_standard === 'chuan' ? 'selected' : ''}>✅ CHUẨN</option>
+                                <option value="gap" ${r.shipping_standard === 'gap' ? 'selected' : ''}>🔴 GẤP</option>
+                                <option value="gui" ${r.shipping_standard === 'gui' ? 'selected' : ''}>📦 GỬI</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ảnh Sản Phẩm Hoàn Thiện</label>
+                        <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                            <button onclick="document.getElementById('bphtFileInput').click()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:11px; font-weight:700; background:#f8fafc; cursor:pointer; color:#334155;">📷 Tải ảnh lên</button>
+                            <span id="bphtUploadStatus" style="font-size:11px; color:#64748b;">${_bphtState.finishImages.length > 0 ? `Đã tải ${_bphtState.finishImages.length} ảnh` : 'Chưa có ảnh'}</span>
+                            <input type="file" id="bphtFileInput" multiple accept="image/*" style="display:none;" onchange="_bphtUploadImages(event)">
+                        </div>
+                        <div id="bphtImagesContainer" style="display:flex; gap:8px; flex-wrap:wrap;">
+                            ${imagesHtml}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú</label>
+                        <textarea id="bphtNotes" rows="2" placeholder="Nhập ghi chú (nếu có)..." style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:#fff;">${r.notes || ''}</textarea>
+                    </div>
+
+                    ${checklistHtml}
+                </div>
+                <div style="padding:12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
+                    <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="padding:8px 16px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; background:#fff; cursor:pointer; color:#475569;">Hủy</button>
+                    <button onclick="_bphtSubmitComplete()" style="padding:8px 20px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Xác Nhận Hoàn Thành</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const old = document.getElementById('bphtCompleteOverlay'); if (old) old.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function _bphtResizeImage(file, maxW = 800, maxH = 800, quality = 0.6) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const img = new Image();
+            img.onload = function () {
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > maxW) {
+                        height = Math.round((height * maxW) / width);
+                        width = maxW;
+                    }
+                } else {
+                    if (height > maxH) {
+                        width = Math.round((width * maxH) / height);
+                        height = maxH;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                }, 'image/jpeg', quality);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function _bphtUploadImages(event) {
+    const files = event.target.files;
+    if (!files.length) return;
+
+    const statusEl = document.getElementById('bphtUploadStatus');
+    try {
+        if (statusEl) statusEl.textContent = 'Đang xử lý...';
+        const fd = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                const resized = await _bphtResizeImage(file, 800, 800, 0.6);
+                fd.append('file', resized);
+            } else {
+                fd.append('file', file);
+            }
+        }
+
+        if (statusEl) statusEl.textContent = 'Đang tải lên...';
+        const res = await fetch(`/api/finishing/records/${_bphtState.currentRecordId}/images`, {
+            method: 'POST',
+            body: fd,
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Lỗi upload');
+
+        _bphtState.finishImages = data.images;
+        showToast('Tải ảnh thành công!');
+        if (statusEl) statusEl.textContent = `Đã tải ${data.images.length} ảnh`;
+
+        const container = document.getElementById('bphtImagesContainer');
+        if (container) {
+            const t = Date.now();
+            container.innerHTML = data.images.map(src => {
+                const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                return `
+                    <div style="position:relative; width:80px; height:80px; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
+                        <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+                        <button onclick="_bphtDeleteImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const r = _bpht.records.find(x => x.id === _bphtState.currentRecordId);
+        if (r) r.finish_images = JSON.stringify(data.images);
+    } catch(err) {
+        showToast(err.message || 'Lỗi tải ảnh', 'error');
+        if (statusEl) statusEl.textContent = 'Lỗi tải ảnh!';
+    }
+}
+
+async function _bphtDeleteImage(imgSrc) {
+    if (!confirm('Xóa ảnh này?')) return;
+    const updatedImgs = _bphtState.finishImages.filter(src => src !== imgSrc);
+    try {
+        await apiCall(`/api/finishing/records/${_bphtState.currentRecordId}`, 'PUT', { finish_images: JSON.stringify(updatedImgs) });
+        _bphtState.finishImages = updatedImgs;
+        showToast('Đã xóa ảnh!');
+
+        const container = document.getElementById('bphtImagesContainer');
+        if (container) {
+            const t = Date.now();
+            container.innerHTML = updatedImgs.map(src => {
+                const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                return `
+                    <div style="position:relative; width:80px; height:80px; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
+                        <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+                        <button onclick="_bphtDeleteImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const statusEl = document.getElementById('bphtUploadStatus');
+        if (statusEl) {
+            statusEl.textContent = updatedImgs.length > 0 ? `Đã tải ${updatedImgs.length} ảnh` : 'Chưa có ảnh';
+        }
+
+        const r = _bpht.records.find(x => x.id === _bphtState.currentRecordId);
+        if (r) r.finish_images = JSON.stringify(updatedImgs);
+    } catch(err) {
+        showToast(err.message || 'Lỗi', 'error');
+    }
+}
+
+async function _bphtSubmitComplete() {
+    const finisherId = document.getElementById('bphtFinisherId').value;
+    const shippingStandard = document.getElementById('bphtShippingStandard').value;
+    const notes = document.getElementById('bphtNotes').value;
+
+    if (!finisherId) {
+        showToast('Vui lòng chọn Nhân viên Hoàn Thiện', 'error');
+        return;
+    }
+
+    // Validate checklist answers
+    const questionRows = document.querySelectorAll('.bpht-qc-question-row');
+    const answersList = [];
+
+    for (const row of questionRows) {
+        const qId = row.dataset.id;
+        const qType = row.dataset.type;
+        let val = '';
+
+        if (qType === 'yes_no') {
+            const rad = row.querySelector(`input[name="bpht_q_${qId}"]:checked`);
+            if (!rad) {
+                showToast('Vui lòng trả lời đầy đủ tất cả câu hỏi checklist!', 'error');
+                return;
+            }
+            val = rad.value;
+        } else if (qType === 'percentage') {
+            const range = row.querySelector(`input[name="bpht_q_${qId}"]`);
+            val = range.value;
+        } else {
+            const text = row.querySelector(`.bpht-qc-text`);
+            if (!text || !text.value.trim()) {
+                showToast('Vui lòng điền đầy đủ tất cả câu hỏi checklist!', 'error');
+                return;
+            }
+            val = text.value.trim();
+        }
+
+        answersList.push({ template_id: parseInt(qId), answer_value: val });
+    }
+
+    try {
+        // 1. Update finishing record fields (finisher_id, shipping_standard, notes)
+        await apiCall(`/api/finishing/records/${_bphtState.currentRecordId}`, 'PUT', {
+            finisher_id: parseInt(finisherId),
+            shipping_standard: shippingStandard,
+            notes: notes
+        });
+
+        // 2. Submit checklist answers (if any)
+        if (answersList.length > 0) {
+            await apiCall(`/api/finishing/checklist/answers/${_bphtState.currentRecordId}`, 'POST', { answers: answersList });
+        }
+
+        // 3. Mark completed (complete action)
+        await apiCall(`/api/finishing/toggle/${_bphtState.currentRecordId}`, 'POST', { action: 'complete' });
+
+        // 4. Send Telegram Notification
+        try {
+            await apiCall(`/api/finishing/checklist/notify/${_bphtState.currentRecordId}`, 'POST');
+        } catch(tgErr) {
+            console.error('Lỗi gửi Telegram:', tgErr);
+        }
+
+        showToast('✅ Đã hoàn thành đơn hoàn thiện!');
+        const overlay = document.getElementById('bphtCompleteOverlay');
+        if (overlay) overlay.remove();
+        
+        await _bphtLoadAll();
+    } catch(err) {
+        showToast(err.message || 'Lỗi', 'error');
+    }
+}
+
+// ========== CHECKLIST SETUP MODAL (Giám Đốc) ==========
+async function _bphtChecklistSetup() {
+    try {
+        const data = await apiCall('/api/finishing/checklist/templates/all');
+        const templates = data.templates || [];
+        let html = '<div style="padding:20px"><h3 style="margin:0 0 16px;color:#0f172a">⚙️ Quản Lý Checklist Hoàn Thiện</h3>';
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0">';
+        html += '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">➕ Thêm Mới Câu Hỏi/Checklist</div>';
+        html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+        html += '<select id="_bphtClNewType" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;"><option value="yes_no">✔️ Có/Không</option><option value="text">📝 Văn bản</option><option value="percentage">📈 Thanh kéo (%)</option></select>';
+        html += '<input id="_bphtClNewContent" placeholder="Nội dung câu hỏi..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;background:#fff;outline:none;">';
+        html += '<input id="_bphtClNewOrder" type="number" value="0" placeholder="TT" style="width:60px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;text-align:center;background:#fff;outline:none;">';
+        html += '<button onclick="_bphtClAdd()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">Thêm</button>';
+        html += '</div></div>';
+        if (templates.length) {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left">Loại</th><th style="padding:8px;text-align:left">Nội dung</th><th style="padding:8px;text-align:center">TT</th><th style="padding:8px;text-align:center">Trạng thái</th><th style="padding:8px;text-align:center">Thao tác</th></tr></thead><tbody>';
+            templates.forEach(function(t) {
+                let tp = '';
+                if (t.type === 'yes_no') {
+                    tp = '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">✔️ Có/Không</span>';
+                } else if (t.type === 'percentage') {
+                    tp = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📈 Thanh kéo (%)</span>';
+                } else {
+                    tp = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">📝 Văn bản</span>';
+                }
+                const st = t.is_active ? '<span style="color:#059669;font-weight:700">Bật</span>' : '<span style="color:#dc2626;font-weight:700">Tắt</span>';
+                html += `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">${tp}</td><td style="padding:8px;font-weight:600">${t.content}</td><td style="padding:8px;text-align:center">${t.sort_order}</td><td style="padding:8px;text-align:center">${st}</td>`;
+                html += `<td style="padding:8px;text-align:center"><button onclick="_bphtClToggleActive(${t.id},${!t.is_active})" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;cursor:pointer;background:#fff;margin-right:4px">${t.is_active ? '🔇 Tắt' : '🔔 Bật'}</button>`;
+                html += `<button onclick="_bphtClDelete(${t.id})" style="padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626">🗑️ Xóa</button></td></tr>`;
+            });
+            html += '</tbody></table>';
+        } else { html += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Chưa có câu hỏi nào</div>'; }
+        html += '<div style="padding:16px 20px;border-top:1px solid #e2e8f0;text-align:right"><button onclick="document.getElementById(\'_bphtSetupOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;">Đóng</button></div>';
+        html += '</div>';
+        
+        let old = document.getElementById('_bphtSetupOverlay'); if (old) old.remove();
+        let ov = document.createElement('div');
+        ov.className = 'qlx-cl-overlay'; ov.id = '_bphtSetupOverlay';
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="qlx-cl-popup" style="width:700px;background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;"><div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:16px 20px;"><h3>⚙️ Setup Checklist Hoàn Thiện</h3><p style="margin:4px 0 0;font-size:11px;opacity:0.85;">Quản lý câu hỏi kiểm tra khi hoàn thiện sản phẩm</p></div>' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _bphtClAdd() {
+    const t = document.getElementById('_bphtClNewType').value;
+    const c = document.getElementById('_bphtClNewContent').value;
+    const s = parseInt(document.getElementById('_bphtClNewOrder').value) || 0;
+    if (!c.trim()) return showToast('Nhập nội dung câu hỏi', 'error');
+    try {
+        await apiCall('/api/finishing/checklist/templates', 'POST', { type: t, content: c, sort_order: s });
+        showToast('✅ Đã thêm');
+        _bphtChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bphtClToggleActive(id, val) {
+    try {
+        await apiCall('/api/finishing/checklist/templates/' + id, 'PUT', { is_active: val });
+        showToast('✅ Cập nhật');
+        _bphtChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function _bphtClDelete(id) {
+    if (!confirm('Xóa câu hỏi này?')) return;
+    try {
+        await apiCall('/api/finishing/checklist/templates/' + id, 'DELETE');
+        showToast('✅ Đã xóa');
+        _bphtChecklistSetup();
+    } catch(e) { showToast(e.message, 'error'); }
+}
