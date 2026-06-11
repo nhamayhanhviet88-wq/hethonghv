@@ -1,6 +1,7 @@
 // ========== CHUẨN BỊ QLX — Routes ==========
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { syncFinishingRecord } = require('../utils/finishingSync');
 
 module.exports = async function(fastify) {
 
@@ -2140,12 +2141,13 @@ module.exports = async function(fastify) {
             }
             descParts.push(`${contractorName} (${ass.quantity})`);
 
-            await db.run(`
+            const r = await db.get(`
                 INSERT INTO sewing_records (
                     dht_order_id, order_item_id, product_name, contractor_id, quantity,
                     base_price, salary, expected_date, notes, created_by, created_at, handover_date
                 )
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                RETURNING id
             `, [
                 item.dht_order_id,
                 itemId,
@@ -2160,6 +2162,7 @@ module.exports = async function(fastify) {
                 now,
                 isGiaCong ? now : null
             ]);
+            await syncFinishingRecord(r.id, request.user.id, now);
         }
 
         // Write to qlx_history
