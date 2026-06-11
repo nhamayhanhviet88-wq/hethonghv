@@ -6,6 +6,7 @@
     <title>🔥 Bộ Phận Ép — Đồng Phục HV</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         body{font-family:'Inter',sans-serif;background:#0f172a;min-height:100vh;color:#e2e8f0;padding-bottom:70px}
@@ -119,14 +120,45 @@
         <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
 
-    <div class="m-search-bar">
-        <input type="text" id="mSearchInp" placeholder="Tìm mã đơn, tên hàng..." oninput="mOnSearch()">
-        <select id="mPriorityFilter" onchange="mLoadData()" style="display:none">
+    <div class="m-search-bar" style="align-items: center; position: sticky; top: 60px; z-index: 98; background: #1e293b;">
+        <div style="position: relative; flex: 1; display: flex; align-items: center;">
+            <input type="text" id="mSearchInp" placeholder="Tìm mã đơn, tên hàng..." oninput="mOnSearch()" style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: all 0.2s;">
+            <button onclick="mClearSearch()" id="mClearSearchBtn" style="display:none; background:none; border:none; color:#ef4444; font-size:16px; cursor:pointer; position:absolute; right:12px; font-weight: bold; z-index:10;">✕</button>
+        </div>
+        <select id="mPriorityFilter" onchange="mLoadData()" style="display:none; padding:10px; background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.1); border-radius:8px; font-size:13px; color:#fff; font-family:inherit">
             <option value="">Độ ưu tiên</option>
             <option value="GẤP">GẤP</option>
             <option value="GỬI">GỬI</option>
             <option value="CHUẨN">CHUẨN</option>
         </select>
+        <button onclick="mScanQR()" style="background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-size: 18px; flex-shrink: 0;" title="Quét mã QR">
+            📷
+        </button>
+    </div>
+
+    <!-- QR Scanner Modal -->
+    <div class="mm-overlay" id="mQrModal" onclick="if(event.target===this)mCloseQr()">
+        <div class="mm-sheet" style="max-height:85vh;padding-bottom:20px">
+            <div class="mm-header" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">
+                <div class="mm-icon">📷</div>
+                <div>
+                    <div class="mm-title">Quét Mã QR</div>
+                    <div class="mm-sub">Di chuyển camera đến vùng chứa mã QR</div>
+                </div>
+            </div>
+            <div class="mm-body" style="padding:16px 20px">
+                <div id="mQrReader" style="width:100%;max-width:400px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.1)"></div>
+                <div id="mQrError" style="text-align:center;font-size:12px;color:#ef4444;margin-top:12px;display:none;font-weight:700"></div>
+                <div id="mQrHttpsWarning" style="text-align:center;font-size:12px;color:#fbbf24;margin-top:12px;display:none;font-weight:700;background:rgba(251,191,36,0.15);padding:10px;border-radius:8px;border:1px solid rgba(251,191,36,0.3);line-height:1.5">
+                    ⚠️ Trình duyệt yêu cầu kết nối HTTPS bảo mật để sử dụng Camera.
+                    <br>Vui lòng truy cập lại qua link sau:
+                    <br><a id="mQrHttpsLink" href="#" style="color:#60a5fa;text-decoration:underline;word-break:break-all;display:inline-block;margin-top:4px"></a>
+                </div>
+            </div>
+            <div class="mm-actions" style="padding:0 20px 16px 20px">
+                <button class="mm-btn mm-btn-no" onclick="mCloseQr()" style="width:100%">Đóng</button>
+            </div>
+        </div>
     </div>
 
     <div class="m-content" id="mContent">
@@ -419,10 +451,109 @@
         }
 
         function mOnSearch() {
+            const inp = document.getElementById('mSearchInp');
+            const sv = (inp ? inp.value : '').trim().toLowerCase();
+            const clearBtn = document.getElementById('mClearSearchBtn');
+            if (clearBtn) {
+                clearBtn.style.display = sv ? 'block' : 'none';
+            }
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 renderCurrentTab();
             }, 300);
+        }
+
+        function mClearSearch() {
+            const inp = document.getElementById('mSearchInp');
+            if (inp) inp.value = '';
+            const clearBtn = document.getElementById('mClearSearchBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
+            mOnSearch();
+        }
+
+        // QR Scanner Functions
+        let html5QrcodeScanner = null;
+
+        function mScanQR() {
+            // Check HTTPS requirements
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                const warningEl = document.getElementById('mQrHttpsWarning');
+                const linkEl = document.getElementById('mQrHttpsLink');
+                if (warningEl && linkEl) {
+                    const secureUrl = 'https://' + location.hostname + (location.port ? ':' + location.port : '') + location.pathname + location.search;
+                    linkEl.href = secureUrl;
+                    linkEl.textContent = secureUrl;
+                    warningEl.style.display = 'block';
+                }
+            }
+
+            document.getElementById('mQrError').style.display = 'none';
+            const modal = document.getElementById('mQrModal');
+            modal.classList.add('show');
+
+            requestAnimationFrame(() => {
+                try {
+                    html5QrcodeScanner = new Html5Qrcode("mQrReader");
+                    html5QrcodeScanner.start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 }
+                        },
+                        (decodedText) => {
+                            // On success
+                            mOnQrSuccess(decodedText);
+                        },
+                        (errorMessage) => {
+                            // Suppress verbose scanner errors
+                        }
+                    ).catch(err => {
+                        console.error("Camera access failed", err);
+                        const errEl = document.getElementById('mQrError');
+                        errEl.textContent = "Không thể truy cập camera. Vui lòng kiểm tra quyền camera của trình duyệt!";
+                        errEl.style.display = 'block';
+                    });
+                } catch (e) {
+                    console.error("Scanner init failed", e);
+                }
+            });
+        }
+
+        function mOnQrSuccess(decodedText) {
+            let cleanText = decodedText.trim();
+            // If it's a URL, extract the path or code
+            if (cleanText.startsWith('http://') || cleanText.startsWith('https://')) {
+                try {
+                    const url = new URL(cleanText);
+                    // Standard ways code might be in URL
+                    cleanText = url.searchParams.get('code') || url.searchParams.get('q') || url.pathname.split('/').pop() || cleanText;
+                } catch(e) {}
+            }
+            
+            const inp = document.getElementById('mSearchInp');
+            if (inp) {
+                inp.value = cleanText;
+                mOnSearch(); // trigger search filter
+            }
+            mCloseQr();
+            showToast("🔍 Tìm kiếm theo mã: " + cleanText);
+        }
+
+        function mCloseQr() {
+            const modal = document.getElementById('mQrModal');
+            if (modal) modal.classList.remove('show');
+            if (html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.stop().then(() => {
+                        html5QrcodeScanner = null;
+                    }).catch(err => {
+                        console.error("Error stopping scanner", err);
+                        html5QrcodeScanner = null;
+                    });
+                } catch(e) {
+                    html5QrcodeScanner = null;
+                }
+            }
         }
 
         function getFilteredUnassigned() {
@@ -455,6 +586,15 @@
             return list;
         }
 
+        // Helper to check if a record matches query
+        function matchesQuery(r, q) {
+            if (!q) return true;
+            return (r.order_code || '').toLowerCase().includes(q) ||
+                (r.product_name || '').toLowerCase().includes(q) ||
+                (r.customer_name || '').toLowerCase().includes(q) ||
+                (r.material_name || '').toLowerCase().includes(q);
+        }
+
         function getFilteredHistory() {
             const query = (document.getElementById('mSearchInp').value || '').toLowerCase();
             let list = pressingRecords.filter(r => r.presser_id === currentUser.id && r.is_reported);
@@ -469,25 +609,57 @@
 
         function renderCurrentTab() {
             const contentEl = document.getElementById('mContent');
+            const query = (document.getElementById('mSearchInp').value || '').trim().toLowerCase();
             
-            if (currentTab === 'unpressed') {
-                renderUnpressedTab(contentEl);
-            } else if (currentTab === 'mine') {
-                renderMineTab(contentEl);
-            } else if (currentTab === 'history') {
-                renderHistoryTab(contentEl);
+            if (query) {
+                // Global search: search uncut, mine, and hist
+                const matchedUnassigned = unassignedOrders.filter(r => 
+                    (r.order_code || '').toLowerCase().includes(query) ||
+                    (r.customer_name || '').toLowerCase().includes(query) ||
+                    (r.material_name || '').toLowerCase().includes(query)
+                );
+
+                const matchedMine = pressingRecords.filter(r => 
+                    r.presser_id === currentUser.id && !r.is_reported && matchesQuery(r, query)
+                );
+
+                const matchedHistory = pressingRecords.filter(r => 
+                    r.presser_id === currentUser.id && r.is_reported && matchesQuery(r, query)
+                );
+
+                const htmlUnpressed = renderUnpressedTab(null, matchedUnassigned, true);
+                const htmlMine = renderMineTab(null, matchedMine, true);
+                const htmlHistory = renderHistoryTab(null, matchedHistory, true);
+
+                const totalHtml = (htmlUnpressed || '') + (htmlMine || '') + (htmlHistory || '');
+                if (totalHtml) {
+                    contentEl.innerHTML = totalHtml;
+                } else {
+                    contentEl.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
+                }
+            } else {
+                if (currentTab === 'unpressed') {
+                    renderUnpressedTab(contentEl);
+                } else if (currentTab === 'mine') {
+                    renderMineTab(contentEl);
+                } else if (currentTab === 'history') {
+                    renderHistoryTab(contentEl);
+                }
             }
         }
 
-        function renderUnpressedTab(el) {
-            const list = getFilteredUnassigned();
+        function renderUnpressedTab(el = null, items = null, showSectionBadge = false) {
+            const list = items || getFilteredUnassigned();
             if (list.length === 0) {
-                el.innerHTML = `
-                    <div class="m-empty">
-                        <div class="m-empty-icon">📥</div>
-                        <div>Không có đơn hàng chưa ép nào</div>
-                    </div>
-                `;
+                if (showSectionBadge) return '';
+                if (el) {
+                    el.innerHTML = `
+                        <div class="m-empty">
+                            <div class="m-empty-icon">📥</div>
+                            <div>Không có đơn hàng chưa ép nào</div>
+                        </div>
+                    `;
+                }
                 return;
             }
 
@@ -527,7 +699,9 @@
                 }
             });
 
-            el.innerHTML = grouped.map(item => {
+            const sectBadge = showSectionBadge ? '<span style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase; display: inline-block; vertical-align: middle;">Chưa Ép</span>' : '';
+
+            const html = grouped.map(item => {
                 const priority = (item.shipping_priority || 'CHUẨN').toUpperCase();
                 let priClass = 'm-pri-chuan';
                 if (priority === 'GẤP') priClass = 'm-pri-gap';
@@ -564,7 +738,7 @@
                     <div class="m-card">
                         <div class="m-card-top">
                             <div class="m-card-icon">📥</div>
-                            <div class="m-card-title">${item.order_code} — Phiếu ${item.item_index}</div>
+                            <div class="m-card-title">${item.order_code} — Phiếu ${item.item_index}${sectBadge}</div>
                             <span class="m-pri ${priClass}">${priority}</span>
                         </div>
                         <div class="m-card-body">
@@ -581,21 +755,33 @@
                     </div>
                 `;
             }).join('');
+
+            if (showSectionBadge) {
+                return html;
+            }
+            if (el) {
+                el.innerHTML = html;
+            }
         }
 
-        function renderMineTab(el) {
-            const list = getFilteredMine();
+        function renderMineTab(el = null, items = null, showSectionBadge = false) {
+            const list = items || getFilteredMine();
             if (list.length === 0) {
-                el.innerHTML = `
-                    <div class="m-empty">
-                        <div class="m-empty-icon">📋</div>
-                        <div>Bạn chưa nhận đơn ép nào</div>
-                    </div>
-                `;
+                if (showSectionBadge) return '';
+                if (el) {
+                    el.innerHTML = `
+                        <div class="m-empty">
+                            <div class="m-empty-icon">📋</div>
+                            <div>Bạn chưa nhận đơn ép nào</div>
+                        </div>
+                    `;
+                }
                 return;
             }
 
-            el.innerHTML = list.map(r => {
+            const sectBadge = showSectionBadge ? '<span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase; display: inline-block; vertical-align: middle;">Đơn Tôi</span>' : '';
+
+            const html = list.map(r => {
                 let imagesHtml = '';
                 try {
                     if (r.press_images) {
@@ -623,7 +809,7 @@
                     <div class="m-card">
                         <div class="m-card-top" style="border-bottom-color: rgba(249,115,22,0.15)">
                             <div class="m-card-icon">⚡</div>
-                            <div class="m-card-title" style="color:#fdba74">${r.product_name || r.order_code}</div>
+                            <div class="m-card-title" style="color:#fdba74">${r.product_name || r.order_code}${sectBadge}</div>
                             <div class="m-card-code">${r.order_code || ''}</div>
                         </div>
                         <div class="m-card-body">
@@ -656,21 +842,33 @@
                     </div>
                 `;
             }).join('');
+
+            if (showSectionBadge) {
+                return html;
+            }
+            if (el) {
+                el.innerHTML = html;
+            }
         }
 
-        function renderHistoryTab(el) {
-            const list = getFilteredHistory();
+        function renderHistoryTab(el = null, items = null, showSectionBadge = false) {
+            const list = items || getFilteredHistory();
             if (list.length === 0) {
-                el.innerHTML = `
-                    <div class="m-empty">
-                        <div class="m-empty-icon">📅</div>
-                        <div>Chưa có lịch sử ép nào</div>
-                    </div>
-                `;
+                if (showSectionBadge) return '';
+                if (el) {
+                    el.innerHTML = `
+                        <div class="m-empty">
+                            <div class="m-empty-icon">📅</div>
+                            <div>Chưa có lịch sử ép nào</div>
+                        </div>
+                    `;
+                }
                 return;
             }
 
-            el.innerHTML = list.map(r => {
+            const sectBadge = showSectionBadge ? '<span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase; display: inline-block; vertical-align: middle;">Lịch Sử</span>' : '';
+
+            const html = list.map(r => {
                 const undoAction = 'undo_report';
                 const approvedBadge = r.salary_approved ? '<span class="m-badge m-badge-ok">💰 Đã duyệt lương</span>' : '';
                 
@@ -692,38 +890,38 @@
                     }
                 } catch(e) {}
 
-                            const detailHistoryHtml = (window._bpePositions || []).map(pos => {
-                                const val = r[pos.key_code] || 0;
-                                return `
-                                    <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                                        <span style="color:#94a3b8; cursor:pointer" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}</span>
-                                        <span style="font-weight:700; color:#818cf8">${val} sp</span>
-                                    </div>
-                                `;
-                            }).join('');
+                const detailHistoryHtml = (window._bpePositions || []).map(pos => {
+                    const val = r[pos.key_code] || 0;
+                    return `
+                        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                            <span style="color:#94a3b8; cursor:pointer" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}</span>
+                            <span style="font-weight:700; color:#818cf8">${val} sp</span>
+                        </div>
+                    `;
+                }).join('');
 
-                            return `
-                                <div class="m-card" style="opacity:0.85">
-                                    <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
-                                        <div class="m-card-icon">🔥</div>
-                                        <div class="m-card-title" style="color:#a1a1aa">${r.product_name || r.order_code}</div>
-                                        <div class="m-card-code">${r.order_code || ''}</div>
-                                    </div>
-                                    <div class="m-card-body">
-                                        <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
-                                        <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
-                                        <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
-                                        <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
-                                        <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
-                                        <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
-                                        <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
-                                        <div class="m-row"><span class="m-lbl">Ép Xong</span><span class="m-val">${formatDate(r.press_date)}</span></div>
-                                        
-                                        <div class="m-divider"></div>
-                                        <div style="font-size:10px; font-weight:800; color:#818cf8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">🧩 Chi tiết các vị trí ép</div>
-                                        <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
-                                            ${detailHistoryHtml}
-                                        </div>
+                return `
+                    <div class="m-card" style="opacity:0.85">
+                        <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
+                            <div class="m-card-icon">🔥</div>
+                            <div class="m-card-title" style="color:#a1a1aa">${r.product_name || r.order_code}${sectBadge}</div>
+                            <div class="m-card-code">${r.order_code || ''}</div>
+                        </div>
+                        <div class="m-card-body">
+                            <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
+                            <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
+                            <div class="m-row"><span class="m-lbl">Ép Xong</span><span class="m-val">${formatDate(r.press_date)}</span></div>
+                            
+                            <div class="m-divider"></div>
+                            <div style="font-size:10px; font-weight:800; color:#818cf8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">🧩 Chi tiết các vị trí ép</div>
+                            <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
+                                ${detailHistoryHtml}
+                            </div>
                             <div style="font-size:10px; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px; margin-bottom:6px">📝 Báo cáo của nhân viên</div>
                             <div style="font-size:11px; padding:8px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:8px; color:#cbd5e1; margin-bottom:8px">
                                 <div style="font-size:10px; color:#94a3b8; margin-bottom:2px">Ghi chú ép:</div>
