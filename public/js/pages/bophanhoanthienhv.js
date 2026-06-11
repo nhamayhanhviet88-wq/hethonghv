@@ -163,7 +163,7 @@ function _bphtRender(){
     if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
-        var clickAction = r.is_completed ? `_bphtTog(${r.id},'undo_complete')` : `_bphtOpenCompleteModal(${r.id})`;
+        var clickAction = r.is_completed ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
@@ -238,7 +238,7 @@ function _bphtViewImages(recordId) {
 }
 
 // ========== COMPLETING CHECKLIST MODAL (Thợ Hoàn Thiện) ==========
-async function _bphtOpenCompleteModal(recordId) {
+async function _bphtOpenCompleteModal(recordId, readOnly = false) {
     const r = _bpht.records.find(x => x.id === recordId);
     if (!r) return;
     
@@ -283,7 +283,7 @@ async function _bphtOpenCompleteModal(recordId) {
         imagesHtml += `
             <div style="position:relative; width:80px; height:80px; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
                 <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
-                <button onclick="_bphtDeleteImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+                ${readOnly ? '' : `<button onclick="_bphtDeleteImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>`}
             </div>
         `;
     });
@@ -304,11 +304,11 @@ async function _bphtOpenCompleteModal(recordId) {
                 const hasNo = val === 'no' ? 'checked' : '';
                 checklistHtml += `
                     <div style="display:flex; gap:24px; margin-top:4px;">
-                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; color:#334155; user-select:none;">
-                            <input type="radio" name="bpht_q_${q.id}" value="yes" ${hasYes} style="width:18px; height:18px; cursor:pointer; accent-color:#059669;"> Có
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:${readOnly ? 'default' : 'pointer'}; color:#334155; user-select:none;">
+                            <input type="radio" name="bpht_q_${q.id}" value="yes" ${hasYes} ${readOnly ? 'disabled' : ''} style="width:18px; height:18px; cursor:${readOnly ? 'default' : 'pointer'}; accent-color:#059669;"> Có
                         </label>
-                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; color:#334155; user-select:none;">
-                            <input type="radio" name="bpht_q_${q.id}" value="no" ${hasNo} style="width:18px; height:18px; cursor:pointer; accent-color:#dc2626;"> Không
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:${readOnly ? 'default' : 'pointer'}; color:#334155; user-select:none;">
+                            <input type="radio" name="bpht_q_${q.id}" value="no" ${hasNo} ${readOnly ? 'disabled' : ''} style="width:18px; height:18px; cursor:${readOnly ? 'default' : 'pointer'}; accent-color:#dc2626;"> Không
                         </label>
                     </div>
                 `;
@@ -316,7 +316,7 @@ async function _bphtOpenCompleteModal(recordId) {
                 const pctVal = val !== '' ? val : '50';
                 checklistHtml += `
                     <div style="display:flex; align-items:center; gap:12px; margin-top:4px;">
-                        <input type="range" name="bpht_q_${q.id}" min="0" max="100" value="${pctVal}" style="flex:1; height:6px; border-radius:3px; accent-color:#059669; cursor:pointer;" oninput="this.nextElementSibling.textContent = this.value + '%'">
+                        <input type="range" name="bpht_q_${q.id}" min="0" max="100" value="${pctVal}" ${readOnly ? 'disabled' : ''} style="flex:1; height:6px; border-radius:3px; accent-color:#059669; cursor:${readOnly ? 'default' : 'pointer'};" oninput="this.nextElementSibling.textContent = this.value + '%'">
                         <span style="font-size:14px; font-weight:800; color:#059669; min-width:45px; text-align:right;">${pctVal}%</span>
                     </div>
                 `;
@@ -324,9 +324,9 @@ async function _bphtOpenCompleteModal(recordId) {
                 const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
                 const isCountQuestion = cleanContent.includes('sốlượngđếmlàbaonhiêu') || cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
                 checklistHtml += `
-                    <input type="text" class="bpht-qc-text" value="${val}" placeholder="Nhập câu trả lời..." style="background:#ffffff; border:1px solid #cbd5e1; color:#1e293b; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box;"
-                        ${isCountQuestion ? `oninput="_bphtValidateCountInput(this, ${r.quantity || 0})"` : ''}>
-                    ${isCountQuestion ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
+                    <input type="text" class="bpht-qc-text" value="${val}" ${readOnly ? 'disabled' : ''} placeholder="Nhập câu trả lời..." style="background:${readOnly ? '#f1f5f9' : '#ffffff'}; border:1px solid #cbd5e1; color:${readOnly ? '#64748b' : '#1e293b'}; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box; cursor:${readOnly ? 'not-allowed' : 'text'};"
+                        ${isCountQuestion && !readOnly ? `oninput="_bphtValidateCountInput(this, ${r.quantity || 0})"` : ''}>
+                    ${isCountQuestion && !readOnly ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
             }
             checklistHtml += '</div>';
@@ -359,11 +359,51 @@ async function _bphtOpenCompleteModal(recordId) {
         }
     }
 
+    let uploadBlockHtml = '';
+    if (readOnly) {
+        uploadBlockHtml = `
+            <div id="bphtImagesContainer" style="display:flex; gap:8px; flex-wrap:wrap;">
+                ${imagesHtml}
+            </div>
+        `;
+    } else {
+        uploadBlockHtml = `
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                <button onclick="document.getElementById('bphtFileInput').click()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:11px; font-weight:700; background:#f8fafc; cursor:pointer; color:#334155;">📷 Tải ảnh lên</button>
+                <span id="bphtUploadStatus" style="font-size:11px; color:#64748b;">${_bphtState.finishImages.length > 0 ? `Đã tải ${_bphtState.finishImages.length} ảnh` : 'Chưa có ảnh'}</span>
+                <input type="file" id="bphtFileInput" multiple accept="image/*" style="display:none;" onchange="_bphtUploadImages(event)">
+            </div>
+            <div id="bphtImagesContainer" style="display:flex; gap:8px; flex-wrap:wrap;">
+                ${imagesHtml}
+            </div>
+        `;
+    }
+
+    let notesHtml = `
+        <div>
+            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú</label>
+            <textarea id="bphtNotes" rows="2" ${readOnly ? 'disabled' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú (nếu có)...'}" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:${readOnly ? '#f1f5f9' : '#fff'}; color:${readOnly ? '#64748b' : '#0f172a'}; cursor:${readOnly ? 'not-allowed' : 'text'};">${r.notes || ''}</textarea>
+        </div>
+    `;
+
+    let footerBtns = '';
+    if (readOnly) {
+        footerBtns = `
+            <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="padding:8px 16px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; background:#fff; cursor:pointer; color:#475569;">Đóng</button>
+            <button onclick="document.getElementById('bphtCompleteOverlay').remove(); _bphtTog(${r.id},'undo_complete')" style="padding:8px 20px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Hoàn Tác Hoàn Thành</button>
+        `;
+    } else {
+        footerBtns = `
+            <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="padding:8px 16px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; background:#fff; cursor:pointer; color:#475569;">Hủy</button>
+            <button onclick="_bphtSubmitComplete()" style="padding:8px 20px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Xác Nhận Hoàn Thành</button>
+        `;
+    }
+
     const modalHtml = `
         <div id="bphtCompleteOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
             <div style="background:#fff; border-radius:16px; width:550px; max-width:100%; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:90vh; animation:qlxSlideUp .3s;">
                 <div style="background:linear-gradient(135deg,#059669,#10b981); color:#fff; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="font-weight:800; font-size:14px;">📦 Xác Nhận Hoàn Thiện & Checklist</div>
+                    <div style="font-weight:800; font-size:14px;">${readOnly ? '🔍 Xem Hoàn Thiện & Checklist' : '📦 Xác Nhận Hoàn Thiện & Checklist'}</div>
                     <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer; font-weight:bold;">✕</button>
                 </div>
                 <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
@@ -402,24 +442,13 @@ async function _bphtOpenCompleteModal(recordId) {
 
                     <div>
                         <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ảnh Sản Phẩm Hoàn Thiện <span style="color:#ef4444;">*</span></label>
-                        <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
-                            <button onclick="document.getElementById('bphtFileInput').click()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:11px; font-weight:700; background:#f8fafc; cursor:pointer; color:#334155;">📷 Tải ảnh lên</button>
-                            <span id="bphtUploadStatus" style="font-size:11px; color:#64748b;">${_bphtState.finishImages.length > 0 ? `Đã tải ${_bphtState.finishImages.length} ảnh` : 'Chưa có ảnh'}</span>
-                            <input type="file" id="bphtFileInput" multiple accept="image/*" style="display:none;" onchange="_bphtUploadImages(event)">
-                        </div>
-                        <div id="bphtImagesContainer" style="display:flex; gap:8px; flex-wrap:wrap;">
-                            ${imagesHtml}
-                        </div>
+                        ${uploadBlockHtml}
                     </div>
 
-                    <div>
-                        <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú</label>
-                        <textarea id="bphtNotes" rows="2" placeholder="Nhập ghi chú (nếu có)..." style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:#fff;">${r.notes || ''}</textarea>
-                    </div>
+                    ${notesHtml}
                 </div>
                 <div style="padding:12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
-                    <button onclick="document.getElementById('bphtCompleteOverlay').remove()" style="padding:8px 16px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; background:#fff; cursor:pointer; color:#475569;">Hủy</button>
-                    <button onclick="_bphtSubmitComplete()" style="padding:8px 20px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Xác Nhận Hoàn Thành</button>
+                    ${footerBtns}
                 </div>
             </div>
         </div>
