@@ -298,17 +298,17 @@
     <div id="mDoneFilterContainer" style="display:none; padding: 10px 16px; gap: 8px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); -webkit-overflow-scrolling: touch;">
         <button class="m-filter-btn" id="mBtnDoneToday" onclick="mSelectDoneFilter('today')">Hôm nay</button>
         <button class="m-filter-btn" id="mBtnDoneWeek" onclick="mSelectDoneFilter('week')">Tuần này</button>
-        <div class="m-filter-btn" style="position: relative; overflow: hidden;">
+        <div class="m-filter-btn" id="mBtnDoneDate" style="position: relative; overflow: hidden;">
             📅 <span id="mDoneDateLabel">Chọn ngày</span>
-            <input type="date" id="mDoneDatePicker" onchange="mDoneDateChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0; z-index:10; cursor:pointer; pointer-events:auto;">
+            <input type="date" id="mDoneDatePicker" onchange="mDoneDateChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0.01; background:transparent; border:none; color:transparent; outline:none; -webkit-appearance:none; appearance:none; z-index:10; cursor:pointer; pointer-events:auto;">
         </div>
-        <div class="m-filter-btn" style="position: relative; overflow: hidden;">
+        <div class="m-filter-btn" id="mBtnDoneMonth" style="position: relative; overflow: hidden;">
             📅 <span id="mDoneMonthLabel">Chọn tháng</span>
-            <input type="month" id="mDoneMonthPicker" onchange="mDoneMonthChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0; z-index:10; cursor:pointer; pointer-events:auto;">
+            <input type="month" id="mDoneMonthPicker" onchange="mDoneMonthChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0.01; background:transparent; border:none; color:transparent; outline:none; -webkit-appearance:none; appearance:none; z-index:10; cursor:pointer; pointer-events:auto;">
         </div>
-        <div class="m-filter-btn" style="position: relative; overflow: hidden;">
+        <div class="m-filter-btn" id="mBtnDoneYear" style="position: relative; overflow: hidden;">
             📅 <span id="mDoneYearLabel">Chọn năm</span>
-            <select id="mDoneYearSelect" onchange="mDoneYearChange(this.value)" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">
+            <select id="mDoneYearSelect" onchange="mDoneYearChange(this.value)" style="position: absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; opacity:0.01; background:transparent; border:none; color:transparent; outline:none; -webkit-appearance:none; appearance:none; z-index:10; cursor:pointer; pointer-events:auto;">
                 <option value="">Chọn năm</option>
                 <option value="2024">2024</option>
                 <option value="2025">2025</option>
@@ -349,6 +349,7 @@
 
 <script>
 let cu=null,mr=[],activeTab='undone';
+let mStateRemindCooldown = {};
 let doneFilter = 'week'; // 'today', 'week', 'date', 'month', 'year', 'all'
 let selectedDoneDate = '';
 let selectedDoneMonth = '';
@@ -591,8 +592,8 @@ function updateActiveDoneFilterBtn() {
         const btn = document.getElementById('mBtnDoneMonth');
         if (btn) btn.classList.add('active');
     } else if (doneFilter === 'year') {
-        const select = document.getElementById('mDoneYearSelect');
-        if (select && select.parentElement) select.parentElement.classList.add('active');
+        const btn = document.getElementById('mBtnDoneYear');
+        if (btn) btn.classList.add('active');
     } else if (doneFilter === 'all') {
         const btn = document.getElementById('mBtnDoneAll');
         if (btn) btn.classList.add('active');
@@ -749,11 +750,23 @@ const ic=r.done_date?'✅':r.is_completed?'📋':'🧵';
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 const cA=r.is_completed?'undo_complete':'complete';
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
+
+const isQcOk = (r.is_qc_checked !== 0);
+const isManager = cu && ['giam_doc', 'quan_ly_cap_cao'].includes(cu.role);
+let actionButtonsHtml = '';
+if (isQcOk || isManager) {
+    actionButtonsHtml = (r.is_completed ? '<button class="ab" onclick="mOpenCompleteModal('+r.id+', true)" style="border-color:#34d399; background:rgba(16, 185, 129, 0.05); color:#34d399;"><span class="ai">👁️</span><span class="al">XEM HOÀN THÀNH</span></button>' : '<button class="ab" onclick="mTog('+r.id+',\''+cA+'\')"><span class="ai">✅</span><span class="al">HOÀN THÀNH</span></button>')
+        + '<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr()"><span class="ai">⚠️</span><span class="al">BÁO LỖI</span></button>';
+} else {
+    actionButtonsHtml = '<div style="grid-column: span 2; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Chưa kiểm tra chất lượng</div>';
+}
+
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn" style="font-size:12px;line-height:1.4;">'+cleanProdName(r)+'</div></div>'
 +'<div class="cb">'
 +'<div class="cr"><span class="cl">📅 Hạn gửi hàng</span><span class="cv">'+getRaDukien(r)+'</span></div>'
 +'<div class="cr"><span class="cl">✅ Hoàn thiện</span><span class="cv" style="color:'+(r.is_completed?'#6ee7b7':'#94a3b8')+'">'+getCompletedTime(r)+'</span></div>'
 +'<div class="cr"><span class="cl">📊 Tiến độ</span>'+progress(r.expected_ship_date||r.expected_date,r.done_date)+'</div>'
++(!isQcOk ? '<div class="cr"><span class="cl" style="color:#fca5a5;">🔍 Trạng thái QC</span><span class="cv" style="color:#ef4444;font-weight:bold;">⚠️ Chưa kiểm tra chất lượng</span></div>' : '')
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">👤 CSKH</span><span class="cv" style="color:#93c5fd;font-size:11px">'+(r.cskh_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📦 Số lượng</span><span class="cv" style="color:#6ee7b7;font-size:16px">'+(r.quantity||'—')+'</span></div>'
@@ -763,8 +776,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +imgs
 +'</div>'
 +'<div class="ca">'
-+(r.is_completed ? '<button class="ab" onclick="mOpenCompleteModal('+r.id+', true)" style="border-color:#34d399; background:rgba(16, 185, 129, 0.05); color:#34d399;"><span class="ai">👁️</span><span class="al">XEM HOÀN THÀNH</span></button>' : '<button class="ab" onclick="mTog('+r.id+',\''+cA+'\')"><span class="ai">✅</span><span class="al">HOÀN THÀNH</span></button>')
-+'<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr()"><span class="ai">⚠️</span><span class="al">BÁO LỖI</span></button>'
++actionButtonsHtml
 +'</div>'
 +(hl?'<div class="ch">'+hl+'</div>':'')
 +'</div>'}).join('') + paginationHtml}
@@ -780,6 +792,21 @@ async function mTog(id,a){
         }
     } else {
         await mOpenCompleteModal(id);
+    }
+}
+
+async function mRemindQc(id) {
+    try {
+        await api('/api/finishing/records/' + id + '/remind-qc', 'POST');
+        toast('🔔 Đã gửi nhắc QC qua Telegram!');
+        mStateRemindCooldown[id] = true;
+        mCards();
+        setTimeout(() => {
+            delete mStateRemindCooldown[id];
+            mCards();
+        }, 60000);
+    } catch(e) {
+        toast(e.message || 'Lỗi gửi nhắc QC', 'error');
     }
 }
 

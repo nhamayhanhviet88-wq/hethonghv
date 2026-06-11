@@ -2,6 +2,7 @@
 var _bpht={records:[],tree:null,filter:{year:null,month:null,finisher_id:null},search:'',page:1};
 var _bphtOpen={};
 var _bphtState={currentRecordId:null,finishImages:[],staff:[]};
+var _bphtRemindCooldown={};
 
 function renderBophanhoanthienPage(content){
     if(!document.getElementById('_bphtS')){var st=document.createElement('style');st.id='_bphtS';
@@ -177,16 +178,36 @@ function _bphtRender(){
     var tb=document.getElementById('bphtTb');if(!tb)return;
     if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
+        var isQcOk = (r.is_qc_checked !== 0);
+        var isManager = typeof currentUser !== 'undefined' && currentUser && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
+        
         var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
         var clickAction = r.is_completed ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
+        
+        var clickHtml = '';
+        var errHtml = '';
+        
+        if (isQcOk || isManager) {
+            clickHtml = '<button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button>';
+            errHtml = '<button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button>';
+        } else {
+            var isCooldown = _bphtRemindCooldown[r.id] || false;
+            clickHtml = '<button class="bpht-ib" style="background:#fee2e2;border-color:#fca5a5;cursor:pointer;" onclick="_bphtRemindQc('+r.id+')" title="'+(isCooldown?'Đã nhắc QC':'Nhấn để Nhắc QC kiểm tra')+'">'+(isCooldown?'🔔':'⏳')+'</button>';
+            errHtml = '<button class="bpht-ib" style="background:#fee2e2;border-color:#fca5a5;cursor:not-allowed;opacity:0.5;" onclick="showToast(\'⚠️ Đơn hàng chưa kiểm tra chất lượng. Hãy nhắc QC kiểm tra trước!\',\'error\')" title="Chưa kiểm tra chất lượng">⬜</button>';
+        }
+
+        var completedTimeHtml = isQcOk 
+            ? _bphtGetCompletedTime(r) 
+            : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa KTCL</span>';
+
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button></td>'
-        +'<td style="text-align:center"><button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button></td>'
+        +'<td style="text-align:center">'+clickHtml+'</td>'
+        +'<td style="text-align:center">'+errHtml+'</td>'
         +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
-        +'<td style="font-size:10px;color:'+(r.is_completed?'#059669':'#94a3b8')+'">'+_bphtGetCompletedTime(r)+'</td>'
+        +'<td style="font-size:10px;color:'+(r.is_completed?'#059669':(!isQcOk?'#ef4444':'#94a3b8'))+'">'+completedTimeHtml+'</td>'
         +'<td>'+_bphtProgress(r.expected_ship_date||r.expected_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b;white-space:normal;max-width:250px;word-break:break-word;">'+_bphtCleanProdName(r)+'</td>'
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
@@ -215,7 +236,24 @@ async function _bphtTog(id,action){
         showToast('✅ Cập nhật');
         await _bphtLoadAll();
     }catch(e){
-        showToast(e.message||'Lỗi','error');
+}
+
+async function _bphtRemindQc(id) {
+    if (_bphtRemindCooldown[id]) {
+        showToast('⚠️ Bạn đã gửi yêu cầu nhắc QC cho đơn hàng này rồi. Vui lòng chờ!', 'error');
+        return;
+    }
+    try {
+        await apiCall('/api/finishing/records/' + id + '/remind-qc', 'POST');
+        showToast('🔔 Đã gửi yêu cầu nhắc QC qua Telegram thành công!');
+        _bphtRemindCooldown[id] = true;
+        _bphtRender();
+        setTimeout(function() {
+            delete _bphtRemindCooldown[id];
+            _bphtRender();
+        }, 60000);
+    } catch(e) {
+        showToast(e.message || 'Lỗi gửi nhắc QC', 'error');
     }
 }
 

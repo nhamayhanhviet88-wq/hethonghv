@@ -189,7 +189,8 @@ module.exports = async function(fastify) {
                        ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC 
                        LIMIT 1
                    ) AS cut_product_name,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   (CASE WHEN fr.sewing_record_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = fr.sewing_record_id) THEN 0 ELSE 1 END) AS is_qc_checked
             FROM finishing_records fr 
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             LEFT JOIN users u ON fr.finisher_id=u.id
@@ -233,6 +234,17 @@ module.exports = async function(fastify) {
         const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
         const rec = await db.get('SELECT * FROM finishing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        if (action === 'complete' || action === 'report_error') {
+            const isManager = ['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role);
+            if (!isManager && rec.sewing_record_id) {
+                const qcAns = await db.get('SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1', [rec.sewing_record_id]);
+                if (!qcAns) {
+                    return reply.code(400).send({ error: 'Đơn hàng chưa được kiểm tra chất lượng (QC). Hãy nhắc bộ phận QC kiểm tra trước!' });
+                }
+            }
+        }
+
         let detail = '';
         if (action === 'complete') {
             await db.run(`UPDATE finishing_records SET is_completed=true, completed_at=$1, completed_by=$2, done_date=COALESCE(done_date,CURRENT_DATE), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
@@ -245,6 +257,62 @@ module.exports = async function(fastify) {
             detail = '⚠️ Báo lỗi nội bộ';
         } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
         await db.run(`INSERT INTO finishing_history (finishing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, action, detail, req.user.id, now]);
+        return { success: true };
+    });
+
+    // ========== REMIND QC (TELEGRAM NOTIFICATION) ==========
+    fastify.post('/api/finishing/records/:id/remind-qc', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const rec = await db.get(`
+            SELECT fr.*, u.full_name AS finisher_name, o.order_code,
+                   (
+                       SELECT product_name 
+                       FROM cutting_records 
+                       WHERE order_item_id = (SELECT order_item_id FROM sewing_records WHERE id = fr.sewing_record_id) 
+                       ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC 
+                       LIMIT 1
+                   ) AS cut_product_name
+            FROM finishing_records fr
+            LEFT JOIN users u ON fr.finisher_id=u.id
+            LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
+            WHERE fr.id=$1
+        `, [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi hoàn thiện' });
+
+        const prodName = rec.cut_product_name || rec.product_name || 'Sản phẩm';
+        const finisherName = rec.finisher_name || req.user.full_name || 'Nhân viên hoàn thiện';
+
+        let msg = `🔔 <b>YÊU CẦU KIỂM TRA CHẤT LƯỢNG (QC)</b>\n`;
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `Bộ phận Hoàn thiện yêu cầu bộ phận QC kiểm tra đơn hàng sau:\n\n`;
+        msg += `📦 <b>Đơn hàng:</b> ${rec.order_code || 'Chưa rõ'}\n`;
+        msg += `👕 <b>Sản phẩm:</b> ${prodName}\n`;
+        msg += `🔢 <b>Số lượng:</b> ${rec.quantity || '—'}\n`;
+        msg += `👤 <b>NV Hoàn thiện:</b> ${finisherName}\n`;
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `<i>Vui lòng tiến hành kiểm tra chất lượng đơn hàng để bộ phận Hoàn thiện có thể hoàn thành báo cáo. Xin cảm ơn!</i>`;
+
+        // Send to Telegram groups
+        const { sendTelegramMessage } = require('../utils/telegram');
+        const rows = await db.all("SELECT value FROM app_config WHERE key IN ('tg_global_hoan_thanh_may', 'tg_global_hoan_thanh_hoan_thien')");
+        
+        let sentCount = 0;
+        for (const row of rows) {
+            const chatId = row?.value?.trim();
+            if (chatId) {
+                try {
+                    await sendTelegramMessage(chatId, msg);
+                    sentCount++;
+                } catch (e) {
+                    console.error('[Remind QC Telegram] Error:', e);
+                }
+            }
+        }
+
+        if (sentCount === 0) {
+            return reply.code(400).send({ error: 'Chưa cấu hình nhóm nhận tin nhắn Telegram trên hệ thống!' });
+        }
+
         return { success: true };
     });
 
