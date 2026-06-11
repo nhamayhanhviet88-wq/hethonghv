@@ -59,6 +59,21 @@ if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;if(f.finisher_id)
 try{var res=await apiCall('/api/finishing/records'+qs);_bpht.records=res.records||[];_bphtRender();}catch(e){console.error('[BPHT]',e);}}
 
 function _bphtFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
+function _bphtGetCompletedTime(r) {
+    if (!r.is_completed) return '—';
+    if (r.completed_at) {
+        try {
+            var dt = new Date(r.completed_at);
+            var hours = String(dt.getHours()).padStart(2, '0');
+            var minutes = String(dt.getMinutes()).padStart(2, '0');
+            var day = String(dt.getDate()).padStart(2, '0');
+            var month = String(dt.getMonth() + 1).padStart(2, '0');
+            var year = dt.getFullYear();
+            return hours + ':' + minutes + ' ' + day + '/' + month + '/' + year;
+        } catch(e) {}
+    }
+    return _bphtFD(r.done_date);
+}
 
 function _bphtGetRaDukien(r) {
     var targetDateStr = r.expected_ship_date || r.expected_date;
@@ -171,7 +186,7 @@ function _bphtRender(){
         +'<td style="text-align:center"><button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button></td>'
         +'<td style="text-align:center"><button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button></td>'
         +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
-        +'<td style="font-size:10px;color:'+(r.done_date?'#059669':'#94a3b8')+'">'+_bphtFD(r.done_date)+'</td>'
+        +'<td style="font-size:10px;color:'+(r.is_completed?'#059669':'#94a3b8')+'">'+_bphtGetCompletedTime(r)+'</td>'
         +'<td>'+_bphtProgress(r.expected_ship_date||r.expected_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;color:#1e293b;white-space:normal;max-width:250px;word-break:break-word;">'+_bphtCleanProdName(r)+'</td>'
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
