@@ -1105,9 +1105,10 @@ async function mOpenCompleteModal(recordId, readOnly = false) {
     let notesHtml = `
         <div>
             <label class="m-label">Ghi Chú</label>
-            <textarea id="mNotes" class="m-textarea" rows="2" ${readOnly ? 'disabled style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); color:#9ca3af; cursor:not-allowed;"' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú nếu có...'}">${r.notes || ''}</textarea>
+            <textarea id="mNotes" class="m-textarea" rows="2" ${readOnly ? 'disabled style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); color:#9ca3af; cursor:not-allowed;"' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú nếu có...'}">${r.finishing_notes || ''}</textarea>
         </div>
     `;
+
 
     let footerBtns = '';
     if (readOnly) {
@@ -1409,7 +1410,7 @@ async function mSubmitComplete() {
         await api(`/api/finishing/records/${mState.currentRecordId}`, 'PUT', {
             finisher_id: parseInt(finisherId),
             shipping_standard: shippingStandard,
-            notes: notes
+            finishing_notes: notes
         });
 
         if (answersList.length > 0) {

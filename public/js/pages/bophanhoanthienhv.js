@@ -513,9 +513,10 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
     let notesHtml = `
         <div>
             <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú</label>
-            <textarea id="bphtNotes" rows="2" ${readOnly ? 'disabled' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú (nếu có)...'}" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:${readOnly ? '#f1f5f9' : '#fff'}; color:${readOnly ? '#64748b' : '#0f172a'}; cursor:${readOnly ? 'not-allowed' : 'text'};">${r.notes || ''}</textarea>
+            <textarea id="bphtNotes" rows="2" ${readOnly ? 'disabled' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú (nếu có)...'}" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:${readOnly ? '#f1f5f9' : '#fff'}; color:${readOnly ? '#64748b' : '#0f172a'}; cursor:${readOnly ? 'not-allowed' : 'text'};">${r.finishing_notes || ''}</textarea>
         </div>
     `;
+
 
     let footerBtns = '';
     if (readOnly) {
@@ -808,11 +809,11 @@ async function _bphtSubmitComplete() {
     }
 
     try {
-        // 1. Update finishing record fields (finisher_id, shipping_standard, notes)
+        // 1. Update finishing record fields (finisher_id, shipping_standard, finishing_notes)
         await apiCall(`/api/finishing/records/${_bphtState.currentRecordId}`, 'PUT', {
             finisher_id: parseInt(finisherId),
             shipping_standard: shippingStandard,
-            notes: notes
+            finishing_notes: notes
         });
 
         // 2. Submit checklist answers (if any)

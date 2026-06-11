@@ -28,6 +28,10 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPHT] migration sewing_record_id:', e.message); }
 
     try {
+        await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS finishing_notes TEXT`);
+    } catch(e) { console.error('[BPHT] migration finishing_notes:', e.message); }
+
+    try {
         await db.exec(`CREATE TABLE IF NOT EXISTS finishing_checklist_templates (
             id SERIAL PRIMARY KEY,
             type VARCHAR(20) DEFAULT 'yes_no',
@@ -318,13 +322,13 @@ module.exports = async function(fastify) {
         const rec = await db.get('SELECT * FROM finishing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         await db.run(`UPDATE finishing_records SET expected_date=$1,done_date=$2,product_name=$3,cskh_name=$4,quantity=$5,
-            finisher_id=$6,sewer_name=$7,finish_images=$8,shipping_standard=$9,notes=$10,updated_at=$11 WHERE id=$12`,
+            finisher_id=$6,sewer_name=$7,finish_images=$8,shipping_standard=$9,notes=$10,updated_at=$11,finishing_notes=$12 WHERE id=$13`,
             [b.expected_date!==undefined?b.expected_date:rec.expected_date, b.done_date!==undefined?b.done_date:rec.done_date,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              b.quantity!==undefined?Number(b.quantity):rec.quantity, b.finisher_id!==undefined?b.finisher_id:rec.finisher_id,
              b.sewer_name!==undefined?b.sewer_name:rec.sewer_name, b.finish_images!==undefined?b.finish_images:rec.finish_images,
              b.shipping_standard!==undefined?b.shipping_standard:rec.shipping_standard,
-             b.notes!==undefined?b.notes:rec.notes, now, id]);
+             b.notes!==undefined?b.notes:rec.notes, now, b.finishing_notes!==undefined?b.finishing_notes:rec.finishing_notes, id]);
         await db.run(`INSERT INTO finishing_history (finishing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin hoàn thiện', req.user.id, now]);
         return { success: true };
