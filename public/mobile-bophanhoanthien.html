@@ -438,6 +438,7 @@ function mStats(){
     const undoneCount = mr.filter(r => {
         if (r.done_date || !r.is_finishing_needed) return false;
         if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        if (r.is_qc_checked === 0) return false;
         return true;
     }).length;
     const badge = document.getElementById('badge_undone');
@@ -704,6 +705,7 @@ if (activeTab === 'undone') {
     filtered = mr.filter(r => {
         if (r.done_date || !r.is_finishing_needed) return false;
         if (dt && (!r.expected_date || r.expected_date > dt)) return false;
+        if (r.is_qc_checked === 0) return false;
         return true;
     });
 } else if (activeTab === 'done') {
