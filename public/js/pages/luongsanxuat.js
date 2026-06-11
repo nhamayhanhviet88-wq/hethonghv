@@ -327,21 +327,43 @@ function _lsxRenderStats(stats) {
     var sc = document.getElementById('lsxStats');
     if (!sc) return;
     var s = stats || { total: 0, approved: 0, pending: 0, count: 0 };
-    sc.innerHTML = `
-        <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
-            <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 TỔNG LƯƠNG</div>
-            <div style="font-size:15px;font-weight:900">${_lsxFN(s.total)} đ</div>
-            <div style="font-size:9px;opacity:.7;margin-top:2px">${s.count} đơn</div>
-        </div>
-        <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
-            <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ ĐÃ DUYỆT</div>
-            <div style="font-size:15px;font-weight:900">${_lsxFN(s.approved)} đ</div>
-        </div>
-        <div class="lsx-card-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
-            <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA DUYỆT</div>
-            <div style="font-size:15px;font-weight:900">${_lsxFN(s.pending)} đ</div>
-        </div>
-    `;
+    
+    if (s.isSewing) {
+        var pendingTotal = (s.sewingPendingTho || 0) + (s.sewingPendingCPM || 0);
+        sc.innerHTML = `
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 TỔNG LƯƠNG THỢ</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingTho)} đ</div>
+                <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
+            </div>
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ TỔNG LƯƠNG CPM</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(s.sewingCPM)} đ</div>
+                <div style="font-size:9px;opacity:.7;margin-top:2px">${s.approvedCount || 0} đơn đã duyệt</div>
+            </div>
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA DUYỆT</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(pendingTotal)} đ</div>
+                <div style="font-size:9px;opacity:.7;margin-top:2px">Thợ: ${_lsxFN(s.sewingPendingTho)} | CPM: ${_lsxFN(s.sewingPendingCPM)}</div>
+            </div>
+        `;
+    } else {
+        sc.innerHTML = `
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#1e293b,#0f172a)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">📦 TỔNG LƯƠNG</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(s.total)} đ</div>
+                <div style="font-size:9px;opacity:.7;margin-top:2px">${s.count} đơn</div>
+            </div>
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#10b981,#059669)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">✅ ĐÃ DUYỆT</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(s.approved)} đ</div>
+            </div>
+            <div class="lsx-card-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+                <div style="font-size:9px;font-weight:700;opacity:.8;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA DUYỆT</div>
+                <div style="font-size:15px;font-weight:900">${_lsxFN(s.pending)} đ</div>
+            </div>
+        `;
+    }
 }
 
 function _lsxRenderSb() {
@@ -769,25 +791,30 @@ function _lsxRenderTable() {
 
     var tb = document.getElementById('lsxTb');
     if (!tb) return;
-    
-    if (!all.length) {
-        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? (_lsx.filter.contractor_id ? 12 : 15) : 13);
-        tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
-        _lsxRenderInfo(0);
-        return;
-    }
 
-    // Compute cumulative sum from bottom to top (chronological order)
+    // Compute stats and cumulative sums
     var cumulative = [];
     var cumulativeTho = [];
     var cumulativeCPM = [];
     var runningSum = 0;
     var runningSumTho = 0;
     var runningSumCPM = 0;
+    var pendingSum = 0;
+    var pendingTho = 0;
+    var pendingCPM = 0;
+    var totalSum = 0;
+    var countApproved = 0;
+    var countPending = 0;
+
     for (var idx = all.length - 1; idx >= 0; idx--) {
         var r = all[idx];
+        totalSum += Number(r.salary) || 0;
         if (r.is_approved) {
             runningSum += Number(r.salary) || 0;
+            countApproved++;
+        } else {
+            pendingSum += Number(r.salary) || 0;
+            countPending++;
         }
         cumulative[idx] = runningSum;
 
@@ -795,10 +822,35 @@ function _lsxRenderTable() {
             if (r.is_approved) {
                 runningSumTho += Number(r.salary) || 0;
                 runningSumCPM += Number(r.cpm_salary) || 0;
+            } else {
+                pendingTho += Number(r.salary) || 0;
+                pendingCPM += Number(r.cpm_salary) || 0;
             }
             cumulativeTho[idx] = runningSumTho;
             cumulativeCPM[idx] = runningSumCPM;
         }
+    }
+
+    // Call dynamic stats render
+    _lsxRenderStats({
+        total: totalSum,
+        approved: runningSum,
+        pending: pendingSum,
+        count: all.length,
+        isSewing: _lsx.filter.dept === 'sewing',
+        sewingTho: runningSumTho,
+        sewingCPM: runningSumCPM,
+        sewingPendingTho: pendingTho,
+        sewingPendingCPM: pendingCPM,
+        approvedCount: countApproved,
+        pendingCount: countPending
+    });
+
+    if (!all.length) {
+        var colSpan = _lsx.filter.dept === 'pressing' ? (11 + (window._bpePositions || []).length) : (_lsx.filter.dept === 'sewing' ? (_lsx.filter.contractor_id ? 12 : 15) : 13);
+        tb.innerHTML = '<tr><td colspan="' + colSpan + '"><div class="empty-state"><div class="icon">💰</div><h3>Không có bản ghi lương nào</h3></div></td></tr>';
+        _lsxRenderInfo(0);
+        return;
     }
 
     tb.innerHTML = all.map(function(r, i) {
