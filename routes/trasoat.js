@@ -471,7 +471,8 @@ module.exports = async function(fastify) {
                 SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
-                LEFT JOIN dht_order_items doi ON fr.order_item_id = doi.id
+                LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
             // Get checklist answers for each record
@@ -492,7 +493,8 @@ module.exports = async function(fastify) {
                 SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
-                LEFT JOIN dht_order_items doi ON fr.order_item_id = doi.id
+                LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
             // Get checklist answers for each record
