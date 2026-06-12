@@ -300,10 +300,14 @@ function _tsRenderCharts(s) {
         const rowStyle = isAll 
             ? `font-weight: 800; border-top: 2px solid #cbd5e1; background-color: ${rowBg}; cursor: pointer; transition: background 0.15s;`
             : `border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;`;
+        
+        const totalCellBg = isAll ? '#fef3c7' : '#fffbeb';
+        const totalCellColor = isAll ? '#92400e' : '#b45309';
+
         return `
             <tr style="${rowStyle}" onclick="_tsSelectQuarter('${q.key}')" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${rowBg}'">
                 <td style="padding: 6px 4px; font-weight: 600; text-align: left; color: ${isAll?'#1e1b4b':'#475569'}">${q.name}</td>
-                <td style="padding: 6px 4px; text-align: center; font-weight: 700; color: #1e293b; background-color: ${isAll?'#f1f5f9':'#f8fafc'}">${q.total}</td>
+                <td style="padding: 6px 4px; text-align: center; font-weight: 800; color: ${totalCellColor}; background-color: ${totalCellBg}">${q.total}</td>
                 <td style="padding: 6px 4px; text-align: center; font-weight: 600; color: #10b981">${q.early}</td>
                 <td style="padding: 6px 4px; text-align: center; font-weight: 600; color: #6366f1">${q.on_time}</td>
                 <td style="padding: 6px 4px; text-align: center; font-weight: 600; color: #ef4444">${q.late}</td>
@@ -332,7 +336,7 @@ function _tsRenderCharts(s) {
                     <thead>
                         <tr style="color: #64748b; font-weight: 600; text-align: center; border-bottom: 1px solid #e2e8f0;">
                             <th style="padding: 4px; text-align: left;">Kỳ</th>
-                            <th style="padding: 4px; background-color: #f1f5f9;">Tổng</th>
+                            <th style="padding: 4px; background-color: #b45309; color: #ffffff;">Tổng</th>
                             <th style="padding: 4px; color: #10b981;">Sớm</th>
                             <th style="padding: 4px; color: #6366f1;">Đúng</th>
                             <th style="padding: 4px; color: #ef4444;">Trễ</th>
