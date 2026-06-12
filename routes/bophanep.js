@@ -1292,8 +1292,10 @@ module.exports = async function(fastify) {
             await client.query('COMMIT');
             return { success: true, created: 1 };
         } catch (err) {
-            await db.run('ROLLBACK');
+            await client.query('ROLLBACK');
             throw err;
+        } finally {
+            client.release();
         }
     });
 
