@@ -473,7 +473,8 @@ module.exports = async function(fastify) {
             const records = await db.all(`
                 SELECT sr.*, doi.description AS item_description,
                     COALESCE(u.full_name, c.name, t.name) AS sewer_name,
-                    qc_u.full_name AS finisher_name
+                    qc_u.full_name AS finisher_name,
+                    (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id

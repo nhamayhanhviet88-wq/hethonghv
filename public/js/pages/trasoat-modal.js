@@ -24,6 +24,7 @@ async function _tsOpenStepModal(orderId, stepName){
 function _tsRenderStepModal(step, d){
     const fmtDT = t => { if(!t) return '—'; return new Date(t).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}); };
     const fmtD = t => { if(!t) return '—'; return new Date(t).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}); };
+    const fmtQCDate = t => { if(!t) return '—'; const d = new Date(t); const hh = d.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }); const dd = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }); return hh + ' ' + dd; };
     const V = v => v||'—';
     const hdr = (icon,title,sub,color) => `<div style="background:linear-gradient(135deg,${color});padding:18px 24px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:16px;font-weight:900">${icon} ${title}</div><div style="font-size:12px;opacity:.8;margin-top:2px">${sub}</div></div><button onclick="_tsCloseModal()" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:white;font-size:18px;cursor:pointer;font-weight:800">✕</button></div>`;
     const row = (label,val,valColor) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9"><span style="color:#64748b;font-weight:600">${label}</span><span style="font-weight:700;color:${valColor||'#1e293b'}">${val}</span></div>`;
@@ -147,6 +148,7 @@ function _tsRenderStepModal(step, d){
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('🧵 Nhân Viên May',V(r.sewer_name));
             body+=row('👷 Nhân Viên QC',V(r.finisher_name),'#0d9488');
+            body+=row('📅 Thời Gian QC',fmtQCDate(r.qc_date));
             body+=row('📊 Số Lượng',r.quantity ? r.quantity+' sp' : '—');
             if(r.answers&&r.answers.length){
                 body+=section('📋','KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG');
