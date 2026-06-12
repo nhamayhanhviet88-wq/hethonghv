@@ -845,14 +845,19 @@ async function _bpiShowDoneModal(r) {
     if (printReminders.length > 0) {
         h += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
         h += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
-        h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+        h += '  <div style="display:flex;flex-direction:column;gap:10px">';
         printReminders.forEach(function(rem, remIdx) {
             var remId = printReminderIds[remIdx] || 0;
             var isViewed = printViewedIds.indexOf(remId) >= 0;
-            h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#7f1d1d;line-height:1.4">';
-            h += '       <input type="checkbox" class="bpi-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' onchange="_bpiUpdateDoneMeters()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#dc2626">';
-            h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-            h += '    </label>';
+            h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#059669' : '#fca5a5') + ';border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+            h += '       <input type="checkbox" class="bpi-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+            h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#7f1d1d;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            if (isViewed) {
+                h += '       <button type="button" class="bpi-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpiToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
+            } else {
+                h += '       <button type="button" class="bpi-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpiToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #dc2626;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpiReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
+            }
+            h += '    </div>';
         });
         h += '  </div>';
         h += '</div>';
@@ -960,6 +965,44 @@ async function _bpiShowDoneModal(r) {
     });
 }
 
+function _bpiToggleReminder(btn) {
+    var remId = btn.getAttribute('data-reminder-id');
+    var cb = document.querySelector('.bpi-reminder-cb[data-reminder-id="' + remId + '"]');
+    if (!cb) return;
+    
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #059669';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#059669';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#059669';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #dc2626';
+        btn.style.background = '#fee2e2';
+        btn.style.color = '#dc2626';
+        btn.style.animation = 'bpiReminderPulse 2s infinite';
+        if (card) card.style.borderColor = '#fca5a5';
+    }
+    
+    _bpiUpdateDoneMeters();
+}
+
+// Add CSS animation for reminder pulse
+(function() {
+    if (document.getElementById('bpiReminderStyles')) return;
+    var style = document.createElement('style');
+    style.id = 'bpiReminderStyles';
+    style.textContent = '@keyframes bpiReminderPulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 8px rgba(220,38,38,0)} }';
+    document.head.appendChild(style);
+})();
+
 function _bpiCloseDoneModal() {
     var m = document.getElementById('_bpiDoneModal');
     if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
@@ -1017,6 +1060,31 @@ function _bpiUpdateDoneMeters() {
             if (!reminderCbs[i].checked) {
                 allRemindersChecked = false;
                 break;
+            }
+        }
+        // Update reminder count indicator
+        var totalRem = reminderCbs.length;
+        var checkedRem = 0;
+        for (var i = 0; i < reminderCbs.length; i++) { if (reminderCbs[i].checked) checkedRem++; }
+        var remCountEl = document.getElementById('_bpiRemCount');
+        if (!remCountEl && totalRem > 0) {
+            var remSection = document.querySelector('.bpi-reminder-btn');
+            if (remSection) {
+                var parent = remSection.closest('div[style*="margin-top:12px"]');
+                if (parent) {
+                    var countDiv = document.createElement('div');
+                    countDiv.id = '_bpiRemCount';
+                    countDiv.style.cssText = 'margin-top:8px;text-align:center;font-size:11px;font-weight:800';
+                    parent.appendChild(countDiv);
+                    remCountEl = countDiv;
+                }
+            }
+        }
+        if (remCountEl) {
+            if (allRemindersChecked) {
+                remCountEl.innerHTML = '<span style="color:#059669">✅ Đã xem tất cả ' + totalRem + ' nhắc nhở</span>';
+            } else {
+                remCountEl.innerHTML = '<span style="color:#dc2626">⚠️ Còn ' + (totalRem - checkedRem) + '/' + totalRem + ' nhắc nhở chưa xem</span>';
             }
         }
 

@@ -787,12 +787,13 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
     if (pressReminders.length > 0) {
         h += '<div style="margin-top:12px;background:#f3e8ff;border:1.5px solid #d8b4fe;padding:12px 14px;border-radius:12px;">';
         h += '  <div style="font-weight:800;color:#6b21a8;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
-        h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+        h += '  <div style="display:flex;flex-direction:column;gap:10px">';
         pressReminders.forEach(function(rem, remIdx) {
-            h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#581c87;line-height:1.4">';
-            h += '       <input type="checkbox" class="bpe-reminder-cb" onchange="_bpeUpdateClaimBtn()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#7c3aed">';
-            h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-            h += '    </label>';
+            h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #d8b4fe;border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+            h += '       <input type="checkbox" class="bpe-reminder-cb" style="display:none">';
+            h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#581c87;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            h += '       <button type="button" class="bpe-reminder-btn" onclick="_bpeToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #7c3aed;background:#f3e8ff;color:#7c3aed;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
+            h += '    </div>';
         });
         h += '  </div>';
         h += '</div>';
@@ -809,6 +810,43 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
     document.body.insertAdjacentHTML('beforeend', h);
     requestAnimationFrame(function() { document.getElementById('_bpeClaimModal').classList.add('show'); });
 }
+
+function _bpeToggleReminder(btn) {
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    var cb = card ? card.querySelector('.bpe-reminder-cb') : null;
+    if (!cb) return;
+    
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #059669';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#059669';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#059669';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #7c3aed';
+        btn.style.background = '#f3e8ff';
+        btn.style.color = '#7c3aed';
+        btn.style.animation = 'bpeReminderPulse 2s infinite';
+        if (card) card.style.borderColor = '#d8b4fe';
+    }
+    
+    _bpeUpdateClaimBtn();
+    _bpeCheckReminders();
+}
+
+// Add CSS animation for BPE reminder pulse
+(function() {
+    if (document.getElementById('bpeReminderStyles')) return;
+    var style = document.createElement('style');
+    style.id = 'bpeReminderStyles';
+    style.textContent = '@keyframes bpeReminderPulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,58,237,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 8px rgba(124,58,237,0)} }';
+    document.head.appendChild(style);
+})();
 
 function _bpeUpdateClaimBtn() {
     var confirmBtn = document.getElementById('_bpeConfirmBtn');
@@ -1011,14 +1049,19 @@ async function _bpeOpenReportModal(id) {
     if (pressReminders.length > 0) {
         h += '<div style="margin-top:16px;background:#f3e8ff;border:1.5px solid #d8b4fe;padding:12px 14px;border-radius:12px;">';
         h += '  <div style="font-weight:800;color:#581c87;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
-        h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+        h += '  <div style="display:flex;flex-direction:column;gap:10px">';
         pressReminders.forEach(function(rem, remIdx) {
             var remId = pressReminderIds[remIdx] || 0;
             var isViewed = pressViewedIds.indexOf(remId) >= 0;
-            h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#581c87;line-height:1.4">';
-            h += '       <input type="checkbox" class="bpe-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' onchange="_bpeCheckReminders()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#7c3aed">';
-            h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-            h += '    </label>';
+            h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#059669' : '#d8b4fe') + ';border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+            h += '       <input type="checkbox" class="bpe-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+            h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#581c87;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            if (isViewed) {
+                h += '       <button type="button" class="bpe-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpeToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
+            } else {
+                h += '       <button type="button" class="bpe-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpeToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #7c3aed;background:#f3e8ff;color:#7c3aed;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
+            }
+            h += '    </div>';
         });
         h += '  </div>';
         h += '</div>';
