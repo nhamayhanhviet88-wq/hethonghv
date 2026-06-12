@@ -70,8 +70,28 @@ module.exports = async function(fastify) {
                     END,
                     false
                 ) AS press_done,
-                COALESCE((SELECT true FROM sewing_records sr WHERE sr.dht_order_id = o.id AND sr.done_date IS NOT NULL LIMIT 1), false) AS sew_done,
-                COALESCE((SELECT true FROM finishing_records fr WHERE fr.dht_order_id = o.id AND fr.is_completed = true LIMIT 1), false) AS finish_done,
+                COALESCE(
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id) 
+                        THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id AND done_date IS NULL)
+                        ELSE false
+                    END,
+                    false
+                ) AS sew_done,
+                COALESCE(
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id) 
+                        THEN NOT EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id AND is_completed = false)
+                        ELSE (
+                            CASE 
+                                WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id)
+                                THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id AND done_date IS NULL)
+                                ELSE false
+                            END
+                        )
+                    END,
+                    false
+                ) AS finish_done,
                 COUNT(*) OVER() AS total_count
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
@@ -587,8 +607,7 @@ function _processOrder(o, todayStr) {
         if (!o.cut_done) currentStepName = 'Chờ Cắt';
         else if (!o.print_done) currentStepName = 'Chờ In';
         else if (!o.press_done) currentStepName = 'Chờ Ép';
-        else if (!o.sew_done) currentStepName = 'Chờ May';
-        else if (!o.finish_done) currentStepName = 'Chờ QC/HT';
+        else if (!o.finish_done) currentStepName = 'Đang May / QC / HT';
         else if (!isShipped) currentStepName = 'Chờ Gửi';
         else currentStepName = 'Hoàn thành';
     }
