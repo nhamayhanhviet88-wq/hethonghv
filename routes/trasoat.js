@@ -46,8 +46,8 @@ module.exports = async function(fastify) {
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 cr2.name AS carrier_name,
-                COALESCE((SELECT true FROM cutting_records cr WHERE cr.dht_order_id = o.id AND cr.is_cut_done = true LIMIT 1), false) AS cut_done,
-                COALESCE((SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1), false) AS print_done,
+                COALESCE((SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) AND NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id AND is_cut_done = false)), false) AS cut_done,
+                COALESCE((SELECT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) AND NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)), false) AS print_done,
                 COALESCE((SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 4 LIMIT 1), false) AS press_done,
                 COALESCE((SELECT true FROM sewing_records sr WHERE sr.dht_order_id = o.id AND sr.done_date IS NOT NULL LIMIT 1), false) AS sew_done,
                 COALESCE((SELECT true FROM finishing_records fr WHERE fr.dht_order_id = o.id AND fr.is_completed = true LIMIT 1), false) AS finish_done,
@@ -169,7 +169,15 @@ module.exports = async function(fastify) {
                 { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
             ];
         } else {
-            const cutRec = cutting.find(c => c.is_cut_done);
+            const cutDoneCount = cutting.filter(c => c.is_cut_done).length;
+            const cutTotalCount = cutting.length;
+            const cutProgress = cutTotalCount > 0 ? `${cutDoneCount}/${cutTotalCount}` : null;
+            const allCutDone = cutTotalCount > 0 && cutting.every(c => c.is_cut_done);
+
+            const lastCutDone = cutting.filter(c => c.is_cut_done).sort((a,b) => new Date(b.cut_done_at || b.cutting_at || 0) - new Date(a.cut_done_at || a.cutting_at || 0))[0];
+            const cutTime = lastCutDone ? (lastCutDone.cut_done_at || lastCutDone.cutting_at) : null;
+            const cutWorker = [...new Set(cutting.map(c => c.cutter_name).filter(Boolean))].join(', ') || null;
+
             const printStep = prodSteps.find(s => s.step_id === 3);
             const pressStep = prodSteps.find(s => s.step_id === 4);
             const sewRec = sewing.find(s => s.done_date);
@@ -178,7 +186,7 @@ module.exports = async function(fastify) {
             const printDone = allPrintDone || (printStep?.is_completed || false);
 
             timeline = [
-                { name: 'Cắt', short: 'CẮT', done: !!cutRec, time: cutRec?.cut_done_at || cutRec?.cutting_at, worker: cutRec?.cutter_name },
+                { name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress },
                 { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
                 { name: 'Ép', short: 'ÉP', done: pressStep?.is_completed || false, time: pressStep?.completed_at, worker: pressStep?.completed_by_name },
                 { name: 'May', short: 'MAY', done: !!sewRec, time: sewRec?.done_date, worker: sewRec?.sewer_name || sewRec?.contractor_name },
@@ -312,8 +320,10 @@ module.exports = async function(fastify) {
 
         if (step === 'cat') {
             const records = await db.all(`
-                SELECT cr.*, u.full_name AS cutter_name
-                FROM cutting_records cr LEFT JOIN users u ON cr.cutter_id = u.id
+                SELECT cr.*, u.full_name AS cutter_name, doi.description AS item_description
+                FROM cutting_records cr
+                LEFT JOIN users u ON cr.cutter_id = u.id
+                LEFT JOIN dht_order_items doi ON cr.order_item_id = doi.id
                 WHERE cr.dht_order_id = $1 ORDER BY cr.id ASC
             `, [orderId]);
             // Get selected rolls for each record
@@ -333,11 +343,13 @@ module.exports = async function(fastify) {
                 SELECT pr.*, u.full_name AS printer_name,
                     u_done.full_name AS done_by_name,
                     ptr.roll_type AS pettem_roll_type,
-                    ptr.qty_remaining AS pettem_roll_remaining
+                    ptr.qty_remaining AS pettem_roll_remaining,
+                    doi.description AS item_description
                 FROM printing_records pr
                 LEFT JOIN users u ON pr.printer_id = u.id
                 LEFT JOIN users u_done ON pr.print_done_by = u_done.id
                 LEFT JOIN pettem_rolls ptr ON pr.pettem_roll_id = ptr.id
+                LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
             `, [orderId]);
             return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };

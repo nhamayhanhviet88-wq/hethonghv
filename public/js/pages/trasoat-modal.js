@@ -34,8 +34,9 @@ function _tsRenderStepModal(step, d){
         html = hdr('✂️','CHI TIẾT ĐƠN CẮT',d.order_code,'#16a34a,#15803d');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu cắt</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            const title = r.item_description ? `📋 ${r.item_description}` : `📋 Phiếu ${i+1}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">📋 Phiếu ${i+1}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</span></div>`;
+            body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('🧵 Chất liệu',V(r.material_name),'#7c3aed');
@@ -54,8 +55,9 @@ function _tsRenderStepModal(step, d){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu in</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            const title = r.item_description ? `🖨️ ${r.item_description}` : `🖨️ Phiếu ${i+1}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#5b21b6;font-size:13px">🖨️ Phiếu ${i+1}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_print_done?'#d1fae5':'#fef3c7'};color:${r.is_print_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_print_done?'✅ Đã in xong':'⏳ Đang in'}</span></div>`;
+            body+=`<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#5b21b6;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_print_done?'#d1fae5':'#fef3c7'};color:${r.is_print_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_print_done?'✅ Đã in xong':'⏳ Đang in'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=row('📦 Tên SP/Phối',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
