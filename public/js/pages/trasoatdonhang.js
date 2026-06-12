@@ -135,9 +135,9 @@ function _tsRenderTable(orders, totalCount) {
 
         const pri = (priority || 'CHUẨN').toUpperCase();
         if (pri === 'GẤP' || pri === 'GỬI') {
-            return `${dayName} ${day}/${month}`;
+            return `${dayName} - ${day}/${month}`;
         } else {
-            return `${dayName} ${hrs}:${mins} ${day}/${month}`;
+            return `${dayName} - ${hrs}:${mins} ${day}/${month}`;
         }
     };
 
