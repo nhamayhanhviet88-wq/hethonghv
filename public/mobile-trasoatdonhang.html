@@ -19,7 +19,11 @@ body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-we
 .filters select{padding:8px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(255,255,255,.1);color:white;font-size:12px;font-weight:700;-webkit-appearance:none;min-width:90px}
 .filters select option{color:#1e1b4b;background:white}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px 0}
-.stat-card{background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.pipeline-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 16px 0}
+.pipeline-cards .stat-card:nth-child(5) {grid-column: 1 / -1}
+.stat-card{background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04);border:1.5px solid transparent;transition:all .2s;cursor:pointer}
+.stat-card:active{transform:scale(0.97)}
+.stat-card.active{border-color:#4f46e5 !important;transform:scale(1.02);box-shadow:0 6px 12px rgba(79,70,229,0.15)}
 .stat-card .num{font-size:24px;font-weight:900}
 .stat-card .lbl{font-size:10px;font-weight:700;color:#64748b;margin-top:2px}
 .stat-card .pct{font-size:11px;font-weight:800;margin-top:1px}
@@ -84,11 +88,12 @@ body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-we
     </div>
 </div>
 <div class="cards" id="mCards"></div>
+<div class="pipeline-cards" id="mPipelineCards"></div>
 <div class="results" id="mResults"><div class="empty"><div class="icon">⏳</div>Đang tải...</div></div>
 
 <script>
 const API_BASE = '';
-var _m = { page: 1, search: '', orders: [], total: 0, expandedId: null, debounce: null };
+var _m = { page: 1, search: '', orders: [], total: 0, current_step: '', expandedId: null, debounce: null };
 
 async function api(url) {
     const r = await fetch(API_BASE + url, { credentials: 'include' });
@@ -104,12 +109,21 @@ function init() {
     const q3 = document.createElement('option'); q3.value = 'Q3'; q3.text = 'Quý 3 (T7-9)'; mSel.appendChild(q3);
     const q4 = document.createElement('option'); q4.value = 'Q4'; q4.text = 'Quý 4 (T10-12)'; mSel.appendChild(q4);
     for (let m=1;m<=12;m++) { const o=document.createElement('option'); o.value=m; o.text='Tháng '+m; if(m===cm)o.selected=true; mSel.appendChild(o); }
-    for (let y=cy;y>=cy-3;y--) { const o=document.createElement('option'); o.value=y; o.text=y; ySel.appendChild(o); }
+    
+    const oAll = document.createElement('option'); oAll.value = ''; oAll.text = 'Tất cả năm'; ySel.appendChild(oAll);
+    for (let y=cy;y>=cy-3;y--) { const o=document.createElement('option'); o.value=y; o.text=y; if(y===cy) o.selected=true; ySel.appendChild(o); }
+    
     document.getElementById('mSearch').addEventListener('input', e => {
         clearTimeout(_m.debounce);
         _m.debounce = setTimeout(() => { _m.search=e.target.value; _m.page=1; _m.orders=[]; load(); }, 400);
     });
-    ['mMonth','mYear','mStatus'].forEach(id => document.getElementById(id).addEventListener('change', () => { _m.page=1; _m.orders=[]; load(); loadStats(); }));
+    ['mMonth','mYear','mStatus'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+        _m.current_step = ''; // Clear pipeline step when manual select changes
+        _m.page = 1;
+        _m.orders = [];
+        load();
+        loadStats();
+    }));
     load(); loadStats();
 }
 
@@ -122,6 +136,7 @@ async function load() {
     if (month) p.set('month', month);
     if (year) p.set('year', year);
     if (status) p.set('status', status);
+    if (_m.current_step) p.set('current_step', _m.current_step);
     try {
         const res = await api('/api/trasoat/orders?'+p);
         if (_m.page === 1) _m.orders = res.orders || [];
@@ -232,12 +247,87 @@ async function loadStats() {
     const m = document.getElementById('mMonth').value || '';
     try {
         const s = await api(`/api/trasoat/stats?year=${y}&month=${m}`);
+        const activeStep = _m.current_step || '';
+        const activeStatus = document.getElementById('mStatus').value || '';
+
+        // Status cards (top row)
+        const isAllActive = !activeStep && !activeStatus ? 'active' : '';
+        const isEarlyActive = !activeStep && activeStatus === 'early' ? 'active' : '';
+        const isOnTimeActive = !activeStep && activeStatus === 'on_time' ? 'active' : '';
+        const isLateActive = !activeStep && activeStatus === 'late' ? 'active' : '';
+
         document.getElementById('mCards').innerHTML = `
-            <div class="stat-card" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border:1px solid #fcd34d"><div class="num" style="color:#b45309">${s.total}</div><div class="lbl" style="color:#b45309">TỔNG ĐƠN</div><div class="pct" style="color:#b45309">100%</div></div>
-            <div class="stat-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0"><div class="num" style="color:#166534">${s.early}</div><div class="lbl">SỚM HƠN</div><div class="pct" style="color:#16a34a">${s.early_pct}%</div></div>
-            <div class="stat-card" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #c7d2fe"><div class="num" style="color:#3730a3">${s.on_time}</div><div class="lbl">ĐÚNG LỊCH</div><div class="pct" style="color:#4f46e5">${s.on_time_pct}%</div></div>
-            <div class="stat-card" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fecaca"><div class="num" style="color:#991b1b">${s.late}</div><div class="lbl">TRỄ LỊCH</div><div class="pct" style="color:#dc2626">${s.late_pct}%</div></div>`;
+            <div class="stat-card ${isAllActive}" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border-color:#fcd34d" onclick="_mSelectStatus('')">
+                <div class="num" style="color:#b45309">${s.total}</div>
+                <div class="lbl" style="color:#b45309">TỔNG ĐƠN</div>
+                <div class="pct" style="color:#b45309">100%</div>
+            </div>
+            <div class="stat-card ${isEarlyActive}" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#bbf7d0" onclick="_mSelectStatus('early')">
+                <div class="num" style="color:#166534">${s.early}</div>
+                <div class="lbl">SỚM HƠN</div>
+                <div class="pct" style="color:#16a34a">${s.early_pct}%</div>
+            </div>
+            <div class="stat-card ${isOnTimeActive}" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-color:#c7d2fe" onclick="_mSelectStatus('on_time')">
+                <div class="num" style="color:#3730a3">${s.on_time}</div>
+                <div class="lbl">ĐÚNG LỊCH</div>
+                <div class="pct" style="color:#4f46e5">${s.on_time_pct}%</div>
+            </div>
+            <div class="stat-card ${isLateActive}" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#fecaca" onclick="_mSelectStatus('late')">
+                <div class="num" style="color:#991b1b">${s.late}</div>
+                <div class="lbl">TRỄ LỊCH</div>
+                <div class="pct" style="color:#dc2626">${s.late_pct}%</div>
+            </div>`;
+
+        // Pipeline cards (bottom row)
+        const b = s.backlog || { cho_cat: 0, cho_in: 0, cho_ep: 0, dang_may_qc_ht: 0, cho_gui: 0 };
+        const isCutActive = activeStep === 'Chờ Cắt' ? 'active' : '';
+        const isInActive = activeStep === 'Chờ In' ? 'active' : '';
+        const isEpActive = activeStep === 'Chờ Ép' ? 'active' : '';
+        const isMayActive = activeStep === 'Đang May / QC / HT' ? 'active' : '';
+        const isGuiActive = activeStep === 'Chờ Gửi' ? 'active' : '';
+
+        document.getElementById('mPipelineCards').innerHTML = `
+            <div class="stat-card ${isCutActive}" style="background:linear-gradient(135deg,#f1f5f9,#cbd5e1);border-color:#94a3b8" onclick="_mSelectPipelineStep('Chờ Cắt')">
+                <div class="num" style="color:#1e293b">${b.cho_cat}</div>
+                <div class="lbl" style="color:#334155">CHƯA CẮT</div>
+            </div>
+            <div class="stat-card ${isInActive}" style="background:linear-gradient(135deg,#ffedd5,#fed7aa);border-color:#f97316" onclick="_mSelectPipelineStep('Chờ In')">
+                <div class="num" style="color:#ea580c">${b.cho_in}</div>
+                <div class="lbl" style="color:#c2410c">CHƯA IN</div>
+            </div>
+            <div class="stat-card ${isEpActive}" style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border-color:#c084fc" onclick="_mSelectPipelineStep('Chờ Ép')">
+                <div class="num" style="color:#7e22ce">${b.cho_ep}</div>
+                <div class="lbl" style="color:#6b21a8">CHƯA ÉP</div>
+            </div>
+            <div class="stat-card ${isMayActive}" style="background:linear-gradient(135deg,#f0fdf4,#ccfbf1);border-color:#2dd4bf" onclick="_mSelectPipelineStep('Đang May / QC / HT')">
+                <div class="num" style="color:#0f766e">${b.dang_may_qc_ht}</div>
+                <div class="lbl" style="color:#0d9488">CHƯA MAY/QC/HT</div>
+            </div>
+            <div class="stat-card ${isGuiActive}" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#38bdf8" onclick="_mSelectPipelineStep('Chờ Gửi')">
+                <div class="num" style="color:#0369a1">${b.cho_gui}</div>
+                <div class="lbl" style="color:#0284c7">CHƯA GỬI</div>
+            </div>`;
     } catch(e) {}
+}
+
+function _mSelectStatus(statusValue) {
+    document.getElementById('mStatus').value = statusValue;
+    _m.current_step = ''; // Clear pipeline filter when status filter is selected
+    _m.page = 1;
+    _m.orders = [];
+    load();
+    loadStats();
+}
+
+function _mSelectPipelineStep(stepName) {
+    _m.current_step = stepName;
+    document.getElementById('mMonth').value = '';
+    document.getElementById('mYear').value = '';
+    document.getElementById('mStatus').value = '';
+    _m.page = 1;
+    _m.orders = [];
+    load();
+    loadStats();
 }
 
 document.addEventListener('DOMContentLoaded', init);

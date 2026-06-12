@@ -54,7 +54,7 @@ module.exports = async function(fastify) {
         const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
         const todayStr = vnDateStr(vnNow());
 
-        const rows = await db.all(`
+                const rows = await db.all(`
             SELECT o.id, o.order_code, o.order_date, o.expected_ship_date,
                 o.rescheduled_ship_date, o.shipping_status,
                 o.customer_name, o.customer_phone, o.province,
@@ -64,6 +64,7 @@ module.exports = async function(fastify) {
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 cr2.name AS carrier_name,
+                req.required_steps,
                 COALESCE(
                     CASE 
                         WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
@@ -115,6 +116,14 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
+            LEFT JOIN (
+                SELECT oi.dht_order_id, string_agg(pp.step_id::text, ',') AS required_steps
+                FROM dht_order_items oi
+                JOIN dht_products p ON (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                JOIN dht_product_process pp ON pp.product_id = p.id
+                WHERE pp.is_active = true
+                GROUP BY oi.dht_order_id
+            ) req ON o.id = req.dht_order_id
             ${where}
             ORDER BY o.expected_ship_date DESC NULLS LAST, o.created_at DESC
         `, params);
@@ -463,13 +472,104 @@ module.exports = async function(fastify) {
             });
         }
 
+        // Calculate backlog counts (unshipped orders)
+        let backlogFilter = '';
+        const backlogParams = [];
+        if (!FULL_VIEW_ROLES.includes(userRole)) {
+            backlogFilter = `AND (o.created_by = $1 OR o.cskh_user_id = $1)`;
+            backlogParams.push(userId);
+        }
+
+        const backlogOrders = await db.all(`
+            SELECT o.id, o.order_code, o.shipping_status, o.shipped_at,
+                   c.name AS category_name,
+                   req.required_steps,
+                   COALESCE(
+                       CASE 
+                           WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
+                           THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id AND is_cut_done = false)
+                           ELSE false
+                       END,
+                       false
+                   ) AS cut_done,
+                   COALESCE(
+                       CASE 
+                           WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) 
+                           THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)
+                           ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1)
+                       END,
+                       false
+                   ) AS print_done,
+                   COALESCE(
+                       CASE 
+                           WHEN EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = o.id) 
+                           THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = o.id AND is_reported = false)
+                           ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 4 LIMIT 1)
+                       END,
+                       false
+                   ) AS press_done,
+                   COALESCE(
+                       CASE 
+                           WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id) 
+                           THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id AND done_date IS NULL)
+                           ELSE false
+                       END,
+                       false
+                   ) AS sew_done,
+                   COALESCE(
+                       CASE 
+                           WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id) 
+                           THEN NOT EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id AND is_completed = false)
+                           ELSE (
+                               CASE 
+                                   WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id)
+                                   THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id AND done_date IS NULL)
+                                   ELSE false
+                               END
+                           )
+                       END,
+                       false
+                   ) AS finish_done
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN (
+                SELECT oi.dht_order_id, string_agg(pp.step_id::text, ',') AS required_steps
+                FROM dht_order_items oi
+                JOIN dht_products p ON (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                JOIN dht_product_process pp ON pp.product_id = p.id
+                WHERE pp.is_active = true
+                GROUP BY oi.dht_order_id
+            ) req ON o.id = req.dht_order_id
+            WHERE o.expected_ship_date IS NOT NULL
+              AND o.shipping_status != 'shipped'
+              AND o.shipped_at IS NULL
+              ${backlogFilter}
+        `, backlogParams);
+
+        let cho_cat = 0, cho_in = 0, cho_ep = 0, dang_may_qc_ht = 0, cho_gui = 0;
+        for (const bo of backlogOrders) {
+            const processed = _processOrder(bo, todayStr);
+            if (processed.current_step_name === 'Chờ Cắt') cho_cat++;
+            else if (processed.current_step_name === 'Chờ In') cho_in++;
+            else if (processed.current_step_name === 'Chờ Ép') cho_ep++;
+            else if (processed.current_step_name === 'Đang May / QC / HT') dang_may_qc_ht++;
+            else if (processed.current_step_name === 'Chờ Gửi') cho_gui++;
+        }
+
         return {
             year: targetYear,
             total, early, on_time: onTime, late,
             early_pct: total ? Math.round(early / total * 1000) / 10 : 0,
             on_time_pct: total ? Math.round(onTime / total * 1000) / 10 : 0,
             late_pct: total ? Math.round(late / total * 1000) / 10 : 0,
-            months
+            months,
+            backlog: {
+                cho_cat,
+                cho_in,
+                cho_ep,
+                dang_may_qc_ht,
+                cho_gui
+            }
         };
     });
 
@@ -726,23 +826,52 @@ function _processOrder(o, todayStr) {
     const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
     const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
 
-    let totalSteps, doneSteps, currentStepName;
-    if (isPetTem) {
-        totalSteps = 2;
-        const flags = [o.print_done, isShipped];
-        doneSteps = flags.filter(Boolean).length;
-        currentStepName = !o.print_done ? 'Chờ In' : !isShipped ? 'Chờ Gửi' : 'Hoàn thành';
-    } else {
-        totalSteps = 7;
-        const flags = [o.cut_done, o.print_done, o.press_done, o.sew_done, o.finish_done, o.finish_done, isShipped];
-        doneSteps = flags.filter(Boolean).length;
-        if (!o.cut_done) currentStepName = 'Chờ Cắt';
-        else if (!o.print_done) currentStepName = 'Chờ In';
-        else if (!o.press_done) currentStepName = 'Chờ Ép';
-        else if (!o.finish_done) currentStepName = 'Đang May / QC / HT';
-        else if (!isShipped) currentStepName = 'Chờ Gửi';
-        else currentStepName = 'Hoàn thành';
+    let requiredStepIds = null;
+    if (o.required_steps) {
+        requiredStepIds = new Set(o.required_steps.split(',').map(Number));
     }
+
+    if (!requiredStepIds) {
+        if (isPetTem) {
+            requiredStepIds = new Set([3]); // Only IN (3) is required
+        } else {
+            requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]); // Default all steps
+        }
+    }
+
+    const needsCut = requiredStepIds.has(2);
+    const needsPrint = requiredStepIds.has(3);
+    const needsPress = requiredStepIds.has(4);
+    const needsSew = requiredStepIds.has(5);
+    const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+
+    const cutDone = !needsCut || o.cut_done;
+    const printDone = !needsPrint || o.print_done;
+    const pressDone = !needsPress || o.press_done;
+    const sewDone = !needsSew || o.sew_done;
+    const finishDone = !needsFinishing || o.finish_done;
+
+    let totalSteps = 1; // Always has Gửi
+    if (needsCut) totalSteps++;
+    if (needsPrint) totalSteps++;
+    if (needsPress) totalSteps++;
+    if (needsSew) totalSteps++;
+    if (needsFinishing) totalSteps++;
+
+    let doneSteps = 0;
+    if (needsCut && o.cut_done) doneSteps++;
+    if (needsPrint && o.print_done) doneSteps++;
+    if (needsPress && o.press_done) doneSteps++;
+    if (needsSew && o.sew_done) doneSteps++;
+    if (needsFinishing && o.finish_done) doneSteps++;
+    if (isShipped) doneSteps++;
+
+    let currentStepName = 'Hoàn thành';
+    if (!cutDone) currentStepName = 'Chờ Cắt';
+    else if (!printDone) currentStepName = 'Chờ In';
+    else if (!pressDone) currentStepName = 'Chờ Ép';
+    else if (!finishDone) currentStepName = 'Đang May / QC / HT';
+    else if (!isShipped) currentStepName = 'Chờ Gửi';
 
     // Deviation calculation
     const expectedDate = o.rescheduled_ship_date || o.expected_ship_date;

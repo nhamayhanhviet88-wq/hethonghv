@@ -1,10 +1,10 @@
 // ========== TRA SOÁT ĐƠN HÀNG — Desktop Page ==========
-var _ts = { page: 1, search: '', month: '', year: '', debounce: null, expandedId: null };
+var _ts = { page: 1, search: '', month: '', year: '', current_step: '', debounce: null, expandedId: null };
 
 function renderTrasoatdonhangPage(content) {
     const now = new Date();
     const curMonth = now.getMonth() + 1, curYear = now.getFullYear();
-    _ts = { page: 1, search: '', month: '', year: '', debounce: null, expandedId: null };
+    _ts = { page: 1, search: '', month: '', year: '', current_step: '', debounce: null, expandedId: null };
 
     let monthOpts = '<option value="">Tất cả thời gian</option>';
     monthOpts += '<option value="Q1">Quý 1 (Tháng 1-3)</option>';
@@ -12,8 +12,8 @@ function renderTrasoatdonhangPage(content) {
     monthOpts += '<option value="Q3">Quý 3 (Tháng 7-9)</option>';
     monthOpts += '<option value="Q4">Quý 4 (Tháng 10-12)</option>';
     for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m===curMonth?'selected':''}>${'Tháng '+m}</option>`;
-    let yearOpts = '';
-    for (let y = curYear; y >= curYear - 3; y--) yearOpts += `<option value="${y}">${y}</option>`;
+    let yearOpts = '<option value="">Tất cả các năm</option>';
+    for (let y = curYear; y >= curYear - 3; y--) yearOpts += `<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`;
 
     content.innerHTML = `
     <style>
@@ -71,8 +71,10 @@ function renderTrasoatdonhangPage(content) {
         .ts-chart-body{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:480px}
         .ts-donut-wrap{padding:20px 16px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;border-right:1px solid #e5e7eb}
         .ts-bar-wrap{padding:20px;display:flex;align-items:center;justify-content:center}
-        @media(max-width:900px){.ts-cards{grid-template-columns:repeat(2,1fr)}.ts-chart-body{grid-template-columns:1fr}}
-        @media(max-width:600px){.ts-cards{grid-template-columns:1fr 1fr}.ts-search-bar{flex-direction:column}.ts-table th:nth-child(n+4),.ts-table td:nth-child(n+4){display:none}}
+        @media(max-width:900px){.ts-cards{grid-template-columns:repeat(2,1fr)}.ts-chart-body{grid-template-columns:1fr}.ts-pipeline-cards{grid-template-columns:repeat(3,1fr)}}
+        @media(max-width:600px){.ts-cards{grid-template-columns:1fr 1fr}.ts-search-bar{flex-direction:column}.ts-table th:nth-child(n+4),.ts-table td:nth-child(n+4){display:none}.ts-pipeline-cards{grid-template-columns:repeat(2,1fr)}}
+        .ts-pipeline-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+        .ts-card.active{border:2.5px solid #4f46e5 !important;transform:translateY(-2px);box-shadow:0 8px 16px rgba(79,70,229,0.2)}
     </style>
     <div class="ts-wrap">
         <div class="ts-chart-wrap" id="tsChartWrap"></div>
@@ -85,6 +87,7 @@ function renderTrasoatdonhangPage(content) {
             </select>
         </div>
         <div class="ts-cards" id="tsCards"><div style="grid-column:1/-1;text-align:center;padding:20px;color:#9ca3af">⏳ Đang tải...</div></div>
+        <div class="ts-pipeline-cards" id="tsPipelineCards"></div>
         <div id="tsTableWrap"></div>
     </div>`;
 
@@ -102,6 +105,7 @@ async function _tsLoad() {
     if (_ts.search) p.set('search', _ts.search);
     if (_ts.month) p.set('month', _ts.month);
     if (_ts.year) p.set('year', _ts.year);
+    if (_ts.current_step) p.set('current_step', _ts.current_step);
     const statusEl = document.getElementById('tsStatus');
     if (statusEl && statusEl.value) p.set('status', statusEl.value);
 
@@ -116,6 +120,18 @@ async function _tsLoad() {
 function _tsFilter() {
     _ts.month = document.getElementById('tsMonth').value;
     _ts.year = document.getElementById('tsYear').value;
+    _ts.current_step = ''; // Clear pipeline filter when normal filter is used
+    _ts.page = 1; _ts.expandedId = null;
+    _tsLoad(); _tsLoadStats();
+}
+
+function _tsSelectPipelineStep(stepName) {
+    _ts.current_step = stepName;
+    _ts.month = '';
+    _ts.year = '';
+    document.getElementById('tsMonth').value = '';
+    document.getElementById('tsYear').value = '';
+    document.getElementById('tsStatus').value = '';
     _ts.page = 1; _ts.expandedId = null;
     _tsLoad(); _tsLoadStats();
 }
@@ -246,15 +262,67 @@ async function _tsLoadStats() {
     const m = _ts.month || '';
     try {
         const s = await apiCall(`/api/trasoat/stats?year=${y}&month=${m}`);
+        const activeStep = _ts.current_step || '';
+        const activeStatus = document.getElementById('tsStatus')?.value || '';
+
+        // Status cards (top row)
+        const isAllActive = !activeStep && !activeStatus ? 'active' : '';
+        const isEarlyActive = !activeStep && activeStatus === 'early' ? 'active' : '';
+        const isOnTimeActive = !activeStep && activeStatus === 'on_time' ? 'active' : '';
+        const isLateActive = !activeStep && activeStatus === 'late' ? 'active' : '';
+
         document.getElementById('tsCards').innerHTML = `
-            <div class="ts-card" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border-color:#fcd34d" onclick="document.getElementById('tsStatus').value='';_tsFilter()">
-                <div class="num" style="color:#b45309">${s.total}</div><div class="lbl" style="color:#b45309">TỔNG ĐƠN</div><div class="pct" style="color:#b45309">100%</div></div>
-            <div class="ts-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)" onclick="document.getElementById('tsStatus').value='early';_tsFilter()">
-                <div class="num" style="color:#166534">${s.early}</div><div class="lbl">SỚM HƠN</div><div class="pct" style="color:#16a34a">${s.early_pct}%</div></div>
-            <div class="ts-card" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff)" onclick="document.getElementById('tsStatus').value='on_time';_tsFilter()">
-                <div class="num" style="color:#3730a3">${s.on_time}</div><div class="lbl">ĐÚNG LỊCH</div><div class="pct" style="color:#4f46e5">${s.on_time_pct}%</div></div>
-            <div class="ts-card" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)" onclick="document.getElementById('tsStatus').value='late';_tsFilter()">
-                <div class="num" style="color:#991b1b">${s.late}</div><div class="lbl">TRỄ LỊCH</div><div class="pct" style="color:#dc2626">${s.late_pct}%</div></div>`;
+            <div class="ts-card ${isAllActive}" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border-color:#fcd34d" onclick="document.getElementById('tsStatus').value='';_tsFilter()">
+                <div class="num" style="color:#b45309">${s.total}</div>
+                <div class="lbl" style="color:#b45309">TỔNG ĐƠN</div>
+                <div class="pct" style="color:#b45309">100%</div>
+            </div>
+            <div class="ts-card ${isEarlyActive}" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)" onclick="document.getElementById('tsStatus').value='early';_tsFilter()">
+                <div class="num" style="color:#166534">${s.early}</div>
+                <div class="lbl">SỚM HƠN</div>
+                <div class="pct" style="color:#16a34a">${s.early_pct}%</div>
+            </div>
+            <div class="ts-card ${isOnTimeActive}" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff)" onclick="document.getElementById('tsStatus').value='on_time';_tsFilter()">
+                <div class="num" style="color:#3730a3">${s.on_time}</div>
+                <div class="lbl">ĐÚNG LỊCH</div>
+                <div class="pct" style="color:#4f46e5">${s.on_time_pct}%</div>
+            </div>
+            <div class="ts-card ${isLateActive}" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)" onclick="document.getElementById('tsStatus').value='late';_tsFilter()">
+                <div class="num" style="color:#991b1b">${s.late}</div>
+                <div class="lbl">TRỄ LỊCH</div>
+                <div class="pct" style="color:#dc2626">${s.late_pct}%</div>
+            </div>`;
+
+        // Pipeline cards (bottom row)
+        const b = s.backlog || { cho_cat: 0, cho_in: 0, cho_ep: 0, dang_may_qc_ht: 0, cho_gui: 0 };
+        const isCutActive = activeStep === 'Chờ Cắt' ? 'active' : '';
+        const isInActive = activeStep === 'Chờ In' ? 'active' : '';
+        const isEpActive = activeStep === 'Chờ Ép' ? 'active' : '';
+        const isMayActive = activeStep === 'Đang May / QC / HT' ? 'active' : '';
+        const isGuiActive = activeStep === 'Chờ Gửi' ? 'active' : '';
+
+        document.getElementById('tsPipelineCards').innerHTML = `
+            <div class="ts-card ${isCutActive}" style="background:linear-gradient(135deg,#f1f5f9,#cbd5e1);border-color:#94a3b8" onclick="_tsSelectPipelineStep('Chờ Cắt')">
+                <div class="num" style="color:#1e293b">${b.cho_cat}</div>
+                <div class="lbl" style="color:#334155">CHƯA CẮT</div>
+            </div>
+            <div class="ts-card ${isInActive}" style="background:linear-gradient(135deg,#ffedd5,#fed7aa);border-color:#f97316" onclick="_tsSelectPipelineStep('Chờ In')">
+                <div class="num" style="color:#ea580c">${b.cho_in}</div>
+                <div class="lbl" style="color:#c2410c">CHƯA IN</div>
+            </div>
+            <div class="ts-card ${isEpActive}" style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border-color:#c084fc" onclick="_tsSelectPipelineStep('Chờ Ép')">
+                <div class="num" style="color:#7e22ce">${b.cho_ep}</div>
+                <div class="lbl" style="color:#6b21a8">CHƯA ÉP</div>
+            </div>
+            <div class="ts-card ${isMayActive}" style="background:linear-gradient(135deg,#f0fdfa,#ccfbf1);border-color:#2dd4bf" onclick="_tsSelectPipelineStep('Đang May / QC / HT')">
+                <div class="num" style="color:#0f766e">${b.dang_may_qc_ht}</div>
+                <div class="lbl" style="color:#0d9488">CHƯA MAY/QC/HT</div>
+            </div>
+            <div class="ts-card ${isGuiActive}" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#38bdf8" onclick="_tsSelectPipelineStep('Chờ Gửi')">
+                <div class="num" style="color:#0369a1">${b.cho_gui}</div>
+                <div class="lbl" style="color:#0284c7">CHƯA GỬI</div>
+            </div>`;
+
         _tsRenderCharts(s);
     } catch (e) { console.error('Stats error:', e); }
 }
