@@ -31,7 +31,25 @@ module.exports = async function(fastify) {
 
         // Date filters
         if (year) { conditions.push(`EXTRACT(YEAR FROM o.expected_ship_date) = $${idx}`); params.push(Number(year)); idx++; }
-        if (month) { conditions.push(`EXTRACT(MONTH FROM o.expected_ship_date) = $${idx}`); params.push(Number(month)); idx++; }
+        if (month) {
+            const mStr = String(month).toUpperCase();
+            if (mStr.startsWith('Q')) {
+                const qNum = Number(mStr.substring(1));
+                if (qNum === 1) {
+                    conditions.push(`EXTRACT(MONTH FROM o.expected_ship_date) IN (1, 2, 3)`);
+                } else if (qNum === 2) {
+                    conditions.push(`EXTRACT(MONTH FROM o.expected_ship_date) IN (4, 5, 6)`);
+                } else if (qNum === 3) {
+                    conditions.push(`EXTRACT(MONTH FROM o.expected_ship_date) IN (7, 8, 9)`);
+                } else if (qNum === 4) {
+                    conditions.push(`EXTRACT(MONTH FROM o.expected_ship_date) IN (10, 11, 12)`);
+                }
+            } else {
+                conditions.push(`EXTRACT(MONTH FROM o.expected_ship_date) = $${idx}`);
+                params.push(Number(month));
+                idx++;
+            }
+        }
 
         const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
         const todayStr = vnDateStr(vnNow());
@@ -368,8 +386,22 @@ module.exports = async function(fastify) {
         let overallMonthFilter = '';
         const overallParams = [...permParams, todayStr, targetYear];
         if (month) {
-            overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) = $${pIdx + 2}`;
-            overallParams.push(Number(month));
+            const mStr = String(month).toUpperCase();
+            if (mStr.startsWith('Q')) {
+                const qNum = Number(mStr.substring(1));
+                if (qNum === 1) {
+                    overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) IN (1, 2, 3)`;
+                } else if (qNum === 2) {
+                    overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) IN (4, 5, 6)`;
+                } else if (qNum === 3) {
+                    overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) IN (7, 8, 9)`;
+                } else if (qNum === 4) {
+                    overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) IN (10, 11, 12)`;
+                }
+            } else {
+                overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) = $${pIdx + 2}`;
+                overallParams.push(Number(month));
+            }
         }
 
         // Overall stats (filtered by year and optionally month)

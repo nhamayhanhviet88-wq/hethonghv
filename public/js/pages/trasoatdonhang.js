@@ -6,7 +6,11 @@ function renderTrasoatdonhangPage(content) {
     const curMonth = now.getMonth() + 1, curYear = now.getFullYear();
     _ts = { page: 1, search: '', month: '', year: '', debounce: null, expandedId: null };
 
-    let monthOpts = '<option value="">Tất cả tháng</option>';
+    let monthOpts = '<option value="">Tất cả thời gian</option>';
+    monthOpts += '<option value="Q1">Quý 1 (Tháng 1-3)</option>';
+    monthOpts += '<option value="Q2">Quý 2 (Tháng 4-6)</option>';
+    monthOpts += '<option value="Q3">Quý 3 (Tháng 7-9)</option>';
+    monthOpts += '<option value="Q4">Quý 4 (Tháng 10-12)</option>';
     for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m===curMonth?'selected':''}>${'Tháng '+m}</option>`;
     let yearOpts = '';
     for (let y = curYear; y >= curYear - 3; y--) yearOpts += `<option value="${y}">${y}</option>`;
@@ -64,9 +68,9 @@ function renderTrasoatdonhangPage(content) {
         .ts-chart-wrap{margin-bottom:28px;background:white;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden}
         .ts-chart-header{padding:16px 20px;background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
         .ts-chart-header h3{margin:0;font-size:15px;font-weight:800}
-        .ts-chart-body{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:320px}
-        .ts-donut-wrap{padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #e5e7eb}
-        .ts-bar-wrap{padding:20px}
+        .ts-chart-body{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:480px}
+        .ts-donut-wrap{padding:20px 16px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;border-right:1px solid #e5e7eb}
+        .ts-bar-wrap{padding:20px;display:flex;align-items:center;justify-content:center}
         @media(max-width:900px){.ts-cards{grid-template-columns:repeat(2,1fr)}.ts-chart-body{grid-template-columns:1fr}}
         @media(max-width:600px){.ts-cards{grid-template-columns:1fr 1fr}.ts-search-bar{flex-direction:column}.ts-table th:nth-child(n+4),.ts-table td:nth-child(n+4){display:none}}
     </style>
@@ -252,25 +256,97 @@ async function _tsLoadStats() {
     } catch (e) { console.error('Stats error:', e); }
 }
 
+function _tsSelectQuarter(key) {
+    const tsMonth = document.getElementById('tsMonth');
+    if (!tsMonth) return;
+    tsMonth.value = key === 'ALL' ? '' : key;
+    _tsFilter();
+}
+
 function _tsRenderCharts(s) {
     const wrap = document.getElementById('tsChartWrap');
     if (!wrap) return;
+
+    // Compute quarters
+    const quarters = [
+        { name: 'Quý 1', key: 'Q1', early: 0, on_time: 0, late: 0, total: 0 },
+        { name: 'Quý 2', key: 'Q2', early: 0, on_time: 0, late: 0, total: 0 },
+        { name: 'Quý 3', key: 'Q3', early: 0, on_time: 0, late: 0, total: 0 },
+        { name: 'Quý 4', key: 'Q4', early: 0, on_time: 0, late: 0, total: 0 },
+        { name: 'Cả Năm', key: 'ALL', early: 0, on_time: 0, late: 0, total: 0 }
+    ];
+
+    (s.months || []).forEach((m, idx) => {
+        let qIdx = 0;
+        if (idx < 3) qIdx = 0;
+        else if (idx < 6) qIdx = 1;
+        else if (idx < 9) qIdx = 2;
+        else qIdx = 3;
+
+        quarters[qIdx].early += m.early;
+        quarters[qIdx].on_time += m.on_time;
+        quarters[qIdx].late += m.late;
+        quarters[qIdx].total += m.total;
+
+        quarters[4].early += m.early;
+        quarters[4].on_time += m.on_time;
+        quarters[4].late += m.late;
+        quarters[4].total += m.total;
+    });
+
+    const tableRows = quarters.map(q => {
+        const isAll = q.key === 'ALL';
+        const rowBg = isAll ? '#f8fafc' : 'transparent';
+        const rowStyle = isAll 
+            ? `font-weight: 800; border-top: 2px solid #cbd5e1; background-color: ${rowBg}; cursor: pointer; transition: background 0.15s;`
+            : `border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;`;
+        return `
+            <tr style="${rowStyle}" onclick="_tsSelectQuarter('${q.key}')" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 6px 4px; font-weight: 600; text-align: left; color: ${isAll?'#1e1b4b':'#475569'}">${q.name}</td>
+                <td style="padding: 6px 4px; text-align: center; font-weight: 700; color: #1e293b; background-color: ${isAll?'#f1f5f9':'#f8fafc'}">${q.total}</td>
+                <td style="padding: 6px 4px; text-align: center; font-weight: 600; color: #10b981">${q.early}</td>
+                <td style="padding: 6px 4px; text-align: center; font-weight: 600; color: #6366f1">${q.on_time}</td>
+                <td style="padding: 6px 4px; text-align: center; font-weight: 600; color: #ef4444">${q.late}</td>
+            </tr>
+        `;
+    }).join('');
+
     const navHtml = `<div class="ts-chart-header"><h3>📊 Thống Kê Tiến Độ Giao Hàng — ${s.year}</h3>
         <div style="display:flex;gap:6px;align-items:center">
             <button onclick="_tsChartYear(-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:white;cursor:pointer;font-weight:800">‹</button>
             <span id="tsChartYear" style="font-weight:800;min-width:40px;text-align:center">${s.year}</span>
             <button onclick="_tsChartYear(1)" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:white;cursor:pointer;font-weight:800">›</button>
         </div></div>`;
+
     wrap.innerHTML = navHtml + `<div class="ts-chart-body">
-        <div class="ts-donut-wrap"><canvas id="tsDonutCanvas" width="220" height="220"></canvas>
-            <div style="margin-top:12px;font-size:12px;text-align:center">
-                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:4px"></span>Sớm ${s.early_pct}%</div>
-                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6366f1;margin-right:4px"></span>Đúng ${s.on_time_pct}%</div>
-                <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:4px"></span>Trễ ${s.late_pct}%</div>
+        <div class="ts-donut-wrap">
+            <canvas id="tsDonutCanvas" width="220" height="220"></canvas>
+            <div style="margin-top:8px;font-size:12px;text-align:center;display:flex;gap:12px;justify-content:center;">
+                <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px"></span>Sớm ${s.early_pct}%</div>
+                <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6366f1;margin-right:4px"></span>Đúng ${s.on_time_pct}%</div>
+                <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:4px"></span>Trễ ${s.late_pct}%</div>
+            </div>
+            
+            <div style="margin-top:16px; width: 100%;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                    <thead>
+                        <tr style="color: #64748b; font-weight: 600; text-align: center; border-bottom: 1px solid #e2e8f0;">
+                            <th style="padding: 4px; text-align: left;">Kỳ</th>
+                            <th style="padding: 4px; background-color: #f1f5f9;">Tổng</th>
+                            <th style="padding: 4px; color: #10b981;">Sớm</th>
+                            <th style="padding: 4px; color: #6366f1;">Đúng</th>
+                            <th style="padding: 4px; color: #ef4444;">Trễ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
             </div>
         </div>
-        <div class="ts-bar-wrap"><canvas id="tsBarCanvas" height="280"></canvas></div>
+        <div class="ts-bar-wrap" style="flex: 1;"><canvas id="tsBarCanvas" height="340"></canvas></div>
     </div>`;
+
     _tsDrawDonut(s);
     _tsDrawBar(s);
 }

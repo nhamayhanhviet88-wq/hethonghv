@@ -99,6 +99,10 @@ async function api(url) {
 function init() {
     const now = new Date(), cm = now.getMonth()+1, cy = now.getFullYear();
     const mSel = document.getElementById('mMonth'), ySel = document.getElementById('mYear');
+    const q1 = document.createElement('option'); q1.value = 'Q1'; q1.text = 'Quý 1 (T1-3)'; mSel.appendChild(q1);
+    const q2 = document.createElement('option'); q2.value = 'Q2'; q2.text = 'Quý 2 (T4-6)'; mSel.appendChild(q2);
+    const q3 = document.createElement('option'); q3.value = 'Q3'; q3.text = 'Quý 3 (T7-9)'; mSel.appendChild(q3);
+    const q4 = document.createElement('option'); q4.value = 'Q4'; q4.text = 'Quý 4 (T10-12)'; mSel.appendChild(q4);
     for (let m=1;m<=12;m++) { const o=document.createElement('option'); o.value=m; o.text='Tháng '+m; if(m===cm)o.selected=true; mSel.appendChild(o); }
     for (let y=cy;y>=cy-3;y--) { const o=document.createElement('option'); o.value=y; o.text=y; ySel.appendChild(o); }
     document.getElementById('mSearch').addEventListener('input', e => {
