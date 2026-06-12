@@ -123,15 +123,14 @@ function _tsRenderStepModal(step, d){
             body+=`<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#1e40af;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.done_date?'#d1fae5':'#fef3c7'};color:${r.done_date?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.done_date?'✅ Đã may xong':'⏳ Đang may'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 HẠN TRẢ HÀNG</div><div style="font-weight:800;color:#1e40af">${fmtD(d.expected_ship_date)}</div></div>
-                <div style="background:${r.done_date?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.done_date?'#16a34a':'#f59e0b'};font-weight:700">🧵 NGÀY MAY HT</div><div style="font-weight:800;color:${r.done_date?'#166534':'#92400e'}">${fmtD(r.done_date)}</div></div>
+                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
+                <div style="background:${r.done_date?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.done_date?'#16a34a':'#f59e0b'};font-weight:700">🧵 HOÀN THÀNH MAY</div><div style="font-weight:800;color:${r.done_date?'#166534':'#92400e'}">${r.done_date?fmtShortDT(r.done_date):'⏳ Đang may'}</div></div>
             </div>`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('🧵 Chất liệu',V(r.material_name));
             body+=row('🎨 Màu',V(r.fabric_color));
             body+=row('👷 NV May','🏭 '+(r.sewer_name||r.contractor_name||r.team_name||'—'),'#1e40af');
-            body+=row('📅 Ngày Bàn Giao',fmtDT(r.handover_date));
             body+=row('📊 SL Thực Tế',(r.actual_quantity||r.order_quantity||0)+' sp','#dc2626');
             body+=row('📊 SL May',(r.quantity||0)+' sp','#059669');
             body+=`</div></div>`;
