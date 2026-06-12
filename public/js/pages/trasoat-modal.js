@@ -644,7 +644,7 @@ function _tsRenderStepModal(step, d){
                         <div style="margin-bottom:6px;font-size:11px;color:#64748b">
                             <span>👷 NV hoàn thiện: ${V(r.finisher_name)}</span> | <span>📅 Hạn gửi: ${fmtDT(r.expected_date)}</span>
                         </div>
-                        ${row('📦 Tiêu chuẩn gửi', r.shipping_standard==='chuan'?'✅ CHUẨN':'⚠️ '+V(r.shipping_standard))}
+                        ${row('📦 Tiêu chuẩn gửi', r.shipping_standard === 'gap' ? '⚠️ GẤP' : (r.shipping_standard === 'gui' ? '📦 GỬI' : '✅ CHUẨN'))}
                         `;
 
                     if(r.checklist&&r.checklist.length){
