@@ -1766,6 +1766,24 @@ module.exports = async function(fastify) {
         const colQ = fabric_color.trim().toLowerCase();
         const candidates = [];
 
+        // Pre-fetch all order items for candidate orders to determine ticket and coordinate index
+        const orderIds = [...new Set(allItems.map(it => it.dht_order_id))];
+        const orderItemsMap = {};
+        if (orderIds.length > 0) {
+            const allOrderItems = await db.all(`
+                SELECT id, dht_order_id, description, material_pairs
+                FROM dht_order_items
+                WHERE dht_order_id = ANY($1)
+                ORDER BY dht_order_id, id
+            `, [orderIds]);
+            for (const item of allOrderItems) {
+                if (!orderItemsMap[item.dht_order_id]) {
+                    orderItemsMap[item.dht_order_id] = [];
+                }
+                orderItemsMap[item.dht_order_id].push(item);
+            }
+        }
+
         for (const it of allItems) {
             let pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
@@ -1775,6 +1793,30 @@ module.exports = async function(fastify) {
                 (p.color_name || '').trim().toLowerCase() === colQ
             );
             if (!matchingPair) continue;
+
+            const itsForOrder = orderItemsMap[it.dht_order_id] || [];
+            const itemIds = itsForOrder.map(item => item.id);
+            const itemIdx = itemIds.indexOf(it.order_item_id) + 1;
+
+            let totalPhoi = 0;
+            for (const item of itsForOrder) {
+                let pp = [];
+                try { pp = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
+                totalPhoi += pp.length > 0 ? pp.length : 1;
+            }
+
+            const pairIdx = pairs.findIndex(p =>
+                (p.material_name || '').trim().toLowerCase() === matQ &&
+                (p.color_name || '').trim().toLowerCase() === colQ
+            );
+            const phoi_in_item = pairIdx >= 0 ? pairIdx + 1 : 1;
+
+            let fullDesc = '';
+            if (totalPhoi > 1) {
+                fullDesc = 'Phiếu ' + itemIdx + ' — P' + phoi_in_item + (it.description ? ' — ' + it.description : '');
+            } else {
+                fullDesc = it.description || '';
+            }
 
             let status = 'ready';
             let statusLabel = '✅ Sẵn sàng';
@@ -1792,7 +1834,7 @@ module.exports = async function(fastify) {
                 dht_order_id: it.dht_order_id,
                 order_code: it.order_code,
                 customer_name: it.customer_name,
-                description: it.description,
+                description: fullDesc,
                 quantity: it.quantity,
                 material_name: matchingPair.material_name,
                 color_name: matchingPair.color_name,
