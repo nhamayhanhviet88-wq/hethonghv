@@ -91,8 +91,7 @@ module.exports = async function(fastify) {
                         )
                     END,
                     false
-                ) AS finish_done,
-                COUNT(*) OVER() AS total_count
+                ) AS finish_done
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -100,8 +99,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
             ${where}
             ORDER BY o.expected_ship_date DESC NULLS LAST, o.created_at DESC
-            LIMIT $${idx++} OFFSET $${idx++}
-        `, [...params, Number(limit), (Number(page) - 1) * Number(limit)]);
+        `, params);
 
         const orders = rows.map(o => _processOrder(o, todayStr));
 
@@ -110,7 +108,12 @@ module.exports = async function(fastify) {
         if (status && status !== 'all') filtered = filtered.filter(o => o.deviation_class === status);
         if (current_step) filtered = filtered.filter(o => o.current_step_name === current_step);
 
-        return { orders: filtered, totalCount: rows.length > 0 ? Number(rows[0].total_count) : 0 };
+        const totalCount = filtered.length;
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 30;
+        const paginated = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+        return { orders: paginated, totalCount };
     });
 
     // ========== DETAIL — Chi tiết timeline 1 đơn ==========
@@ -348,7 +351,7 @@ module.exports = async function(fastify) {
 
     // ========== STATS — Thống kê cho biểu đồ ==========
     fastify.get('/api/trasoat/stats', { preHandler: [authenticate] }, async (request, reply) => {
-        const { year } = request.query;
+        const { year, month } = request.query;
         const userId = request.user.id;
         const userRole = request.user.role;
         const targetYear = Number(year) || new Date().getFullYear();
@@ -362,34 +365,52 @@ module.exports = async function(fastify) {
             permParams.push(userId); pIdx++;
         }
 
-        // Overall stats for the year
+        let overallMonthFilter = '';
+        const overallParams = [...permParams, todayStr, targetYear];
+        if (month) {
+            overallMonthFilter = `AND EXTRACT(MONTH FROM expected_ship_date) = $${pIdx + 2}`;
+            overallParams.push(Number(month));
+        }
+
+        // Overall stats (filtered by year and optionally month)
         const stats = await db.get(`
             SELECT
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date < COALESCE(rescheduled_ship_date, expected_ship_date)) AS early,
-                COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date)) AS on_time,
-                COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date)) AS late_shipped,
-                COUNT(*) FILTER (WHERE shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) < $${pIdx}::date) AS late_pending
+                COUNT(*) FILTER (
+                    WHERE (shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date))
+                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) >= $${pIdx}::date)
+                ) AS on_time,
+                COUNT(*) FILTER (
+                    WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
+                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) < $${pIdx}::date)
+                ) AS late
             FROM dht_orders
             WHERE expected_ship_date IS NOT NULL
                 AND EXTRACT(YEAR FROM expected_ship_date) = $${pIdx + 1}
+                ${overallMonthFilter}
                 ${permFilter}
-        `, [...permParams, todayStr, targetYear]);
+        `, overallParams);
 
         const total = Number(stats.total) || 0;
         const early = Number(stats.early) || 0;
         const onTime = Number(stats.on_time) || 0;
-        const late = (Number(stats.late_shipped) || 0) + (Number(stats.late_pending) || 0);
+        const late = Number(stats.late) || 0;
 
-        // Monthly breakdown for bar chart
+        // Monthly breakdown for bar chart (always whole year)
         const monthly = await db.all(`
             SELECT
                 EXTRACT(MONTH FROM expected_ship_date)::int AS month,
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date < COALESCE(rescheduled_ship_date, expected_ship_date)) AS early,
-                COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date)) AS on_time,
-                COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date)) AS late_shipped,
-                COUNT(*) FILTER (WHERE shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) < $${pIdx}::date) AS late_pending
+                COUNT(*) FILTER (
+                    WHERE (shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date))
+                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) >= $${pIdx}::date)
+                ) AS on_time,
+                COUNT(*) FILTER (
+                    WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
+                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) < $${pIdx}::date)
+                ) AS late
             FROM dht_orders
             WHERE expected_ship_date IS NOT NULL
                 AND EXTRACT(YEAR FROM expected_ship_date) = $${pIdx + 1}
@@ -406,7 +427,7 @@ module.exports = async function(fastify) {
                 total: Number(row?.total) || 0,
                 early: Number(row?.early) || 0,
                 on_time: Number(row?.on_time) || 0,
-                late: (Number(row?.late_shipped) || 0) + (Number(row?.late_pending) || 0)
+                late: Number(row?.late) || 0
             });
         }
 

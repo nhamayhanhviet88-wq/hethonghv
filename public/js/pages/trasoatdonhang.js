@@ -236,8 +236,9 @@ function _tsRenderTimeline(res) {
 
 async function _tsLoadStats() {
     const y = _ts.year || new Date().getFullYear();
+    const m = _ts.month || '';
     try {
-        const s = await apiCall('/api/trasoat/stats?year=' + y);
+        const s = await apiCall(`/api/trasoat/stats?year=${y}&month=${m}`);
         document.getElementById('tsCards').innerHTML = `
             <div class="ts-card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe)" onclick="document.getElementById('tsStatus').value='';_tsFilter()">
                 <div class="num" style="color:#1e40af">${s.total}</div><div class="lbl">TỔNG ĐƠN</div></div>

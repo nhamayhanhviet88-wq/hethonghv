@@ -222,8 +222,9 @@ async function loadDetail(id) {
 
 async function loadStats() {
     const y = document.getElementById('mYear').value || new Date().getFullYear();
+    const m = document.getElementById('mMonth').value || '';
     try {
-        const s = await api('/api/trasoat/stats?year='+y);
+        const s = await api(`/api/trasoat/stats?year=${y}&month=${m}`);
         document.getElementById('mCards').innerHTML = `
             <div class="stat-card"><div class="num" style="color:#1e40af">${s.total}</div><div class="lbl">TỔNG ĐƠN</div></div>
             <div class="stat-card"><div class="num" style="color:#166534">${s.early}</div><div class="lbl">SỚM HƠN</div><div class="pct" style="color:#16a34a">${s.early_pct}%</div></div>
