@@ -1031,6 +1031,12 @@ function _qlxValidateAndGetCutReminders() {
 }
 
 function _qlxCheckCutRemindersSaved() {
+    var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
+    var currentChoice = choiceEl ? choiceEl.value : '';
+    if (currentChoice === 'none') {
+        return true;
+    }
+
     if (!window._qlxCutReminderState) {
         return false;
     }
@@ -1038,8 +1044,6 @@ function _qlxCheckCutRemindersSaved() {
         return false;
     }
 
-    var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
-    var currentChoice = choiceEl ? choiceEl.value : '';
     if (currentChoice !== window._qlxCutReminderState.originalChoice) {
         return false;
     }
