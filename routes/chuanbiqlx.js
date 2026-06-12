@@ -910,26 +910,26 @@ module.exports = async function(fastify) {
         if (item_id) {
             // Item-level: only show reminders for this specific item
             reminders = await db.all(
-                `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id = $2${deptFilter} ORDER BY id`,
+                `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1 AND item_id = $2${deptFilter} ORDER BY id`,
                 [orderId, Number(item_id)]
             );
             // Fallback to order-level reminders (item_id IS NULL) only if this item has none
             if (reminders.length === 0) {
                 reminders = await db.all(
-                    `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
+                    `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
                     [orderId]
                 );
             }
         } else {
             // Order-level: show order-level reminders first
             reminders = await db.all(
-                `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
+                `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
                 [orderId]
             );
             // Fallback: if no order-level reminders, show ALL reminders for this order
             if (reminders.length === 0) {
                 reminders = await db.all(
-                    `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1${deptFilter} ORDER BY id`,
+                    `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1${deptFilter} ORDER BY id`,
                     [orderId]
                 );
             }
@@ -944,6 +944,22 @@ module.exports = async function(fastify) {
                 [reminderIds]
             );
             viewedIds = views.map(v => v.reminder_id);
+            
+            // Auto-view if task is completed
+            for (const r of reminders) {
+                if (viewedIds.includes(r.id)) continue;
+                if (r.dept === 'in') {
+                    const row = r.item_id 
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_print_done = true LIMIT 1`, [orderId, r.item_id])
+                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND is_print_done = true LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
+                } else if (r.dept === 'ep') {
+                    const row = r.item_id
+                        ? await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_reported = true LIMIT 1`, [orderId, r.item_id])
+                        : await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND is_reported = true LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
+                }
+            }
         }
         
         return {
