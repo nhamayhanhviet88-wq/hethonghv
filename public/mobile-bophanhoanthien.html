@@ -893,14 +893,14 @@ const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <s
 const cA=r.is_completed?'undo_complete':'complete';
 let imgs='';try{const ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
 
+const isSewerAssigned = !!(r.sewer_name && r.sewer_name.trim() && !r.sewer_name.includes('Chưa Phân Công'));
 const isQcOk = (r.is_qc_checked !== 0);
-const isManager = cu && ['giam_doc', 'quan_ly_cap_cao'].includes(cu.role);
 let actionButtonsHtml = '';
-if (isQcOk || isManager) {
+if (r.is_completed || (isSewerAssigned && isQcOk)) {
     actionButtonsHtml = (r.is_completed ? '<button class="ab" onclick="mOpenCompleteModal('+r.id+', true)" style="border-color:#34d399; background:rgba(16, 185, 129, 0.05); color:#34d399;"><span class="ai">👁️</span><span class="al">XEM HOÀN THÀNH</span></button>' : '<button class="ab" onclick="mTog('+r.id+',\''+cA+'\')"><span class="ai">✅</span><span class="al">HOÀN THÀNH</span></button>')
         + '<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr()"><span class="ai">⚠️</span><span class="al">BÁO LỖI</span></button>';
 } else {
-    const bannerText = !r.sewer_name ? '⚠️ Chưa Phân Công' : '⚠️ Chưa kiểm tra chất lượng';
+    const bannerText = !isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa kiểm tra chất lượng';
     actionButtonsHtml = '<div style="grid-column: span 2; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">' + bannerText + '</div>';
 }
 
@@ -912,7 +912,7 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +'<div class="cr"><span class="cl">📅 Hạn gửi hàng</span><span class="cv">'+getRaDukien(r)+'</span></div>'
 +'<div class="cr"><span class="cl">✅ Hoàn thiện</span><span class="cv" style="color:'+(r.is_completed?'#6ee7b7':'#94a3b8')+'">'+getCompletedTime(r)+'</span></div>'
 +'<div class="cr"><span class="cl">📊 Tiến độ</span>'+progress(r.expected_ship_date||r.expected_date,r.done_date)+'</div>'
-+(!isQcOk ? '<div class="cr"><span class="cl" style="color:#fca5a5;">🔍 Trạng thái QC</span><span class="cv" style="color:#ef4444;font-weight:bold;">' + (!r.sewer_name ? '⚠️ Chưa Phân Công' : '⚠️ Chưa kiểm tra chất lượng') + '</span></div>' : '')
++(!r.is_completed && !(isSewerAssigned && isQcOk) ? '<div class="cr"><span class="cl" style="color:#fca5a5;">🔍 Trạng thái QC</span><span class="cv" style="color:#ef4444;font-weight:bold;">' + (!isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa kiểm tra chất lượng') + '</span></div>' : '')
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">👤 CSKH</span><span class="cv" style="color:#93c5fd;font-size:11px">'+(r.cskh_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📦 Số lượng</span><span class="cv" style="color:#6ee7b7;font-size:16px">'+(r.quantity||'—')+'</span></div>'

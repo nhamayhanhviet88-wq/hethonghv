@@ -829,7 +829,7 @@ module.exports = async function(fastify) {
     fastify.post('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
         const sewingRecordId = parseInt(req.params.sewingRecordId);
         const { answers } = req.body || {};
-        const { vnNow } = require('../utils/timezone');
+        const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();
 
         if (Array.isArray(answers)) {
@@ -845,6 +845,30 @@ module.exports = async function(fastify) {
                 `, [sewingRecordId, templateId, val, req.user.id, now]);
             }
         }
+
+        // Auto-complete finishing record for contractor orders
+        const sRec = await db.get('SELECT contractor_id FROM sewing_records WHERE id = $1', [sewingRecordId]);
+        if (sRec && sRec.contractor_id) {
+            const fRec = await db.get('SELECT id, is_completed FROM finishing_records WHERE sewing_record_id = $1', [sewingRecordId]);
+            if (fRec && !fRec.is_completed) {
+                const todayStr = vnDateStr(now);
+                await db.run(`
+                    UPDATE finishing_records
+                    SET is_completed = true,
+                        completed_at = $1,
+                        completed_by = $2,
+                        done_date = COALESCE(done_date, $3),
+                        updated_at = $1
+                    WHERE id = $4
+                `, [now, req.user.id, todayStr, fRec.id]);
+                
+                await db.run(`
+                    INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'complete', 'hoàn thiện từ kiểm tra qc', $2, $3)
+                `, [fRec.id, req.user.id, now]);
+            }
+        }
+
         return { success: true };
     });
 

@@ -342,29 +342,29 @@ function _bphtRender(){
                 + '</div>';
         }
         tb.innerHTML=paginated.map(function(r,i){
+        var isSewerAssigned = !!(r.sewer_name && r.sewer_name.trim() && !r.sewer_name.includes('Chưa Phân Công'));
         var isQcOk = (r.is_qc_checked !== 0);
-        var isManager = typeof currentUser !== 'undefined' && currentUser && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
         
         var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
         var clickAction = r.is_completed ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
-        var nameClickAction = (r.is_completed || !(isQcOk || isManager)) ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
+        var nameClickAction = (r.is_completed || !isSewerAssigned || !isQcOk) ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         
         var clickHtml = '';
         var errHtml = '';
         
-        if (isQcOk || isManager) {
+        if (r.is_completed || (isSewerAssigned && isQcOk)) {
             clickHtml = '<button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button>';
             errHtml = '<button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button>';
         } else {
-            const labelText = !r.sewer_name ? '⚠️ Chưa Phân Công' : '⚠️ Chưa Kiểm Tra Chất Lượng';
+            const labelText = !isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa Kiểm Tra Chất Lượng';
             clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="' + labelText + '">' + labelText + '</div>';
-            errHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.1); color:#fca5a5; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed;" title="Chưa kiểm tra chất lượng">⬜</div>';
+            errHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.1); color:#fca5a5; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed;" title="' + labelText + '">⬜</div>';
         }
 
-        var completedTimeHtml = isQcOk 
+        var completedTimeHtml = (r.is_completed || (isSewerAssigned && isQcOk)) 
             ? _bphtGetCompletedTime(r) 
-            : (!r.sewer_name ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Phân Công</span>' : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Kiểm Tra Chất Lượng</span>');
+            : (!isSewerAssigned ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Phân Công</span>' : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Kiểm Tra Chất Lượng</span>');
 
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}

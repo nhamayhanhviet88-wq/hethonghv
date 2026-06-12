@@ -235,9 +235,11 @@ module.exports = async function(fastify) {
         const rec = await db.get('SELECT * FROM finishing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
 
-        if (action === 'complete' || action === 'report_error') {
-            const isManager = ['giam_doc', 'quan_ly_cap_cao'].includes(req.user.role);
-            if (!isManager && rec.sewing_record_id) {
+        if (action === 'complete') {
+            if (!rec.sewer_name || !rec.sewer_name.trim() || rec.sewer_name.includes('Chưa Phân Công')) {
+                return reply.code(400).send({ error: 'Đơn hàng chưa được phân công. Vui lòng phân công trước khi hoàn thành!' });
+            }
+            if (rec.sewing_record_id) {
                 const qcAns = await db.get('SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1', [rec.sewing_record_id]);
                 if (!qcAns) {
                     return reply.code(400).send({ error: 'Đơn hàng chưa được kiểm tra chất lượng (QC). Hãy nhắc bộ phận QC kiểm tra trước!' });
