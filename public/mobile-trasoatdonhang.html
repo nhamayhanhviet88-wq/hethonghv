@@ -32,6 +32,11 @@ body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-we
 .oc-badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:9px;font-weight:800;margin-left:4px}
 .oc-badge-repair{background:#fef3c7;color:#92400e}
 .oc-badge-pet{background:#ede9fe;color:#5b21b6}
+.oc-prio{display:inline-block;padding:2px 6px;border-radius:50px;font-size:9px;font-weight:900;text-align:center;animation:ocPrioBlink 1.5s infinite ease-in-out;margin-left:4px;vertical-align:middle}
+.oc-prio-gap{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+.oc-prio-gui{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd}
+.oc-prio-chuan{background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe}
+@keyframes ocPrioBlink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.96)}}
 .oc-status{font-size:11px;font-weight:800;padding:3px 10px;border-radius:8px;white-space:nowrap}
 .oc-status.early{background:#d1fae5;color:#065f46}
 .oc-status.on_time{background:#e0e7ff;color:#3730a3}
@@ -127,11 +132,35 @@ async function load() {
 function render() {
     const el = document.getElementById('mResults');
     if (!_m.orders.length) { el.innerHTML = '<div class="empty"><div class="icon">📭</div>Không tìm thấy đơn hàng</div>'; return; }
-    const fmtD = d => { if(!d) return '-'; return new Date(d).toLocaleDateString('vi-VN'); };
+    
+    const formatExpectedShipDate = (dateVal, priority) => {
+        if (!dateVal) return '-';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const day = String(localDt.getDate()).padStart(2, '0');
+        const month = String(localDt.getMonth() + 1).padStart(2, '0');
+        const year = localDt.getFullYear();
+        const hrs = String(localDt.getHours()).padStart(2, '0');
+        const mins = String(localDt.getMinutes()).padStart(2, '0');
+
+        const pri = (priority || 'CHUẨN').toUpperCase();
+        if (pri === 'GẤP' || pri === 'GỬI') {
+            return `${day}/${month}/${year}`;
+        } else {
+            return `${hrs}:${mins} ${day}/${month}/${year}`;
+        }
+    };
+
     let html = `<div class="results-count">Hiển thị ${_m.orders.length}/${_m.total} đơn</div>`;
     _m.orders.forEach(o => {
         const pColor = o.progress_percent===100?'#10b981':o.progress_percent>=50?'#f59e0b':'#6366f1';
-        const badges = (o.is_repair?'<span class="oc-badge oc-badge-repair">SỬA</span>':'')+(o.is_pet_tem?'<span class="oc-badge oc-badge-pet">PET</span>':'');
+        const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        let priClass = 'oc-prio-chuan';
+        if (priority === 'GẤP') priClass = 'oc-prio-gap';
+        else if (priority === 'GỬI') priClass = 'oc-prio-gui';
+        const priBadge = `<span class="oc-prio ${priClass}">${priority}</span>`;
+
+        const badges = (o.is_repair?'<span class="oc-badge oc-badge-repair">SỬA</span>':'')+(o.is_pet_tem?'<span class="oc-badge oc-badge-pet">PET</span>':'') + priBadge;
         const expanded = _m.expandedId === o.id;
         html += `<div class="order-card ${expanded?'expanded':''}" id="mCard${o.id}">
             <div class="oc-top">
@@ -144,7 +173,7 @@ function render() {
                 <div class="oc-pbar"><div class="oc-pbar-fill" style="width:${o.progress_percent}%;background:${pColor}"></div></div>
                 <div class="oc-pinfo"><span style="color:${pColor}">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</span><span>${o.current_step_name}</span></div>
             </div>
-            <div class="oc-date">📅 DK Gửi: ${fmtD(o.expected_ship_date)}</div>
+            <div class="oc-date">📅 DK Gửi: ${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority)}</div>
             <button class="oc-expand-btn" onclick="toggleDetail(${o.id})">${expanded?'▲ Thu gọn':'▼ Xem chi tiết'}</button>
             ${expanded?'<div class="timeline-detail" id="mDetail'+o.id+'"><div style="text-align:center;padding:16px;color:#9ca3af">⏳</div></div>':''}
         </div>`;

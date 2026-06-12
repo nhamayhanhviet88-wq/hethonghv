@@ -37,6 +37,11 @@ function renderTrasoatdonhangPage(content) {
         .ts-badge-late{background:#fee2e2;color:#991b1b}
         .ts-badge-repair{background:#fef3c7;color:#92400e;margin-left:4px}
         .ts-badge-pet{background:#ede9fe;color:#5b21b6;margin-left:4px}
+        .ts-prio{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;text-align:center;box-shadow:0 0 6px rgba(0,0,0,0.05);animation:tsPrioBlink 1.5s infinite ease-in-out}
+        .ts-prio-gap{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;box-shadow:0 0 8px rgba(220,38,38,0.2)}
+        .ts-prio-gui{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;box-shadow:0 0 8px rgba(3,105,161,0.2)}
+        .ts-prio-chuan{background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;box-shadow:0 0 8px rgba(126,34,206,0.2)}
+        @keyframes tsPrioBlink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.96)}}
         .ts-detail{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin:8px 12px 16px;padding:20px;animation:tsSlide .25s ease}
         @keyframes tsSlide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
         .ts-timeline{display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;margin:16px 0}
@@ -116,25 +121,48 @@ function _tsRenderTable(orders, totalCount) {
         document.getElementById('tsTableWrap').innerHTML = '<div style="text-align:center;padding:50px;color:#9ca3af"><div style="font-size:48px;margin-bottom:12px">📭</div><div style="font-weight:700">Không tìm thấy đơn hàng nào</div></div>';
         return;
     }
-    const fmtDate = d => { if (!d) return '-'; const dt = new Date(d); return dt.toLocaleDateString('vi-VN'); };
+    const formatExpectedShipDate = (dateVal, priority) => {
+        if (!dateVal) return '-';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const day = String(localDt.getDate()).padStart(2, '0');
+        const month = String(localDt.getMonth() + 1).padStart(2, '0');
+        const year = localDt.getFullYear();
+        const hrs = String(localDt.getHours()).padStart(2, '0');
+        const mins = String(localDt.getMinutes()).padStart(2, '0');
+
+        const pri = (priority || 'CHUẨN').toUpperCase();
+        if (pri === 'GẤP' || pri === 'GỬI') {
+            return `${day}/${month}/${year}`;
+        } else {
+            return `${hrs}:${mins} ${day}/${month}/${year}`;
+        }
+    };
+
     let html = `<table class="ts-table"><thead><tr>
-        <th>#</th><th>Mã Đơn</th><th>Khách Hàng</th><th>Ngày Gửi DK</th><th>Tiến Độ</th><th>Giai Đoạn</th><th>Chênh Lệch</th>
+        <th>#</th><th>Mã Đơn</th><th>Khách Hàng</th><th>Tiêu Chuẩn</th><th>Ngày Gửi DK</th><th>Tiến Độ</th><th>Giai Đoạn</th><th>Chênh Lệch</th>
     </tr></thead><tbody>`;
 
     orders.forEach((o, i) => {
         const pColor = o.progress_percent === 100 ? '#10b981' : o.progress_percent >= 50 ? '#f59e0b' : '#6366f1';
         const badges = (o.is_repair ? '<span class="ts-badge ts-badge-repair">ĐƠN SỬA</span>' : '') +
                        (o.is_pet_tem ? '<span class="ts-badge ts-badge-pet">PET/TEM</span>' : '');
+        const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        let priClass = 'ts-prio-chuan';
+        if (priority === 'GẤP') priClass = 'ts-prio-gap';
+        else if (priority === 'GỬI') priClass = 'ts-prio-gui';
+
         html += `<tr onclick="_tsToggleDetail(${o.id})" id="tsRow${o.id}">
             <td style="color:#9ca3af;font-weight:600">${(_ts.page-1)*30+i+1}</td>
             <td><span style="color:#4338ca;font-weight:800">${o.order_code}</span>${badges}</td>
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
-            <td style="font-weight:600">${fmtDate(o.expected_ship_date)}</td>
+            <td><span class="ts-prio ${priClass}">${priority}</span></td>
+            <td style="font-weight:600">${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority)}</td>
             <td style="min-width:120px"><div class="ts-progress"><div class="ts-progress-bar" style="width:${o.progress_percent}%;background:${pColor}"></div></div><div style="font-size:10px;font-weight:700;color:${pColor};margin-top:2px">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</div></td>
             <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>
         </tr>`;
-        if (_ts.expandedId === o.id) html += `<tr><td colspan="7" style="padding:0"><div class="ts-detail" id="tsDetail${o.id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td></tr>`;
+        if (_ts.expandedId === o.id) html += `<tr><td colspan="8" style="padding:0"><div class="ts-detail" id="tsDetail${o.id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td></tr>`;
     });
     html += '</tbody></table>';
 

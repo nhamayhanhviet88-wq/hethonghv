@@ -41,7 +41,7 @@ module.exports = async function(fastify) {
                 o.rescheduled_ship_date, o.shipping_status,
                 o.customer_name, o.customer_phone, o.province,
                 o.shipped_at, o.tracking_code, o.total_amount,
-                o.parent_order_id,
+                o.parent_order_id, o.shipping_priority,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
@@ -722,6 +722,7 @@ function _processOrder(o, todayStr) {
         total_steps: totalSteps, done_steps: doneSteps,
         current_step_name: currentStepName,
         progress_percent: Math.round(doneSteps / totalSteps * 100),
-        deviation_days: deviationDays, deviation_label: deviationLabel, deviation_class: deviationClass
+        deviation_days: deviationDays, deviation_label: deviationLabel, deviation_class: deviationClass,
+        shipping_priority: o.shipping_priority
     };
 }
