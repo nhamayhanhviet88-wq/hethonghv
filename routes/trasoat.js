@@ -177,9 +177,9 @@ module.exports = async function(fastify) {
         const allPrintDone = printing.length > 0 && printing.every(isPrintRecDone);
         const lastPrintDone = printing.filter(p => p.is_print_done).sort((a,b) => new Date(b.print_done_at||0) - new Date(a.print_done_at||0))[0];
         const contractorRec = printing.find(p => p.contractor_id);
-        // Worker: show contractor name (🏭 prefix) or printer name
+        // Worker: show 'In Gia Công' for contractor, or printer name
         const printWorker = contractorRec
-            ? '🏭 ' + (contractorRec.contractor_name || 'Gia Công')
+            ? 'In Gia Công'
             : (lastPrintDone ? lastPrintDone.printer_name : (printing[0]?.printer_name || null));
         // Time: for contractor show created_at (bàn giao time), for normal show print_done_at
         const printTime = contractorRec
