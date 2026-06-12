@@ -170,7 +170,9 @@ module.exports = async function(fastify) {
 
     try {
         await db.exec(`ALTER TABLE qlx_order_print_assignments ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+        // Drop old unique constraint (PostgreSQL auto-truncated the name — try both variants)
         await db.exec(`ALTER TABLE qlx_order_print_assignments DROP CONSTRAINT IF EXISTS qlx_order_print_assignments_dht_order_id_field_id_operat_key`);
+        await db.exec(`ALTER TABLE qlx_order_print_assignments DROP CONSTRAINT IF EXISTS qlx_order_print_assignments_dht_order_id_field_id_operator__key`);
         await db.exec(`DROP INDEX IF EXISTS idx_qlx_print_assign_item_field`);
         await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_print_assign_item_field ON qlx_order_print_assignments(item_id, field_id, operator_type, operator_id)`);
     } catch(e) { console.error('[QLX] migration qlx_order_print_assignments:', e.message); }
