@@ -102,12 +102,10 @@ function _tsRenderStepModal(step, d){
             let totalEp=0;
             Object.keys(posNames).forEach(k=>{
                 const qty=Number(r[k])||0; totalEp+=qty;
-                const price=Number(r[k.replace('pos_','price_')])||0;
-                body+=`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;border-bottom:1px solid #f8fafc"><span>${posNames[k]}</span><span style="font-weight:700;color:#ea580c">${qty} sp × ${price}đ = ${(qty*price).toLocaleString()}đ</span></div>`;
+                body+=`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;border-bottom:1px solid #f8fafc"><span>${posNames[k]}</span><span style="font-weight:700;color:#ea580c">${qty} sp</span></div>`;
             });
-            body+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+            body+=`<div style="margin-top:12px">
                 <div style="background:#fef3c7;border-radius:10px;padding:14px;text-align:center"><div style="font-size:10px;font-weight:700;color:#92400e">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:22px;font-weight:900;color:#92400e">${r.press_quantity||totalEp} sp</div></div>
-                <div style="background:#dcfce7;border-radius:10px;padding:14px;text-align:center"><div style="font-size:10px;font-weight:700;color:#166534">💰 LƯƠNG ÉP</div><div style="font-size:22px;font-weight:900;color:#166534">${Number(r.press_salary||0).toLocaleString()}đ</div></div>
             </div>`;
             if(r.notes){body+=section('📝','GHI CHÚ');body+=`<div style="background:#f8fafc;border-radius:8px;padding:10px;font-size:12px">${r.notes}</div>`;}
             if(r.press_images){try{const imgs=JSON.parse(r.press_images);if(imgs.length){body+=section('📸','HÌNH ẢNH ÉP');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});}}catch(e){}}
