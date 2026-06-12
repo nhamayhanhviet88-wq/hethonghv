@@ -1997,7 +1997,7 @@ module.exports = async function(fastify) {
                    ) AS has_print
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             WHERE oi.id = ANY($1)
         `, [selected_order_item_ids]);
 
