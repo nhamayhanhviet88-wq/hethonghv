@@ -442,7 +442,7 @@ module.exports = async function(fastify) {
                     WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
                        OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) < $${pIdx}::date)
                 ) AS late
-            FROM dht_orders
+            FROM dht_orders o
             WHERE expected_ship_date IS NOT NULL
                 AND EXTRACT(YEAR FROM expected_ship_date) = $${pIdx + 1}
                 ${overallMonthFilter}
@@ -467,7 +467,7 @@ module.exports = async function(fastify) {
                     WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
                        OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) < $${pIdx}::date)
                 ) AS late
-            FROM dht_orders
+            FROM dht_orders o
             WHERE expected_ship_date IS NOT NULL
                 AND EXTRACT(YEAR FROM expected_ship_date) = $${pIdx + 1}
                 ${permFilter}
