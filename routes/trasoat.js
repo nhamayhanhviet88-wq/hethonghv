@@ -9,7 +9,7 @@ module.exports = async function(fastify) {
 
     // ========== LIST — Danh sách đơn hàng + tiến độ ==========
     fastify.get('/api/trasoat/orders', { preHandler: [authenticate] }, async (request, reply) => {
-        const { search, month, year, status, current_step, page = 1, limit = 30 } = request.query;
+        const { search, month, year, status, current_step, page = 1, limit = 50 } = request.query;
         const userId = request.user.id;
         const userRole = request.user.role;
 
@@ -142,7 +142,7 @@ module.exports = async function(fastify) {
 
         const totalCount = filtered.length;
         const pageNum = Number(page) || 1;
-        const limitNum = Number(limit) || 30;
+        const limitNum = Number(limit) || 50;
         const paginated = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
         return { orders: paginated, totalCount };

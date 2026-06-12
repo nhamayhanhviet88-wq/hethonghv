@@ -101,7 +101,7 @@ function renderTrasoatdonhangPage(content) {
 }
 
 async function _tsLoad() {
-    const p = new URLSearchParams({ page: _ts.page, limit: 30 });
+    const p = new URLSearchParams({ page: _ts.page, limit: 50 });
     if (_ts.search) p.set('search', _ts.search);
     if (_ts.month) p.set('month', _ts.month);
     if (_ts.year) p.set('year', _ts.year);
@@ -175,7 +175,7 @@ function _tsRenderTable(orders, totalCount) {
         else if (priority === 'GỬI') priClass = 'ts-prio-gui';
 
         html += `<tr onclick="_tsToggleDetail(${o.id})" id="tsRow${o.id}">
-            <td style="color:#9ca3af;font-weight:600">${(_ts.page-1)*30+i+1}</td>
+            <td style="color:#9ca3af;font-weight:600">${(_ts.page-1)*50+i+1}</td>
             <td>
                 <span style="color:#4338ca;font-weight:800">${o.order_code}</span>${badges}
                 ${o.created_by_name ? `<div style="font-size:11px;color:#e65100;font-weight:700;margin-top:2px">👤 Sale: ${o.created_by_name}</div>` : ''}
@@ -192,7 +192,7 @@ function _tsRenderTable(orders, totalCount) {
     html += '</tbody></table>';
 
     // Pager
-    const totalPages = Math.ceil(totalCount / 30);
+    const totalPages = Math.ceil(totalCount / 50);
     if (totalPages > 1) {
         html += '<div class="ts-pager">';
         html += `<button onclick="_tsPage(${_ts.page-1})" ${_ts.page<=1?'disabled':''}>← Trước</button>`;
