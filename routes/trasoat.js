@@ -488,7 +488,9 @@ module.exports = async function(fastify) {
         if (step === 'may') {
             const records = await db.all(`
                 SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
-                    dt.name AS team_name, doi.description AS item_description
+                    dt.name AS team_name, doi.description AS item_description,
+                    doi.quantity AS order_quantity, doi.material_pairs,
+                    doi.material_name, doi.color_name AS fabric_color
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
@@ -496,6 +498,38 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
             `, [orderId]);
+
+            const formatCombinedString = (str) => {
+                if (!str) return '—';
+                const parts = str.split('+').map(s => s.trim()).filter(Boolean);
+                const uniqueParts = [...new Set(parts)];
+                return uniqueParts.join(' + ');
+            };
+
+            for (const r of records) {
+                r.material_name = formatCombinedString(r.material_name);
+                r.fabric_color = formatCombinedString(r.fabric_color);
+
+                if (r.order_item_id) {
+                    const cutQtyRow = await db.get(`
+                        SELECT COALESCE(SUM(cut_quantity), 0)::int AS cut_qty
+                        FROM cutting_records
+                        WHERE order_item_id = $1 AND is_cut_done = true
+                    `, [r.order_item_id]);
+                    const rawCutQty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+                    let numPhois = 1;
+                    try {
+                        const pairs = typeof r.material_pairs === 'string' ? JSON.parse(r.material_pairs) : (r.material_pairs || []);
+                        if (Array.isArray(pairs) && pairs.length > 0) {
+                            numPhois = pairs.length;
+                        }
+                    } catch(e) {}
+                    r.actual_quantity = Math.round(rawCutQty / numPhois);
+                } else {
+                    r.actual_quantity = 0;
+                }
+            }
+
             return {
                 step: 'may', order_code: order.order_code, cskh_name: order.cskh_name,
                 expected_ship_date: order.expected_ship_date,

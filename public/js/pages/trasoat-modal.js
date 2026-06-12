@@ -117,7 +117,7 @@ function _tsRenderStepModal(step, d){
         html = hdr('🧵','CHI TIẾT BÀN GIAO MAY',d.order_code,'#1e3a5f,#1e40af');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu may</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = r.item_description ? `🧵 ${r.item_description}` : `🧵 Phiếu ${i+1}`;
+            const title = `🧵 ${r.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#1e40af;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.done_date?'#d1fae5':'#fef3c7'};color:${r.done_date?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.done_date?'✅ Đã may xong':'⏳ Đang may'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
