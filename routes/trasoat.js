@@ -762,6 +762,7 @@ module.exports = async function(fastify) {
                     sr.contractor_id,
                     sr.handover_date,
                     sr.order_item_id,
+                    o.expected_ship_date AS order_expected_ship_date,
                     (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
@@ -770,6 +771,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
+                LEFT JOIN dht_orders o ON fr.dht_order_id = o.id
                 WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
             // Get checklist answers for each record
