@@ -242,8 +242,8 @@ module.exports = async function(fastify) {
             const cutProgress = cutTotalCount > 0 ? `${cutDoneCount}/${cutTotalCount}` : null;
             const allCutDone = cutTotalCount > 0 && cutting.every(c => c.is_cut_done);
 
-            const lastCutDone = cutting.filter(c => c.is_cut_done).sort((a,b) => new Date(b.cut_done_at || b.cutting_at || 0) - new Date(a.cut_done_at || a.cutting_at || 0))[0];
-            const cutTime = lastCutDone ? (lastCutDone.cut_done_at || lastCutDone.cutting_at) : null;
+            const doneCuts = cutting.filter(c => c.is_cut_done && c.cut_done_at);
+            const cutTime = doneCuts.length > 0 ? new Date(Math.max(...doneCuts.map(c => new Date(c.cut_done_at).getTime()))) : null;
             const cutWorker = [...new Set(cutting.map(c => c.cutter_name).filter(Boolean))].join(', ') || null;
 
             const printStep = prodSteps.find(s => s.step_id === 3);
