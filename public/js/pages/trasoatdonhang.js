@@ -61,7 +61,7 @@ function renderTrasoatdonhangPage(content) {
         .ts-pager button{padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;cursor:pointer;font-size:13px}
         .ts-pager button:disabled{opacity:.4;cursor:default}
         .ts-pager button.active{background:#4338ca;color:white;border-color:#4338ca}
-        .ts-chart-wrap{margin-top:28px;background:white;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden}
+        .ts-chart-wrap{margin-bottom:28px;background:white;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden}
         .ts-chart-header{padding:16px 20px;background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
         .ts-chart-header h3{margin:0;font-size:15px;font-weight:800}
         .ts-chart-body{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:320px}
@@ -71,6 +71,7 @@ function renderTrasoatdonhangPage(content) {
         @media(max-width:600px){.ts-cards{grid-template-columns:1fr 1fr}.ts-search-bar{flex-direction:column}.ts-table th:nth-child(n+4),.ts-table td:nth-child(n+4){display:none}}
     </style>
     <div class="ts-wrap">
+        <div class="ts-chart-wrap" id="tsChartWrap"></div>
         <div class="ts-search-bar">
             <input class="ts-search-input" id="tsSearch" placeholder="🔍 Tìm mã đơn, tên KH, SĐT..." autocomplete="off">
             <select class="ts-select" id="tsMonth" onchange="_tsFilter()">${monthOpts}</select>
@@ -81,7 +82,6 @@ function renderTrasoatdonhangPage(content) {
         </div>
         <div class="ts-cards" id="tsCards"><div style="grid-column:1/-1;text-align:center;padding:20px;color:#9ca3af">⏳ Đang tải...</div></div>
         <div id="tsTableWrap"></div>
-        <div class="ts-chart-wrap" id="tsChartWrap"></div>
     </div>`;
 
     _ts.month = String(curMonth); _ts.year = String(curYear);
