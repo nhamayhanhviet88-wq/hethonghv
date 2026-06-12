@@ -1,23 +1,78 @@
 const http = require('http');
 
-http.get('http://localhost:11000/api/sewing/records?tab=4&page=1&limit=5', (res) => {
-    let data = '';
-    res.on('data', chunk => data += chunk);
-    res.on('end', () => {
-        try {
-            console.log('HTTP STATUS:', res.statusCode);
-            const parsed = JSON.parse(data);
-            console.log('COUNT:', parsed.records ? parsed.records.length : 0);
-            if (parsed.records && parsed.records.length > 0) {
-                console.log('FIRST RECORD KEYS:', Object.keys(parsed.records[0]));
-                console.log('FIRST RECORD checked_techniques:', parsed.records[0].checked_techniques);
-                console.log('FIRST RECORD ts_sewing_tech:', parsed.records[0].ts_sewing_tech);
+function post(url, data) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const postData = JSON.stringify(data);
+        const req = http.request({
+            hostname: u.hostname,
+            port: u.port,
+            path: u.pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
             }
-        } catch (e) {
-            console.error('Error parsing JSON:', e.message);
-            console.log('Raw output snippet:', data.substring(0, 500));
-        }
+        }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                resolve({
+                    status: res.statusCode,
+                    headers: res.headers,
+                    body: body
+                });
+            });
+        });
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
     });
-}).on('error', (err) => {
-    console.error('HTTP REQUEST ERROR:', err.message);
-});
+}
+
+function get(url, cookies) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const req = http.request({
+            hostname: u.hostname,
+            port: u.port,
+            path: u.pathname + u.search,
+            method: 'GET',
+            headers: {
+                'Cookie': cookies.join('; ')
+            }
+        }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                resolve({
+                    status: res.statusCode,
+                    headers: res.headers,
+                    body: body
+                });
+            });
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+async function run() {
+    try {
+        const loginRes = await post('http://localhost:11000/api/auth/login', { username: 'admin', password: 'admin123' });
+        console.log('Login Status:', loginRes.status);
+        const cookies = loginRes.headers['set-cookie'] || [];
+        
+        const ordersRes = await get('http://localhost:11000/api/trasoat/orders?search=AFF-VTTI0007', cookies);
+        console.log('Orders API Status:', ordersRes.status);
+        const data = JSON.parse(ordersRes.body);
+        
+        console.log('Returned Orders:');
+        data.orders.forEach(o => {
+            console.log(`- Code: ${o.order_code}, Stage: ${o.current_step_name}, Progress: ${o.progress_percent}%`);
+        });
+    } catch(e) {
+        console.error(e.message);
+    }
+}
+run();

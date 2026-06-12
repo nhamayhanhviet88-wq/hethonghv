@@ -872,11 +872,20 @@ function _processOrder(o, todayStr) {
     if (isShipped) doneSteps++;
 
     let currentStepName = 'Hoàn thành';
-    if (!cutDone) currentStepName = 'Chờ Cắt';
-    else if (!printDone) currentStepName = 'Chờ In';
-    else if (!pressDone) currentStepName = 'Chờ Ép';
-    else if (!finishDone) currentStepName = 'Đang May / QC / HT';
-    else if (!isShipped) currentStepName = 'Chờ Gửi';
+    if (isShipped) {
+        currentStepName = 'Hoàn thành';
+        doneSteps = totalSteps;
+    } else if (!cutDone) {
+        currentStepName = 'Chờ Cắt';
+    } else if (!printDone) {
+        currentStepName = 'Chờ In';
+    } else if (!pressDone) {
+        currentStepName = 'Chờ Ép';
+    } else if (!finishDone) {
+        currentStepName = 'Đang May / QC / HT';
+    } else {
+        currentStepName = 'Chờ Gửi';
+    }
 
     // Deviation calculation
     const expectedDate = o.rescheduled_ship_date || o.expected_ship_date;
