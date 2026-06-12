@@ -1318,8 +1318,8 @@ async function _qlxAssignIn(orderId, itemId) {
         
         html += '</div>'; // close Lĩnh Vực In container
 
-        var printChoice = data.print_remind_choice || 'none';
-        var pressChoice = data.press_remind_choice || 'none';
+        var printChoice = data.print_remind_choice;
+        var pressChoice = data.press_remind_choice;
         var reminders = data.reminders || [];
 
         // QLX Nhắc Nhở
@@ -1433,7 +1433,10 @@ function _qlxAddReminderInput(dept, val) {
     var input = document.createElement('input');
     input.type = 'text';
     input.value = val;
-    input.placeholder = 'Nhập nội dung nhắc nhở bộ phận ' + (dept === 'in' ? 'in' : 'ép') + '...';
+    
+    var rowIdx = list.children.length + 1;
+    input.placeholder = 'Nội dung nhắc nhở ' + rowIdx + '...';
+    
     input.style.flex = '1';
     input.style.padding = '8px 12px';
     input.style.border = '1.5px solid #cbd5e1';
@@ -1452,6 +1455,11 @@ function _qlxAddReminderInput(dept, val) {
     btn.style.cursor = 'pointer';
     btn.onclick = function() {
         div.remove();
+        var rows = list.querySelectorAll('.qlx-reminder-input-row');
+        rows.forEach(function(row, idx) {
+            var inp = row.querySelector('.qlx-reminder-text-input');
+            if (inp) inp.placeholder = 'Nội dung nhắc nhở ' + (idx + 1) + '...';
+        });
         if (list.children.length === 0 && document.querySelector('input[name="qlx_' + dept + '_remind_choice"]:checked')?.value === 'yes') {
             _qlxAddReminderInput(dept);
         }
