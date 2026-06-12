@@ -370,6 +370,54 @@ function _tsDrawDonut(s) {
     ctx.fillStyle='#1e1b4b'; ctx.font='bold 24px Inter,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(s.total, cx, cy-8);
     ctx.font='bold 11px Inter,sans-serif'; ctx.fillStyle='#64748b'; ctx.fillText('đơn hàng', cx, cy+14);
+
+    // Click handler for donut segments
+    c.onclick = function(e) {
+        const rect = c.getBoundingClientRect();
+        const scaleX = c.width / rect.width;
+        const scaleY = c.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        // Check if inside the donut ring width
+        if (dist >= r - lw/2 - 8 && dist <= r + lw/2 + 8) {
+            let angle = Math.atan2(dy, dx);
+            let norm = angle + Math.PI/2;
+            if (norm < 0) norm += 2 * Math.PI;
+
+            let cur = 0;
+            const keys = ['early', 'on_time', 'late'];
+            for (let i = 0; i < data.length; i++) {
+                const sweep = (data[i] / total) * 2 * Math.PI;
+                if (norm >= cur && norm <= cur + sweep) {
+                    const statusSelect = document.getElementById('tsStatus');
+                    if (statusSelect) {
+                        statusSelect.value = keys[i];
+                        _tsFilter();
+                    }
+                    break;
+                }
+                cur += sweep;
+            }
+        }
+    };
+
+    // Hover effect
+    c.onmousemove = function(e) {
+        const rect = c.getBoundingClientRect();
+        const scaleX = c.width / rect.width;
+        const scaleY = c.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        c.style.cursor = (dist >= r - lw/2 - 8 && dist <= r + lw/2 + 8) ? 'pointer' : 'default';
+    };
 }
 
 function _tsDrawBar(s) {
@@ -403,6 +451,83 @@ function _tsDrawBar(s) {
         ctx.fillText('T'+m.month, x+bW/2, H-pad.b+16);
         if (m.total > 0) { ctx.fillStyle='#1e1b4b'; ctx.font='bold 10px Inter,sans-serif'; ctx.fillText(m.total, x+bW/2, pad.t+cH-cumY-4); }
     });
+
+    // Click handler for monthly bars
+    c.onclick = function(e) {
+        const rect = c.getBoundingClientRect();
+        const scaleX = c.width / rect.width;
+        const scaleY = c.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        for (let i = 0; i < months.length; i++) {
+            const m = months[i];
+            const x = pad.l + (i+0.5)*cW/12 - bW/2;
+
+            if (clickX >= x - 2 && clickX <= x + bW + 2) {
+                let cumY = 0;
+                const parts = [
+                    { v: m.early, key: 'early' },
+                    { v: m.on_time, key: 'on_time' },
+                    { v: m.late, key: 'late' }
+                ];
+
+                for (let j = 0; j < parts.length; j++) {
+                    const p = parts[j];
+                    const h = (p.v / maxV) * cH;
+                    const ry = pad.t + cH - cumY - h;
+
+                    if (clickY >= ry - 2 && clickY <= ry + h + 2 && p.v > 0) {
+                        const tsMonth = document.getElementById('tsMonth');
+                        const tsStatus = document.getElementById('tsStatus');
+                        if (tsMonth && tsStatus) {
+                            tsMonth.value = m.month;
+                            tsStatus.value = p.key;
+                            _tsFilter();
+                        }
+                        return;
+                    }
+                    cumY += h;
+                }
+
+                // If click is not inside a specific colored segment, filter by the entire month
+                const tsMonth = document.getElementById('tsMonth');
+                if (tsMonth) {
+                    tsMonth.value = m.month;
+                    _tsFilter();
+                }
+                return;
+            }
+        }
+    };
+
+    // Hover handler for monthly bars
+    c.onmousemove = function(e) {
+        const rect = c.getBoundingClientRect();
+        const scaleX = c.width / rect.width;
+        const scaleY = c.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        let hovered = false;
+        for (let i = 0; i < months.length; i++) {
+            const m = months[i];
+            const x = pad.l + (i+0.5)*cW/12 - bW/2;
+
+            if (clickX >= x - 2 && clickX <= x + bW + 2) {
+                let cumY = 0;
+                const parts = [m.early, m.on_time, m.late];
+                const totalH = (parts.reduce((a,b)=>a+b,0)/maxV)*cH;
+                const ry = pad.t + cH - totalH;
+
+                if (clickY >= ry - 2 && clickY <= pad.t + cH + 2) {
+                    hovered = true;
+                    break;
+                }
+            }
+        }
+        c.style.cursor = hovered ? 'pointer' : 'default';
+    };
 }
 
 var _tsChartYearVal;
