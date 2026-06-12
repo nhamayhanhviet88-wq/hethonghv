@@ -235,6 +235,10 @@ function _tsRenderStepModal(step, d){
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#334155;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${badgeBg};color:${badgeColor};font-size:11px;font-weight:800">${statusText}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
+            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO MAY</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
+                <div style="background:${r.is_completed?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_completed?'#16a34a':'#f59e0b'};font-weight:700">🔧 HOÀN THÀNH HT</div><div style="font-weight:800;color:${r.is_completed?'#166534':'#92400e'}">${r.is_completed?fmtShortDT(r.completed_at):statusText}</div></div>
+            </div>`;
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('🧵 Nhân Viên May',V(r.sewer_name));
             body+=row('👷 NV Hoàn Thiện',V(r.finisher_name),'#059669');
