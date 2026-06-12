@@ -145,7 +145,10 @@ function _tsRenderStepModal(step, d){
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('🧵 Chất liệu',V(r.material_name));
             body+=row('🎨 Màu',V(r.fabric_color));
-            body+=row('👷 NV May','🏭 '+(r.sewer_name||r.contractor_name||r.team_name||'—'),'#1e40af');
+            const sewerDisplay = (r.sewer_name||r.contractor_name||r.team_name) 
+                ? '🏭 ' + (r.sewer_name||r.contractor_name||r.team_name)
+                : `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#fef2f2;border:1px solid #fca5a5;color:#ef4444;font-size:11px;font-weight:800">Chưa Chia Tổ May</span>`;
+            body+=row('👷 NV May',sewerDisplay,'#1e40af');
             body+=row('📊 SL Thực Tế',(r.actual_quantity||r.order_quantity||0)+' sp','#dc2626');
             body+=row('📊 SL May',(r.quantity||0)+' sp','#059669');
             body+=`</div></div>`;
