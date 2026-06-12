@@ -336,10 +336,10 @@ function _tsRenderCharts(s) {
                     <thead>
                         <tr style="color: #64748b; font-weight: 600; text-align: center; border-bottom: 1px solid #e2e8f0;">
                             <th style="padding: 4px; text-align: left;">Kỳ</th>
-                            <th style="padding: 4px; background-color: #b45309; color: #ffffff;">Tổng</th>
-                            <th style="padding: 4px; color: #10b981;">Sớm</th>
-                            <th style="padding: 4px; color: #6366f1;">Đúng</th>
-                            <th style="padding: 4px; color: #ef4444;">Trễ</th>
+                            <th style="padding: 4px; background-color: #b45309; color: #ffffff; text-align: center;">Tổng</th>
+                            <th style="padding: 4px; color: #4ade80; text-align: center;">Sớm</th>
+                            <th style="padding: 4px; color: #38bdf8; text-align: center;">Đúng</th>
+                            <th style="padding: 4px; color: #f87171; text-align: center;">Trễ</th>
                         </tr>
                     </thead>
                     <tbody>
