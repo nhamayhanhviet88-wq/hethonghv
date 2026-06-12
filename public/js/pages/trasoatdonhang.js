@@ -208,7 +208,19 @@ function _tsRenderTable(orders, totalCount) {
             <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>
         </tr>`;
-        if (_ts.expandedId === o.id) html += `<tr><td colspan="8" style="padding:0"><div class="ts-detail" id="tsDetail${o.id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td></tr>`;
+        if (_ts.expandedId === o.id) {
+            html += `<tr id="tsDetailRow${o.id}"><td colspan="8" style="padding:0"><div class="ts-detail" id="tsDetail${o.id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td></tr>`;
+            setTimeout(async () => {
+                try {
+                    const res = await apiCall('/api/trasoat/orders/' + o.id + '/detail');
+                    const el = document.getElementById('tsDetail' + o.id);
+                    if (el) el.innerHTML = _tsRenderTimeline(res);
+                } catch (e) {
+                    const el = document.getElementById('tsDetail' + o.id);
+                    if (el) el.innerHTML = '<div style="color:#ef4444">❌ Lỗi tải chi tiết</div>';
+                }
+            }, 0);
+        }
     });
     html += '</tbody></table>';
 
@@ -227,13 +239,34 @@ function _tsRenderTable(orders, totalCount) {
 function _tsPage(p) { _ts.page = p; _ts.expandedId = null; _tsLoad(); }
 
 async function _tsToggleDetail(id) {
-    if (_ts.expandedId === id) { _ts.expandedId = null; _tsLoad(); return; }
-    _ts.expandedId = id; _tsLoad();
+    const existingDetailRow = document.getElementById('tsDetailRow' + id);
+    if (existingDetailRow) {
+        existingDetailRow.remove();
+        _ts.expandedId = null;
+        return;
+    }
+
+    if (_ts.expandedId !== null) {
+        const prevDetailRow = document.getElementById('tsDetailRow' + _ts.expandedId);
+        if (prevDetailRow) prevDetailRow.remove();
+    }
+
+    _ts.expandedId = id;
+
+    const clickedRow = document.getElementById('tsRow' + id);
+    if (!clickedRow) return;
+
+    const detailRow = document.createElement('tr');
+    detailRow.id = 'tsDetailRow' + id;
+    detailRow.innerHTML = `<td colspan="8" style="padding:0"><div class="ts-detail" id="tsDetail${id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td>`;
+    clickedRow.parentNode.insertBefore(detailRow, clickedRow.nextSibling);
+
     try {
         const res = await apiCall('/api/trasoat/orders/' + id + '/detail');
         const el = document.getElementById('tsDetail' + id);
-        if (!el) return;
-        el.innerHTML = _tsRenderTimeline(res);
+        if (el) {
+            el.innerHTML = _tsRenderTimeline(res);
+        }
     } catch (e) {
         const el = document.getElementById('tsDetail' + id);
         if (el) el.innerHTML = '<div style="color:#ef4444">❌ Lỗi tải chi tiết</div>';
