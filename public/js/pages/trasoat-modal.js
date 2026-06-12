@@ -59,22 +59,19 @@ function _tsRenderStepModal(step, d){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu in</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = r.item_description ? `🖨️ ${r.item_description}` : `🖨️ Phiếu ${i+1}`;
+            const title = `🖨️ ${r.product_name || r.item_description || 'Sản phẩm'}`;
             const statusText = r.is_print_done ? '✅ Đã in xong' : (r.contractor_id ? '⏳ Đã bàn giao bên gia công' : '⏳ Đang in');
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#5b21b6;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_print_done?'#d1fae5':(r.contractor_id?'#e0f2fe':'#fef3c7')};color:${r.is_print_done?'#065f46':(r.contractor_id?'#0369a1':'#92400e')};font-size:11px;font-weight:800">${statusText}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
-            body+=row('📦 Tên SP/Phối',V(r.product_name));
+            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.created_at)}</div></div>
+                <div style="background:${r.is_print_done?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_print_done?'#16a34a':'#f59e0b'};font-weight:700">🖨️ HOÀN THÀNH IN</div><div style="font-weight:800;color:${r.is_print_done?'#166534':'#92400e'}">${r.is_print_done?fmtShortDT(r.print_done_at):(r.contractor_id?'⏳ Bàn giao GC':'⏳ Đang in')}</div></div>
+            </div>`;
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('🖨️ Nhân Viên In',V(r.printer_name),'#7c3aed');
             body+=row('📋 Loại In',V(r.print_field||r.field_name));
             body+=row('📊 Số Lượng Theo Đơn',r.order_quantity ? r.order_quantity+' Áo' : '—','#1e40af');
-            if(r.contractor_id){
-                body+=row('🤝 Thời Gian Bàn Giao', r.created_at ? fmtDT(r.created_at) : '—', '#0369a1');
-            }
-            if(r.is_print_done){
-                body+=row('🕐 Thời Gian In Xong', r.print_done_at ? fmtDT(r.print_done_at) : '—', '#059669');
-            }
             if(r.current_roll) body+=row('🧻 Cây In',V(r.current_roll),'#0f766e');
             if(r.print_meters) body+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
                 <div style="background:#eff6ff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">SL ĐẦU CUỘN (M)</div><div style="font-size:18px;font-weight:900;color:#1e40af">${r.roll_start_qty||0}</div></div>
@@ -82,7 +79,6 @@ function _tsRenderStepModal(step, d){
                 <div style="background:#f1f5f9;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#475569">SL CUỐI CUỘN (M)</div><div style="font-size:18px;font-weight:900;color:#475569">${r.roll_end_qty||0}</div></div>
             </div>`;
             if(r.image_url){body+=section('📸','HÌNH ẢNH FILE IN');body+=`<img src="${r.image_url}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`;}
-            if(r.is_print_done && r.print_done_at) body+=`<div style="margin-top:12px;text-align:center;padding:6px 14px;background:#d1fae5;border-radius:8px;font-weight:800;font-size:12px;color:#065f46">In Xong: ${fmtDT(r.print_done_at)}</div>`;
             body+=`</div></div>`;
         }); body+=`</div>`; }
     }
