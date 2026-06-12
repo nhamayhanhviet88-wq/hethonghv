@@ -347,7 +347,7 @@ module.exports = async function(fastify) {
                 ) AS has_pc_in
             FROM dht_orders o
             JOIN dht_order_items i ON i.dht_order_id = o.id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             LEFT JOIN dht_categories c ON o.category_id = c.id
             WHERE (
                 NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id)
@@ -1749,7 +1749,7 @@ module.exports = async function(fastify) {
                    ) AS has_print
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
             WHERE (
