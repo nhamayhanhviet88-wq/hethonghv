@@ -132,148 +132,382 @@ function _tsRenderStepModal(step, d){
                 }
             </style>`;
         }
-        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = `🧵 ${r.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
-            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#1e40af;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.done_date?'#d1fae5':'#fef3c7'};color:${r.done_date?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.done_date?'✅ Đã may xong':'⏳ Đang may'}</span></div>`;
-            body+=`<div style="padding:14px 16px">`;
-            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
-                <div style="background:${r.done_date?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.done_date?'#16a34a':'#f59e0b'};font-weight:700">🧵 HOÀN THÀNH MAY</div><div style="font-weight:800;color:${r.done_date?'#166534':'#92400e'}">${r.done_date?fmtShortDT(r.done_date):'⏳ Đang may'}</div></div>
-            </div>`;
-            body+=row('📦 Tên SP',V(r.product_name));
-            body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('🧵 Chất liệu',V(r.material_name));
-            body+=row('🎨 Màu',V(r.fabric_color));
-            const sewerDisplay = (r.sewer_name||r.contractor_name||r.team_name) 
-                ? '🏭 ' + (r.sewer_name||r.contractor_name||r.team_name)
-                : `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#fef2f2;border:1px solid #fca5a5;color:#ef4444;font-size:11px;font-weight:800">Chưa Chia Tổ May</span>`;
-            body+=row('👷 NV May',sewerDisplay,'#1e40af');
-            body+=row('📊 SL Thực Tế',(r.actual_quantity||r.order_quantity||0)+' sp','#dc2626');
-            body+=row('📊 SL May',(r.quantity||0)+' sp','#059669');
-            body+=`</div></div>`;
-        }); body+=`</div>`; }
+        else {
+            body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            // Group by order_item_id
+            const groups = [];
+            const groupMap = {};
+            let noIdCounter = 0;
+            d.records.forEach(r => {
+                let key = r.order_item_id;
+                if (!key) {
+                    key = 'no-id-' + (++noIdCounter);
+                }
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        order_item_id: r.order_item_id,
+                        item_description: r.item_description,
+                        product_name: r.product_name,
+                        material_name: r.material_name,
+                        fabric_color: r.fabric_color,
+                        order_quantity: r.order_quantity,
+                        actual_quantity: r.actual_quantity,
+                        handover_date: null,
+                        latest_done_date: null,
+                        assignments: []
+                    };
+                    groups.push(groupMap[key]);
+                }
+                const g = groupMap[key];
+                g.assignments.push(r);
+                
+                if (r.done_date) {
+                    const dDate = new Date(r.done_date);
+                    if (!g.latest_done_date || dDate > new Date(g.latest_done_date)) {
+                        g.latest_done_date = r.done_date;
+                    }
+                }
+                if (r.handover_date) {
+                    const hDate = new Date(r.handover_date);
+                    if (!g.handover_date || hDate < new Date(g.handover_date)) {
+                        g.handover_date = r.handover_date;
+                    }
+                }
+            });
+
+            groups.forEach((g, i) => {
+                const title = `🧵 ${g.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
+                const cardDone = g.assignments.every(r => r.done_date);
+                const cardDoneDate = cardDone ? g.latest_done_date : null;
+                const statusText = cardDone ? '✅ Đã may xong' : '⏳ Đang may';
+                const statusBg = cardDone ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' : 'linear-gradient(135deg,#eff6ff,#dbeafe)';
+                const statusBadgeBg = cardDone ? '#d1fae5' : '#fef3c7';
+                const statusBadgeColor = cardDone ? '#065f46' : '#92400e';
+
+                body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+                body+=`<div style="background:${statusBg};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#1e40af;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${statusBadgeBg};color:${statusBadgeColor};font-size:11px;font-weight:800">${statusText}</span></div>`;
+                body+=`<div style="padding:14px 16px">`;
+                body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO ĐẦU</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(g.handover_date)}</div></div>
+                    <div style="background:${cardDone?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${cardDone?'#16a34a':'#f59e0b'};font-weight:700">🧵 HOÀN THÀNH MAY</div><div style="font-weight:800;color:${cardDone?'#166534':'#92400e'}">${cardDone?fmtShortDT(cardDoneDate):'⏳ Đang may'}</div></div>
+                </div>`;
+                body+=row('📦 Tên SP',V(g.product_name));
+                body+=row('👤 CSKH',V(d.cskh_name));
+                body+=row('🧵 Chất liệu',V(g.material_name));
+                body+=row('🎨 Màu',V(g.fabric_color));
+                
+                const totalAssignedQty = g.assignments.reduce((sum, r) => sum + (r.quantity || 0), 0);
+                body+=row('📊 SL Theo Đơn', (g.order_quantity || 0) + ' sp', '#1e40af');
+                body+=row('📊 SL Cắt Thực Tế', (g.actual_quantity || 0) + ' sp', '#dc2626');
+                body+=row('📊 SL Đã Phân Công', totalAssignedQty + ' sp', '#059669');
+
+                body+=section('🏭', 'PHÂN CÔNG NHÀ MAY / TỔ MAY');
+                g.assignments.forEach((r, idxAss) => {
+                    const sewerDisplay = (r.sewer_name||r.contractor_name||r.team_name) 
+                        ? '🏭 ' + (r.sewer_name||r.contractor_name||r.team_name)
+                        : `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#fef2f2;border:1px solid #fca5a5;color:#ef4444;font-size:11px;font-weight:800">Chưa Chia Tổ May</span>`;
+                    
+                    const assStatus = r.done_date ? `✅ Đã xong (${fmtShortDT(r.done_date)})` : '⏳ Đang may';
+                    const assStatusColor = r.done_date ? '#059669' : '#b45309';
+
+                    body+=`<div style="padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;font-size:12px">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                            <span style="font-weight:800;color:#1e293b">${idxAss+1}. ${sewerDisplay}</span>
+                            <span style="font-weight:800;color:#dc2626">${r.quantity || 0} sp</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;color:#64748b;font-size:11px">
+                            <span>Bàn giao: ${fmtShortDT(r.handover_date)}</span>
+                            <span style="font-weight:700;color:${assStatusColor}">${assStatus}</span>
+                        </div>
+                        ${r.notes ? `<div style="margin-top:4px;color:#475569;font-style:italic">Ghi chú: ${r.notes}</div>` : ''}
+                    </div>`;
+                });
+
+                body+=`</div></div>`;
+            });
+            body+=`</div>`;
+        }
     }
     else if(step==='qc'){
         html = hdr('🔍','CHI TIẾT KIỂM TRA CHẤT LƯỢNG (QC)',d.order_code,'#0f766e,#0d9488');
         if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔍</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu QC</div></div>'; }
-        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = '🔍 ' + d.order_code + ' — Phiếu ' + (i+1) + (r.item_description ? ' — ' + r.item_description : '');
-            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#0f766e;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.answers&&r.answers.length?'#d1fae5':'#fef3c7'};color:${r.answers&&r.answers.length?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.answers&&r.answers.length?'✅ Đã QC':'⏳ Chưa QC'}</span></div>`;
-            body+=`<div style="padding:14px 16px">`;
-            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO MAY</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
-                <div style="background:${r.answers&&r.answers.length?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.answers&&r.answers.length?'#16a34a':'#f59e0b'};font-weight:700">🔍 HOÀN THÀNH KIỂM TRA QC</div><div style="font-weight:800;color:${r.answers&&r.answers.length?'#166534':'#92400e'}">${r.answers&&r.answers.length?fmtShortDT(r.qc_date):'⏳ Chưa QC'}</div></div>
-            </div>`;
-            body+=row('📦 Tên SP',V(r.product_name));
-            body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('🧵 Nhân Viên May',V(r.sewer_name));
-            body+=row('👷 Nhân Viên QC',V(r.finisher_name),'#0d9488');
-            body+=row('📊 Số Lượng',r.quantity ? r.quantity+' sp' : '—');
-            if(r.answers&&r.answers.length){
-                body+=section('📋','KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG');
-                r.answers.forEach(a=>{
-                    let displayVal = a.answer_value;
-                    let isOk = false;
-                    
-                    if (a.type === 'yes_no') {
-                        if (String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có') {
-                            displayVal = 'Có';
-                            isOk = true;
-                        } else {
-                            displayVal = 'Không';
-                            isOk = false;
-                        }
-                    } else if (a.type === 'percentage') {
-                        displayVal = a.answer_value + '%';
-                        isOk = (parseFloat(a.answer_value) || 0) >= 50;
+        else {
+            body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            // Group by order_item_id
+            const groups = [];
+            const groupMap = {};
+            let noIdCounter = 0;
+            d.records.forEach(r => {
+                let key = r.order_item_id;
+                if (!key) {
+                    key = 'no-id-' + (++noIdCounter);
+                }
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        order_item_id: r.order_item_id,
+                        item_description: r.item_description,
+                        product_name: r.product_name,
+                        material_name: r.material_name,
+                        fabric_color: r.fabric_color,
+                        order_quantity: r.order_quantity,
+                        handover_date: null,
+                        latest_qc_date: null,
+                        assignments: []
+                    };
+                    groups.push(groupMap[key]);
+                }
+                const g = groupMap[key];
+                g.assignments.push(r);
+
+                if (r.qc_date) {
+                    const qDate = new Date(r.qc_date);
+                    if (!g.latest_qc_date || qDate > new Date(g.latest_qc_date)) {
+                        g.latest_qc_date = r.qc_date;
+                    }
+                }
+                if (r.handover_date) {
+                    const hDate = new Date(r.handover_date);
+                    if (!g.handover_date || hDate < new Date(g.handover_date)) {
+                        g.handover_date = r.handover_date;
+                    }
+                }
+            });
+
+            groups.forEach((g, i) => {
+                const title = `🔍 ${g.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
+                const cardQcDone = g.assignments.every(r => r.answers && r.answers.length > 0);
+                const statusText = cardQcDone ? '✅ Đã QC' : '⏳ Chưa QC';
+                const statusBg = cardQcDone ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' : 'linear-gradient(135deg,#eff6ff,#dbeafe)';
+                const statusBadgeBg = cardQcDone ? '#d1fae5' : '#fef3c7';
+                const statusBadgeColor = cardQcDone ? '#065f46' : '#92400e';
+
+                body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+                body+=`<div style="background:${statusBg};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#0f766e;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${statusBadgeBg};color:${statusBadgeColor};font-size:11px;font-weight:800">${statusText}</span></div>`;
+                body+=`<div style="padding:14px 16px">`;
+                body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO ĐẦU</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(g.handover_date)}</div></div>
+                    <div style="background:${cardQcDone?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${cardQcDone?'#16a34a':'#f59e0b'};font-weight:700">🔍 HOÀN THÀNH QC CUỐI</div><div style="font-weight:800;color:${cardQcDone?'#166534':'#92400e'}">${cardQcDone?fmtShortDT(g.latest_qc_date):'⏳ Chưa QC'}</div></div>
+                </div>`;
+                body+=row('📦 Tên SP',V(g.product_name));
+                body+=row('👤 CSKH',V(d.cskh_name));
+
+                body+=section('📋', 'KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG (QC) THEO NHÀ MAY');
+                g.assignments.forEach((r, idxAss) => {
+                    const sewerDisplay = r.sewer_name ? '🏭 ' + r.sewer_name : '<span style="color:#ef4444;font-weight:800">Chưa rõ nhà may</span>';
+                    const assQcStatus = r.answers && r.answers.length > 0 ? `✅ Đã QC (${fmtShortDT(r.qc_date)})` : '⏳ Chưa QC';
+                    const assQcColor = r.answers && r.answers.length > 0 ? '#059669' : '#b45309';
+
+                    body+=`<div style="padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;font-size:12px">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;border-bottom:1px dashed #cbd5e1;padding-bottom:4px">
+                            <span style="font-weight:800;color:#1e293b">${idxAss+1}. ${sewerDisplay} (${r.quantity || 0} sp)</span>
+                            <span style="font-weight:800;color:${assQcColor}">${assQcStatus}</span>
+                        </div>
+                        <div style="margin-bottom:6px;font-size:11px;color:#64748b">
+                            <span>👷 QC bởi: ${V(r.finisher_name)}</span>
+                        </div>`;
+
+                    if (r.answers && r.answers.length > 0) {
+                        body+=`<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">`;
+                        r.answers.forEach(a => {
+                            let displayVal = a.answer_value;
+                            let isOk = false;
+                            
+                            if (a.type === 'yes_no') {
+                                if (String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có') {
+                                    displayVal = 'Có';
+                                    isOk = true;
+                                } else {
+                                    displayVal = 'Không';
+                                    isOk = false;
+                                }
+                            } else if (a.type === 'percentage') {
+                                displayVal = a.answer_value + '%';
+                                isOk = (parseFloat(a.answer_value) || 0) >= 50;
+                            } else {
+                                isOk = String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có';
+                            }
+                            const badge = `<span style="padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:${isOk?'#d1fae5':'#fee2e2'};color:${isOk?'#065f46':'#991b1b'}">${displayVal}</span>`;
+                            body+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px"><span style="color:#475569">${a.content}</span>${badge}</div>`;
+                        });
+                        body+=`</div>`;
                     } else {
-                        isOk = String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có';
+                        body+=`<div style="color:#94a3b8;font-style:italic;text-align:center;padding:4px 0">Chưa thực hiện checklist QC</div>`;
                     }
 
-                    const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${isOk?'#d1fae5':'#fee2e2'};color:${isOk?'#065f46':'#991b1b'}">${displayVal}</span>`;
-                    body+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid #f8fafc"><span style="font-weight:600;color:#334155">${a.content}</span>${badge}</div>`;
-                });
-            } else { body+=`<div style="padding:10px;text-align:center;color:#9ca3af;font-size:12px">Chưa thực hiện checklist QC</div>`; }
-            if(r.finish_images){
-                try{
-                    const imgs=JSON.parse(r.finish_images);
-                    if(imgs.length){
-                        body+=section('📸','HÌNH ẢNH QC');
-                        imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});
+                    if(r.finish_images){
+                        try{
+                            const imgs=JSON.parse(r.finish_images);
+                            if(imgs.length){
+                                body+=`<div style="margin-top:8px;font-weight:700;font-size:11px;color:#475569">📸 Ảnh QC:</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">`;
+                                imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:80px;max-height:80px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="window.open('${img}','_blank')" onerror="this.style.display='none'">`});
+                                body+=`</div>`;
+                            }
+                        }catch(e){}
                     }
-                }catch(e){}
-            }
-            body+=`</div></div>`;
-        }); body+=`</div>`; }
+
+                    body+=`</div>`;
+                });
+
+                body+=`</div></div>`;
+            });
+            body+=`</div>`;
+        }
     }
     else if(step==='ht'){
         html = hdr('🔧','CHI TIẾT HOÀN THIỆN & CHECKLIST',d.order_code,'#334155,#475569');
         if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔧</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu hoàn thiện</div></div>'; }
-        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = '🔍 ' + d.order_code + ' — Phiếu ' + (i+1) + (r.item_description ? ' — ' + r.item_description : '');
-            
-            const isQcDone = r.qc_count > 0;
-            const isOutsourced = r.contractor_id !== null;
-            let statusText = '⏳ Đang hoàn thiện';
-            let badgeBg = '#fef3c7';
-            let badgeColor = '#92400e';
-
-            if (d.is_order_shipped) {
-                if (r.is_completed) {
-                    statusText = '✅ Đã hoàn thiện';
-                    badgeBg = '#d1fae5';
-                    badgeColor = '#065f46';
+        else {
+            body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            // Group by order_item_id
+            const groups = [];
+            const groupMap = {};
+            let noIdCounter = 0;
+            d.records.forEach(r => {
+                let key = r.order_item_id;
+                if (!key) {
+                    key = 'no-id-' + (++noIdCounter);
                 }
-            } else {
-                if (isOutsourced) {
-                    if (isQcDone) {
-                        statusText = '✅ Đã hoàn thiện từ kiểm tra QC';
-                        badgeBg = '#d1fae5';
-                        badgeColor = '#065f46';
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        order_item_id: r.order_item_id,
+                        item_description: r.item_description,
+                        handover_date: null,
+                        latest_completed_at: null,
+                        assignments: []
+                    };
+                    groups.push(groupMap[key]);
+                }
+                const g = groupMap[key];
+                g.assignments.push(r);
+
+                if (r.is_completed && r.completed_at) {
+                    const cDate = new Date(r.completed_at);
+                    if (!g.latest_completed_at || cDate > new Date(g.latest_completed_at)) {
+                        g.latest_completed_at = r.completed_at;
+                    }
+                }
+                if (r.handover_date) {
+                    const hDate = new Date(r.handover_date);
+                    if (!g.handover_date || hDate < new Date(g.handover_date)) {
+                        g.handover_date = r.handover_date;
+                    }
+                }
+            });
+
+            groups.forEach((g, i) => {
+                const title = '🔧 ' + d.order_code + ' — Phiếu ' + (i+1) + (g.item_description ? ' — ' + g.item_description : '');
+                
+                // Determine if all are completed
+                const allCompleted = g.assignments.every(r => {
+                    const isQcDone = r.qc_count > 0;
+                    const isOutsourced = r.contractor_id !== null;
+                    if (d.is_order_shipped) {
+                        return r.is_completed;
                     } else {
-                        statusText = '⏳ Chưa QC';
-                        badgeBg = '#fee2e2';
-                        badgeColor = '#991b1b';
+                        if (isOutsourced) {
+                            return isQcDone;
+                        } else {
+                            return isQcDone && r.is_completed;
+                        }
                     }
-                } else {
-                    if (!isQcDone) {
-                        statusText = '⏳ Chưa QC';
-                        badgeBg = '#fee2e2';
-                        badgeColor = '#991b1b';
-                    } else if (r.is_completed) {
-                        statusText = '✅ Đã hoàn thiện';
-                        badgeBg = '#d1fae5';
-                        badgeColor = '#065f46';
-                    }
-                }
-            }
-
-            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#334155;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${badgeBg};color:${badgeColor};font-size:11px;font-weight:800">${statusText}</span></div>`;
-            body+=`<div style="padding:14px 16px">`;
-            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO MAY</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
-                <div style="background:${r.is_completed?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_completed?'#16a34a':'#f59e0b'};font-weight:700">🔧 HOÀN THÀNH HOÀN THIỆN</div><div style="font-weight:800;color:${r.is_completed?'#166534':'#92400e'}">${r.is_completed?fmtShortDT(r.completed_at):statusText}</div></div>
-            </div>`;
-            body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('🧵 Nhân Viên May',V(r.sewer_name));
-            body+=row('👷 NV Hoàn Thiện',V(r.finisher_name),'#059669');
-            body+=row('📦 Tiêu Chuẩn Gửi',r.shipping_standard==='chuan'?'✅ CHUẨN':'⚠️ '+V(r.shipping_standard));
-            body+=row('📅 Hạn Gửi Hàng',fmtDT(r.expected_date));
-            if(r.checklist&&r.checklist.length){
-                body+=section('📋','CHECKLIST HOÀN THIỆN');
-                r.checklist.forEach(c=>{
-                    const ans=c.answer_value||'';
-                    const isYes=ans.toLowerCase()==='có'||ans.toLowerCase()==='yes'||ans.toLowerCase()==='đạt';
-                    body+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f8fafc;font-size:12px"><span style="font-weight:600">${c.question}</span><span style="font-weight:800;color:${isYes?'#059669':'#dc2626'}">${ans}</span></div>`;
                 });
-            }
-            if(r.finish_images){try{const imgs=JSON.parse(r.finish_images);if(imgs.length){body+=section('📸','ẢNH SẢN PHẨM HOÀN THIỆN');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});}}catch(e){}}
-            if(r.notes||r.finishing_notes){body+=section('📝','GHI CHÚ');body+=`<div style="background:#f8fafc;border-radius:8px;padding:10px;font-size:12px">${r.finishing_notes||r.notes||''}</div>`;}
-            body+=`</div></div>`;
-        }); body+=`</div>`; }
+
+                let overallStatusText = allCompleted ? '✅ Đã hoàn thiện' : '⏳ Đang hoàn thiện';
+                let overallBadgeBg = allCompleted ? '#d1fae5' : '#fef3c7';
+                let overallBadgeColor = allCompleted ? '#065f46' : '#92400e';
+
+                body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+                body+=`<div style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#334155;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${overallBadgeBg};color:${overallBadgeColor};font-size:11px;font-weight:800">${overallStatusText}</span></div>`;
+                body+=`<div style="padding:14px 16px">`;
+                body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO ĐẦU</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(g.handover_date)}</div></div>
+                    <div style="background:${allCompleted?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${allCompleted?'#16a34a':'#f59e0b'};font-weight:700">🔧 HOÀN THÀNH HOÀN THIỆN</div><div style="font-weight:800;color:${allCompleted?'#166534':'#92400e'}">${allCompleted && g.latest_completed_at ? fmtShortDT(g.latest_completed_at) : overallStatusText}</div></div>
+                </div>`;
+                body+=row('👤 CSKH',V(d.cskh_name));
+
+                body+=section('📋', 'TIẾN ĐỘ HOÀN THIỆN THEO TỪNG NHÀ MAY / TỔ MAY');
+                g.assignments.forEach((r, idxAss) => {
+                    const sewerDisplay = r.sewer_name ? '🏭 ' + r.sewer_name : '<span style="color:#ef4444;font-weight:800">Chưa rõ nhà may</span>';
+                    
+                    const isQcDone = r.qc_count > 0;
+                    const isOutsourced = r.contractor_id !== null;
+                    let statusText = '⏳ Đang hoàn thiện';
+                    let badgeBg = '#fef3c7';
+                    let badgeColor = '#92400e';
+
+                    if (d.is_order_shipped) {
+                        if (r.is_completed) {
+                            statusText = '✅ Đã hoàn thiện';
+                            badgeBg = '#d1fae5';
+                            badgeColor = '#065f46';
+                        }
+                    } else {
+                        if (isOutsourced) {
+                            if (isQcDone) {
+                                statusText = '✅ Đã hoàn thiện từ kiểm tra QC';
+                                badgeBg = '#d1fae5';
+                                badgeColor = '#065f46';
+                            } else {
+                                statusText = '⏳ Chưa QC';
+                                badgeBg = '#fee2e2';
+                                badgeColor = '#991b1b';
+                            }
+                        } else {
+                            if (!isQcDone) {
+                                statusText = '⏳ Chưa QC';
+                                badgeBg = '#fee2e2';
+                                badgeColor = '#991b1b';
+                            } else if (r.is_completed) {
+                                statusText = '✅ Đã hoàn thiện';
+                                badgeBg = '#d1fae5';
+                                badgeColor = '#065f46';
+                            }
+                        }
+                    }
+
+                    body+=`<div style="padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;font-size:12px">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;border-bottom:1px dashed #cbd5e1;padding-bottom:4px">
+                            <span style="font-weight:800;color:#1e293b">${idxAss+1}. ${sewerDisplay}</span>
+                            <span style="font-weight:800;background:${badgeBg};color:${badgeColor};padding:1px 6px;border-radius:4px;font-size:11px">${statusText}</span>
+                        </div>
+                        <div style="margin-bottom:6px;font-size:11px;color:#64748b">
+                            <span>👷 NV hoàn thiện: ${V(r.finisher_name)}</span> | <span>📅 Hạn gửi: ${fmtDT(r.expected_date)}</span>
+                        </div>
+                        ${row('📦 Tiêu chuẩn gửi', r.shipping_standard==='chuan'?'✅ CHUẨN':'⚠️ '+V(r.shipping_standard))}
+                        `;
+
+                    if(r.checklist&&r.checklist.length){
+                        body+=`<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">`;
+                        r.checklist.forEach(c=>{
+                            const ans=c.answer_value||'';
+                            const isYes=ans.toLowerCase()==='có'||ans.toLowerCase()==='yes'||ans.toLowerCase()==='đạt';
+                            body+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px"><span style="color:#475569">${c.question}</span><span style="font-weight:800;color:${isYes?'#059669':'#dc2626'}">${ans}</span></div>`;
+                        });
+                        body+=`</div>`;
+                    }
+
+                    if(r.finish_images){
+                        try{
+                            const imgs=JSON.parse(r.finish_images);
+                            if(imgs.length){
+                                body+=`<div style="margin-top:8px;font-weight:700;font-size:11px;color:#475569">📸 Ảnh hoàn thiện:</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">`;
+                                imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:80px;max-height:80px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="window.open('${img}','_blank')" onerror="this.style.display='none'">`});
+                                body+=`</div>`;
+                            }
+                        }catch(e){}
+                    }
+
+                    if(r.notes||r.finishing_notes){
+                        body+=`<div style="margin-top:6px;color:#475569;font-style:italic">Ghi chú: ${r.finishing_notes||r.notes}</div>`;
+                    }
+
+                    body+=`</div>`;
+                });
+
+                body+=`</div></div>`;
+            });
+            body+=`</div>`;
+        }
     }
     else if(step==='gui'){
         html = hdr('🚛','THÔNG TIN GỬI HÀNG',d.order_code,'#b45309,#d97706');

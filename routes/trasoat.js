@@ -747,6 +747,7 @@ module.exports = async function(fastify) {
                     COALESCE(u_sew.full_name, c.name, dt.name) AS sewer_name,
                     sr.contractor_id,
                     sr.handover_date,
+                    sr.order_item_id,
                     (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
