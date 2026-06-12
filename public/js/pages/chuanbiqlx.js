@@ -1406,7 +1406,8 @@ async function _qlxAssignIn(orderId, itemId) {
 }
 
 function _qlxToggleRemindersArea(dept) {
-    var choice = document.querySelector('input[name="qlx_' + dept + '_remind_choice"]:checked')?.value;
+    var inputName = dept === 'in' ? 'qlx_print_remind_choice' : 'qlx_press_remind_choice';
+    var choice = document.querySelector('input[name="' + inputName + '"]:checked')?.value;
     var container = document.getElementById('qlx_' + dept + '_reminders_container');
     if (container) {
         container.style.display = choice === 'yes' ? 'block' : 'none';
@@ -1460,7 +1461,8 @@ function _qlxAddReminderInput(dept, val) {
             var inp = row.querySelector('.qlx-reminder-text-input');
             if (inp) inp.placeholder = 'Nội dung nhắc nhở ' + (idx + 1) + '...';
         });
-        if (list.children.length === 0 && document.querySelector('input[name="qlx_' + dept + '_remind_choice"]:checked')?.value === 'yes') {
+        var inputName = dept === 'in' ? 'qlx_print_remind_choice' : 'qlx_press_remind_choice';
+        if (list.children.length === 0 && document.querySelector('input[name="' + inputName + '"]:checked')?.value === 'yes') {
             _qlxAddReminderInput(dept);
         }
     };
