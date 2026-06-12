@@ -198,7 +198,7 @@ module.exports = async function(fastify) {
         const code = (order.order_code || '').toUpperCase();
         const catName = (order.category_name || '').toUpperCase();
         const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
-        const isShipped = order.shipping_status === 'shipped';
+        const isShipped = order.shipping_status === 'shipped' || !!order.shipped_at;
 
         // Determine print completion from printing_records
         // contractor_id != null → considered done (same as bophanin.js)
@@ -652,7 +652,7 @@ function _processOrder(o, todayStr) {
     const code = (o.order_code || '').toUpperCase();
     const catName = (o.category_name || '').toUpperCase();
     const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
-    const isShipped = o.shipping_status === 'shipped';
+    const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
 
     let totalSteps, doneSteps, currentStepName;
     if (isPetTem) {
