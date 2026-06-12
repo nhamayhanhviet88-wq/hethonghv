@@ -1070,6 +1070,9 @@ module.exports = async function(fastify) {
         const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi' });
 
+        const READONLY_FIELDS = ['print_meters', 'roll_start_qty', 'roll_end_qty'];
+        if (READONLY_FIELDS.includes(field)) return reply.code(403).send({ error: 'Không được phép sửa trường này trực tiếp. Vui lòng sử dụng chức năng hoàn thành in.' });
+
         const ALLOWED = ['print_date','printer_id','contractor_id','product_name','cskh_name','order_quantity','print_meters',
             'roll_start_qty','roll_end_qty','current_roll','print_field','shared_process','notes','material_tx_id','pettem_roll_id'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });

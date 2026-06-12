@@ -585,14 +585,14 @@ function _bpiRender() {
         var rollCell = '';
         
         if (r.id) {
-            metersCell = '<td style="text-align:center;font-weight:700;color:#dc2626;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'print_meters\','+(r.print_meters||0)+',\'number\')">'+(r.print_meters||'0')+'</td>';
+            metersCell = '<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'0')+'</td>';
             if (r.material_tx_id || r.pettem_roll_id) {
                 rollCell = '<td style="text-align:center;font-weight:600">' + rollDisplay + '</td>';
             } else {
-                rollCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.pettem_roll_id||'')+'\')">'+rollDisplay+'</td>';
+                rollCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.pettem_roll_id||'')+'\')">' +rollDisplay+'</td>';
             }
-            startCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'roll_start_qty\','+(r.roll_start_qty||0)+',\'number\')">'+(r.roll_start_qty||'0')+'</td>';
-            endCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditCell(this,\''+r.id+'\',\'roll_end_qty\','+(r.roll_end_qty||0)+',\'number\')">'+(r.roll_end_qty||'0')+'</td>';
+            startCell = '<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'0')+'</td>';
+            endCell = '<td style="text-align:center;font-weight:600">'+(r.roll_end_qty||'0')+'</td>';
         } else {
             metersCell = '<td style="text-align:center;color:#94a3b8">—</td>';
             rollCell = '<td style="text-align:center;color:#94a3b8">—</td>';

@@ -302,7 +302,7 @@ if (r.pettem_roll_id) {
 }
 
 const metersHtml = isReal 
-  ? '<div class="cr" onclick="mEditCell('+r.id+',\'print_meters\','+(r.print_meters||0)+',\'Nhập số mét in:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">📐 Mét in</span><span class="cv" style="color:#fbbf24;font-size:16px">'+(r.print_meters||'0')+'</span></div>'
+  ? '<div class="cr"><span class="cl">📐 Mét in</span><span class="cv" style="color:#fbbf24;font-size:16px">'+(r.print_meters||'0')+'</span></div>'
   : '<div class="cr"><span class="cl">📐 Mét in</span><span class="cv">—</span></div>';
 
 const rollHtml = isReal
@@ -312,11 +312,11 @@ const rollHtml = isReal
   : '<div class="cr"><span class="cl">🌀 Cuộn vật liệu</span><span class="cv">—</span></div>';
 
 const startHtml = isReal
-  ? '<div class="cr" onclick="mEditCell('+r.id+',\'roll_start_qty\','+(r.roll_start_qty||0)+',\'Nhập số lượng đầu cuộn:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">'+(r.roll_start_qty||'0')+'</span></div>'
+  ? '<div class="cr"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">'+(r.roll_start_qty||'0')+'</span></div>'
   : '<div class="cr"><span class="cl">🔢 SL Đầu cuộn</span><span class="cv">—</span></div>';
 
 const endHtml = isReal
-  ? '<div class="cr" onclick="mEditCell('+r.id+',\'roll_end_qty\','+(r.roll_end_qty||0)+',\'Nhập số lượng cuối cuộn:\')" style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.2);padding:2px 0"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">'+(r.roll_end_qty||'0')+'</span></div>'
+  ? '<div class="cr"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">'+(r.roll_end_qty||'0')+'</span></div>'
   : '<div class="cr"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">—</span></div>';
 
 const imgIcon = r.image_url ? ' <a href="' + r.image_url + '" target="_blank" style="text-decoration:none;margin-left:6px" onclick="event.stopPropagation()">🖼️</a>' : '';
