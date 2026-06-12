@@ -74,6 +74,10 @@ async function checkEmails() {
             let skippedNeg = 0;
             let skippedDup = 0;
 
+            // ★ Pre-load all existing source_ref_ids for email_auto to avoid N+1 queries
+            const existingRefs = await db.all("SELECT source_ref_id FROM payment_records WHERE source = 'email_auto'");
+            const existingRefsSet = new Set(existingRefs.map(r => r.source_ref_id).filter(Boolean));
+
             // ★ Read Telegram notification group (once per cycle)
             let _tgPaymentGroup = null;
             try {
@@ -117,11 +121,7 @@ async function checkEmails() {
                     const refHash = crypto.createHash('md5').update(msgId).digest('hex');
 
                     // Check duplicate by message ID hash FIRST (fast skip)
-                    const existing = await db.get(
-                        'SELECT id FROM payment_records WHERE source = $1 AND source_ref_id = $2',
-                        ['email_auto', refHash]
-                    );
-                    if (existing) { skippedDup++; continue; }
+                    if (existingRefsSet.has(refHash)) { skippedDup++; continue; }
 
                     // Parse email body
                     const rawSource = msg.source ? msg.source.toString('utf-8') : '';
@@ -161,6 +161,7 @@ async function checkEmails() {
                     }
 
                     const recordId = insertResult.id;
+                    existingRefsSet.add(refHash);
                     importCount++;
                     console.log(`[EmailChecker] 💰 ${code} | ${parsed.amount.toLocaleString()}đ | ${bank.bank_name} | ${parsed.description.substring(0, 50)}`);
 

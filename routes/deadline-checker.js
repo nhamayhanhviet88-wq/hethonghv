@@ -35,13 +35,38 @@ async function getHolidays() {
     return _holidayCache;
 }
 
+let _leaveCache = null;
+let _leaveCacheTime = 0;
+
 // Kiểm tra user (NV/TP/QL) có nghỉ ngày X không
 async function isUserOnLeave(userId, dateStr) {
-    const leave = await db.get(
-        "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
-        [userId, dateStr]
-    );
-    return !!leave;
+    const now = Date.now();
+    if (_leaveCache && now - _leaveCacheTime < 10000) {
+        const list = _leaveCache.get(userId);
+        if (!list) return false;
+        return list.some(lr => dateStr >= lr.date_from && dateStr <= lr.date_to);
+    }
+
+    try {
+        const rows = await db.all("SELECT user_id, date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE status = 'active'");
+        const map = new Map();
+        for (const r of rows) {
+            if (!map.has(r.user_id)) map.set(r.user_id, []);
+            map.get(r.user_id).push(r);
+        }
+        _leaveCache = map;
+        _leaveCacheTime = now;
+
+        const list = _leaveCache.get(userId);
+        if (!list) return false;
+        return list.some(lr => dateStr >= lr.date_from && dateStr <= lr.date_to);
+    } catch(e) {
+        const leave = await db.get(
+            "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
+            [userId, dateStr]
+        );
+        return !!leave;
+    }
 }
 
 // Format date → YYYY-MM-DD (dùng UTC methods vì now đã được shift sang VN)
@@ -322,6 +347,38 @@ async function runDeadlineCheck(forceFullCheck = false) {
              JOIN users u ON u.id = lta.user_id AND u.status != 'resigned'`
         );
 
+        // Pre-fetch lookups to avoid N+1 queries
+        const lockTasksList = await db.all("SELECT id, min_quantity, requires_approval, penalty_amount FROM lock_tasks");
+        const lockTasksMap = new Map(lockTasksList.map(t => [t.id, t]));
+
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        const ninetyDaysAgoStr = toDateStr(ninetyDaysAgo);
+
+        const completionsList = await db.all(
+            `SELECT id, lock_task_id, user_id, completion_date::text as completion_date, status, penalty_applied, redo_count, redo_deadline
+             FROM lock_task_completions
+             WHERE completion_date >= $1::date`,
+            [ninetyDaysAgoStr]
+        );
+        const completionsMap = new Map();
+        for (const c of completionsList) {
+            const key = `${c.lock_task_id}_${c.user_id}_${c.completion_date}`;
+            if (!completionsMap.has(key)) completionsMap.set(key, []);
+            completionsMap.get(key).push(c);
+        }
+
+        const supportRequestsList = await db.all(
+            `SELECT id, user_id, lock_task_id, task_date::text as task_date, status, supported_at
+             FROM task_support_requests
+             WHERE source_type = 'khoa' AND task_date >= $1::date AND status IN ('pending','ql_expired','supported')`,
+            [ninetyDaysAgoStr]
+        );
+        const supportRequestsMap = new Map();
+        for (const sr of supportRequestsList) {
+            const key = `${sr.user_id}_${sr.lock_task_id}_${sr.task_date}`;
+            supportRequestsMap.set(key, sr);
+        }
+
         // Check past 90 days (to handle long leave periods)
         for (let daysBack = 1; daysBack <= 90; daysBack++) {
             const checkDate = new Date(now);
@@ -373,22 +430,14 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
 
                 // Check if already penalized for this task+date (only NV records, redo_count >= 0)
-                const alreadyExpiredCount = await db.all(
-                    `SELECT id, redo_count FROM lock_task_completions
-                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true AND redo_count >= 0`,
-                    [la.task_id, la.user_id, checkDateStr]
-                );
+                const compList = completionsMap.get(`${la.task_id}_${la.user_id}_${checkDateStr}`) || [];
+                const alreadyExpiredCount = compList.filter(c => c.status === 'expired' && c.penalty_applied && c.redo_count >= 0);
 
                 // ★ min_quantity: NV có thể phải nộp nhiều lần/ngày
                 const minQty = la.min_quantity || 1;
                 
                 // Count approved/pending submissions (not expired)
-                const submittedCount = await db.get(
-                    `SELECT COUNT(*) as cnt FROM lock_task_completions
-                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('approved','pending') AND redo_count >= 0`,
-                    [la.task_id, la.user_id, checkDateStr]
-                );
-                const submitted = Number(submittedCount?.cnt || 0);
+                const submitted = compList.filter(c => ['approved','pending'].includes(c.status) && c.redo_count >= 0).length;
                 const alreadyPenalized = alreadyExpiredCount.length;
                 // Missing = (required - submitted - already penalized)
                 const missing = Math.max(0, minQty - submitted - alreadyPenalized);
@@ -396,12 +445,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 if (missing === 0) continue;
 
                 // Check if there's a completion with rejected status needing redo
-                const completion = await db.get(
-                    `SELECT id, status, redo_deadline FROM lock_task_completions
-                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
-                     ORDER BY redo_count DESC LIMIT 1`,
-                    [la.task_id, la.user_id, checkDateStr]
-                );
+                let completion = null;
+                if (compList.length > 0) {
+                    const sorted = [...compList].sort((a, b) => b.redo_count - a.redo_count);
+                    completion = sorted[0];
+                }
                 if (completion) {
                     if (completion.status === 'rejected' && completion.redo_deadline) {
                         const redoDeadline = new Date(completion.redo_deadline);
@@ -411,12 +459,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
 
                 // ★ Check support request — bảo vệ NV trong toàn bộ lifecycle hỗ trợ
-                const activeSR = await db.get(
-                    `SELECT id, status, supported_at FROM task_support_requests
-                     WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
-                       AND source_type = 'khoa' AND status IN ('pending','ql_expired','supported')`,
-                    [la.user_id, la.task_id, checkDateStr]
-                );
+                const activeSR = supportRequestsMap.get(`${la.user_id}_${la.task_id}_${checkDateStr}`);
                 if (activeSR) {
                     if (activeSR.status === 'pending' || activeSR.status === 'ql_expired') {
                         continue;
@@ -443,13 +486,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 // NV CHƯA NỘP + HẾT HẠN → Tạo expired records cho TỪNG lần thiếu
                 const penaltyAmount = GPC.cv_khoa_khong_nop;
                 
-                // Find next available redo_count for expired records
-                const maxRedo = await db.get(
-                    `SELECT COALESCE(MAX(redo_count), -1) as max_redo FROM lock_task_completions
-                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND redo_count >= 0`,
-                    [la.task_id, la.user_id, checkDateStr]
-                );
-                let nextRedo = Math.max(0, (maxRedo?.max_redo ?? -1) + 1);
+                // Find next available redo_count for expired records in memory
+                const validComps = compList.filter(c => c.redo_count >= 0);
+                const maxRedoVal = validComps.length > 0 ? Math.max(...validComps.map(c => c.redo_count)) : -1;
+                let nextRedo = Math.max(0, maxRedoVal + 1);
 
                 for (let i = 0; i < missing; i++) {
                     try {
@@ -474,9 +514,6 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // ========== 3a. PHẠT CHỒNG PHẠT HÀNG NGÀY — Expired CV Khóa chưa báo cáo lại ==========
         // Tạo phạt chồng MỖI NGÀY LÀM VIỆC cho mỗi CV Khóa chưa báo cáo lại
         const todayForStack = toDateStr(now);
-        const ninetyDaysAgo = new Date(now);
-        ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
-        const ninetyDaysAgoStr = toDateStr(ninetyDaysAgo);
 
         const unreportedExpired = await db.all(
             `SELECT ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as completion_date,
@@ -488,6 +525,26 @@ async function runDeadlineCheck(forceFullCheck = false) {
                AND ltc.completion_date >= $1::date AND ltc.completion_date < $2::date`,
             [ninetyDaysAgoStr, todayForStack]
         );
+
+        // Pre-fetch daily link entries grouped to avoid N+1 query inside loop
+        const dailyEntriesList = await db.all(
+            `SELECT user_id, entry_date::text as entry_date, module_type, COUNT(*) as cnt
+             FROM daily_link_entries
+             WHERE entry_date >= $1::date
+             GROUP BY user_id, entry_date, module_type`,
+            [ninetyDaysAgoStr]
+        );
+        const dailyEntriesMap = new Map();
+        for (const row of dailyEntriesList) {
+            const key = `${row.user_id}_${row.entry_date}_${row.module_type}`;
+            dailyEntriesMap.set(key, Number(row.cnt));
+        }
+
+        // Global query once outside loop
+        const pendingSpamRow = await db.get(
+            `SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`
+        );
+        const pendingSpamCount = parseInt(pendingSpamRow?.c || 0);
 
         // Module type mapping for checking daily_link_entries
         const _lockModuleMap = {
@@ -514,24 +571,17 @@ async function runDeadlineCheck(forceFullCheck = false) {
         //   → mỗi ngày gốc phải tạo 1 record phạt chồng riêng/ngày stacking
         const taskUserGroupMap = {}; // key = lock_task_id_user_id → { origDates: [...] }
         for (const exp of unreportedExpired) {
-            const resubmitted = await db.get(
-                `SELECT id FROM lock_task_completions
-                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
-                   AND status IN ('pending','approved') AND redo_count > 0`,
-                [exp.lock_task_id, exp.user_id, exp.completion_date]
-            );
+            const compList = completionsMap.get(`${exp.lock_task_id}_${exp.user_id}_${exp.completion_date}`) || [];
+            const resubmitted = compList.find(c => ['pending','approved'].includes(c.status) && c.redo_count > 0);
             if (resubmitted) continue;
 
             // AUTO-FIX: check if user has enough entries (báo cáo bù)
             const moduleType = _getModuleType(exp.task_name);
             if (moduleType) {
-                const lt = await db.get('SELECT min_quantity FROM lock_tasks WHERE id = $1', [exp.lock_task_id]);
+                const lt = lockTasksMap.get(exp.lock_task_id);
                 const target = lt?.min_quantity || 1;
-                const cnt = await db.get(
-                    `SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3`,
-                    [exp.user_id, exp.completion_date, moduleType]
-                );
-                if (parseInt(cnt?.c || 0) >= target) {
+                const cnt = dailyEntriesMap.get(`${exp.user_id}_${exp.completion_date}_${moduleType}`) || 0;
+                if (cnt >= target) {
                     // Entries đủ → auto-fix expired → approved, skip stacking
                     await db.run(
                         `UPDATE lock_task_completions SET status = 'approved', penalty_applied = false
@@ -545,10 +595,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
             // AUTO-FIX: "Setup Spam Zalo" — if no pending spam groups, auto-approve
             if (exp.task_name && exp.task_name.toLowerCase().includes('setup spam zalo')) {
-                const pendingSpam = await db.get(
-                    `SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`
-                );
-                if (parseInt(pendingSpam?.c || 0) === 0) {
+                if (pendingSpamCount === 0) {
                     await db.run(
                         `UPDATE lock_task_completions SET status = 'approved', penalty_applied = false,
                          content = 'Tự động hoàn thành — không có nhóm spam cần xử lý'
@@ -594,6 +641,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 // origDate đầu tiên → -2, thứ hai → -3, thứ ba → -4, ...
                 const redoVal = -(2 + origIdx);
 
+                const compList = completionsMap.get(`${group.lock_task_id}_${group.user_id}_${origDate}`) || [];
+
                 while (stackDate < todayDate) {
                     const stackDateStr = toDateStr(stackDate);
 
@@ -604,6 +653,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     // Skip NV nghỉ phép
                     const onLeave = await isUserOnLeave(group.user_id, stackDateStr);
                     if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
+
+                    // Check duplicate stack in memory
+                    const alreadyStacked = compList.find(c => c.redo_count === redoVal && c.completion_date === stackDateStr);
+                    if (alreadyStacked) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                     try {
                         const res = await db.run(
@@ -789,6 +842,23 @@ async function runDeadlineCheck(forceFullCheck = false) {
         yesterday2.setUTCDate(yesterday2.getUTCDate() - 1);
         const yesterdayStr2 = toDateStr(yesterday2);
 
+        // Pre-fetch chain completions to avoid N+1 queries in Section 5 and 5a
+        const chainCompletionsList = await db.all(
+            `SELECT id, chain_item_id, user_id, status, penalty_applied, redo_count, redo_deadline, created_at::text as created_date
+             FROM chain_task_completions
+             WHERE created_at >= NOW() - INTERVAL '91 days'`
+        );
+        const chainCompletionsMap = new Map();
+        for (const c of chainCompletionsList) {
+            const key = `${c.chain_item_id}_${c.user_id}`;
+            if (!chainCompletionsMap.has(key)) chainCompletionsMap.set(key, []);
+            chainCompletionsMap.get(key).push(c);
+
+            const itemKey = `${c.chain_item_id}`;
+            if (!chainCompletionsMap.has(itemKey)) chainCompletionsMap.set(itemKey, []);
+            chainCompletionsMap.get(itemKey).push(c);
+        }
+
         // Get all chain items with deadline = yesterday that are not completed
         const overdueChainItems = await db.all(
             `SELECT cii.id as item_id, cii.task_name, cii.deadline::text as deadline, cii.status as item_status,
@@ -805,20 +875,19 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
         for (const oci of overdueChainItems) {
             // Check if effectively completed (approved >= min_quantity)
-            const approvedCount = await db.get(
-                `SELECT COUNT(*) as cnt FROM chain_task_completions WHERE chain_item_id = $1 AND status = 'approved'`,
-                [oci.item_id]
-            );
+            const itemComps = chainCompletionsMap.get(`${oci.item_id}`) || [];
+            const approvedCountVal = itemComps.filter(c => c.status === 'approved').length;
             const minQty = oci.min_quantity || 1;
-            if (approvedCount && Number(approvedCount.cnt) >= minQty) continue; // Effectively completed
+            if (approvedCountVal >= minQty) continue; // Effectively completed
 
             // Check if this user already has an approved/pending/rejected (within redo deadline) submission
-            const userComp = await db.get(
-                `SELECT id, status, redo_deadline FROM chain_task_completions
-                 WHERE chain_item_id = $1 AND user_id = $2 AND status IN ('pending','approved','rejected')
-                 ORDER BY redo_count DESC LIMIT 1`,
-                [oci.item_id, oci.user_id]
-            );
+            const userComps = chainCompletionsMap.get(`${oci.item_id}_${oci.user_id}`) || [];
+            const filtered = userComps.filter(c => ['pending','approved','rejected'].includes(c.status));
+            let userComp = null;
+            if (filtered.length > 0) {
+                const sorted = [...filtered].sort((a, b) => b.redo_count - a.redo_count);
+                userComp = sorted[0];
+            }
             if (userComp) {
                 if (userComp.status === 'pending' || userComp.status === 'approved') continue;
                 if (userComp.status === 'rejected' && userComp.redo_deadline) {
@@ -829,11 +898,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
             }
 
             // Check if already penalized (don't double-penalize)
-            const alreadyPenalized = await db.get(
-                `SELECT id FROM chain_task_completions
-                 WHERE chain_item_id = $1 AND user_id = $2 AND status = 'expired' AND penalty_applied = true`,
-                [oci.item_id, oci.user_id]
-            );
+            const alreadyPenalized = userComps.find(c => c.status === 'expired' && c.penalty_applied);
             if (alreadyPenalized) continue;
 
             // ★ Phạt TẤT CẢ bước quá deadline, kể cả bị block bởi sequential mode
@@ -890,11 +955,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
         let stackCountChuoi = 0;
 
         for (const exp of unreportedChainExpired) {
-            const resubmitted = await db.get(
-                `SELECT id FROM chain_task_completions
-                 WHERE chain_item_id = $1 AND user_id = $2 AND status IN ('pending','approved') AND redo_count > 0`,
-                [exp.chain_item_id, exp.user_id]
-            );
+            const userComps = chainCompletionsMap.get(`${exp.chain_item_id}_${exp.user_id}`) || [];
+            const resubmitted = userComps.find(c => ['pending','approved'].includes(c.status) && c.redo_count > 0);
             if (resubmitted) continue;
 
             // Stacking từ deadline+1 đến hôm nay
@@ -916,12 +978,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                 // Kiểm tra trùng (manual dedup vì chain_task_completions không có unique constraint tương ứng)
-                const alreadyStacked = await db.get(
-                    `SELECT id FROM chain_task_completions
-                     WHERE chain_item_id = $1 AND user_id = $2 AND redo_count = -2
-                       AND created_at::date = $3::date`,
-                    [exp.chain_item_id, exp.user_id, stackDateStr]
-                );
+                const alreadyStacked = userComps.find(c => c.redo_count === -2 && c.created_date.startsWith(stackDateStr));
                 if (alreadyStacked) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                 try {
