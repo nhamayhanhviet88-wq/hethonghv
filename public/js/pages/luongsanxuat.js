@@ -1538,6 +1538,21 @@ async function _lsxOpenCuttingDetail(recordId) {
         var res = await apiCall('/api/cutting/records/' + recordId);
         var r = res.record;
         if (!r) return;
+
+        // Fetch reminders
+        var cutReminders = [];
+        var cutReminderIds = [];
+        var cutViewedIds = [];
+        try {
+            var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat';
+            if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
+            var remRes = await apiCall(remUrl);
+            cutReminders = remRes.reminders || [];
+            cutReminderIds = remRes.reminder_ids || [];
+            cutViewedIds = remRes.viewed_ids || [];
+        } catch(e) {
+            console.error('[LSX] Load reminders error:', e);
+        }
         var rolls = [];
         try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
         var statusTxt = r.is_cut_done ? '✅ Đã cắt xong' : r.is_cutting ? '✂️ Đang cắt' : '📋 Chờ cắt';
@@ -1653,6 +1668,28 @@ async function _lsxOpenCuttingDetail(recordId) {
         // Warning + shared
         if (r.cut_warning) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Cảnh Báo</span><span class="bpc-modal-val" style="color:#dc2626">' + r.cut_warning + '</span></div>';
         if (r.cut_shared) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1;white-space:pre-line;line-height:1.5;font-size:10px">' + r.cut_shared + '</span></div>';
+
+        // Reminders block
+        if (cutReminders.length > 0) {
+            h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+            h += '  <div style="font-weight:800;color:#991b1b;font-size:11px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+            h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+            cutReminders.forEach(function(rem, remIdx) {
+                var remId = cutReminderIds[remIdx] || 0;
+                var isViewed = cutViewedIds.indexOf(remId) >= 0;
+                var icon = isViewed ? '✅' : '👉';
+                var color = isViewed ? '#059669' : '#dc2626';
+                var bg = isViewed ? '#ecfdf5' : '#fee2e2';
+                var border = isViewed ? '#a7f3d0' : '#fca5a5';
+                h += '    <div style="display:flex;align-items:center;gap:10px;background:' + bg + ';border:1.5px solid ' + border + ';border-radius:10px;padding:8px 12px;text-align:left;">';
+                h += '       <span style="font-size:14px">' + icon + '</span>';
+                h += '       <div style="flex:1;font-size:12px;font-weight:700;color:' + color + ';line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                h += '    </div>';
+            });
+            h += '  </div>';
+            h += '</div>';
+        }
+
         h += '</div>';
         // Close button
         h += '<div style="padding:12px 24px;border-top:1px solid #f1f5f9;text-align:center"><button class="bpc-modal-btn cancel" style="width:100%" onclick="var m=document.getElementById(\'_lsxDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">Đóng</button></div>';
