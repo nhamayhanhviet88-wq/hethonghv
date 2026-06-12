@@ -146,7 +146,7 @@ function _tsRenderStepModal(step, d){
             body+=`<div style="padding:14px 16px">`;
             body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
                 <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO MAY</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
-                <div style="background:${r.answers&&r.answers.length?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.answers&&r.answers.length?'#16a34a':'#f59e0b'};font-weight:700">🔍 HOÀN THÀNH QC</div><div style="font-weight:800;color:${r.answers&&r.answers.length?'#166534':'#92400e'}">${r.answers&&r.answers.length?fmtShortDT(r.qc_date):'⏳ Chưa QC'}</div></div>
+                <div style="background:${r.answers&&r.answers.length?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.answers&&r.answers.length?'#16a34a':'#f59e0b'};font-weight:700">🔍 HOÀN THÀNH KIỂM TRA CHẤT LƯỢNG QC</div><div style="font-weight:800;color:${r.answers&&r.answers.length?'#166534':'#92400e'}">${r.answers&&r.answers.length?fmtShortDT(r.qc_date):'⏳ Chưa QC'}</div></div>
             </div>`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
