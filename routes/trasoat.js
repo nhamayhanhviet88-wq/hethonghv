@@ -51,6 +51,11 @@ module.exports = async function(fastify) {
             }
         }
 
+        if (current_step) {
+            conditions.push(`o.shipping_status != 'shipped'`);
+            conditions.push(`o.shipped_at IS NULL`);
+        }
+
         const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
         const todayStr = vnDateStr(vnNow());
 
