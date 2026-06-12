@@ -93,8 +93,22 @@ function renderTrasoatdonhangPage(content) {
 
     _ts.month = String(curMonth); _ts.year = String(curYear);
     document.getElementById('tsSearch').addEventListener('input', e => {
+        const val = e.target.value;
+        if (val.trim()) {
+            _ts.month = '';
+            _ts.year = '';
+            const monthEl = document.getElementById('tsMonth');
+            const yearEl = document.getElementById('tsYear');
+            if (monthEl) monthEl.value = '';
+            if (yearEl) yearEl.value = '';
+        }
         clearTimeout(_ts.debounce);
-        _ts.debounce = setTimeout(() => { _ts.search = e.target.value; _ts.page = 1; _tsLoad(); }, 400);
+        _ts.debounce = setTimeout(() => { 
+            _ts.search = val; 
+            _ts.page = 1; 
+            _tsLoad(); 
+            _tsLoadStats();
+        }, 400);
     });
     _tsLoad();
     _tsLoadStats();
