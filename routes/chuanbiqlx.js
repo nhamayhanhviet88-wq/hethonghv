@@ -1169,9 +1169,35 @@ module.exports = async function(fastify) {
 
         let reminders = [];
         if (itemId) {
-            reminders = await db.all(`SELECT dept, content FROM qlx_reminders WHERE item_id = $1 ORDER BY id`, [itemId]);
+            reminders = await db.all(`SELECT id, dept, content FROM qlx_reminders WHERE item_id = $1 ORDER BY id`, [itemId]);
         } else {
-            reminders = await db.all(`SELECT dept, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL ORDER BY id`, [orderId]);
+            reminders = await db.all(`SELECT id, dept, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL ORDER BY id`, [orderId]);
+        }
+
+        const reminderIds = reminders.map(r => r.id);
+        let viewedIds = [];
+        if (reminderIds.length > 0) {
+            const views = await db.all(
+                `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1)`,
+                [reminderIds]
+            );
+            viewedIds = views.map(v => v.reminder_id);
+
+            // Auto-view if task is completed
+            for (const r of reminders) {
+                if (viewedIds.includes(r.id)) continue;
+                if (r.dept === 'in') {
+                    const row = itemId 
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_print_done = true LIMIT 1`, [orderId, itemId])
+                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND is_print_done = true LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
+                } else if (r.dept === 'ep') {
+                    const row = itemId
+                        ? await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_reported = true LIMIT 1`, [orderId, itemId])
+                        : await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND is_reported = true LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
+                }
+            }
         }
 
         let isProdDone = false;
@@ -1198,7 +1224,12 @@ module.exports = async function(fastify) {
             assignments: currentAssigns,
             print_remind_choice: printChoice,
             press_remind_choice: pressChoice,
-            reminders: reminders,
+            reminders: reminders.map(r => ({
+                id: r.id,
+                dept: r.dept,
+                content: r.content,
+                is_viewed: viewedIds.includes(r.id)
+            })),
             is_production_done: isProdDone
         };
     });
@@ -1895,6 +1926,26 @@ module.exports = async function(fastify) {
         const cutRemindChoice = prep ? prep.cut_remind_choice : null;
         const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' ORDER BY id", [itemId]);
 
+        const reminderIds = cutReminders.map(r => r.id);
+        let viewedIds = [];
+        if (reminderIds.length > 0) {
+            const views = await db.all(
+                `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1)`,
+                [reminderIds]
+            );
+            viewedIds = views.map(v => v.reminder_id);
+            
+            // Auto-view if cutting is completed
+            const row = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, itemId]);
+            if (row) {
+                for (const rId of reminderIds) {
+                    if (!viewedIds.includes(rId)) {
+                        viewedIds.push(rId);
+                    }
+                }
+            }
+        }
+
         const isProdDone = await checkItemProductionDone(itemId, orderId);
 
         return {
@@ -1907,7 +1958,11 @@ module.exports = async function(fastify) {
             pendingCalls,
             myLinkedIds,
             cut_remind_choice: cutRemindChoice,
-            cut_reminders: cutReminders,
+            cut_reminders: cutReminders.map(r => ({
+                id: r.id,
+                content: r.content,
+                is_viewed: viewedIds.includes(r.id)
+            })),
             is_production_done: isProdDone
         };
     });

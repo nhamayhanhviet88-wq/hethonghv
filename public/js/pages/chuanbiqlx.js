@@ -908,18 +908,21 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         // Populate existing cut reminders
         var cutChoice = data.cut_remind_choice || '';
         var cutReminders = data.cut_reminders || [];
-        if (cutChoice === 'yes' && cutReminders.length > 0) {
-            cutReminders.forEach(function(r) {
-                _qlxAddReminderInput('cat', r.content, data.is_production_done);
-            });
-        } else if (cutChoice === 'yes') {
-            _qlxAddReminderInput('cat', '', data.is_production_done);
+        if (!data.is_production_done) {
+            if (cutChoice === 'yes' && cutReminders.length > 0) {
+                cutReminders.forEach(function(r) {
+                    _qlxAddReminderInput('cat', r.content, false);
+                });
+            } else if (cutChoice === 'yes') {
+                _qlxAddReminderInput('cat', '', false);
+            }
         }
 
         window._qlxCutReminderState = {
             originalChoice: cutChoice,
             originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
-            isSaved: (cutChoice === 'yes' || cutChoice === 'none')
+            isSaved: (cutChoice === 'yes' || cutChoice === 'none'),
+            isProductionDone: data.is_production_done
         };
 
         // Restore values if we had saved them
@@ -953,30 +956,44 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" value="' + new Date(new Date().getTime() + 7*3600000).toISOString().slice(0,10) + '" readonly style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:#f1f5f9;color:#475569;cursor:not-allowed"></div>';
 
     // Nhắc Nhở Bộ Phận Cắt
-    var disAttr = isProductionDone ? 'disabled' : '';
     html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
     if (isProductionDone) {
-        html += '  <div style="color:#dc2626; font-size:11px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:4px;">🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở bộ phận cắt.</div>';
-    }
-    html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
-    html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">✂️ Nhắc Nhở Bộ Phận Cắt <span style="color:#dc2626">*</span></span>';
-    html += '    <div style="display:flex; gap:12px;">';
-    html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
-    html += '        <input type="radio" name="qlx_cut_remind_choice" value="yes" ' + (cutChoice === 'yes' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
-    html += '      </label>';
-    html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
-    html += '        <input type="radio" name="qlx_cut_remind_choice" value="none" ' + (cutChoice === 'none' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
-    html += '      </label>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '  <div id="qlx_cut_reminders_container" style="display:' + (cutChoice === 'yes' ? 'block' : 'none') + '; margin-bottom:8px;">';
-    html += '    <div id="qlx_cut_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
-    html += '    </div>';
-    if (!isProductionDone) {
+        html += '  <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã hoàn thành sản xuất)</div>';
+        html += '  <div style="color:#6b7280; font-size:11px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.</div>';
+        if (cutReminders && cutReminders.length > 0) {
+            html += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+            cutReminders.forEach(function(r) {
+                var isViewed = r.is_viewed;
+                html += '    <div style="display:flex; align-items:center; gap:10px; background:#f8fafc; border:1.5px solid ' + (isViewed ? '#059669' : '#dc2626') + '; border-radius:10px; padding:10px 12px;">';
+                html += '       <div style="flex:1; font-size:12px; font-weight:700; color:#334155; line-height:1.4">' + (r.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                if (isViewed) {
+                    html += '       <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #059669; background:#ecfdf5; color:#059669; font-size:11px; font-weight:800">✅ Đã Xem và Làm</span>';
+                } else {
+                    html += '       <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #dc2626; background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800">❌ Chưa Xem</span>';
+                }
+                html += '    </div>';
+            });
+            html += '  </div>';
+        } else {
+            html += '  <div style="color:#94a3b8; font-size:11px; font-style:italic;">Không có nhắc nhở nào cho bộ phận cắt.</div>';
+        }
+    } else {
+        html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+        html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">✂️ Nhắc Nhở Bộ Phận Cắt <span style="color:#dc2626">*</span></span>';
+        html += '    <div style="display:flex; gap:12px;">';
+        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
+        html += '        <input type="radio" name="qlx_cut_remind_choice" value="yes" ' + (cutChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+        html += '      </label>';
+        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+        html += '        <input type="radio" name="qlx_cut_remind_choice" value="none" ' + (cutChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+        html += '      </label>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '  <div id="qlx_cut_reminders_container" style="display:' + (cutChoice === 'yes' ? 'block' : 'none') + '; margin-bottom:8px;">';
+        html += '    <div id="qlx_cut_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
+        html += '    </div>';
         html += '    <button type="button" onclick="_qlxAddReminderInput(\'cat\')" style="padding:6px 12px; background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
-    }
-    html += '  </div>';
-    if (!isProductionDone) {
+        html += '  </div>';
         html += '  <div style="border-top:1px solid #f1f5f9; padding-top:8px; display:flex; justify-content:flex-end;">';
         html += '    <button type="button" onclick="_qlxFabSaveRemindersOnly(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:6px 12px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">💾 Lưu nhắc nhở cắt</button>';
         html += '  </div>';
@@ -1012,6 +1029,12 @@ function _qlxFabPreview(mat, color, unit) {
 }
 
 function _qlxValidateAndGetCutReminders() {
+    if (window._qlxCutReminderState && window._qlxCutReminderState.isProductionDone) {
+        return {
+            choice: window._qlxCutReminderState.originalChoice || 'none',
+            reminders: window._qlxCutReminderState.originalReminders || []
+        };
+    }
     var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
     if (!choiceEl) {
         showToast('Vui lòng chọn Có nhắc nhở hoặc Không nhắc nhở cho Bộ Phận Cắt!', 'error');
@@ -1039,6 +1062,9 @@ function _qlxValidateAndGetCutReminders() {
 }
 
 function _qlxCheckCutRemindersSaved() {
+    if (window._qlxCutReminderState && window._qlxCutReminderState.isProductionDone) {
+        return true;
+    }
     var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
     var currentChoice = choiceEl ? choiceEl.value : '';
     if (currentChoice === 'none') {
@@ -1562,26 +1588,89 @@ async function _qlxAssignIn(orderId, itemId) {
         html += '  </div>';
         html += '</div>';
 
+        var printReminders = reminders.filter(function(r) { return r.dept === 'in'; });
+        var pressReminders = reminders.filter(function(r) { return r.dept === 'ep'; });
+
+        // Nhắc Nhở Bộ Phận In
+        html += '<div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px;">';
+        if (data.is_production_done) {
+            html += '  <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">🖨️ NHẮC NHỞ BỘ PHẬN IN</div>';
+            if (printReminders.length > 0) {
+                html += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                printReminders.forEach(function(r) {
+                    var isViewed = r.is_viewed;
+                    html += '    <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid ' + (isViewed ? '#059669' : '#dc2626') + '; border-radius:10px; padding:10px 12px;">';
+                    html += '       <div style="flex:1; font-size:12px; font-weight:700; color:#334155; line-height:1.4">' + (r.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isViewed) {
+                        html += '       <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #059669; background:#ecfdf5; color:#059669; font-size:11px; font-weight:800">✅ Đã Xem và Làm</span>';
+                    } else {
+                        html += '       <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #dc2626; background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800">❌ Chưa Xem</span>';
+                    }
+                    html += '    </div>';
+                });
+                html += '  </div>';
+            } else {
+                html += '  <div style="color:#94a3b8; font-size:11px; font-style:italic;">Không có nhắc nhở nào cho bộ phận in.</div>';
+            }
+        } else {
+            html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+            html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🖨️ Nhắc Nhở Bộ Phận In <span style="color:#dc2626">*</span></span>';
+            html += '    <div style="display:flex; gap:12px;">';
+            html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
+            html += '        <input type="radio" name="qlx_print_remind_choice" value="yes" ' + (printChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+            html += '      </label>';
+            html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+            html += '        <input type="radio" name="qlx_print_remind_choice" value="none" ' + (printChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+            html += '      </label>';
+            html += '    </div>';
+            html += '  </div>';
+            html += '  <div id="qlx_print_reminders_container" style="display:' + (printChoice === 'yes' ? 'block' : 'none') + ';">';
+            html += '    <div id="qlx_print_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
+            html += '    </div>';
+            html += '    <button type="button" onclick="_qlxAddReminderInput(\'in\')" style="padding:6px 12px; background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+            html += '  </div>';
+        }
+        html += '</div>';
+
         // Nhắc Nhở Bộ Phận Ép
         html += '<div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
-        html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
-        html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🔥 Nhắc Nhở Bộ Phận Ép <span style="color:#dc2626">*</span></span>';
-        html += '    <div style="display:flex; gap:12px;">';
-        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#7c3aed; margin:0;">';
-        html += '        <input type="radio" name="qlx_press_remind_choice" value="yes" ' + (pressChoice === 'yes' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#7c3aed; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
-        html += '      </label>';
-        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
-        html += '        <input type="radio" name="qlx_press_remind_choice" value="none" ' + (pressChoice === 'none' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
-        html += '      </label>';
-        html += '    </div>';
-        html += '  </div>';
-        html += '  <div id="qlx_press_reminders_container" style="display:' + (pressChoice === 'yes' ? 'block' : 'none') + ';">';
-        html += '    <div id="qlx_press_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
-        html += '    </div>';
-        if (!data.is_production_done) {
+        if (data.is_production_done) {
+            html += '  <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">🔥 NHẮC NHỞ BỘ PHẬN ÉP</div>';
+            if (pressReminders.length > 0) {
+                html += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                pressReminders.forEach(function(r) {
+                    var isViewed = r.is_viewed;
+                    html += '    <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid ' + (isViewed ? '#059669' : '#dc2626') + '; border-radius:10px; padding:10px 12px;">';
+                    html += '       <div style="flex:1; font-size:12px; font-weight:700; color:#334155; line-height:1.4">' + (r.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isViewed) {
+                        html += '       <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #059669; background:#ecfdf5; color:#059669; font-size:11px; font-weight:800">✅ Đã Xem và Làm</span>';
+                    } else {
+                        html += '       <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #dc2626; background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800">❌ Chưa Xem</span>';
+                    }
+                    html += '    </div>';
+                });
+                html += '  </div>';
+            } else {
+                html += '  <div style="color:#94a3b8; font-size:11px; font-style:italic;">Không có nhắc nhở nào cho bộ phận ép.</div>';
+            }
+        } else {
+            html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+            html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🔥 Nhắc Nhở Bộ Phận Ép <span style="color:#dc2626">*</span></span>';
+            html += '    <div style="display:flex; gap:12px;">';
+            html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#7c3aed; margin:0;">';
+            html += '        <input type="radio" name="qlx_press_remind_choice" value="yes" ' + (pressChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#7c3aed; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+            html += '      </label>';
+            html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+            html += '        <input type="radio" name="qlx_press_remind_choice" value="none" ' + (pressChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+            html += '      </label>';
+            html += '    </div>';
+            html += '  </div>';
+            html += '  <div id="qlx_press_reminders_container" style="display:' + (pressChoice === 'yes' ? 'block' : 'none') + '; margin-bottom:8px;">';
+            html += '    <div id="qlx_press_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
+            html += '    </div>';
             html += '    <button type="button" onclick="_qlxAddReminderInput(\'ep\')" style="padding:6px 12px; background:#f3e8ff; color:#6b21a8; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+            html += '  </div>';
         }
-        html += '  </div>';
         html += '</div>';
 
         html += '</div>'; // close QLX Nhắc Nhở container
@@ -1603,24 +1692,24 @@ async function _qlxAssignIn(orderId, itemId) {
         ov.innerHTML = '<div class="qlx-cl-popup" style="width:500px;max-height:85vh">' + html + '</div>';
         document.body.appendChild(ov);
 
-        // Populate existing print reminders
-        var printReminders = reminders.filter(function(r) { return r.dept === 'in'; });
-        if (printChoice === 'yes' && printReminders.length > 0) {
-            printReminders.forEach(function(r) {
-                _qlxAddReminderInput('in', r.content, data.is_production_done);
-            });
-        } else if (printChoice === 'yes') {
-            _qlxAddReminderInput('in', '', data.is_production_done);
-        }
-        
-        // Populate existing press reminders
-        var pressReminders = reminders.filter(function(r) { return r.dept === 'ep'; });
-        if (pressChoice === 'yes' && pressReminders.length > 0) {
-            pressReminders.forEach(function(r) {
-                _qlxAddReminderInput('ep', r.content, data.is_production_done);
-            });
-        } else if (pressChoice === 'yes') {
-            _qlxAddReminderInput('ep', '', data.is_production_done);
+        if (!data.is_production_done) {
+            // Populate existing print reminders
+            if (printChoice === 'yes' && printReminders.length > 0) {
+                printReminders.forEach(function(r) {
+                    _qlxAddReminderInput('in', r.content, false);
+                });
+            } else if (printChoice === 'yes') {
+                _qlxAddReminderInput('in', '', false);
+            }
+            
+            // Populate existing press reminders
+            if (pressChoice === 'yes' && pressReminders.length > 0) {
+                pressReminders.forEach(function(r) {
+                    _qlxAddReminderInput('ep', r.content, false);
+                });
+            } else if (pressChoice === 'yes') {
+                _qlxAddReminderInput('ep', '', false);
+            }
         }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
