@@ -1,6 +1,7 @@
 // ========== BỘ PHẬN IN — Desktop SPA ==========
 var currentYear = new Date().getFullYear();
 var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, statsFilter: 'all', search: '', page: 1, ps: 200, contractors: [] };
+window._bpiRecentlyCompletedIds = [];
 var _bpiOpen = {};
 _bpiOpen['y' + currentYear] = true;
 _bpiOpen['p' + currentYear] = true;
@@ -316,6 +317,9 @@ async function _bpiLoadRecs() {
     if (f.month) qs += '&month='+f.month;
     if (f.operator_type) qs += '&operator_type='+f.operator_type;
     if (f.operator_id) qs += '&operator_id='+f.operator_id;
+    if (window._bpiRecentlyCompletedIds && window._bpiRecentlyCompletedIds.length) {
+        qs += '&include_ids='+window._bpiRecentlyCompletedIds.join(',');
+    }
     try { var res = await apiCall('/api/printing/records'+qs); _bpi.records = res.records||[]; _bpi.page=1; _bpiRender(); } catch(e) { console.error('[BPI]',e); }
 }
 
@@ -454,15 +458,27 @@ function _bpiRender() {
     
     // Compute stats BEFORE applying statsFilter so numbers match the current view
     var totalCount = all.length;
-    var testingCount = all.filter(function(r){return r.is_test_print && !r.is_completed;}).length;
-    var pendingCount = all.filter(function(r){return !r.is_completed;}).length;
+    var testingCount = all.filter(function(r){
+        var isRecent = window._bpiRecentlyCompletedIds && window._bpiRecentlyCompletedIds.indexOf(r.id) !== -1;
+        return r.is_test_print && (!r.is_completed || isRecent);
+    }).length;
+    var pendingCount = all.filter(function(r){
+        var isRecent = window._bpiRecentlyCompletedIds && window._bpiRecentlyCompletedIds.indexOf(r.id) !== -1;
+        return !r.is_completed || isRecent;
+    }).length;
     var doneCount = all.filter(function(r){return r.is_completed;}).length;
 
     // Apply statsFilter
     if (_bpi.statsFilter === 'testing') {
-        all = all.filter(function(r){return r.is_test_print && !r.is_completed;});
+        all = all.filter(function(r){
+            var isRecent = window._bpiRecentlyCompletedIds && window._bpiRecentlyCompletedIds.indexOf(r.id) !== -1;
+            return r.is_test_print && (!r.is_completed || isRecent);
+        });
     } else if (_bpi.statsFilter === 'pending') {
-        all = all.filter(function(r){return !r.is_completed;});
+        all = all.filter(function(r){
+            var isRecent = window._bpiRecentlyCompletedIds && window._bpiRecentlyCompletedIds.indexOf(r.id) !== -1;
+            return !r.is_completed || isRecent;
+        });
     } else if (_bpi.statsFilter === 'done') {
         all = all.filter(function(r){return r.is_completed;});
     }
@@ -742,6 +758,7 @@ async function _bpiTog(id, action) {
                     try {
                         await apiCall('/api/printing/toggle/'+id,'POST',{action: 'undo_done'});
                         showToast('✅ Đã hủy xác nhận');
+                        window._bpiRecentlyCompletedIds = window._bpiRecentlyCompletedIds.filter(function(x) { return String(x) !== String(id); });
                         await _bpiLoadAll();
                     } catch(e) {
                         showToast(e.message||'Lỗi','error');
@@ -771,6 +788,11 @@ async function _bpiTog(id, action) {
     try {
         await apiCall('/api/printing/toggle/'+id,'POST',{action});
         showToast('✅ Cập nhật');
+        if (action === 'print_done') {
+            if (window._bpiRecentlyCompletedIds.indexOf(Number(id)) === -1) {
+                window._bpiRecentlyCompletedIds.push(Number(id));
+            }
+        }
         await _bpiLoadAll();
     } catch(e) {
         showToast(e.message||'Lỗi','error');
@@ -1241,6 +1263,9 @@ async function _bpiSubmitDone(id) {
             } catch(ve) { console.error('Lỗi lưu trạng thái xem nhắc nhở:', ve); }
         }
         
+        if (window._bpiRecentlyCompletedIds.indexOf(Number(id)) === -1) {
+            window._bpiRecentlyCompletedIds.push(Number(id));
+        }
         showToast('✅ Đã xác nhận in xong');
         _bpiCloseDoneModal();
         await _bpiLoadAll();

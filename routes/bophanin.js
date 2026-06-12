@@ -406,7 +406,7 @@ module.exports = async function(fastify) {
     // ========== LIST ==========
     fastify.get('/api/printing/records', { preHandler: [authenticate] }, async (req) => {
         const isManager = await isPrintManager(req);
-        const { year, status, field, search, month, operator_type, operator_id } = req.query;
+        const { year, status, field, search, month, operator_type, operator_id, include_ids } = req.query;
         
         let userFilter = '';
         let params = [];
@@ -427,7 +427,17 @@ module.exports = async function(fastify) {
         }
         if (status) {
             if (status === 'pending') {
-                where += ` AND up.is_completed = false`;
+                if (include_ids) {
+                    const parsedIds = include_ids.split(',').map(Number).filter(Boolean);
+                    if (parsedIds.length > 0) {
+                        where += ` AND (up.is_completed = false OR up.id = ANY($${idx++}))`;
+                        params.push(parsedIds);
+                    } else {
+                        where += ` AND up.is_completed = false`;
+                    }
+                } else {
+                    where += ` AND up.is_completed = false`;
+                }
             } else if (status === 'done') {
                 where += ` AND up.is_completed = true`;
             }

@@ -202,6 +202,7 @@
     <a href="/bophaninhv" class="mb">← Về trang Desktop</a>
 <script>
 let cu=null,mr=[];
+let recentlyCompletedIds = [];
 async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function mQtyColor(r){
@@ -246,9 +247,9 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
             return;
         }
     document.getElementById('mU').textContent=cu.full_name||cu.username;document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
-async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;
+async function mLoad(){const st=document.getElementById('mFS')?.value||'',dt=document.getElementById('mFD')?.value||'';let q='?_=1';if(st)q+='&status='+st;if(st==='pending'&&recentlyCompletedIds.length)q+='&include_ids='+recentlyCompletedIds.join(',');
 try{const r=await api('/api/printing/records'+q);mr=r.records||[];if(dt)mr=mr.filter(r=>r.print_date&&r.print_date.startsWith(dt));mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">⚠️</div><div>'+e.message+'</div></div>'}}
-function mStats(){const t=mr.length,te=mr.filter(r=>r.is_test_print&&!r.is_completed).length,d=mr.filter(r=>r.is_completed).length,er=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sE').textContent=te;document.getElementById('sD').textContent=d;document.getElementById('sR').textContent=er}
+function mStats(){const t=mr.length,te=mr.filter(r=>r.is_test_print&&(!r.is_completed||recentlyCompletedIds.includes(r.id))).length,d=mr.filter(r=>r.is_completed).length,er=mr.filter(r=>r.error_reported).length;document.getElementById('sT').textContent=t;document.getElementById('sE').textContent=te;document.getElementById('sD').textContent=d;document.getElementById('sR').textContent=er}
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div class="me"><div style="font-size:48px;margin-bottom:12px">🖨️</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có đơn in</div></div>';return}
 c.innerHTML=mr.map(r=>{
 const ic=r.is_completed?'✅':r.is_test_print?'🧪':'📋';
@@ -370,6 +371,7 @@ async function mTog(id,a){
                     try {
                         await api('/api/printing/toggle/'+id,'POST',{action: 'undo_done'});
                         toast('✅ Đã hủy xác nhận');
+                        recentlyCompletedIds = recentlyCompletedIds.filter(x => String(x) !== String(id));
                         await mLoad();
                     } catch(e) {
                         toast(e.message||'Lỗi','error');
@@ -398,7 +400,16 @@ async function mTog(id,a){
             }
         }
     }
-    try{await api('/api/printing/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}
+    try{
+        await api('/api/printing/toggle/'+id,'POST',{action:a});
+        toast('✅ Cập nhật');
+        if (a === 'print_done') {
+            if (!recentlyCompletedIds.includes(Number(id))) {
+                recentlyCompletedIds.push(Number(id));
+            }
+        }
+        await mLoad();
+    }catch(e){toast(e.message||'Lỗi','error')}
 }
 
 // Modal functions for mobile printing completion
@@ -841,6 +852,9 @@ async function mSubmitDone(id) {
             roll_end_qty: endQty,
             image_url: imageUrl
         });
+        if (!recentlyCompletedIds.includes(Number(id))) {
+            recentlyCompletedIds.push(Number(id));
+        }
         toast('✅ Đã xác nhận in xong');
         mCloseDoneModal();
         await mLoad();
