@@ -268,7 +268,6 @@ var _dhtSortDefs = [
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
     { key: 'shipped_at',       label: '🚛Ngày Gửi',    type: 'date' },
     { key: null,               label: 'Tiến Độ',        type: 'none' },
-    { key: 'prod_done',        label: 'Quy Trình SX',  type: 'num',  align: 'center' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
     { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
     { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
