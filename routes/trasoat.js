@@ -134,12 +134,14 @@ module.exports = async function(fastify) {
         const sewing = await db.all(`
             SELECT sr.*, u.full_name AS sewer_name,
                 ct.name AS contractor_name,
+                dt.name AS team_name,
                 (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_count,
                 (SELECT MAX(answered_at) FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_date,
                 (SELECT u2.full_name FROM qc_checklist_answers qca JOIN users u2 ON qca.answered_by = u2.id WHERE qca.sewing_record_id = sr.id LIMIT 1) AS qc_by_name
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id = u.id
             LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
+            LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
             WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
         `, [orderId]);
 
@@ -241,11 +243,11 @@ module.exports = async function(fastify) {
             const allSewDone = sewTotalCount > 0 && sewing.every(s => s.done_date);
             const lastSewDone = sewing.filter(s => s.done_date).sort((a,b) => new Date(b.done_date) - new Date(a.done_date))[0];
             const sewTime = lastSewDone ? lastSewDone.done_date : null;
-            const sewWorker = [...new Set(sewing.map(s => s.sewer_name || s.contractor_name).filter(Boolean))].join(', ') || null;
+            const sewWorker = [...new Set(sewing.map(s => s.sewer_name || s.contractor_name || s.team_name).filter(Boolean))].join(', ') || null;
 
             const sewDone = sewTotalCount > 0 ? allSewDone : (sewRec ? true : false);
             const sewDisplayTime = sewTotalCount > 0 ? sewTime : sewRec?.done_date;
-            const sewDisplayWorker = sewTotalCount > 0 ? sewWorker : (sewRec?.sewer_name || sewRec?.contractor_name);
+            const sewDisplayWorker = sewTotalCount > 0 ? sewWorker : (sewRec?.sewer_name || sewRec?.contractor_name || sewRec?.team_name);
 
             // QC calculations
             const qcDoneCount = sewing.filter(s => s.qc_count > 0).length;
@@ -466,11 +468,11 @@ module.exports = async function(fastify) {
         if (step === 'may') {
             const records = await db.all(`
                 SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
-                    st.name AS team_name, doi.description AS item_description
+                    dt.name AS team_name, doi.description AS item_description
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
-                LEFT JOIN sewing_teams st ON sr.sewing_team_id = st.id
+                LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
             `, [orderId]);
@@ -484,13 +486,13 @@ module.exports = async function(fastify) {
         if (step === 'qc') {
             const records = await db.all(`
                 SELECT sr.*, doi.description AS item_description,
-                    COALESCE(u.full_name, c.name, t.name) AS sewer_name,
+                    COALESCE(u.full_name, c.name, dt.name) AS sewer_name,
                     qc_u.full_name AS finisher_name,
                     (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
-                LEFT JOIN teams t ON sr.sewing_team_id = t.id
+                LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 LEFT JOIN (
                     SELECT DISTINCT ON (sewing_record_id) sewing_record_id, answered_by
@@ -515,7 +517,7 @@ module.exports = async function(fastify) {
         if (step === 'ht') {
             const records = await db.all(`
                 SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description,
-                    COALESCE(u_sew.full_name, c.name, t.name) AS sewer_name,
+                    COALESCE(u_sew.full_name, c.name, dt.name) AS sewer_name,
                     sr.contractor_id,
                     (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count
                 FROM finishing_records fr
@@ -523,7 +525,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
                 LEFT JOIN users u_sew ON sr.sewer_id = u_sew.id
                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
-                LEFT JOIN teams t ON sr.sewing_team_id = t.id
+                LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
