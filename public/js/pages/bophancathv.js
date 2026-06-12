@@ -1324,14 +1324,24 @@ async function _bpcOpenCutModal(recordId) {
     h += '<div class="bpc-modal" style="width:520px">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#dc2626,#ef4444)"><div class="m-icon">✂️</div><div><div class="m-title">BẮT ĐẦU CẮT</div><div class="m-sub">Chọn cây vải để cắt</div></div></div>';
     h += '<div class="bpc-modal-body" id="_bpcCutBody" style="max-height:60vh;overflow-y:auto"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải cây vải...</div></div>';
-    h += '<div class="bpc-modal-actions" id="_bpcCutActions" style="display:none"><button class="bpc-modal-btn cancel" onclick="_bpcCloseCutModal()">Hủy</button><button class="bpc-modal-btn confirm" id="_bpcCutConfirmBtn" onclick="_bpcDoCut('+recordId+')">✂️ XÁC NHẬN CẮT</button></div>';
+    h += '<div class="bpc-modal-actions" id="_bpcCutActions" style="display:none"><button class="bpc-modal-btn cancel" onclick="_bpcCloseCutModal()">Hủy</button><button class="bpc-modal-btn confirm" id="_bpcCutConfirmBtn" disabled style="opacity:0.5;cursor:not-allowed;" onclick="_bpcDoCut('+recordId+')">✂️ XÁC NHẬN CẮT</button></div>';
     h += '</div></div>';
     document.body.insertAdjacentHTML('beforeend', h);
     requestAnimationFrame(function() { document.getElementById('_bpcCutModal').classList.add('show'); });
-    // Fetch rolls
+    // Fetch rolls and reminders
     try {
-        var res = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(rec.material_name || '') + '&color_name=' + encodeURIComponent(rec.fabric_color || ''));
-        var rolls = res.rolls || [];
+        var rollsRes = apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(rec.material_name || '') + '&color_name=' + encodeURIComponent(rec.fabric_color || ''));
+        
+        var remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat';
+        if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
+        var remRes = apiCall(remUrl);
+        
+        var results = await Promise.all([rollsRes, remRes]);
+        var rolls = results[0].rolls || [];
+        var cutReminders = results[1].reminders || [];
+        var cutReminderIds = results[1].reminder_ids || [];
+        var cutViewedIds = results[1].viewed_ids || [];
+        
         var body = document.getElementById('_bpcCutBody');
         var bh = '';
         // Readonly fields
@@ -1349,7 +1359,7 @@ async function _bpcOpenCutModal(recordId) {
                 var lockInfo = roll.locked ? '<span style="color:#ef4444;font-size:10px;margin-left:6px">🔒 ' + (roll.locked_order ? roll.locked_order + ' — ' : '') + (roll.locked_by || 'Đang cắt') + '</span>' : '';
                 var opacity = roll.locked ? 'opacity:0.5;' : '';
                 bh += '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled)this.style.borderColor=\'#dc2626\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">';
-                bh += '<input type="checkbox" class="_bpcRollCb" value="'+roll.id+'" data-weight="'+roll.weight+'"'+disabled+' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
+                bh += '<input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
                 bh += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
                 bh += lockInfo;
                 bh += '</label>';
@@ -1361,8 +1371,32 @@ async function _bpcOpenCutModal(recordId) {
         bh += '<span style="font-size:13px;font-weight:800;color:#1e293b">⚖️ SỐ KG ĐẦU</span>';
         bh += '<span id="_bpcKgDisplay" style="font-size:20px;font-weight:900;color:#dc2626">0.00 kg</span>';
         bh += '</div>';
+
+        // Reminders block
+        if (cutReminders.length > 0) {
+            bh += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+            bh += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+            bh += '  <div style="display:flex;flex-direction:column;gap:10px">';
+            cutReminders.forEach(function(rem, remIdx) {
+                var remId = cutReminderIds[remIdx] || 0;
+                var isViewed = cutViewedIds.indexOf(remId) >= 0;
+                bh += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#059669' : '#fca5a5') + ';border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+                bh += '       <input type="checkbox" class="bpc-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+                bh += '       <div style="flex:1;font-size:12px;font-weight:700;color:#7f1d1d;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                if (isViewed) {
+                    bh += '       <button type="button" class="bpc-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpcToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
+                } else {
+                    bh += '       <button type="button" class="bpc-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpcToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #dc2626;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpcReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
+                }
+                bh += '    </div>';
+            });
+            bh += '  </div>';
+            bh += '</div>';
+        }
+
         body.innerHTML = bh;
         document.getElementById('_bpcCutActions').style.display = 'flex';
+        _bpcUpdateConfirmState();
     } catch(e) {
         var body2 = document.getElementById('_bpcCutBody');
         if (body2) body2.innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444">❌ Lỗi: ' + (e.message||'Không thể tải') + '</div>';
@@ -1376,6 +1410,7 @@ function _bpcRecalcKg() {
     cbs.forEach(function(cb) { total += parseFloat(cb.dataset.weight) || 0; });
     var el = document.getElementById('_bpcKgDisplay');
     if (el) el.textContent = _bpcFmtKg(total) + ' kg';
+    _bpcUpdateConfirmState();
 }
 
 function _bpcCloseCutModal() {
@@ -1389,23 +1424,105 @@ async function _bpcDoCut(recordId) {
     window._bpcSubmitBusy = true;
     var cbs = document.querySelectorAll('._bpcRollCb:checked');
     if (!cbs.length) { showToast('Vui lòng chọn ít nhất 1 cây vải', 'error'); window._bpcSubmitBusy = false; return; }
+    
+    // Check reminders again for safety
+    var totalReminders = document.querySelectorAll('.bpc-reminder-cb').length;
+    var checkedReminders = document.querySelectorAll('.bpc-reminder-cb:checked').length;
+    if (checkedReminders < totalReminders) {
+        showToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', 'error');
+        window._bpcSubmitBusy = false;
+        return;
+    }
+    
     var rollIds = [];
     cbs.forEach(function(cb) { rollIds.push(Number(cb.value)); });
     var btn = document.getElementById('_bpcCutConfirmBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
     try {
+        // First submit reminders viewed status
+        if (totalReminders > 0) {
+            var reminderIds = [];
+            document.querySelectorAll('.bpc-reminder-cb:checked').forEach(function(cb) {
+                reminderIds.push(Number(cb.dataset.reminderId));
+            });
+            await apiCall('/api/qlx/reminders/viewed', 'POST', {
+                reminder_ids: reminderIds,
+                record_type: 'cutting',
+                record_id: recordId
+            });
+        }
+        
         await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'start_cutting', selected_roll_ids: rollIds });
         _bpcCloseCutModal();
         showToast('✅ Đã bắt đầu cắt — ' + rollIds.length + ' cây');
         await _bpcLoadAll();
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
-        if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; }
+        if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; _bpcUpdateConfirmState(); }
     } finally {
         window._bpcSubmitBusy = false;
         window._bpcBusy = false;
     }
 }
+
+function _bpcToggleReminder(btn) {
+    var remId = btn.getAttribute('data-reminder-id');
+    var cb = document.querySelector('.bpc-reminder-cb[data-reminder-id="' + remId + '"]');
+    if (!cb) return;
+    
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #059669';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#059669';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#059669';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #dc2626';
+        btn.style.background = '#fee2e2';
+        btn.style.color = '#dc2626';
+        btn.style.animation = 'bpcReminderPulse 2s infinite';
+        if (card) card.style.borderColor = '#fca5a5';
+    }
+    
+    _bpcUpdateConfirmState();
+}
+
+function _bpcUpdateConfirmState() {
+    var confirmBtn = document.getElementById('_bpcCutConfirmBtn');
+    if (!confirmBtn) return;
+    
+    var selectedRolls = document.querySelectorAll('._bpcRollCb:checked').length;
+    var totalReminders = document.querySelectorAll('.bpc-reminder-cb').length;
+    var checkedReminders = document.querySelectorAll('.bpc-reminder-cb:checked').length;
+    var allRemindersChecked = (checkedReminders === totalReminders);
+    
+    var isValid = (selectedRolls > 0) && allRemindersChecked;
+    
+    confirmBtn.disabled = !isValid;
+    if (isValid) {
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+    } else {
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.cursor = 'not-allowed';
+    }
+}
+
+// Add CSS animation for cutting reminder pulse
+(function() {
+    if (document.getElementById('bpcReminderStyles')) return;
+    var style = document.createElement('style');
+    style.id = 'bpcReminderStyles';
+    style.textContent = '@keyframes bpcReminderPulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 8px rgba(220,38,38,0)} }';
+    document.head.appendChild(style);
+})();
 
 // ========== DETAIL MODAL: Xem chi tiết đơn cắt ==========
 // ========== DETAIL MODAL: Xem chi tiết đơn cắt ==========

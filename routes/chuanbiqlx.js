@@ -213,7 +213,8 @@ module.exports = async function(fastify) {
     try {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS print_remind_choice VARCHAR(20)`);
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS press_remind_choice VARCHAR(20)`);
-    } catch(e) { console.error('[QLX] print/press choice columns:', e.message); }
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS cut_remind_choice VARCHAR(20)`);
+    } catch(e) { console.error('[QLX] print/press/cut choice columns:', e.message); }
 
     // ========== HELPERS FOR PREPARATION ROWS ==========
     async function ensureOrderPrepRow(orderId) {
@@ -958,6 +959,11 @@ module.exports = async function(fastify) {
                         ? await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_reported = true LIMIT 1`, [orderId, r.item_id])
                         : await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND is_reported = true LIMIT 1`, [orderId]);
                     if (row) viewedIds.push(r.id);
+                } else if (r.dept === 'cat') {
+                    const row = r.item_id
+                        ? await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id])
+                        : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = true LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
                 }
             }
         }
@@ -1173,11 +1179,11 @@ module.exports = async function(fastify) {
             `, [print_remind_choice, press_remind_choice, now, orderId]);
         }
 
-        // Delete existing reminders for this order/item
+        // Delete existing reminders for this order/item (only for print/press department)
         if (itemId) {
-            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1`, [itemId]);
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
         } else {
-            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
         }
 
         // Insert new reminders
@@ -1766,6 +1772,11 @@ module.exports = async function(fastify) {
         `, [orderId, itemId, pi]);
         const myLinkedIds = myLinked.map(r => r.linked_call_id);
 
+        await ensureItemPrepRow(orderId, itemId);
+        const prep = await db.get('SELECT cut_remind_choice FROM qlx_preparation WHERE item_id = $1', [itemId]);
+        const cutRemindChoice = prep ? (prep.cut_remind_choice || 'none') : 'none';
+        const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' ORDER BY id", [itemId]);
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity },
@@ -1774,7 +1785,9 @@ module.exports = async function(fastify) {
             rolls,
             existing,
             pendingCalls,
-            myLinkedIds
+            myLinkedIds,
+            cut_remind_choice: cutRemindChoice,
+            cut_reminders: cutReminders
         };
     });
 
@@ -1831,6 +1844,45 @@ module.exports = async function(fastify) {
         } else if (reservation_type === 'new_call') {
             if ((!call_trees || call_trees <= 0) && (!call_amount || Number(call_amount) <= 0))
                 return reply.code(400).send({ error: 'Nhập số cây hoặc số lượng gọi vải' });
+
+            const { cut_remind_choice, cut_reminders } = request.body || {};
+            if (!cut_remind_choice) {
+                return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
+            }
+            if (!['yes', 'none'].includes(cut_remind_choice)) {
+                return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
+            }
+
+            if (cut_remind_choice === 'yes') {
+                if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
+                    return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
+                }
+                for (const content of cut_reminders) {
+                    if (!content || !content.trim()) {
+                        return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
+                    }
+                }
+            }
+
+            await ensureItemPrepRow(dht_order_id, item_id);
+            await db.run(`
+                UPDATE qlx_preparation
+                SET cut_remind_choice = $1, updated_at = $2
+                WHERE item_id = $3
+            `, [cut_remind_choice, now, item_id]);
+
+            // Delete existing cutting reminders for this item
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+
+            // Insert new cutting reminders
+            if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
+                for (const content of cut_reminders) {
+                    await db.run(`
+                        INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                        VALUES ($1, $2, 'cat', $3, $4, $5)
+                    `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+                }
+            }
 
             await db.run(`
                 INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,

@@ -662,7 +662,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders);
         } else {
             // Determine which type already chosen
             var hasStock = false, hasCall = false;
@@ -873,7 +873,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders);
             html += '</div>';
         }
 
@@ -887,10 +887,22 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
         ov.innerHTML = '<div class="qlx-cl-popup" style="width:700px;max-height:90vh;overflow-y:auto">' + html + '</div>';
         document.body.appendChild(ov);
+
+        // Populate existing cut reminders
+        var cutChoice = data.cut_remind_choice || 'none';
+        var cutReminders = data.cut_reminders || [];
+        if (cutChoice === 'yes' && cutReminders.length > 0) {
+            cutReminders.forEach(function(r) {
+                _qlxAddReminderInput('cat', r.content);
+            });
+        } else if (cutChoice === 'yes') {
+            _qlxAddReminderInput('cat');
+        }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders) {
+    cutChoice = cutChoice || 'none';
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
     var oninput = 'oninput="_qlxFabPreview(\'' + mat + '\',\'' + col + '\',\'' + unit + '\')"';
@@ -902,6 +914,27 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex) {
     html += '<div style="flex:1;min-width:150px"><label style="font-size:10px;font-weight:600;color:#475569">Ghi chú</label><input id="_qlxFabCallNote" placeholder="..." ' + oninput + ' style="display:block;width:100%;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px"></div>';
     html += '</div>';
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" value="' + new Date(new Date().getTime() + 7*3600000).toISOString().slice(0,10) + '" readonly style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:#f1f5f9;color:#475569;cursor:not-allowed"></div>';
+
+    // Nhắc Nhở Bộ Phận Cắt
+    html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
+    html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+    html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">✂️ Nhắc Nhở Bộ Phận Cắt <span style="color:#dc2626">*</span></span>';
+    html += '    <div style="display:flex; gap:12px;">';
+    html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
+    html += '        <input type="radio" name="qlx_cut_remind_choice" value="yes" ' + (cutChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+    html += '      </label>';
+    html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+    html += '        <input type="radio" name="qlx_cut_remind_choice" value="none" ' + (cutChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+    html += '      </label>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '  <div id="qlx_cut_reminders_container" style="display:' + (cutChoice === 'yes' ? 'block' : 'none') + ';">';
+    html += '    <div id="qlx_cut_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
+    html += '    </div>';
+    html += '    <button type="button" onclick="_qlxAddReminderInput(\'cat\')" style="padding:6px 12px; background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+    html += '  </div>';
+    html += '</div>';
+
     html += '<div id="_qlxFabCallPreview" style="margin-bottom:8px"></div>';
     html += '<button onclick="_qlxFabCallSubmit(\'' + mat + '\',\'' + col + '\',\'' + unit + '\',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;width:100%">💾 Xác Nhận Gọi Vải</button>';
     html += '<div id="_qlxFabCallResult" style="margin-top:8px"></div>';
@@ -945,12 +978,40 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
     if (note) parts.push(note);
     var content = parts.join(' - ');
 
+    var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
+    if (!choiceEl) {
+        showToast('Vui lòng chọn Có nhắc nhở hoặc Không nhắc nhở cho Bộ Phận Cắt!', 'error');
+        window._qlxFabBusy = false;
+        return;
+    }
+    var cutChoice = choiceEl.value;
+    var cutReminders = [];
+    if (cutChoice === 'yes') {
+        var reminderInputs = document.querySelectorAll('#qlx_cut_reminders_list .qlx-reminder-text-input');
+        if (reminderInputs.length === 0) {
+            showToast('Vui lòng thêm nội dung nhắc nhở bộ phận cắt!', 'error');
+            window._qlxFabBusy = false;
+            return;
+        }
+        for (var i = 0; i < reminderInputs.length; i++) {
+            var val = reminderInputs[i].value.trim();
+            if (!val) {
+                showToast('Nội dung nhắc nhở bộ phận cắt bắt buộc phải điền!', 'error');
+                window._qlxFabBusy = false;
+                reminderInputs[i].focus();
+                return;
+            }
+            cutReminders.push(val);
+        }
+    }
+
     try {
         var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
             reservation_type: 'new_call', call_trees: trees, call_amount: amount,
-            call_note: note, call_date: callDate || null, call_content: content
+            call_note: note, call_date: callDate || null, call_content: content,
+            cut_remind_choice: cutChoice, cut_reminders: cutReminders
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
@@ -1405,9 +1466,11 @@ async function _qlxAssignIn(orderId, itemId) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
+
+
 function _qlxToggleRemindersArea(dept) {
-    var inputName = dept === 'in' ? 'qlx_print_remind_choice' : 'qlx_press_remind_choice';
-    var idPrefix = dept === 'in' ? 'print' : 'press';
+    var inputName = dept === 'in' ? 'qlx_print_remind_choice' : (dept === 'ep' ? 'qlx_press_remind_choice' : 'qlx_cut_remind_choice');
+    var idPrefix = dept === 'in' ? 'print' : (dept === 'ep' ? 'press' : 'cut');
     var choice = document.querySelector('input[name="' + inputName + '"]:checked')?.value;
     var container = document.getElementById('qlx_' + idPrefix + '_reminders_container');
     if (container) {
@@ -1423,7 +1486,7 @@ function _qlxToggleRemindersArea(dept) {
 
 function _qlxAddReminderInput(dept, val) {
     val = val || '';
-    var idPrefix = dept === 'in' ? 'print' : 'press';
+    var idPrefix = dept === 'in' ? 'print' : (dept === 'ep' ? 'press' : 'cut');
     var list = document.getElementById('qlx_' + idPrefix + '_reminders_list');
     if (!list) return;
     
@@ -1463,7 +1526,7 @@ function _qlxAddReminderInput(dept, val) {
             var inp = row.querySelector('.qlx-reminder-text-input');
             if (inp) inp.placeholder = 'Nội dung nhắc nhở ' + (idx + 1) + '...';
         });
-        var inputName = dept === 'in' ? 'qlx_print_remind_choice' : 'qlx_press_remind_choice';
+        var inputName = dept === 'in' ? 'qlx_print_remind_choice' : (dept === 'ep' ? 'qlx_press_remind_choice' : 'qlx_cut_remind_choice');
         if (list.children.length === 0 && document.querySelector('input[name="' + inputName + '"]:checked')?.value === 'yes') {
             _qlxAddReminderInput(dept);
         }
