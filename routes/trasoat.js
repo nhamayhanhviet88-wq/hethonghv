@@ -615,12 +615,31 @@ module.exports = async function(fastify) {
         }
 
         if (step === 'gui') {
-            const finishRow = await db.get(`
-                SELECT MAX(completed_at) AS finishing_completed_at
-                FROM finishing_records
-                WHERE dht_order_id = $1 AND is_completed = true
-            `, [orderId]);
-            const finishing_completed_at = finishRow ? finishRow.finishing_completed_at : null;
+            const code = (order.order_code || '').toUpperCase();
+            const catName = (order.category_name || '').toUpperCase();
+            const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
+
+            let done_order_at = null;
+            if (isPetTem) {
+                const printRow = await db.get(`
+                    SELECT MAX(
+                        CASE 
+                            WHEN contractor_id IS NOT NULL THEN created_at 
+                            ELSE print_done_at 
+                        END
+                    ) AS max_print_time
+                    FROM printing_records
+                    WHERE dht_order_id = $1 AND (contractor_id IS NOT NULL OR is_print_done = true)
+                `, [orderId]);
+                done_order_at = printRow ? printRow.max_print_time : null;
+            } else {
+                const finishRow = await db.get(`
+                    SELECT MAX(completed_at) AS finishing_completed_at
+                    FROM finishing_records
+                    WHERE dht_order_id = $1 AND is_completed = true
+                `, [orderId]);
+                done_order_at = finishRow ? finishRow.finishing_completed_at : null;
+            }
 
             return {
                 step: 'gui',
@@ -639,7 +658,7 @@ module.exports = async function(fastify) {
                 carrier_phone: order.carrier_phone,
                 shipping_fee: order.shipping_fee,
                 shipping_fee_payer: order.shipping_fee_payer,
-                finishing_completed_at
+                done_order_at
             };
         }
 

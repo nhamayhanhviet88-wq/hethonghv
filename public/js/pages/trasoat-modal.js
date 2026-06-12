@@ -261,7 +261,7 @@ function _tsRenderStepModal(step, d){
         html = hdr('🚛','THÔNG TIN GỬI HÀNG',d.order_code,'#b45309,#d97706');
         body=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
         body+=`<div style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 HOÀN THÀNH HOÀN THIỆN</div><div style="font-weight:800;color:#1e40af">${d.finishing_completed_at?fmtShortDT(d.finishing_completed_at):'⏳ Chưa xong'}</div></div>
+            <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 THỜI GIAN XONG ĐƠN</div><div style="font-weight:800;color:#1e40af">${d.done_order_at?fmtShortDT(d.done_order_at):'⏳ Chưa xong'}</div></div>
             <div style="background:${d.shipped_at?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${d.shipped_at?'#16a34a':'#f59e0b'};font-weight:700">🚚 THỜI GIAN GIAO HÀNG</div><div style="font-weight:800;color:${d.shipped_at?'#166534':'#92400e'}">${d.shipped_at?fmtShortDT(d.shipped_at):'⏳ Chờ gửi'}</div></div>
         </div>`;
         body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
