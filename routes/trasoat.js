@@ -223,8 +223,8 @@ module.exports = async function(fastify) {
         const pressTotalCount = pressing.length;
         const pressProgress = pressTotalCount > 0 ? `${pressDoneCount}/${pressTotalCount}` : null;
         const allPressDone = pressTotalCount > 0 && pressing.every(p => p.is_reported);
-        const lastPressDone = pressing.filter(p => p.is_reported).sort((a,b) => new Date(b.reported_at || 0) - new Date(a.reported_at || 0))[0];
-        const pressTime = lastPressDone ? lastPressDone.reported_at : null;
+        const donePresses = pressing.filter(p => p.is_reported && p.reported_at);
+        const pressTime = donePresses.length > 0 ? new Date(Math.max(...donePresses.map(p => new Date(p.reported_at).getTime()))) : null;
         const pressWorker = [...new Set(pressing.map(p => p.presser_name).filter(Boolean))].join(', ') || null;
 
         let timeline;
