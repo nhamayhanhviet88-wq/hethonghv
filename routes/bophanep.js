@@ -1101,27 +1101,29 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const userId = request.user.id;
 
-        // Implement transaction-level row locking to prevent race conditions (double claiming)
-        await db.run('BEGIN');
+        const pool = db.getDB();
+        const client = await pool.connect();
         try {
-            const order = await db.get(`
+            await client.query('BEGIN');
+            const orderRes = await client.query(`
                 SELECT o.id, o.order_code, o.shipping_status
                 FROM dht_orders o
                 WHERE o.id = $1
             `, [dht_order_id]);
+            const order = orderRes.rows[0];
             if (!order) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
                 return reply.code(404).send({ error: 'Đơn không tồn tại' });
             }
             if (['shipped', 'cancelled'].includes(order.shipping_status)) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
                 return reply.code(400).send({
                     error: `Đơn hàng đã ${order.shipping_status === 'shipped' ? 'gửi đi' : 'bị hủy'} — không thể nhận đơn ép!`
                 });
             }
 
             // Lock the target dht_order_items row using FOR UPDATE to block concurrent claim requests
-            const item = await db.get(`
+            const itemRes = await client.query(`
                 SELECT doi.id, doi.description, doi.material_pairs, doi.quantity,
                        EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
                        NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
@@ -1198,19 +1200,20 @@ module.exports = async function(fastify) {
                 FROM dht_order_items doi
                 WHERE doi.id = $1 FOR UPDATE
             `, [order_item_id]);
+            const item = itemRes.rows[0];
             if (!item) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
                 return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
             }
 
             if (!item.has_pc_in) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
                 return reply.code(400).send({ error: 'Đơn hàng này không thuộc diện ép của xưởng (không có phân công in PET/Decal nội bộ)' });
             }
 
-            const exists = await db.get(`SELECT 1 FROM pressing_records WHERE order_item_id = $1`, [order_item_id]);
-            if (exists) {
-                await db.run('ROLLBACK');
+            const existsRes = await client.query(`SELECT 1 FROM pressing_records WHERE order_item_id = $1`, [order_item_id]);
+            if (existsRes.rows.length > 0) {
+                await client.query('ROLLBACK');
                 return reply.code(400).send({ error: 'Đơn này đã được nhận ép rồi!' });
             }
 
@@ -1236,23 +1239,25 @@ module.exports = async function(fastify) {
                         errs.push('chưa in xong');
                     }
                 }
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
                 return reply.code(400).send({ error: errMsg + errs.join(', ') });
             }
 
-            const cuts = await db.all(`
+            const cutsRes = await client.query(`
                 SELECT material_name, fabric_color, SUM(cut_quantity)::int AS cut_qty
                 FROM cutting_records
                 WHERE order_item_id = $1 AND is_cut_done = true
                 GROUP BY material_name, fabric_color
             `, [order_item_id]);
+            const cuts = cutsRes.rows;
 
             if (cuts.length === 0) {
-                await db.run('ROLLBACK');
+                await client.query('ROLLBACK');
                 return reply.code(400).send({ error: 'Không tìm thấy số lượng cắt hoàn thành' });
             }
 
-            const allItems = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+            const allItemsRes = await client.query(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
+            const allItems = allItemsRes.rows;
             const itemIdx = allItems.findIndex(a => a.id === Number(order_item_id)) + 1;
 
             let prodName = order.order_code;
@@ -1269,17 +1274,22 @@ module.exports = async function(fastify) {
             const maxCutQty = Math.max(...cuts.map(c => c.cut_qty || 0), 0);
             const targetQty = maxCutQty > 0 ? maxCutQty : (item.quantity || 0);
 
-            await db.run(`
+            const cskhRes = await client.query(`
+                SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $1
+            `, [dht_order_id]);
+            const cskh_name = cskhRes.rows[0]?.full_name || null;
+
+            await client.query(`
                 INSERT INTO pressing_records (
                     dht_order_id, order_item_id, presser_id, press_date, product_name, cskh_name,
                     order_quantity, press_quantity, press_salary, created_by, created_at, updated_at,
                     material_name, fabric_color
-                ) VALUES ($1, $2, $3, $4, $5, (SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $6), $7, 0, 0, $3, $8, $8, $9, $10)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, $3, $8, $8, $9, $10)
             `, [
-                dht_order_id, order_item_id, userId, now, prodName, dht_order_id, targetQty, now, materialName || null, fabricColor || null
+                dht_order_id, order_item_id, userId, now, prodName, cskh_name, targetQty, now, materialName || null, fabricColor || null
             ]);
 
-            await db.run('COMMIT');
+            await client.query('COMMIT');
             return { success: true, created: 1 };
         } catch (err) {
             await db.run('ROLLBACK');

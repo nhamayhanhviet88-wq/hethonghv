@@ -439,18 +439,20 @@ module.exports = async function(fastify) {
         if (!Array.isArray(settings)) return reply.code(400).send({ error: 'Cấu hình không hợp lệ' });
 
         const now = vnNow();
-        await db.run('BEGIN');
+        const pool = db.getDB();
+        const client = await pool.connect();
         try {
-            await db.run('DELETE FROM finishing_display_settings');
+            await client.query('BEGIN');
+            await client.query('DELETE FROM finishing_display_settings');
             for (const item of settings) {
-                await db.run(`
+                await client.query(`
                     INSERT INTO finishing_display_settings (source_type, source_id, is_visible)
                     VALUES ($1, $2, $3)
                 `, [item.source_type, Number(item.source_id), item.is_visible === true]);
 
                 if (item.is_visible === false) {
                     // Auto-complete existing undone finishing records for the hidden source
-                    const recordsToUpdate = await db.all(`
+                    const recordsToUpdate = await client.query(`
                         SELECT fr.id FROM finishing_records fr
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id
                         WHERE fr.done_date IS NULL
@@ -460,9 +462,9 @@ module.exports = async function(fastify) {
                           )
                     `, [Number(item.source_id), item.source_type]);
 
-                    if (recordsToUpdate.length > 0) {
-                        const ids = recordsToUpdate.map(r => r.id);
-                        await db.run(`
+                    if (recordsToUpdate.rows.length > 0) {
+                        const ids = recordsToUpdate.rows.map(r => r.id);
+                        await client.query(`
                             UPDATE finishing_records
                             SET is_completed = true,
                                 done_date = CURRENT_DATE,
@@ -473,7 +475,7 @@ module.exports = async function(fastify) {
                         `, [now, req.user.id]);
 
                         for (const id of ids) {
-                            await db.run(`
+                            await client.query(`
                                 INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at)
                                 VALUES ($1, 'complete', 'đơn không có ở mục hoàn thiện', $2, $3)
                             `, [id, req.user.id, now]);
@@ -481,11 +483,13 @@ module.exports = async function(fastify) {
                     }
                 }
             }
-            await db.run('COMMIT');
+            await client.query('COMMIT');
             return { success: true };
         } catch (e) {
-            await db.run('ROLLBACK');
+            await client.query('ROLLBACK');
             throw e;
+        } finally {
+            client.release();
         }
     });
 
