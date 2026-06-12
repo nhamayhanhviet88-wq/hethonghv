@@ -144,11 +144,14 @@ function _tsRenderStepModal(step, d){
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#0f766e;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.answers&&r.answers.length?'#d1fae5':'#fef3c7'};color:${r.answers&&r.answers.length?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.answers&&r.answers.length?'✅ Đã QC':'⏳ Chưa QC'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
+            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 BÀN GIAO MAY</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.handover_date)}</div></div>
+                <div style="background:${r.answers&&r.answers.length?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.answers&&r.answers.length?'#16a34a':'#f59e0b'};font-weight:700">🔍 HOÀN THÀNH QC</div><div style="font-weight:800;color:${r.answers&&r.answers.length?'#166534':'#92400e'}">${r.answers&&r.answers.length?fmtShortDT(r.qc_date):'⏳ Chưa QC'}</div></div>
+            </div>`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('🧵 Nhân Viên May',V(r.sewer_name));
             body+=row('👷 Nhân Viên QC',V(r.finisher_name),'#0d9488');
-            body+=row('📅 Thời Gian QC',fmtQCDate(r.qc_date));
             body+=row('📊 Số Lượng',r.quantity ? r.quantity+' sp' : '—');
             if(r.answers&&r.answers.length){
                 body+=section('📋','KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG');
