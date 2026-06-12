@@ -941,7 +941,7 @@ function _bpeCompressImage(file, callback) {
     reader.readAsDataURL(file);
 }
 
-function _bpeOpenReportModal(id) {
+async function _bpeOpenReportModal(id) {
     var r = (_bpe.fullRecords || []).find(function(x) { return x.id === id; });
     if (!r) {
         showToast('Không tìm thấy bản ghi đơn ép', 'error');
@@ -963,6 +963,21 @@ function _bpeOpenReportModal(id) {
 
     var matColor = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
     var cskh = r.cskh_name || '—';
+
+    // Fetch pressing reminders
+    var pressReminders = [];
+    var pressReminderIds = [];
+    var pressViewedIds = [];
+    try {
+        var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+        if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
+        var remRes = await apiCall(remUrl);
+        pressReminders = remRes.reminders || [];
+        pressReminderIds = remRes.reminder_ids || [];
+        pressViewedIds = remRes.viewed_ids || [];
+    } catch(e) {
+        console.error('Lỗi tải nhắc nhở ép:', e);
+    }
 
     var modalTitle = r.is_reported ? 'BÁO CÁO LẠI ĐƠN ÉP' : 'BÁO CÁO HOÀN THÀNH ÉP';
 
@@ -991,6 +1006,23 @@ function _bpeOpenReportModal(id) {
     h += '<span style="font-weight:700; color:#ea580c;">👉 Tổng Số Lượng Ép ( tổng của tất cả các chi tiết ):</span>';
     h += '<span id="_bpeReportQty" style="font-size:18px; font-weight:900; color:#ea580c;">0</span>';
     h += '</div>';
+
+    // QLX Reminder for pressing
+    if (pressReminders.length > 0) {
+        h += '<div style="margin-top:16px;background:#f3e8ff;border:1.5px solid #d8b4fe;padding:12px 14px;border-radius:12px;">';
+        h += '  <div style="font-weight:800;color:#581c87;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+        h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+        pressReminders.forEach(function(rem, remIdx) {
+            var remId = pressReminderIds[remIdx] || 0;
+            var isViewed = pressViewedIds.indexOf(remId) >= 0;
+            h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#581c87;line-height:1.4">';
+            h += '       <input type="checkbox" class="bpe-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' onchange="_bpeCheckReminders()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#7c3aed">';
+            h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            h += '    </label>';
+        });
+        h += '  </div>';
+        h += '</div>';
+    }
 
     // Image upload area
     h += '<div style="margin-top:16px;">';
@@ -1038,6 +1070,20 @@ function _bpeOpenReportModal(id) {
     _bpeSetupPasteListener();
     _bpeUpdateReportTotal();
     _bpeRenderReportImagePreviews();
+    _bpeCheckReminders();
+}
+
+function _bpeCheckReminders() {
+    // Visual feedback - actual validation happens in _bpeSubmitReport
+    var cbs = document.querySelectorAll('.bpe-reminder-cb');
+    var allChecked = true;
+    for (var i = 0; i < cbs.length; i++) {
+        if (!cbs[i].checked) { allChecked = false; break; }
+    }
+    var btn = document.getElementById('_bpeReportSubmitBtn');
+    if (btn && cbs.length > 0) {
+        btn.style.opacity = allChecked ? '1' : '0.6';
+    }
 }
 
 function _bpeCloseReportModal() {
@@ -1133,6 +1179,15 @@ async function _bpeSubmitReport(id) {
     var r = (_bpe.fullRecords || []).find(function(x) { return x.id === id; });
     var orderQty = r ? r.order_quantity : 9999;
 
+    // Check reminders
+    var reminderCbs = document.querySelectorAll('.bpe-reminder-cb');
+    for (var rc = 0; rc < reminderCbs.length; rc++) {
+        if (!reminderCbs[rc].checked) {
+            showToast('Bạn phải tích chọn Đã Xem Nhắc Nhở cho tất cả các dòng nhắc nhở bộ phận ép!', 'error');
+            return;
+        }
+    }
+
     var payload = {
         press_images: JSON.stringify(window._bpeReportImages),
         notes: notes
@@ -1192,6 +1247,25 @@ async function _bpeSubmitReport(id) {
     try {
         await apiCall('/api/pressing/records/' + id, 'PUT', payload);
         await apiCall('/api/pressing/toggle/' + id, 'POST', { action: 'report' });
+        
+        // Save viewed reminders
+        var viewedReminderIds = [];
+        var reminderCbs2 = document.querySelectorAll('.bpe-reminder-cb');
+        for (var j = 0; j < reminderCbs2.length; j++) {
+            if (reminderCbs2[j].checked) {
+                var remId = reminderCbs2[j].getAttribute('data-reminder-id');
+                if (remId && remId !== '0') viewedReminderIds.push(Number(remId));
+            }
+        }
+        if (viewedReminderIds.length > 0) {
+            try {
+                await apiCall('/api/qlx/reminders/viewed', 'POST', {
+                    reminder_ids: viewedReminderIds,
+                    record_type: 'pressing',
+                    record_id: id
+                });
+            } catch(ve) { console.error('Lỗi lưu trạng thái xem nhắc nhở:', ve); }
+        }
         
         showToast('✅ Đã báo cáo thành công');
         _bpeCloseReportModal();

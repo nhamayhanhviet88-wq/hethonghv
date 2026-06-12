@@ -779,12 +779,16 @@ async function _bpiShowDoneModal(r) {
     var old = document.getElementById('_bpiDoneModal'); if (old) old.remove();
 
     var printReminders = [];
+    var printReminderIds = [];
+    var printViewedIds = [];
     if (!r.contractor_id) {
         try {
             var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in';
             if (r.order_item_id) url += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(url);
             printReminders = remRes.reminders || [];
+            printReminderIds = remRes.reminder_ids || [];
+            printViewedIds = remRes.viewed_ids || [];
         } catch(e) {
             console.error('Lỗi tải nhắc nhở:', e);
         }
@@ -843,8 +847,10 @@ async function _bpiShowDoneModal(r) {
         h += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
         h += '  <div style="display:flex;flex-direction:column;gap:8px">';
         printReminders.forEach(function(rem, remIdx) {
+            var remId = printReminderIds[remIdx] || 0;
+            var isViewed = printViewedIds.indexOf(remId) >= 0;
             h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#7f1d1d;line-height:1.4">';
-            h += '       <input type="checkbox" class="bpi-reminder-cb" onchange="_bpiUpdateDoneMeters()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#dc2626">';
+            h += '       <input type="checkbox" class="bpi-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' onchange="_bpiUpdateDoneMeters()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#dc2626">';
             h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             h += '    </label>';
         });
@@ -1144,6 +1150,26 @@ async function _bpiSubmitDone(id) {
             roll_end_qty: endQty,
             image_url: imageUrl
         });
+        
+        // Save viewed reminders
+        var viewedReminderIds = [];
+        var reminderCbs2 = document.querySelectorAll('.bpi-reminder-cb');
+        for (var j = 0; j < reminderCbs2.length; j++) {
+            if (reminderCbs2[j].checked) {
+                var remId = reminderCbs2[j].getAttribute('data-reminder-id');
+                if (remId && remId !== '0') viewedReminderIds.push(Number(remId));
+            }
+        }
+        if (viewedReminderIds.length > 0) {
+            try {
+                await apiCall('/api/qlx/reminders/viewed', 'POST', {
+                    reminder_ids: viewedReminderIds,
+                    record_type: 'printing',
+                    record_id: Number(id)
+                });
+            } catch(ve) { console.error('Lỗi lưu trạng thái xem nhắc nhở:', ve); }
+        }
+        
         showToast('✅ Đã xác nhận in xong');
         _bpiCloseDoneModal();
         await _bpiLoadAll();

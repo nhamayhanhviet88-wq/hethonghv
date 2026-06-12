@@ -196,6 +196,16 @@ module.exports = async function(fastify) {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_reminders_order ON qlx_reminders(dht_order_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_reminders_item ON qlx_reminders(item_id)`);
+        // Table to track which reminders have been viewed by workers
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_reminder_views (
+            id SERIAL PRIMARY KEY,
+            reminder_id INTEGER NOT NULL REFERENCES qlx_reminders(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            record_type VARCHAR(20) NOT NULL,
+            record_id INTEGER,
+            viewed_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_reminder_views_unique ON qlx_reminder_views(reminder_id, user_id, record_type, COALESCE(record_id, 0))`);
     } catch(e) { console.error('[QLX] reminders table:', e.message); }
 
     try {
@@ -890,24 +900,81 @@ module.exports = async function(fastify) {
         const { order_id, item_id, dept } = request.query || {};
         if (!order_id) return reply.code(400).send({ error: 'Thiếu order_id' });
         
-        let query = 'SELECT content FROM qlx_reminders WHERE dht_order_id = $1';
-        const params = [Number(order_id)];
+        const orderId = Number(order_id);
+        const deptFilter = dept ? ` AND dept = '${dept.replace(/'/g, "''")}'` : '';
         
+        let reminders = [];
+        
+        // Tier 1: Exact item match
         if (item_id) {
-            query += ' AND item_id = $2';
-            params.push(Number(item_id));
-        } else {
-            query += ' AND item_id IS NULL';
+            reminders = await db.all(
+                `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id = $2${deptFilter} ORDER BY id`,
+                [orderId, Number(item_id)]
+            );
         }
         
-        if (dept) {
-            query += ` AND dept = $${params.length + 1}`;
-            params.push(dept);
+        // Tier 2: Order-level (item_id IS NULL)
+        if (reminders.length === 0) {
+            reminders = await db.all(
+                `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
+                [orderId]
+            );
         }
         
-        query += ' ORDER BY id';
-        const reminders = await db.all(query, params);
-        return { reminders: reminders.map(r => r.content) };
+        // Tier 3: Any item in the same order (fallback)
+        if (reminders.length === 0) {
+            reminders = await db.all(
+                `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1${deptFilter} ORDER BY id`,
+                [orderId]
+            );
+        }
+        
+        // Check which reminders have been viewed by this user
+        const userId = request.user.id;
+        let viewedIds = [];
+        if (reminders.length > 0) {
+            const reminderIds = reminders.map(r => r.id);
+            const views = await db.all(
+                `SELECT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1) AND user_id = $2`,
+                [reminderIds, userId]
+            );
+            viewedIds = views.map(v => v.reminder_id);
+        }
+        
+        return {
+            reminders: reminders.map(r => r.content),
+            reminder_ids: reminders.map(r => r.id),
+            viewed_ids: viewedIds
+        };
+    });
+
+    // ========== MARK REMINDERS AS VIEWED ==========
+    fastify.post('/api/qlx/reminders/viewed', { preHandler: [authenticate] }, async (request, reply) => {
+        const { reminder_ids, record_type, record_id } = request.body || {};
+        if (!Array.isArray(reminder_ids) || reminder_ids.length === 0) {
+            return reply.code(400).send({ error: 'Thiếu reminder_ids' });
+        }
+        if (!record_type) {
+            return reply.code(400).send({ error: 'Thiếu record_type' });
+        }
+        
+        const userId = request.user.id;
+        const now = vnNow();
+        
+        for (const remId of reminder_ids) {
+            const rId = record_id ? Number(record_id) : null;
+            await db.run(
+                `INSERT INTO qlx_reminder_views (reminder_id, user_id, record_type, record_id, viewed_at)
+                 SELECT $1, $2, $3, $4, $5
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM qlx_reminder_views
+                     WHERE reminder_id = $1 AND user_id = $2 AND record_type = $3 AND COALESCE(record_id, 0) = COALESCE($4, 0)
+                 )`,
+                [Number(remId), userId, record_type, rId, now]
+            );
+        }
+        
+        return { success: true };
     });
 
     // ========== PRINT ASSIGNMENT: Combined modal data ==========
