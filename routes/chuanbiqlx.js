@@ -310,6 +310,68 @@ module.exports = async function(fastify) {
         return true;
     }
 
+    async function checkIsPrintDone(itemId, orderId) {
+        if (!itemId) return false;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [itemId, orderId]);
+
+        if (!needsPrint || !needsPrint.needs_print) {
+            return false;
+        }
+
+        const hasPrintRecs = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM printing_records 
+                WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+            ) AS has_recs
+        `, [itemId, orderId]);
+        if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+            return false;
+        }
+        const printPending = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM printing_records pr
+                WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                  AND pr.is_print_done = false
+            ) AS pending
+        `, [itemId, orderId]);
+        return !printPending || !printPending.pending;
+    }
+
+    async function checkIsPressDone(itemId, orderId) {
+        if (!itemId) return false;
+        const needsPress = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND pf.name IN ('IN PET', 'IN DECAL')
+                  AND qa.operator_type = 'user'
+            ) AS needs_press
+        `, [itemId, orderId]);
+
+        if (!needsPress || !needsPress.needs_press) {
+            return false;
+        }
+
+        const hasPressRecs = await db.get(`
+            SELECT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = $1) AS has_recs
+        `, [itemId]);
+        if (!hasPressRecs || !hasPressRecs.has_recs) {
+            return false;
+        }
+        const pressPending = await db.get(`
+            SELECT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = $1 AND is_reported = false) AS pending
+        `, [itemId]);
+        return !pressPending || !pressPending.pending;
+    }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -1201,20 +1263,29 @@ module.exports = async function(fastify) {
         }
 
         let isProdDone = false;
+        let isPrintDone = false;
+        let isPressDone = false;
         if (itemId) {
             isProdDone = await checkItemProductionDone(itemId, orderId);
+            isPrintDone = await checkIsPrintDone(itemId, orderId);
+            isPressDone = await checkIsPressDone(itemId, orderId);
         } else {
             const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
             if (items.length > 0) {
                 let allItemsDone = true;
+                let allPrintDone = true;
+                let allPressDone = true;
                 for (const item of items) {
                     const done = await checkItemProductionDone(item.id, orderId);
-                    if (!done) {
-                        allItemsDone = false;
-                        break;
-                    }
+                    if (!done) allItemsDone = false;
+                    const prDone = await checkIsPrintDone(item.id, orderId);
+                    if (!prDone) allPrintDone = false;
+                    const psDone = await checkIsPressDone(item.id, orderId);
+                    if (!psDone) allPressDone = false;
                 }
                 isProdDone = allItemsDone;
+                isPrintDone = allPrintDone;
+                isPressDone = allPressDone;
             }
         }
 
@@ -1230,7 +1301,9 @@ module.exports = async function(fastify) {
                 content: r.content,
                 is_viewed: viewedIds.includes(r.id)
             })),
-            is_production_done: isProdDone
+            is_production_done: isProdDone,
+            is_print_done: isPrintDone,
+            is_press_done: isPressDone
         };
     });
 
@@ -1251,20 +1324,29 @@ module.exports = async function(fastify) {
 
         // Check if production is completed
         let isProdDone = false;
+        let isPrintDone = false;
+        let isPressDone = false;
         if (itemId) {
             isProdDone = await checkItemProductionDone(itemId, orderId);
+            isPrintDone = await checkIsPrintDone(itemId, orderId);
+            isPressDone = await checkIsPressDone(itemId, orderId);
         } else {
             const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
             if (items.length > 0) {
                 let allItemsDone = true;
+                let allPrintDone = true;
+                let allPressDone = true;
                 for (const item of items) {
                     const done = await checkItemProductionDone(item.id, orderId);
-                    if (!done) {
-                        allItemsDone = false;
-                        break;
-                    }
+                    if (!done) allItemsDone = false;
+                    const prDone = await checkIsPrintDone(item.id, orderId);
+                    if (!prDone) allPrintDone = false;
+                    const psDone = await checkIsPressDone(item.id, orderId);
+                    if (!psDone) allPressDone = false;
                 }
                 isProdDone = allItemsDone;
+                isPrintDone = allPrintDone;
+                isPressDone = allPressDone;
             }
         }
 
@@ -1276,35 +1358,65 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const todayStr = vnDateStr();
 
-        if (!Array.isArray(assignments) || assignments.length === 0) {
-            return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
+        // Fetch existing prep choice in case we need to preserve it
+        let existingPrep = null;
+        if (itemId) {
+            existingPrep = await db.get(`SELECT print_remind_choice, press_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        } else {
+            existingPrep = await db.get(`SELECT print_remind_choice, press_remind_choice FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+        }
+
+        const finalPrintChoice = isPrintDone ? (existingPrep ? existingPrep.print_remind_choice : 'none') : print_remind_choice;
+        const finalPressChoice = isPressDone ? (existingPrep ? existingPrep.press_remind_choice : 'none') : press_remind_choice;
+
+        // Fetch existing reminders to preserve them if needed
+        let finalPrintReminders = print_reminders;
+        if (isPrintDone) {
+            const existingPrintReminders = itemId
+                ? await db.all(`SELECT content FROM qlx_reminders WHERE item_id = $1 AND dept = 'in' ORDER BY id`, [itemId])
+                : await db.all(`SELECT content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept = 'in' ORDER BY id`, [orderId]);
+            finalPrintReminders = existingPrintReminders.map(r => r.content);
+        }
+
+        let finalPressReminders = press_reminders;
+        if (isPressDone) {
+            const existingPressReminders = itemId
+                ? await db.all(`SELECT content FROM qlx_reminders WHERE item_id = $1 AND dept = 'ep' ORDER BY id`, [itemId])
+                : await db.all(`SELECT content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept = 'ep' ORDER BY id`, [orderId]);
+            finalPressReminders = existingPressReminders.map(r => r.content);
+        }
+
+        if (!isPrintDone) {
+            if (!Array.isArray(assignments) || assignments.length === 0) {
+                return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
+            }
         }
 
         // Validate choices
-        if (!['yes', 'none'].includes(print_remind_choice)) {
+        if (!['yes', 'none'].includes(finalPrintChoice)) {
             return reply.code(400).send({ error: 'Vui lòng chọn trạng thái nhắc nhở cho bộ phận in!' });
         }
-        if (!['yes', 'none'].includes(press_remind_choice)) {
+        if (!['yes', 'none'].includes(finalPressChoice)) {
             return reply.code(400).send({ error: 'Vui lòng chọn trạng thái nhắc nhở cho bộ phận ép!' });
         }
 
         // Validate reminder contents if choice is yes
-        if (print_remind_choice === 'yes') {
-            if (!Array.isArray(print_reminders) || print_reminders.length === 0) {
+        if (finalPrintChoice === 'yes') {
+            if (!Array.isArray(finalPrintReminders) || finalPrintReminders.length === 0) {
                 return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận in!' });
             }
-            for (const content of print_reminders) {
+            for (const content of finalPrintReminders) {
                 if (!content || !content.trim()) {
                     return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận in không được để trống!' });
                 }
             }
         }
 
-        if (press_remind_choice === 'yes') {
-            if (!Array.isArray(press_reminders) || press_reminders.length === 0) {
+        if (finalPressChoice === 'yes') {
+            if (!Array.isArray(finalPressReminders) || finalPressReminders.length === 0) {
                 return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận ép!' });
             }
-            for (const content of press_reminders) {
+            for (const content of finalPressReminders) {
                 if (!content || !content.trim()) {
                     return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận ép không được để trống!' });
                 }
@@ -1318,26 +1430,37 @@ module.exports = async function(fastify) {
                 UPDATE qlx_preparation 
                 SET print_remind_choice = $1, press_remind_choice = $2, updated_at = $3
                 WHERE item_id = $4
-            `, [print_remind_choice, press_remind_choice, now, itemId]);
+            `, [finalPrintChoice, finalPressChoice, now, itemId]);
         } else {
             await ensureOrderPrepRow(orderId);
             await db.run(`
                 UPDATE qlx_preparation 
                 SET print_remind_choice = $1, press_remind_choice = $2, updated_at = $3
                 WHERE dht_order_id = $4 AND item_id IS NULL
-            `, [print_remind_choice, press_remind_choice, now, orderId]);
+            `, [finalPrintChoice, finalPressChoice, now, orderId]);
         }
 
-        // Delete existing reminders for this order/item (only for print/press department)
-        if (itemId) {
-            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
-        } else {
-            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
+        // Delete existing reminders only for departments that are not done
+        const deptsToDelete = [];
+        if (!isPrintDone) deptsToDelete.push('in');
+        if (!isPressDone) deptsToDelete.push('ep');
+        if (deptsToDelete.length > 0) {
+            if (itemId) {
+                await db.run(
+                    `DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = ANY($2)`,
+                    [itemId, deptsToDelete]
+                );
+            } else {
+                await db.run(
+                    `DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept = ANY($2)`,
+                    [orderId, deptsToDelete]
+                );
+            }
         }
 
         // Insert new reminders
-        if (print_remind_choice === 'yes' && Array.isArray(print_reminders)) {
-            for (const content of print_reminders) {
+        if (!isPrintDone && finalPrintChoice === 'yes' && Array.isArray(finalPrintReminders)) {
+            for (const content of finalPrintReminders) {
                 await db.run(`
                     INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
                     VALUES ($1, $2, 'in', $3, $4, $5)
@@ -1345,8 +1468,8 @@ module.exports = async function(fastify) {
             }
         }
 
-        if (press_remind_choice === 'yes' && Array.isArray(press_reminders)) {
-            for (const content of press_reminders) {
+        if (!isPressDone && finalPressChoice === 'yes' && Array.isArray(finalPressReminders)) {
+            for (const content of finalPressReminders) {
                 await db.run(`
                     INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
                     VALUES ($1, $2, 'ep', $3, $4, $5)
@@ -1354,276 +1477,163 @@ module.exports = async function(fastify) {
             }
         }
 
-        // De-duplicate assignments in JS
-        const seen = new Set();
-        const uniqueAssignments = [];
-        for (const assign of assignments) {
-            const key = `${assign.field_id}_${assign.operator_type}_${assign.operator_id}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                uniqueAssignments.push(assign);
-            }
-        }
-
-        // Validate that there is at most 1 operator per field_id
-        const fieldsChecked = {};
-        for (const assign of uniqueAssignments) {
-            const fid = Number(assign.field_id);
-            if (fieldsChecked[fid]) {
-                return reply.code(400).send({ error: 'Mỗi lĩnh vực in chỉ được chọn tối đa 1 người thực hiện!' });
-            }
-            fieldsChecked[fid] = true;
-        }
-
-        // Save order print assignments (replace all for this order/item)
-        if (itemId) {
-            await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
-        } else {
-            await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
-        }
-
-        // Keep legacy qlx_assignments / qlx_in_theu_chung populated for compatibility
-        let firstOp = null;
-        const otherOps = [];
-
-        for (const assign of uniqueAssignments) {
-            const fieldId = Number(assign.field_id);
-            const opType = assign.operator_type;
-            const opId = Number(assign.operator_id);
-
-            if (fieldId && ['user', 'contractor'].includes(opType) && opId) {
-                if (itemId) {
-                    await db.run(`
-                        INSERT INTO qlx_order_print_assignments (dht_order_id, item_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    `, [orderId, itemId, fieldId, opType, opId, request.user.id, now]);
-                } else {
-                    await db.run(`
-                        INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
-                        VALUES ($1, $2, $3, $4, $5, $6)
-                    `, [orderId, fieldId, opType, opId, request.user.id, now]);
+        if (!isPrintDone) {
+            // De-duplicate assignments in JS
+            const seen = new Set();
+            const uniqueAssignments = [];
+            for (const assign of assignments || []) {
+                const key = `${assign.field_id}_${assign.operator_type}_${assign.operator_id}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueAssignments.push(assign);
                 }
+            }
 
-                if (!firstOp) {
-                    firstOp = { type: opType, id: opId };
-                } else {
-                    if (!otherOps.some(o => o.type === opType && o.id === opId)) {
-                        otherOps.push({ type: opType, id: opId });
+            // Validate that there is at most 1 operator per field_id
+            const fieldsChecked = {};
+            for (const assign of uniqueAssignments) {
+                const fid = Number(assign.field_id);
+                if (fieldsChecked[fid]) {
+                    return reply.code(400).send({ error: 'Mỗi lĩnh vực in chỉ được chọn tối đa 1 người thực hiện!' });
+                }
+                fieldsChecked[fid] = true;
+            }
+
+            // Save order print assignments (replace all for this order/item)
+            if (itemId) {
+                await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+            } else {
+                await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+            }
+
+            // Keep legacy qlx_assignments / qlx_in_theu_chung populated for compatibility
+            let firstOp = null;
+            const otherOps = [];
+
+            for (const assign of uniqueAssignments) {
+                const fieldId = Number(assign.field_id);
+                const opType = assign.operator_type;
+                const opId = Number(assign.operator_id);
+
+                if (fieldId && ['user', 'contractor'].includes(opType) && opId) {
+                    if (itemId) {
+                        await db.run(`
+                            INSERT INTO qlx_order_print_assignments (dht_order_id, item_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        `, [orderId, itemId, fieldId, opType, opId, request.user.id, now]);
+                    } else {
+                        await db.run(`
+                            INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
+                            VALUES ($1, $2, $3, $4, $5, $6)
+                        `, [orderId, fieldId, opType, opId, request.user.id, now]);
+                    }
+
+                    if (!firstOp) {
+                        firstOp = { type: opType, id: opId };
+                    } else {
+                        if (!otherOps.some(o => o.type === opType && o.id === opId)) {
+                            otherOps.push({ type: opType, id: opId });
+                        }
                     }
                 }
             }
-        }
 
-        // Sync to legacy qlx_assignments (type = 'in')
-        if (firstOp) {
-            const userId = firstOp.type === 'user' ? Number(firstOp.id) : null;
-            const conId = firstOp.type === 'contractor' ? Number(firstOp.id) : null;
-            if (itemId) {
-                await db.run(`
-                    INSERT INTO qlx_assignments (dht_order_id, item_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
-                    VALUES ($1, $2, 'in', $3, $4, $5, $6)
-                    ON CONFLICT (item_id, assignment_type)
-                    DO UPDATE SET assigned_user_id = $3, assigned_contractor_id = $4, assigned_by = $5, assigned_at = $6
-                `, [orderId, itemId, userId, conId, request.user.id, now]);
+            // Sync to legacy qlx_assignments (type = 'in')
+            if (firstOp) {
+                const userId = firstOp.type === 'user' ? Number(firstOp.id) : null;
+                const conId = firstOp.type === 'contractor' ? Number(firstOp.id) : null;
+                if (itemId) {
+                    await db.run(`
+                        INSERT INTO qlx_assignments (dht_order_id, item_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
+                        VALUES ($1, $2, 'in', $3, $4, $5, $6)
+                        ON CONFLICT (item_id, assignment_type)
+                        DO UPDATE SET assigned_user_id = $3, assigned_contractor_id = $4, assigned_by = $5, assigned_at = $6
+                    `, [orderId, itemId, userId, conId, request.user.id, now]);
+                } else {
+                    await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+                    await db.run(`
+                        INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
+                        VALUES ($1, 'in', $2, $3, $4, $5)
+                    `, [orderId, userId, conId, request.user.id, now]);
+                }
             } else {
-                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
-                await db.run(`
-                    INSERT INTO qlx_assignments (dht_order_id, assignment_type, assigned_user_id, assigned_contractor_id, assigned_by, assigned_at)
-                    VALUES ($1, 'in', $2, $3, $4, $5)
-                `, [orderId, userId, conId, request.user.id, now]);
+                if (itemId) {
+                    await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+                } else {
+                    await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+                }
             }
-        } else {
+
+            // Sync to legacy qlx_in_theu_chung
             if (itemId) {
-                await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+                // For ticket-level, we don't necessarily sync multiple operators to legacy qlx_in_theu_chung
             } else {
-                await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+                await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+                for (const op of otherOps) {
+                    await db.run(`
+                        INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at)
+                        VALUES ($1, $2, $3, $4, $5)
+                        ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING
+                    `, [orderId, op.type, Number(op.id), request.user.id, now]);
+                }
             }
-        }
 
-        // Sync to legacy qlx_in_theu_chung
-        if (itemId) {
-            // For ticket-level, we don't necessarily sync multiple operators to legacy qlx_in_theu_chung
-            // or we can optionally delete existing and recreate
-        } else {
-            await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
-            for (const op of otherOps) {
-                await db.run(`
-                    INSERT INTO qlx_in_theu_chung (dht_order_id, target_type, target_id, assigned_by, assigned_at)
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (dht_order_id, target_type, target_id) DO NOTHING
-                `, [orderId, op.type, Number(op.id), request.user.id, now]);
-            }
-        }
+            // Sync to printing_records
+            const orderInfo = await db.get(`
+                SELECT o.total_quantity, o.category_id, o.order_code, o.order_date, u.full_name AS cskh_name
+                FROM dht_orders o
+                LEFT JOIN users u ON o.cskh_user_id = u.id
+                WHERE o.id = $1
+            `, [orderId]);
 
-        // Sync to printing_records
-        const orderInfo = await db.get(`
-            SELECT o.total_quantity, o.category_id, o.order_code, o.order_date, u.full_name AS cskh_name
-            FROM dht_orders o
-            LEFT JOIN users u ON o.cskh_user_id = u.id
-            WHERE o.id = $1
-        `, [orderId]);
-        
-        let prodName = 'Sản phẩm';
-        let orderQty = 0;
+            let prodName = 'Sản phẩm';
+            let orderQty = 0;
 
-        const isPetOrTem = orderInfo && (orderInfo.category_id === 8 || orderInfo.category_id === 9 ||
-                           (orderInfo.order_code && (orderInfo.order_code.includes('GCPET') || orderInfo.order_code.includes('GCTEM'))));
+            const isPetOrTem = orderInfo && (orderInfo.category_id === 8 || orderInfo.category_id === 9 ||
+                               (orderInfo.order_code && (orderInfo.order_code.includes('GCPET') || orderInfo.order_code.includes('GCTEM'))));
 
-        if (itemId) {
-            const it = await db.get(`SELECT description, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
-            if (it) {
-                orderQty = it.quantity || 0;
-                if (isPetOrTem) {
-                    const descLower = (it.description || '').toLowerCase().trim();
-                    if (descLower.includes('thiết kế') || descLower.includes('thiet ke') || descLower === 'tk') {
-                        prodName = '';
+            if (itemId) {
+                const it = await db.get(`SELECT description, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
+                if (it) {
+                    orderQty = it.quantity || 0;
+                    if (isPetOrTem) {
+                        const descLower = (it.description || '').toLowerCase().trim();
+                        if (descLower.includes('thiết kế') || descLower.includes('thiet ke') || descLower === 'tk') {
+                            prodName = '';
+                        } else {
+                            let desc = (it.description || '').trim();
+                            if (/tờ|to/i.test(desc)) desc = 'Tờ';
+                            else if (/mét|met/i.test(desc)) desc = 'Mét';
+                            prodName = `${it.quantity || 0} ${desc}`;
+                        }
                     } else {
+                        const items = await db.all(`SELECT id, material_pairs FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
+                        const itemIdx = items.findIndex(item => item.id === itemId) + 1;
+                        let totalRows = 0;
+                        for (const item of items) {
+                            let pairs = [];
+                            try { pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
+                            totalRows += pairs.length > 0 ? pairs.length : 1;
+                        }
+                        if (totalRows > 1) {
+                            prodName = `${orderInfo.order_code || ''} — Phiếu ${itemIdx} — P1 — ${it.description || ''}`;
+                        } else {
+                            prodName = `${orderInfo.order_code || ''} — ${it.description || ''}`;
+                        }
+                    }
+                }
+            } else {
+                const items = await db.all(`SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
+                orderQty = orderInfo ? orderInfo.total_quantity : 0;
+                if (isPetOrTem) {
+                    const filteredItems = items.filter(it => {
+                        const desc = (it.description || '').toLowerCase().trim();
+                        return !desc.includes('thiết kế') && !desc.includes('thiet ke') && desc !== 'tk';
+                    });
+                    prodName = filteredItems.map(it => {
                         let desc = (it.description || '').trim();
                         if (/tờ|to/i.test(desc)) desc = 'Tờ';
                         else if (/mét|met/i.test(desc)) desc = 'Mét';
-                        prodName = `${it.quantity || 0} ${desc}`;
-                    }
-                } else {
-                    const items = await db.all(`SELECT id, material_pairs FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
-                    const itemIdx = items.findIndex(item => item.id === itemId) + 1;
-                    let totalRows = 0;
-                    for (const item of items) {
-                        let pairs = [];
-                        try { pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
-                        totalRows += pairs.length > 0 ? pairs.length : 1;
-                    }
-                    if (totalRows > 1) {
-                        prodName = `${orderInfo.order_code || ''} — Phiếu ${itemIdx} — P1 — ${it.description || ''}`;
-                    } else {
-                        prodName = `${orderInfo.order_code || ''} — ${it.description || ''}`;
-                    }
-                }
-            }
-        } else {
-            const items = await db.all(`SELECT description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
-            orderQty = orderInfo ? orderInfo.total_quantity : 0;
-            if (isPetOrTem) {
-                const filteredItems = items.filter(it => {
-                    const desc = (it.description || '').toLowerCase().trim();
-                    return !desc.includes('thiết kế') && !desc.includes('thiet ke') && desc !== 'tk';
-                });
-                prodName = filteredItems.map(it => {
-                    let desc = (it.description || '').trim();
-                    if (/tờ|to/i.test(desc)) desc = 'Tờ';
-                    else if (/mét|met/i.test(desc)) desc = 'Mét';
-                    return `${it.quantity || 0} ${desc}`;
-                }).join('; ') || 'Sản phẩm';
-            } else {
-                prodName = items.map(it => (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')').filter(Boolean).join(', ') || 'Sản phẩm';
-            }
-        }
-        
-        const cskhName = orderInfo ? orderInfo.cskh_name : '';
-
-        const allUsers = await db.all(`SELECT id, full_name FROM users`);
-        const allContractors = await db.all(`SELECT id, name FROM printing_contractors`);
-        const userMap = {}; allUsers.forEach(u => userMap[u.id] = u.full_name);
-        const conMap = {}; allContractors.forEach(c => conMap[c.id] = c.name);
-
-        const getOpName = (type, id) => {
-            return type === 'user' ? (userMap[id] || '') : (conMap[id] ? '🏭 ' + conMap[id] : '');
-        };
-
-        const fieldAssignments = {};
-        for (const assign of assignments) {
-            const fid = Number(assign.field_id);
-            if (!fieldAssignments[fid]) fieldAssignments[fid] = [];
-            fieldAssignments[fid].push(assign);
-        }
-
-        const allFields = await db.all(`SELECT id, name FROM printing_fields`);
-        const fieldNameMap = {}; allFields.forEach(f => fieldNameMap[f.id] = f.name);
-
-        let existingRecs = [];
-        if (itemId) {
-            existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE order_item_id = $1`, [itemId]);
-        } else {
-            existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
-        }
-        const existingFMap = {}; existingRecs.forEach(r => existingFMap[r.print_field] = r.id);
-
-        const currentFieldNames = [];
-        try {
-        for (const fid of Object.keys(fieldAssignments)) {
-            const fieldName = fieldNameMap[fid];
-            if (!fieldName) { console.warn('[QLX] fieldNameMap missing for fid:', fid); continue; }
-            currentFieldNames.push(fieldName);
-
-            const ops = fieldAssignments[fid];
-            const primaryOp = ops[0];
-            const printerId = primaryOp.operator_type === 'user' ? primaryOp.operator_id : null;
-            const contractorId = primaryOp.operator_type === 'contractor' ? primaryOp.operator_id : null;
-            const sharedNames = ops.slice(1).map(o => getOpName(o.operator_type, o.operator_id)).filter(Boolean).join(', ');
-
-            const existingId = existingFMap[fieldName];
-            const pDate = contractorId ? now : (orderInfo?.order_date || now);
-            if (existingId) {
-                await db.run(`
-                    UPDATE printing_records
-                    SET printer_id = $1, contractor_id = $2, shared_process = $3, print_date = $4, updated_at = $5
-                    WHERE id = $6
-                `, [printerId, contractorId, sharedNames || null, pDate, now, existingId]);
-            } else {
-                if (itemId) {
-                    await db.run(`
-                        INSERT INTO printing_records (
-                            dht_order_id, order_item_id, printer_id, contractor_id, shared_process, print_field,
-                            product_name, cskh_name, order_quantity, print_date, created_by, created_at, updated_at
-                        )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
-                    `, [
-                        orderId, itemId, printerId, contractorId, sharedNames || null, fieldName,
-                        prodName, cskhName, orderQty, pDate, request.user.id, now
-                    ]);
-                } else {
-                    await db.run(`
-                        INSERT INTO printing_records (
-                            dht_order_id, printer_id, contractor_id, shared_process, print_field,
-                            product_name, cskh_name, order_quantity, print_date, created_by, created_at, updated_at
-                        )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
-                    `, [
-                        orderId, printerId, contractorId, sharedNames || null, fieldName,
-                        prodName, cskhName, orderQty, pDate, request.user.id, now
-                    ]);
-                }
-            }
-            console.log('[QLX] printing_records synced: order=%d item=%s field=%s', orderId, itemId || 'NULL', fieldName);
-        }
-        } catch (syncErr) {
-            console.error('[QLX] CRITICAL: printing_records sync FAILED for order=%d item=%s:', orderId, itemId || 'NULL', syncErr.message, syncErr.stack);
-            throw new Error('Lỗi đồng bộ bản ghi in: ' + syncErr.message);
-        }
-
-        for (const rec of existingRecs) {
-            if (!currentFieldNames.includes(rec.print_field)) {
-                await db.run(`DELETE FROM printing_records WHERE id = $1`, [rec.id]);
-            }
-        }
-
-        // QLX audit history
-        const assignedDetails = [];
-        for (const fid of Object.keys(fieldAssignments)) {
-            const fieldName = fieldNameMap[fid];
-            const ops = fieldAssignments[fid];
-            const opNames = ops.map(o => getOpName(o.operator_type, o.operator_id)).join(', ');
-            assignedDetails.push(`${fieldName}: ${opNames}`);
-        }
-        
-        const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Phân công In mới - ' + assignedDetails.join('; ');
-        if (itemId) {
-            await db.run(`
-                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
-                VALUES ($1, $2, 'assign_in_new', $3, $4, $5)
-            `, [orderId, itemId, historyDetails, request.user.id, now]);
-        } else {
-            await db.run(`
-                INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
                 VALUES ($1, 'assign_in_new', $2, $3, $4)
             `, [orderId, historyDetails, request.user.id, now]);
         }
