@@ -935,14 +935,13 @@ module.exports = async function(fastify) {
             }
         }
         
-        // Check which reminders have been viewed by this user
-        const userId = request.user.id;
+        // Check which reminders have been viewed by any user
         let viewedIds = [];
         if (reminders.length > 0) {
             const reminderIds = reminders.map(r => r.id);
             const views = await db.all(
-                `SELECT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1) AND user_id = $2`,
-                [reminderIds, userId]
+                `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1)`,
+                [reminderIds]
             );
             viewedIds = views.map(v => v.reminder_id);
         }
