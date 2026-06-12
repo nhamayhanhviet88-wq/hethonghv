@@ -1067,10 +1067,10 @@ module.exports = async function(fastify) {
             const rId = record_id ? Number(record_id) : null;
             await db.run(
                 `INSERT INTO qlx_reminder_views (reminder_id, user_id, record_type, record_id, viewed_at)
-                 SELECT $1, $2, $3, $4, $5
+                 SELECT $1::integer, $2::integer, $3::text, $4::integer, $5::timestamptz
                  WHERE NOT EXISTS (
                      SELECT 1 FROM qlx_reminder_views
-                     WHERE reminder_id = $1 AND user_id = $2 AND record_type = $3 AND COALESCE(record_id, 0) = COALESCE($4, 0)
+                     WHERE reminder_id = $1::integer AND user_id = $2::integer AND record_type = $3::text AND COALESCE(record_id, 0) = COALESCE($4::integer, 0)
                  )`,
                 [Number(remId), userId, record_type, rId, now]
             );
