@@ -230,7 +230,7 @@ async function loadStats() {
     try {
         const s = await api(`/api/trasoat/stats?year=${y}&month=${m}`);
         document.getElementById('mCards').innerHTML = `
-            <div class="stat-card" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border:1px solid #fcd34d"><div class="num" style="color:#b45309">${s.total}</div><div class="lbl" style="color:#b45309">TỔNG ĐƠN</div></div>
+            <div class="stat-card" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border:1px solid #fcd34d"><div class="num" style="color:#b45309">${s.total}</div><div class="lbl" style="color:#b45309">TỔNG ĐƠN</div><div class="pct" style="color:#b45309">100%</div></div>
             <div class="stat-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0"><div class="num" style="color:#166534">${s.early}</div><div class="lbl">SỚM HƠN</div><div class="pct" style="color:#16a34a">${s.early_pct}%</div></div>
             <div class="stat-card" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #c7d2fe"><div class="num" style="color:#3730a3">${s.on_time}</div><div class="lbl">ĐÚNG LỊCH</div><div class="pct" style="color:#4f46e5">${s.on_time_pct}%</div></div>
             <div class="stat-card" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fecaca"><div class="num" style="color:#991b1b">${s.late}</div><div class="lbl">TRỄ LỊCH</div><div class="pct" style="color:#dc2626">${s.late_pct}%</div></div>`;

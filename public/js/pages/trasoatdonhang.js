@@ -245,7 +245,7 @@ async function _tsLoadStats() {
         const s = await apiCall(`/api/trasoat/stats?year=${y}&month=${m}`);
         document.getElementById('tsCards').innerHTML = `
             <div class="ts-card" style="background:linear-gradient(135deg,#fffbeb,#fde68a);border-color:#fcd34d" onclick="document.getElementById('tsStatus').value='';_tsFilter()">
-                <div class="num" style="color:#b45309">${s.total}</div><div class="lbl" style="color:#b45309">TỔNG ĐƠN</div></div>
+                <div class="num" style="color:#b45309">${s.total}</div><div class="lbl" style="color:#b45309">TỔNG ĐƠN</div><div class="pct" style="color:#b45309">100%</div></div>
             <div class="ts-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)" onclick="document.getElementById('tsStatus').value='early';_tsFilter()">
                 <div class="num" style="color:#166534">${s.early}</div><div class="lbl">SỚM HƠN</div><div class="pct" style="color:#16a34a">${s.early_pct}%</div></div>
             <div class="ts-card" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff)" onclick="document.getElementById('tsStatus').value='on_time';_tsFilter()">
