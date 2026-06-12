@@ -636,13 +636,32 @@ function _tsRenderStepModal(step, d){
                         }
                     }
 
+                    let formattedExpectedDate = '—';
+                    const targetDateStr = r.order_expected_ship_date || r.expected_date;
+                    if (targetDateStr) {
+                        try {
+                            const dt = new Date(targetDateStr);
+                            const day = String(dt.getDate()).padStart(2, '0');
+                            const month = String(dt.getMonth() + 1).padStart(2, '0');
+                            const year = dt.getFullYear();
+                            const dateStr = `${day}/${month}/${year}`;
+                            if (r.shipping_standard === 'chuan' && r.order_standard_delivery_time && r.order_standard_delivery_time.trim()) {
+                                formattedExpectedDate = `${r.order_standard_delivery_time.trim()} ngày ${day}/${month}`;
+                            } else {
+                                formattedExpectedDate = `ngày ${day}/${month}`;
+                            }
+                        } catch(e) {
+                            formattedExpectedDate = targetDateStr;
+                        }
+                    }
+
                     body+=`<div style="padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;font-size:12px">
                         <div style="display:flex;justify-content:space-between;margin-bottom:4px;border-bottom:1px dashed #cbd5e1;padding-bottom:4px">
                             <span style="font-weight:800;color:#1e293b">${idxAss+1}. ${sewerDisplay}</span>
                             <span style="font-weight:800;background:${badgeBg};color:${badgeColor};padding:1px 6px;border-radius:4px;font-size:11px">${statusText}</span>
                         </div>
                         <div style="margin-bottom:6px;font-size:11px;color:#64748b">
-                            <span>👷 NV hoàn thiện: ${V(r.finisher_name)}</span> | <span>📅 Hạn gửi: ${fmtD(r.order_expected_ship_date || r.expected_date)}</span>
+                            <span>👷 NV hoàn thiện: ${V(r.finisher_name)}</span> | <span>📅 Hạn gửi: ${formattedExpectedDate}</span>
                         </div>
                         ${row('📦 Tiêu chuẩn gửi', r.shipping_standard === 'gap' ? '⚠️ GẤP' : (r.shipping_standard === 'gui' ? '📦 GỬI' : '✅ CHUẨN'))}
                         `;
