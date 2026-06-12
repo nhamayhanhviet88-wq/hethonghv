@@ -337,6 +337,7 @@ module.exports = async function(fastify) {
         const isManagerOrStaff = isManager || ['quan_ly', 'truong_phong'].includes(request.user.role);
         const unassignedItems = await db.all(`
             SELECT
+                i.id,
                 i.material_pairs,
                 COALESCE(p.fabric_arrived, false) AS fabric_arrived,
                 EXISTS (
@@ -350,38 +351,102 @@ module.exports = async function(fastify) {
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             LEFT JOIN dht_categories c ON o.category_id = c.id
             WHERE (
-                NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = i.id)
-                OR EXISTS (
-                    SELECT 1 FROM cutting_records cr 
-                    WHERE cr.order_item_id = i.id 
-                    AND cr.cutter_id IS NULL 
-                    AND cr.is_cut_done = false
-                    AND (
-                        $1 = true
-                        OR EXISTS (
-                            SELECT 1 FROM cutting_records r 
-                            WHERE r.order_item_id = i.id 
-                            AND r.is_cut_done = true 
-                            AND r.cutter_id = $2
-                        )
+                (
+                    COALESCE(jsonb_array_length(i.material_pairs), 0) = 0
+                    AND NOT EXISTS (
+                        SELECT 1 FROM cutting_records cr 
+                        WHERE cr.order_item_id = i.id AND cr.cutter_id IS NOT NULL
                     )
+                )
+                OR
+                (
+                    COALESCE(jsonb_array_length(i.material_pairs), 0) > 0
+                    AND (
+                        SELECT COUNT(*)::int FROM cutting_records cr 
+                        WHERE cr.order_item_id = i.id AND cr.cutter_id IS NOT NULL
+                    ) < jsonb_array_length(i.material_pairs)
                 )
             )
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.shipping_status, '') != 'shipped'
-        `, [isManagerOrStaff, request.user.id]);
+        `);
+
+        const unassignedItemIds = unassignedItems.map(it => it.id);
+        let claimedRecs = [];
+        if (unassignedItemIds.length > 0) {
+            claimedRecs = await db.all(`
+                SELECT id, order_item_id, material_name, fabric_color, cutter_id, is_cut_done, cut_warning 
+                FROM cutting_records 
+                WHERE order_item_id = ANY($1)
+            `, [unassignedItemIds]);
+        }
 
         let totalUnassigned = 0;
         let readyUnassigned = 0;
         let pendingUnassigned = 0;
+
         for (const it of unassignedItems) {
             let pairs = [];
             try {
                 pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []);
             } catch(e) {}
-            const cnt = (Array.isArray(pairs) && pairs.length > 0) ? pairs.length : 1;
+
+            const itemRecords = claimedRecs.filter(r => r.order_item_id === it.id);
+            const originalCutterId = (itemRecords.find(r => r.is_cut_done === true) || {}).cutter_id || null;
+
+            let cnt = 0;
+            if (pairs.length > 0) {
+                // Track which pairs have been claimed
+                const claimedPairs = [];
+                for (const r of itemRecords) {
+                    if (r.cutter_id !== null) {
+                        claimedPairs.push({
+                            material: (r.material_name || '').trim().toLowerCase(),
+                            color: (r.fabric_color || '').trim().toLowerCase()
+                        });
+                    }
+                }
+
+                for (let pi = 0; pi < pairs.length; pi++) {
+                    const phoi = pairs[pi];
+                    const pMat = (phoi.material_name || '').trim().toLowerCase();
+                    const pCol = (phoi.color_name || '').trim().toLowerCase();
+
+                    // Check if claimed
+                    const isClaimed = claimedPairs.some(cp => cp.material === pMat && cp.color === pCol);
+                    
+                    // Check if there is an unclaimed record (compensation)
+                    const unclaimedRec = itemRecords.find(r => 
+                        r.cutter_id === null && !r.is_cut_done &&
+                        (r.material_name || '').trim().toLowerCase() === pMat &&
+                        (r.fabric_color || '').trim().toLowerCase() === pCol
+                    );
+
+                    if (!isClaimed || unclaimedRec) {
+                        if (unclaimedRec && unclaimedRec.cut_warning && unclaimedRec.cut_warning.indexOf('Cắt bù') >= 0) {
+                            if (!isManagerOrStaff && originalCutterId && originalCutterId !== request.user.id) {
+                                continue;
+                            }
+                        }
+                        cnt++;
+                    }
+                }
+            } else {
+                const hasClaimed = itemRecords.some(r => r.cutter_id !== null);
+                const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done);
+
+                if (!hasClaimed || unclaimedRec) {
+                    if (unclaimedRec && unclaimedRec.cut_warning && unclaimedRec.cut_warning.indexOf('Cắt bù') >= 0) {
+                        if (!isManagerOrStaff && originalCutterId && originalCutterId !== request.user.id) {
+                            continue;
+                        }
+                    }
+                    cnt++;
+                }
+            }
+
             totalUnassigned += cnt;
             if (it.fabric_arrived && it.has_pc_in) {
                 readyUnassigned += cnt;
@@ -1386,7 +1451,7 @@ module.exports = async function(fastify) {
 
     // ========== UNASSIGNED: Đơn chưa cắt (pool) ==========
     fastify.get('/api/cutting/unassigned', { preHandler: [authenticate] }, async (request, reply) => {
-        // Orders that have at least 1 unclaimed item (phiếu)
+        // Orders that have at least 1 unclaimed item (phiếu) or unassigned coordinate part
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
                    o.total_quantity, o.order_date, o.expected_ship_date, o.shipping_priority,
@@ -1411,8 +1476,21 @@ module.exports = async function(fastify) {
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
                 AND (
-                    NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
-                    OR EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false)
+                    (
+                        COALESCE(jsonb_array_length(oi.material_pairs), 0) = 0
+                        AND NOT EXISTS (
+                            SELECT 1 FROM cutting_records cr 
+                            WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                        )
+                    )
+                    OR
+                    (
+                        COALESCE(jsonb_array_length(oi.material_pairs), 0) > 0
+                        AND (
+                            SELECT COUNT(*)::int FROM cutting_records cr 
+                            WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                        ) < jsonb_array_length(oi.material_pairs)
+                    )
                 )
             )
               AND EXISTS (SELECT 1 FROM qlx_preparation pp WHERE pp.dht_order_id = o.id)
@@ -1430,9 +1508,9 @@ module.exports = async function(fastify) {
                 o.expected_ship_date ASC NULLS LAST, o.order_date DESC
         `);
 
-        // Fetch UNCLAIMED items only + total items count per order
+        // Fetch all items + total items count per order + cutting records
         const orderIds = orders.map(o => o.id);
-        let items = [], allItemCounts = {}, orderItemIdsMap = {};
+        let items = [], allItemCounts = {}, orderItemIdsMap = {}, cuttingRecords = [];
         if (orderIds.length > 0) {
             items = await db.all(`
                 SELECT 
@@ -1440,13 +1518,8 @@ module.exports = async function(fastify) {
                     doi.id, 
                     doi.description, 
                     doi.material_pairs,
-                    COALESCE(cr.order_quantity, doi.quantity) AS quantity,
-                    cr.material_name AS unclaimed_material,
-                    cr.fabric_color AS unclaimed_color,
-                    cr.cut_warning,
-                    cr.id AS cutting_record_id,
+                    doi.quantity,
                     cc.name AS cutting_category_name,
-                    (SELECT cutter_id FROM cutting_records r WHERE r.order_item_id = doi.id AND r.is_cut_done = true LIMIT 1) AS original_cutter_id,
                     EXISTS(
                         SELECT 1 FROM qlx_assignments qa
                         WHERE qa.assignment_type = 'in'
@@ -1454,16 +1527,18 @@ module.exports = async function(fastify) {
                           AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
                     ) AS has_pc_in
                 FROM dht_order_items doi
-                LEFT JOIN cutting_records cr ON cr.order_item_id = doi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 WHERE doi.dht_order_id = ANY($1)
-                AND (
-                    NOT EXISTS (SELECT 1 FROM cutting_records r WHERE r.order_item_id = doi.id)
-                    OR cr.id IS NOT NULL
-                )
                 ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
+
+            cuttingRecords = await db.all(`
+                SELECT id, order_item_id, material_name, fabric_color, cutter_id, is_cut_done, cut_warning, order_quantity
+                FROM cutting_records 
+                WHERE dht_order_id = ANY($1)
+            `, [orderIds]);
+
             // Total items in order (including already claimed) for display logic
             const countRows = await db.all(`
                 SELECT dht_order_id, COUNT(*)::int AS cnt
@@ -1484,6 +1559,7 @@ module.exports = async function(fastify) {
                 orderItemIdsMap[it.dht_order_id].push(it.id);
             });
         }
+        
         const itemMap = {};
         for (const it of items) {
             if (!itemMap[it.dht_order_id]) itemMap[it.dht_order_id] = [];
@@ -1507,55 +1583,90 @@ module.exports = async function(fastify) {
                 totalPhoi += pp.length > 0 ? pp.length : 1;
             }
             for (const it of itsArr) {
-                if (it.cut_warning && it.cut_warning.indexOf('Cắt bù') >= 0) {
-                    const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
-                    if (!isManager && it.original_cutter_id && it.original_cutter_id !== request.user.id) {
-                        continue;
-                    }
-                }
                 const itemIdsInOrder = orderItemIdsMap[it.dht_order_id] || [];
                 const itemIdx = itemIdsInOrder.indexOf(it.id) + 1;
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+
+                const itemRecords = cuttingRecords.filter(r => r.order_item_id === it.id);
+                const originalCutterId = (itemRecords.find(r => r.is_cut_done === true) || {}).cutter_id || null;
+
                 if (pairs.length > 0) {
+                    const unclaimedRecs = itemRecords.filter(r => r.cutter_id === null && !r.is_cut_done);
+                    const claimedPairs = [];
+                    for (const r of itemRecords) {
+                        if (r.cutter_id !== null) {
+                            claimedPairs.push({
+                                material: (r.material_name || '').trim().toLowerCase(),
+                                color: (r.fabric_color || '').trim().toLowerCase()
+                            });
+                        }
+                    }
+
                     for (let pi = 0; pi < pairs.length; pi++) {
                         const phoi = pairs[pi];
-                        // If it is a compensation ticket, only include the coordination matching the ticket details
-                        if (it.unclaimed_material && it.unclaimed_color) {
-                            const pMat = (phoi.material_name || '').trim().toLowerCase();
-                            const pCol = (phoi.color_name || '').trim().toLowerCase();
-                            const uMat = (it.unclaimed_material || '').trim().toLowerCase();
-                            const uCol = (it.unclaimed_color || '').trim().toLowerCase();
-                            if (pMat !== uMat || pCol !== uCol) continue;
+                        const pMat = (phoi.material_name || '').trim().toLowerCase();
+                        const pCol = (phoi.color_name || '').trim().toLowerCase();
+
+                        // Check if claimed
+                        const isClaimed = claimedPairs.some(cp => cp.material === pMat && cp.color === pCol);
+                        
+                        // Check if there is an unclaimed record (compensation)
+                        const matchingUnclaimed = unclaimedRecs.find(ur => 
+                            (ur.material_name || '').trim().toLowerCase() === pMat &&
+                            (ur.fabric_color || '').trim().toLowerCase() === pCol
+                        );
+
+                        if (!isClaimed || matchingUnclaimed) {
+                            const cut_warning = matchingUnclaimed ? matchingUnclaimed.cut_warning : null;
+                            if (cut_warning && cut_warning.indexOf('Cắt bù') >= 0) {
+                                const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
+                                if (!isManager && originalCutterId && originalCutterId !== request.user.id) {
+                                    continue;
+                                }
+                            }
+                            rows.push({
+                                ...o, item_id: it.id, item_desc: it.description,
+                                phoi_index: 0, phoi_pair_index: pi,
+                                item_index: itemIdx, phoi_in_item: pi + 1, total_phoi: totalPhoi,
+                                total_items_in_order: totalItemsInOrder,
+                                material_name: phoi.material_name || null,
+                                color_name: phoi.color_name || null,
+                                item_qty: matchingUnclaimed ? matchingUnclaimed.order_quantity : it.quantity,
+                                cutting_category_name: it.cutting_category_name || null,
+                                cut_warning: cut_warning,
+                                cutting_record_id: matchingUnclaimed ? matchingUnclaimed.id : null,
+                                original_cutter_id: originalCutterId,
+                                has_pc_in: it.has_pc_in
+                            });
+                        }
+                    }
+                } else {
+                    const hasClaimed = itemRecords.some(r => r.cutter_id !== null);
+                    const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done);
+
+                    if (!hasClaimed || unclaimedRec) {
+                        const cut_warning = unclaimedRec ? unclaimedRec.cut_warning : null;
+                        if (cut_warning && cut_warning.indexOf('Cắt bù') >= 0) {
+                            const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
+                            if (!isManager && originalCutterId && originalCutterId !== request.user.id) {
+                                continue;
+                            }
                         }
                         rows.push({
                             ...o, item_id: it.id, item_desc: it.description,
-                            phoi_index: 0, phoi_pair_index: pi,
-                            item_index: itemIdx, phoi_in_item: pi + 1, total_phoi: totalPhoi,
+                            phoi_index: 0, phoi_pair_index: 0,
+                            item_index: itemIdx, phoi_in_item: 1, total_phoi: totalPhoi,
                             total_items_in_order: totalItemsInOrder,
-                            material_name: phoi.material_name || null,
-                            color_name: phoi.color_name || null,
-                            item_qty: it.quantity,
+                            material_name: null, color_name: null, 
+                            item_qty: unclaimedRec ? unclaimedRec.order_quantity : it.quantity,
                             cutting_category_name: it.cutting_category_name || null,
-                            cut_warning: it.cut_warning,
-                            cutting_record_id: it.cutting_record_id,
-                            original_cutter_id: it.original_cutter_id,
+                            cut_warning: cut_warning,
+                            cutting_record_id: unclaimedRec ? unclaimedRec.id : null,
+                            original_cutter_id: originalCutterId,
                             has_pc_in: it.has_pc_in
                         });
                     }
-                } else {
-                    rows.push({
-                        ...o, item_id: it.id, item_desc: it.description,
-                        phoi_index: 0, phoi_pair_index: 0,
-                        item_index: itemIdx, phoi_in_item: 1, total_phoi: totalPhoi,
-                        total_items_in_order: totalItemsInOrder,
-                        material_name: null, color_name: null, item_qty: it.quantity,
-                        cutting_category_name: it.cutting_category_name || null,
-                        cut_warning: it.cut_warning,
-                        cutting_record_id: it.cutting_record_id,
-                        original_cutter_id: it.original_cutter_id,
-                        has_pc_in: it.has_pc_in
-                    });
                 }
             }
         }
@@ -1739,7 +1850,7 @@ module.exports = async function(fastify) {
         // Find unclaimed order_items whose material_pairs match the selected material+color
         const allItems = await db.all(`
             SELECT oi.id AS order_item_id, oi.description, 
-                   COALESCE(cr.order_quantity, oi.quantity) AS quantity, 
+                   oi.quantity, 
                    oi.material_pairs,
                    o.id AS dht_order_id, o.order_code, o.customer_name,
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived,
@@ -1751,10 +1862,22 @@ module.exports = async function(fastify) {
             JOIN dht_orders o ON o.id = oi.dht_order_id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id AND cr.cutter_id IS NULL AND cr.is_cut_done = false
             WHERE (
-                NOT EXISTS (SELECT 1 FROM cutting_records r WHERE r.order_item_id = oi.id)
-                OR cr.id IS NOT NULL
+                (
+                    COALESCE(jsonb_array_length(oi.material_pairs), 0) = 0
+                    AND NOT EXISTS (
+                        SELECT 1 FROM cutting_records cr 
+                        WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                    )
+                )
+                OR
+                (
+                    COALESCE(jsonb_array_length(oi.material_pairs), 0) > 0
+                    AND (
+                        SELECT COUNT(*)::int FROM cutting_records cr 
+                        WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                    ) < jsonb_array_length(oi.material_pairs)
+                )
             )
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
@@ -1769,6 +1892,7 @@ module.exports = async function(fastify) {
         // Pre-fetch all order items for candidate orders to determine ticket and coordinate index
         const orderIds = [...new Set(allItems.map(it => it.dht_order_id))];
         const orderItemsMap = {};
+        let claimedRecs = [];
         if (orderIds.length > 0) {
             const allOrderItems = await db.all(`
                 SELECT id, dht_order_id, description, material_pairs
@@ -1782,6 +1906,15 @@ module.exports = async function(fastify) {
                 }
                 orderItemsMap[item.dht_order_id].push(item);
             }
+
+            const candidateItemIds = allItems.map(it => it.order_item_id);
+            if (candidateItemIds.length > 0) {
+                claimedRecs = await db.all(`
+                    SELECT id, order_item_id, material_name, fabric_color, cutter_id, is_cut_done, cut_warning, order_quantity
+                    FROM cutting_records 
+                    WHERE order_item_id = ANY($1)
+                `, [candidateItemIds]);
+            }
         }
 
         for (const it of allItems) {
@@ -1793,6 +1926,41 @@ module.exports = async function(fastify) {
                 (p.color_name || '').trim().toLowerCase() === colQ
             );
             if (!matchingPair) continue;
+
+            const itemRecords = claimedRecs.filter(r => r.order_item_id === it.order_item_id);
+            if (pairs.length > 0) {
+                // Find if the matching pair is claimed
+                const isClaimed = itemRecords.some(r => 
+                    r.cutter_id !== null &&
+                    (r.material_name || '').trim().toLowerCase() === matQ &&
+                    (r.fabric_color || '').trim().toLowerCase() === colQ
+                );
+                
+                // If it is claimed, check if there is an unclaimed (compensation) record for this pair
+                const unclaimedRec = itemRecords.find(r => 
+                    r.cutter_id === null && !r.is_cut_done &&
+                    (r.material_name || '').trim().toLowerCase() === matQ &&
+                    (r.fabric_color || '').trim().toLowerCase() === colQ
+                );
+
+                if (isClaimed && !unclaimedRec) {
+                    continue; // Skip because it is already claimed/cut!
+                }
+                
+                if (unclaimedRec) {
+                    it.quantity = unclaimedRec.order_quantity;
+                }
+            } else {
+                // No pairs
+                const hasClaimed = itemRecords.some(r => r.cutter_id !== null);
+                const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done);
+                if (hasClaimed && !unclaimedRec) {
+                    continue;
+                }
+                if (unclaimedRec) {
+                    it.quantity = unclaimedRec.order_quantity;
+                }
+            }
 
             const itsForOrder = orderItemsMap[it.dht_order_id] || [];
             const itemIds = itsForOrder.map(item => item.id);
