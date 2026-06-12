@@ -151,8 +151,25 @@ function _tsRenderStepModal(step, d){
             if(r.answers&&r.answers.length){
                 body+=section('📋','KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG');
                 r.answers.forEach(a=>{
-                    const isOk = String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có';
-                    const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${isOk?'#d1fae5':'#fee2e2'};color:${isOk?'#065f46':'#991b1b'}">${a.answer_value}</span>`;
+                    let displayVal = a.answer_value;
+                    let isOk = false;
+                    
+                    if (a.type === 'yes_no') {
+                        if (String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có') {
+                            displayVal = 'Có';
+                            isOk = true;
+                        } else {
+                            displayVal = 'Không';
+                            isOk = false;
+                        }
+                    } else if (a.type === 'percentage') {
+                        displayVal = a.answer_value + '%';
+                        isOk = (parseFloat(a.answer_value) || 0) >= 50;
+                    } else {
+                        isOk = String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có';
+                    }
+
+                    const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${isOk?'#d1fae5':'#fee2e2'};color:${isOk?'#065f46':'#991b1b'}">${displayVal}</span>`;
                     body+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid #f8fafc"><span style="font-weight:600;color:#334155">${a.content}</span>${badge}</div>`;
                 });
             } else { body+=`<div style="padding:10px;text-align:center;color:#9ca3af;font-size:12px">Chưa thực hiện checklist QC</div>`; }

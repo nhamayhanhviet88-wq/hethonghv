@@ -133,7 +133,10 @@ module.exports = async function(fastify) {
         // Sewing records
         const sewing = await db.all(`
             SELECT sr.*, u.full_name AS sewer_name,
-                ct.name AS contractor_name
+                ct.name AS contractor_name,
+                (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_count,
+                (SELECT MAX(answered_at) FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_date,
+                (SELECT u2.full_name FROM qc_checklist_answers qca JOIN users u2 ON qca.answered_by = u2.id WHERE qca.sewing_record_id = sr.id LIMIT 1) AS qc_by_name
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id = u.id
             LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
@@ -241,15 +244,15 @@ module.exports = async function(fastify) {
             const sewDisplayWorker = sewTotalCount > 0 ? sewWorker : (sewRec?.sewer_name || sewRec?.contractor_name);
 
             // QC calculations
-            const qcDoneCount = finishing.filter(f => f.checklist_count > 0).length;
-            const qcTotalCount = finishing.length;
+            const qcDoneCount = sewing.filter(s => s.qc_count > 0).length;
+            const qcTotalCount = sewing.length;
             const qcProgress = qcTotalCount > 0 ? `${qcDoneCount}/${qcTotalCount}` : null;
-            const allQcDone = qcTotalCount > 0 && finishing.every(f => f.checklist_count > 0);
-            const lastQcDone = finishing.filter(f => f.checklist_count > 0).sort((a,b) => new Date(b.qc_done_at || 0) - new Date(a.qc_done_at || 0))[0];
-            const qcTime = lastQcDone ? lastQcDone.qc_done_at : null;
-            const qcWorker = [...new Set(finishing.map(f => f.finisher_name).filter(Boolean))].join(', ') || null;
+            const allQcDone = qcTotalCount > 0 && sewing.every(s => s.qc_count > 0);
+            const lastQcDone = sewing.filter(s => s.qc_count > 0).sort((a,b) => new Date(b.qc_date || 0) - new Date(a.qc_date || 0))[0];
+            const qcTime = lastQcDone ? lastQcDone.qc_date : null;
+            const qcWorker = [...new Set(sewing.map(s => s.qc_by_name).filter(Boolean))].join(', ') || null;
 
-            const qcDone = qcTotalCount > 0 ? allQcDone : (finRec ? true : false);
+            const qcDone = qcTotalCount > 0 ? allQcDone : false;
             const qcDisplayTime = qcTotalCount > 0 ? qcTime : null;
             const qcDisplayWorker = qcTotalCount > 0 ? qcWorker : null;
 
@@ -468,21 +471,29 @@ module.exports = async function(fastify) {
 
         if (step === 'qc') {
             const records = await db.all(`
-                SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description
-                FROM finishing_records fr
-                LEFT JOIN users u ON fr.finisher_id = u.id
-                LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                SELECT sr.*, doi.description AS item_description,
+                    COALESCE(u.full_name, c.name, t.name) AS sewer_name,
+                    qc_u.full_name AS finisher_name
+                FROM sewing_records sr
+                LEFT JOIN users u ON sr.sewer_id = u.id
+                LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
+                LEFT JOIN teams t ON sr.sewing_team_id = t.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
-                WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
+                LEFT JOIN (
+                    SELECT DISTINCT ON (sewing_record_id) sewing_record_id, answered_by
+                    FROM qc_checklist_answers
+                ) qca ON sr.id = qca.sewing_record_id
+                LEFT JOIN users qc_u ON qca.answered_by = qc_u.id
+                WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
             `, [orderId]);
             // Get checklist answers for each record
             for (const r of records) {
                 r.answers = await db.all(`
-                    SELECT fca.answer_value, fct.content, fct.type
-                    FROM finishing_checklist_answers fca
-                    JOIN finishing_checklist_templates fct ON fca.template_id = fct.id
-                    WHERE fca.finishing_record_id = $1
-                    ORDER BY fct.sort_order
+                    SELECT qca.answer_value, qct.content, qct.type
+                    FROM qc_checklist_answers qca
+                    JOIN qc_checklist_templates qct ON qca.template_id = qct.id
+                    WHERE qca.sewing_record_id = $1
+                    ORDER BY qct.sort_order
                 `, [r.id]);
             }
             return { step: 'qc', order_code: order.order_code, cskh_name: order.cskh_name, records };
