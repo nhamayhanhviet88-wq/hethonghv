@@ -33,15 +33,16 @@ function _tsRenderStepModal(step, d){
     if(step==='cat'){
         html = hdr('✂️','CHI TIẾT ĐƠN CẮT',d.order_code,'#16a34a,#15803d');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu cắt</div>'; }
-        else d.records.forEach((r,i)=>{
-            body+=`<div style="padding:16px 24px;${i?'border-top:2px solid #e5e7eb':''}">`;
-            body+=`<div style="display:inline-block;padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800;margin-bottom:12px">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</div>`;
+        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+            body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">📋 Phiếu ${i+1}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</span></div>`;
+            body+=`<div style="padding:14px 16px">`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('🧵 Chất liệu',V(r.material_name),'#7c3aed');
             body+=row('🎨 Màu',V(r.fabric_color),'#1e293b');
             body+=row('👤 NV Cắt',V(r.cutter_name),'#059669');
             body+=row('🕐 Cắt Xong',fmtDT(r.cut_done_at));
-            body+=row('📊 SL Đơn',r.order_quantity+' sp');
+            body+=row('📊 SL Đơn',(r.order_quantity||0)+' sp');
             if(r.rolls&&r.rolls.length){
                 body+=section('🧶','CÂY VẢI ĐÃ CHỌN ('+r.rolls.length+')');
                 r.rolls.forEach(rl=>{ body+=`<div style="padding:6px 12px;background:#f8fafc;border-radius:8px;margin:4px 0;font-size:12px;font-weight:600">${rl.material_name} - ${rl.color} - ${rl.kg}kg</div>`; });
@@ -53,8 +54,8 @@ function _tsRenderStepModal(step, d){
                 <div style="background:#d1fae5;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;font-weight:700;color:#065f46">🧮 SL CẮT</div><div style="font-size:20px;font-weight:900;color:#065f46">${r.cut_quantity||0}</div></div>
             </div>`;
             if(r.cut_ratio) body+=row('📐 Định Lượng Thực Tế',r.cut_ratio+' sp/kg','#dc2626');
-            body+=`</div>`;
-        });
+            body+=`</div></div>`;
+        }); body+=`</div>`; }
     }
     else if(step==='in'){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
