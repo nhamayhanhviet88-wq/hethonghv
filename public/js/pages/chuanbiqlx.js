@@ -898,6 +898,12 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         } else if (cutChoice === 'yes') {
             _qlxAddReminderInput('cat');
         }
+
+        window._qlxCutReminderState = {
+            originalChoice: cutChoice,
+            originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
+            isSaved: (cutChoice === 'yes' || cutChoice === 'none')
+        };
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
@@ -993,6 +999,41 @@ function _qlxValidateAndGetCutReminders() {
     return { choice: cutChoice, reminders: cutReminders };
 }
 
+function _qlxCheckCutRemindersSaved() {
+    if (!window._qlxCutReminderState) {
+        return false;
+    }
+    if (!window._qlxCutReminderState.isSaved) {
+        return false;
+    }
+
+    var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
+    var currentChoice = choiceEl ? choiceEl.value : '';
+    if (currentChoice !== window._qlxCutReminderState.originalChoice) {
+        return false;
+    }
+
+    if (currentChoice === 'yes') {
+        var reminderInputs = document.querySelectorAll('#qlx_cut_reminders_list .qlx-reminder-text-input');
+        var currentReminders = [];
+        for (var i = 0; i < reminderInputs.length; i++) {
+            currentReminders.push(reminderInputs[i].value.trim());
+        }
+
+        var orig = window._qlxCutReminderState.originalReminders || [];
+        if (currentReminders.length !== orig.length) {
+            return false;
+        }
+        for (var i = 0; i < currentReminders.length; i++) {
+            if (currentReminders[i] !== orig[i]) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 async function _qlxFabSaveRemindersOnly(orderId, itemId, pairIndex) {
     if (window._qlxFabBusy) return;
     window._qlxFabBusy = true;
@@ -1030,6 +1071,12 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
 
     var reminderData = _qlxValidateAndGetCutReminders();
     if (!reminderData) { window._qlxFabBusy = false; return; }
+
+    if (!_qlxCheckCutRemindersSaved()) {
+        showToast('⚠️ Bạn chưa lưu hoặc vừa thay đổi nhắc nhở cắt! Vui lòng click nút "Lưu nhắc nhở cắt" màu xanh trước.', 'error');
+        window._qlxFabBusy = false;
+        return;
+    }
 
     var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
     var note = document.getElementById('_qlxFabCallNote') ? document.getElementById('_qlxFabCallNote').value : '';
@@ -1108,6 +1155,12 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
 
     var reminderData = _qlxValidateAndGetCutReminders();
     if (!reminderData) {
+        window._qlxFabBusy = false;
+        return;
+    }
+
+    if (!_qlxCheckCutRemindersSaved()) {
+        showToast('⚠️ Bạn chưa lưu hoặc vừa thay đổi nhắc nhở cắt! Vui lòng click nút "Lưu nhắc nhở cắt" màu xanh trước.', 'error');
         window._qlxFabBusy = false;
         return;
     }
@@ -1198,6 +1251,14 @@ async function _qlxFabSaveKg(resId, orderId, itemId, pairIndex) {
 }
 
 async function _qlxFabLink(callId, orderId, itemId, pairIndex) {
+    var reminderData = _qlxValidateAndGetCutReminders();
+    if (!reminderData) return;
+
+    if (!_qlxCheckCutRemindersSaved()) {
+        showToast('⚠️ Bạn chưa lưu hoặc vừa thay đổi nhắc nhở cắt! Vui lòng click nút "Lưu nhắc nhở cắt" màu xanh trước.', 'error');
+        return;
+    }
+
     if (!confirm('Liên kết đơn này vào cuộc gọi vải đang chờ?')) return;
     try {
         // Get phoi info from current popup data
@@ -1205,7 +1266,9 @@ async function _qlxFabLink(callId, orderId, itemId, pairIndex) {
         var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: ph.material_name || '', color_name: ph.color_name || '', unit: ph.unit || 'kg',
-            reservation_type: 'linked_call', linked_call_id: callId
+            reservation_type: 'linked_call', linked_call_id: callId,
+            cut_remind_choice: reminderData.choice,
+            cut_reminders: reminderData.reminders
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
