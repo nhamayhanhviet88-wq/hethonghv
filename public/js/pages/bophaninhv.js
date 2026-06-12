@@ -108,7 +108,9 @@ function renderBophaninPage(content) {
 + '.bpi-modal-btn.confirm{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;box-shadow:0 4px 15px rgba(124,58,237,0.3)}'
 + '.bpi-modal-btn.confirm:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(124,58,237,0.4)}'
 + '.bpi-modal-btn.cancel{background:#f1f5f9;color:#475569}'
-+ '.bpi-modal-btn.cancel:hover{background:#e2e8f0}';
++ '.bpi-modal-btn.cancel:hover{background:#e2e8f0}'
++ '.bpi-name-link{cursor:pointer;color:#2563eb;text-decoration:underline dashed #3b82f6;font-weight:700;transition:color .15s}'
++ '.bpi-name-link:hover{color:#1d4ed8;text-decoration:underline}';
         document.head.appendChild(st);
     }
     content.innerHTML = '<div class="bpi-wrap"><div class="bpi-sb" id="bpiSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bpi-main">'
@@ -627,6 +629,7 @@ function _bpiRender() {
                 doneBtnHtml = '<button class="bpi-ib' + dC + '" onclick="_bpiTog(\'' + r.id + '\',\'' + dA + '\')" title="In xong">' + dI + '</button>';
             }
         }
+        var clickableName = '<span class="bpi-name-link" onclick="_bpiShowDetailModal(\'' + r.id + '\')">' + _bpiGetProductNameDisplay(r) + '</span>';
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
@@ -636,7 +639,7 @@ function _bpiRender() {
         +'<td style="font-size:10px">'+printDateVal+'</td>'
         +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
-        +'<td style="font-weight:600;color:#1e293b">'+priBadge+_bpiGetProductNameDisplay(r)+imgIcon+'</td>'
+        +'<td style="font-weight:600;color:#1e293b">'+priBadge+clickableName+imgIcon+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
@@ -1249,6 +1252,150 @@ async function _bpiSubmitDone(id) {
         }
     }
 }
+
+window._bpiCloseDetailModal = function() {
+    var m = document.getElementById('_bpiDetailModal');
+    if (m) {
+        m.classList.remove('show');
+        setTimeout(function() { m.remove(); }, 300);
+    }
+};
+
+window._bpiShowDetailModal = async function(id) {
+    var old = document.getElementById('_bpiDetailModal');
+    if (old) old.remove();
+    
+    var r = _bpi.records.find(function(x) { return String(x.id) === String(id); });
+    if (!r) {
+        showToast('Không tìm thấy bản ghi!', 'error');
+        return;
+    }
+    
+    var printReminders = [];
+    var printReminderIds = [];
+    var printViewedIds = [];
+    if (!r.contractor_id) {
+        try {
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in';
+            if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+            var remRes = await apiCall(url);
+            printReminders = remRes.reminders || [];
+            printReminderIds = remRes.reminder_ids || [];
+            printViewedIds = remRes.viewed_ids || [];
+        } catch(e) {
+            console.error('Lỗi tải nhắc nhở:', e);
+        }
+    }
+    
+    var rollDisp = '—';
+    if (r.pettem_roll_id) {
+        var typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
+        var seqDisplay = r.pettem_roll_seq ? '#' + r.pettem_roll_seq : '#' + r.pettem_roll_id;
+        rollDisp = 'Cây ' + typeLabel + ' ' + seqDisplay;
+    } else if (r.material_tx_id) {
+        rollDisp = 'Lô #' + r.material_tx_id;
+        if (r.material_roll_supplier) {
+            rollDisp += ' (' + r.material_roll_supplier + ')';
+        }
+    }
+    
+    var rollType = 'PET';
+    var fieldUpper = (r.print_field || '').toUpperCase();
+    if (fieldUpper.includes('TEM')) {
+        rollType = 'TEM';
+    } else if (fieldUpper.includes('DECAL')) {
+        rollType = 'DECAL';
+    }
+    var rollLabel = 'Cây In Pet';
+    if (rollType === 'TEM') {
+        rollLabel = 'Cây In Tem';
+    } else if (rollType === 'DECAL') {
+        rollLabel = 'Cây In Decal';
+    }
+
+    var progressHtml = _bpiGetProgressDisplay(r);
+    var qtyDisplay = _bpiGetQtyDisplay(r);
+    var opName = r.printer_name || (r.contractor_name ? 'Gia công: ' + r.contractor_name : '—');
+    
+    var h = '<div class="bpi-modal-overlay" id="_bpiDetailModal" tabindex="-1" style="outline:none">';
+    h += '<div class="bpi-modal" style="width:480px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
+    h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#0284c7,#0ea5e9)"><div class="m-icon">🖨️</div><div><div class="m-title">CHI TIẾT BÁO CÁO IN XONG</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+    h += '<div class="bpi-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
+    
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Tên SP/Phối</span><span class="bpi-modal-val">' + _bpiGetProductNameDisplay(r) + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">CSKH</span><span class="bpi-modal-val">' + (r.cskh_name || '—') + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Nhân Viên In</span><span class="bpi-modal-val" style="color:#0284c7;font-weight:700">' + opName + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Tiến Độ</span><span class="bpi-modal-val">' + progressHtml + '</span></div>';
+    h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Số Lượng Theo Đơn</span><span class="bpi-modal-val" style="font-weight:800;color:#7c3aed">' + qtyDisplay + '</span></div>';
+    
+    if (printReminders.length > 0) {
+        h += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+        h += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
+        h += '  <div style="display:flex;flex-direction:column;gap:10px">';
+        printReminders.forEach(function(rem, remIdx) {
+            var remId = printReminderIds[remIdx] || 0;
+            var isViewed = printViewedIds.indexOf(remId) >= 0;
+            h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#059669' : '#fca5a5') + ';border-radius:10px;padding:10px 12px;">';
+            h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#7f1d1d;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            if (isViewed) {
+                h += '       <span style="flex-shrink:0;padding:4px 10px;border-radius:6px;border:1px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800">✅ Đã Xem và Làm</span>';
+            } else {
+                h += '       <span style="flex-shrink:0;padding:4px 10px;border-radius:6px;border:1px solid #dc2626;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:800">❌ Chưa Xem</span>';
+            }
+            h += '    </div>';
+        });
+        h += '  </div>';
+        h += '</div>';
+    }
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">' + rollLabel + '</label>';
+    h += '<input type="text" readonly value="' + rollDisp + '" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700" disabled>';
+    h += '</div>';
+    
+    h += '<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">SL Đầu Cuộn (m)</label>';
+    h += '<input type="text" readonly value="' + (r.roll_start_qty || '0') + '" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700" disabled>';
+    h += '</div>';
+    h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Số Mét In (m)</label>';
+    h += '<input type="text" readonly value="' + (r.print_meters || '0') + '" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444;background:#f1f5f9" disabled>';
+    h += '</div>';
+    h += '</div>';
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">SL Cuối Cuộn (m)</label>';
+    h += '<input type="text" readonly value="' + (r.roll_end_qty || '0') + '" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700" disabled>';
+    h += '</div>';
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Hình Ảnh File In</label>';
+    if (r.image_url) {
+        h += '<div style="text-align:center;margin-top:8px">';
+        h += '  <a href="' + r.image_url + '" target="_blank">';
+        h += '    <img src="' + r.image_url + '" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 2px 10px rgba(0,0,0,0.1);">';
+        h += '  </a>';
+        h += '  <div style="font-size:11px;color:#64748b;margin-top:4px">Bấm vào ảnh để xem kích thước đầy đủ</div>';
+        h += '</div>';
+    } else {
+        h += '<div style="border:1.5px dashed #cbd5e1;border-radius:10px;padding:16px 20px;text-align:center;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;">';
+        h += '    Không có hình ảnh báo cáo';
+        h += '</div>';
+    }
+    h += '</div>';
+    
+    h += '</div>';
+    h += '<div class="bpi-modal-actions" style="margin-top:0">';
+    h += '<button class="bpi-modal-btn cancel" onclick="_bpiCloseDetailModal()" style="width:100%;background:#475569;color:#fff">Đóng</button>';
+    h += '</div>';
+    h += '</div></div>';
+    
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(function() {
+        var m = document.getElementById('_bpiDetailModal');
+        if (m) {
+            m.classList.add('show');
+            m.focus();
+        }
+    });
+};
+
 async function _bpiAudit(id) {
     var r = _bpi.records.find(function(item) { return item.id == id; });
     if (!r) {

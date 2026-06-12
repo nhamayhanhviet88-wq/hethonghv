@@ -320,7 +320,8 @@ const endHtml = isReal
   : '<div class="cr"><span class="cl">🔢 SL Cuối cuộn</span><span class="cv">—</span></div>';
 
 const imgIcon = r.image_url ? ' <a href="' + r.image_url + '" target="_blank" style="text-decoration:none;margin-left:6px" onclick="event.stopPropagation()">🖼️</a>' : '';
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.product_name||'Sản phẩm')+imgIcon+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
+const mClickableName = '<span style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.4);color:#60a5fa" onclick="mShowDetailModal('+r.id+')">'+(r.product_name||'Sản phẩm')+'</span>';
+return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+mClickableName+imgIcon+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
 + '<div class="cb">'
 + '<div class="cr"><span class="cl">📅 Ngày in</span><span class="cv">'+fd(r.print_date)+'</span></div>'
 + '<div class="cr"><span class="cl">👤 NV In</span><span class="cv" style="color:#4ade80">'+nv+'</span></div>'
@@ -595,6 +596,98 @@ function mCloseDoneModal() {
         window._mDoneHandlePaste = null;
     }
 }
+
+window.mCloseDetailModal = function() {
+    const m = document.getElementById('mDetailModal');
+    if (m) { m.classList.remove('show'); setTimeout(() => m.remove(), 300); }
+};
+
+window.mShowDetailModal = async function(id) {
+    const old = document.getElementById('mDetailModal'); if (old) old.remove();
+    const r = mr.find(x => String(x.id) === String(id));
+    if (!r) return;
+    
+    let rollDisp = '—';
+    if (r.pettem_roll_id) {
+        const typeLabel = r.pettem_roll_type ? r.pettem_roll_type.toUpperCase() : 'PET';
+        const seqDisplay = r.pettem_roll_seq ? '#' + r.pettem_roll_seq : '#' + r.pettem_roll_id;
+        rollDisp = 'Cây ' + typeLabel + ' ' + seqDisplay;
+    } else if (r.material_tx_id) {
+        rollDisp = 'Lô #' + r.material_tx_id;
+        if (r.material_roll_supplier) {
+            rollDisp += ' (' + r.material_roll_supplier + ')';
+        }
+    }
+    
+    let rollType = 'PET';
+    const fieldUpper = (r.print_field || '').toUpperCase();
+    if (fieldUpper.includes('TEM')) {
+        rollType = 'TEM';
+    } else if (fieldUpper.includes('DECAL')) {
+        rollType = 'DECAL';
+    }
+    let rollLabel = 'Cây In Pet';
+    if (rollType === 'TEM') {
+        rollLabel = 'Cây In Tem';
+    } else if (rollType === 'DECAL') {
+        rollLabel = 'Cây In Decal';
+    }
+
+    const progressHtml = mGetProgressDisplay(r);
+    const qtyDisplay = mQty(r);
+    const nv = r.contractor_id ? (r.contractor_name ? 'Gia công: ' + r.contractor_name : 'Gia công') : (r.printer_name || '—');
+    
+    let h = '<div class="m-modal-overlay" id="mDetailModal" tabindex="-1" style="outline:none">';
+    h += '<div class="m-modal">';
+    h += '<div class="m-modal-header">🖨️ Chi tiết báo cáo in xong (' + (r.order_code || '') + ')</div>';
+    h += '<div class="m-modal-body">';
+    
+    h += '<div class="m-modal-row"><span class="m-modal-lbl">Tên SP/Phối</span><span class="m-modal-val">' + (r.product_name || '—') + '</span></div>';
+    h += '<div class="m-modal-row"><span class="m-modal-lbl">CSKH</span><span class="m-modal-val">' + (r.cskh_name || '—') + '</span></div>';
+    h += '<div class="m-modal-row"><span class="m-modal-lbl">Nhân Viên In</span><span class="m-modal-val" style="color:#22c55e;font-weight:700">' + nv + '</span></div>';
+    h += '<div class="m-modal-row"><span class="m-modal-lbl">Tiến Độ</span><span class="m-modal-val">' + progressHtml + '</span></div>';
+    h += '<div class="m-modal-row"><span class="m-modal-lbl">Số Lượng Theo Đơn</span><span class="m-modal-val" style="font-weight:800;color:#c084fc">' + qtyDisplay + '</span></div>';
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">' + rollLabel + '</label>';
+    h += '<input type="text" readonly value="' + rollDisp + '" class="m-modal-input" style="background:rgba(255,255,255,0.02)" disabled></div>';
+    
+    h += '<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">SL Đầu Cuộn (m)</label>';
+    h += '<input type="text" readonly value="' + (r.roll_start_qty || '0') + '" class="m-modal-input" style="background:rgba(255,255,255,0.02)" disabled>';
+    h += '</div>';
+    h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">Số Mét In (m)</label>';
+    h += '<input type="text" readonly value="' + (r.print_meters || '0') + '" class="m-modal-input" style="color:#ef4444;background:rgba(255,255,255,0.02)" disabled>';
+    h += '</div>';
+    h += '</div>';
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">SL Cuối Cuộn (m)</label>';
+    h += '<input type="text" readonly value="' + (r.roll_end_qty || '0') + '" class="m-modal-input" style="background:rgba(255,255,255,0.02)" disabled>';
+    h += '</div>';
+    
+    h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">Hình Ảnh File In</label>';
+    if (r.image_url) {
+        h += '<div style="text-align:center;margin-top:8px">';
+        h += '  <a href="' + r.image_url + '" target="_blank">';
+        h += '    <img src="' + r.image_url + '" style="max-width:100%;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #4b5563;box-shadow:0 2px 10px rgba(0,0,0,0.5);">';
+        h += '  </a>';
+        h += '</div>';
+    } else {
+        h += '<div style="border:1.5px dashed #4b5563;border-radius:10px;padding:16px;text-align:center;background:rgba(255,255,255,0.02);color:#94a3b8;font-size:12px;">';
+        h += '    Không có hình ảnh báo cáo';
+        h += '</div>';
+    }
+    h += '</div>';
+    
+    h += '</div>'; // End body
+    
+    h += '<div class="m-modal-footer">';
+    h += '<button class="m-modal-btn cancel" onclick="mCloseDetailModal()" style="width:100%">Đóng</button>';
+    h += '</div>';
+    
+    h += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(() => { document.getElementById('mDetailModal').classList.add('show'); });
+};
 
 function mUpdateDoneMeters() {
     const selectEl = document.getElementById('mDone_roll_id');
