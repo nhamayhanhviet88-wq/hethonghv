@@ -99,7 +99,7 @@ function _tsRenderStepModal(step, d){
             });
 
             groups.forEach((g, i) => {
-                const title = `🖨️ ${g.product_name || g.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
+                const title = `🖨️ ${d.order_code} — Phiếu ${i+1}`;
                 
                 const allDone = g.print_items.every(r => r.is_print_done);
                 const allOutsourced = g.print_items.every(r => r.contractor_id);
@@ -117,6 +117,7 @@ function _tsRenderStepModal(step, d){
                     <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO ĐẦU</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(g.handover_date)}</div></div>
                     <div style="background:${allDoneOrGC?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${allDoneOrGC?'#16a34a':'#f59e0b'};font-weight:700">🖨️ HOÀN THÀNH IN CUỐI</div><div style="font-weight:800;color:${allDoneOrGC?'#166534':'#92400e'}">${allDoneOrGC && g.latest_done_date ? fmtShortDT(g.latest_done_date) : statusText}</div></div>
                 </div>`;
+                body+=row('📦 Tên SP',V(g.product_name || g.item_description));
                 body+=row('👤 CSKH',V(d.cskh_name));
                 body+=row('📊 Số Lượng Theo Đơn',g.order_quantity ? g.order_quantity+' Áo' : '—','#1e40af');
                 
@@ -142,7 +143,7 @@ function _tsRenderStepModal(step, d){
                             <span>${printerDisplay}</span>
                         </div>`;
 
-                    if (r.current_roll || r.print_meters || r.roll_start_qty || r.roll_end_qty) {
+                    if (!r.contractor_id && (r.current_roll || r.print_meters || r.roll_start_qty || r.roll_end_qty)) {
                         body += `<div style="margin-top:6px;padding:6px;background:white;border-radius:6px;border:1px solid #e2e8f0;font-size:11px">`;
                         if (r.current_roll) {
                             body += `<div style="margin-bottom:4px">🧻 Cây in: <strong style="color:#0f766e">${r.current_roll}</strong></div>`;
