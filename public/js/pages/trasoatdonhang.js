@@ -160,7 +160,10 @@ function _tsRenderTable(orders, totalCount) {
 
         html += `<tr onclick="_tsToggleDetail(${o.id})" id="tsRow${o.id}">
             <td style="color:#9ca3af;font-weight:600">${(_ts.page-1)*30+i+1}</td>
-            <td><span style="color:#4338ca;font-weight:800">${o.order_code}</span>${badges}</td>
+            <td>
+                <span style="color:#4338ca;font-weight:800">${o.order_code}</span>${badges}
+                ${o.created_by_name ? `<div style="font-size:11px;color:#e65100;font-weight:700;margin-top:2px">👤 Sale: ${o.created_by_name}</div>` : ''}
+            </td>
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
             <td><span class="ts-prio ${priClass}">${priority}</span></td>
             <td style="font-weight:600">${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority)}</td>

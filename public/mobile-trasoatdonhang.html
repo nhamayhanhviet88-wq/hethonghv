@@ -169,7 +169,10 @@ function render() {
         const expanded = _m.expandedId === o.id;
         html += `<div class="order-card ${expanded?'expanded':''}" id="mCard${o.id}">
             <div class="oc-top">
-                <span class="oc-code">${o.order_code}${badges}</span>
+                <span class="oc-code" style="display:flex;flex-direction:column;align-items:flex-start">
+                    <span>${o.order_code}${badges}</span>
+                    ${o.created_by_name ? `<span style="font-size:10px;color:#e65100;font-weight:700;margin-top:2px">👤 Sale: ${o.created_by_name}</span>` : ''}
+                </span>
                 <span class="oc-status ${o.deviation_class}">${o.deviation_label}</span>
             </div>
             <div class="oc-customer">${o.customer_name||'-'}</div>
