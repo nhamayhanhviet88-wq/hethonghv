@@ -47,13 +47,6 @@ function _tsRenderStepModal(step, d){
                 body+=section('🧶','CÂY VẢI ĐÃ CHỌN ('+r.rolls.length+')');
                 r.rolls.forEach(rl=>{ body+=`<div style="padding:6px 12px;background:#f8fafc;border-radius:8px;margin:4px 0;font-size:12px;font-weight:600">${rl.material_name} - ${rl.color} - ${rl.kg}kg</div>`; });
             }
-            body+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
-                <div style="background:#fef3c7;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#92400e">${r.kg_start||0}</div></div>
-                <div style="background:#fecaca;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;font-weight:700;color:#991b1b">⚖️ KG CUỐI</div><div style="font-size:20px;font-weight:900;color:#991b1b">${r.kg_end||0}</div></div>
-                <div style="background:#dbeafe;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;font-weight:700;color:#1e40af">✂️ KG CẮT</div><div style="font-size:20px;font-weight:900;color:#1e40af">${r.kg_cut||0}</div></div>
-                <div style="background:#d1fae5;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;font-weight:700;color:#065f46">🧮 SL CẮT</div><div style="font-size:20px;font-weight:900;color:#065f46">${r.cut_quantity||0}</div></div>
-            </div>`;
-            if(r.cut_ratio) body+=row('📐 Định Lượng Thực Tế',r.cut_ratio+' sp/kg','#dc2626');
             body+=`</div></div>`;
         }); body+=`</div>`; }
     }
