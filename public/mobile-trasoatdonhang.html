@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Tra Soát Đơn Hàng — Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-webkit-tap-highlight-color:transparent}
+.header{background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;padding:16px 16px 20px;position:sticky;top:0;z-index:10}
+.header h1{font-size:17px;font-weight:900;margin-bottom:12px}
+.search-box{position:relative}
+.search-box input{width:100%;padding:12px 16px 12px 40px;border:none;border-radius:12px;font-size:15px;font-weight:600;background:rgba(255,255,255,.15);color:white;outline:none}
+.search-box input::placeholder{color:rgba(255,255,255,.6)}
+.search-box .icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px}
+.filters{display:flex;gap:8px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.filters select{padding:8px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(255,255,255,.1);color:white;font-size:12px;font-weight:700;-webkit-appearance:none;min-width:90px}
+.filters select option{color:#1e1b4b;background:white}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px 0}
+.stat-card{background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.stat-card .num{font-size:24px;font-weight:900}
+.stat-card .lbl{font-size:10px;font-weight:700;color:#64748b;margin-top:2px}
+.stat-card .pct{font-size:11px;font-weight:800;margin-top:1px}
+.results{padding:8px 16px 80px}
+.results-count{font-size:12px;font-weight:700;color:#64748b;margin:12px 0 8px}
+.order-card{background:white;border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #e5e7eb;transition:all .2s}
+.order-card.expanded{border-color:#6366f1;box-shadow:0 4px 20px rgba(99,102,241,.12)}
+.oc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.oc-code{font-size:15px;font-weight:900;color:#4338ca}
+.oc-badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:9px;font-weight:800;margin-left:4px}
+.oc-badge-repair{background:#fef3c7;color:#92400e}
+.oc-badge-pet{background:#ede9fe;color:#5b21b6}
+.oc-status{font-size:11px;font-weight:800;padding:3px 10px;border-radius:8px;white-space:nowrap}
+.oc-status.early{background:#d1fae5;color:#065f46}
+.oc-status.on_time{background:#e0e7ff;color:#3730a3}
+.oc-status.late{background:#fee2e2;color:#991b1b}
+.oc-customer{font-size:13px;font-weight:600;margin-top:6px}
+.oc-phone{font-size:12px;color:#6b7280;font-family:monospace}
+.oc-progress{margin-top:10px}
+.oc-pbar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden}
+.oc-pbar-fill{height:100%;border-radius:4px;transition:width .4s}
+.oc-pinfo{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;font-weight:700}
+.oc-date{font-size:11px;color:#64748b;margin-top:6px}
+.oc-expand-btn{width:100%;padding:8px;margin-top:10px;border:1.5px dashed #d1d5db;border-radius:10px;background:transparent;color:#6366f1;font-size:12px;font-weight:800;cursor:pointer}
+.timeline-detail{margin-top:14px;animation:slideIn .25s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.tl-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;align-items:flex-start}
+.tl-step:last-child{border-bottom:none}
+.tl-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;border:2.5px solid #e5e7eb}
+.tl-icon.done{background:#10b981;border-color:#10b981;color:white}
+.tl-icon.active{background:#f59e0b;border-color:#f59e0b;color:white}
+.tl-icon.pending{background:#f8fafc;color:#9ca3af}
+.tl-info{flex:1}
+.tl-name{font-size:13px;font-weight:800;color:#1e293b}
+.tl-time{font-size:11px;color:#6b7280;margin-top:1px}
+.tl-worker{font-size:11px;color:#4338ca;font-weight:600}
+.ship-info{background:#f8fafc;border-radius:10px;padding:12px;margin-top:12px}
+.ship-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}
+.ship-row b{color:#1e1b4b}
+.load-more{display:block;width:100%;padding:14px;margin:8px 0;border:none;border-radius:12px;background:#4338ca;color:white;font-size:14px;font-weight:800;cursor:pointer}
+.load-more:disabled{opacity:.4}
+.empty{text-align:center;padding:60px 20px;color:#9ca3af}
+.empty .icon{font-size:48px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>🔍 Tra Soát Đơn Hàng</h1>
+    <div class="search-box">
+        <span class="icon">🔎</span>
+        <input id="mSearch" placeholder="Mã đơn, SĐT, tên KH..." autocomplete="off">
+    </div>
+    <div class="filters">
+        <select id="mMonth"><option value="">Tất cả tháng</option></select>
+        <select id="mYear"></select>
+        <select id="mStatus"><option value="">Tất cả</option><option value="early">🟢 Sớm</option><option value="on_time">🟡 Đúng</option><option value="late">🔴 Trễ</option></select>
+    </div>
+</div>
+<div class="cards" id="mCards"></div>
+<div class="results" id="mResults"><div class="empty"><div class="icon">⏳</div>Đang tải...</div></div>
+
+<script>
+const API_BASE = '';
+var _m = { page: 1, search: '', orders: [], total: 0, expandedId: null, debounce: null };
+
+async function api(url) {
+    const r = await fetch(API_BASE + url, { credentials: 'include' });
+    if (!r.ok) throw new Error('API error');
+    return r.json();
+}
+
+function init() {
+    const now = new Date(), cm = now.getMonth()+1, cy = now.getFullYear();
+    const mSel = document.getElementById('mMonth'), ySel = document.getElementById('mYear');
+    for (let m=1;m<=12;m++) { const o=document.createElement('option'); o.value=m; o.text='Tháng '+m; if(m===cm)o.selected=true; mSel.appendChild(o); }
+    for (let y=cy;y>=cy-3;y--) { const o=document.createElement('option'); o.value=y; o.text=y; ySel.appendChild(o); }
+    document.getElementById('mSearch').addEventListener('input', e => {
+        clearTimeout(_m.debounce);
+        _m.debounce = setTimeout(() => { _m.search=e.target.value; _m.page=1; _m.orders=[]; load(); }, 400);
+    });
+    ['mMonth','mYear','mStatus'].forEach(id => document.getElementById(id).addEventListener('change', () => { _m.page=1; _m.orders=[]; load(); loadStats(); }));
+    load(); loadStats();
+}
+
+async function load() {
+    const p = new URLSearchParams({page:_m.page,limit:20});
+    if (_m.search) p.set('search', _m.search);
+    const month = document.getElementById('mMonth').value;
+    const year = document.getElementById('mYear').value;
+    const status = document.getElementById('mStatus').value;
+    if (month) p.set('month', month);
+    if (year) p.set('year', year);
+    if (status) p.set('status', status);
+    try {
+        const res = await api('/api/trasoat/orders?'+p);
+        if (_m.page === 1) _m.orders = res.orders || [];
+        else _m.orders = _m.orders.concat(res.orders || []);
+        _m.total = res.totalCount || 0;
+        render();
+    } catch(e) {
+        document.getElementById('mResults').innerHTML = '<div class="empty"><div class="icon">❌</div>Lỗi tải dữ liệu</div>';
+    }
+}
+
+function render() {
+    const el = document.getElementById('mResults');
+    if (!_m.orders.length) { el.innerHTML = '<div class="empty"><div class="icon">📭</div>Không tìm thấy đơn hàng</div>'; return; }
+    const fmtD = d => { if(!d) return '-'; return new Date(d).toLocaleDateString('vi-VN'); };
+    let html = `<div class="results-count">Hiển thị ${_m.orders.length}/${_m.total} đơn</div>`;
+    _m.orders.forEach(o => {
+        const pColor = o.progress_percent===100?'#10b981':o.progress_percent>=50?'#f59e0b':'#6366f1';
+        const badges = (o.is_repair?'<span class="oc-badge oc-badge-repair">SỬA</span>':'')+(o.is_pet_tem?'<span class="oc-badge oc-badge-pet">PET</span>':'');
+        const expanded = _m.expandedId === o.id;
+        html += `<div class="order-card ${expanded?'expanded':''}" id="mCard${o.id}">
+            <div class="oc-top">
+                <span class="oc-code">${o.order_code}${badges}</span>
+                <span class="oc-status ${o.deviation_class}">${o.deviation_label}</span>
+            </div>
+            <div class="oc-customer">${o.customer_name||'-'}</div>
+            <div class="oc-phone">${o.customer_phone||''}</div>
+            <div class="oc-progress">
+                <div class="oc-pbar"><div class="oc-pbar-fill" style="width:${o.progress_percent}%;background:${pColor}"></div></div>
+                <div class="oc-pinfo"><span style="color:${pColor}">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</span><span>${o.current_step_name}</span></div>
+            </div>
+            <div class="oc-date">📅 DK Gửi: ${fmtD(o.expected_ship_date)}</div>
+            <button class="oc-expand-btn" onclick="toggleDetail(${o.id})">${expanded?'▲ Thu gọn':'▼ Xem chi tiết'}</button>
+            ${expanded?'<div class="timeline-detail" id="mDetail'+o.id+'"><div style="text-align:center;padding:16px;color:#9ca3af">⏳</div></div>':''}
+        </div>`;
+    });
+    if (_m.orders.length < _m.total) html += `<button class="load-more" onclick="loadMore()">Tải thêm đơn hàng...</button>`;
+    el.innerHTML = html;
+    if (_m.expandedId) loadDetail(_m.expandedId);
+}
+
+function loadMore() { _m.page++; load(); }
+
+async function toggleDetail(id) {
+    _m.expandedId = _m.expandedId===id ? null : id;
+    render();
+}
+
+async function loadDetail(id) {
+    const el = document.getElementById('mDetail'+id); if(!el) return;
+    try {
+        const res = await api('/api/trasoat/orders/'+id+'/detail');
+        const {order:o, timeline} = res;
+        const fmtDT = d => { if(!d) return ''; return new Date(d).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}); };
+        let html = '';
+        timeline.forEach((s,i) => {
+            const cls = s.done?'done':(i>0&&timeline[i-1].done&&!s.done)?'active':(i===0&&!s.done)?'active':'pending';
+            const icon = s.done?'✓':cls==='active'?'⏳':''+(i+1);
+            html += `<div class="tl-step"><div class="tl-icon ${cls}">${icon}</div><div class="tl-info">
+                <div class="tl-name">${s.name}</div>
+                ${s.done?'<div class="tl-time">'+fmtDT(s.time)+'</div>':'<div class="tl-time" style="color:#f59e0b">Đang chờ...</div>'}
+                ${s.worker?'<div class="tl-worker">👤 '+s.worker+'</div>':''}
+            </div></div>`;
+        });
+        if (o.shipping_status==='shipped') {
+            html += '<div class="ship-info">';
+            html += `<div class="ship-row"><span>🚛 NVC</span><b>${o.carrier_name||'-'}</b></div>`;
+            html += `<div class="ship-row"><span>📦 Mã VĐ</span><b>${o.tracking_code||'-'}</b></div>`;
+            html += `<div class="ship-row"><span>📱 SĐT NX</span><b>${o.carrier_phone||'-'}</b></div>`;
+            html += `<div class="ship-row"><span>📅 Ngày gửi</span><b>${fmtDT(o.shipped_at)}</b></div>`;
+            html += '</div>';
+        }
+        el.innerHTML = html;
+    } catch(e) { el.innerHTML = '<div style="color:#ef4444;padding:12px">❌ Lỗi</div>'; }
+}
+
+async function loadStats() {
+    const y = document.getElementById('mYear').value || new Date().getFullYear();
+    try {
+        const s = await api('/api/trasoat/stats?year='+y);
+        document.getElementById('mCards').innerHTML = `
+            <div class="stat-card"><div class="num" style="color:#1e40af">${s.total}</div><div class="lbl">TỔNG ĐƠN</div></div>
+            <div class="stat-card"><div class="num" style="color:#166534">${s.early}</div><div class="lbl">SỚM HƠN</div><div class="pct" style="color:#16a34a">${s.early_pct}%</div></div>
+            <div class="stat-card"><div class="num" style="color:#3730a3">${s.on_time}</div><div class="lbl">ĐÚNG LỊCH</div><div class="pct" style="color:#4f46e5">${s.on_time_pct}%</div></div>
+            <div class="stat-card"><div class="num" style="color:#991b1b">${s.late}</div><div class="lbl">TRỄ LỊCH</div><div class="pct" style="color:#dc2626">${s.late_pct}%</div></div>`;
+    } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
