@@ -34,7 +34,7 @@ function _tsRenderStepModal(step, d){
     let html = '', body = '';
     if(step==='cat'){
         html = hdr('✂️','CHI TIẾT ĐƠN CẮT',d.order_code,'#16a34a,#15803d');
-        if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu cắt</div>'; }
+        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">✂️</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu cắt</div></div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = `📋 ${r.product_name || r.item_description || 'Sản phẩm'}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
@@ -57,7 +57,7 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='in'){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
-        if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu in</div>'; }
+        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🖨️</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu in</div></div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = `🖨️ ${r.product_name || r.item_description || 'Sản phẩm'}`;
             const statusText = r.is_print_done ? '✅ Đã in xong' : (r.contractor_id ? '⏳ Đã bàn giao bên gia công' : '⏳ Đang in');
@@ -84,7 +84,7 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='ep'){
         html = hdr('🔥','CHI TIẾT PHIẾU ÉP',d.order_code,'#ea580c,#c2410c');
-        if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu ép</div>'; }
+        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔥</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu ép</div></div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = `🔥 ${r.product_name || r.item_description || 'Sản phẩm'}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
@@ -116,7 +116,22 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='may'){
         html = hdr('🧵','CHI TIẾT BÀN GIAO MAY',d.order_code,'#1e3a5f,#1e40af');
-        if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu may</div>'; }
+        if(!d.records||!d.records.length){
+            const isManager = currentUser && ['giam_doc','quan_ly','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
+            const actionBtn = isManager ? '<button onclick="_tsCloseModal(); navigate(\'congviecqlx\');" style="margin-top:14px;padding:8px 20px;background:linear-gradient(135deg,#b45309,#d97706);color:white;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(180,83,9,0.2);transition:all 0.2s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">⚡ ĐI ĐẾN PHÂN CÔNG NGAY</button>' : '';
+            body = `<div style="padding:32px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px dashed #f59e0b;border-radius:16px;margin:24px;box-shadow:0 10px 25px rgba(245,158,11,0.15);animation:_tsWarningPulse 2s infinite alternate">
+                <div style="width:56px;height:56px;background:#fef3c7;border:2px solid #f59e0b;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:16px;box-shadow:0 4px 12px rgba(245,158,11,0.2)">⚠️</div>
+                <h3 style="font-size:15px;font-weight:900;color:#92400e;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:0.5px;line-height:1.4">QUẢN LÝ XƯỞNG CHƯA PHÂN CÔNG MAY</h3>
+                <p style="font-size:13px;font-weight:600;color:#b45309;line-height:1.6;margin:0;max-width:380px;">Hãy liên hệ <strong style="color:#78350f;font-weight:800">QUẢN LÝ XƯỞNG</strong> phân công cho nhà may.</p>
+                ${actionBtn}
+            </div>
+            <style>
+                @keyframes _tsWarningPulse {
+                    from { box-shadow:0 4px 15px rgba(245,158,11,0.1); transform:scale(1); }
+                    to { box-shadow:0 10px 25px rgba(245,158,11,0.25); transform:scale(1.01); }
+                }
+            </style>`;
+        }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = `🧵 ${r.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
@@ -138,7 +153,7 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='qc'){
         html = hdr('🔍','CHI TIẾT KIỂM TRA CHẤT LƯỢNG (QC)',d.order_code,'#0f766e,#0d9488');
-        if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu QC</div>'; }
+        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔍</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu QC</div></div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = '🔍 ' + d.order_code + ' — Phiếu ' + (i+1) + (r.item_description ? ' — ' + r.item_description : '');
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
@@ -192,7 +207,7 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='ht'){
         html = hdr('🔧','CHI TIẾT HOÀN THIỆN & CHECKLIST',d.order_code,'#334155,#475569');
-        if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu hoàn thiện</div>'; }
+        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔧</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu hoàn thiện</div></div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = '🔍 ' + d.order_code + ' — Phiếu ' + (i+1) + (r.item_description ? ' — ' + r.item_description : '');
             
