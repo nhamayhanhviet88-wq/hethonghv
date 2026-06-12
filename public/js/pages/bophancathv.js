@@ -2689,8 +2689,85 @@ function _mcRenderStep() {
             h += '<div style="padding:6px 12px;border:1px solid #dcfce7;border-radius:8px;margin-bottom:4px;font-size:12px;font-weight:600;color:#1e293b">' + o.order_code + (o.description ? ' — ' + o.description : '') + ' <span style="color:#64748b;font-size:10px">SL: ' + (o.quantity||'—') + '</span></div>';
         });
         h += '</div>';
+
+        // Multi-cut Reminders block (Desktop)
+        if (_mcData.orderReminders && _mcData.orderReminders.length > 0) {
+            h += '<div style="margin-top:12px;background:#fef2f2;border:2px solid #fee2e2;padding:12px 14px;border-radius:12px;text-align:left;">';
+            h += '  <div style="font-weight:800;color:#b91c1c;font-size:11px;margin-bottom:8px;text-transform:uppercase;">🔔 QLX NHẮC NHỞ CÁC ĐƠN GỘP:</div>';
+            h += '  <div style="display:flex;flex-direction:column;gap:12px">';
+            _mcData.orderReminders.forEach(function(or) {
+                h += '    <div style="border-top:1.5px dashed #fee2e2;padding-top:8px;margin-top:4px">';
+                h += '       <div style="font-size:11px;font-weight:800;color:#3b82f6;margin-bottom:6px">📋 ' + or.order_code + (or.description ? ' — ' + or.description : '') + ':</div>';
+                or.reminders.forEach(function(rem, remIdx) {
+                    var remId = or.reminder_ids[remIdx] || 0;
+                    var isViewed = or.viewed_ids.indexOf(remId) >= 0;
+                    h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#22c55e' : '#ef4444') + ';border-radius:10px;padding:8px 12px;margin-bottom:6px;transition:all 0.3s">';
+                    h += '       <input type="checkbox" class="_mc-multi-reminder-cb" data-order-item-id="' + or.order_item_id + '" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+                    h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#1e293b;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isViewed) {
+                        h += '       <button type="button" class="_mc-multi-reminder-btn" data-order-item-id="' + or.order_item_id + '" data-reminder-id="' + remId + '" onclick="_mcToggleMultiReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #22c55e;background:rgba(34,197,94,0.1);color:#15803d;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
+                    } else {
+                        h += '       <button type="button" class="_mc-multi-reminder-btn" data-order-item-id="' + or.order_item_id + '" data-reminder-id="' + remId + '" onclick="_mcToggleMultiReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#b91c1c;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpcReminderPulseMobile 2s infinite">👉 Đã Xem và Làm</button>';
+                    }
+                    h += '    </div>';
+                });
+                h += '    </div>';
+            });
+            h += '  </div>';
+            h += '</div>';
+        }
+
         body.innerHTML = h;
         if (nextBtn) { nextBtn.textContent = '✂️ XÁC NHẬN CẮT'; nextBtn.style.background = 'linear-gradient(135deg,#059669,#10b981)'; }
+        _mcUpdateMultiCutConfirmState();
+    }
+}
+
+function _mcToggleMultiReminder(btn) {
+    var remId = Number(btn.getAttribute('data-reminder-id'));
+    var orderItemId = Number(btn.getAttribute('data-order-item-id'));
+    var cb = document.querySelector('._mc-multi-reminder-cb[data-order-item-id="' + orderItemId + '"][data-reminder-id="' + remId + '"]');
+    if (!cb) return;
+    
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.borderColor = '#22c55e';
+        btn.style.background = 'rgba(34,197,94,0.1)';
+        btn.style.color = '#15803d';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#22c55e';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.borderColor = '#ef4444';
+        btn.style.background = 'rgba(239,68,68,0.1)';
+        btn.style.color = '#b91c1c';
+        btn.style.animation = 'bpcReminderPulseMobile 2s infinite';
+        if (card) card.style.borderColor = '#ef4444';
+    }
+    _mcUpdateMultiCutConfirmState();
+}
+
+function _mcUpdateMultiCutConfirmState() {
+    var confirmBtn = document.getElementById('_mcNextBtn');
+    if (!confirmBtn) return;
+    if (_mcData.step !== 4) return;
+    
+    var totalReminders = document.querySelectorAll('._mc-multi-reminder-cb').length;
+    var checkedReminders = document.querySelectorAll('._mc-multi-reminder-cb:checked').length;
+    var allRemindersChecked = (checkedReminders === totalReminders);
+    
+    confirmBtn.disabled = !allRemindersChecked;
+    if (allRemindersChecked) {
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+    } else {
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.cursor = 'not-allowed';
     }
 }
 
@@ -2729,24 +2806,74 @@ async function _mcNext() {
     } else if (_mcData.step === 3) {
         if (_mcData.selOrders.length < 2) { showToast('Chọn ít nhất 2 đơn để cắt chung', 'error'); return; }
         // Validate same cutting_category
-        var selCands = _mcData.candidates.filter(function(c) { return _mcData.selOrders.indexOf(c.id) >= 0; });
+        var selCands = _mcData.candidates.filter(function(c) { return _mcData.selOrders.indexOf(c.order_item_id) >= 0; });
         var cats = {}; selCands.forEach(function(c) { if (c.cutting_category) cats[c.cutting_category] = true; });
         if (Object.keys(cats).length > 1) { showToast('Các đơn phải cùng Sản Phẩm Cắt!', 'error'); return; }
-        _mcData.step = 4; _mcRenderStep();
+        
+        var nextBtn = document.getElementById('_mcNextBtn');
+        if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = '⏳ Tải nhắc nhở...'; }
+        
+        try {
+            var remPromises = _mcData.selOrders.map(function(itemId) {
+                var cand = _mcData.candidates.find(function(c) { return c.order_item_id === itemId; });
+                if (!cand) return null;
+                var url = '/api/qlx/reminders?order_id=' + cand.dht_order_id + '&dept=cat&item_id=' + itemId;
+                return apiCall(url).then(function(res) {
+                    return {
+                        order_code: cand.order_code,
+                        description: cand.description,
+                        dht_order_id: cand.dht_order_id,
+                        order_item_id: itemId,
+                        reminders: res.reminders || [],
+                        reminder_ids: res.reminder_ids || [],
+                        viewed_ids: res.viewed_ids || []
+                    };
+                });
+            }).filter(Boolean);
+            
+            var remResults = await Promise.all(remPromises);
+            _mcData.orderReminders = remResults.filter(function(r) { return r.reminders.length > 0; });
+            _mcData.step = 4;
+            _mcRenderStep();
+        } catch(e) {
+            showToast('Lỗi tải nhắc nhở: ' + (e.message || 'Lỗi'), 'error');
+        } finally {
+            if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'Tiếp theo ▶'; }
+        }
     } else if (_mcData.step === 4) {
+        // Safety check reminders
+        var totalReminders = document.querySelectorAll('._mc-multi-reminder-cb').length;
+        var checkedReminders = document.querySelectorAll('._mc-multi-reminder-cb:checked').length;
+        if (checkedReminders < totalReminders) {
+            showToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', 'error');
+            return;
+        }
+
         // Submit
         if (window._bpcBusy) return;
         window._bpcBusy = true;
         var btn = document.getElementById('_mcNextBtn');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
         try {
+            // First submit viewed status for all reminders of all combined orders!
+            if (totalReminders > 0) {
+                var reminderIds = [];
+                document.querySelectorAll('._mc-multi-reminder-cb:checked').forEach(function(cb) {
+                    reminderIds.push(Number(cb.dataset.reminderId));
+                });
+                await apiCall('/api/qlx/reminders/viewed', 'POST', {
+                    reminder_ids: reminderIds,
+                    record_type: 'cutting'
+                });
+            }
+
             await apiCall('/api/cutting/multi-cut', 'POST', { selected_roll_ids: _mcData.selRolls, selected_order_item_ids: _mcData.selOrders, material_name: _mcData.selMat, fabric_color: _mcData.selColor });
             _mcClose();
             showToast('✅ Đã bắt đầu cắt chung ' + _mcData.selOrders.length + ' đơn!');
             await _bpcLoadAll();
         } catch(e) {
             showToast(e.message || 'Lỗi', 'error');
-            if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; }
+            if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; _mcUpdateMultiCutConfirmState(); }
         } finally {
             window._bpcBusy = false;
         }

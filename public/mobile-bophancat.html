@@ -2386,10 +2386,89 @@ function mMCRender(){
         h+='<div class="m-row"><span class="m-lbl">⚖️ Kg đầu</span><span class="m-val" style="color:#f97316;font-size:18px">'+mFmtKg(tk)+' kg</span></div>';
         h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:8px 0;padding-top:8px"><div style="font-size:10px;font-weight:700;color:#4ade80;margin-bottom:6px">📋 ĐƠN ('+so.length+') — sẽ tự nhận + cắt</div>';
         so.forEach(o=>{h+='<div style="padding:6px 10px;border:1px solid rgba(34,197,94,0.2);border-radius:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:#e2e8f0">'+o.order_code+(o.description?' — '+o.description:'')+' · SL: '+(o.quantity||'—')+'</div>';});
-        h+='</div>';bd.innerHTML=h;
+        h+='</div>';
+
+        // Multi-cut Reminders block
+        if (_mm.orderReminders && _mm.orderReminders.length > 0) {
+            h += '<div style="margin-top:12px;background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.3);padding:12px 14px;border-radius:12px;text-align:left;">';
+            h += '  <div style="font-weight:800;color:#fca5a5;font-size:11px;margin-bottom:8px;text-transform:uppercase;">🔔 QLX NHẮC NHỞ CÁC ĐƠN GỘP:</div>';
+            h += '  <div style="display:flex;flex-direction:column;gap:12px">';
+            _mm.orderReminders.forEach(function(or) {
+                h += '    <div style="border-top:1.5px dashed rgba(255,255,255,0.1);padding-top:8px;margin-top:4px">';
+                h += '       <div style="font-size:11px;font-weight:800;color:#a5b4fc;margin-bottom:6px">📋 ' + or.order_code + (or.description ? ' — ' + or.description : '') + ':</div>';
+                or.reminders.forEach(function(rem, remIdx) {
+                    var remId = or.reminder_ids[remIdx] || 0;
+                    var isViewed = or.viewed_ids.indexOf(remId) >= 0;
+                    h += '    <div style="display:flex;align-items:center;gap:10px;background:#1e293b;border:1.5px solid ' + (isViewed ? '#22c55e' : '#ef4444') + ';border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:all 0.3s">';
+                    h += '       <input type="checkbox" class="m-multi-reminder-cb" data-order-item-id="' + or.order_item_id + '" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+                    h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isViewed) {
+                        h += '       <button type="button" class="m-multi-reminder-btn" data-order-item-id="' + or.order_item_id + '" data-reminder-id="' + remId + '" onclick="mToggleMultiReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #22c55e;background:rgba(34,197,94,0.1);color:#4ade80;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
+                    } else {
+                        h += '       <button type="button" class="m-multi-reminder-btn" data-order-item-id="' + or.order_item_id + '" data-reminder-id="' + remId + '" onclick="mToggleMultiReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpcReminderPulseMobile 2s infinite">👉 Đã Xem và Làm</button>';
+                    }
+                    h += '    </div>';
+                });
+                h += '    </div>';
+            });
+            h += '  </div>';
+            h += '</div>';
+        }
+
+        bd.innerHTML=h;
         if(nx){nx.textContent='✂️ XÁC NHẬN';nx.style.background='linear-gradient(135deg,#059669,#10b981)';}
+        mUpdateMultiCutConfirmState();
     }
 }
+
+function mToggleMultiReminder(btn) {
+    const remId = Number(btn.getAttribute('data-reminder-id'));
+    const orderItemId = Number(btn.getAttribute('data-order-item-id'));
+    const cb = document.querySelector('.m-multi-reminder-cb[data-order-item-id="' + orderItemId + '"][data-reminder-id="' + remId + '"]');
+    if (!cb) return;
+    
+    const isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    
+    const card = btn.closest('div[style*="display:flex;align-items:center"]');
+    
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #22c55e';
+        btn.style.background = 'rgba(34,197,94,0.1)';
+        btn.style.color = '#4ade80';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#22c55e';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #ef4444';
+        btn.style.background = 'rgba(239,68,68,0.1)';
+        btn.style.color = '#fca5a5';
+        btn.style.animation = 'bpcReminderPulseMobile 2s infinite';
+        if (card) card.style.borderColor = '#ef4444';
+    }
+    mUpdateMultiCutConfirmState();
+}
+
+function mUpdateMultiCutConfirmState() {
+    const confirmBtn = document.getElementById('_mmMCNext');
+    if (!confirmBtn) return;
+    if (_mm.step !== 4) return;
+    
+    const totalReminders = document.querySelectorAll('.m-multi-reminder-cb').length;
+    const checkedReminders = document.querySelectorAll('.m-multi-reminder-cb:checked').length;
+    const allRemindersChecked = (checkedReminders === totalReminders);
+    
+    confirmBtn.disabled = !allRemindersChecked;
+    if (allRemindersChecked) {
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+    } else {
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.cursor = 'not-allowed';
+    }
+}
+
 function mMCMatCh(){var s=document.getElementById('_mmMatS');_mm.selMat=s?s.value:'';_mm.selColor='';mMCRender();}
 function mMCColCh(){var s=document.getElementById('_mmColS');_mm.selColor=s?s.value:'';}
 function mMCRollCh(){var cbs=document.querySelectorAll('._mmRCb:checked');var ids=[],kg=0;cbs.forEach(cb=>{ids.push(Number(cb.value));kg+=parseFloat(cb.dataset.weight)||0;});_mm.selRolls=ids;var el=document.getElementById('_mmKgD');if(el)el.textContent=mFmtKg(kg)+' kg';}
@@ -2410,15 +2489,62 @@ async function mMCNext(){
         _mm.step=3;mMCRender();
     }else if(_mm.step===3){
         if(_mm.selOrders.length<2){mToast('Chọn ít nhất 2 đơn',false);return;}
-        _mm.step=4;mMCRender();
+        
+        // Fetch reminders for all selected orders
+        const nextBtn = document.getElementById('_mmMCNext');
+        if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = '⏳ Tải nhắc nhở...'; }
+        try {
+            const remPromises = _mm.selOrders.map(itemId => {
+                const cand = _mm.candidates.find(c => c.order_item_id === itemId);
+                if (!cand) return null;
+                let url = '/api/qlx/reminders?order_id=' + cand.dht_order_id + '&dept=cat&item_id=' + itemId;
+                return mApi(url).then(res => ({
+                    order_code: cand.order_code,
+                    description: cand.description,
+                    dht_order_id: cand.dht_order_id,
+                    order_item_id: itemId,
+                    reminders: res.reminders || [],
+                    reminder_ids: res.reminder_ids || [],
+                    viewed_ids: res.viewed_ids || []
+                }));
+            }).filter(Boolean);
+            
+            const remResults = await Promise.all(remPromises);
+            _mm.orderReminders = remResults.filter(r => r.reminders.length > 0);
+            _mm.step = 4;
+            mMCRender();
+        } catch(e) {
+            mToast('Lỗi tải nhắc nhở: ' + e.message, false);
+        } finally {
+            if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'Tiếp ▶'; }
+        }
     }else if(_mm.step===4){
+        // Safety check reminders
+        const totalReminders = document.querySelectorAll('.m-multi-reminder-cb').length;
+        const checkedReminders = document.querySelectorAll('.m-multi-reminder-cb:checked').length;
+        if (checkedReminders < totalReminders) {
+            mToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', false);
+            return;
+        }
+
         var btn=document.getElementById('_mmMCNext');if(btn){btn.disabled=true;btn.textContent='⏳...';}
         try{
+            // First submit viewed status for all reminders of all combined orders!
+            if (totalReminders > 0) {
+                const reminderIds = [];
+                document.querySelectorAll('.m-multi-reminder-cb:checked').forEach(cb => {
+                    reminderIds.push(Number(cb.dataset.reminderId));
+                });
+                await mApi('/api/qlx/reminders/viewed', 'POST', {
+                    reminder_ids: reminderIds,
+                    record_type: 'cutting'
+                });
+            }
+
             await mApi('/api/cutting/multi-cut','POST',{selected_roll_ids:_mm.selRolls,selected_order_item_ids:_mm.selOrders,material_name:_mm.selMat,fabric_color:_mm.selColor});
             mCloseMC();mToast('✅ Đã cắt chung '+_mm.selOrders.length+' đơn!');await mLoadAll();
-        }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN';}}
+        }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN';mUpdateMultiCutConfirmState();}}
     }
-}
 
 function mCompressImage(file, callback) {
     if (!file) return callback(null);
