@@ -146,9 +146,13 @@ module.exports = async function(fastify) {
         // Finishing records (aggregates checklist status & completion details)
         const finishing = await db.all(`
             SELECT fr.*, u.full_name AS finisher_name,
+                sr.contractor_id,
+                (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count,
                 (SELECT COUNT(*)::int FROM finishing_checklist_answers fca WHERE fca.finishing_record_id = fr.id) AS checklist_count,
                 (SELECT MAX(answered_at) FROM finishing_checklist_answers fca WHERE fca.finishing_record_id = fr.id) AS qc_done_at
-            FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id = u.id
+            FROM finishing_records fr 
+            LEFT JOIN users u ON fr.finisher_id = u.id
+            LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
         `, [orderId]);
 
@@ -257,11 +261,19 @@ module.exports = async function(fastify) {
             const qcDisplayWorker = qcTotalCount > 0 ? qcWorker : null;
 
             // HT calculations
-            const htDoneCount = finishing.filter(f => f.is_completed).length;
+            const isOrderShipped = !!order.delivery_date;
+            const checkFDone = f => {
+                if (isOrderShipped) return f.is_completed;
+                const isQcDone = f.qc_count > 0;
+                const isOutsourced = f.contractor_id !== null;
+                return isOutsourced ? isQcDone : (isQcDone && f.is_completed);
+            };
+
+            const htDoneCount = finishing.filter(checkFDone).length;
             const htTotalCount = finishing.length;
             const htProgress = htTotalCount > 0 ? `${htDoneCount}/${htTotalCount}` : null;
-            const allHtDone = htTotalCount > 0 && finishing.every(f => f.is_completed);
-            const lastHtDone = finishing.filter(f => f.is_completed).sort((a,b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))[0];
+            const allHtDone = htTotalCount > 0 && finishing.every(checkFDone);
+            const lastHtDone = finishing.filter(checkFDone).sort((a,b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))[0];
             const htTime = lastHtDone ? lastHtDone.completed_at : null;
             const htWorker = [...new Set(finishing.map(f => f.finisher_name).filter(Boolean))].join(', ') || null;
 
@@ -503,7 +515,9 @@ module.exports = async function(fastify) {
         if (step === 'ht') {
             const records = await db.all(`
                 SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description,
-                    COALESCE(u_sew.full_name, c.name, t.name) AS sewer_name
+                    COALESCE(u_sew.full_name, c.name, t.name) AS sewer_name,
+                    sr.contractor_id,
+                    (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
                 LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
@@ -523,7 +537,7 @@ module.exports = async function(fastify) {
                     ORDER BY fct.sort_order
                 `, [r.id]);
             }
-            return { step: 'ht', order_code: order.order_code, cskh_name: order.cskh_name, records };
+            return { step: 'ht', order_code: order.order_code, cskh_name: order.cskh_name, is_order_shipped: !!order.delivery_date, records };
         }
 
         if (step === 'gui') {
