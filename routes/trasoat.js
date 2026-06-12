@@ -260,8 +260,8 @@ module.exports = async function(fastify) {
             const sewTotalCount = sewing.length;
             const sewProgress = sewTotalCount > 0 ? `${sewDoneCount}/${sewTotalCount}` : null;
             const allSewDone = sewTotalCount > 0 && sewing.every(s => s.done_date);
-            const lastSewDone = sewing.filter(s => s.done_date).sort((a,b) => new Date(b.done_date) - new Date(a.done_date))[0];
-            const sewTime = lastSewDone ? lastSewDone.done_date : null;
+            const doneSewings = sewing.filter(s => s.done_date);
+            const sewTime = doneSewings.length > 0 ? new Date(Math.max(...doneSewings.map(s => new Date(s.done_date).getTime()))) : null;
             const sewWorker = [...new Set(sewing.map(s => s.sewer_name || s.contractor_name || s.team_name).filter(Boolean))].join(', ') || null;
 
             const sewDone = sewTotalCount > 0 ? allSewDone : (sewRec ? true : false);
