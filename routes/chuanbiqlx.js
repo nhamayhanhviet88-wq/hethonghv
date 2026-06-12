@@ -2,6 +2,7 @@
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { syncFinishingRecord } = require('../utils/finishingSync');
+const { vnNow } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
