@@ -516,6 +516,10 @@ function _tsRenderStepModal(step, d){
                         }catch(e){}
                     }
 
+                    if(r.sew_notes){
+                        body+=`<div style="margin-top:6px;color:#475569;font-style:italic">Ghi chú quản lý may: ${r.sew_notes}</div>`;
+                    }
+
                     body+=`</div>`;
                 });
 
