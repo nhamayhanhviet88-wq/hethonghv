@@ -599,7 +599,7 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
 
     let notesHtml = `
         <div>
-            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú</label>
+            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Ghi Chú NV Hoàn Thiện</label>
             <textarea id="bphtNotes" rows="2" ${readOnly ? 'disabled' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú (nếu có)...'}" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; box-sizing:border-box; font-family:inherit; background:${readOnly ? '#f1f5f9' : '#fff'}; color:${readOnly ? '#64748b' : '#0f172a'}; cursor:${readOnly ? 'not-allowed' : 'text'};">${r.finishing_notes || ''}</textarea>
         </div>
     `;

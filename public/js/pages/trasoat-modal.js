@@ -688,7 +688,7 @@ function _tsRenderStepModal(step, d){
                     }
 
                     if(r.finishing_notes){
-                        body+=`<div style="margin-top:6px;color:#475569;font-style:italic">Ghi chú: ${r.finishing_notes}</div>`;
+                        body+=`<div style="margin-top:6px;color:#475569;font-style:italic">Ghi Chú NV Hoàn Thiện: ${r.finishing_notes}</div>`;
                     }
 
                     body+=`</div>`;

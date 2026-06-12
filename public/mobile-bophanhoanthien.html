@@ -1104,7 +1104,7 @@ async function mOpenCompleteModal(recordId, readOnly = false) {
 
     let notesHtml = `
         <div>
-            <label class="m-label">Ghi Chú</label>
+            <label class="m-label">Ghi Chú NV Hoàn Thiện</label>
             <textarea id="mNotes" class="m-textarea" rows="2" ${readOnly ? 'disabled style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); color:#9ca3af; cursor:not-allowed;"' : ''} placeholder="${readOnly ? '' : 'Nhập ghi chú nếu có...'}">${r.finishing_notes || ''}</textarea>
         </div>
     `;
