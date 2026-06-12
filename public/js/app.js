@@ -988,45 +988,51 @@ async function checkAuth(retryCount) {
             try {
                 await Promise.race([
                     (async function _loadConfigs() {
-                        // Load dynamic roles for menu items (in parallel)
                         var dynamicItems = MENU_CONFIG.filter(function(item) { return item.dynamicRoles; });
-                        if (dynamicItems.length > 0) {
-                            var configResults = await Promise.all(
-                                dynamicItems.map(function(item) {
-                                    return fetch('/api/app-config/' + item.dynamicRoles).then(function(r) { return r.json(); }).catch(function() { return {}; });
-                                })
-                            );
-                            dynamicItems.forEach(function(item, i) {
-                                if (configResults[i] && configResults[i].value) {
-                                    item.roles = JSON.parse(configResults[i].value);
-                                    _configCache[item.dynamicRoles] = configResults[i].value;
-                                }
-                            });
-                        }
+                        var keysToFetch = dynamicItems.map(function(item) { return item.dynamicRoles; });
+                        keysToFetch.push('access_unblock_managers');
+                        keysToFetch.push('crm_conversion_approver_ids');
+                        
+                        // Deduplicate keys
+                        var uniqueKeys = Array.from(new Set(keysToFetch));
+                        
+                        var batchRes = await fetch('/api/app-configs/batch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ keys: uniqueKeys })
+                        }).then(function(r) { return r.json(); }).catch(function() { return {}; });
+
+                        dynamicItems.forEach(function(item) {
+                            var val = batchRes[item.dynamicRoles];
+                            if (val) {
+                                item.roles = JSON.parse(val);
+                                _configCache[item.dynamicRoles] = val;
+                            }
+                        });
 
                         // Nhân Sự Toàn Quyền (HR) — cho thấy menu mở khóa dù role là nhan_vien
-                        try {
-                            var hrCfg = await fetch('/api/app-config/access_unblock_managers').then(function(r) { return r.json(); }).catch(function() { return {}; });
-                            if (hrCfg && hrCfg.value) {
-                                var hrIds = JSON.parse(hrCfg.value);
+                        var hrVal = batchRes['access_unblock_managers'];
+                        if (hrVal) {
+                            try {
+                                var hrIds = JSON.parse(hrVal);
                                 if (hrIds.includes(data.user.id)) {
                                     var mkItem = MENU_CONFIG.find(function(m) { return m.id === 'mo-khoa-tk-phat'; });
                                     if (mkItem && !mkItem.roles.includes(data.user.role)) mkItem.roles.push(data.user.role);
                                 }
-                            }
-                        } catch(e) {}
+                            } catch(e) {}
+                        }
 
                         // CTV Approver — cho người được chỉ định thấy menu Chấp Nhận CTV
-                        try {
-                            var ctvCfg = await fetch('/api/app-config/crm_conversion_approver_ids').then(function(r) { return r.json(); }).catch(function() { return {}; });
-                            if (ctvCfg && ctvCfg.value) {
-                                var ctvIds = JSON.parse(ctvCfg.value);
+                        var ctvVal = batchRes['crm_conversion_approver_ids'];
+                        if (ctvVal) {
+                            try {
+                                var ctvIds = JSON.parse(ctvVal);
                                 if (ctvIds.includes(data.user.id)) {
                                     var ctvItem = MENU_CONFIG.find(function(m) { return m.id === 'chap-nhan-ctv-affiliate'; });
                                     if (ctvItem && !ctvItem.roles.includes(data.user.role)) ctvItem.roles.push(data.user.role);
                                 }
-                            }
-                        } catch(e) {}
+                            } catch(e) {}
+                        }
                     })(),
                     new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Config loading timeout')); }, 8000); })
                 ]);
@@ -1093,7 +1099,15 @@ function _showAuthRetryScreen(reason) {
 function saveSidebarScrollAndNavigate(href) {
     var nav = document.getElementById('sidebarNav');
     if (nav) sessionStorage.setItem('sidebarScrollPos', nav.scrollTop.toString());
-    window.location.href = href;
+    
+    // Resolve menu items by matching custom href/path or ID
+    var cleanRoute = href.replace(/^\//, '');
+    var menuItem = findMenuItemForPage(cleanRoute);
+    if (menuItem) {
+        navigate(menuItem.id);
+    } else {
+        window.location.href = href;
+    }
 }
 
 // ========== SIDEBAR ==========
@@ -1612,7 +1626,12 @@ function renderAffiliateFloatingButtons() {
 // ========== ROUTING ==========
 function navigate(page) {
     currentPage = page;
-    history.pushState({ page }, '', '/' + page);
+    
+    // Find the menu item to get its custom href if it exists
+    var menuItem = findMenuItemForPage(page);
+    var targetPath = (menuItem && menuItem.href) ? menuItem.href : ('/' + page);
+    
+    history.pushState({ page }, '', targetPath);
     handleRoute();
 
     // Close mobile sidebar (reset inline styles + state)

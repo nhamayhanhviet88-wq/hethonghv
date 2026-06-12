@@ -2,6 +2,10 @@ const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { clearProductionCutoffCache } = require('../utils/productionMode');
 
+// In-memory cache for app configurations to reduce database latency at startup
+const appConfigCache = new Map();
+const CACHE_TTL_MS = 30000; // 30 seconds
+
 async function settingsRoutes(fastify, options) {
     // Migration: add sort_order + show_in_chuyenso columns if missing
     try {
@@ -192,19 +196,63 @@ async function settingsRoutes(fastify, options) {
 
     // ===== App Config (generic key-value) =====
     fastify.get('/api/app-config/:key', { preHandler: [authenticate] }, async (request, reply) => {
-        const row = await db.get('SELECT value FROM app_config WHERE key = ?', [request.params.key]);
-        return { value: row ? row.value : null };
+        const { key } = request.params;
+        const now = Date.now();
+        
+        if (appConfigCache.has(key)) {
+            const entry = appConfigCache.get(key);
+            if (now - entry.timestamp < CACHE_TTL_MS) {
+                return { value: entry.value };
+            }
+        }
+        
+        const row = await db.get('SELECT value FROM app_config WHERE key = ?', [key]);
+        const val = row ? row.value : null;
+        appConfigCache.set(key, { value: val, timestamp: now });
+        return { value: val };
     });
 
     fastify.put('/api/app-config/:key', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const { key } = request.params;
         const { value } = request.body || {};
+        const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+        
         await db.run(
             `INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, NOW())
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-            [key, typeof value === 'string' ? value : JSON.stringify(value)]
+            [key, strValue]
         );
+        
+        appConfigCache.set(key, { value: strValue, timestamp: Date.now() });
         return { success: true };
+    });
+
+    // POST: Batch retrieve app configurations to reduce multiple round-trips
+    fastify.post('/api/app-configs/batch', { preHandler: [authenticate] }, async (request, reply) => {
+        const { keys } = request.body || {};
+        if (!Array.isArray(keys)) {
+            return reply.code(400).send({ error: 'keys must be an array' });
+        }
+        
+        const now = Date.now();
+        const results = {};
+        
+        for (const key of keys) {
+            if (appConfigCache.has(key)) {
+                const entry = appConfigCache.get(key);
+                if (now - entry.timestamp < CACHE_TTL_MS) {
+                    results[key] = entry.value;
+                    continue;
+                }
+            }
+            
+            const row = await db.get('SELECT value FROM app_config WHERE key = ?', [key]);
+            const val = row ? row.value : null;
+            appConfigCache.set(key, { value: val, timestamp: now });
+            results[key] = val;
+        }
+        
+        return results;
     });
 
     // ===== PRODUCTION MODE — Chế Độ Thực Chiến =====
