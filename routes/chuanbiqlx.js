@@ -907,28 +907,32 @@ module.exports = async function(fastify) {
         
         let reminders = [];
         
-        // Tier 1: Exact item match
         if (item_id) {
+            // Item-level: only show reminders for this specific item
             reminders = await db.all(
                 `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id = $2${deptFilter} ORDER BY id`,
                 [orderId, Number(item_id)]
             );
-        }
-        
-        // Tier 2: Order-level (item_id IS NULL)
-        if (reminders.length === 0) {
+            // Fallback to order-level reminders (item_id IS NULL) only if this item has none
+            if (reminders.length === 0) {
+                reminders = await db.all(
+                    `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
+                    [orderId]
+                );
+            }
+        } else {
+            // Order-level: show order-level reminders first
             reminders = await db.all(
                 `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
                 [orderId]
             );
-        }
-        
-        // Tier 3: Any item in the same order (fallback)
-        if (reminders.length === 0) {
-            reminders = await db.all(
-                `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1${deptFilter} ORDER BY id`,
-                [orderId]
-            );
+            // Fallback: if no order-level reminders, show ALL reminders for this order
+            if (reminders.length === 0) {
+                reminders = await db.all(
+                    `SELECT id, content FROM qlx_reminders WHERE dht_order_id = $1${deptFilter} ORDER BY id`,
+                    [orderId]
+                );
+            }
         }
         
         // Check which reminders have been viewed by this user
