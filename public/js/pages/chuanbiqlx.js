@@ -928,10 +928,13 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '      </label>';
     html += '    </div>';
     html += '  </div>';
-    html += '  <div id="qlx_cut_reminders_container" style="display:' + (cutChoice === 'yes' ? 'block' : 'none') + ';">';
+    html += '  <div id="qlx_cut_reminders_container" style="display:' + (cutChoice === 'yes' ? 'block' : 'none') + '; margin-bottom:8px;">';
     html += '    <div id="qlx_cut_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
     html += '    </div>';
     html += '    <button type="button" onclick="_qlxAddReminderInput(\'cat\')" style="padding:6px 12px; background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+    html += '  </div>';
+    html += '  <div style="border-top:1px solid #f1f5f9; padding-top:8px; display:flex; justify-content:flex-end;">';
+    html += '    <button type="button" onclick="_qlxFabSaveRemindersOnly(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:6px 12px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">💾 Lưu nhắc nhở cắt</button>';
     html += '  </div>';
     html += '</div>';
 
@@ -963,12 +966,71 @@ function _qlxFabPreview(mat, color, unit) {
         + '</div>';
 }
 
+function _qlxValidateAndGetCutReminders() {
+    var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
+    if (!choiceEl) {
+        showToast('Vui lòng chọn Có nhắc nhở hoặc Không nhắc nhở cho Bộ Phận Cắt!', 'error');
+        return null;
+    }
+    var cutChoice = choiceEl.value;
+    var cutReminders = [];
+    if (cutChoice === 'yes') {
+        var reminderInputs = document.querySelectorAll('#qlx_cut_reminders_list .qlx-reminder-text-input');
+        if (reminderInputs.length === 0) {
+            showToast('Vui lòng thêm nội dung nhắc nhở bộ phận cắt!', 'error');
+            return null;
+        }
+        for (var i = 0; i < reminderInputs.length; i++) {
+            var val = reminderInputs[i].value.trim();
+            if (!val) {
+                showToast('Nội dung nhắc nhở bộ phận cắt bắt buộc phải điền!', 'error');
+                reminderInputs[i].focus();
+                return null;
+            }
+            cutReminders.push(val);
+        }
+    }
+    return { choice: cutChoice, reminders: cutReminders };
+}
+
+async function _qlxFabSaveRemindersOnly(orderId, itemId, pairIndex) {
+    if (window._qlxFabBusy) return;
+    window._qlxFabBusy = true;
+    var reminderData = _qlxValidateAndGetCutReminders();
+    if (!reminderData) {
+        window._qlxFabBusy = false;
+        return;
+    }
+    try {
+        var res = await apiCall('/api/qlx/fabric-reserve/reminders', 'PUT', {
+            dht_order_id: orderId,
+            item_id: itemId,
+            cut_remind_choice: reminderData.choice,
+            cut_reminders: reminderData.reminders
+        });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Đã lưu nhắc nhở bộ phận cắt!');
+        _qlxFabricPopup(orderId, itemId, pairIndex);
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+    } finally {
+        window._qlxFabBusy = false;
+    }
+}
+
 async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
     if (window._qlxFabBusy) return;
     window._qlxFabBusy = true;
     var trees = parseInt(document.getElementById('_qlxFabCallTrees').value) || 0;
     var amount = parseFloat(document.getElementById('_qlxFabCallAmount').value) || 0;
     if (!trees && !amount) { showToast('Nhập số cây hoặc số lượng', 'error'); window._qlxFabBusy = false; return; }
+
+    var reminderData = _qlxValidateAndGetCutReminders();
+    if (!reminderData) { window._qlxFabBusy = false; return; }
+
     var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
     var note = document.getElementById('_qlxFabCallNote') ? document.getElementById('_qlxFabCallNote').value : '';
     var callDate = document.getElementById('_qlxFabCallDate') ? document.getElementById('_qlxFabCallDate').value : '';
@@ -978,40 +1040,13 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
     if (note) parts.push(note);
     var content = parts.join(' - ');
 
-    var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
-    if (!choiceEl) {
-        showToast('Vui lòng chọn Có nhắc nhở hoặc Không nhắc nhở cho Bộ Phận Cắt!', 'error');
-        window._qlxFabBusy = false;
-        return;
-    }
-    var cutChoice = choiceEl.value;
-    var cutReminders = [];
-    if (cutChoice === 'yes') {
-        var reminderInputs = document.querySelectorAll('#qlx_cut_reminders_list .qlx-reminder-text-input');
-        if (reminderInputs.length === 0) {
-            showToast('Vui lòng thêm nội dung nhắc nhở bộ phận cắt!', 'error');
-            window._qlxFabBusy = false;
-            return;
-        }
-        for (var i = 0; i < reminderInputs.length; i++) {
-            var val = reminderInputs[i].value.trim();
-            if (!val) {
-                showToast('Nội dung nhắc nhở bộ phận cắt bắt buộc phải điền!', 'error');
-                window._qlxFabBusy = false;
-                reminderInputs[i].focus();
-                return;
-            }
-            cutReminders.push(val);
-        }
-    }
-
     try {
         var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
             reservation_type: 'new_call', call_trees: trees, call_amount: amount,
             call_note: note, call_date: callDate || null, call_content: content,
-            cut_remind_choice: cutChoice, cut_reminders: cutReminders
+            cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
@@ -1070,11 +1105,19 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
         window._qlxFabBusy = false;
         return;
     }
+
+    var reminderData = _qlxValidateAndGetCutReminders();
+    if (!reminderData) {
+        window._qlxFabBusy = false;
+        return;
+    }
+
     try {
         var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
-            reservation_type: 'from_stock', roll_id: rollId, roll_code: rollCode, kg_reserved: kg
+            reservation_type: 'from_stock', roll_id: rollId, roll_code: rollCode, kg_reserved: kg,
+            cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');

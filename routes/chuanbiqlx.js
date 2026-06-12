@@ -1798,14 +1798,53 @@ module.exports = async function(fastify) {
 
         const { dht_order_id, item_id, phoi_index, material_name, color_name, unit,
                 reservation_type, roll_id, roll_code, kg_reserved, roll_note,
-                call_trees, call_amount, call_note, call_date, call_content } = request.body || {};
+                call_trees, call_amount, call_note, call_date, call_content,
+                cut_remind_choice, cut_reminders } = request.body || {};
 
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
-        // Fabric reservation no longer blocked by sx_print_confirmed (QLX can prepare fabric early)
-
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
+
+        // Validate cutting reminders choice and content (required for reservation POST)
+        if (!cut_remind_choice) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
+        }
+        if (!['yes', 'none'].includes(cut_remind_choice)) {
+            return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
+        }
+
+        if (cut_remind_choice === 'yes') {
+            if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
+            }
+            for (const content of cut_reminders) {
+                if (!content || !content.trim()) {
+                    return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
+                }
+            }
+        }
+
+        // Persist cutting reminders choice
+        await ensureItemPrepRow(dht_order_id, item_id);
+        await db.run(`
+            UPDATE qlx_preparation
+            SET cut_remind_choice = $1, updated_at = $2
+            WHERE item_id = $3
+        `, [cut_remind_choice, now, item_id]);
+
+        // Delete existing cutting reminders for this item
+        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+
+        // Insert new cutting reminders
+        if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
+            for (const content of cut_reminders) {
+                await db.run(`
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                    VALUES ($1, $2, 'cat', $3, $4, $5)
+                `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+            }
+        }
 
         if (reservation_type === 'from_stock') {
             if (!roll_id || !kg_reserved || Number(kg_reserved) <= 0) return reply.code(400).send({ error: 'Chọn cây vải và nhập số kg' });
@@ -1844,45 +1883,6 @@ module.exports = async function(fastify) {
         } else if (reservation_type === 'new_call') {
             if ((!call_trees || call_trees <= 0) && (!call_amount || Number(call_amount) <= 0))
                 return reply.code(400).send({ error: 'Nhập số cây hoặc số lượng gọi vải' });
-
-            const { cut_remind_choice, cut_reminders } = request.body || {};
-            if (!cut_remind_choice) {
-                return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
-            }
-            if (!['yes', 'none'].includes(cut_remind_choice)) {
-                return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
-            }
-
-            if (cut_remind_choice === 'yes') {
-                if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
-                    return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
-                }
-                for (const content of cut_reminders) {
-                    if (!content || !content.trim()) {
-                        return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
-                    }
-                }
-            }
-
-            await ensureItemPrepRow(dht_order_id, item_id);
-            await db.run(`
-                UPDATE qlx_preparation
-                SET cut_remind_choice = $1, updated_at = $2
-                WHERE item_id = $3
-            `, [cut_remind_choice, now, item_id]);
-
-            // Delete existing cutting reminders for this item
-            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
-
-            // Insert new cutting reminders
-            if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
-                for (const content of cut_reminders) {
-                    await db.run(`
-                        INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
-                        VALUES ($1, $2, 'cat', $3, $4, $5)
-                    `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
-                }
-            }
 
             await db.run(`
                 INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
@@ -1939,6 +1939,58 @@ module.exports = async function(fastify) {
         } else {
             await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                 [now, dht_order_id]);
+        }
+
+        return { success: true };
+    });
+
+    // PUT /api/qlx/fabric-reserve/reminders: update only cutting reminders for an item
+    fastify.put('/api/qlx/fabric-reserve/reminders', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const { dht_order_id, item_id, cut_remind_choice, cut_reminders } = request.body || {};
+        if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
+
+        if (!cut_remind_choice) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
+        }
+        if (!['yes', 'none'].includes(cut_remind_choice)) {
+            return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
+        }
+
+        if (cut_remind_choice === 'yes') {
+            if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
+            }
+            for (const content of cut_reminders) {
+                if (!content || !content.trim()) {
+                    return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
+                }
+            }
+        }
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        await ensureItemPrepRow(dht_order_id, item_id);
+        await db.run(`
+            UPDATE qlx_preparation
+            SET cut_remind_choice = $1, updated_at = $2
+            WHERE item_id = $3
+        `, [cut_remind_choice, now, item_id]);
+
+        // Delete existing cutting reminders for this item
+        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+
+        // Insert new cutting reminders
+        if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
+            for (const content of cut_reminders) {
+                await db.run(`
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                    VALUES ($1, $2, 'cat', $3, $4, $5)
+                `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+            }
         }
 
         return { success: true };
