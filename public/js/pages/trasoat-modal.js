@@ -53,17 +53,25 @@ function _tsRenderStepModal(step, d){
     else if(step==='in'){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu in</div>'; }
-        else d.records.forEach((r,i)=>{
-            body+=`<div style="padding:16px 24px;${i?'border-top:2px solid #e5e7eb':''}">`;
-            body+=row('📦 Tên SP',V(r.product_name));
+        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+            body+=`<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#5b21b6;font-size:13px">🖨️ Phiếu ${i+1}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_print_done?'#d1fae5':'#fef3c7'};color:${r.is_print_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_print_done?'✅ Đã in xong':'⏳ Đang in'}</span></div>`;
+            body+=`<div style="padding:14px 16px">`;
+            body+=row('📦 Tên SP/Phối',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('🖨️ NV In',V(r.printer_name),'#7c3aed');
+            body+=row('🖨️ Nhân Viên In',V(r.printer_name),'#7c3aed');
             body+=row('📋 Loại In',V(r.print_field||r.field_name));
-            body+=row('📊 SL Theo Đơn',r.order_quantity ? r.order_quantity+' sp' : '—');
-            body+=row('✅ Trạng thái',r.is_print_done?'Đã in xong':'Đang in',r.is_print_done?'#059669':'#f59e0b');
-            if(r.print_images){try{const imgs=JSON.parse(r.print_images);if(imgs.length){body+=section('📸','HÌNH ẢNH');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});}}catch(e){}}
-            body+=`</div>`;
-        });
+            body+=row('📊 Số Lượng Theo Đơn',r.order_quantity ? r.order_quantity+' Áo' : '—','#1e40af');
+            if(r.current_roll) body+=row('🧻 Cây In',V(r.current_roll),'#0f766e');
+            if(r.print_meters) body+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+                <div style="background:#eff6ff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">SL ĐẦU CUỘN (M)</div><div style="font-size:18px;font-weight:900;color:#1e40af">${r.roll_start_qty||0}</div></div>
+                <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">SỐ MÉT IN (M)</div><div style="font-size:18px;font-weight:900;color:#dc2626">${r.print_meters||0}</div></div>
+                <div style="background:#f1f5f9;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#475569">SL CUỐI CUỘN (M)</div><div style="font-size:18px;font-weight:900;color:#475569">${r.roll_end_qty||0}</div></div>
+            </div>`;
+            if(r.image_url){body+=section('📸','HÌNH ẢNH FILE IN');body+=`<img src="${r.image_url}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`;}
+            if(r.is_print_done && r.print_done_at) body+=`<div style="margin-top:12px;text-align:center;padding:6px 14px;background:#d1fae5;border-radius:8px;font-weight:800;font-size:12px;color:#065f46">In Xong: ${fmtDT(r.print_done_at)}</div>`;
+            body+=`</div></div>`;
+        }); body+=`</div>`; }
     }
     else if(step==='ep'){
         html = hdr('🔥','CHI TIẾT PHIẾU ÉP',d.order_code,'#ea580c,#c2410c');

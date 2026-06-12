@@ -299,10 +299,14 @@ module.exports = async function(fastify) {
 
         if (step === 'in') {
             const records = await db.all(`
-                SELECT pr.*, u.full_name AS printer_name, pf.name AS field_name
+                SELECT pr.*, u.full_name AS printer_name,
+                    u_done.full_name AS done_by_name,
+                    ptr.roll_type AS pettem_roll_type,
+                    ptr.qty_remaining AS pettem_roll_remaining
                 FROM printing_records pr
                 LEFT JOIN users u ON pr.printer_id = u.id
-                LEFT JOIN printing_fields pf ON pr.print_field_id = pf.id
+                LEFT JOIN users u_done ON pr.print_done_by = u_done.id
+                LEFT JOIN pettem_rolls ptr ON pr.pettem_roll_id = ptr.id
                 WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
             `, [orderId]);
             return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };
