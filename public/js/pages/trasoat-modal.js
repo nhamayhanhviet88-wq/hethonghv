@@ -58,29 +58,119 @@ function _tsRenderStepModal(step, d){
     else if(step==='in'){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
         if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🖨️</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu in</div></div>'; }
-        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = `🖨️ ${r.product_name || r.item_description || 'Sản phẩm'}`;
-            const statusText = r.is_print_done ? '✅ Đã in xong' : (r.contractor_id ? '⏳ Đã bàn giao bên gia công' : '⏳ Đang in');
-            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#5b21b6;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_print_done?'#d1fae5':(r.contractor_id?'#e0f2fe':'#fef3c7')};color:${r.is_print_done?'#065f46':(r.contractor_id?'#0369a1':'#92400e')};font-size:11px;font-weight:800">${statusText}</span></div>`;
-            body+=`<div style="padding:14px 16px">`;
-            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.created_at)}</div></div>
-                <div style="background:${r.is_print_done?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_print_done?'#16a34a':'#f59e0b'};font-weight:700">🖨️ HOÀN THÀNH IN</div><div style="font-weight:800;color:${r.is_print_done?'#166534':'#92400e'}">${r.is_print_done?fmtShortDT(r.print_done_at):(r.contractor_id?'⏳ Bàn giao GC':'⏳ Đang in')}</div></div>
-            </div>`;
-            body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('🖨️ Nhân Viên In',V(r.printer_name),'#7c3aed');
-            body+=row('📋 Loại In',V(r.print_field||r.field_name));
-            body+=row('📊 Số Lượng Theo Đơn',r.order_quantity ? r.order_quantity+' Áo' : '—','#1e40af');
-            if(r.current_roll) body+=row('🧻 Cây In',V(r.current_roll),'#0f766e');
-            if(r.print_meters) body+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
-                <div style="background:#eff6ff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">SL ĐẦU CUỘN (M)</div><div style="font-size:18px;font-weight:900;color:#1e40af">${r.roll_start_qty||0}</div></div>
-                <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">SỐ MÉT IN (M)</div><div style="font-size:18px;font-weight:900;color:#dc2626">${r.print_meters||0}</div></div>
-                <div style="background:#f1f5f9;border-radius:10px;padding:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#475569">SL CUỐI CUỘN (M)</div><div style="font-size:18px;font-weight:900;color:#475569">${r.roll_end_qty||0}</div></div>
-            </div>`;
-            if(r.image_url){body+=section('📸','HÌNH ẢNH FILE IN');body+=`<img src="${r.image_url}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`;}
-            body+=`</div></div>`;
-        }); body+=`</div>`; }
+        else {
+            body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            // Group by order_item_id
+            const groups = [];
+            const groupMap = {};
+            let noIdCounter = 0;
+            d.records.forEach(r => {
+                let key = r.order_item_id;
+                if (!key) {
+                    key = 'no-id-' + (++noIdCounter);
+                }
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        order_item_id: r.order_item_id,
+                        item_description: r.item_description,
+                        product_name: r.product_name,
+                        order_quantity: r.order_quantity,
+                        handover_date: null,
+                        latest_done_date: null,
+                        print_items: []
+                    };
+                    groups.push(groupMap[key]);
+                }
+                const g = groupMap[key];
+                g.print_items.push(r);
+                
+                if (r.print_done_at) {
+                    const dDate = new Date(r.print_done_at);
+                    if (!g.latest_done_date || dDate > new Date(g.latest_done_date)) {
+                        g.latest_done_date = r.print_done_at;
+                    }
+                }
+                if (r.created_at) {
+                    const hDate = new Date(r.created_at);
+                    if (!g.handover_date || hDate < new Date(g.handover_date)) {
+                        g.handover_date = r.created_at;
+                    }
+                }
+            });
+
+            groups.forEach((g, i) => {
+                const title = `🖨️ ${g.product_name || g.item_description || 'Sản phẩm'} — ${d.order_code} — Phiếu ${i+1}`;
+                
+                const allDone = g.print_items.every(r => r.is_print_done);
+                const allOutsourced = g.print_items.every(r => r.contractor_id);
+                const allDoneOrGC = g.print_items.every(r => r.is_print_done || r.contractor_id);
+                
+                const statusText = allDone ? '✅ Đã in xong' : (allOutsourced ? '⏳ Đã bàn giao GC' : (allDoneOrGC ? '✅ Hoàn thành' : '⏳ Đang in'));
+                const statusBg = allDone ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' : (allOutsourced ? 'linear-gradient(135deg,#e0f2fe,#bae6fd)' : 'linear-gradient(135deg,#eff6ff,#dbeafe)');
+                const statusBadgeBg = allDone ? '#d1fae5' : (allOutsourced ? '#e0f2fe' : '#fef3c7');
+                const statusBadgeColor = allDone ? '#065f46' : (allOutsourced ? '#0369a1' : '#92400e');
+
+                body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+                body+=`<div style="background:${statusBg};padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#5b21b6;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${statusBadgeBg};color:${statusBadgeColor};font-size:11px;font-weight:800">${statusText}</span></div>`;
+                body+=`<div style="padding:14px 16px">`;
+                body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO ĐẦU</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(g.handover_date)}</div></div>
+                    <div style="background:${allDoneOrGC?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${allDoneOrGC?'#16a34a':'#f59e0b'};font-weight:700">🖨️ HOÀN THÀNH IN CUỐI</div><div style="font-weight:800;color:${allDoneOrGC?'#166534':'#92400e'}">${allDoneOrGC && g.latest_done_date ? fmtShortDT(g.latest_done_date) : statusText}</div></div>
+                </div>`;
+                body+=row('👤 CSKH',V(d.cskh_name));
+                body+=row('📊 Số Lượng Theo Đơn',g.order_quantity ? g.order_quantity+' Áo' : '—','#1e40af');
+                
+                body+=section('📋','DANH SÁCH CHI TIẾT IN / THÊU');
+                g.print_items.forEach((r, idx) => {
+                    const printType = V(r.print_field || r.field_name);
+                    const printerDisplay = r.contractor_name 
+                        ? `🏭 Gia công: ${r.contractor_name}`
+                        : (r.printer_name ? `👤 Thợ in: ${r.printer_name}` : `👤 Thợ in: Chưa nhận`);
+                    
+                    const itemStatusText = r.is_print_done 
+                        ? `✅ Đã in xong (${fmtShortDT(r.print_done_at)})` 
+                        : (r.contractor_id ? `⏳ Đã bàn giao GC` : '⏳ Đang in');
+                    const itemStatusBg = r.is_print_done ? '#d1fae5' : (r.contractor_id ? '#e0f2fe' : '#fef3c7');
+                    const itemStatusColor = r.is_print_done ? '#065f46' : (r.contractor_id ? '#0369a1' : '#92400e');
+
+                    body += `<div style="padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;font-size:12px">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;border-bottom:1px dashed #cbd5e1;padding-bottom:4px">
+                            <span style="font-weight:800;color:#5b21b6">${idx+1}. ${printType}</span>
+                            <span style="font-weight:800;background:${itemStatusBg};color:${itemStatusColor};padding:1px 6px;border-radius:4px;font-size:11px">${itemStatusText}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;color:#64748b;font-size:11px;margin-bottom:4px">
+                            <span>${printerDisplay}</span>
+                        </div>`;
+
+                    if (r.current_roll || r.print_meters || r.roll_start_qty || r.roll_end_qty) {
+                        body += `<div style="margin-top:6px;padding:6px;background:white;border-radius:6px;border:1px solid #e2e8f0;font-size:11px">`;
+                        if (r.current_roll) {
+                            body += `<div style="margin-bottom:4px">🧻 Cây in: <strong style="color:#0f766e">${r.current_roll}</strong></div>`;
+                        }
+                        if (r.print_meters || r.roll_start_qty || r.roll_end_qty) {
+                            body += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
+                                <div style="background:#eff6ff;padding:4px;border-radius:4px"><div style="font-size:8px;color:#1e40af;font-weight:700">ĐẦU CUỘN</div><div style="font-weight:800;color:#1e40af">${r.roll_start_qty||0}m</div></div>
+                                <div style="background:#fffbeb;padding:4px;border-radius:4px"><div style="font-size:8px;color:#92400e;font-weight:700">SỐ MÉT IN</div><div style="font-weight:800;color:#dc2626">${r.print_meters||0}m</div></div>
+                                <div style="background:#f1f5f9;padding:4px;border-radius:4px"><div style="font-size:8px;color:#475569;font-weight:700">CUỐI CUỘN</div><div style="font-weight:800;color:#475569">${r.roll_end_qty||0}m</div></div>
+                            </div>`;
+                        }
+                        body += `</div>`;
+                    }
+
+                    if (r.image_url) {
+                        body += `<div style="margin-top:6px">
+                            <div style="font-weight:700;font-size:11px;color:#475569;margin-bottom:2px">📸 File in/thiết kế:</div>
+                            <img src="${r.image_url}" style="max-width:120px;max-height:120px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="window.open('${r.image_url}','_blank')" onerror="this.style.display='none'">
+                        </div>`;
+                    }
+
+                    body += `</div>`;
+                });
+
+                body+=`</div></div>`;
+            });
+            body+=`</div>`;
+        }
     }
     else if(step==='ep'){
         html = hdr('🔥','CHI TIẾT PHIẾU ÉP',d.order_code,'#ea580c,#c2410c');

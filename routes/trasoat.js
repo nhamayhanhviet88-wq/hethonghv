@@ -639,12 +639,14 @@ module.exports = async function(fastify) {
                     u_done.full_name AS done_by_name,
                     ptr.roll_type AS pettem_roll_type,
                     ptr.qty_remaining AS pettem_roll_remaining,
-                    doi.description AS item_description
+                    doi.description AS item_description,
+                    c.name AS contractor_name
                 FROM printing_records pr
                 LEFT JOIN users u ON pr.printer_id = u.id
                 LEFT JOIN users u_done ON pr.print_done_by = u_done.id
                 LEFT JOIN pettem_rolls ptr ON pr.pettem_roll_id = ptr.id
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
+                LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
                 WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
             `, [orderId]);
             return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };
