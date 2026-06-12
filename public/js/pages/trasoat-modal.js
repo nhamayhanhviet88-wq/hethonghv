@@ -391,7 +391,6 @@ function _tsRenderStepModal(step, d){
                             <span>Bàn giao: ${fmtShortDT(r.handover_date)}</span>
                             <span style="font-weight:700;color:${assStatusColor}">${assStatus}</span>
                         </div>
-                        ${r.notes ? `<div style="margin-top:4px;color:#475569;font-style:italic">Ghi chú: ${r.notes}</div>` : ''}
                     </div>`;
                 });
 
