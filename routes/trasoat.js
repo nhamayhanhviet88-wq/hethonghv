@@ -424,8 +424,7 @@ module.exports = async function(fastify) {
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date < COALESCE(rescheduled_ship_date, expected_ship_date)) AS early,
                 COUNT(*) FILTER (
-                    WHERE (shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date))
-                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) >= $${pIdx}::date)
+                    WHERE shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date)
                 ) AS on_time,
                 COUNT(*) FILTER (
                     WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
@@ -450,8 +449,7 @@ module.exports = async function(fastify) {
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date < COALESCE(rescheduled_ship_date, expected_ship_date)) AS early,
                 COUNT(*) FILTER (
-                    WHERE (shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date))
-                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) >= $${pIdx}::date)
+                    WHERE shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date)
                 ) AS on_time,
                 COUNT(*) FILTER (
                     WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
@@ -889,20 +887,38 @@ function _processOrder(o, todayStr) {
 
     // Deviation calculation
     const expectedDate = o.rescheduled_ship_date || o.expected_ship_date;
-    let deviationDays = 0, deviationLabel = 'Đúng lịch', deviationClass = 'on_time';
+    let deviationDays = 0;
+    let deviationLabel = 'Trong hạn';
+    let deviationClass = 'pending';
 
     if (expectedDate) {
         const exp = new Date(expectedDate); exp.setHours(0,0,0,0);
-        if (isShipped && o.shipped_at) {
-            const ship = new Date(o.shipped_at); ship.setHours(0,0,0,0);
+        if (isShipped) {
+            const ship = new Date(o.shipped_at || todayStr); ship.setHours(0,0,0,0);
             deviationDays = Math.round((ship - exp) / 86400000);
-        } else if (!isShipped) {
+            if (deviationDays < 0) {
+                deviationLabel = `Sớm ${Math.abs(deviationDays)} ngày`;
+                deviationClass = 'early';
+            } else if (deviationDays > 0) {
+                deviationLabel = `Trễ ${deviationDays} ngày`;
+                deviationClass = 'late';
+            } else {
+                deviationLabel = 'Đúng lịch';
+                deviationClass = 'on_time';
+            }
+        } else {
             const td = new Date(todayStr); td.setHours(0,0,0,0);
             const diff = Math.round((td - exp) / 86400000);
-            deviationDays = diff > 0 ? diff : 0;
+            if (diff > 0) {
+                deviationDays = diff;
+                deviationLabel = `Trễ ${deviationDays} ngày`;
+                deviationClass = 'late';
+            } else {
+                deviationDays = 0;
+                deviationLabel = 'Trong hạn';
+                deviationClass = 'pending';
+            }
         }
-        if (deviationDays < 0) { deviationLabel = `Sớm ${Math.abs(deviationDays)} ngày`; deviationClass = 'early'; }
-        else if (deviationDays > 0) { deviationLabel = `Trễ ${deviationDays} ngày`; deviationClass = 'late'; }
     }
 
     return {

@@ -39,6 +39,7 @@ function renderTrasoatdonhangPage(content) {
         .ts-badge-early{background:#d1fae5;color:#065f46}
         .ts-badge-on_time{background:#e0e7ff;color:#3730a3}
         .ts-badge-late{background:#fee2e2;color:#991b1b}
+        .ts-badge-pending{background:#f3f4f6;color:#374151}
         .ts-badge-repair{background:#fef3c7;color:#92400e;margin-left:4px}
         .ts-badge-pet{background:#ede9fe;color:#5b21b6;margin-left:4px}
         .ts-prio{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;text-align:center;box-shadow:0 0 6px rgba(0,0,0,0.05);animation:tsPrioBlink 1.5s infinite ease-in-out}
