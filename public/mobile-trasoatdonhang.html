@@ -173,7 +173,7 @@ async function loadDetail(id) {
             const icon = s.done?'✓':cls==='active'?'⏳':''+(i+1);
             html += `<div class="tl-step"><div class="tl-icon ${cls}">${icon}</div><div class="tl-info">
                 <div class="tl-name" style="display:flex;align-items:center;flex-wrap:wrap">${s.name}${s.progress ? `<span style="padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'};margin-left:6px">${s.progress} xong</span>` : ''}</div>
-                ${s.done?'<div class="tl-time">'+fmtDT(s.time)+'</div>':'<div class="tl-time" style="color:#f59e0b">Đang chờ...</div>'}
+                ${s.time?'<div class="tl-time">'+fmtDT(s.time)+'</div>':'<div class="tl-time" style="color:#f59e0b">Đang chờ...</div>'}
                 ${s.worker?'<div class="tl-worker">👤 '+s.worker+'</div>':''}
                 ${s.extra ? `<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
             </div></div>`;
