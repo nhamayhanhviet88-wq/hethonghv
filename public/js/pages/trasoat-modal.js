@@ -139,12 +139,13 @@ function _tsRenderStepModal(step, d){
         html = hdr('🔍','CHI TIẾT KIỂM TRA CHẤT LƯỢNG (QC)',d.order_code,'#0f766e,#0d9488');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu QC</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = r.item_description ? `🔍 ${r.item_description}` : `🔍 Phiếu ${i+1}`;
+            const title = '🔍 ' + d.order_code + ' — Phiếu ' + (i+1) + (r.item_description ? ' — ' + r.item_description : '');
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#0f766e;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.answers&&r.answers.length?'#d1fae5':'#fef3c7'};color:${r.answers&&r.answers.length?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.answers&&r.answers.length?'✅ Đã QC':'⏳ Chưa QC'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
+            body+=row('🧵 Nhân Viên May',V(r.sewer_name));
             body+=row('👷 Nhân Viên QC',V(r.finisher_name),'#0d9488');
             body+=row('📊 Số Lượng',r.quantity ? r.quantity+' sp' : '—');
             if(r.answers&&r.answers.length){
@@ -155,6 +156,15 @@ function _tsRenderStepModal(step, d){
                     body+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid #f8fafc"><span style="font-weight:600;color:#334155">${a.content}</span>${badge}</div>`;
                 });
             } else { body+=`<div style="padding:10px;text-align:center;color:#9ca3af;font-size:12px">Chưa thực hiện checklist QC</div>`; }
+            if(r.finish_images){
+                try{
+                    const imgs=JSON.parse(r.finish_images);
+                    if(imgs.length){
+                        body+=section('📸','HÌNH ẢNH QC');
+                        imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});
+                    }
+                }catch(e){}
+            }
             body+=`</div></div>`;
         }); body+=`</div>`; }
     }
