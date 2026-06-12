@@ -1666,13 +1666,13 @@ async function _bpcOpenDetail(recordId) {
             cutReminders.forEach(function(rem, remIdx) {
                 var remId = cutReminderIds[remIdx] || 0;
                 var isViewed = cutViewedIds.indexOf(remId) >= 0;
-                var icon = isViewed ? '✅' : '👉';
-                var color = isViewed ? '#059669' : '#dc2626';
-                var bg = isViewed ? '#ecfdf5' : '#fee2e2';
-                var border = isViewed ? '#a7f3d0' : '#fca5a5';
-                h += '    <div style="display:flex;align-items:center;gap:10px;background:' + bg + ';border:1.5px solid ' + border + ';border-radius:10px;padding:8px 12px;text-align:left;">';
-                h += '       <span style="font-size:14px">' + icon + '</span>';
-                h += '       <div style="flex:1;font-size:12px;font-weight:700;color:' + color + ';line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#059669' : '#fca5a5') + ';border-radius:10px;padding:10px 12px;">';
+                h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#7f1d1d;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                if (isViewed) {
+                    h += '       <span style="flex-shrink:0;padding:4px 10px;border-radius:6px;border:1px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800">✅ Đã Xem và Làm</span>';
+                } else {
+                    h += '       <span style="flex-shrink:0;padding:4px 10px;border-radius:6px;border:1px solid #dc2626;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:800">❌ Chưa Xem</span>';
+                }
                 h += '    </div>';
             });
             h += '  </div>';
