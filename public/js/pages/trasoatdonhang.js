@@ -125,17 +125,19 @@ function _tsRenderTable(orders, totalCount) {
         if (!dateVal) return '-';
         const dt = new Date(dateVal);
         const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-        const day = String(localDt.getDate()).padStart(2, '0');
-        const month = String(localDt.getMonth() + 1).padStart(2, '0');
-        const year = localDt.getFullYear();
+        const day = localDt.getDate();
+        const month = localDt.getMonth() + 1;
         const hrs = String(localDt.getHours()).padStart(2, '0');
         const mins = String(localDt.getMinutes()).padStart(2, '0');
 
+        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = daysOfWeek[localDt.getDay()];
+
         const pri = (priority || 'CHUẨN').toUpperCase();
         if (pri === 'GẤP' || pri === 'GỬI') {
-            return `${day}/${month}/${year}`;
+            return `${dayName} ${day}/${month}`;
         } else {
-            return `${hrs}:${mins} ${day}/${month}/${year}`;
+            return `${dayName} ${hrs}:${mins} ${day}/${month}`;
         }
     };
 
