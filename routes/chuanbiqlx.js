@@ -1281,7 +1281,7 @@ module.exports = async function(fastify) {
 
         // Sync to printing_records
         const orderInfo = await db.get(`
-            SELECT o.total_quantity, o.category_id, o.order_code, u.full_name AS cskh_name
+            SELECT o.total_quantity, o.category_id, o.order_code, o.order_date, u.full_name AS cskh_name
             FROM dht_orders o
             LEFT JOIN users u ON o.cskh_user_id = u.id
             WHERE o.id = $1
@@ -1372,9 +1372,10 @@ module.exports = async function(fastify) {
         const existingFMap = {}; existingRecs.forEach(r => existingFMap[r.print_field] = r.id);
 
         const currentFieldNames = [];
+        try {
         for (const fid of Object.keys(fieldAssignments)) {
             const fieldName = fieldNameMap[fid];
-            if (!fieldName) continue;
+            if (!fieldName) { console.warn('[QLX] fieldNameMap missing for fid:', fid); continue; }
             currentFieldNames.push(fieldName);
 
             const ops = fieldAssignments[fid];
@@ -1384,7 +1385,7 @@ module.exports = async function(fastify) {
             const sharedNames = ops.slice(1).map(o => getOpName(o.operator_type, o.operator_id)).filter(Boolean).join(', ');
 
             const existingId = existingFMap[fieldName];
-            const pDate = contractorId ? now : null;
+            const pDate = contractorId ? now : (orderInfo?.order_date || now);
             if (existingId) {
                 await db.run(`
                     UPDATE printing_records
@@ -1416,6 +1417,11 @@ module.exports = async function(fastify) {
                     ]);
                 }
             }
+            console.log('[QLX] printing_records synced: order=%d item=%s field=%s', orderId, itemId || 'NULL', fieldName);
+        }
+        } catch (syncErr) {
+            console.error('[QLX] CRITICAL: printing_records sync FAILED for order=%d item=%s:', orderId, itemId || 'NULL', syncErr.message, syncErr.stack);
+            throw new Error('Lỗi đồng bộ bản ghi in: ' + syncErr.message);
         }
 
         for (const rec of existingRecs) {
