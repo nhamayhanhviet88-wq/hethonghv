@@ -1010,6 +1010,16 @@ async function _dhtShowDetail(id) {
         const auditLogs = data.audit_logs || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
         const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+        const formatExpectedShipDateWithDay = (dateVal) => {
+            if (!dateVal) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
+            const dt = new Date(dateVal);
+            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const day = localDt.getDate();
+            const month = localDt.getMonth() + 1;
+            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const dayName = daysOfWeek[localDt.getDay()];
+            return `${dayName} - Ngày ${day}/${month}`;
+        };
         // Recalculate totals from items (source of truth)
         let calcBase = 0, calcVat = 0;
         for (const it of items) {
@@ -1244,6 +1254,7 @@ async function _dhtShowDetail(id) {
         var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
         saleKtHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);
         if (o.standard_delivery_time) saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>`);
+        saleKtHTML += row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.expected_ship_date));
         if (o.standard_proof_image) saleKtHTML += row('📷 Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info);font-weight:700">📷 Xem ảnh</a>`);
         var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
         if (o.expected_ship_date) {
@@ -1276,7 +1287,6 @@ async function _dhtShowDetail(id) {
             }
         }
         saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
-        saleKtHTML += row('📅 Ngày gửi dự kiến', fmtD(o.expected_ship_date) || '<span style="color:#94a3b8;font-style:italic">Chưa có</span>');
         saleKtHTML += `</table></div>`;
 
         // ── Section 6B: 📄 Thông tin đơn hàng (cleaned) ──
