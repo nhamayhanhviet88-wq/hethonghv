@@ -635,6 +635,23 @@ async function _qlxFabric(orderId, action) {
 
 async function _qlxFabricPopup(orderId, itemId, pairIndex) {
     try {
+        var savedInputs = {};
+        var existingOverlay = document.getElementById('_qlxFabOverlay');
+        if (existingOverlay) {
+            // Save stock usage kg inputs
+            var kgInputs = existingOverlay.querySelectorAll('input[id^="_qlxFabKg_"]');
+            kgInputs.forEach(function(inp) {
+                savedInputs[inp.id] = inp.value;
+            });
+            // Save calling inputs
+            var treesEl = existingOverlay.querySelector('#_qlxFabCallTrees');
+            if (treesEl) savedInputs['_qlxFabCallTrees'] = treesEl.value;
+            var amountEl = existingOverlay.querySelector('#_qlxFabCallAmount');
+            if (amountEl) savedInputs['_qlxFabCallAmount'] = amountEl.value;
+            var noteEl = existingOverlay.querySelector('#_qlxFabCallNote');
+            if (noteEl) savedInputs['_qlxFabCallNote'] = noteEl.value;
+        }
+
         var data = await apiCall('/api/qlx/fabric-lookup/' + orderId + '/' + itemId + '/' + pairIndex);
         var d = data; // keep reference for pendingCalls/myLinkedIds
         var o = data.order, it = data.item, ph = data.phoi, wh = data.warehouse, rolls = data.rolls || [], existing = data.existing || [];
@@ -904,6 +921,20 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
             originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
             isSaved: (cutChoice === 'yes' || cutChoice === 'none')
         };
+
+        // Restore values if we had saved them
+        if (existingOverlay) {
+            Object.keys(savedInputs).forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.value = savedInputs[id];
+            });
+            // Re-trigger preview update
+            if (ph) {
+                var mat = ph.material_name || '';
+                var col = ph.color_name || '';
+                _qlxFabPreview(mat, col, unit);
+            }
+        }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
