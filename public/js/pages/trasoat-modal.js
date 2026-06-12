@@ -259,18 +259,24 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='gui'){
         html = hdr('🚛','THÔNG TIN GỬI HÀNG',d.order_code,'#b45309,#d97706');
-        body=`<div style="padding:16px 24px">`;
-        body+=section('📦','THÔNG TIN ĐƠN HÀNG');
+        body=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+        body+=`<div style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 HOÀN THÀNH HOÀN THIỆN</div><div style="font-weight:800;color:#1e40af">${d.finishing_completed_at?fmtShortDT(d.finishing_completed_at):'⏳ Chưa xong'}</div></div>
+            <div style="background:${d.shipped_at?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${d.shipped_at?'#16a34a':'#f59e0b'};font-weight:700">🚚 THỜI GIAN GIAO HÀNG</div><div style="font-weight:800;color:${d.shipped_at?'#166534':'#92400e'}">${d.shipped_at?fmtShortDT(d.shipped_at):'⏳ Chờ gửi'}</div></div>
+        </div>`;
+        body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+        body+=`<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);padding:10px 16px;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#1e40af;font-size:13px">📦 THÔNG TIN ĐƠN HÀNG</span></div>`;
+        body+=`<div style="padding:14px 16px">`;
         body+=row('👤 Khách hàng',V(d.customer_name));
         body+=row('📱 SĐT',V(d.customer_phone),'#ea580c');
         body+=row('📍 Địa chỉ',V(d.address));
         body+=row('🏙️ Tỉnh / TP',V(d.province),'#dc2626');
         body+=row('👤 CSKH',V(d.cskh_name));
-        body+=row('🎨 Thiết kế',V(d.design_source));
-        body+=row('📊 Nguồn',V(d.data_source));
-        body+=row('💼 Lĩnh vực',V(d.business_field));
         body+=row('📅 Ngày lên đơn',fmtD(d.order_date));
-        body+=section('🚚','THÔNG TIN VẬN CHUYỂN');
+        body+=`</div></div>`;
+        body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+        body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">🚚 THÔNG TIN VẬN CHUYỂN</span></div>`;
+        body+=`<div style="padding:14px 16px">`;
         body+=row('👤 Người Gửi',V(d.shipped_by_name),'#059669');
         body+=row('📅 Ngày giờ gửi hàng',fmtDT(d.shipped_at));
         body+=row('🚛 Vận Chuyển Thực Tế',V(d.carrier_name),'#1e40af');
@@ -279,6 +285,7 @@ function _tsRenderStepModal(step, d){
         body+=row('📦 Mã vận đơn',tcHtml);
         body+=row('💰 Phí Gửi Hàng',d.shipping_fee?Number(d.shipping_fee).toLocaleString()+'đ':'—','#dc2626');
         body+=row('💳 Người Trả',V(d.shipping_fee_payer));
+        body+=`</div></div>`;
         body+=`</div>`;
     }
 

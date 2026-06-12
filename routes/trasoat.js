@@ -598,6 +598,13 @@ module.exports = async function(fastify) {
         }
 
         if (step === 'gui') {
+            const finishRow = await db.get(`
+                SELECT MAX(completed_at) AS finishing_completed_at
+                FROM finishing_records
+                WHERE dht_order_id = $1 AND is_completed = true
+            `, [orderId]);
+            const finishing_completed_at = finishRow ? finishRow.finishing_completed_at : null;
+
             return {
                 step: 'gui',
                 order_code: order.order_code,
@@ -614,7 +621,8 @@ module.exports = async function(fastify) {
                 carrier_tracking_url: order.carrier_tracking_url,
                 carrier_phone: order.carrier_phone,
                 shipping_fee: order.shipping_fee,
-                shipping_fee_payer: order.shipping_fee_payer
+                shipping_fee_payer: order.shipping_fee_payer,
+                finishing_completed_at
             };
         }
 
