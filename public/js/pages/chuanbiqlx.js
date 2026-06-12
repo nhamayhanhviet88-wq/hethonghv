@@ -1317,6 +1317,57 @@ async function _qlxAssignIn(orderId, itemId) {
         }
         
         html += '</div>'; // close Lĩnh Vực In container
+
+        var printChoice = data.print_remind_choice || 'none';
+        var pressChoice = data.press_remind_choice || 'none';
+        var reminders = data.reminders || [];
+
+        // QLX Nhắc Nhở
+        html += '<div style="margin-top:16px; border-top:1.5px solid #cbd5e1; padding-top:16px;">';
+        html += '<label style="font-size:11px; font-weight:800; color:#475569; display:block; margin-bottom:8px; text-transform:uppercase;">🔔 QLX NHẮC NHỞ</label>';
+        
+        // Nhắc Nhở Bộ Phận In
+        html += '<div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px;">';
+        html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+        html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🖨️ Nhắc Nhở Bộ Phận In <span style="color:#dc2626">*</span></span>';
+        html += '    <div style="display:flex; gap:12px;">';
+        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
+        html += '        <input type="radio" name="qlx_print_remind_choice" value="yes" ' + (printChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+        html += '      </label>';
+        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+        html += '        <input type="radio" name="qlx_print_remind_choice" value="none" ' + (printChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+        html += '      </label>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '  <div id="qlx_print_reminders_container" style="display:' + (printChoice === 'yes' ? 'block' : 'none') + ';">';
+        html += '    <div id="qlx_print_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
+        html += '    </div>';
+        html += '    <button type="button" onclick="_qlxAddReminderInput(\'in\')" style="padding:6px 12px; background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+        html += '  </div>';
+        html += '</div>';
+
+        // Nhắc Nhở Bộ Phận Ép
+        html += '<div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
+        html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+        html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🔥 Nhắc Nhở Bộ Phận Ép <span style="color:#dc2626">*</span></span>';
+        html += '    <div style="display:flex; gap:12px;">';
+        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#7c3aed; margin:0;">';
+        html += '        <input type="radio" name="qlx_press_remind_choice" value="yes" ' + (pressChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#7c3aed; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+        html += '      </label>';
+        html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+        html += '        <input type="radio" name="qlx_press_remind_choice" value="none" ' + (pressChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+        html += '      </label>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '  <div id="qlx_press_reminders_container" style="display:' + (pressChoice === 'yes' ? 'block' : 'none') + ';">';
+        html += '    <div id="qlx_press_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
+        html += '    </div>';
+        html += '    <button type="button" onclick="_qlxAddReminderInput(\'ep\')" style="padding:6px 12px; background:#f3e8ff; color:#6b21a8; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+        html += '  </div>';
+        html += '</div>';
+
+        html += '</div>'; // close QLX Nhắc Nhở container
+        
         html += '</div>'; // close main padding container
 
         // Footer
@@ -1331,7 +1382,84 @@ async function _qlxAssignIn(orderId, itemId) {
         ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
         ov.innerHTML = '<div class="qlx-cl-popup" style="width:500px;max-height:85vh">' + html + '</div>';
         document.body.appendChild(ov);
+
+        // Populate existing print reminders
+        var printReminders = reminders.filter(function(r) { return r.dept === 'in'; });
+        if (printChoice === 'yes' && printReminders.length > 0) {
+            printReminders.forEach(function(r) {
+                _qlxAddReminderInput('in', r.content);
+            });
+        } else if (printChoice === 'yes') {
+            _qlxAddReminderInput('in');
+        }
+        
+        // Populate existing press reminders
+        var pressReminders = reminders.filter(function(r) { return r.dept === 'ep'; });
+        if (pressChoice === 'yes' && pressReminders.length > 0) {
+            pressReminders.forEach(function(r) {
+                _qlxAddReminderInput('ep', r.content);
+            });
+        } else if (pressChoice === 'yes') {
+            _qlxAddReminderInput('ep');
+        }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function _qlxToggleRemindersArea(dept) {
+    var choice = document.querySelector('input[name="qlx_' + dept + '_remind_choice"]:checked')?.value;
+    var container = document.getElementById('qlx_' + dept + '_reminders_container');
+    if (container) {
+        container.style.display = choice === 'yes' ? 'block' : 'none';
+    }
+    if (choice === 'yes') {
+        var list = document.getElementById('qlx_' + dept + '_reminders_list');
+        if (list && list.children.length === 0) {
+            _qlxAddReminderInput(dept);
+        }
+    }
+}
+
+function _qlxAddReminderInput(dept, val) {
+    val = val || '';
+    var list = document.getElementById('qlx_' + dept + '_reminders_list');
+    if (!list) return;
+    
+    var div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.gap = '8px';
+    div.style.alignItems = 'center';
+    div.className = 'qlx-reminder-input-row';
+    
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = val;
+    input.placeholder = 'Nhập nội dung nhắc nhở bộ phận ' + (dept === 'in' ? 'in' : 'ép') + '...';
+    input.style.flex = '1';
+    input.style.padding = '8px 12px';
+    input.style.border = '1.5px solid #cbd5e1';
+    input.style.borderRadius = '8px';
+    input.style.fontSize = '12px';
+    input.style.outline = 'none';
+    input.className = 'qlx-reminder-text-input';
+    
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerHTML = '🗑️';
+    btn.style.padding = '8px';
+    btn.style.background = '#fee2e2';
+    btn.style.border = 'none';
+    btn.style.borderRadius = '8px';
+    btn.style.cursor = 'pointer';
+    btn.onclick = function() {
+        div.remove();
+        if (list.children.length === 0 && document.querySelector('input[name="qlx_' + dept + '_remind_choice"]:checked')?.value === 'yes') {
+            _qlxAddReminderInput(dept);
+        }
+    };
+    
+    div.appendChild(input);
+    div.appendChild(btn);
+    list.appendChild(div);
 }
 
 function _qlxToggleFieldOps(fieldId) {
@@ -1405,11 +1533,52 @@ async function _qlxPASave() {
     if (validationError) {
         return showToast(validationError, 'error');
     }
+
+    var printRemindChoice = document.querySelector('input[name="qlx_print_remind_choice"]:checked')?.value;
+    var pressRemindChoice = document.querySelector('input[name="qlx_press_remind_choice"]:checked')?.value;
+    
+    if (!printRemindChoice) {
+        return showToast('Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận In!', 'error');
+    }
+    if (!pressRemindChoice) {
+        return showToast('Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Ép!', 'error');
+    }
+    
+    var printReminders = [];
+    if (printRemindChoice === 'yes') {
+        var printInputs = document.querySelectorAll('#qlx_print_reminders_list .qlx-reminder-text-input');
+        for (var i = 0; i < printInputs.length; i++) {
+            var val = printInputs[i].value.trim();
+            if (!val) {
+                return showToast('Vui lòng điền nội dung nhắc nhở bộ phận in (không được để trống)!', 'error');
+            }
+            printReminders.push(val);
+        }
+    }
+    
+    var pressReminders = [];
+    if (pressRemindChoice === 'yes') {
+        var pressInputs = document.querySelectorAll('#qlx_press_reminders_list .qlx-reminder-text-input');
+        for (var i = 0; i < pressInputs.length; i++) {
+            var val = pressInputs[i].value.trim();
+            if (!val) {
+                return showToast('Vui lòng điền nội dung nhắc nhở bộ phận ép (không được để trống)!', 'error');
+            }
+            pressReminders.push(val);
+        }
+    }
     
     window._qlxPABusy = true;
     try {
         var d = window._qlxPAData;
-        await apiCall('/api/qlx/print-assignment/' + d.orderId, 'POST', { assignments: assignments, item_id: d.itemId });
+        await apiCall('/api/qlx/print-assignment/' + d.orderId, 'POST', { 
+            assignments: assignments, 
+            item_id: d.itemId,
+            print_remind_choice: printRemindChoice,
+            press_remind_choice: pressRemindChoice,
+            print_reminders: printReminders,
+            press_reminders: pressReminders
+        });
         
         var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
         showToast('✅ Đã lưu Phân Công In');

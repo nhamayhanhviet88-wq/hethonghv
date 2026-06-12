@@ -777,6 +777,18 @@ async function _bpiTog(id, action) {
 // Modal functions for printing completion
 async function _bpiShowDoneModal(r) {
     var old = document.getElementById('_bpiDoneModal'); if (old) old.remove();
+
+    var printReminders = [];
+    if (!r.contractor_id) {
+        try {
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in';
+            if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+            var remRes = await apiCall(url);
+            printReminders = remRes.reminders || [];
+        } catch(e) {
+            console.error('Lỗi tải nhắc nhở:', e);
+        }
+    }
     
     var rollType = 'PET';
     var fieldUpper = (r.print_field || '').toUpperCase();
@@ -826,6 +838,20 @@ async function _bpiShowDoneModal(r) {
     h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Tiến Độ</span><span class="bpi-modal-val">' + progressHtml + '</span></div>';
     h += '<div class="bpi-modal-row"><span class="bpi-modal-lbl">Số Lượng Theo Đơn</span><span class="bpi-modal-val" style="font-weight:800;color:#7c3aed">' + qtyDisplay + '</span></div>';
     
+    if (printReminders.length > 0) {
+        h += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+        h += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
+        h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+        printReminders.forEach(function(rem, remIdx) {
+            h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#7f1d1d;line-height:1.4">';
+            h += '       <input type="checkbox" class="bpi-reminder-cb" onchange="_bpiUpdateDoneMeters()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#dc2626">';
+            h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            h += '    </label>';
+        });
+        h += '  </div>';
+        h += '</div>';
+    }
+
     // Select roll
     var rollLabel = 'Cây In Pet';
     if (rollType === 'TEM') {
@@ -979,7 +1005,16 @@ function _bpiUpdateDoneMeters() {
         }
         
         var imgUrl = document.getElementById('bpiDone_image_url')?.value;
-        if (metersVal > 0 && imgUrl) {
+        var reminderCbs = document.querySelectorAll('.bpi-reminder-cb');
+        var allRemindersChecked = true;
+        for (var i = 0; i < reminderCbs.length; i++) {
+            if (!reminderCbs[i].checked) {
+                allRemindersChecked = false;
+                break;
+            }
+        }
+
+        if (metersVal > 0 && imgUrl && allRemindersChecked) {
             confirmBtn.disabled = false;
             confirmBtn.style.opacity = '1';
         } else {
@@ -1055,6 +1090,14 @@ async function _bpiSubmitDone(id) {
     var confirmBtn = document.getElementById('_bpiDoneSubmitBtn');
     
     if (!selectEl || !metersEl || !imgUrlEl) return;
+
+    var reminderCbs = document.querySelectorAll('.bpi-reminder-cb');
+    for (var i = 0; i < reminderCbs.length; i++) {
+        if (!reminderCbs[i].checked) {
+            showToast('Bạn phải tích chọn Đã Xem Nhắc Nhở cho tất cả các dòng nhắc nhở bộ phận in!', 'error');
+            return;
+        }
+    }
     
     var rollId = selectEl.value;
     var metersVal = Number(metersEl.value);

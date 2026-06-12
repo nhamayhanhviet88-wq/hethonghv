@@ -724,6 +724,16 @@ function _bpeRenderStats(count, arr) {
 }
 
 async function _bpeClaimOrder(orderId, itemId, orderCode) {
+    var pressReminders = [];
+    try {
+        var url = '/api/qlx/reminders?order_id=' + orderId + '&dept=ep';
+        if (itemId) url += '&item_id=' + itemId;
+        var remRes = await apiCall(url);
+        pressReminders = remRes.reminders || [];
+    } catch(e) {
+        console.error('Lỗi tải nhắc nhở:', e);
+    }
+
     var groupKey = orderId + '_' + (itemId || 0);
     var rows = (_bpe.unassignedOrders || []).filter(function(r) { return (r.id + '_' + (r.item_id || 0)) === groupKey; });
     var o = rows[0];
@@ -773,15 +783,51 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
         });
         h += '</div>';
     }
+
+    if (pressReminders.length > 0) {
+        h += '<div style="margin-top:12px;background:#f3e8ff;border:1.5px solid #d8b4fe;padding:12px 14px;border-radius:12px;">';
+        h += '  <div style="font-weight:800;color:#6b21a8;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+        h += '  <div style="display:flex;flex-direction:column;gap:8px">';
+        pressReminders.forEach(function(rem, remIdx) {
+            h += '    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;margin:0;color:#581c87;line-height:1.4">';
+            h += '       <input type="checkbox" class="bpe-reminder-cb" onchange="_bpeUpdateClaimBtn()" style="margin-top:2px;width:15px;height:15px;cursor:pointer;accent-color:#7c3aed">';
+            h += '       <span style="font-weight:700;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            h += '    </label>';
+        });
+        h += '  </div>';
+        h += '</div>';
+    }
     
     h += '</div>';
     h += '<div class="bpc-modal-actions">';
     h += '<button class="bpc-modal-btn cancel" onclick="_bpeCloseModal()">Hủy</button>';
-    h += '<button class="bpc-modal-btn confirm" id="_bpeConfirmBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)" onclick="_bpeDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',\'' + orderCode + '\')">🔥 XÁC NHẬN NHẬN</button>';
+    var hasReminders = pressReminders.length > 0;
+    var btnStyle = hasReminders ? 'background:linear-gradient(135deg,#7c3aed,#4f46e5);opacity:0.5' : 'background:linear-gradient(135deg,#7c3aed,#4f46e5)';
+    h += '<button class="bpc-modal-btn confirm" id="_bpeConfirmBtn" ' + (hasReminders ? 'disabled' : '') + ' style="' + btnStyle + '" onclick="_bpeDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',\'' + orderCode + '\')">🔥 XÁC NHẬN NHẬN</button>';
     h += '</div></div></div>';
 
     document.body.insertAdjacentHTML('beforeend', h);
     requestAnimationFrame(function() { document.getElementById('_bpeClaimModal').classList.add('show'); });
+}
+
+function _bpeUpdateClaimBtn() {
+    var confirmBtn = document.getElementById('_bpeConfirmBtn');
+    if (!confirmBtn) return;
+    var reminderCbs = document.querySelectorAll('.bpe-reminder-cb');
+    var allRemindersChecked = true;
+    for (var i = 0; i < reminderCbs.length; i++) {
+        if (!reminderCbs[i].checked) {
+            allRemindersChecked = false;
+            break;
+        }
+    }
+    if (allRemindersChecked) {
+        confirmBtn.disabled = false;
+        confirmBtn.style.opacity = '1';
+    } else {
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+    }
 }
 
 function _bpeCloseModal() {
@@ -790,6 +836,14 @@ function _bpeCloseModal() {
 }
 
 async function _bpeDoClaimOrder(orderId, itemId, orderCode) {
+    var reminderCbs = document.querySelectorAll('.bpe-reminder-cb');
+    for (var i = 0; i < reminderCbs.length; i++) {
+        if (!reminderCbs[i].checked) {
+            showToast('Bạn phải tích chọn Đã Xem Nhắc Nhở cho tất cả các dòng nhắc nhở bộ phận ép!', 'error');
+            return;
+        }
+    }
+
     var btn = document.getElementById('_bpeConfirmBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang nhận...'; }
     try {

@@ -183,6 +183,26 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_history ADD COLUMN IF NOT EXISTS item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
     } catch(e) { console.error('[QLX] migration qlx_history:', e.message); }
 
+    // Reminders Table and Columns
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qlx_reminders (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
+            dept VARCHAR(20) NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            created_by INTEGER REFERENCES users(id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_reminders_order ON qlx_reminders(dht_order_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_reminders_item ON qlx_reminders(item_id)`);
+    } catch(e) { console.error('[QLX] reminders table:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS print_remind_choice VARCHAR(20)`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS press_remind_choice VARCHAR(20)`);
+    } catch(e) { console.error('[QLX] print/press choice columns:', e.message); }
+
     // ========== HELPERS FOR PREPARATION ROWS ==========
     async function ensureOrderPrepRow(orderId) {
         const row = await db.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
@@ -865,6 +885,31 @@ module.exports = async function(fastify) {
         return { staff };
     });
 
+    // ========== GET REMINDERS FOR DEPARTMENTS ==========
+    fastify.get('/api/qlx/reminders', { preHandler: [authenticate] }, async (request, reply) => {
+        const { order_id, item_id, dept } = request.query || {};
+        if (!order_id) return reply.code(400).send({ error: 'Thiếu order_id' });
+        
+        let query = 'SELECT content FROM qlx_reminders WHERE dht_order_id = $1';
+        const params = [Number(order_id)];
+        
+        if (item_id) {
+            query += ' AND item_id = $2';
+            params.push(Number(item_id));
+        } else {
+            query += ' AND item_id IS NULL';
+        }
+        
+        if (dept) {
+            query += ` AND dept = $${params.length + 1}`;
+            params.push(dept);
+        }
+        
+        query += ' ORDER BY id';
+        const reminders = await db.all(query, params);
+        return { reminders: reminders.map(r => r.content) };
+    });
+
     // ========== PRINT ASSIGNMENT: Combined modal data ==========
     fastify.get('/api/qlx/print-assignment/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
@@ -937,10 +982,36 @@ module.exports = async function(fastify) {
             `, [orderId]);
         }
 
+        // Fetch choices & reminders
+        if (itemId) {
+            await ensureItemPrepRow(orderId, itemId);
+        } else {
+            await ensureOrderPrepRow(orderId);
+        }
+        
+        let prep = null;
+        if (itemId) {
+            prep = await db.get(`SELECT print_remind_choice, press_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        } else {
+            prep = await db.get(`SELECT print_remind_choice, press_remind_choice FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+        }
+        const printChoice = prep ? prep.print_remind_choice : null;
+        const pressChoice = prep ? prep.press_remind_choice : null;
+
+        let reminders = [];
+        if (itemId) {
+            reminders = await db.all(`SELECT dept, content FROM qlx_reminders WHERE item_id = $1 ORDER BY id`, [itemId]);
+        } else {
+            reminders = await db.all(`SELECT dept, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL ORDER BY id`, [orderId]);
+        }
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, items_desc: itemDesc },
             fields: fieldsWithOps,
-            assignments: currentAssigns
+            assignments: currentAssigns,
+            print_remind_choice: printChoice,
+            press_remind_choice: pressChoice,
+            reminders: reminders
         };
     });
 
@@ -949,7 +1020,14 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const orderId = Number(request.params.orderId);
-        const { assignments, item_id } = request.body || {}; // array of { field_id, operator_type, operator_id }
+        const { 
+            assignments, 
+            item_id, 
+            print_remind_choice, 
+            press_remind_choice, 
+            print_reminders, 
+            press_reminders 
+        } = request.body || {}; // array of { field_id, operator_type, operator_id }
         const itemId = item_id ? Number(item_id) : null;
         const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();
@@ -957,6 +1035,80 @@ module.exports = async function(fastify) {
 
         if (!Array.isArray(assignments) || assignments.length === 0) {
             return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
+        }
+
+        // Validate choices
+        if (!['yes', 'none'].includes(print_remind_choice)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn trạng thái nhắc nhở cho bộ phận in!' });
+        }
+        if (!['yes', 'none'].includes(press_remind_choice)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn trạng thái nhắc nhở cho bộ phận ép!' });
+        }
+
+        // Validate reminder contents if choice is yes
+        if (print_remind_choice === 'yes') {
+            if (!Array.isArray(print_reminders) || print_reminders.length === 0) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận in!' });
+            }
+            for (const content of print_reminders) {
+                if (!content || !content.trim()) {
+                    return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận in không được để trống!' });
+                }
+            }
+        }
+
+        if (press_remind_choice === 'yes') {
+            if (!Array.isArray(press_reminders) || press_reminders.length === 0) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận ép!' });
+            }
+            for (const content of press_reminders) {
+                if (!content || !content.trim()) {
+                    return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận ép không được để trống!' });
+                }
+            }
+        }
+
+        // Update choices in qlx_preparation
+        if (itemId) {
+            await ensureItemPrepRow(orderId, itemId);
+            await db.run(`
+                UPDATE qlx_preparation 
+                SET print_remind_choice = $1, press_remind_choice = $2, updated_at = $3
+                WHERE item_id = $4
+            `, [print_remind_choice, press_remind_choice, now, itemId]);
+        } else {
+            await ensureOrderPrepRow(orderId);
+            await db.run(`
+                UPDATE qlx_preparation 
+                SET print_remind_choice = $1, press_remind_choice = $2, updated_at = $3
+                WHERE dht_order_id = $4 AND item_id IS NULL
+            `, [print_remind_choice, press_remind_choice, now, orderId]);
+        }
+
+        // Delete existing reminders for this order/item
+        if (itemId) {
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1`, [itemId]);
+        } else {
+            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+        }
+
+        // Insert new reminders
+        if (print_remind_choice === 'yes' && Array.isArray(print_reminders)) {
+            for (const content of print_reminders) {
+                await db.run(`
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                    VALUES ($1, $2, 'in', $3, $4, $5)
+                `, [orderId, itemId, content.trim(), request.user.id, now]);
+            }
+        }
+
+        if (press_remind_choice === 'yes' && Array.isArray(press_reminders)) {
+            for (const content of press_reminders) {
+                await db.run(`
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                    VALUES ($1, $2, 'ep', $3, $4, $5)
+                `, [orderId, itemId, content.trim(), request.user.id, now]);
+            }
         }
 
         // De-duplicate assignments in JS
