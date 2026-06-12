@@ -91,6 +91,10 @@
         .m-progress-dot{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.15)}
         .m-progress-dot.active{background:#f97316}
         #mSearchInp:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.15)}
+        @keyframes bpcReminderPulseMobile {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        }
     </style>
 </head>
 <body>
@@ -1401,13 +1405,22 @@ async function mOpenCutModal(recordId){
     let h='<div class="mm-overlay" id="_mmCutModal" onclick="if(event.target===this)mCloseCutModal()">';
     h+='<div class="mm-sheet"><div class="mm-header" style="background:linear-gradient(135deg,#dc2626,#ef4444)"><div class="mm-icon">✂️</div><div><div class="mm-title">BẮT ĐẦU CẮT</div><div class="mm-sub">Chọn cây vải để cắt</div></div></div>';
     h+='<div class="mm-body" id="_mmCutBody"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
-    h+='<div class="mm-actions" id="_mmCutActs" style="display:none"><button class="mm-btn mm-btn-no" onclick="mCloseCutModal()">Hủy</button><button class="mm-btn mm-btn-ok" id="_mmCutOk" onclick="mDoCut('+recordId+')">✂️ XÁC NHẬN CẮT</button></div>';
+    h+='<div class="mm-actions" id="_mmCutActs" style="display:none"><button class="mm-btn mm-btn-no" onclick="mCloseCutModal()">Hủy</button><button class="mm-btn mm-btn-ok" id="_mmCutOk" onclick="mDoCut('+recordId+')" disabled style="opacity:0.5;cursor:not-allowed;">✂️ XÁC NHẬN CẮT</button></div>';
     h+='</div></div>';
     document.body.insertAdjacentHTML('beforeend',h);
     requestAnimationFrame(()=>document.getElementById('_mmCutModal').classList.add('show'));
     try{
-        const res=await mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(rec.material_name||'')+'&color_name='+encodeURIComponent(rec.fabric_color||''));
-        const rolls=res.rolls||[];
+        const rollsRes=mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(rec.material_name||'')+'&color_name='+encodeURIComponent(rec.fabric_color||''));
+        let remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat';
+        if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
+        const remRes = mApi(remUrl);
+
+        const [rollsData, remData] = await Promise.all([rollsRes, remRes]);
+        const rolls=rollsData.rolls||[];
+        const cutReminders = remData.reminders || [];
+        const cutReminderIds = remData.reminder_ids || [];
+        const cutViewedIds = remData.viewed_ids || [];
+
         const bd=document.getElementById('_mmCutBody');
         let b='';
         b+='<div class="mm-row"><span class="mm-lbl">📋 Tên SP</span><span class="mm-val">'+(rec.product_name||'—')+'</span></div>';
@@ -1432,11 +1445,84 @@ async function mOpenCutModal(recordId){
         b+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:10px;padding-top:12px;display:flex;justify-content:space-between;align-items:center">';
         b+='<span style="font-size:13px;font-weight:800;color:#e2e8f0">⚖️ SỐ KG ĐẦU</span>';
         b+='<span id="_mKgDisp" style="font-size:22px;font-weight:900;color:#fbbf24">0.00 kg</span></div>';
+
+        // Reminders block
+        if (cutReminders.length > 0) {
+            b += '<div style="margin-top:12px;background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.3);padding:12px 14px;border-radius:12px;">';
+            b += '  <div style="font-weight:800;color:#fca5a5;font-size:11px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+            b += '  <div style="display:flex;flex-direction:column;gap:10px">';
+            cutReminders.forEach(function(rem, remIdx) {
+                var remId = cutReminderIds[remIdx] || 0;
+                var isViewed = cutViewedIds.indexOf(remId) >= 0;
+                b += '    <div style="display:flex;align-items:center;gap:10px;background:#1e293b;border:1.5px solid ' + (isViewed ? '#22c55e' : '#ef4444') + ';border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+                b += '       <input type="checkbox" class="m-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+                b += '       <div style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                if (isViewed) {
+                    b += '       <button type="button" class="m-reminder-btn" data-reminder-id="' + remId + '" onclick="mToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #22c55e;background:rgba(34,197,94,0.1);color:#4ade80;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem</button>';
+                } else {
+                    b += '       <button type="button" class="m-reminder-btn" data-reminder-id="' + remId + '" onclick="mToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpcReminderPulseMobile 2s infinite">👉 Đã Xem</button>';
+                }
+                b += '    </div>';
+            });
+            b += '  </div>';
+            b += '</div>';
+        }
+
         bd.innerHTML=b;
         document.getElementById('_mmCutActs').style.display='flex';
+        mUpdateCutConfirmState();
     }catch(e){
         const bd=document.getElementById('_mmCutBody');
         if(bd) bd.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">❌ '+e.message+'</div>';
+    }
+}
+
+function mToggleReminder(btn) {
+    var remId = btn.getAttribute('data-reminder-id');
+    var cb = document.querySelector('.m-reminder-cb[data-reminder-id="' + remId + '"]');
+    if (!cb) return;
+    
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem';
+        btn.style.border = '1.5px solid #22c55e';
+        btn.style.background = 'rgba(34,197,94,0.1)';
+        btn.style.color = '#4ade80';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#22c55e';
+    } else {
+        btn.innerHTML = '👉 Đã Xem';
+        btn.style.border = '1.5px solid #ef4444';
+        btn.style.background = 'rgba(239,68,68,0.1)';
+        btn.style.color = '#fca5a5';
+        btn.style.animation = 'bpcReminderPulseMobile 2s infinite';
+        if (card) card.style.borderColor = '#ef4444';
+    }
+    mUpdateCutConfirmState();
+}
+
+function mUpdateCutConfirmState() {
+    const confirmBtn = document.getElementById('_mmCutOk');
+    if (!confirmBtn) return;
+    
+    const selectedRolls = document.querySelectorAll('._mRollCb:checked').length;
+    const totalReminders = document.querySelectorAll('.m-reminder-cb').length;
+    const checkedReminders = document.querySelectorAll('.m-reminder-cb:checked').length;
+    const allRemindersChecked = (checkedReminders === totalReminders);
+    
+    const isValid = (selectedRolls > 0) && allRemindersChecked;
+    
+    confirmBtn.disabled = !isValid;
+    if (isValid) {
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+    } else {
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.cursor = 'not-allowed';
     }
 }
 
@@ -1445,6 +1531,7 @@ function mRecalcKg(){
     let t=0;cbs.forEach(cb=>{t+=parseFloat(cb.dataset.weight)||0;});
     const el=document.getElementById('_mKgDisp');
     if(el) el.textContent=mFmtKg(t)+' kg';
+    mUpdateCutConfirmState();
 }
 
 function mCloseCutModal(){
@@ -1458,10 +1545,33 @@ async function mDoCut(recordId){
     window._mSubmitBusy=true;
     const cbs=document.querySelectorAll('._mRollCb:checked');
     if(!cbs.length){mToast('Chọn ít nhất 1 cây vải',false);window._mSubmitBusy=false;return;}
+    
+    // Check reminders again for safety
+    const totalReminders = document.querySelectorAll('.m-reminder-cb').length;
+    const checkedReminders = document.querySelectorAll('.m-reminder-cb:checked').length;
+    if (checkedReminders < totalReminders) {
+        mToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', false);
+        window._mSubmitBusy = false;
+        return;
+    }
+    
     const ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));
     const btn=document.getElementById('_mmCutOk');
     if(btn){btn.disabled=true;btn.textContent='⏳...';}
     try{
+        // First submit reminders viewed status
+        if (totalReminders > 0) {
+            const reminderIds = [];
+            document.querySelectorAll('.m-reminder-cb:checked').forEach(cb => {
+                reminderIds.push(Number(cb.dataset.reminderId));
+            });
+            await mApi('/api/qlx/reminders/viewed', 'POST', {
+                reminder_ids: reminderIds,
+                record_type: 'cutting',
+                record_id: recordId
+            });
+        }
+        
         await mApi('/api/cutting/toggle/'+recordId,'POST',{action:'start_cutting',selected_roll_ids:ids});
         mCloseCutModal();
         mToast('✅ Đã bắt đầu cắt — '+ids.length+' cây');
@@ -1469,6 +1579,7 @@ async function mDoCut(recordId){
     }catch(e){
         mToast(e.message||'Lỗi',false);
         if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN CẮT';}
+        mUpdateCutConfirmState();
     }finally{
         window._mSubmitBusy=false;
     }
