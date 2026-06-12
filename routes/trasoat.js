@@ -126,17 +126,31 @@ module.exports = async function(fastify) {
             WHERE fr.dht_order_id = $1 ORDER BY fr.created_at DESC
         `, [orderId]);
 
+        // Printing records
+        const printing = await db.all(`
+            SELECT pr.*, u.full_name AS printer_name
+            FROM printing_records pr LEFT JOIN users u ON pr.printer_id = u.id
+            WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
+        `, [orderId]);
+
         // Build timeline
         const code = (order.order_code || '').toUpperCase();
         const catName = (order.category_name || '').toUpperCase();
         const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
         const isShipped = order.shipping_status === 'shipped';
 
+        // Determine print completion from printing_records
+        const allPrintDone = printing.length > 0 && printing.every(p => p.is_print_done);
+        const lastPrintDone = printing.filter(p => p.is_print_done).sort((a,b) => new Date(b.print_done_at||0) - new Date(a.print_done_at||0))[0];
+        const printWorker = lastPrintDone ? lastPrintDone.printer_name : (printing[0]?.printer_name || null);
+        const printTime = lastPrintDone?.print_done_at || null;
+
         let timeline;
         if (isPetTem) {
             const printStep = prodSteps.find(s => s.step_id === 3);
+            const printDone = allPrintDone || (printStep?.is_completed || false);
             timeline = [
-                { name: 'In', short: 'IN', done: printStep?.is_completed || false, time: printStep?.completed_at, worker: printStep?.completed_by_name },
+                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name },
                 { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
             ];
         } else {
@@ -146,9 +160,11 @@ module.exports = async function(fastify) {
             const sewRec = sewing.find(s => s.done_date);
             const finRec = finishing.find(f => f.is_completed);
 
+            const printDone = allPrintDone || (printStep?.is_completed || false);
+
             timeline = [
                 { name: 'Cắt', short: 'CẮT', done: !!cutRec, time: cutRec?.cut_done_at || cutRec?.cutting_at, worker: cutRec?.cutter_name },
-                { name: 'In', short: 'IN', done: printStep?.is_completed || false, time: printStep?.completed_at, worker: printStep?.completed_by_name },
+                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name },
                 { name: 'Ép', short: 'ÉP', done: pressStep?.is_completed || false, time: pressStep?.completed_at, worker: pressStep?.completed_by_name },
                 { name: 'May', short: 'MAY', done: !!sewRec, time: sewRec?.done_date, worker: sewRec?.sewer_name || sewRec?.contractor_name },
                 { name: 'Kiểm Tra CL', short: 'QC', done: finRec ? true : false, time: null, worker: null },
