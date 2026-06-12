@@ -679,7 +679,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done);
         } else {
             // Determine which type already chosen
             var hasStock = false, hasCall = false;
@@ -890,7 +890,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done);
             html += '</div>';
         }
 
@@ -910,10 +910,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         var cutReminders = data.cut_reminders || [];
         if (cutChoice === 'yes' && cutReminders.length > 0) {
             cutReminders.forEach(function(r) {
-                _qlxAddReminderInput('cat', r.content);
+                _qlxAddReminderInput('cat', r.content, data.is_production_done);
             });
         } else if (cutChoice === 'yes') {
-            _qlxAddReminderInput('cat');
+            _qlxAddReminderInput('cat', '', data.is_production_done);
         }
 
         window._qlxCutReminderState = {
@@ -938,7 +938,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone) {
     cutChoice = cutChoice || '';
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
@@ -953,26 +953,34 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" value="' + new Date(new Date().getTime() + 7*3600000).toISOString().slice(0,10) + '" readonly style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:#f1f5f9;color:#475569;cursor:not-allowed"></div>';
 
     // Nhắc Nhở Bộ Phận Cắt
+    var disAttr = isProductionDone ? 'disabled' : '';
     html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
+    if (isProductionDone) {
+        html += '  <div style="color:#dc2626; font-size:11px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:4px;">🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở bộ phận cắt.</div>';
+    }
     html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
     html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">✂️ Nhắc Nhở Bộ Phận Cắt <span style="color:#dc2626">*</span></span>';
     html += '    <div style="display:flex; gap:12px;">';
     html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
-    html += '        <input type="radio" name="qlx_cut_remind_choice" value="yes" ' + (cutChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+    html += '        <input type="radio" name="qlx_cut_remind_choice" value="yes" ' + (cutChoice === 'yes' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
     html += '      </label>';
     html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
-    html += '        <input type="radio" name="qlx_cut_remind_choice" value="none" ' + (cutChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+    html += '        <input type="radio" name="qlx_cut_remind_choice" value="none" ' + (cutChoice === 'none' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'cat\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
     html += '      </label>';
     html += '    </div>';
     html += '  </div>';
     html += '  <div id="qlx_cut_reminders_container" style="display:' + (cutChoice === 'yes' ? 'block' : 'none') + '; margin-bottom:8px;">';
     html += '    <div id="qlx_cut_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
     html += '    </div>';
-    html += '    <button type="button" onclick="_qlxAddReminderInput(\'cat\')" style="padding:6px 12px; background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+    if (!isProductionDone) {
+        html += '    <button type="button" onclick="_qlxAddReminderInput(\'cat\')" style="padding:6px 12px; background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+    }
     html += '  </div>';
-    html += '  <div style="border-top:1px solid #f1f5f9; padding-top:8px; display:flex; justify-content:flex-end;">';
-    html += '    <button type="button" onclick="_qlxFabSaveRemindersOnly(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:6px 12px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">💾 Lưu nhắc nhở cắt</button>';
-    html += '  </div>';
+    if (!isProductionDone) {
+        html += '  <div style="border-top:1px solid #f1f5f9; padding-top:8px; display:flex; justify-content:flex-end;">';
+        html += '    <button type="button" onclick="_qlxFabSaveRemindersOnly(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:6px 12px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">💾 Lưu nhắc nhở cắt</button>';
+        html += '  </div>';
+    }
     html += '</div>';
 
     html += '<div id="_qlxFabCallPreview" style="margin-bottom:8px"></div>';
@@ -1441,6 +1449,7 @@ async function _qlxAssignIn(orderId, itemId) {
         var o = data.order;
         var fields = data.fields || [];
         var assignments = data.assignments || [];
+        var disAttr = data.is_production_done ? 'disabled' : '';
         
         // Store in global/window context for saving
         window._qlxPAData = { orderId: orderId, itemId: itemId, fields: fields };
@@ -1478,7 +1487,7 @@ async function _qlxAssignIn(orderId, itemId) {
                 
                 // Card Header (Field check)
                 html += '<label style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin:0;cursor:pointer;background:#f8fafc;user-select:none">';
-                html += '<input type="checkbox" class="field-checkbox" data-field-id="' + f.id + '" ' + (isFieldAssigned ? 'checked' : '') + ' onchange="_qlxToggleFieldOps(' + f.id + ')" style="width:18px;height:18px;accent-color:#0ea5e9;cursor:pointer">';
+                html += '<input type="checkbox" class="field-checkbox" data-field-id="' + f.id + '" ' + (isFieldAssigned ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleFieldOps(' + f.id + ')" style="width:18px;height:18px;accent-color:#0ea5e9;cursor:pointer">';
                 html += '<span style="font-weight:700;font-size:13px;color:#1e293b">' + f.name + '</span>';
                 html += '</label>';
                 
@@ -1495,7 +1504,7 @@ async function _qlxAssignIn(orderId, itemId) {
                     fieldStaff.forEach(function(s) {
                         var isOpAssigned = assignments.some(function(a) { return a.field_id === f.id && a.operator_type === 'user' && a.operator_id === s.id; });
                         html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'">';
-                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="user" data-id="' + s.id + '" ' + (isOpAssigned ? 'checked' : '') + ' onchange="_qlxToggleOperator(this, ' + f.id + ')" style="width:16px;height:16px;accent-color:#0ea5e9;cursor:pointer">';
+                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="user" data-id="' + s.id + '" ' + (isOpAssigned ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleOperator(this, ' + f.id + ')" style="width:16px;height:16px;accent-color:#0ea5e9;cursor:pointer">';
                         html += '<span style="font-weight:600;color:#334155">👤 ' + s.name + '</span>';
                         html += '</label>';
                     });
@@ -1504,7 +1513,7 @@ async function _qlxAssignIn(orderId, itemId) {
                     fieldCons.forEach(function(c) {
                         var isOpAssigned = assignments.some(function(a) { return a.field_id === f.id && a.operator_type === 'contractor' && a.operator_id === c.id; });
                         html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'#faf5ff\'" onmouseout="this.style.background=\'\'">';
-                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="contractor" data-id="' + c.id + '" ' + (isOpAssigned ? 'checked' : '') + ' onchange="_qlxToggleOperator(this, ' + f.id + ')" style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer">';
+                        html += '<input type="checkbox" class="operator-checkbox" data-field-id="' + f.id + '" data-type="contractor" data-id="' + c.id + '" ' + (isOpAssigned ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleOperator(this, ' + f.id + ')" style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer">';
                         html += '<span style="font-weight:600;color:#334155">🏭 ' + c.name + '</span>';
                         html += '</label>';
                     });
@@ -1526,6 +1535,9 @@ async function _qlxAssignIn(orderId, itemId) {
 
         // QLX Nhắc Nhở
         html += '<div style="margin-top:16px; border-top:1.5px solid #cbd5e1; padding-top:16px;">';
+        if (data.is_production_done) {
+            html += '  <div style="color:#dc2626; font-size:11px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:4px;">🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa phân công và nhắc nhở.</div>';
+        }
         html += '<label style="font-size:11px; font-weight:800; color:#475569; display:block; margin-bottom:8px; text-transform:uppercase;">🔔 QLX NHẮC NHỞ</label>';
         
         // Nhắc Nhở Bộ Phận In
@@ -1534,17 +1546,19 @@ async function _qlxAssignIn(orderId, itemId) {
         html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🖨️ Nhắc Nhở Bộ Phận In <span style="color:#dc2626">*</span></span>';
         html += '    <div style="display:flex; gap:12px;">';
         html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
-        html += '        <input type="radio" name="qlx_print_remind_choice" value="yes" ' + (printChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+        html += '        <input type="radio" name="qlx_print_remind_choice" value="yes" ' + (printChoice === 'yes' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
         html += '      </label>';
         html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
-        html += '        <input type="radio" name="qlx_print_remind_choice" value="none" ' + (printChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+        html += '        <input type="radio" name="qlx_print_remind_choice" value="none" ' + (printChoice === 'none' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'in\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
         html += '      </label>';
         html += '    </div>';
         html += '  </div>';
         html += '  <div id="qlx_print_reminders_container" style="display:' + (printChoice === 'yes' ? 'block' : 'none') + ';">';
         html += '    <div id="qlx_print_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
         html += '    </div>';
-        html += '    <button type="button" onclick="_qlxAddReminderInput(\'in\')" style="padding:6px 12px; background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+        if (!data.is_production_done) {
+            html += '    <button type="button" onclick="_qlxAddReminderInput(\'in\')" style="padding:6px 12px; background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+        }
         html += '  </div>';
         html += '</div>';
 
@@ -1554,17 +1568,19 @@ async function _qlxAssignIn(orderId, itemId) {
         html += '    <span style="font-weight:700; font-size:12px; color:#1e293b;">🔥 Nhắc Nhở Bộ Phận Ép <span style="color:#dc2626">*</span></span>';
         html += '    <div style="display:flex; gap:12px;">';
         html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#7c3aed; margin:0;">';
-        html += '        <input type="radio" name="qlx_press_remind_choice" value="yes" ' + (pressChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#7c3aed; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
+        html += '        <input type="radio" name="qlx_press_remind_choice" value="yes" ' + (pressChoice === 'yes' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#7c3aed; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có nhắc nhở';
         html += '      </label>';
         html += '      <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
-        html += '        <input type="radio" name="qlx_press_remind_choice" value="none" ' + (pressChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
+        html += '        <input type="radio" name="qlx_press_remind_choice" value="none" ' + (pressChoice === 'none' ? 'checked' : '') + ' ' + disAttr + ' onchange="_qlxToggleRemindersArea(\'ep\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không nhắc nhở';
         html += '      </label>';
         html += '    </div>';
         html += '  </div>';
         html += '  <div id="qlx_press_reminders_container" style="display:' + (pressChoice === 'yes' ? 'block' : 'none') + ';">';
         html += '    <div id="qlx_press_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">';
         html += '    </div>';
-        html += '    <button type="button" onclick="_qlxAddReminderInput(\'ep\')" style="padding:6px 12px; background:#f3e8ff; color:#6b21a8; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+        if (!data.is_production_done) {
+            html += '    <button type="button" onclick="_qlxAddReminderInput(\'ep\')" style="padding:6px 12px; background:#f3e8ff; color:#6b21a8; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+        }
         html += '  </div>';
         html += '</div>';
 
@@ -1575,7 +1591,9 @@ async function _qlxAssignIn(orderId, itemId) {
         // Footer
         html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 16px 16px">';
         html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;transition:all 0.15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">Hủy bỏ</button>';
-        html += '<button onclick="_qlxPASave()" style="padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,0.15)">💾 Lưu Phân Công</button>';
+        if (!data.is_production_done) {
+            html += '<button onclick="_qlxPASave()" style="padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,0.15)">💾 Lưu Phân Công</button>';
+        }
         html += '</div></div>';
 
         var old = document.getElementById('_qlxPAOverlay'); if (old) old.remove();
@@ -1589,20 +1607,20 @@ async function _qlxAssignIn(orderId, itemId) {
         var printReminders = reminders.filter(function(r) { return r.dept === 'in'; });
         if (printChoice === 'yes' && printReminders.length > 0) {
             printReminders.forEach(function(r) {
-                _qlxAddReminderInput('in', r.content);
+                _qlxAddReminderInput('in', r.content, data.is_production_done);
             });
         } else if (printChoice === 'yes') {
-            _qlxAddReminderInput('in');
+            _qlxAddReminderInput('in', '', data.is_production_done);
         }
         
         // Populate existing press reminders
         var pressReminders = reminders.filter(function(r) { return r.dept === 'ep'; });
         if (pressChoice === 'yes' && pressReminders.length > 0) {
             pressReminders.forEach(function(r) {
-                _qlxAddReminderInput('ep', r.content);
+                _qlxAddReminderInput('ep', r.content, data.is_production_done);
             });
         } else if (pressChoice === 'yes') {
-            _qlxAddReminderInput('ep');
+            _qlxAddReminderInput('ep', '', data.is_production_done);
         }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
@@ -1625,7 +1643,7 @@ function _qlxToggleRemindersArea(dept) {
     }
 }
 
-function _qlxAddReminderInput(dept, val) {
+function _qlxAddReminderInput(dept, val, isDisabled) {
     val = val || '';
     var idPrefix = dept === 'in' ? 'print' : (dept === 'ep' ? 'press' : 'cut');
     var list = document.getElementById('qlx_' + idPrefix + '_reminders_list');
@@ -1651,6 +1669,13 @@ function _qlxAddReminderInput(dept, val) {
     input.style.fontSize = '12px';
     input.style.outline = 'none';
     input.className = 'qlx-reminder-text-input';
+
+    if (isDisabled) {
+        input.disabled = true;
+        input.style.background = '#f1f5f9';
+        input.style.color = '#475569';
+        input.style.cursor = 'not-allowed';
+    }
     
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -1669,9 +1694,13 @@ function _qlxAddReminderInput(dept, val) {
         });
         var inputName = dept === 'in' ? 'qlx_print_remind_choice' : (dept === 'ep' ? 'qlx_press_remind_choice' : 'qlx_cut_remind_choice');
         if (list.children.length === 0 && document.querySelector('input[name="' + inputName + '"]:checked')?.value === 'yes') {
-            _qlxAddReminderInput(dept);
+            _qlxAddReminderInput(dept, '', isDisabled);
         }
     };
+
+    if (isDisabled) {
+        btn.style.display = 'none';
+    }
     
     div.appendChild(input);
     div.appendChild(btn);

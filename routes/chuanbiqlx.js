@@ -235,6 +235,80 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function checkItemProductionDone(itemId, orderId) {
+        if (!itemId) return false;
+
+        // 1. Check Cutting status
+        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [itemId]);
+        if (!hasCuts || !hasCuts.has_cuts) {
+            return false;
+        }
+        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [itemId]);
+        if (cutsPending && cutsPending.pending) {
+            return false;
+        }
+
+        // 2. Check Printing status
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [itemId, orderId]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [itemId, orderId]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                return false;
+            }
+            const printPending = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records pr
+                    WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                      AND pr.is_print_done = false
+                ) AS pending
+            `, [itemId, orderId]);
+            if (printPending && printPending.pending) {
+                return false;
+            }
+        }
+
+        // 3. Check Pressing status
+        const needsPress = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND pf.name IN ('IN PET', 'IN DECAL')
+                  AND qa.operator_type = 'user'
+            ) AS needs_press
+        `, [itemId, orderId]);
+
+        if (needsPress && needsPress.needs_press) {
+            const hasPressRecs = await db.get(`
+                SELECT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = $1) AS has_recs
+            `, [itemId]);
+            if (!hasPressRecs || !hasPressRecs.has_recs) {
+                return false;
+            }
+            const pressPending = await db.get(`
+                SELECT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = $1 AND is_reported = false) AS pending
+            `, [itemId]);
+            if (pressPending && pressPending.pending) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // ========== ACCESS CHECK ==========
     const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
@@ -1099,13 +1173,32 @@ module.exports = async function(fastify) {
             reminders = await db.all(`SELECT dept, content FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL ORDER BY id`, [orderId]);
         }
 
+        let isProdDone = false;
+        if (itemId) {
+            isProdDone = await checkItemProductionDone(itemId, orderId);
+        } else {
+            const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+            if (items.length > 0) {
+                let allItemsDone = true;
+                for (const item of items) {
+                    const done = await checkItemProductionDone(item.id, orderId);
+                    if (!done) {
+                        allItemsDone = false;
+                        break;
+                    }
+                }
+                isProdDone = allItemsDone;
+            }
+        }
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, items_desc: itemDesc },
             fields: fieldsWithOps,
             assignments: currentAssigns,
             print_remind_choice: printChoice,
             press_remind_choice: pressChoice,
-            reminders: reminders
+            reminders: reminders,
+            is_production_done: isProdDone
         };
     });
 
@@ -1123,6 +1216,30 @@ module.exports = async function(fastify) {
             press_reminders 
         } = request.body || {}; // array of { field_id, operator_type, operator_id }
         const itemId = item_id ? Number(item_id) : null;
+
+        // Check if production is completed
+        let isProdDone = false;
+        if (itemId) {
+            isProdDone = await checkItemProductionDone(itemId, orderId);
+        } else {
+            const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+            if (items.length > 0) {
+                let allItemsDone = true;
+                for (const item of items) {
+                    const done = await checkItemProductionDone(item.id, orderId);
+                    if (!done) {
+                        allItemsDone = false;
+                        break;
+                    }
+                }
+                isProdDone = allItemsDone;
+            }
+        }
+
+        if (isProdDone) {
+            return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận in/ép!' });
+        }
+
         const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();
         const todayStr = vnDateStr();
@@ -1777,6 +1894,8 @@ module.exports = async function(fastify) {
         const cutRemindChoice = prep ? prep.cut_remind_choice : null;
         const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' ORDER BY id", [itemId]);
 
+        const isProdDone = await checkItemProductionDone(itemId, orderId);
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity },
@@ -1787,7 +1906,8 @@ module.exports = async function(fastify) {
             pendingCalls,
             myLinkedIds,
             cut_remind_choice: cutRemindChoice,
-            cut_reminders: cutReminders
+            cut_reminders: cutReminders,
+            is_production_done: isProdDone
         };
     });
 
@@ -1951,6 +2071,11 @@ module.exports = async function(fastify) {
 
         const { dht_order_id, item_id, cut_remind_choice, cut_reminders } = request.body || {};
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
+
+        const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
+        if (isProdDone) {
+            return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
+        }
 
         if (!cut_remind_choice) {
             return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
