@@ -253,6 +253,144 @@ module.exports = async function(fastify) {
             months
         };
     });
+
+    // ========== STEP DETAIL — Chi tiết từng bộ phận ==========
+    fastify.get('/api/trasoat/orders/:id/step/:step', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const step = request.params.step; // cat, in, ep, may, qc, ht, gui
+
+        const order = await db.get(`
+            SELECT o.id, o.order_code, o.customer_name, o.customer_phone, o.province, o.address,
+                o.order_date, o.expected_ship_date, o.rescheduled_ship_date,
+                o.shipping_status, o.shipped_at, o.tracking_code,
+                o.total_quantity, o.total_amount, o.shipping_fee, o.shipping_fee_payer,
+                o.carrier_phone,
+                c.name AS category_name,
+                u_cskh.full_name AS cskh_name, u_created.full_name AS created_by_name,
+                u_shipped.full_name AS shipped_by_name,
+                cr2.name AS carrier_name, cr2.tracking_url_template AS carrier_tracking_url
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+            LEFT JOIN users u_created ON o.created_by = u_created.id
+            LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
+            LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
+            WHERE o.id = $1
+        `, [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        if (step === 'cat') {
+            const records = await db.all(`
+                SELECT cr.*, u.full_name AS cutter_name
+                FROM cutting_records cr LEFT JOIN users u ON cr.cutter_id = u.id
+                WHERE cr.dht_order_id = $1 ORDER BY cr.id ASC
+            `, [orderId]);
+            // Get selected rolls for each record
+            for (const r of records) {
+                try {
+                    const rollIds = JSON.parse(r.selected_roll_ids || '[]');
+                    if (rollIds.length > 0) {
+                        r.rolls = await db.all(`SELECT id, material_name, color, kg FROM kv_rolls WHERE id = ANY($1::int[])`, [rollIds]);
+                    } else { r.rolls = []; }
+                } catch(e) { r.rolls = []; }
+            }
+            return { step: 'cat', order_code: order.order_code, customer_name: order.customer_name, records };
+        }
+
+        if (step === 'in') {
+            const records = await db.all(`
+                SELECT pr.*, u.full_name AS printer_name, pf.name AS field_name
+                FROM printing_records pr
+                LEFT JOIN users u ON pr.printer_id = u.id
+                LEFT JOIN printing_fields pf ON pr.print_field_id = pf.id
+                WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
+            `, [orderId]);
+            return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };
+        }
+
+        if (step === 'ep') {
+            const records = await db.all(`
+                SELECT pr.*, u.full_name AS presser_name, o2.order_code
+                FROM pressing_records pr
+                LEFT JOIN users u ON pr.presser_id = u.id
+                LEFT JOIN dht_orders o2 ON pr.dht_order_id = o2.id
+                WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
+            `, [orderId]);
+            return { step: 'ep', order_code: order.order_code, cskh_name: order.cskh_name, records };
+        }
+
+        if (step === 'may') {
+            const records = await db.all(`
+                SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
+                    st.name AS team_name
+                FROM sewing_records sr
+                LEFT JOIN users u ON sr.sewer_id = u.id
+                LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
+                LEFT JOIN sewing_teams st ON sr.sewing_team_id = st.id
+                WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
+            `, [orderId]);
+            return {
+                step: 'may', order_code: order.order_code, cskh_name: order.cskh_name,
+                expected_ship_date: order.expected_ship_date,
+                records
+            };
+        }
+
+        if (step === 'qc') {
+            const records = await db.all(`
+                SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
+                    st.name AS team_name
+                FROM sewing_records sr
+                LEFT JOIN users u ON sr.sewer_id = u.id
+                LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
+                LEFT JOIN sewing_teams st ON sr.sewing_team_id = st.id
+                WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
+            `, [orderId]);
+            return { step: 'qc', order_code: order.order_code, cskh_name: order.cskh_name, records };
+        }
+
+        if (step === 'ht') {
+            const records = await db.all(`
+                SELECT fr.*, u.full_name AS finisher_name
+                FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id = u.id
+                WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
+            `, [orderId]);
+            // Get checklist answers for each record
+            for (const r of records) {
+                r.checklist = await db.all(`
+                    SELECT fca.answer_value, fct.content AS question, fct.type
+                    FROM finishing_checklist_answers fca
+                    JOIN finishing_checklist_templates fct ON fca.template_id = fct.id
+                    WHERE fca.finishing_record_id = $1
+                    ORDER BY fct.sort_order
+                `, [r.id]);
+            }
+            return { step: 'ht', order_code: order.order_code, cskh_name: order.cskh_name, records };
+        }
+
+        if (step === 'gui') {
+            return {
+                step: 'gui',
+                order_code: order.order_code,
+                customer_name: order.customer_name,
+                customer_phone: order.customer_phone,
+                province: order.province,
+                address: order.address,
+                cskh_name: order.cskh_name,
+                order_date: order.order_date,
+                shipped_by_name: order.shipped_by_name,
+                shipped_at: order.shipped_at,
+                carrier_name: order.carrier_name,
+                tracking_code: order.tracking_code,
+                carrier_tracking_url: order.carrier_tracking_url,
+                carrier_phone: order.carrier_phone,
+                shipping_fee: order.shipping_fee,
+                shipping_fee_payer: order.shipping_fee_payer
+            };
+        }
+
+        return reply.code(400).send({ error: 'Step không hợp lệ' });
+    });
 };
 
 // ========== Helper: Process order row → add progress fields ==========

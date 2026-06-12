@@ -178,7 +178,7 @@ function _tsRenderTimeline(res) {
         const lineCls = s.done ? 'done' : '';
         html += `<div class="ts-step">`;
         if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
-        html += `<div class="ts-step-icon ${cls}">${icon}</div>
+        html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();_tsOpenStepModal(${o.id},'${s.name}')" style="cursor:pointer" title="Xem báo cáo ${s.name}">${icon}</div>
             <div class="ts-step-name">${s.short || s.name}</div>
             <div class="ts-step-time">${s.done ? fmtDT(s.time) : ''}</div>
             <div class="ts-step-time">${s.worker || ''}</div>
