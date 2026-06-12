@@ -165,14 +165,12 @@ async function load() {
 function render() {
     const el = document.getElementById('mResults');
     if (!_m.orders.length) { el.innerHTML = '<div class="empty"><div class="icon">📭</div>Không tìm thấy đơn hàng</div>'; return; }
-    const formatExpectedShipDate = (dateVal, priority) => {
+    const formatExpectedShipDate = (dateVal, priority, standardDeliveryTime) => {
         if (!dateVal) return '-';
         const dt = new Date(dateVal);
         const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
         const day = localDt.getDate();
         const month = localDt.getMonth() + 1;
-        const hrs = String(localDt.getHours()).padStart(2, '0');
-        const mins = String(localDt.getMinutes()).padStart(2, '0');
 
         const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         const dayName = daysOfWeek[localDt.getDay()];
@@ -181,7 +179,15 @@ function render() {
         if (pri === 'GẤP' || pri === 'GỬI') {
             return `${dayName} - ${day}/${month}`;
         } else {
-            return `${dayName} - ${hrs}:${mins} ${day}/${month}`;
+            let timePart = '';
+            if (standardDeliveryTime) {
+                timePart = standardDeliveryTime.trim();
+            } else {
+                const hrs = String(localDt.getHours()).padStart(2, '0');
+                const mins = String(localDt.getMinutes()).padStart(2, '0');
+                timePart = `${hrs}:${mins}`;
+            }
+            return `${dayName} - ${timePart} ${day}/${month}`;
         }
     };
 
@@ -210,7 +216,7 @@ function render() {
                 <div class="oc-pbar"><div class="oc-pbar-fill" style="width:${o.progress_percent}%;background:${pColor}"></div></div>
                 <div class="oc-pinfo"><span style="color:${pColor}">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</span><span>${o.current_step_name}</span></div>
             </div>
-            <div class="oc-date">📅 DK Gửi: ${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority)}</div>
+            <div class="oc-date">📅 DK Gửi: ${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</div>
             <button class="oc-expand-btn" onclick="toggleDetail(${o.id})">${expanded?'▲ Thu gọn':'▼ Xem chi tiết'}</button>
             ${expanded?'<div class="timeline-detail" id="mDetail'+o.id+'"><div style="text-align:center;padding:16px;color:#9ca3af">⏳</div></div>':''}
         </div>`;

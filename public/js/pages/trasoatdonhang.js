@@ -156,14 +156,12 @@ function _tsRenderTable(orders, totalCount) {
         document.getElementById('tsTableWrap').innerHTML = '<div style="text-align:center;padding:50px;color:#9ca3af"><div style="font-size:48px;margin-bottom:12px">📭</div><div style="font-weight:700">Không tìm thấy đơn hàng nào</div></div>';
         return;
     }
-    const formatExpectedShipDate = (dateVal, priority) => {
+    const formatExpectedShipDate = (dateVal, priority, standardDeliveryTime) => {
         if (!dateVal) return '-';
         const dt = new Date(dateVal);
         const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
         const day = localDt.getDate();
         const month = localDt.getMonth() + 1;
-        const hrs = String(localDt.getHours()).padStart(2, '0');
-        const mins = String(localDt.getMinutes()).padStart(2, '0');
 
         const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         const dayName = daysOfWeek[localDt.getDay()];
@@ -172,7 +170,15 @@ function _tsRenderTable(orders, totalCount) {
         if (pri === 'GẤP' || pri === 'GỬI') {
             return `${dayName} - ${day}/${month}`;
         } else {
-            return `${dayName} - ${hrs}:${mins} ${day}/${month}`;
+            let timePart = '';
+            if (standardDeliveryTime) {
+                timePart = standardDeliveryTime.trim();
+            } else {
+                const hrs = String(localDt.getHours()).padStart(2, '0');
+                const mins = String(localDt.getMinutes()).padStart(2, '0');
+                timePart = `${hrs}:${mins}`;
+            }
+            return `${dayName} - ${timePart} ${day}/${month}`;
         }
     };
 
@@ -197,7 +203,7 @@ function _tsRenderTable(orders, totalCount) {
             </td>
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
             <td><span class="ts-prio ${priClass}">${priority}</span></td>
-            <td style="font-weight:600">${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority)}</td>
+            <td style="font-weight:600">${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</td>
             <td style="min-width:120px"><div class="ts-progress"><div class="ts-progress-bar" style="width:${o.progress_percent}%;background:${pColor}"></div></div><div style="font-size:10px;font-weight:700;color:${pColor};margin-top:2px">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</div></td>
             <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>

@@ -64,7 +64,7 @@ module.exports = async function(fastify) {
                 o.rescheduled_ship_date, o.shipping_status,
                 o.customer_name, o.customer_phone, o.province,
                 o.shipped_at, o.tracking_code, o.total_amount,
-                o.parent_order_id, o.shipping_priority,
+                o.parent_order_id, o.shipping_priority, o.standard_delivery_time,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
@@ -372,7 +372,7 @@ module.exports = async function(fastify) {
                 total_amount: order.total_amount, cskh_name: order.cskh_name,
                 created_by_name: order.created_by_name, shipped_by_name: order.shipped_by_name,
                 is_pet_tem: isPetTem, parent_order_id: order.parent_order_id,
-                category_name: order.category_name
+                category_name: order.category_name, standard_delivery_time: order.standard_delivery_time
             },
             timeline,
             cutting: cutting.map(c => ({ cutter: c.cutter_name, fabric: c.fabric_name, kg: c.kg_cut, ratio: c.cut_ratio, started: c.cutting_at, done: c.cut_done_at, is_done: c.is_cut_done })),
@@ -935,6 +935,7 @@ function _processOrder(o, todayStr) {
         current_step_name: currentStepName,
         progress_percent: Math.round(doneSteps / totalSteps * 100),
         deviation_days: deviationDays, deviation_label: deviationLabel, deviation_class: deviationClass,
-        shipping_priority: o.shipping_priority
+        shipping_priority: o.shipping_priority,
+        standard_delivery_time: o.standard_delivery_time
     };
 }
