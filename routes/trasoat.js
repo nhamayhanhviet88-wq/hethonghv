@@ -256,6 +256,16 @@ module.exports = async function(fastify) {
             const pressDisplayWorker = pressTotalCount > 0 ? pressWorker : pressStep?.completed_by_name;
 
             // May calculations
+            // Apply custom done_date logic: internal sewing uses finishing completed time; contractor sewing uses QC time.
+            for (const s of sewing) {
+                if (s.contractor_id === null) {
+                    const finishRow = finishing.find(f => f.sewing_record_id === s.id && f.is_completed);
+                    s.done_date = finishRow ? finishRow.completed_at : null;
+                } else {
+                    s.done_date = s.qc_date;
+                }
+            }
+
             const sewDoneCount = sewing.filter(s => s.done_date).length;
             const sewTotalCount = sewing.length;
             const sewProgress = sewTotalCount > 0 ? `${sewDoneCount}/${sewTotalCount}` : null;
@@ -489,7 +499,9 @@ module.exports = async function(fastify) {
                 SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
                     dt.name AS team_name, doi.description AS item_description,
                     doi.quantity AS order_quantity, doi.material_pairs,
-                    doi.material_name, doi.color_name AS fabric_color
+                    doi.material_name, doi.color_name AS fabric_color,
+                    (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
+                    (SELECT completed_at FROM finishing_records WHERE sewing_record_id = sr.id AND is_completed = true LIMIT 1) AS finishing_completed_at
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
@@ -508,6 +520,12 @@ module.exports = async function(fastify) {
             for (const r of records) {
                 r.material_name = formatCombinedString(r.material_name);
                 r.fabric_color = formatCombinedString(r.fabric_color);
+
+                if (r.contractor_id === null) {
+                    r.done_date = r.finishing_completed_at;
+                } else {
+                    r.done_date = r.qc_date;
+                }
 
                 if (r.order_item_id) {
                     const cutQtyRow = await db.get(`
