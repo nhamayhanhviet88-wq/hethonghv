@@ -182,6 +182,7 @@ function _tsRenderTimeline(res) {
             <div class="ts-step-name">${s.short || s.name}</div>
             <div class="ts-step-time">${s.done ? fmtDT(s.time) : ''}</div>
             <div class="ts-step-time">${s.worker || ''}</div>
+            ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
         </div>`;
     });
     html += '</div>';
