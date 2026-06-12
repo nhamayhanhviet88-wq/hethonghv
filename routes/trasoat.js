@@ -6,6 +6,18 @@ const { vnNow, vnDateStr } = require('../utils/timezone');
 const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
 module.exports = async function(fastify) {
+    // Run database migrations/indexes if not exist to speed up queries
+    try {
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_printing_records_dht_order_id ON printing_records (dht_order_id)`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_pressing_records_dht_order_id ON pressing_records (dht_order_id)`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_sewing_records_dht_order_id ON sewing_records (dht_order_id)`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_finishing_records_dht_order_id ON finishing_records (dht_order_id)`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_finishing_records_sewing_record_id ON finishing_records (sewing_record_id)`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_qc_checklist_answers_sewing_record_id ON qc_checklist_answers (sewing_record_id)`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_finishing_checklist_answers_finishing_record_id ON finishing_checklist_answers (finishing_record_id)`);
+    } catch (e) {
+        console.error('[Migration] Lỗi khởi tạo index cho Tra Soát:', e.message);
+    }
 
     // ========== LIST — Danh sách đơn hàng + tiến độ ==========
     fastify.get('/api/trasoat/orders', { preHandler: [authenticate] }, async (request, reply) => {
