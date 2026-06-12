@@ -1774,7 +1774,7 @@ module.exports = async function(fastify) {
 
         await ensureItemPrepRow(orderId, itemId);
         const prep = await db.get('SELECT cut_remind_choice FROM qlx_preparation WHERE item_id = $1', [itemId]);
-        const cutRemindChoice = prep ? (prep.cut_remind_choice || 'none') : 'none';
+        const cutRemindChoice = prep ? prep.cut_remind_choice : null;
         const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' ORDER BY id", [itemId]);
 
         return {

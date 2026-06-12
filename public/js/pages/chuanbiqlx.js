@@ -889,7 +889,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         document.body.appendChild(ov);
 
         // Populate existing cut reminders
-        var cutChoice = data.cut_remind_choice || 'none';
+        var cutChoice = data.cut_remind_choice || '';
         var cutReminders = data.cut_reminders || [];
         if (cutChoice === 'yes' && cutReminders.length > 0) {
             cutReminders.forEach(function(r) {
@@ -902,7 +902,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 }
 
 function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders) {
-    cutChoice = cutChoice || 'none';
+    cutChoice = cutChoice || '';
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
     var oninput = 'oninput="_qlxFabPreview(\'' + mat + '\',\'' + col + '\',\'' + unit + '\')"';
