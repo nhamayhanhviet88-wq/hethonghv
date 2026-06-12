@@ -1407,13 +1407,14 @@ async function _qlxAssignIn(orderId, itemId) {
 
 function _qlxToggleRemindersArea(dept) {
     var inputName = dept === 'in' ? 'qlx_print_remind_choice' : 'qlx_press_remind_choice';
+    var idPrefix = dept === 'in' ? 'print' : 'press';
     var choice = document.querySelector('input[name="' + inputName + '"]:checked')?.value;
-    var container = document.getElementById('qlx_' + dept + '_reminders_container');
+    var container = document.getElementById('qlx_' + idPrefix + '_reminders_container');
     if (container) {
         container.style.display = choice === 'yes' ? 'block' : 'none';
     }
     if (choice === 'yes') {
-        var list = document.getElementById('qlx_' + dept + '_reminders_list');
+        var list = document.getElementById('qlx_' + idPrefix + '_reminders_list');
         if (list && list.children.length === 0) {
             _qlxAddReminderInput(dept);
         }
@@ -1422,7 +1423,8 @@ function _qlxToggleRemindersArea(dept) {
 
 function _qlxAddReminderInput(dept, val) {
     val = val || '';
-    var list = document.getElementById('qlx_' + dept + '_reminders_list');
+    var idPrefix = dept === 'in' ? 'print' : 'press';
+    var list = document.getElementById('qlx_' + idPrefix + '_reminders_list');
     if (!list) return;
     
     var div = document.createElement('div');
