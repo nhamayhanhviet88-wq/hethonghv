@@ -46,9 +46,30 @@ module.exports = async function(fastify) {
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
                 cr2.name AS carrier_name,
-                COALESCE((SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) AND NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id AND is_cut_done = false)), false) AS cut_done,
-                COALESCE((SELECT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) AND NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)), false) AS print_done,
-                COALESCE((SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 4 LIMIT 1), false) AS press_done,
+                COALESCE(
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
+                        THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id AND is_cut_done = false)
+                        ELSE false
+                    END,
+                    false
+                ) AS cut_done,
+                COALESCE(
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) 
+                        THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)
+                        ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1)
+                    END,
+                    false
+                ) AS print_done,
+                COALESCE(
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = o.id) 
+                        THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = o.id AND is_reported = false)
+                        ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 4 LIMIT 1)
+                    END,
+                    false
+                ) AS press_done,
                 COALESCE((SELECT true FROM sewing_records sr WHERE sr.dht_order_id = o.id AND sr.done_date IS NOT NULL LIMIT 1), false) AS sew_done,
                 COALESCE((SELECT true FROM finishing_records fr WHERE fr.dht_order_id = o.id AND fr.is_completed = true LIMIT 1), false) AS finish_done,
                 COUNT(*) OVER() AS total_count
@@ -135,6 +156,13 @@ module.exports = async function(fastify) {
             WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
         `, [orderId]);
 
+        // Pressing records
+        const pressing = await db.all(`
+            SELECT pr.*, u.full_name AS presser_name
+            FROM pressing_records pr LEFT JOIN users u ON pr.presser_id = u.id
+            WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
+        `, [orderId]);
+
         // Build timeline
         const code = (order.order_code || '').toUpperCase();
         const catName = (order.category_name || '').toUpperCase();
@@ -160,6 +188,15 @@ module.exports = async function(fastify) {
         const printTotalCount = printing.length;
         const printProgress = printTotalCount > 0 ? `${printDoneCount}/${printTotalCount}` : null;
 
+        // Determine pressing completion from pressing_records
+        const pressDoneCount = pressing.filter(p => p.is_reported).length;
+        const pressTotalCount = pressing.length;
+        const pressProgress = pressTotalCount > 0 ? `${pressDoneCount}/${pressTotalCount}` : null;
+        const allPressDone = pressTotalCount > 0 && pressing.every(p => p.is_reported);
+        const lastPressDone = pressing.filter(p => p.is_reported).sort((a,b) => new Date(b.reported_at || 0) - new Date(a.reported_at || 0))[0];
+        const pressTime = lastPressDone ? lastPressDone.reported_at : null;
+        const pressWorker = [...new Set(pressing.map(p => p.presser_name).filter(Boolean))].join(', ') || null;
+
         let timeline;
         if (isPetTem) {
             const printStep = prodSteps.find(s => s.step_id === 3);
@@ -184,11 +221,14 @@ module.exports = async function(fastify) {
             const finRec = finishing.find(f => f.is_completed);
 
             const printDone = allPrintDone || (printStep?.is_completed || false);
+            const pressDone = pressTotalCount > 0 ? allPressDone : (pressStep?.is_completed || false);
+            const pressDisplayTime = pressTotalCount > 0 ? pressTime : pressStep?.completed_at;
+            const pressDisplayWorker = pressTotalCount > 0 ? pressWorker : pressStep?.completed_by_name;
 
             timeline = [
                 { name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress },
                 { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
-                { name: 'Ép', short: 'ÉP', done: pressStep?.is_completed || false, time: pressStep?.completed_at, worker: pressStep?.completed_by_name },
+                { name: 'Ép', short: 'ÉP', done: pressDone, time: pressDisplayTime, worker: pressDisplayWorker, progress: pressProgress },
                 { name: 'May', short: 'MAY', done: !!sewRec, time: sewRec?.done_date, worker: sewRec?.sewer_name || sewRec?.contractor_name },
                 { name: 'Kiểm Tra CL', short: 'QC', done: finRec ? true : false, time: null, worker: null },
                 { name: 'Hoàn Thiện', short: 'HT', done: finRec?.is_completed || false, time: finRec?.completed_at, worker: finRec?.finisher_name },
@@ -357,10 +397,11 @@ module.exports = async function(fastify) {
 
         if (step === 'ep') {
             const records = await db.all(`
-                SELECT pr.*, u.full_name AS presser_name, o2.order_code
+                SELECT pr.*, u.full_name AS presser_name, o2.order_code, doi.description AS item_description
                 FROM pressing_records pr
                 LEFT JOIN users u ON pr.presser_id = u.id
                 LEFT JOIN dht_orders o2 ON pr.dht_order_id = o2.id
+                LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
             `, [orderId]);
             return { step: 'ep', order_code: order.order_code, cskh_name: order.cskh_name, records };

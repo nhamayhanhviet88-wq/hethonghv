@@ -78,9 +78,11 @@ function _tsRenderStepModal(step, d){
     else if(step==='ep'){
         html = hdr('🔥','CHI TIẾT PHIẾU ÉP',d.order_code,'#ea580c,#c2410c');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu ép</div>'; }
-        else d.records.forEach((r,i)=>{
-            body+=`<div style="padding:16px 24px;${i?'border-top:2px solid #e5e7eb':''}">`;
-            body+=`<div style="display:inline-block;padding:3px 10px;border-radius:6px;background:${r.is_reported?'#d1fae5':'#fef3c7'};color:${r.is_reported?'#065f46':'#92400e'};font-size:11px;font-weight:800;margin-bottom:12px">${r.is_reported?'✅ Đã báo cáo':'⏳ Chưa báo cáo'}</div>`;
+        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            const title = r.item_description ? `🔥 ${r.item_description}` : `🔥 Phiếu ${i+1}`;
+            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+            body+=`<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#c2410c;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_reported?'#d1fae5':'#fef3c7'};color:${r.is_reported?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_reported?'✅ Đã ép xong':'⏳ Đang ép'}</span></div>`;
+            body+=`<div style="padding:14px 16px">`;
             body+=row('📦 Sản phẩm',V(r.product_name));
             body+=row('🧵 Chất liệu',V(r.material_name));
             body+=row('🎨 Màu',V(r.fabric_color));
@@ -102,8 +104,8 @@ function _tsRenderStepModal(step, d){
             </div>`;
             if(r.notes){body+=section('📝','GHI CHÚ');body+=`<div style="background:#f8fafc;border-radius:8px;padding:10px;font-size:12px">${r.notes}</div>`;}
             if(r.press_images){try{const imgs=JSON.parse(r.press_images);if(imgs.length){body+=section('📸','HÌNH ẢNH ÉP');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});}}catch(e){}}
-            body+=`</div>`;
-        });
+            body+=`</div></div>`;
+        }); body+=`</div>`; }
     }
     else if(step==='may'){
         html = hdr('🧵','CHI TIẾT BÀN GIAO MAY',d.order_code,'#1e3a5f,#1e40af');
