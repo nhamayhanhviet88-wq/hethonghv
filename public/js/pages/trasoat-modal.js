@@ -191,11 +191,12 @@ function _tsRenderStepModal(step, d){
         html = hdr('🔧','CHI TIẾT HOÀN THIỆN & CHECKLIST',d.order_code,'#334155,#475569');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu hoàn thiện</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = r.item_description ? `🔧 ${r.item_description}` : `🔧 Phiếu ${i+1}`;
+            const title = '🔍 ' + d.order_code + ' — Phiếu ' + (i+1) + (r.item_description ? ' — ' + r.item_description : '');
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#334155;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_completed?'#d1fae5':'#fef3c7'};color:${r.is_completed?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_completed?'✅ Đã hoàn thiện':'⏳ Đang hoàn thiện'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=row('👤 CSKH',V(d.cskh_name));
+            body+=row('🧵 Nhân Viên May',V(r.sewer_name));
             body+=row('👷 NV Hoàn Thiện',V(r.finisher_name),'#059669');
             body+=row('📦 Tiêu Chuẩn Gửi',r.shipping_standard==='chuan'?'✅ CHUẨN':'⚠️ '+V(r.shipping_standard));
             body+=row('📅 Hạn Gửi Hàng',fmtDT(r.expected_date));

@@ -502,10 +502,14 @@ module.exports = async function(fastify) {
 
         if (step === 'ht') {
             const records = await db.all(`
-                SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description
+                SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description,
+                    COALESCE(u_sew.full_name, c.name, t.name) AS sewer_name
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
                 LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                LEFT JOIN users u_sew ON sr.sewer_id = u_sew.id
+                LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
+                LEFT JOIN teams t ON sr.sewing_team_id = t.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
