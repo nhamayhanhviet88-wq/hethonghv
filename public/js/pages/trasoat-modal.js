@@ -86,17 +86,19 @@ function _tsRenderStepModal(step, d){
         html = hdr('🔥','CHI TIẾT PHIẾU ÉP',d.order_code,'#ea580c,#c2410c');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu ép</div>'; }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = r.item_description ? `🔥 ${r.item_description}` : `🔥 Phiếu ${i+1}`;
+            const title = `🔥 ${r.product_name || r.item_description || 'Sản phẩm'}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#c2410c;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_reported?'#d1fae5':'#fef3c7'};color:${r.is_reported?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_reported?'✅ Đã ép xong':'⏳ Đang ép'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
-            body+=row('📦 Sản phẩm',V(r.product_name));
+            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.created_at)}</div></div>
+                <div style="background:${r.is_reported?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_reported?'#16a34a':'#f59e0b'};font-weight:700">🔥 HOÀN THÀNH ÉP</div><div style="font-weight:800;color:${r.is_reported?'#166534':'#92400e'}">${r.is_reported?fmtShortDT(r.reported_at):'⏳ Đang ép'}</div></div>
+            </div>`;
             body+=row('🧵 Chất liệu',V(r.material_name));
             body+=row('🎨 Màu',V(r.fabric_color));
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('👷 NV Ép',V(r.presser_name),'#ea580c');
             body+=row('📊 SL Cắt',r.order_quantity+' sp');
-            body+=row('🕐 Ép Xong',fmtDT(r.reported_at));
             body+=section('📋','CHI TIẾT CÁC VỊ TRÍ ÉP');
             const posNames = {'pos_chest_arm':'Ngực, Tay, Tạp Dề, Vải Mũ','pos_back_belly':'Lưng, Bụng, Sườn Áo Sần, Mũ Sần','pos_protective':'Bảo Hộ, Bếp, Sơ Mi','pos_packaging':'Đóng Gói, Cổ Bẻ Vải'};
             let totalEp=0;
