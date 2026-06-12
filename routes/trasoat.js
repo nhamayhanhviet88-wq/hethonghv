@@ -204,16 +204,15 @@ module.exports = async function(fastify) {
         // contractor_id != null → considered done (same as bophanin.js)
         const isPrintRecDone = p => p.contractor_id ? true : p.is_print_done;
         const allPrintDone = printing.length > 0 && printing.every(isPrintRecDone);
-        const lastPrintDone = printing.filter(p => p.is_print_done).sort((a,b) => new Date(b.print_done_at||0) - new Date(a.print_done_at||0))[0];
-        const contractorRec = printing.find(p => p.contractor_id);
-        // Worker: show 'In Gia Công' for contractor, or printer name
-        const printWorker = contractorRec
-            ? 'In Gia Công'
-            : (lastPrintDone ? lastPrintDone.printer_name : (printing[0]?.printer_name || null));
-        // Time: for contractor show created_at (bàn giao time), for normal show print_done_at
-        const printTime = contractorRec
-            ? contractorRec.created_at
-            : (lastPrintDone?.print_done_at || null);
+        const completedPrints = printing
+            .filter(isPrintRecDone)
+            .map(p => ({
+                time: p.contractor_id ? p.created_at : p.print_done_at,
+                worker: p.contractor_id ? 'In Gia Công' : p.printer_name
+            }));
+        const lastPrint = completedPrints.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0))[0];
+        const printWorker = lastPrint ? lastPrint.worker : null;
+        const printTime = lastPrint ? lastPrint.time : null;
         const printFields = [...new Set(printing.map(p => p.print_field).filter(Boolean))].join(', ') || null;
         const printDoneCount = printing.filter(isPrintRecDone).length;
         const printTotalCount = printing.length;
