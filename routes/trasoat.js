@@ -128,8 +128,10 @@ module.exports = async function(fastify) {
 
         // Printing records
         const printing = await db.all(`
-            SELECT pr.*, u.full_name AS printer_name
-            FROM printing_records pr LEFT JOIN users u ON pr.printer_id = u.id
+            SELECT pr.*, u.full_name AS printer_name, c.name AS contractor_name
+            FROM printing_records pr
+            LEFT JOIN users u ON pr.printer_id = u.id
+            LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
             WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
         `, [orderId]);
 
@@ -140,10 +142,19 @@ module.exports = async function(fastify) {
         const isShipped = order.shipping_status === 'shipped';
 
         // Determine print completion from printing_records
-        const allPrintDone = printing.length > 0 && printing.every(p => p.is_print_done);
+        // contractor_id != null → considered done (same as bophanin.js)
+        const isPrintRecDone = p => p.contractor_id ? true : p.is_print_done;
+        const allPrintDone = printing.length > 0 && printing.every(isPrintRecDone);
         const lastPrintDone = printing.filter(p => p.is_print_done).sort((a,b) => new Date(b.print_done_at||0) - new Date(a.print_done_at||0))[0];
-        const printWorker = lastPrintDone ? lastPrintDone.printer_name : (printing[0]?.printer_name || null);
-        const printTime = lastPrintDone?.print_done_at || null;
+        const contractorRec = printing.find(p => p.contractor_id);
+        // Worker: show contractor name (🏭 prefix) or printer name
+        const printWorker = contractorRec
+            ? '🏭 ' + (contractorRec.contractor_name || 'Gia Công')
+            : (lastPrintDone ? lastPrintDone.printer_name : (printing[0]?.printer_name || null));
+        // Time: for contractor show created_at (bàn giao time), for normal show print_done_at
+        const printTime = contractorRec
+            ? contractorRec.created_at
+            : (lastPrintDone?.print_done_at || null);
         const printFields = [...new Set(printing.map(p => p.print_field).filter(Boolean))].join(', ') || null;
 
         let timeline;
