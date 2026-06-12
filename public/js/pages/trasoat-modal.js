@@ -110,8 +110,11 @@ function _tsRenderStepModal(step, d){
     else if(step==='may'){
         html = hdr('🧵','CHI TIẾT BÀN GIAO MAY',d.order_code,'#1e3a5f,#1e40af');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu may</div>'; }
-        else d.records.forEach((r,i)=>{
-            body+=`<div style="padding:16px 24px;${i?'border-top:2px solid #e5e7eb':''}">`;
+        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            const title = r.item_description ? `🧵 ${r.item_description}` : `🧵 Phiếu ${i+1}`;
+            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+            body+=`<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#1e40af;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.done_date?'#d1fae5':'#fef3c7'};color:${r.done_date?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.done_date?'✅ Đã may xong':'⏳ Đang may'}</span></div>`;
+            body+=`<div style="padding:14px 16px">`;
             body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
                 <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 HẠN TRẢ HÀNG</div><div style="font-weight:800;color:#1e40af">${fmtD(d.expected_ship_date)}</div></div>
                 <div style="background:${r.done_date?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.done_date?'#16a34a':'#f59e0b'};font-weight:700">🧵 NGÀY MAY HT</div><div style="font-weight:800;color:${r.done_date?'#166534':'#92400e'}">${fmtD(r.done_date)}</div></div>
@@ -124,33 +127,40 @@ function _tsRenderStepModal(step, d){
             body+=row('📅 Ngày Bàn Giao',fmtDT(r.handover_date));
             body+=row('📊 SL Thực Tế',(r.actual_quantity||r.order_quantity||0)+' sp','#dc2626');
             body+=row('📊 SL May',(r.quantity||0)+' sp','#059669');
-            body+=`</div>`;
-        });
+            body+=`</div></div>`;
+        }); body+=`</div>`; }
     }
     else if(step==='qc'){
-        html = hdr('🔍','CHI TIẾT KIỂM TRA & ĐƠN GIÁ',d.order_code,'#0f766e,#0d9488');
+        html = hdr('🔍','CHI TIẾT KIỂM TRA CHẤT LƯỢNG (QC)',d.order_code,'#0f766e,#0d9488');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu QC</div>'; }
-        else d.records.forEach((r,i)=>{
-            body+=`<div style="padding:16px 24px;${i?'border-top:2px solid #e5e7eb':''}">`;
-            body+=section('📦','THÔNG TIN SẢN PHẨM');
-            body+=row('📋 Mã Đơn',V(d.order_code),'#4338ca');
+        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            const title = r.item_description ? `🔍 ${r.item_description}` : `🔍 Phiếu ${i+1}`;
+            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+            body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#0f766e;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.answers&&r.answers.length?'#d1fae5':'#fef3c7'};color:${r.answers&&r.answers.length?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.answers&&r.answers.length?'✅ Đã QC':'⏳ Chưa QC'}</span></div>`;
+            body+=`<div style="padding:14px 16px">`;
             body+=row('📦 Tên SP',V(r.product_name));
             body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('🧵 Chất liệu',V(r.material_name),'#7c3aed');
-            body+=row('🎨 Màu',V(r.fabric_color));
-            body+=row('👷 NV May',V(r.sewer_name||r.contractor_name||r.team_name),'#1e40af');
-            body+=section('📊','SỐ LƯỢNG MAY / THỰC TẾ');
-            body+=row('SL Thực Tế',(r.actual_quantity||r.order_quantity||0)+' sp','#dc2626');
-            body+=row('SL May',(r.quantity||0)+' sp','#059669');
-            body+=`</div>`;
-        });
+            body+=row('👷 Nhân Viên QC',V(r.finisher_name),'#0d9488');
+            body+=row('📊 Số Lượng',r.quantity ? r.quantity+' sp' : '—');
+            if(r.answers&&r.answers.length){
+                body+=section('📋','KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG');
+                r.answers.forEach(a=>{
+                    const isOk = String(a.answer_value).toLowerCase() === 'yes' || String(a.answer_value).toLowerCase() === 'đạt' || String(a.answer_value).toLowerCase() === 'có';
+                    const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${isOk?'#d1fae5':'#fee2e2'};color:${isOk?'#065f46':'#991b1b'}">${a.answer_value}</span>`;
+                    body+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid #f8fafc"><span style="font-weight:600;color:#334155">${a.content}</span>${badge}</div>`;
+                });
+            } else { body+=`<div style="padding:10px;text-align:center;color:#9ca3af;font-size:12px">Chưa thực hiện checklist QC</div>`; }
+            body+=`</div></div>`;
+        }); body+=`</div>`; }
     }
     else if(step==='ht'){
-        html = hdr('🔧','XEM HOÀN THIỆN & CHECKLIST',d.order_code,'#334155,#475569');
+        html = hdr('🔧','CHI TIẾT HOÀN THIỆN & CHECKLIST',d.order_code,'#334155,#475569');
         if(!d.records||!d.records.length){ body='<div style="padding:30px;text-align:center;color:#9ca3af">Chưa có dữ liệu hoàn thiện</div>'; }
-        else d.records.forEach((r,i)=>{
-            body+=`<div style="padding:16px 24px;${i?'border-top:2px solid #e5e7eb':''}">`;
-            body+=row('📋 Mã Đơn Hàng',V(d.order_code),'#4338ca');
+        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
+            const title = r.item_description ? `🔧 ${r.item_description}` : `🔧 Phiếu ${i+1}`;
+            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+            body+=`<div style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#334155;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_completed?'#d1fae5':'#fef3c7'};color:${r.is_completed?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_completed?'✅ Đã hoàn thiện':'⏳ Đang hoàn thiện'}</span></div>`;
+            body+=`<div style="padding:14px 16px">`;
             body+=row('👤 CSKH',V(d.cskh_name));
             body+=row('👷 NV Hoàn Thiện',V(r.finisher_name),'#059669');
             body+=row('📦 Tiêu Chuẩn Gửi',r.shipping_standard==='chuan'?'✅ CHUẨN':'⚠️ '+V(r.shipping_standard));
@@ -159,14 +169,14 @@ function _tsRenderStepModal(step, d){
                 body+=section('📋','CHECKLIST HOÀN THIỆN');
                 r.checklist.forEach(c=>{
                     const ans=c.answer_value||'';
-                    const isYes=ans.toLowerCase()==='có'||ans.toLowerCase()==='yes';
+                    const isYes=ans.toLowerCase()==='có'||ans.toLowerCase()==='yes'||ans.toLowerCase()==='đạt';
                     body+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f8fafc;font-size:12px"><span style="font-weight:600">${c.question}</span><span style="font-weight:800;color:${isYes?'#059669':'#dc2626'}">${ans}</span></div>`;
                 });
             }
             if(r.finish_images){try{const imgs=JSON.parse(r.finish_images);if(imgs.length){body+=section('📸','ẢNH SẢN PHẨM HOÀN THIỆN');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});}}catch(e){}}
             if(r.notes||r.finishing_notes){body+=section('📝','GHI CHÚ');body+=`<div style="background:#f8fafc;border-radius:8px;padding:10px;font-size:12px">${r.finishing_notes||r.notes||''}</div>`;}
-            body+=`</div>`;
-        });
+            body+=`</div></div>`;
+        }); body+=`</div>`; }
     }
     else if(step==='gui'){
         html = hdr('🚛','THÔNG TIN GỬI HÀNG',d.order_code,'#b45309,#d97706');

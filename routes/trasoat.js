@@ -137,14 +137,16 @@ module.exports = async function(fastify) {
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id = u.id
             LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
-            WHERE sr.dht_order_id = $1 ORDER BY sr.created_at DESC
+            WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
         `, [orderId]);
 
-        // Finishing records
+        // Finishing records (aggregates checklist status & completion details)
         const finishing = await db.all(`
-            SELECT fr.*, u.full_name AS finisher_name
+            SELECT fr.*, u.full_name AS finisher_name,
+                (SELECT COUNT(*)::int FROM finishing_checklist_answers fca WHERE fca.finishing_record_id = fr.id) AS checklist_count,
+                (SELECT MAX(answered_at) FROM finishing_checklist_answers fca WHERE fca.finishing_record_id = fr.id) AS qc_done_at
             FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id = u.id
-            WHERE fr.dht_order_id = $1 ORDER BY fr.created_at DESC
+            WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
         `, [orderId]);
 
         // Printing records
@@ -225,13 +227,52 @@ module.exports = async function(fastify) {
             const pressDisplayTime = pressTotalCount > 0 ? pressTime : pressStep?.completed_at;
             const pressDisplayWorker = pressTotalCount > 0 ? pressWorker : pressStep?.completed_by_name;
 
+            // May calculations
+            const sewDoneCount = sewing.filter(s => s.done_date).length;
+            const sewTotalCount = sewing.length;
+            const sewProgress = sewTotalCount > 0 ? `${sewDoneCount}/${sewTotalCount}` : null;
+            const allSewDone = sewTotalCount > 0 && sewing.every(s => s.done_date);
+            const lastSewDone = sewing.filter(s => s.done_date).sort((a,b) => new Date(b.done_date) - new Date(a.done_date))[0];
+            const sewTime = lastSewDone ? lastSewDone.done_date : null;
+            const sewWorker = [...new Set(sewing.map(s => s.sewer_name || s.contractor_name).filter(Boolean))].join(', ') || null;
+
+            const sewDone = sewTotalCount > 0 ? allSewDone : (sewRec ? true : false);
+            const sewDisplayTime = sewTotalCount > 0 ? sewTime : sewRec?.done_date;
+            const sewDisplayWorker = sewTotalCount > 0 ? sewWorker : (sewRec?.sewer_name || sewRec?.contractor_name);
+
+            // QC calculations
+            const qcDoneCount = finishing.filter(f => f.checklist_count > 0).length;
+            const qcTotalCount = finishing.length;
+            const qcProgress = qcTotalCount > 0 ? `${qcDoneCount}/${qcTotalCount}` : null;
+            const allQcDone = qcTotalCount > 0 && finishing.every(f => f.checklist_count > 0);
+            const lastQcDone = finishing.filter(f => f.checklist_count > 0).sort((a,b) => new Date(b.qc_done_at || 0) - new Date(a.qc_done_at || 0))[0];
+            const qcTime = lastQcDone ? lastQcDone.qc_done_at : null;
+            const qcWorker = [...new Set(finishing.map(f => f.finisher_name).filter(Boolean))].join(', ') || null;
+
+            const qcDone = qcTotalCount > 0 ? allQcDone : (finRec ? true : false);
+            const qcDisplayTime = qcTotalCount > 0 ? qcTime : null;
+            const qcDisplayWorker = qcTotalCount > 0 ? qcWorker : null;
+
+            // HT calculations
+            const htDoneCount = finishing.filter(f => f.is_completed).length;
+            const htTotalCount = finishing.length;
+            const htProgress = htTotalCount > 0 ? `${htDoneCount}/${htTotalCount}` : null;
+            const allHtDone = htTotalCount > 0 && finishing.every(f => f.is_completed);
+            const lastHtDone = finishing.filter(f => f.is_completed).sort((a,b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))[0];
+            const htTime = lastHtDone ? lastHtDone.completed_at : null;
+            const htWorker = [...new Set(finishing.map(f => f.finisher_name).filter(Boolean))].join(', ') || null;
+
+            const htDone = htTotalCount > 0 ? allHtDone : (finRec?.is_completed || false);
+            const htDisplayTime = htTotalCount > 0 ? htTime : finRec?.completed_at;
+            const htDisplayWorker = htTotalCount > 0 ? htWorker : finRec?.finisher_name;
+
             timeline = [
                 { name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress },
                 { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
                 { name: 'Ép', short: 'ÉP', done: pressDone, time: pressDisplayTime, worker: pressDisplayWorker, progress: pressProgress },
-                { name: 'May', short: 'MAY', done: !!sewRec, time: sewRec?.done_date, worker: sewRec?.sewer_name || sewRec?.contractor_name },
-                { name: 'Kiểm Tra CL', short: 'QC', done: finRec ? true : false, time: null, worker: null },
-                { name: 'Hoàn Thiện', short: 'HT', done: finRec?.is_completed || false, time: finRec?.completed_at, worker: finRec?.finisher_name },
+                { name: 'May', short: 'MAY', done: sewDone, time: sewDisplayTime, worker: sewDisplayWorker, progress: sewProgress },
+                { name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress },
+                { name: 'Hoàn Thiện', short: 'HT', done: htDone, time: htDisplayTime, worker: htDisplayWorker, progress: htProgress },
                 { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
             ];
         }
@@ -410,11 +451,12 @@ module.exports = async function(fastify) {
         if (step === 'may') {
             const records = await db.all(`
                 SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
-                    st.name AS team_name
+                    st.name AS team_name, doi.description AS item_description
                 FROM sewing_records sr
                 LEFT JOIN users u ON sr.sewer_id = u.id
                 LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
                 LEFT JOIN sewing_teams st ON sr.sewing_team_id = st.id
+                LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
             `, [orderId]);
             return {
@@ -426,21 +468,31 @@ module.exports = async function(fastify) {
 
         if (step === 'qc') {
             const records = await db.all(`
-                SELECT sr.*, u.full_name AS sewer_name, ct.name AS contractor_name,
-                    st.name AS team_name
-                FROM sewing_records sr
-                LEFT JOIN users u ON sr.sewer_id = u.id
-                LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
-                LEFT JOIN sewing_teams st ON sr.sewing_team_id = st.id
-                WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
+                SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description
+                FROM finishing_records fr
+                LEFT JOIN users u ON fr.finisher_id = u.id
+                LEFT JOIN dht_order_items doi ON fr.order_item_id = doi.id
+                WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
+            // Get checklist answers for each record
+            for (const r of records) {
+                r.answers = await db.all(`
+                    SELECT fca.answer_value, fct.content, fct.type
+                    FROM finishing_checklist_answers fca
+                    JOIN finishing_checklist_templates fct ON fca.template_id = fct.id
+                    WHERE fca.finishing_record_id = $1
+                    ORDER BY fct.sort_order
+                `, [r.id]);
+            }
             return { step: 'qc', order_code: order.order_code, cskh_name: order.cskh_name, records };
         }
 
         if (step === 'ht') {
             const records = await db.all(`
-                SELECT fr.*, u.full_name AS finisher_name
-                FROM finishing_records fr LEFT JOIN users u ON fr.finisher_id = u.id
+                SELECT fr.*, u.full_name AS finisher_name, doi.description AS item_description
+                FROM finishing_records fr
+                LEFT JOIN users u ON fr.finisher_id = u.id
+                LEFT JOIN dht_order_items doi ON fr.order_item_id = doi.id
                 WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
             `, [orderId]);
             // Get checklist answers for each record
