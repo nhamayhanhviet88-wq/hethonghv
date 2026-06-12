@@ -156,13 +156,16 @@ module.exports = async function(fastify) {
             ? contractorRec.created_at
             : (lastPrintDone?.print_done_at || null);
         const printFields = [...new Set(printing.map(p => p.print_field).filter(Boolean))].join(', ') || null;
+        const printDoneCount = printing.filter(isPrintRecDone).length;
+        const printTotalCount = printing.length;
+        const printProgress = printTotalCount > 0 ? `${printDoneCount}/${printTotalCount}` : null;
 
         let timeline;
         if (isPetTem) {
             const printStep = prodSteps.find(s => s.step_id === 3);
             const printDone = allPrintDone || (printStep?.is_completed || false);
             timeline = [
-                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields },
+                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
                 { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
             ];
         } else {
@@ -176,7 +179,7 @@ module.exports = async function(fastify) {
 
             timeline = [
                 { name: 'Cắt', short: 'CẮT', done: !!cutRec, time: cutRec?.cut_done_at || cutRec?.cutting_at, worker: cutRec?.cutter_name },
-                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields },
+                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
                 { name: 'Ép', short: 'ÉP', done: pressStep?.is_completed || false, time: pressStep?.completed_at, worker: pressStep?.completed_by_name },
                 { name: 'May', short: 'MAY', done: !!sewRec, time: sewRec?.done_date, worker: sewRec?.sewer_name || sewRec?.contractor_name },
                 { name: 'Kiểm Tra CL', short: 'QC', done: finRec ? true : false, time: null, worker: null },

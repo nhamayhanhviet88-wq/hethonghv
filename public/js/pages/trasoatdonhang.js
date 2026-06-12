@@ -180,6 +180,7 @@ function _tsRenderTimeline(res) {
         if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
         html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();_tsOpenStepModal(${o.id},'${s.name}')" style="cursor:pointer" title="Xem báo cáo ${s.name}">${icon}</div>
             <div class="ts-step-name">${s.short || s.name}</div>
+            ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
             <div class="ts-step-time">${s.done ? fmtDT(s.time) : ''}</div>
             <div class="ts-step-time">${s.worker || ''}</div>
             ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
