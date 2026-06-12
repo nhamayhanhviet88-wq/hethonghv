@@ -4,6 +4,87 @@ const _STEP_MAP = {'Cắt':'cat','In':'in','Ép':'ep','May':'may','Kiểm Tra CL
 
 function _tsCloseModal(){ const m=document.getElementById('tsModal'); if(m) m.remove(); }
 
+function _tsShowImagePreview(url) {
+    if (!url) return;
+    const existing = document.getElementById('tsImagePreviewModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'tsImagePreviewModal';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '100000';
+    overlay.style.background = 'rgba(15, 23, 42, 0.9)';
+    overlay.style.backdropFilter = 'blur(12px)';
+    overlay.style.webkitBackdropFilter = 'blur(12px)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.cursor = 'zoom-out';
+    overlay.style.animation = 'tsPreviewFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+
+    if (!document.getElementById('tsPreviewStyle')) {
+        const style = document.createElement('style');
+        style.id = 'tsPreviewStyle';
+        style.textContent = `
+            @keyframes tsPreviewFadeIn {
+                from { opacity: 0; transform: scale(0.98); }
+                to { opacity: 1; transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    overlay.onclick = function(e) {
+        if (e.target === this || e.target.id === 'tsCloseImagePreviewBtn') {
+            overlay.remove();
+        }
+    };
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'tsCloseImagePreviewBtn';
+    closeBtn.innerText = '✕';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '24px';
+    closeBtn.style.right = '24px';
+    closeBtn.style.width = '48px';
+    closeBtn.style.height = '48px';
+    closeBtn.style.borderRadius = '50%';
+    closeBtn.style.border = 'none';
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+    closeBtn.style.color = '#f8fafc';
+    closeBtn.style.fontSize = '22px';
+    closeBtn.style.fontWeight = '800';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.display = 'flex';
+    closeBtn.style.alignItems = 'center';
+    closeBtn.style.justifyContent = 'center';
+    closeBtn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+    closeBtn.style.transition = 'all 0.2s';
+    closeBtn.onmouseover = () => { 
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+        closeBtn.style.transform = 'scale(1.05)';
+    };
+    closeBtn.onmouseout = () => { 
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+        closeBtn.style.transform = 'scale(1)';
+    };
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.maxWidth = '90vw';
+    img.style.maxHeight = '90vh';
+    img.style.borderRadius = '12px';
+    img.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.5)';
+    img.style.objectFit = 'contain';
+    img.style.cursor = 'default';
+    img.onclick = (e) => e.stopPropagation();
+
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+}
+
 async function _tsOpenStepModal(orderId, stepName){
     const stepKey = _STEP_MAP[stepName]; if(!stepKey) return;
     _tsModalOrderId = orderId;
@@ -161,7 +242,7 @@ function _tsRenderStepModal(step, d){
                     if (r.image_url) {
                         body += `<div style="margin-top:6px">
                             <div style="font-weight:700;font-size:11px;color:#475569;margin-bottom:2px">📸 File in/thiết kế:</div>
-                            <img src="${r.image_url}" style="max-width:120px;max-height:120px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="window.open('${r.image_url}','_blank')" onerror="this.style.display='none'">
+                            <img src="${r.image_url}" style="max-width:120px;max-height:120px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="_tsShowImagePreview('${r.image_url}')" onerror="this.style.display='none'">
                         </div>`;
                     }
 
@@ -201,7 +282,7 @@ function _tsRenderStepModal(step, d){
                 <div style="background:#fef3c7;border-radius:10px;padding:14px;text-align:center"><div style="font-size:10px;font-weight:700;color:#92400e">🔥 TỔNG SL ÉP THỰC TẾ</div><div style="font-size:22px;font-weight:900;color:#92400e">${r.press_quantity||totalEp} sp</div></div>
             </div>`;
             if(r.notes){body+=section('📝','GHI CHÚ');body+=`<div style="background:#f8fafc;border-radius:8px;padding:10px;font-size:12px">${r.notes}</div>`;}
-            if(r.press_images){try{const imgs=JSON.parse(r.press_images);if(imgs.length){body+=section('📸','HÌNH ẢNH ÉP');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0" onerror="this.style.display='none'">`});}}catch(e){}}
+            if(r.press_images){try{const imgs=JSON.parse(r.press_images);if(imgs.length){body+=section('📸','HÌNH ẢNH ÉP');imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:100%;border-radius:8px;margin:4px 0;cursor:pointer" onclick="_tsShowImagePreview('${img}')" onerror="this.style.display='none'">`});}}catch(e){}}
             body+=`</div></div>`;
         }); body+=`</div>`; }
     }
@@ -430,7 +511,7 @@ function _tsRenderStepModal(step, d){
                             const imgs=JSON.parse(r.finish_images);
                             if(imgs.length){
                                 body+=`<div style="margin-top:8px;font-weight:700;font-size:11px;color:#475569">📸 Ảnh QC:</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">`;
-                                imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:80px;max-height:80px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="window.open('${img}','_blank')" onerror="this.style.display='none'">`});
+                                imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:80px;max-height:80px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="_tsShowImagePreview('${img}')" onerror="this.style.display='none'">`});
                                 body+=`</div>`;
                             }
                         }catch(e){}
@@ -582,7 +663,7 @@ function _tsRenderStepModal(step, d){
                             const imgs=JSON.parse(r.finish_images);
                             if(imgs.length){
                                 body+=`<div style="margin-top:8px;font-weight:700;font-size:11px;color:#475569">📸 Ảnh hoàn thiện:</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">`;
-                                imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:80px;max-height:80px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="window.open('${img}','_blank')" onerror="this.style.display='none'">`});
+                                imgs.forEach(img=>{body+=`<img src="${img}" style="max-width:80px;max-height:80px;border-radius:6px;object-fit:cover;cursor:pointer" onclick="_tsShowImagePreview('${img}')" onerror="this.style.display='none'">`});
                                 body+=`</div>`;
                             }
                         }catch(e){}
