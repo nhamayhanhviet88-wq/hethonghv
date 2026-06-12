@@ -114,8 +114,21 @@ function init() {
     for (let y=cy;y>=cy-3;y--) { const o=document.createElement('option'); o.value=y; o.text=y; if(y===cy) o.selected=true; ySel.appendChild(o); }
     
     document.getElementById('mSearch').addEventListener('input', e => {
+        const val = e.target.value;
+        if (val.trim()) {
+            const mSel = document.getElementById('mMonth');
+            const ySel = document.getElementById('mYear');
+            if (mSel) mSel.value = '';
+            if (ySel) ySel.value = '';
+        }
         clearTimeout(_m.debounce);
-        _m.debounce = setTimeout(() => { _m.search=e.target.value; _m.page=1; _m.orders=[]; load(); }, 400);
+        _m.debounce = setTimeout(() => { 
+            _m.search = val; 
+            _m.page = 1; 
+            _m.orders = []; 
+            load(); 
+            loadStats();
+        }, 400);
     });
     ['mMonth','mYear','mStatus'].forEach(id => document.getElementById(id).addEventListener('change', () => {
         _m.current_step = ''; // Clear pipeline step when manual select changes
