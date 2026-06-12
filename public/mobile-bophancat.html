@@ -2545,6 +2545,7 @@ async function mMCNext(){
             mCloseMC();mToast('✅ Đã cắt chung '+_mm.selOrders.length+' đơn!');await mLoadAll();
         }catch(e){mToast(e.message||'Lỗi',false);if(btn){btn.disabled=false;btn.textContent='✂️ XÁC NHẬN';mUpdateMultiCutConfirmState();}}
     }
+}
 
 function mCompressImage(file, callback) {
     if (!file) return callback(null);
