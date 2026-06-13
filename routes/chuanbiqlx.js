@@ -819,11 +819,7 @@ module.exports = async function(fastify) {
         let isMatDone = true;
 
         if (itemId) {
-            const cutStatus = await db.get(`
-                SELECT 
-                    EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cut_records,
-                    NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS all_cuts_done
-            `, [itemId]);
+            isCutDone = await checkItemCuttingDone(itemId);
 
             const matStatus = await db.get(`
                 SELECT 
@@ -834,18 +830,13 @@ module.exports = async function(fastify) {
                     ) AS material_done
             `, [itemId, orderId]);
 
-            isCutDone = !!(cutStatus && cutStatus.has_cut_records && cutStatus.all_cuts_done);
             isMatDone = !!(matStatus && matStatus.material_done);
         } else {
             const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
             if (items.length > 0) {
                 for (const item of items) {
-                    const cut = await db.get(`
-                        SELECT 
-                            EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cut_records,
-                            NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS all_cuts_done
-                    `, [item.id]);
-                    if (!cut || !cut.has_cut_records || !cut.all_cuts_done) {
+                    const cutDone = await checkItemCuttingDone(item.id);
+                    if (!cutDone) {
                         isCutDone = false;
                     }
 

@@ -236,8 +236,26 @@ module.exports = async function(fastify) {
                 SELECT 
                     oi.id AS item_id,
                     (
-                        EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
-                        AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
+                        CASE 
+                            WHEN oi.material_pairs IS NULL OR jsonb_array_length(oi.material_pairs) = 0 THEN (
+                                EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+                                AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
+                            )
+                            ELSE (
+                                NOT EXISTS (
+                                    SELECT 1 
+                                    FROM jsonb_to_recordset(oi.material_pairs) AS p(material_name text, color_name text)
+                                    WHERE NOT EXISTS (
+                                        SELECT 1 
+                                        FROM cutting_records cr 
+                                        WHERE cr.order_item_id = oi.id 
+                                          AND UPPER(TRIM(COALESCE(cr.material_name, ''))) = UPPER(TRIM(COALESCE(p.material_name, ''))) 
+                                          AND UPPER(TRIM(COALESCE(cr.fabric_color, ''))) = UPPER(TRIM(COALESCE(p.color_name, ''))) 
+                                          AND cr.is_cut_done = true
+                                    )
+                                )
+                            )
+                        END
                     ) AS is_cut_done,
                     (
                         EXISTS (
@@ -819,8 +837,28 @@ module.exports = async function(fastify) {
                             AND pf.name IN ('IN PET', 'IN DECAL')
                             AND qa.operator_type = 'user'
                       )
-                      AND EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
-                      AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
+                      AND (
+                          CASE 
+                              WHEN oi.material_pairs IS NULL OR jsonb_array_length(oi.material_pairs) = 0 THEN (
+                                  EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
+                                  AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
+                              )
+                              ELSE (
+                                  NOT EXISTS (
+                                      SELECT 1 
+                                      FROM jsonb_to_recordset(oi.material_pairs) AS p(material_name text, color_name text)
+                                      WHERE NOT EXISTS (
+                                          SELECT 1 
+                                          FROM cutting_records cr 
+                                          WHERE cr.order_item_id = oi.id 
+                                            AND UPPER(TRIM(COALESCE(cr.material_name, ''))) = UPPER(TRIM(COALESCE(p.material_name, ''))) 
+                                            AND UPPER(TRIM(COALESCE(cr.fabric_color, ''))) = UPPER(TRIM(COALESCE(p.color_name, ''))) 
+                                            AND cr.is_cut_done = true
+                                      )
+                                  )
+                              )
+                          END
+                      )
                       AND EXISTS (
                           SELECT 1 FROM printing_records prr 
                           WHERE (
@@ -873,8 +911,28 @@ module.exports = async function(fastify) {
                         FROM dht_order_items doi2 
                         WHERE doi2.dht_order_id = doi.dht_order_id AND doi2.id <= doi.id
                     ) AS real_item_index,
-                    EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
-                    NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
+                    (
+                        CASE 
+                            WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
+                                EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id)
+                                AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false)
+                            )
+                            ELSE (
+                                NOT EXISTS (
+                                    SELECT 1 
+                                    FROM jsonb_to_recordset(doi.material_pairs) AS p(material_name text, color_name text)
+                                    WHERE NOT EXISTS (
+                                        SELECT 1 
+                                        FROM cutting_records cr 
+                                        WHERE cr.order_item_id = doi.id 
+                                          AND UPPER(TRIM(COALESCE(cr.material_name, ''))) = UPPER(TRIM(COALESCE(p.material_name, ''))) 
+                                          AND UPPER(TRIM(COALESCE(cr.fabric_color, ''))) = UPPER(TRIM(COALESCE(p.color_name, ''))) 
+                                          AND cr.is_cut_done = true
+                                    )
+                                )
+                            )
+                        END
+                    ) AS all_cuts_done,
                     EXISTS (
                         SELECT 1 FROM qlx_order_print_assignments qa
                         JOIN printing_fields pf ON qa.field_id = pf.id
@@ -1018,7 +1076,7 @@ module.exports = async function(fastify) {
                 let pairs = [];
                 try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
                 
-                const isCutReady = it.has_cut_records && it.all_cuts_done;
+                const isCutReady = it.all_cuts_done;
                 const isPrintReady = it.is_print_done_rec;
                 const ready = isCutReady && isPrintReady;
 
@@ -1125,8 +1183,28 @@ module.exports = async function(fastify) {
             // Lock the target dht_order_items row using FOR UPDATE to block concurrent claim requests
             const itemRes = await client.query(`
                 SELECT doi.id, doi.description, doi.material_pairs, doi.quantity,
-                       EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id) AS has_cut_records,
-                       NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false) AS all_cuts_done,
+                       (
+                           CASE 
+                               WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
+                                   EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id)
+                                   AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false)
+                               )
+                               ELSE (
+                                   NOT EXISTS (
+                                       SELECT 1 
+                                       FROM jsonb_to_recordset(doi.material_pairs) AS p(material_name text, color_name text)
+                                       WHERE NOT EXISTS (
+                                           SELECT 1 
+                                           FROM cutting_records cr 
+                                           WHERE cr.order_item_id = doi.id 
+                                             AND UPPER(TRIM(COALESCE(cr.material_name, ''))) = UPPER(TRIM(COALESCE(p.material_name, ''))) 
+                                             AND UPPER(TRIM(COALESCE(cr.fabric_color, ''))) = UPPER(TRIM(COALESCE(p.color_name, ''))) 
+                                             AND cr.is_cut_done = true
+                                       )
+                                   )
+                               )
+                           END
+                       ) AS all_cuts_done,
                        EXISTS (
                            SELECT 1 FROM qlx_order_print_assignments qa
                            JOIN printing_fields pf ON qa.field_id = pf.id
@@ -1183,6 +1261,21 @@ module.exports = async function(fastify) {
                            )
                              AND pf.name IN ('IN PET', 'IN DECAL')
                              AND qa.operator_type = 'user'
+                       ) AS print_types,
+                       (
+                           SELECT string_agg(pf.name, ', ')
+                           FROM qlx_order_print_assignments qa
+                           JOIN printing_fields pf ON qa.field_id = pf.id
+                           WHERE (
+                               qa.item_id = doi.id 
+                               OR (
+                                   qa.item_id IS NULL 
+                                   AND qa.dht_order_id = doi.dht_order_id 
+                                   AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = doi.id)
+                               )
+                           )
+                             AND pf.name IN ('IN PET', 'IN DECAL')
+                             AND qa.operator_type = 'user'
                              AND NOT EXISTS (
                                  SELECT 1 FROM printing_records pr
                                  WHERE (
@@ -1217,8 +1310,9 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Đơn này đã được nhận ép rồi!' });
             }
 
-            const isCutReady = item.has_cut_records && item.all_cuts_done;
+            const isCutReady = item.all_cuts_done;
             const isPrintReady = item.is_print_done_rec;
+
             if (!isCutReady || !isPrintReady) {
                 let errMsg = 'Không thể nhận đơn ép do: ';
                 const errs = [];
