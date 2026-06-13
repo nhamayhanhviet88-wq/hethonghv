@@ -140,6 +140,37 @@
         </button>
     </div>
 
+    <div id="mHistFilterArea" style="padding: 8px 12px; background: #1e293b; border-bottom: 1px solid rgba(255,255,255,0.08); display: none; gap: 8px; align-items: center; position: sticky; top: 121px; z-index: 97;">
+        <select id="mHistFilterType" onchange="mHistFilterTypeChange()" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none; transition: all 0.2s;">
+            <option value="month" style="background:#1e293b;color:#e2e8f0">📅 Tháng này ép xong</option>
+            <option value="today" style="background:#1e293b;color:#e2e8f0">📅 Hôm nay ép xong</option>
+            <option value="week" style="background:#1e293b;color:#e2e8f0">📅 Tuần này ép xong</option>
+            <option value="select_month" style="background:#1e293b;color:#e2e8f0">📅 Chọn tháng ép xong...</option>
+            <option value="select_year" style="background:#1e293b;color:#e2e8f0">📅 Chọn năm ép xong...</option>
+        </select>
+        <select id="mHistMonthSelect" onchange="renderCurrentTab()" style="display: none; width: 95px; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none;">
+            <option value="1" style="background:#1e293b;color:#e2e8f0">Tháng 1</option>
+            <option value="2" style="background:#1e293b;color:#e2e8f0">Tháng 2</option>
+            <option value="3" style="background:#1e293b;color:#e2e8f0">Tháng 3</option>
+            <option value="4" style="background:#1e293b;color:#e2e8f0">Tháng 4</option>
+            <option value="5" style="background:#1e293b;color:#e2e8f0">Tháng 5</option>
+            <option value="6" style="background:#1e293b;color:#e2e8f0">Tháng 6</option>
+            <option value="7" style="background:#1e293b;color:#e2e8f0">Tháng 7</option>
+            <option value="8" style="background:#1e293b;color:#e2e8f0">Tháng 8</option>
+            <option value="9" style="background:#1e293b;color:#e2e8f0">Tháng 9</option>
+            <option value="10" style="background:#1e293b;color:#e2e8f0">Tháng 10</option>
+            <option value="11" style="background:#1e293b;color:#e2e8f0">Tháng 11</option>
+            <option value="12" style="background:#1e293b;color:#e2e8f0">Tháng 12</option>
+        </select>
+        <select id="mHistYearSelect" onchange="renderCurrentTab()" style="display: none; width: 95px; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none;">
+            <option value="2024" style="background:#1e293b;color:#e2e8f0">Năm 2024</option>
+            <option value="2025" style="background:#1e293b;color:#e2e8f0">Năm 2025</option>
+            <option value="2026" style="background:#1e293b;color:#e2e8f0">Năm 2026</option>
+            <option value="2027" style="background:#1e293b;color:#e2e8f0">Năm 2027</option>
+            <option value="2028" style="background:#1e293b;color:#e2e8f0">Năm 2028</option>
+        </select>
+    </div>
+
     <!-- QR Scanner Modal -->
     <div class="mm-overlay" id="mQrModal" onclick="if(event.target===this)mCloseQr()">
         <div class="mm-sheet" style="max-height:85vh;padding-bottom:20px">
@@ -281,6 +312,75 @@
         </div>
     </div>
 
+    <!-- Bottom sheet: History Detail -->
+    <div class="mm-overlay" id="mHistoryDetailOverlay" onclick="if(event.target===this)mCloseHistoryDetail()">
+        <div class="mm-sheet" style="max-height: 90vh">
+            <div class="mm-header" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8)">
+                <div class="mm-icon">📋</div>
+                <div>
+                    <div class="mm-title" id="mHistDetailTitle">Chi Tiết Phiếu Ép</div>
+                    <div class="mm-sub" id="mHistDetailSub">Mã đơn</div>
+                </div>
+            </div>
+            <div class="mm-body" style="max-height: 65vh; overflow-y: auto">
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">📋 Mã đơn:</span>
+                        <span id="mHistDetailOrderCode" style="color: #fdba74; font-weight: 800"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">👤 Khách hàng:</span>
+                        <span id="mHistDetailCustomer" style="color: #60a5fa; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">👨‍💼 CSKH:</span>
+                        <span id="mHistDetailCskh" style="color: #22d3ee; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">🎨 Trạng thái in:</span>
+                        <span id="mHistDetailPrintStatus" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">🧵 Chất liệu & Màu:</span>
+                        <span id="mHistDetailMatColor" style="color: #e2e8f0; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">📦 SL Đơn (Cắt được):</span>
+                        <span id="mHistDetailOrderQty" style="font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">🔥 SL Thực ép:</span>
+                        <span id="mHistDetailPressQty" style="color: #fdba74; font-size: 14px; font-weight: 800"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0">
+                        <span style="color: #94a3b8; font-weight: 600">📅 Ép Xong:</span>
+                        <span id="mHistDetailPressDate" style="font-weight: 700"></span>
+                    </div>
+                </div>
+
+                <div style="font-size: 11px; font-weight: 700; color: #818cf8; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px">🧩 Chi tiết các vị trí ép</div>
+                <div id="mHistDetailPositions" style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
+                    <!-- Dynamic positions here -->
+                </div>
+
+                <!-- Reminders container for history details -->
+                <div id="mHistDetailRemindersContainer" style="margin-top:12px; display:none"></div>
+
+                <div style="font-size: 11px; font-weight: 700; color: #a78bfa; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px">📝 Báo cáo của nhân viên</div>
+                <div style="font-size: 11px; padding: 10px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; color: #cbd5e1; margin-bottom: 12px">
+                    <div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px">Ghi chú ép:</div>
+                    <div id="mHistDetailNotes">—</div>
+                </div>
+
+                <div style="font-size: 11px; font-weight: 700; color: #fdba74; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px">📸 Hình ảnh thực tế</div>
+                <div id="mHistDetailImages" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px"></div>
+            </div>
+            <div class="mm-actions">
+                <button class="mm-btn mm-btn-no" onclick="mCloseHistoryDetail()" style="width:100%">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <a href="/bophanephv" class="m-back-btn">← Về trang Desktop</a>
 
     <script>
@@ -364,6 +464,12 @@
 
         async function initPage() {
             try {
+                const nowVN = mGetVNDate();
+                const mSelect = document.getElementById('mHistMonthSelect');
+                const ySelect = document.getElementById('mHistYearSelect');
+                if (mSelect) mSelect.value = nowVN.month;
+                if (ySelect) ySelect.value = nowVN.year;
+
                 const auth = await apiCall('/api/auth/me');
                 if (!auth.user) {
                     location.href = '/index.html';
@@ -454,6 +560,11 @@
                 filterSelect.style.display = 'block';
             } else {
                 filterSelect.style.display = 'none';
+            }
+
+            const filterArea = document.getElementById('mHistFilterArea');
+            if (filterArea) {
+                filterArea.style.display = (tabName === 'history') ? 'flex' : 'none';
             }
 
             renderCurrentTab();
@@ -866,7 +977,10 @@
         }
 
         function renderHistoryTab(el = null, items = null, showSectionBadge = false) {
-            const list = items || getFilteredHistory();
+            let list = items || getFilteredHistory();
+            if (!items) {
+                list = mFilterHistoryList(list);
+            }
             if (list.length === 0) {
                 if (showSectionBadge) return '';
                 if (el) {
@@ -883,37 +997,6 @@
             const sectBadge = showSectionBadge ? '<span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase; display: inline-block; vertical-align: middle;">Lịch Sử</span>' : '';
 
             const html = list.map(r => {
-                const undoAction = 'undo_report';
-                const approvedBadge = r.salary_approved ? '<span class="m-badge m-badge-ok">💰 Đã duyệt lương</span>' : '';
-                
-                let imagesHtml = '';
-                try {
-                    if (r.press_images) {
-                        const imgs = JSON.parse(r.press_images);
-                        if (imgs && imgs.length > 0) {
-                            imagesHtml = `
-                                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px">
-                                    ${imgs.map(url => `
-                                        <a href="${url}" target="_blank" style="display:inline-block" onclick="event.stopPropagation()">
-                                            <img src="${url}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08)">
-                                        </a>
-                                    `).join('')}
-                                </div>
-                            `;
-                        }
-                    }
-                } catch(e) {}
-
-                const detailHistoryHtml = (window._bpePositions || []).map(pos => {
-                    const val = r[pos.key_code] || 0;
-                    return `
-                        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
-                            <span style="color:#94a3b8; cursor:pointer" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}</span>
-                            <span style="font-weight:700; color:#818cf8">${val} sp</span>
-                        </div>
-                    `;
-                }).join('');
-
                 return `
                     <div class="m-card" style="opacity:0.85">
                         <div class="m-card-top" style="background:rgba(255,255,255,0.01)">
@@ -923,30 +1006,9 @@
                         </div>
                         <div class="m-card-body">
                             <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">Chất liệu / Màu</span><span class="m-val">${r.material_name || '—'} · ${r.fabric_color || '—'}</span></div>
-                            <div class="m-row"><span class="m-lbl">SL Đơn (Cắt được)</span><span class="m-val">${r.order_quantity}</span></div>
-                            <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0}</span></div>
-                            <div class="m-row"><span class="m-lbl">Lương ép</span><span class="m-val" style="color:#fbbf24; font-weight:800">${formatMoney(r.press_salary)}</span></div>
+                            <div class="m-row"><span class="m-lbl">SL Thực ép</span><span class="m-val" style="color:#fdba74; font-size:14px">${r.press_quantity || 0} sp</span></div>
                             <div class="m-row"><span class="m-lbl">Ép Xong</span><span class="m-val">${formatDate(r.press_date)}</span></div>
-                            
-                            <div class="m-divider"></div>
-                            <div style="font-size:10px; font-weight:800; color:#818cf8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px">🧩 Chi tiết các vị trí ép</div>
-                            <div style="display:flex; flex-direction:column; gap:6px; font-size:11px; margin-bottom:12px">
-                                ${detailHistoryHtml}
-                            </div>
-                            <div style="font-size:10px; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px; margin-bottom:6px">📝 Báo cáo của nhân viên</div>
-                            <div style="font-size:11px; padding:8px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:8px; color:#cbd5e1; margin-bottom:8px">
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px">Ghi chú ép:</div>
-                                <div>${r.notes || '—'}</div>
-                            </div>
-                            
-                            ${imagesHtml}
-                            <div class="m-divider"></div>
-                            <div>
-                                ${approvedBadge}
-                            </div>
+                            <button class="m-btn-claim ready" onclick="mOpenHistoryDetail(${r.id})" style="margin-top: 10px; padding: 8px 12px; font-size: 12px;">👁️ Xem đơn ép</button>
                         </div>
                     </div>
                 `;
@@ -1482,6 +1544,164 @@
 
         function mErr() {
             location.href = '/donloikhachhang';
+        }
+
+        // --- Filter and Detail Helpers for History ---
+        function mGetVNDate(dateInput) {
+            const d = dateInput ? new Date(dateInput) : new Date();
+            if (isNaN(d.getTime())) return null;
+            const vnTime = new Date(d.getTime() + (7 * 3600 * 1000));
+            return {
+                year: vnTime.getUTCFullYear(),
+                month: vnTime.getUTCMonth() + 1,
+                date: vnTime.getUTCDate(),
+                day: vnTime.getUTCDay()
+            };
+        }
+
+        function mFilterHistoryList(list) {
+            const filterType = document.getElementById('mHistFilterType') ? document.getElementById('mHistFilterType').value : 'month';
+            const nowVN = mGetVNDate();
+            
+            const now = new Date();
+            const nowVNTime = new Date(now.getTime() + (7 * 3600 * 1000));
+            const todayVNStart = new Date(Date.UTC(nowVNTime.getUTCFullYear(), nowVNTime.getUTCMonth(), nowVNTime.getUTCDate(), 0, 0, 0, 0));
+            const currentDay = nowVNTime.getUTCDay();
+            const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+            const mondayVNStart = new Date(todayVNStart.getTime() + (mondayOffset * 24 * 3600 * 1000));
+            const sundayVNEnd = new Date(mondayVNStart.getTime() + (7 * 24 * 3600 * 1000));
+
+            return list.filter(r => {
+                const dateField = r.press_date || r.reported_at;
+                if (!dateField) return false;
+                const recVN = mGetVNDate(dateField);
+                if (!recVN) return false;
+
+                if (filterType === 'today') {
+                    return recVN.year === nowVN.year && recVN.month === nowVN.month && recVN.date === nowVN.date;
+                } else if (filterType === 'week') {
+                    const recTime = new Date(dateField);
+                    const recVNTime = new Date(recTime.getTime() + (7 * 3600 * 1000));
+                    const recVNUTC = Date.UTC(recVNTime.getUTCFullYear(), recVNTime.getUTCMonth(), recVNTime.getUTCDate(), 0, 0, 0, 0);
+                    return recVNUTC >= mondayVNStart.getTime() && recVNUTC < sundayVNEnd.getTime();
+                } else if (filterType === 'month') {
+                    return recVN.year === nowVN.year && recVN.month === nowVN.month;
+                } else if (filterType === 'select_month') {
+                    const mSelect = document.getElementById('mHistMonthSelect');
+                    const ySelect = document.getElementById('mHistYearSelect');
+                    const selMonth = mSelect ? parseInt(mSelect.value) : nowVN.month;
+                    const selYear = ySelect ? parseInt(ySelect.value) : nowVN.year;
+                    return recVN.year === selYear && recVN.month === selMonth;
+                } else if (filterType === 'select_year') {
+                    const ySelect = document.getElementById('mHistYearSelect');
+                    const selYear = ySelect ? parseInt(ySelect.value) : nowVN.year;
+                    return recVN.year === selYear;
+                }
+                return true;
+            });
+        }
+
+        function mHistFilterTypeChange() {
+            const type = document.getElementById('mHistFilterType').value;
+            const mSelect = document.getElementById('mHistMonthSelect');
+            const ySelect = document.getElementById('mHistYearSelect');
+            
+            if (mSelect) mSelect.style.display = (type === 'select_month') ? 'block' : 'none';
+            if (ySelect) ySelect.style.display = (type === 'select_month' || type === 'select_year') ? 'block' : 'none';
+            
+            renderCurrentTab();
+        }
+
+        async function mOpenHistoryDetail(recId) {
+            const r = pressingRecords.find(x => x.id === recId);
+            if (!r) return;
+
+            document.getElementById('mHistDetailTitle').textContent = r.product_name || r.order_code;
+            document.getElementById('mHistDetailSub').textContent = 'Phiếu ép chi tiết';
+
+            document.getElementById('mHistDetailOrderCode').textContent = r.order_code || '—';
+            document.getElementById('mHistDetailCustomer').textContent = r.customer_name || '—';
+            document.getElementById('mHistDetailCskh').textContent = r.cskh_name || '—';
+            document.getElementById('mHistDetailPrintStatus').innerHTML = getPrintStatusHtml(r) || '—';
+            document.getElementById('mHistDetailMatColor').textContent = (r.material_name || '—') + ' · ' + (r.fabric_color || '—');
+            document.getElementById('mHistDetailOrderQty').textContent = r.order_quantity || 0;
+            document.getElementById('mHistDetailPressQty').textContent = (r.press_quantity || 0) + ' sp';
+            document.getElementById('mHistDetailPressDate').textContent = formatDate(r.press_date);
+            document.getElementById('mHistDetailNotes').textContent = r.notes || '—';
+
+            // Positions
+            const detailHistoryHtml = (window._bpePositions || []).map(pos => {
+                const val = r[pos.key_code] || 0;
+                return `
+                    <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03)">
+                        <span style="color:#94a3b8">${pos.display_name}</span>
+                        <span style="font-weight:700; color:#818cf8">${val} sp</span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('mHistDetailPositions').innerHTML = detailHistoryHtml;
+
+            // Images
+            let imagesHtml = '';
+            try {
+                if (r.press_images) {
+                    const imgs = JSON.parse(r.press_images);
+                    if (imgs && imgs.length > 0) {
+                        imagesHtml = imgs.map(url => `
+                            <a href="${url}" target="_blank" style="display:inline-block">
+                                <img src="${url}" style="width:70px; height:70px; object-fit:cover; border-radius:8px; border:1px solid rgba(255,255,255,0.1)">
+                            </a>
+                        `).join('');
+                    }
+                }
+            } catch(e) {}
+            document.getElementById('mHistDetailImages').innerHTML = imagesHtml || '<div style="font-size:12px;color:#64748b">Không có hình ảnh</div>';
+
+            // QLX reminders (fetching dynamically)
+            const remContainer = document.getElementById('mHistDetailRemindersContainer');
+            remContainer.style.display = 'none';
+            remContainer.innerHTML = '';
+
+            try {
+                let url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+                if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+                const remRes = await apiCall(url);
+                const pressReminders = remRes.reminders || [];
+                const pressReminderIds = remRes.reminder_ids || [];
+                const pressViewedIds = remRes.viewed_ids || [];
+
+                if (pressReminders.length > 0) {
+                    remContainer.style.display = 'block';
+                    let b = '';
+                    b += '<div style="margin-bottom:12px;background:rgba(124,58,237,0.15);border:1.5px solid rgba(124,58,237,0.3);padding:12px 14px;border-radius:12px;">';
+                    b += '  <div style="font-weight:800;color:#d8b4fe;font-size:11px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔥 NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+                    b += '  <div style="display:flex;flex-direction:column;gap:10px">';
+                    pressReminders.forEach(function(rem, remIdx) {
+                        var remId = pressReminderIds[remIdx] || 0;
+                        var isViewed = pressViewedIds.indexOf(remId) >= 0;
+                        b += '    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#1e293b;border:1.5px solid ' + (isViewed ? '#22c55e' : '#7c3aed') + ';border-radius:10px;padding:10px 12px;">';
+                        b += '       <div style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.4;text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                        if (isViewed) {
+                            b += '       <span style="font-size:9.5px;font-weight:800;color:#22c55e;border:1.5px solid #22c55e;padding:4px 8px;border-radius:6px;background:#fff;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                        } else {
+                            b += '       <span style="font-size:9.5px;font-weight:800;color:#ef4444;border:1.5px solid #ef4444;padding:4px 8px;border-radius:6px;background:#fff;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">👉 Chưa Xem</span>';
+                        }
+                        b += '    </div>';
+                    });
+                    b += '  </div>';
+                    b += '</div>';
+                    remContainer.innerHTML = b;
+                }
+            } catch(e) {
+                console.error('Lỗi tải nhắc nhở chi tiết lịch sử:', e);
+            }
+
+            const overlay = document.getElementById('mHistoryDetailOverlay');
+            overlay.classList.add('show');
+        }
+
+        function mCloseHistoryDetail() {
+            document.getElementById('mHistoryDetailOverlay').classList.remove('show');
         }
 
         // Initialize on load
