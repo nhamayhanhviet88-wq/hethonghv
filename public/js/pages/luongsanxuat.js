@@ -1823,6 +1823,9 @@ async function _lsxOpenPressingDetail(recordId) {
         h += '<div style="background:#fff7ed; padding:10px; border-radius:10px; text-align:center; border:1px solid #ffedd5;"><div style="font-size:9px; font-weight:700; color:#c2410c">💰 LƯƠNG ÉP</div><div style="font-size:18px; font-weight:900; color:#ea580c">' + _lsxFN(r.press_salary || r.salary || 0) + ' đ</div></div>';
         h += '</div>';
 
+        // Container for QLX reminders
+        h += '<div id="_bpeDetailRemindersContainer" style="display:none; margin-bottom:16px;"></div>';
+
         // Images & Notes
         h += '<div class="bpc-detail-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px; border-left:4px solid #8b5cf6;">';
         h += '<div class="bpc-detail-section-title" style="font-size:11px; font-weight:800; color:#8b5cf6; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">📝 BÁO CÁO CỦA NHÂN VIÊN</div>';
@@ -1856,6 +1859,48 @@ async function _lsxOpenPressingDetail(recordId) {
             var m = document.getElementById('_bpeDetailModal');
             if (m) m.classList.add('show');
         }, 50);
+
+        // Fetch and display QLX reminders asynchronously
+        (async function() {
+            try {
+                var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+                if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+                var remRes = await apiCall(url);
+                var pressReminders = remRes.reminders || [];
+                var pressReminderIds = remRes.reminder_ids || [];
+                var pressViewedIds = remRes.viewed_ids || [];
+                
+                if (pressReminders.length > 0) {
+                    var el = document.getElementById('_bpeDetailRemindersContainer');
+                    if (!el) return;
+                    
+                    var b = '';
+                    b += '<div class="bpc-detail-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px; border-left:4px solid #ef4444;">';
+                    b += '<div class="bpc-detail-section-title" style="font-size:11px; font-weight:800; color:#ef4444; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">🔥 NHẮC NHỞ BỘ PHẬN ÉP</div>';
+                    b += '<div style="display:flex; flex-direction:column; gap:8px;">';
+                    pressReminders.forEach(function(rem, remIdx) {
+                        var remId = pressReminderIds[remIdx] || 0;
+                        var isViewed = pressViewedIds.indexOf(remId) >= 0;
+                        
+                        b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                        b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                        if (isViewed) {
+                            b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                        } else {
+                            b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                        }
+                        b += '</div>';
+                    });
+                    b += '</div>';
+                    b += '</div>';
+                    
+                    el.innerHTML = b;
+                    el.style.display = 'block';
+                }
+            } catch(e) {
+                console.error('Lỗi tải nhắc nhở chi tiết:', e);
+            }
+        })();
 
     } catch(e) {
         console.error(e);
