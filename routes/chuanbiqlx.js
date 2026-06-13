@@ -236,16 +236,49 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function checkItemCuttingDone(itemId) {
+        if (!itemId) return false;
+
+        const item = await db.get(`SELECT material_pairs FROM dht_order_items WHERE id = $1`, [itemId]);
+        if (!item) return false;
+
+        let pairs = [];
+        try {
+            pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+        } catch(e) {}
+
+        if (pairs.length > 0) {
+            for (const phoi of pairs) {
+                const row = await db.get(`
+                    SELECT 1 FROM cutting_records 
+                    WHERE order_item_id = $1 
+                      AND UPPER(material_name) = UPPER($2) 
+                      AND UPPER(fabric_color) = UPPER($3) 
+                      AND is_cut_done = true 
+                    LIMIT 1
+                `, [itemId, (phoi.material_name || '').trim(), (phoi.color_name || '').trim()]);
+                
+                if (!row) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [itemId]);
+            if (!hasCuts || !hasCuts.has_cuts) {
+                return false;
+            }
+            const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [itemId]);
+            return !cutsPending?.pending;
+        }
+    }
+
     async function checkItemProductionDone(itemId, orderId) {
         if (!itemId) return false;
 
         // 1. Check Cutting status
-        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [itemId]);
-        if (!hasCuts || !hasCuts.has_cuts) {
-            return false;
-        }
-        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [itemId]);
-        if (cutsPending && cutsPending.pending) {
+        const isCutDone = await checkItemCuttingDone(itemId);
+        if (!isCutDone) {
             return false;
         }
 
@@ -2002,9 +2035,7 @@ module.exports = async function(fastify) {
         }
 
         const isProdDone = await checkItemProductionDone(itemId, orderId);
-        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [itemId]);
-        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [itemId]);
-        const isCutDone = !!(hasCuts?.has_cuts && !cutsPending?.pending);
+        const isCutDone = await checkItemCuttingDone(itemId);
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
@@ -2042,9 +2073,7 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
-        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [item_id]);
-        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [item_id]);
-        const isCutDone = !!(hasCuts?.has_cuts && !cutsPending?.pending);
+        const isCutDone = await checkItemCuttingDone(item_id);
         const isLocked = isProdDone || isCutDone;
 
         if (!isLocked) {
@@ -2200,9 +2229,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
         }
 
-        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [item_id]);
-        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [item_id]);
-        const isCutDone = !!(hasCuts?.has_cuts && !cutsPending?.pending);
+        const isCutDone = await checkItemCuttingDone(item_id);
         if (isCutDone) {
             return reply.code(400).send({ error: 'Phiếu này đã hoàn thành cắt, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
         }
