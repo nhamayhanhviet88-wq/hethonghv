@@ -937,45 +937,17 @@ function mRenderHist(items = null, showSectionBadge = false){
         const ccBadge=r.cutting_category?'<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">'+r.cutting_category+'</span>':'';
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         const sectBadge = showSectionBadge ? '<span style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase;">Lịch Sử</span>' : '';
-        
-        const kgCutVal = r.kg_cut ? mFmtKg(r.kg_cut) + ' kg' : '—';
-        const kgEndVal = r.kg_end ? mFmtKg(r.kg_end) + ' kg' : '—';
-        const ratioVal = r.cut_ratio ? Number(r.cut_ratio).toFixed(2) + ' sp/' + (r.fabric_unit || 'kg') : '—';
-
-        let rc = '#a5b4fc';
-        const tr = Number(r.target_cut_ratio) || 0;
-        if (tr > 0 && r.cut_ratio) {
-            rc = Number(r.cut_ratio) >= tr ? '#10b981' : '#ef4444';
-        }
-        
-        const targetRatioVal = tr > 0 ? tr + ' sp/' + (r.fabric_unit || 'kg') : '—';
-        
-        let reasonHtml = '';
-        if (tr > 0 && r.cut_ratio && Number(r.cut_ratio) < tr) {
-            reasonHtml = '<div class="m-row"><span class="m-lbl">📝 Lý do sai tỉ lệ</span><span class="m-val" style="color:#ef4444;font-size:11px;max-width:65%;text-align:right;white-space:pre-wrap">' + (r.ratio_reason || '—') + '</span></div>';
-        }
-
         const constCust = r.customer_name || '—';
-        const saleName = r.cskh_name || r.created_by_name || '';
-        const saleHtml = saleName ? '<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>' : '';
 
-        return '<div class="m-card"><div class="m-card-top">'
+        return '<div class="m-card" style="opacity:0.85"><div class="m-card-top">'
         +'<div class="m-card-icon">✅</div>'
-        +'<div class="m-card-title">'+(r.product_name||'SP')+ccBadge+sharedBadge+sectBadge+'</div>'
+        +'<div class="m-card-title" style="color:#a1a1aa">'+(r.product_name||'SP')+ccBadge+sharedBadge+sectBadge+'</div>'
         +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
-        +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
         +'<div class="m-card-body">'
-        +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+constCust+'</span></div>'
-        +saleHtml
+        +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val" style="color:#60a5fa">'+constCust+'</span></div>'
+        +'<div class="m-row"><span class="m-lbl">📦 Số Lượng Cắt</span><span class="m-val" style="color:#fdba74; font-size:14px">'+mFormatOrderQty(r.cut_quantity||r.order_quantity, r.product_name, r.cutting_category)+'</span></div>'
         +'<div class="m-row"><span class="m-lbl">📅 Ngày</span><span class="m-val">'+mFmt(r.cut_date)+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">🧵 Chất Liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">📦 Số Lượng Cắt</span><span class="m-val">'+mFormatOrderQty(r.cut_quantity||r.order_quantity, r.product_name, r.cutting_category)+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">⚖️ Kg Cuối</span><span class="m-val">'+kgEndVal+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">✂️ Kg Cắt</span><span class="m-val" style="color:#fbbf24">'+kgCutVal+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">📊 Tỉ Lệ Cắt Thực Tế</span><span class="m-val" style="color:'+rc+'">'+ratioVal+'</span></div>'
-        +'<div class="m-row"><span class="m-lbl">⚖️ Tỉ Lệ Cắt Yêu Cầu</span><span class="m-val" style="color:#10b981;font-weight:700">'+targetRatioVal+'</span></div>'
-        +reasonHtml
+        +'<button class="m-btn-claim ready" onclick="event.stopPropagation();mOpenDetail('+r.id+')" style="margin-top: 10px; padding: 8px 12px; font-size: 12px;">👁️ Xem đơn cắt</button>'
         +'</div></div>';
     }).join('');
 
