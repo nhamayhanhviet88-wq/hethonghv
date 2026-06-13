@@ -865,6 +865,9 @@ function mRenderHist(items = null, showSectionBadge = false){
         +reasonHtml
         +'</div></div>';
     }).join('');
+
+    if (showSectionBadge) return cardHtml;
+    c.innerHTML = cardHtml;
 }
 
 async function mClaim(id,itemId,code){
