@@ -942,6 +942,13 @@
                     </div>
                 `;
             }).join('');
+
+            if (showSectionBadge) {
+                return html;
+            }
+            if (el) {
+                el.innerHTML = html;
+            }
         }
 
         // --- Claim Modal Logic ---
