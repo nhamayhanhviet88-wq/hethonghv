@@ -119,6 +119,36 @@
             📷
         </button>
     </div>
+    <div id="mHistFilterArea" style="padding: 8px 12px; background: #1a2332; border-bottom: 1px solid rgba(255,255,255,0.08); display: none; gap: 8px; align-items: center; position: sticky; top: 161px; z-index: 97;">
+        <select id="mHistFilterType" onchange="mHistFilterTypeChange()" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none; transition: all 0.2s;">
+            <option value="month">📅 Tháng này cắt xong</option>
+            <option value="today">📅 Hôm nay cắt xong</option>
+            <option value="week">📅 Tuần này cắt xong</option>
+            <option value="select_month">📅 Chọn tháng cắt xong...</option>
+            <option value="select_year">📅 Chọn năm cắt xong...</option>
+        </select>
+        <select id="mHistMonthSelect" onchange="mRender()" style="display: none; width: 95px; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none;">
+            <option value="1">Tháng 1</option>
+            <option value="2">Tháng 2</option>
+            <option value="3">Tháng 3</option>
+            <option value="4">Tháng 4</option>
+            <option value="5">Tháng 5</option>
+            <option value="6">Tháng 6</option>
+            <option value="7">Tháng 7</option>
+            <option value="8">Tháng 8</option>
+            <option value="9">Tháng 9</option>
+            <option value="10">Tháng 10</option>
+            <option value="11">Tháng 11</option>
+            <option value="12">Tháng 12</option>
+        </select>
+        <select id="mHistYearSelect" onchange="mRender()" style="display: none; width: 95px; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none;">
+            <option value="2024">Năm 2024</option>
+            <option value="2025">Năm 2025</option>
+            <option value="2026">Năm 2026</option>
+            <option value="2027">Năm 2027</option>
+            <option value="2028">Năm 2028</option>
+        </select>
+    </div>
     <button class="m-fab" id="mFab" onclick="mOpenMultiCut()">✂️+ CẮT NHIỀU ĐƠN</button>
     <div class="m-content" id="mContent">
         <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="m-spinner"></div><div>Đang tải...</div></div>
@@ -362,6 +392,13 @@ async function mInit(){
             const btn = document.getElementById('mRatioBtn');
             if(btn) btn.style.display = 'block';
         }
+        const vnNowDate = mGetVNDate();
+        if (vnNowDate) {
+            const mSelect = document.getElementById('mHistMonthSelect');
+            const ySelect = document.getElementById('mHistYearSelect');
+            if (mSelect) mSelect.value = vnNowDate.month;
+            if (ySelect) ySelect.value = vnNowDate.year;
+        }
         await mLoadAll();
     }catch(e){document.getElementById('mContent').innerHTML='<div class="m-empty"><div class="m-empty-icon">❌</div><div>Lỗi: '+e.message+'</div></div>';}
 }
@@ -506,6 +543,10 @@ async function mLoadAll(){
 function mSwitchTab(tab){
     mTab=tab;
     document.querySelectorAll('.m-tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===tab);});
+    const filterArea = document.getElementById('mHistFilterArea');
+    if (filterArea) {
+        filterArea.style.display = (tab === 'history') ? 'flex' : 'none';
+    }
     mRender();
 }
 
@@ -796,9 +837,77 @@ function mRenderMine(items = null, showSectionBadge = false){
     c.innerHTML = cardHtml;
 }
 
+function mGetVNDate(dateInput) {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    if (isNaN(d.getTime())) return null;
+    const vnTime = new Date(d.getTime() + (7 * 3600 * 1000));
+    return {
+        year: vnTime.getUTCFullYear(),
+        month: vnTime.getUTCMonth() + 1,
+        date: vnTime.getUTCDate(),
+        day: vnTime.getUTCDay()
+    };
+}
+
+function mFilterHistoryList(list) {
+    const filterType = document.getElementById('mHistFilterType') ? document.getElementById('mHistFilterType').value : 'month';
+    const nowVN = mGetVNDate();
+    
+    // Calculate start and end of this week
+    const now = new Date();
+    const nowVNTime = new Date(now.getTime() + (7 * 3600 * 1000));
+    const todayVNStart = new Date(Date.UTC(nowVNTime.getUTCFullYear(), nowVNTime.getUTCMonth(), nowVNTime.getUTCDate(), 0, 0, 0, 0));
+    const currentDay = nowVNTime.getUTCDay();
+    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+    const mondayVNStart = new Date(todayVNStart.getTime() + (mondayOffset * 24 * 3600 * 1000));
+    const sundayVNEnd = new Date(mondayVNStart.getTime() + (7 * 24 * 3600 * 1000));
+
+    return list.filter(r => {
+        if (!r.cut_date) return false;
+        const recVN = mGetVNDate(r.cut_date);
+        if (!recVN) return false;
+
+        if (filterType === 'today') {
+            return recVN.year === nowVN.year && recVN.month === nowVN.month && recVN.date === nowVN.date;
+        } else if (filterType === 'week') {
+            const recTime = new Date(r.cut_date);
+            const recVNTime = new Date(recTime.getTime() + (7 * 3600 * 1000));
+            const recVNUTC = Date.UTC(recVNTime.getUTCFullYear(), recVNTime.getUTCMonth(), recVNTime.getUTCDate(), 0, 0, 0, 0);
+            return recVNUTC >= mondayVNStart.getTime() && recVNUTC < sundayVNEnd.getTime();
+        } else if (filterType === 'month') {
+            return recVN.year === nowVN.year && recVN.month === nowVN.month;
+        } else if (filterType === 'select_month') {
+            const mSelect = document.getElementById('mHistMonthSelect');
+            const ySelect = document.getElementById('mHistYearSelect');
+            const selMonth = mSelect ? parseInt(mSelect.value) : nowVN.month;
+            const selYear = ySelect ? parseInt(ySelect.value) : nowVN.year;
+            return recVN.year === selYear && recVN.month === selMonth;
+        } else if (filterType === 'select_year') {
+            const ySelect = document.getElementById('mHistYearSelect');
+            const selYear = ySelect ? parseInt(ySelect.value) : nowVN.year;
+            return recVN.year === selYear;
+        }
+        return true;
+    });
+}
+
+function mHistFilterTypeChange() {
+    const type = document.getElementById('mHistFilterType').value;
+    const mSelect = document.getElementById('mHistMonthSelect');
+    const ySelect = document.getElementById('mHistYearSelect');
+    
+    if (mSelect) mSelect.style.display = (type === 'select_month') ? 'block' : 'none';
+    if (ySelect) ySelect.style.display = (type === 'select_month' || type === 'select_year') ? 'block' : 'none';
+    
+    mRender();
+}
+
 function mRenderHist(items = null, showSectionBadge = false){
     const c=document.getElementById('mContent');
     let itemsToRender = items || mHist;
+    if (!items) {
+        itemsToRender = mFilterHistoryList(itemsToRender);
+    }
     if (!items && mSearchQuery) {
         itemsToRender = mHist.filter(r => {
             const code = (r.order_code || '').toLowerCase();
@@ -817,6 +926,10 @@ function mRenderHist(items = null, showSectionBadge = false){
     } else if(!mHist.length){
         if (showSectionBadge) return '';
         c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📅</div><div style="font-size:16px;font-weight:700">Chưa có lịch sử</div></div>';
+        return;
+    } else if(!itemsToRender.length){
+        if (showSectionBadge) return '';
+        c.innerHTML='<div class="m-empty"><div class="m-empty-icon">📅</div><div style="font-size:16px;font-weight:700">Không có lịch sử trong thời gian chọn</div></div>';
         return;
     }
 
