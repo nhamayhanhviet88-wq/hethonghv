@@ -2823,9 +2823,35 @@ async function _lsxBulkAction(approve) {
 
 // ========== SEWING QC MODAL & TECHNIQUES EDITING ==========
 
-function _lsxOpenSewingQCModal(id) {
+function _lsxOnNewTechNameChange(inputEl) {
+    var name = inputEl.value.trim();
+    var match = (window._lsxBgmItems || []).find(function(item) {
+        return item.name.toLowerCase() === name.toLowerCase();
+    });
+    
+    var fpEl = document.getElementById('newTechFP');
+    var ppEl = document.getElementById('newTechPP');
+    if (match) {
+        if (fpEl) fpEl.value = match.factory_price;
+        if (ppEl) ppEl.value = match.processing_price;
+    } else {
+        if (fpEl) fpEl.value = '';
+        if (ppEl) ppEl.value = '';
+    }
+}
+
+async function _lsxOpenSewingQCModal(id) {
     var r = _lsx.records.find(function(x) { return x.id === id && x.dept === 'sewing'; });
     if (!r) return;
+
+    var bgmItems = [];
+    try {
+        var bgmRes = await apiCall('/api/bgm/items');
+        bgmItems = bgmRes ? (bgmRes.items || []) : [];
+        window._lsxBgmItems = bgmItems;
+    } catch (err) {
+        console.error('Lỗi khi tải bảng giá may:', err);
+    }
 
     // Compile list of available techniques
     var tsamTechs = [];
@@ -3011,10 +3037,15 @@ function _lsxOpenSewingQCModal(id) {
     h += '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px;">';
     h += '<div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">➕ Thêm Kỹ Thuật May Mới</div>';
     h += '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
-    h += '<input type="text" id="newTechName" placeholder="Tên kỹ thuật..." style="flex: 2; min-width: 150px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">';
+    h += '<input type="text" id="newTechName" list="bgmTechList" oninput="_lsxOnNewTechNameChange(this)" onchange="_lsxOnNewTechNameChange(this)" placeholder="Tìm kiếm kỹ thuật..." style="flex: 2; min-width: 150px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #fff; height: 32px;">';
+    h += '<datalist id="bgmTechList">';
+    bgmItems.forEach(function(item) {
+        h += '<option value="' + item.name.replace(/"/g, '&quot;') + '"></option>';
+    });
+    h += '</datalist>';
     h += '<input type="number" id="newTechQty" value="1" min="1" placeholder="SL..." disabled style="width: 60px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
-    h += '<input type="number" id="newTechFP" placeholder="Giá Nhà..." style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right;">';
-    h += '<input type="number" id="newTechPP" placeholder="Giá GC..." style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right;">';
+    h += '<input type="number" id="newTechFP" placeholder="Giá Nhà..." disabled style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
+    h += '<input type="number" id="newTechPP" placeholder="Giá GC..." disabled style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
     h += '<button type="button" onclick="_lsxAddSewingTech(' + id + ')" style="background: #166534; color: #fff; padding: 6px 15px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background 0.15s;">Thêm</button>';
     h += '</div>';
     h += '<div id="newTechError" style="color: #dc2626; font-size: 11px; font-weight: 600; display: none;"></div>';
@@ -3070,6 +3101,7 @@ function _lsxCloseSewingQCModal() {
     delete window._lsxCurrentModalRecord;
     delete window._lsxCurrentModalTechs;
     delete window._lsxCurrentModalChecked;
+    delete window._lsxBgmItems;
 }
 
 function _lsxRenderModalTechs() {
@@ -3168,13 +3200,18 @@ function _lsxAddSewingTech(recordId) {
     var fpRaw = fpEl ? fpEl.value.trim() : '';
     var ppRaw = ppEl ? ppEl.value.trim() : '';
 
-    if (!name) {
+    var match = (window._lsxBgmItems || []).find(function(item) {
+        return item.name.toLowerCase() === name.toLowerCase();
+    });
+
+    if (!name || !match) {
         if (errEl) {
-            errEl.textContent = 'Vui lòng nhập tên kỹ thuật!';
+            errEl.textContent = 'Vui lòng chọn kỹ thuật hợp lệ từ danh sách!';
             errEl.style.display = 'block';
         }
         return;
     }
+    name = match.name;
 
     if (fpRaw === '' || ppRaw === '') {
         if (errEl) {
