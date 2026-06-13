@@ -2840,6 +2840,57 @@ function _lsxOnNewTechNameChange(inputEl) {
     }
 }
 
+window._lsxShowTechDropdown = function() {
+    var dd = document.getElementById('newTechDropdown');
+    if (dd) {
+        dd.style.display = 'block';
+        window._lsxFilterTechDropdown(document.getElementById('newTechName').value);
+    }
+};
+
+window._lsxFilterTechDropdown = function(query) {
+    var dd = document.getElementById('newTechDropdown');
+    if (!dd) return;
+    
+    var q = (query || '').toLowerCase().trim();
+    var items = window._lsxBgmItems || [];
+    
+    var filtered = items.filter(function(item) {
+        return !q || item.name.toLowerCase().indexOf(q) >= 0;
+    });
+    
+    var html = '';
+    if (filtered.length === 0) {
+        html = '<div style="padding: 8px 12px; color: #94a3b8; font-style: italic; cursor: default;">Không tìm thấy kết quả</div>';
+    } else {
+        filtered.forEach(function(item) {
+            var nameEscaped = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            html += '<div onmousedown="_lsxSelectTechItem(\'' + nameEscaped + '\', ' + item.factory_price + ', ' + item.processing_price + ')">' + item.name + '</div>';
+        });
+    }
+    dd.innerHTML = html;
+};
+
+window._lsxHideTechDropdown = function() {
+    setTimeout(function() {
+        var dd = document.getElementById('newTechDropdown');
+        if (dd) dd.style.display = 'none';
+    }, 150);
+};
+
+window._lsxSelectTechItem = function(name, fp, pp) {
+    var nameEl = document.getElementById('newTechName');
+    var fpEl = document.getElementById('newTechFP');
+    var ppEl = document.getElementById('newTechPP');
+    
+    if (nameEl) nameEl.value = name;
+    if (fpEl) fpEl.value = fp;
+    if (ppEl) ppEl.value = pp;
+    
+    var dd = document.getElementById('newTechDropdown');
+    if (dd) dd.style.display = 'none';
+};
+
 async function _lsxOpenSewingQCModal(id) {
     var r = _lsx.records.find(function(x) { return x.id === id && x.dept === 'sewing'; });
     if (!r) return;
@@ -2908,6 +2959,8 @@ async function _lsxOpenSewingQCModal(id) {
     h += '#' + modalId + '.show .bpc-modal { transform: scale(1); }';
     h += '.lsx-modal-tech-cb { accent-color: #2563eb; }';
     h += '#lsxSewTechBody tr:hover { background-color: #f8fafc; }';
+    h += '#newTechDropdown div { padding: 8px 12px; cursor: pointer; font-size: 13px; transition: background 0.15s; text-align: left; color: #334155; }';
+    h += '#newTechDropdown div:hover { background-color: #f1f5f9; color: #0f172a; }';
     h += '</style>';
     h += '<div class="bpc-modal" style="width: 700px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">';
     
@@ -3036,17 +3089,15 @@ async function _lsxOpenSewingQCModal(id) {
     // Add Technique Form
     h += '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px;">';
     h += '<div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">➕ Thêm Kỹ Thuật May Mới</div>';
-    h += '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
-    h += '<input type="text" id="newTechName" list="bgmTechList" oninput="_lsxOnNewTechNameChange(this)" onchange="_lsxOnNewTechNameChange(this)" placeholder="Tìm kiếm kỹ thuật..." style="flex: 2; min-width: 150px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #fff; height: 32px;">';
-    h += '<datalist id="bgmTechList">';
-    bgmItems.forEach(function(item) {
-        h += '<option value="' + item.name.replace(/"/g, '&quot;') + '"></option>';
-    });
-    h += '</datalist>';
-    h += '<input type="number" id="newTechQty" value="1" min="1" placeholder="SL..." disabled style="width: 60px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
-    h += '<input type="number" id="newTechFP" placeholder="Giá Nhà..." disabled style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
-    h += '<input type="number" id="newTechPP" placeholder="Giá GC..." disabled style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right; background-color: #f1f5f9; color: #64748b; cursor: not-allowed;">';
-    h += '<button type="button" onclick="_lsxAddSewingTech(' + id + ')" style="background: #166534; color: #fff; padding: 6px 15px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background 0.15s;">Thêm</button>';
+    h += '<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">';
+    h += '<div style="position: relative; flex: 2; min-width: 150px; display: flex; flex-direction: column;">';
+    h += '<input type="text" id="newTechName" autocomplete="off" onfocus="_lsxShowTechDropdown()" oninput="_lsxFilterTechDropdown(this.value); _lsxOnNewTechNameChange(this)" onblur="_lsxHideTechDropdown()" placeholder="Gõ để tìm kiếm..." style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #fff; height: 32px; box-sizing: border-box;">';
+    h += '<div id="newTechDropdown" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; max-height: 200px; overflow-y: auto; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); box-sizing: border-box;"></div>';
+    h += '</div>';
+    h += '<input type="number" id="newTechQty" value="1" min="1" placeholder="SL..." disabled style="width: 60px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; background-color: #f1f5f9; color: #64748b; cursor: not-allowed; height: 32px; box-sizing: border-box;">';
+    h += '<input type="number" id="newTechFP" placeholder="Giá Nhà..." disabled style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right; background-color: #f1f5f9; color: #64748b; cursor: not-allowed; height: 32px; box-sizing: border-box;">';
+    h += '<input type="number" id="newTechPP" placeholder="Giá GC..." disabled style="flex: 1; min-width: 90px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: right; background-color: #f1f5f9; color: #64748b; cursor: not-allowed; height: 32px; box-sizing: border-box;">';
+    h += '<button type="button" onclick="_lsxAddSewingTech(' + id + ')" style="background: #166534; color: #fff; padding: 6px 15px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background 0.15s; height: 32px; box-sizing: border-box;">Thêm</button>';
     h += '</div>';
     h += '<div id="newTechError" style="color: #dc2626; font-size: 11px; font-weight: 600; display: none;"></div>';
     h += '</div>';
