@@ -2002,6 +2002,9 @@ module.exports = async function(fastify) {
         }
 
         const isProdDone = await checkItemProductionDone(itemId, orderId);
+        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [itemId]);
+        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [itemId]);
+        const isCutDone = !!(hasCuts?.has_cuts && !cutsPending?.pending);
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
@@ -2018,7 +2021,8 @@ module.exports = async function(fastify) {
                 content: r.content,
                 is_viewed: viewedIds.includes(r.id)
             })),
-            is_production_done: isProdDone
+            is_production_done: isProdDone,
+            is_cut_done: isCutDone
         };
     });
 
@@ -2037,43 +2041,51 @@ module.exports = async function(fastify) {
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        // Validate cutting reminders choice and content (required for reservation POST)
-        if (!cut_remind_choice) {
-            return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
-        }
-        if (!['yes', 'none'].includes(cut_remind_choice)) {
-            return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
-        }
+        const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
+        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [item_id]);
+        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [item_id]);
+        const isCutDone = !!(hasCuts?.has_cuts && !cutsPending?.pending);
+        const isLocked = isProdDone || isCutDone;
 
-        if (cut_remind_choice === 'yes') {
-            if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
-                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
+        if (!isLocked) {
+            // Validate cutting reminders choice and content (required for reservation POST)
+            if (!cut_remind_choice) {
+                return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
             }
-            for (const content of cut_reminders) {
-                if (!content || !content.trim()) {
-                    return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
+            if (!['yes', 'none'].includes(cut_remind_choice)) {
+                return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
+            }
+
+            if (cut_remind_choice === 'yes') {
+                if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
+                    return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
+                }
+                for (const content of cut_reminders) {
+                    if (!content || !content.trim()) {
+                        return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
+                    }
                 }
             }
-        }
 
-        // Persist cutting reminders choice
-        await ensureItemPrepRow(dht_order_id, item_id);
-        await db.run(`
-            UPDATE qlx_preparation
-            SET cut_remind_choice = $1, updated_at = $2
-            WHERE item_id = $3
-        `, [cut_remind_choice, now, item_id]);
+            // Persist cutting reminders choice
+            await ensureItemPrepRow(dht_order_id, item_id);
+            await db.run(`
+                UPDATE qlx_preparation
+                SET cut_remind_choice = $1, updated_at = $2
+                WHERE item_id = $3
+            `, [cut_remind_choice, now, item_id]);
 
-        // Delete existing cutting reminders for this item
-        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+            // Delete existing cutting reminders for this item
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
 
-        // Insert new cutting reminders
-        if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
-            for (const content of cut_reminders) {
-                await db.run(`
-                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
-                    VALUES ($1, $2, 'cat', $3, $4, $5)
-                `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+            // Insert new cutting reminders
+            if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
+                for (const content of cut_reminders) {
+                    await db.run(`
+                        INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                        VALUES ($1, $2, 'cat', $3, $4, $5)
+                    `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+                }
             }
         }
 
@@ -2186,6 +2198,13 @@ module.exports = async function(fastify) {
         const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
         if (isProdDone) {
             return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
+        }
+
+        const hasCuts = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1) AS has_cuts`, [item_id]);
+        const cutsPending = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false) AS pending`, [item_id]);
+        const isCutDone = !!(hasCuts?.has_cuts && !cutsPending?.pending);
+        if (isCutDone) {
+            return reply.code(400).send({ error: 'Phiếu này đã hoàn thành cắt, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
         }
 
         if (!cut_remind_choice) {

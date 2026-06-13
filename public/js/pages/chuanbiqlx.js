@@ -679,7 +679,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done);
         } else {
             // Determine which type already chosen
             var hasStock = false, hasCall = false;
@@ -890,7 +890,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done);
             html += '</div>';
         }
 
@@ -908,7 +908,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         // Populate existing cut reminders
         var cutChoice = data.cut_remind_choice || '';
         var cutReminders = data.cut_reminders || [];
-        if (!data.is_production_done) {
+        if (!(data.is_production_done || data.is_cut_done)) {
             if (cutChoice === 'yes' && cutReminders.length > 0) {
                 cutReminders.forEach(function(r) {
                     _qlxAddReminderInput('cat', r.content, false);
@@ -922,7 +922,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
             originalChoice: cutChoice,
             originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
             isSaved: (cutChoice === 'yes' || cutChoice === 'none'),
-            isProductionDone: data.is_production_done
+            isProductionDone: data.is_production_done || data.is_cut_done
         };
 
         // Restore values if we had saved them
@@ -941,7 +941,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone) {
     cutChoice = cutChoice || '';
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
@@ -957,9 +957,12 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
 
     // Nhắc Nhở Bộ Phận Cắt
     html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
-    if (isProductionDone) {
-        html += '  <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã hoàn thành sản xuất)</div>';
-        html += '  <div style="color:#6b7280; font-size:11px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.</div>';
+    var isLocked = isProductionDone || isCutDone;
+    if (isLocked) {
+        var headerText = isProductionDone ? '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã hoàn thành sản xuất)' : '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã cắt xong)';
+        var subText = isProductionDone ? '🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.' : '🔒 Phiếu đã cắt xong, không thể chỉnh sửa nhắc nhở.';
+        html += '  <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">' + headerText + '</div>';
+        html += '  <div style="color:#6b7280; font-size:11px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">' + subText + '</div>';
         if (cutReminders && cutReminders.length > 0) {
             html += '  <div style="display:flex; flex-direction:column; gap:8px;">';
             cutReminders.forEach(function(r) {
