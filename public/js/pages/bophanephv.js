@@ -318,16 +318,44 @@ async function _bpeLoadRecs() {
         var res = await apiCall('/api/pressing/records' + qs);
         var records = res.records || [];
 
-        // If it is the "Total" view (no filters), load unassigned as well and merge
-        var isTotalView = !f.year && !f.month && !f.presser_id;
-        if (isTotalView) {
+        // Load unassigned orders unless filtering by a specific presser
+        var shouldLoadUnassigned = !f.presser_id;
+        if (shouldLoadUnassigned) {
             try {
                 var unassignedRes = await apiCall('/api/pressing/unassigned');
                 var unassignedOrders = unassignedRes.orders || [];
                 _bpe.unassignedOrders = unassignedOrders;
                 
+                // Map and filter unassigned items by active year and month filters
+                var filteredUnassigned = unassignedOrders;
+                
+                var helperGetYearMonth = function(dateVal) {
+                    if (!dateVal) return { year: null, month: null };
+                    var dateStr = typeof dateVal === 'string' ? dateVal : (dateVal.toISOString ? dateVal.toISOString() : dateVal.toString());
+                    var match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (match) {
+                        return { year: Number(match[1]), month: Number(match[2]) };
+                    }
+                    var d = new Date(dateVal);
+                    if (isNaN(d.getTime())) return { year: null, month: null };
+                    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+                };
+
+                if (f.year) {
+                    filteredUnassigned = filteredUnassigned.filter(function(ur) {
+                        var ym = helperGetYearMonth(ur.order_date);
+                        return ym.year === Number(f.year);
+                    });
+                }
+                if (f.month) {
+                    filteredUnassigned = filteredUnassigned.filter(function(ur) {
+                        var ym = helperGetYearMonth(ur.order_date);
+                        return ym.month === Number(f.month);
+                    });
+                }
+
                 // Map unassigned items to match pressing_record structure
-                var unassignedRecords = unassignedOrders.map(function(ur) {
+                var unassignedRecords = filteredUnassigned.map(function(ur) {
                     var spName = ur.cut_product_name || ur.order_code;
                     if (!ur.cut_product_name) {
                         if (ur.total_items_in_order > 1 || ur.total_phoi > 1) {
