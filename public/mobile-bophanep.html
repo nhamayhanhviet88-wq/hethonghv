@@ -989,13 +989,12 @@
 
         function mToggleReminder(btn) {
             const remId = btn.getAttribute('data-reminder-id');
-            const cb = document.querySelector(`.m-reminder-cb[data-reminder-id="${remId}"]`);
+            const card = btn.closest('div[style*="display:flex;align-items:center"]');
+            const cb = card ? card.querySelector('.m-reminder-cb') : null;
             if (!cb) return;
 
             const isNowChecked = !cb.checked;
             cb.checked = isNowChecked;
-
-            const card = btn.closest('div[style*="display:flex;align-items:center"]');
 
             if (isNowChecked) {
                 btn.innerHTML = '✅ Đã Xem và Làm';
