@@ -292,16 +292,44 @@ async function _bpcLoadRecords() {
         var res = await apiCall('/api/cutting/records' + qs);
         var records = res.records || [];
 
-        // If it is the "Total" view (no filters), load unassigned as well and merge
-        var isTotalView = !f.year && !f.month && !f.cutter_id;
-        if (isTotalView) {
+        // Load unassigned orders unless filtering by a specific cutter
+        var shouldLoadUnassigned = !f.cutter_id;
+        if (shouldLoadUnassigned) {
             try {
                 var unassignedRes = await apiCall('/api/cutting/unassigned');
                 var unassignedOrders = unassignedRes.orders || [];
                 _bpc.unassignedOrders = unassignedOrders;
                 
+                // Map and filter unassigned items by active year and month filters
+                var filteredUnassigned = unassignedOrders;
+                
+                var helperGetYearMonth = function(dateVal) {
+                    if (!dateVal) return { year: null, month: null };
+                    var dateStr = typeof dateVal === 'string' ? dateVal : (dateVal.toISOString ? dateVal.toISOString() : dateVal.toString());
+                    var match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (match) {
+                        return { year: Number(match[1]), month: Number(match[2]) };
+                    }
+                    var d = new Date(dateVal);
+                    if (isNaN(d.getTime())) return { year: null, month: null };
+                    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+                };
+
+                if (f.year) {
+                    filteredUnassigned = filteredUnassigned.filter(function(ur) {
+                        var ym = helperGetYearMonth(ur.order_date);
+                        return ym.year === Number(f.year);
+                    });
+                }
+                if (f.month) {
+                    filteredUnassigned = filteredUnassigned.filter(function(ur) {
+                        var ym = helperGetYearMonth(ur.order_date);
+                        return ym.month === Number(f.month);
+                    });
+                }
+
                 // Map unassigned items to match cutting_record structure
-                var unassignedRecords = unassignedOrders.map(function(ur) {
+                var unassignedRecords = filteredUnassigned.map(function(ur) {
                     var spName = ((ur.total_phoi > 1) ? (ur.order_code + ' — Phiếu ' + ur.item_index + ' — P' + ur.phoi_in_item + (ur.item_desc ? ' — ' + ur.item_desc : '')) : (ur.order_code + (ur.item_desc ? ' — ' + ur.item_desc : '')));
                     return {
                         is_uncut: true,
@@ -339,7 +367,7 @@ async function _bpcLoadRecords() {
                 });
                 records = records.concat(unassignedRecords);
             } catch (eUnassigned) {
-                console.error('[BPC] failed to load unassigned for total view:', eUnassigned);
+                console.error('[BPC] failed to load unassigned:', eUnassigned);
             }
         }
 
