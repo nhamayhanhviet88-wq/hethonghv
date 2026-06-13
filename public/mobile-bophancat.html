@@ -121,32 +121,32 @@
     </div>
     <div id="mHistFilterArea" style="padding: 8px 12px; background: #1a2332; border-bottom: 1px solid rgba(255,255,255,0.08); display: none; gap: 8px; align-items: center; position: sticky; top: 161px; z-index: 97;">
         <select id="mHistFilterType" onchange="mHistFilterTypeChange()" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none; transition: all 0.2s;">
-            <option value="month">📅 Tháng này cắt xong</option>
-            <option value="today">📅 Hôm nay cắt xong</option>
-            <option value="week">📅 Tuần này cắt xong</option>
-            <option value="select_month">📅 Chọn tháng cắt xong...</option>
-            <option value="select_year">📅 Chọn năm cắt xong...</option>
+            <option value="month" style="background:#1e293b;color:#e2e8f0">📅 Tháng này cắt xong</option>
+            <option value="today" style="background:#1e293b;color:#e2e8f0">📅 Hôm nay cắt xong</option>
+            <option value="week" style="background:#1e293b;color:#e2e8f0">📅 Tuần này cắt xong</option>
+            <option value="select_month" style="background:#1e293b;color:#e2e8f0">📅 Chọn tháng cắt xong...</option>
+            <option value="select_year" style="background:#1e293b;color:#e2e8f0">📅 Chọn năm cắt xong...</option>
         </select>
         <select id="mHistMonthSelect" onchange="mRender()" style="display: none; width: 95px; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none;">
-            <option value="1">Tháng 1</option>
-            <option value="2">Tháng 2</option>
-            <option value="3">Tháng 3</option>
-            <option value="4">Tháng 4</option>
-            <option value="5">Tháng 5</option>
-            <option value="6">Tháng 6</option>
-            <option value="7">Tháng 7</option>
-            <option value="8">Tháng 8</option>
-            <option value="9">Tháng 9</option>
-            <option value="10">Tháng 10</option>
-            <option value="11">Tháng 11</option>
-            <option value="12">Tháng 12</option>
+            <option value="1" style="background:#1e293b;color:#e2e8f0">Tháng 1</option>
+            <option value="2" style="background:#1e293b;color:#e2e8f0">Tháng 2</option>
+            <option value="3" style="background:#1e293b;color:#e2e8f0">Tháng 3</option>
+            <option value="4" style="background:#1e293b;color:#e2e8f0">Tháng 4</option>
+            <option value="5" style="background:#1e293b;color:#e2e8f0">Tháng 5</option>
+            <option value="6" style="background:#1e293b;color:#e2e8f0">Tháng 6</option>
+            <option value="7" style="background:#1e293b;color:#e2e8f0">Tháng 7</option>
+            <option value="8" style="background:#1e293b;color:#e2e8f0">Tháng 8</option>
+            <option value="9" style="background:#1e293b;color:#e2e8f0">Tháng 9</option>
+            <option value="10" style="background:#1e293b;color:#e2e8f0">Tháng 10</option>
+            <option value="11" style="background:#1e293b;color:#e2e8f0">Tháng 11</option>
+            <option value="12" style="background:#1e293b;color:#e2e8f0">Tháng 12</option>
         </select>
         <select id="mHistYearSelect" onchange="mRender()" style="display: none; width: 95px; padding: 10px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; font-size: 13px; color: #fff; font-family: inherit; font-weight: 600; outline: none;">
-            <option value="2024">Năm 2024</option>
-            <option value="2025">Năm 2025</option>
-            <option value="2026">Năm 2026</option>
-            <option value="2027">Năm 2027</option>
-            <option value="2028">Năm 2028</option>
+            <option value="2024" style="background:#1e293b;color:#e2e8f0">Năm 2024</option>
+            <option value="2025" style="background:#1e293b;color:#e2e8f0">Năm 2025</option>
+            <option value="2026" style="background:#1e293b;color:#e2e8f0">Năm 2026</option>
+            <option value="2027" style="background:#1e293b;color:#e2e8f0">Năm 2027</option>
+            <option value="2028" style="background:#1e293b;color:#e2e8f0">Năm 2028</option>
         </select>
     </div>
     <button class="m-fab" id="mFab" onclick="mOpenMultiCut()">✂️+ CẮT NHIỀU ĐƠN</button>
