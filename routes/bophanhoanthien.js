@@ -178,7 +178,7 @@ module.exports = async function(fastify) {
         const records = await db.all(`
             SELECT fr.*, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code,
                    o.expected_ship_date, o.standard_delivery_time,
-                   sr.contractor_id, sr.sewing_team_id,
+                   sr.contractor_id, sr.sewing_team_id, sr.order_item_id,
                    (CASE 
                        WHEN sr.contractor_id IS NULL THEN true
                        ELSE EXISTS (

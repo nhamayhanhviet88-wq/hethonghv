@@ -842,6 +842,14 @@
             <div id="splitTeamsContainer">
                 <!-- Rows injected dynamically -->
             </div>
+            
+            <!-- Phân Tổ Reminders Area -->
+            <div id="ptRemindersArea" style="display:none; margin-top:16px;">
+                <label class="form-label" style="font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+                    🔔 QLX NHẮC NHỞ MAY / KTTL
+                </label>
+                <div id="ptRemindersContent" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
         </div>
         <div style="margin-top:20px; display:flex; gap:10px;">
             <button class="btn btn-secondary" onclick="closeAllSheets()">Hủy</button>
@@ -1028,6 +1036,16 @@
         <div class="form-group">
             <label class="form-label">Giá Kiểm Tra May GC</label>
             <input type="number" pattern="[0-9]*" inputmode="numeric" id="qcCheckedGCPrice" class="form-input" placeholder="Nhập đơn giá kiểm tra..." readonly style="background: rgba(255, 255, 255, 0.05); color: #9ca3af; cursor: not-allowed;">
+        </div>
+
+        <!-- QC Reminders Area -->
+        <div class="form-group" id="qcRemindersGroup" style="display:none; margin-top:16px;">
+            <label class="form-label" style="font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+                🖨️ Nhắc Nhở Phân TổMay / KTTL
+            </label>
+            <div id="qcRemindersContainer" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <!-- QC reminders will be rendered dynamically here -->
+            </div>
         </div>
 
         <!-- QC Checklist Area -->
@@ -1882,6 +1900,7 @@
             
             // Add first row
             addTeamRow();
+            fetchRemindersForPhanTo(r);
             openSheet('sheetPhanTo');
         }
 
@@ -1906,6 +1925,13 @@
 
         // Submit Phân Tổ
         async function submitPhanTo() {
+            // Enforce reminders viewed
+            const unviewedBtns = document.querySelectorAll('#ptRemindersContent button');
+            if (unviewedBtns.length > 0) {
+                toast('⚠️ Bạn phải xác nhận "Tôi đã đọc & hiểu" tất cả nhắc nhở của QLX trước khi bàn giao!', 'error');
+                return;
+            }
+
             const rows = document.querySelectorAll('#splitTeamsContainer .split-team-row');
             const assignments = [];
             let total = 0;
@@ -2295,6 +2321,7 @@
 
             // Load QC Checklist
             await loadQcChecklist(recordId);
+            fetchRemindersForQC(r);
 
             openSheet('sheetQC');
         }
@@ -2547,6 +2574,13 @@
 
         // Submit QC (save checked price & notes & checked techniques)
         async function submitQC() {
+            // Enforce reminders viewed
+            const unviewedBtns = document.querySelectorAll('#qcRemindersContainer button');
+            if (unviewedBtns.length > 0) {
+                toast('⚠️ Bạn phải xác nhận "Tôi đã đọc & hiểu" tất cả nhắc nhở của QLX trước khi xác nhận QC!', 'error');
+                return;
+            }
+
             const isMissingPrice = document.getElementById('qcMissingPriceCheckbox').checked;
             let finalNotes = '';
 
@@ -2829,6 +2863,167 @@
                 toast(err.message, 'error');
             } finally {
                 showLoading(false);
+            }
+        }
+
+        async function fetchRemindersForPhanTo(r) {
+            const area = document.getElementById('ptRemindersArea');
+            const content = document.getElementById('ptRemindersContent');
+            area.style.display = 'none';
+            content.innerHTML = '';
+            
+            try {
+                const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=may&item_id=${r.order_item_id}`;
+                const res = await callApi(url);
+                if (res.reminders && res.reminders.length > 0) {
+                    area.style.display = 'block';
+                    res.reminders.forEach((remContent, idx) => {
+                        const remId = res.reminder_ids[idx];
+                        const isViewed = res.viewed_ids.includes(remId);
+                        
+                        const itemDiv = document.createElement('div');
+                        itemDiv.style.background = 'rgba(255,255,255,0.02)';
+                        itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#f59e0b'}`;
+                        itemDiv.style.borderRadius = '8px';
+                        itemDiv.style.padding = '10px';
+                        itemDiv.style.display = 'flex';
+                        itemDiv.style.flexDirection = 'column';
+                        itemDiv.style.gap = '8px';
+                        itemDiv.style.marginBottom = '8px';
+                        
+                        const text = document.createElement('div');
+                        text.style.fontSize = '12px';
+                        text.style.fontWeight = '700';
+                        text.style.color = '#fff';
+                        text.style.lineHeight = '1.4';
+                        text.textContent = remContent;
+                        itemDiv.appendChild(text);
+                        
+                        const actionRow = document.createElement('div');
+                        actionRow.style.display = 'flex';
+                        actionRow.style.justifyContent = 'flex-end';
+                        actionRow.style.alignItems = 'center';
+                        
+                        if (isViewed) {
+                            const badge = document.createElement('span');
+                            badge.style.fontSize = '11px';
+                            badge.style.fontWeight = '800';
+                            badge.style.color = '#10b981';
+                            badge.textContent = '✓ ĐÃ XEM';
+                            actionRow.appendChild(badge);
+                        } else {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-primary';
+                            btn.style.padding = '4px 10px';
+                            btn.style.fontSize = '11px';
+                            btn.style.background = '#f59e0b';
+                            btn.style.border = 'none';
+                            btn.textContent = 'Tôi đã đọc & hiểu';
+                            btn.onclick = async () => {
+                                try {
+                                    btn.disabled = true;
+                                    await callApi('/api/qlx/reminders/viewed', 'POST', {
+                                        reminder_ids: [remId],
+                                        record_type: 'sewing_records',
+                                        record_id: r.id
+                                    });
+                                    toast('Đã xác nhận xem nhắc nhở', 'success');
+                                    // Refresh reminders list
+                                    fetchRemindersForPhanTo(r);
+                                } catch (err) {
+                                    btn.disabled = false;
+                                    toast(err.message, 'error');
+                                }
+                            };
+                            actionRow.appendChild(btn);
+                        }
+                        
+                        itemDiv.appendChild(actionRow);
+                        content.appendChild(itemDiv);
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching reminders:', err);
+            }
+        }
+
+        async function fetchRemindersForQC(r) {
+            const group = document.getElementById('qcRemindersGroup');
+            const container = document.getElementById('qcRemindersContainer');
+            group.style.display = 'none';
+            container.innerHTML = '';
+            
+            try {
+                const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=may&item_id=${r.order_item_id}`;
+                const res = await callApi(url);
+                if (res.reminders && res.reminders.length > 0) {
+                    group.style.display = 'block';
+                    res.reminders.forEach((remContent, idx) => {
+                        const remId = res.reminder_ids[idx];
+                        const isViewed = res.viewed_ids.includes(remId);
+                        
+                        const itemDiv = document.createElement('div');
+                        itemDiv.style.background = 'rgba(255,255,255,0.02)';
+                        itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#f59e0b'}`;
+                        itemDiv.style.borderRadius = '8px';
+                        itemDiv.style.padding = '10px';
+                        itemDiv.style.display = 'flex';
+                        itemDiv.style.flexDirection = 'column';
+                        itemDiv.style.gap = '8px';
+                        
+                        const text = document.createElement('div');
+                        text.style.fontSize = '12px';
+                        text.style.fontWeight = '700';
+                        text.style.color = '#fff';
+                        text.style.lineHeight = '1.4';
+                        text.textContent = remContent;
+                        itemDiv.appendChild(text);
+                        
+                        const actionRow = document.createElement('div');
+                        actionRow.style.display = 'flex';
+                        actionRow.style.justifyContent = 'flex-end';
+                        actionRow.style.alignItems = 'center';
+                        
+                        if (isViewed) {
+                            const badge = document.createElement('span');
+                            badge.style.fontSize = '11px';
+                            badge.style.fontWeight = '800';
+                            badge.style.color = '#10b981';
+                            badge.textContent = '✓ ĐÃ XEM';
+                            actionRow.appendChild(badge);
+                        } else {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-primary';
+                            btn.style.padding = '4px 10px';
+                            btn.style.fontSize = '11px';
+                            btn.style.background = '#f59e0b';
+                            btn.style.border = 'none';
+                            btn.textContent = 'Tôi đã đọc & hiểu';
+                            btn.onclick = async () => {
+                                try {
+                                    btn.disabled = true;
+                                    await callApi('/api/qlx/reminders/viewed', 'POST', {
+                                        reminder_ids: [remId],
+                                        record_type: 'sewing_records',
+                                        record_id: r.id
+                                    });
+                                    toast('Đã xác nhận xem nhắc nhở', 'success');
+                                    // Refresh reminders list
+                                    fetchRemindersForQC(r);
+                                } catch (err) {
+                                    btn.disabled = false;
+                                    toast(err.message, 'error');
+                                }
+                            };
+                            actionRow.appendChild(btn);
+                        }
+                        
+                        itemDiv.appendChild(actionRow);
+                        container.appendChild(itemDiv);
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching reminders:', err);
             }
         }
 

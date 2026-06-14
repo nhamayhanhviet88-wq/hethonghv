@@ -1708,8 +1708,14 @@ async function _qlxAssignIn(orderId, itemId) {
 
 
 function _qlxToggleRemindersArea(dept) {
-    var inputName = dept === 'in' ? 'qlx_print_remind_choice' : (dept === 'ep' ? 'qlx_press_remind_choice' : 'qlx_cut_remind_choice');
-    var idPrefix = dept === 'in' ? 'print' : (dept === 'ep' ? 'press' : 'cut');
+    var inputName = dept === 'in' ? 'qlx_print_remind_choice' 
+                  : (dept === 'ep' ? 'qlx_press_remind_choice' 
+                  : (dept === 'cat' ? 'qlx_cut_remind_choice' 
+                  : (dept === 'may' ? 'qlx_may_remind_choice' : 'qlx_hoanthien_remind_choice')));
+    var idPrefix = dept === 'in' ? 'print' 
+                 : (dept === 'ep' ? 'press' 
+                 : (dept === 'cat' ? 'cut' 
+                 : (dept === 'may' ? 'may' : 'hoanthien')));
     var choice = document.querySelector('input[name="' + inputName + '"]:checked')?.value;
     var container = document.getElementById('qlx_' + idPrefix + '_reminders_container');
     if (container) {
@@ -1725,7 +1731,10 @@ function _qlxToggleRemindersArea(dept) {
 
 function _qlxAddReminderInput(dept, val, isDisabled) {
     val = val || '';
-    var idPrefix = dept === 'in' ? 'print' : (dept === 'ep' ? 'press' : 'cut');
+    var idPrefix = dept === 'in' ? 'print' 
+                 : (dept === 'ep' ? 'press' 
+                 : (dept === 'cat' ? 'cut' 
+                 : (dept === 'may' ? 'may' : 'hoanthien')));
     var list = document.getElementById('qlx_' + idPrefix + '_reminders_list');
     if (!list) return;
     
@@ -1772,7 +1781,10 @@ function _qlxAddReminderInput(dept, val, isDisabled) {
             var inp = row.querySelector('.qlx-reminder-text-input');
             if (inp) inp.placeholder = 'Nội dung nhắc nhở ' + (idx + 1) + '...';
         });
-        var inputName = dept === 'in' ? 'qlx_print_remind_choice' : (dept === 'ep' ? 'qlx_press_remind_choice' : 'qlx_cut_remind_choice');
+        var inputName = dept === 'in' ? 'qlx_print_remind_choice' 
+                      : (dept === 'ep' ? 'qlx_press_remind_choice' 
+                      : (dept === 'cat' ? 'qlx_cut_remind_choice' 
+                      : (dept === 'may' ? 'qlx_may_remind_choice' : 'qlx_hoanthien_remind_choice')));
         if (list.children.length === 0 && document.querySelector('input[name="' + inputName + '"]:checked')?.value === 'yes') {
             _qlxAddReminderInput(dept, '', isDisabled);
         }
@@ -2130,7 +2142,13 @@ async function _qlxAssignMay(orderId, itemId) {
             item: res.item,
             contractors: res.contractors,
             pricing: res.pricing,
-            holidays: holidayRes.holidays || []
+            holidays: holidayRes.holidays || [],
+            may_remind_choice: res.may_remind_choice,
+            may_reminders: res.may_reminders || [],
+            hoanthien_remind_choice: res.hoanthien_remind_choice,
+            hoanthien_reminders: res.hoanthien_reminders || [],
+            is_sewing_done: res.is_sewing_done,
+            is_finishing_done: res.is_finishing_done
         };
 
         // Render modal
@@ -2367,19 +2385,126 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px;color:#ffffff;background-color:#1e3a8a;border:none">➕ Thêm bên nhận may</button>';
         html += '</div>';
 
+        // Reminders Choices & Lists
+        var mayChoice = res.may_remind_choice || 'none';
+        var mayReminders = res.may_reminders || [];
+        var htChoice = res.hoanthien_remind_choice || 'none';
+        var htReminders = res.hoanthien_reminders || [];
+
+        html += '<div style="margin-top:20px; display:flex; flex-direction:column; gap:16px;">';
+        html += '  <div style="font-size:12px; font-weight:800; color:#1e1b4b; border-bottom:2px solid #e2e8f0; padding-bottom:6px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">🔔 QLX NHẮC NHỞ</div>';
+
+        // 1. Phân Tổ May / KTTL
+        html += '  <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
+        if (res.is_sewing_done) {
+            html += '    <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">🖡 NHẮC NHỞ PHÂN TỔ MAY / KTTL</div>';
+            if (mayReminders.length > 0) {
+                html += '    <div style="display:flex; flex-direction:column; gap:8px;">';
+                mayReminders.forEach(function(r) {
+                    var isViewed = r.is_viewed;
+                    html += '      <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid ' + (isViewed ? '#059669' : '#dc2626') + '; border-radius:10px; padding:10px 12px;">';
+                    html += '         <div style="flex:1; font-size:12px; font-weight:700; color:#334155; line-height:1.4">' + (r.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isViewed) {
+                        html += '         <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #059669; background:#ecfdf5; color:#059669; font-size:11px; font-weight:800">✅ Đã Xem</span>';
+                    } else {
+                        html += '         <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #dc2626; background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800">❌ Chưa Xem</span>';
+                    }
+                    html += '      </div>';
+                });
+                html += '    </div>';
+            } else {
+                html += '    <div style="color:#94a3b8; font-size:11px; font-style:italic;">Không có nhắc nhở nào cho bộ phận may.</div>';
+            }
+        } else {
+            html += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+            html += '      <span style="font-weight:700; font-size:12px; color:#1e293b;">🖡 Nhắc Nhở Phân Tổ May / KTTL <span style="color:#dc2626">*</span></span>';
+            html += '      <div style="display:flex; gap:12px;">';
+            html += '        <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
+            html += '          <input type="radio" name="qlx_may_remind_choice" value="yes" ' + (mayChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'may\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có';
+            html += '        </label>';
+            html += '        <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+            html += '          <input type="radio" name="qlx_may_remind_choice" value="none" ' + (mayChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'may\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không';
+            html += '        </label>';
+            html += '      </div>';
+            html += '    </div>';
+            html += '    <div id="qlx_may_reminders_container" style="display:' + (mayChoice === 'yes' ? 'block' : 'none') + ';">';
+            html += '      <div id="qlx_may_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>';
+            html += '      <button type="button" onclick="_qlxAddReminderInput(\'may\')" style="padding:6px 12px; background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+            html += '    </div>';
+        }
+        html += '  </div>';
+
+        // 2. Hoàn Thiện / Cắt Chỉ
+        html += '  <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
+        if (res.is_finishing_done) {
+            html += '    <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">✨ NHẮC NHỞ HOÀN THIỆN, CẮT CHỈ</div>';
+            if (htReminders.length > 0) {
+                html += '    <div style="display:flex; flex-direction:column; gap:8px;">';
+                htReminders.forEach(function(r) {
+                    var isViewed = r.is_viewed;
+                    html += '      <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid ' + (isViewed ? '#059669' : '#dc2626') + '; border-radius:10px; padding:10px 12px;">';
+                    html += '         <div style="flex:1; font-size:12px; font-weight:700; color:#334155; line-height:1.4">' + (r.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isViewed) {
+                        html += '         <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #059669; background:#ecfdf5; color:#059669; font-size:11px; font-weight:800">✅ Đã Xem</span>';
+                    } else {
+                        html += '         <span style="flex-shrink:0; padding:4px 10px; border-radius:6px; border:1px solid #dc2626; background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800">❌ Chưa Xem</span>';
+                    }
+                    html += '      </div>';
+                });
+                html += '    </div>';
+            } else {
+                html += '    <div style="color:#94a3b8; font-size:11px; font-style:italic;">Không có nhắc nhở nào cho bộ phận hoàn thiện.</div>';
+            }
+        } else {
+            html += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+            html += '      <span style="font-weight:700; font-size:12px; color:#1e293b;">✨ Nhắc Nhở Hoàn Thiện, Cắt Chỉ <span style="color:#dc2626">*</span></span>';
+            html += '      <div style="display:flex; gap:12px;">';
+            html += '        <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#7c3aed; margin:0;">';
+            html += '          <input type="radio" name="qlx_hoanthien_remind_choice" value="yes" ' + (htChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'hoanthien\')" style="accent-color:#7c3aed; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có';
+            html += '        </label>';
+            html += '        <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#64748b; margin:0;">';
+            html += '          <input type="radio" name="qlx_hoanthien_remind_choice" value="none" ' + (htChoice === 'none' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'hoanthien\')" style="accent-color:#64748b; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Không';
+            html += '        </label>';
+            html += '      </div>';
+            html += '    </div>';
+            html += '    <div id="qlx_hoanthien_reminders_container" style="display:' + (htChoice === 'yes' ? 'block' : 'none') + ';">';
+            html += '      <div id="qlx_hoanthien_reminders_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>';
+            html += '      <button type="button" onclick="_qlxAddReminderInput(\'hoanthien\')" style="padding:6px 12px; background:#f3e8ff; color:#6b21a8; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
+            html += '    </div>';
+        }
+        html += '  </div>';
+        html += '</div>';
+
         html += '</div>'; // padding-24
 
         // Footer
         html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
         html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#ffffff;background-color:#1e3a8a;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
         html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
-
-
         html += '</div>';
-
         html += '</div>';
 
         openModal('Phân Công May', html);
+
+        // Populate existing reminders
+        if (!res.is_sewing_done) {
+            if (mayChoice === 'yes' && mayReminders.length > 0) {
+                mayReminders.forEach(function(r) {
+                    _qlxAddReminderInput('may', r.content, false);
+                });
+            } else if (mayChoice === 'yes') {
+                _qlxAddReminderInput('may', '', false);
+            }
+        }
+        if (!res.is_finishing_done) {
+            if (htChoice === 'yes' && htReminders.length > 0) {
+                htReminders.forEach(function(r) {
+                    _qlxAddReminderInput('hoanthien', r.content, false);
+                });
+            } else if (htChoice === 'yes') {
+                _qlxAddReminderInput('hoanthien', '', false);
+            }
+        }
 
         // Populate existing assignments or add one default row
         if (window._qlxMayPendingRows && window._qlxMayPendingRows.length > 0) {
@@ -2561,6 +2686,66 @@ function _qlxAssignMayHandleDateChange(input) {
 }
 
 async function _qlxAssignMaySave() {
+    var mayRemindChoice = null;
+    var mayReminders = [];
+    if (!window._qlxMayData.is_sewing_done) {
+        mayRemindChoice = document.querySelector('input[name="qlx_may_remind_choice"]:checked')?.value;
+        if (!mayRemindChoice) {
+            showToast('⚠️ Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận May!', 'error');
+            return;
+        }
+        if (mayRemindChoice === 'yes') {
+            var inputs = document.querySelectorAll('#qlx_may_reminders_list .qlx-reminder-text-input');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = inputs[i].value.trim();
+                if (!val) {
+                    showToast('⚠️ Nội dung nhắc nhở bộ phận may không được để trống!', 'error');
+                    return;
+                }
+                mayReminders.push(val);
+            }
+        }
+    }
+
+    var htRemindChoice = null;
+    var htReminders = [];
+    if (!window._qlxMayData.is_finishing_done) {
+        htRemindChoice = document.querySelector('input[name="qlx_hoanthien_remind_choice"]:checked')?.value;
+        if (!htRemindChoice) {
+            showToast('⚠️ Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Hoàn Thiện!', 'error');
+            return;
+        }
+        if (htRemindChoice === 'yes') {
+            var inputs = document.querySelectorAll('#qlx_hoanthien_reminders_list .qlx-reminder-text-input');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = inputs[i].value.trim();
+                if (!val) {
+                    showToast('⚠️ Nội dung nhắc nhở bộ phận hoàn thiện không được để trống!', 'error');
+                    return;
+                }
+                htReminders.push(val);
+            }
+        }
+    }
+
+    if (window._qlxMayData.is_sewing_done) {
+        try {
+            await apiCall('/api/qlx/sewing-assignment/' + window._qlxMayData.itemId, 'POST', {
+                assignments: [],
+                may_remind_choice: mayRemindChoice,
+                may_reminders: mayReminders,
+                hoanthien_remind_choice: htRemindChoice,
+                hoanthien_reminders: htReminders
+            });
+            closeModal();
+            showToast('✅ Đã lưu nhắc nhở thành công');
+            await _qlxLoadAll();
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+        return;
+    }
+
     var rows = document.querySelectorAll('.may-assign-row');
     
     // Validate duplicate targets (contractors / May Nhà)
@@ -2692,7 +2877,13 @@ async function _qlxAssignMaySave() {
     }
 
     try {
-        await apiCall('/api/qlx/sewing-assignment/' + window._qlxMayData.itemId, 'POST', { assignments: assignments });
+        await apiCall('/api/qlx/sewing-assignment/' + window._qlxMayData.itemId, 'POST', {
+            assignments: assignments,
+            may_remind_choice: mayRemindChoice,
+            may_reminders: mayReminders,
+            hoanthien_remind_choice: htRemindChoice,
+            hoanthien_reminders: htReminders
+        });
         closeModal();
         showToast('✅ Đã lưu phân công May & Bàn giao');
         await _qlxLoadAll();

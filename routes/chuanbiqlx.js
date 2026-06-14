@@ -215,7 +215,9 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS print_remind_choice VARCHAR(20)`);
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS press_remind_choice VARCHAR(20)`);
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS cut_remind_choice VARCHAR(20)`);
-    } catch(e) { console.error('[QLX] print/press/cut choice columns:', e.message); }
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS may_remind_choice VARCHAR(20)`);
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS hoanthien_remind_choice VARCHAR(20)`);
+    } catch(e) { console.error('[QLX] print/press/cut/may/hoanthien choice columns:', e.message); }
 
     // ========== HELPERS FOR PREPARATION ROWS ==========
     async function ensureOrderPrepRow(orderId) {
@@ -1062,6 +1064,16 @@ module.exports = async function(fastify) {
                     const row = r.item_id
                         ? await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id])
                         : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = true LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
+                } else if (r.dept === 'may') {
+                    const row = r.item_id
+                        ? await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND done_date IS NOT NULL LIMIT 1`, [orderId, r.item_id])
+                        : await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND done_date IS NOT NULL LIMIT 1`, [orderId]);
+                    if (row) viewedIds.push(r.id);
+                } else if (r.dept === 'hoanthien') {
+                    const row = r.item_id
+                        ? await db.get(`SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = $1 AND sr.order_item_id = $2 AND (fr.is_completed = true OR fr.done_date IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
+                        : await db.get(`SELECT 1 FROM finishing_records WHERE dht_order_id = $1 AND (is_completed = true OR done_date IS NOT NULL) LIMIT 1`, [orderId]);
                     if (row) viewedIds.push(r.id);
                 }
             }
@@ -2593,12 +2605,49 @@ module.exports = async function(fastify) {
             }
         }
 
+        // 6. Get reminders and choice
+        const prep = await db.get(`SELECT may_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        const mayRemindChoice = prep ? prep.may_remind_choice : 'none';
+        const hoanthienRemindChoice = prep ? prep.hoanthien_remind_choice : 'none';
+
+        const mayReminders = await db.all(`SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'may' ORDER BY id`, [itemId]);
+        const hoanthienReminders = await db.all(`SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'hoanthien' ORDER BY id`, [itemId]);
+
+        let viewedIds = [];
+        const allRems = [...mayReminders, ...hoanthienReminders];
+        if (allRems.length > 0) {
+            const reminderIds = allRems.map(r => r.id);
+            const views = await db.all(
+                `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1::integer[])`,
+                [reminderIds]
+            );
+            viewedIds = views.map(v => v.reminder_id);
+        }
+
+        const isSewingDone = rawAssignments.length > 0 && rawAssignments.every(a => a.done_date !== null || a.salary_approved === true);
+        const fRec = await db.get(`SELECT is_completed FROM finishing_records WHERE order_item_id = $1`, [itemId]);
+        const isFinishingDone = fRec ? fRec.is_completed : false;
+
         return {
             item,
             cut_qty,
             assignments,
             contractors,
-            pricing
+            pricing,
+            may_remind_choice: mayRemindChoice,
+            may_reminders: mayReminders.map(r => ({
+                id: r.id,
+                content: r.content,
+                is_viewed: viewedIds.includes(r.id)
+            })),
+            hoanthien_remind_choice: hoanthienRemindChoice,
+            hoanthien_reminders: hoanthienReminders.map(r => ({
+                id: r.id,
+                content: r.content,
+                is_viewed: viewedIds.includes(r.id)
+            })),
+            is_sewing_done: isSewingDone,
+            is_finishing_done: isFinishingDone
         };
     });
 
@@ -2608,8 +2657,8 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const itemId = Number(request.params.itemId);
-        const { assignments } = request.body || {};
-        if (!Array.isArray(assignments)) {
+        const { assignments, may_remind_choice, may_reminders, hoanthien_remind_choice, hoanthien_reminders } = request.body || {};
+        if (assignments && !Array.isArray(assignments)) {
             return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
 
@@ -2633,8 +2682,88 @@ module.exports = async function(fastify) {
             FROM sewing_records
             WHERE order_item_id = $1 AND (done_date IS NOT NULL OR salary_approved = true)
         `, [itemId]);
-        if (lockedCheck && lockedCheck.cnt > 0) {
-            return reply.code(400).send({ error: 'Đơn may này đã báo cáo hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân công!' });
+        const isSewingDone = lockedCheck && lockedCheck.cnt > 0;
+
+        const fRec = await db.get(`SELECT is_completed FROM finishing_records WHERE order_item_id = $1`, [itemId]);
+        const isFinishingDone = fRec ? fRec.is_completed : false;
+
+        // Fetch existing prep row to preserve choices if done
+        let existingPrep = await db.get(`SELECT may_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        const finalMayChoice = isSewingDone ? (existingPrep ? existingPrep.may_remind_choice : 'none') : (may_remind_choice || 'none');
+        const finalHoanthienChoice = isFinishingDone ? (existingPrep ? existingPrep.hoanthien_remind_choice : 'none') : (hoanthien_remind_choice || 'none');
+
+        // Reminders validation
+        if (!isSewingDone && may_remind_choice) {
+            if (!['yes', 'none'].includes(may_remind_choice)) {
+                return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận May không hợp lệ!' });
+            }
+            if (may_remind_choice === 'yes') {
+                if (!Array.isArray(may_reminders) || may_reminders.length === 0) {
+                    return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận may!' });
+                }
+                for (const content of may_reminders) {
+                    if (!content || !content.trim()) {
+                        return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận may không được để trống!' });
+                    }
+                }
+            }
+        }
+
+        if (!isFinishingDone && hoanthien_remind_choice) {
+            if (!['yes', 'none'].includes(hoanthien_remind_choice)) {
+                return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Hoàn Thiện không hợp lệ!' });
+            }
+            if (hoanthien_remind_choice === 'yes') {
+                if (!Array.isArray(hoanthien_reminders) || hoanthien_reminders.length === 0) {
+                    return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!' });
+                }
+                for (const content of hoanthien_reminders) {
+                    if (!content || !content.trim()) {
+                        return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận hoàn thiện không được để trống!' });
+                    }
+                }
+            }
+        }
+
+        // Save prep choices
+        await ensureItemPrepRow(item.dht_order_id, itemId);
+        await db.run(`
+            UPDATE qlx_preparation
+            SET may_remind_choice = $1, hoanthien_remind_choice = $2, updated_at = $3
+            WHERE item_id = $4
+        `, [finalMayChoice, finalHoanthienChoice, now, itemId]);
+
+        // Save reminders
+        if (!isSewingDone && may_remind_choice) {
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'may'`, [itemId]);
+            if (may_remind_choice === 'yes' && Array.isArray(may_reminders)) {
+                for (const content of may_reminders) {
+                    await db.run(`
+                        INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                        VALUES ($1, $2, 'may', $3, $4, $5)
+                    `, [item.dht_order_id, itemId, content.trim(), request.user.id, now]);
+                }
+            }
+        }
+
+        if (!isFinishingDone && hoanthien_remind_choice) {
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'hoanthien'`, [itemId]);
+            if (hoanthien_remind_choice === 'yes' && Array.isArray(hoanthien_reminders)) {
+                for (const content of hoanthien_reminders) {
+                    await db.run(`
+                        INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                        VALUES ($1, $2, 'hoanthien', $3, $4, $5)
+                    `, [item.dht_order_id, itemId, content.trim(), request.user.id, now]);
+                }
+            }
+        }
+
+        if (isSewingDone) {
+            return { success: true };
+        }
+
+        if (!assignments) {
+            return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
 
         // 3. Get total completed cut quantity
