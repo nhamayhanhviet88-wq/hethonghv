@@ -48,7 +48,7 @@ async function _getShippingItemsProgress(orderIds) {
             oi.product_name,
             oi.description,
             oi.quantity,
-            oi.shipping_status,
+            COALESCE(oi.shipping_status, 'pending') AS shipping_status,
             oi.shipped_at,
             oi.shipped_by,
             oi.shipping_date,
