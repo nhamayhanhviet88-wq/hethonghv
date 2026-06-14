@@ -1155,6 +1155,11 @@ async function start() {
         return reply.sendFile('mobile-chuyenso.html');
     });
 
+    // Mobile Đơn Hàng Chưa Thu Tiền — standalone touch-optimized page
+    fastify.get('/m/donhangchuathutien', async (request, reply) => {
+        return reply.sendFile('mobile-donhangchuathutien.html');
+    });
+
     // Mobile Tìm Kiếm KH — standalone touch-optimized page
     fastify.get('/m/tim-kiem', async (request, reply) => {
         return reply.sendFile('mobile-timkiem.html');

@@ -196,6 +196,7 @@ module.exports = async function(fastify) {
 
     // ========== TREE: Sidebar data ==========
     fastify.get('/api/dht/tree', { preHandler: [authenticate] }, async (request, reply) => {
+        const { unpaid } = request.query;
         // ★ TREE VISIBILITY: Same rules as /api/dht/orders
         let treeWhere = '';
         const treeParams = [];
@@ -216,6 +217,16 @@ module.exports = async function(fastify) {
             }
         }
 
+        let whereClause = treeWhere ? (treeWhere + ' AND o.parent_order_id IS NULL') : 'WHERE o.parent_order_id IS NULL';
+        if (unpaid === 'true') {
+            whereClause += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
+        }
+
+        let revenueExpr = 'COALESCE(SUM(o.total_amount), 0)::numeric AS revenue';
+        if (unpaid === 'true') {
+            revenueExpr = `COALESCE(SUM(o.total_amount - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END), 0)::numeric AS revenue`;
+        }
+
         // Group by year → category → month → day with revenue
         const rows = await db.all(`
             SELECT 
@@ -224,11 +235,11 @@ module.exports = async function(fastify) {
                 EXTRACT(DAY FROM o.order_date)::int AS day,
                 o.category_id,
                 c.name AS category_name,
-                COALESCE(SUM(o.total_amount), 0)::numeric AS revenue,
+                ${revenueExpr},
                 COUNT(*)::int AS order_count
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            ${treeWhere ? treeWhere + ' AND o.parent_order_id IS NULL' : 'WHERE o.parent_order_id IS NULL'}
+            ${whereClause}
             GROUP BY year, month, day, o.category_id, c.name
             ORDER BY year DESC, month DESC, day DESC
         `, treeParams);
@@ -306,7 +317,7 @@ module.exports = async function(fastify) {
 
     // ========== ORDERS: List with filters ==========
     fastify.get('/api/dht/orders', { preHandler: [authenticate] }, async (request, reply) => {
-        const { year, month, day, category_id, search } = request.query;
+        const { year, month, day, category_id, search, unpaid } = request.query;
 
         let where = 'WHERE 1=1';
         const params = [];
@@ -316,6 +327,9 @@ module.exports = async function(fastify) {
         if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
         if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
+        if (unpaid === 'true') {
+            where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
+        }
         if (search) {
             where += ` AND (o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR o.customer_phone ILIKE $${idx})`;
             params.push(`%${search}%`);
