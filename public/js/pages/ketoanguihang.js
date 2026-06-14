@@ -193,13 +193,13 @@ function _shBuildTable(orders) {
             if (allPendingCompleted && pendingItems.length > 0) {
                 // All pending items are done -> Show Gửi
                 orderLevelAction = `
-                    <button onclick="event.stopPropagation();_shShipOrder(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
+                    <button onclick="event.stopPropagation();_shShowOrderSlipsModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
                     <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
                 `;
             } else {
                 // Not all pending items are done -> Show Không gửi được
                 orderLevelAction = `
-                    <button onclick="event.stopPropagation();_shAlertCannotShipOrder(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
+                    <button onclick="event.stopPropagation();_shShowOrderSlipsModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
                     <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
                 `;
             }
@@ -376,7 +376,7 @@ function _shBuildItemsTable(order) {
     return html;
 }
 
-function _shShowAlert(title, contentHtml, width = '480px', backBtnHtml = '') {
+function _shShowAlert(title, contentHtml, width = '480px', backBtnHtml = '', headerStyle = '', icon = '⚠️') {
     document.getElementById('shAlertModal')?.remove();
     
     if (!document.getElementById('shAlertStyles')) {
@@ -393,10 +393,11 @@ function _shShowAlert(title, contentHtml, width = '480px', backBtnHtml = '') {
     m.id = 'shAlertModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:shAlertFadeIn 0.2s ease-out;';
     
+    const hStyle = headerStyle || 'background:linear-gradient(135deg,#ef4444,#dc2626);';
     m.innerHTML = `
     <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
-        <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
-            <span style="font-size:22px;">⚠️</span>
+        <div style="${hStyle}padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">${icon}</span>
             <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">${title}</div>
         </div>
         <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;">
@@ -438,28 +439,61 @@ function _shAlertCannotShip(itemName, missing, orderCode, orderId = null) {
 }
 
 function _shAlertCannotShipOrder(orderId) {
+    _shShowOrderSlipsModal(orderId);
+}
+
+function _shShowOrderSlipsModal(orderId) {
     const o = _shOrders.find(x => x.id === orderId);
     if (!o) return;
 
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
-    
+    const completedPendingItems = pendingItems.filter(item => item.all_done);
+    const completedPendingIds = completedPendingItems.map(item => item.item_id);
+
     let html = '';
+    let title = '';
+    let headerStyle = '';
+    let icon = '⚠️';
+
+    const isAllDone = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+
     if (pendingItems.length === 0) {
+        title = `Đơn hàng ${o.order_code}`;
+        headerStyle = 'background:linear-gradient(135deg,#374151,#1f2937);';
+        icon = '📦';
         html = `
-            <div style="margin-bottom:12px;">Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> hiện tại chưa có phiếu sản phẩm nào ở trạng thái chờ gửi.</div>
+            <div style="margin-bottom:12px;font-size:13px;color:#334155;">Đơn hàng <b style="color:#1e293b;">${o.order_code}</b> hiện tại không có phiếu sản phẩm nào ở trạng thái chờ gửi.</div>
         `;
     } else {
-        const completedPendingItems = pendingItems.filter(item => item.all_done);
-        const completedPendingIds = completedPendingItems.map(item => item.item_id);
-        const shipMultiBtn = completedPendingIds.length > 1 
-            ? `<button onclick="event.stopPropagation();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Chung ${completedPendingIds.length} Phiếu Đã Xong</button>`
-            : '';
+        let actionButtonsHtml = '';
+        if (isAllDone) {
+            title = `Đơn hàng sẵn sàng gửi — ${o.order_code}`;
+            headerStyle = 'background:linear-gradient(135deg,#10b981,#059669);';
+            icon = '📦';
+            if (pendingItems.length === 1) {
+                const singleItem = pendingItems[0];
+                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', ${singleItem.item_id}, '${(singleItem.product_name||'').replace(/'/g,"\\'")}', 'Phiếu 1')" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Đơn Hàng</button>`;
+            } else {
+                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Toàn Bộ Đơn Hàng</button>`;
+            }
+        } else {
+            title = `Đơn hàng chưa đủ điều kiện gửi — ${o.order_code}`;
+            headerStyle = 'background:linear-gradient(135deg,#ef4444,#dc2626);';
+            icon = '⚠️';
+            if (completedPendingIds.length > 1) {
+                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Chung ${completedPendingIds.length} Phiếu Đã Xong</button>`;
+            }
+        }
+
+        const subtitleText = isAllDone 
+            ? `Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> hiện tại có <b style="color:#10b981;font-size:14px;">${pendingItems.length}</b> phiếu sản phẩm đã hoàn thành sản xuất:`
+            : `Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có phiếu sản phẩm chưa hoàn thành sản xuất:`;
 
         html = `
             <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                <div>Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có phiếu sản phẩm chưa hoàn thành sản xuất:</div>
+                <div>${subtitleText}</div>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    ${shipMultiBtn}
+                    ${actionButtonsHtml}
                     <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>
                 </div>
             </div>
@@ -474,7 +508,7 @@ function _shAlertCannotShipOrder(orderId) {
         `;
     }
 
-    _shShowAlert(`Đơn hàng chưa đủ điều kiện gửi`, html, '850px');
+    _shShowAlert(title, html, '850px', '', headerStyle, icon);
 }
 
 // ===== CARRIER RULES =====
@@ -564,10 +598,7 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
         ? `📤 Gửi Chung ${itemIdsArray.length} Phiếu — ${code}` 
         : (itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : `📤 Gửi Hàng — ${code}`);
 
-    let backBtnHtml = '';
-    if (itemId) {
-        backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Tr\u1edf l\u1ea1i</button>';
-    }
+    const backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Tr\u1edf l\u1ea1i</button>';
 
     m.innerHTML = '<div style="background:white;border-radius:16px;width:560px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
     + '<div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">'
