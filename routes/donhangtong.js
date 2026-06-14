@@ -212,120 +212,337 @@ module.exports = async function(fastify) {
             );
             isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
             if (!isKeToan) {
-                treeWhere = 'WHERE o.created_by = $1';
+                treeWhere = 'o.created_by = $1';
                 treeParams.push(request.user.id);
             }
         }
 
-        let whereClause = treeWhere ? (treeWhere + ' AND o.parent_order_id IS NULL') : 'WHERE o.parent_order_id IS NULL';
-        if (unpaid === 'true') {
-            whereClause += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
-        }
-
-        let revenueExpr = 'COALESCE(SUM(o.total_amount), 0)::numeric AS revenue';
-        if (unpaid === 'true') {
-            revenueExpr = `COALESCE(SUM(o.total_amount - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END), 0)::numeric AS revenue`;
-        }
-
-        // Group by year → category → month → day with revenue
-        const rows = await db.all(`
-            SELECT 
-                EXTRACT(YEAR FROM o.order_date)::int AS year,
-                EXTRACT(MONTH FROM o.order_date)::int AS month,
-                EXTRACT(DAY FROM o.order_date)::int AS day,
-                o.category_id,
-                c.name AS category_name,
-                ${revenueExpr},
-                COUNT(*)::int AS order_count
-            FROM dht_orders o
-            LEFT JOIN dht_categories c ON o.category_id = c.id
-            ${whereClause}
-            GROUP BY year, month, day, o.category_id, c.name
-            ORDER BY year DESC, month DESC, day DESC
-        `, treeParams);
-
-        // Build tree: year → categories → months → days
-        const yearMap = {};
-        for (const r of rows) {
-            const y = r.year;
-            if (!yearMap[y]) yearMap[y] = { year: y, total: 0, count: 0, categories: {} };
-
-            const catId = r.category_id || 0;
-            const catName = r.category_name || 'Chưa phân loại';
-            if (!yearMap[y].categories[catId]) {
-                yearMap[y].categories[catId] = { id: catId, name: catName, total: 0, count: 0, months: {} };
-            }
-
-            const m = r.month;
-            if (!yearMap[y].categories[catId].months[m]) {
-                yearMap[y].categories[catId].months[m] = { month: m, total: 0, count: 0, days: [] };
-            }
-
-            const rev = Number(r.revenue);
-            const cnt = Number(r.order_count);
-            yearMap[y].categories[catId].months[m].days.push({ day: r.day, total: rev, count: cnt });
-            yearMap[y].categories[catId].months[m].total += rev;
-            yearMap[y].categories[catId].months[m].count += cnt;
-            yearMap[y].categories[catId].total += rev;
-            yearMap[y].categories[catId].count += cnt;
-            yearMap[y].total += rev;
-            yearMap[y].count += cnt;
-        }
-
-        // Convert to sorted arrays
-        const tree = Object.values(yearMap)
-            .sort((a, b) => b.year - a.year)
-            .map(y => ({
-                ...y,
-                categories: Object.values(y.categories)
-                    .sort((a, b) => b.total - a.total)
-                    .map(c => ({
-                        ...c,
-                        months: Object.values(c.months)
-                            .sort((a, b) => b.month - a.month)
-                            .map(m => ({ ...m, days: m.days.sort((a, b) => b.day - a.day) }))
-                    }))
-            }));
-
-        // ★ Summary visibility based on role/department (reuses isKeToan from above)
-        // 'full' = GĐ/QLCC: see ALL revenue + count + unpaid
-        // 'limited' = Kế Toán: see count + unpaid (no revenue)
-        // 'self' = NV/TP/QL: see OWN order count + unpaid (no revenue, data already filtered by created_by)
-        // 'none' = external roles: see nothing
         const summaryVisibility = isFullView ? 'full' : (isKeToan ? 'limited' : 'self');
 
-        // Grand total — only send revenue if user has 'full' visibility
-        const grandTotal = summaryVisibility === 'full' ? tree.reduce((s, y) => s + y.total, 0) : 0;
-        const grandCount = tree.reduce((s, y) => s + y.count, 0);
+        if (unpaid === 'true') {
+            // New Carrier -> Year -> Month grouping for unpaid orders
+            let whereClause = 'WHERE o.parent_order_id IS NULL';
+            const queryParams = [];
+            let paramIdx = 1;
+            if (!isFullView && !isKeToan) {
+                whereClause += ` AND o.created_by = $${paramIdx++}`;
+                queryParams.push(request.user.id);
+            }
+            whereClause += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
 
-        // Strip revenue from tree data for non-full users
-        if (summaryVisibility !== 'full') {
-            for (const yr of tree) {
-                yr.total = 0;
-                for (const cat of yr.categories) {
-                    cat.total = 0;
-                    for (const mo of cat.months) {
-                        mo.total = 0;
-                        for (const d of mo.days) d.total = 0;
+            const unpaidTreeRows = await db.all(`
+                WITH unpaid_orders AS (
+                    SELECT o.id, o.order_code, o.order_date, o.shipping_status, o.actual_carrier_id, o.shipped_at,
+                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+                    FROM dht_orders o
+                    LEFT JOIN LATERAL (
+                        SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                        FROM payment_records
+                        WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                           OR order_tt_coc = o.order_code
+                    ) pr_dep ON true
+                    ${whereClause}
+                ),
+                order_carriers AS (
+                    SELECT DISTINCT
+                        o.id AS order_id,
+                        COALESCE(oi.actual_carrier_id, 0) AS carrier_id,
+                        CASE 
+                            WHEN oi.shipping_status = 'shipped' AND oi.actual_carrier_id IS NOT NULL 
+                            THEN COALESCE(oi.shipping_date, o.order_date)
+                            ELSE o.order_date
+                        END AS assoc_date,
+                        o.remaining_amount
+                    FROM unpaid_orders o
+                    JOIN dht_order_items oi ON oi.dht_order_id = o.id
+                    
+                    UNION
+                    
+                    SELECT
+                        o.id AS order_id,
+                        CASE 
+                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
+                            THEN o.actual_carrier_id 
+                            ELSE 0 
+                        END AS carrier_id,
+                        CASE 
+                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
+                            THEN COALESCE(o.shipped_at, o.order_date) 
+                            ELSE o.order_date 
+                        END AS assoc_date,
+                        o.remaining_amount
+                    FROM unpaid_orders o
+                    WHERE NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id)
+                )
+                SELECT 
+                    oc.carrier_id,
+                    COALESCE(c.name, 'Chưa gửi / Chưa chọn NVC') AS carrier_name,
+                    oc.year,
+                    oc.month,
+                    COALESCE(SUM(oc.remaining_amount), 0)::numeric AS revenue,
+                    COUNT(*)::int AS order_count
+                FROM (
+                    SELECT DISTINCT
+                        order_id,
+                        carrier_id,
+                        EXTRACT(YEAR FROM assoc_date)::int AS year,
+                        EXTRACT(MONTH FROM assoc_date)::int AS month,
+                        remaining_amount
+                    FROM order_carriers
+                ) oc
+                LEFT JOIN dht_carriers c ON oc.carrier_id = c.id
+                GROUP BY oc.carrier_id, c.name, oc.year, oc.month
+                ORDER BY oc.carrier_id, oc.year DESC, oc.month DESC
+            `, queryParams);
+
+            const carrierMap = {};
+            for (const r of unpaidTreeRows) {
+                const cid = r.carrier_id;
+                const cname = r.carrier_name;
+                if (!carrierMap[cid]) {
+                    carrierMap[cid] = {
+                        carrier_id: cid,
+                        carrier_name: cname,
+                        total: 0,
+                        count: 0,
+                        years: {}
+                    };
+                }
+
+                const y = r.year;
+                if (!carrierMap[cid].years[y]) {
+                    carrierMap[cid].years[y] = {
+                        year: y,
+                        total: 0,
+                        count: 0,
+                        months: {}
+                    };
+                }
+
+                const m = r.month;
+                if (!carrierMap[cid].years[y].months[m]) {
+                    carrierMap[cid].years[y].months[m] = {
+                        month: m,
+                        total: 0,
+                        count: 0
+                    };
+                }
+
+                const rev = Number(r.revenue);
+                const cnt = Number(r.order_count);
+                
+                carrierMap[cid].years[y].months[m].total += rev;
+                carrierMap[cid].years[y].months[m].count += cnt;
+                
+                carrierMap[cid].years[y].total += rev;
+                carrierMap[cid].years[y].count += cnt;
+                
+                carrierMap[cid].total += rev;
+                carrierMap[cid].count += cnt;
+            }
+
+            const tree = Object.values(carrierMap)
+                .sort((a, b) => {
+                    if (a.carrier_id === 0) return -1;
+                    if (b.carrier_id === 0) return 1;
+                    return a.carrier_name.localeCompare(b.carrier_name, 'vi');
+                })
+                .map(c => ({
+                    ...c,
+                    years: Object.values(c.years)
+                        .sort((a, b) => b.year - a.year)
+                        .map(y => ({
+                            ...y,
+                            months: Object.values(y.months)
+                                .sort((a, b) => b.month - a.month)
+                        }))
+                }));
+
+            const grandInfo = await db.get(`
+                SELECT 
+                    COALESCE(SUM(remaining_amount), 0)::numeric AS total,
+                    COUNT(*)::int AS count
+                FROM (
+                    SELECT 
+                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+                    FROM dht_orders o
+                    LEFT JOIN LATERAL (
+                        SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                        FROM payment_records
+                        WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                           OR order_tt_coc = o.order_code
+                    ) pr_dep ON true
+                    ${whereClause}
+                ) sub
+            `, queryParams);
+
+            const grandTotal = summaryVisibility === 'full' ? Number(grandInfo.total) : 0;
+            const grandCount = Number(grandInfo.count);
+
+            if (summaryVisibility !== 'full') {
+                for (const c of tree) {
+                    c.total = 0;
+                    for (const y of c.years) {
+                        y.total = 0;
+                        for (const m of y.months) {
+                            m.total = 0;
+                        }
                     }
                 }
             }
-        }
 
-        return { tree, grandTotal, grandCount, summaryVisibility };
+            return { tree, grandTotal, grandCount, summaryVisibility };
+        } else {
+            // Original Year -> Category -> Month -> Day grouping
+            let whereClause = treeWhere ? (treeWhere + ' AND o.parent_order_id IS NULL') : 'WHERE o.parent_order_id IS NULL';
+
+            let revenueExpr = 'COALESCE(SUM(o.total_amount), 0)::numeric AS revenue';
+            const rows = await db.all(`
+                SELECT 
+                    EXTRACT(YEAR FROM o.order_date)::int AS year,
+                    EXTRACT(MONTH FROM o.order_date)::int AS month,
+                    EXTRACT(DAY FROM o.order_date)::int AS day,
+                    o.category_id,
+                    c.name AS category_name,
+                    ${revenueExpr},
+                    COUNT(*)::int AS order_count
+                FROM dht_orders o
+                LEFT JOIN dht_categories c ON o.category_id = c.id
+                ${whereClause}
+                GROUP BY year, month, day, o.category_id, c.name
+                ORDER BY year DESC, month DESC, day DESC
+            `, treeParams);
+
+            const yearMap = {};
+            for (const r of rows) {
+                const y = r.year;
+                if (!yearMap[y]) yearMap[y] = { year: y, total: 0, count: 0, categories: {} };
+
+                const catId = r.category_id || 0;
+                const catName = r.category_name || 'Chưa phân loại';
+                if (!yearMap[y].categories[catId]) {
+                    yearMap[y].categories[catId] = { id: catId, name: catName, total: 0, count: 0, months: {} };
+                }
+
+                const m = r.month;
+                if (!yearMap[y].categories[catId].months[m]) {
+                    yearMap[y].categories[catId].months[m] = { month: m, total: 0, count: 0, days: [] };
+                }
+
+                const rev = Number(r.revenue);
+                const cnt = Number(r.order_count);
+                yearMap[y].categories[catId].months[m].days.push({ day: r.day, total: rev, count: cnt });
+                yearMap[y].categories[catId].months[m].total += rev;
+                yearMap[y].categories[catId].months[m].count += cnt;
+                yearMap[y].categories[catId].total += rev;
+                yearMap[y].categories[catId].count += cnt;
+                yearMap[y].total += rev;
+                yearMap[y].count += cnt;
+            }
+
+            const tree = Object.values(yearMap)
+                .sort((a, b) => b.year - a.year)
+                .map(y => ({
+                    ...y,
+                    categories: Object.values(y.categories)
+                        .sort((a, b) => b.total - a.total)
+                        .map(c => ({
+                            ...c,
+                            months: Object.values(c.months)
+                                .sort((a, b) => b.month - a.month)
+                                .map(m => ({ ...m, days: m.days.sort((a, b) => b.day - a.day) }))
+                        }))
+                }));
+
+            const grandTotal = summaryVisibility === 'full' ? tree.reduce((s, y) => s + y.total, 0) : 0;
+            const grandCount = tree.reduce((s, y) => s + y.count, 0);
+
+            if (summaryVisibility !== 'full') {
+                for (const yr of tree) {
+                    yr.total = 0;
+                    for (const cat of yr.categories) {
+                        cat.total = 0;
+                        for (const mo of cat.months) {
+                            mo.total = 0;
+                            for (const d of mo.days) d.total = 0;
+                        }
+                    }
+                }
+            }
+
+            return { tree, grandTotal, grandCount, summaryVisibility };
+        }
     });
 
     // ========== ORDERS: List with filters ==========
     fastify.get('/api/dht/orders', { preHandler: [authenticate] }, async (request, reply) => {
-        const { year, month, day, category_id, search, unpaid } = request.query;
+        const { year, month, day, category_id, search, unpaid, carrier_id } = request.query;
 
         let where = 'WHERE 1=1';
         const params = [];
         let idx = 1;
 
-        if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
-        if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
-        if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
+        if (unpaid === 'true' && carrier_id !== undefined) {
+            const carrierId = Number(carrier_id);
+            if (carrierId === 0) {
+                where += ` AND (
+                    (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND (COALESCE(o.shipping_status, 'pending') != 'shipped' OR o.actual_carrier_id IS NULL OR o.actual_carrier_id = 0))
+                    OR
+                    EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND (COALESCE(shipping_status, 'pending') != 'shipped' OR actual_carrier_id IS NULL OR actual_carrier_id = 0))
+                )`;
+                if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
+                if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
+                if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
+            } else {
+                const carrierParamIdx = idx++;
+                params.push(carrierId);
+                let carrierDateCond = '';
+                if (year) {
+                    carrierDateCond += ` AND EXTRACT(YEAR FROM COALESCE(shipping_date, o.order_date)) = $${idx++}`;
+                    params.push(Number(year));
+                }
+                if (month) {
+                    carrierDateCond += ` AND EXTRACT(MONTH FROM COALESCE(shipping_date, o.order_date)) = $${idx++}`;
+                    params.push(Number(month));
+                }
+                if (day) {
+                    carrierDateCond += ` AND EXTRACT(DAY FROM COALESCE(shipping_date, o.order_date)) = $${idx++}`;
+                    params.push(Number(day));
+                }
+
+                let orderCarrierDateCond = '';
+                if (year) {
+                    orderCarrierDateCond += ` AND EXTRACT(YEAR FROM COALESCE(o.shipped_at, o.order_date)) = $${idx++}`;
+                    params.push(Number(year));
+                }
+                if (month) {
+                    orderCarrierDateCond += ` AND EXTRACT(MONTH FROM COALESCE(o.shipped_at, o.order_date)) = $${idx++}`;
+                    params.push(Number(month));
+                }
+                if (day) {
+                    orderCarrierDateCond += ` AND EXTRACT(DAY FROM COALESCE(o.shipped_at, o.order_date)) = $${idx++}`;
+                    params.push(Number(day));
+                }
+
+                where += ` AND (
+                    (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
+                        AND COALESCE(o.shipping_status, 'pending') = 'shipped' 
+                        AND o.actual_carrier_id = $${carrierParamIdx}
+                        ${orderCarrierDateCond})
+                    OR
+                    EXISTS (SELECT 1 FROM dht_order_items 
+                        WHERE dht_order_id = o.id 
+                        AND COALESCE(shipping_status, 'pending') = 'shipped' 
+                        AND actual_carrier_id = $${carrierParamIdx}
+                        ${carrierDateCond})
+                )`;
+            }
+        } else {
+            if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
+            if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
+            if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
+        }
+
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
         if (unpaid === 'true') {
             where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
@@ -408,6 +625,9 @@ module.exports = async function(fastify) {
                     'product_name', i.product_name,
                     'description', i.description,
                     'quantity', i.quantity,
+                    'actual_carrier_id', i.actual_carrier_id,
+                    'shipping_status', COALESCE(i.shipping_status, 'pending'),
+                    'shipping_date', i.shipping_date,
                     'cutting_category_name', cc.name
                 )) AS items
                 FROM dht_order_items i

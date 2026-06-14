@@ -4,8 +4,95 @@ var _dhctt = { tree: [], categories: [], staff: [], orders: [], filter: {}, acti
 function _dhcttFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 function _dhcttFmtCount(n) { return Number(n||0).toLocaleString('vi-VN') + ' đơn'; }
 
-// Reuse formatDetailedQuantity and formatCurrentStep if available, otherwise fallback
-var _dhcttFormatDetailedQuantity = window.formatDetailedQuantity || function(items, totalQuantity, orderCode) { return totalQuantity || 0; };
+// Custom formatDetailedQuantity for Chưa thu tiền to highlight/dim items depending on active carrier filter
+var _dhcttFormatDetailedQuantity = function(items, totalQuantity, orderCode) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return totalQuantity || 0;
+    }
+
+    const code = (orderCode || '').toUpperCase();
+    const isPetTem = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || 
+                     code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || 
+                     code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0 || 
+                     code.indexOf('PET') >= 0 || code.indexOf('TEM') >= 0;
+
+    const activeCarrierId = _dhctt.filter.carrier_id;
+    const isCarrierFilterActive = activeCarrierId !== undefined;
+
+    const parts = items.map(item => {
+        const qty = Number(item.quantity) || 0;
+        if (qty <= 0) return null;
+
+        // Skip "Thiết Kế"
+        const nameLower = (item.product_name || item.description || '').toLowerCase();
+        if (nameLower.indexOf('thiết kế') >= 0 || nameLower.indexOf('thiet ke') >= 0) {
+            return null;
+        }
+        if (item.cutting_category_name === 'Thiết Kế') {
+            return null;
+        }
+
+        // Determine if this item matches the active carrier filter
+        let isMatching = true;
+        if (isCarrierFilterActive) {
+            const itemCarrierId = item.actual_carrier_id || 0;
+            const itemShipped = item.shipping_status === 'shipped';
+            if (activeCarrierId === 0) {
+                isMatching = !itemShipped || itemCarrierId === 0;
+            } else {
+                isMatching = itemShipped && Number(itemCarrierId) === Number(activeCarrierId);
+            }
+        }
+
+        let innerHTML = '';
+        if (isPetTem) {
+            const prod = (item.product_name || item.description || '').toLowerCase();
+            if (prod.indexOf('tờ') >= 0 || prod.indexOf('to') >= 0) {
+                innerHTML = `<span style="color:#d97706;font-weight:800;">${qty} Tờ</span>`;
+            } else if (prod.indexOf('mét') >= 0 || prod.indexOf('met') >= 0) {
+                innerHTML = `<span style="color:#059669;font-weight:800;">${qty} Mét</span>`;
+            } else {
+                const name = item.product_name || item.description || '';
+                const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
+                innerHTML = shortName ? `<span style="color:#475569;font-weight:800;">${qty} ${shortName}</span>` : `<span style="color:#475569;font-weight:800;">${qty}</span>`;
+            }
+        } else {
+            let cat = item.cutting_category_name;
+            if (!cat) {
+                const descLower = (item.product_name || item.description || '').toLowerCase();
+                if (descLower.includes('áo gió')) cat = 'Áo Gió';
+                else if (descLower.includes('áo')) cat = 'Áo';
+                else if (descLower.includes('quần')) cat = 'Quần';
+                else if (descLower.includes('váy')) cat = 'Váy';
+                else if (descLower.includes('tạp dề')) cat = 'Tạp Dề';
+                else if (descLower.includes('túi')) cat = 'Túi';
+            }
+            if (cat) {
+                innerHTML = `<span style="color:#4f46e5;font-weight:800;">${qty} ${cat}</span>`;
+            } else {
+                const name = item.product_name || item.description || '';
+                const shortName = name.length > 12 ? name.slice(0, 10) + '..' : name;
+                innerHTML = shortName ? `<span style="color:#475569;font-weight:800;">${qty} ${shortName}</span>` : `<span style="color:#475569;font-weight:800;">${qty}</span>`;
+            }
+        }
+
+        // Apply visual styling based on match status
+        if (isCarrierFilterActive) {
+            if (isMatching) {
+                return `<span style="display:inline-block;padding:2px 6px;background:#fef08a;border:1.5px solid #ca8a04;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">${innerHTML}</span>`;
+            } else {
+                return `<span style="opacity:0.35;filter:grayscale(0.6);text-decoration:line-through;font-size:10px;">${qty} ${item.product_name || item.description || ''}</span>`;
+            }
+        }
+        return innerHTML;
+    }).filter(Boolean);
+
+    if (parts.length === 0) {
+        return totalQuantity || 0;
+    }
+
+    return parts.join(' , ');
+};
 var _dhcttFormatCurrentStep = window.formatCurrentStep || function(stepName, doneCount, totalCount, orderCode, categoryName, isShipped) { return stepName || 'Chờ SX'; };
 
 // ========== FILTER CHIPS ==========
@@ -316,59 +403,97 @@ function _dhcttClearSearch() {
 }
 
 // ========== LOADS ==========
+// ========== LOADS ==========
 async function _dhcttLoadTree() {
     var data = await apiCall('/api/dht/tree?unpaid=true');
     _dhctt.tree = data.tree || [];
     _dhctt.summaryVisibility = data.summaryVisibility || 'none';
     var sb = document.getElementById('dhcttSidebar'); if (!sb) return;
-    var curYear = new Date().getFullYear();
     _dhctt.open = _dhctt.open || {};
-    if (!_dhctt.open._init) { _dhctt.open['y'+curYear] = true; _dhctt.open._init = true; }
 
     var isFull = _dhctt.summaryVisibility === 'full';
     var _sbVal = function(total, count) { return isFull ? _dhcttFmt(total) : _dhcttFmtCount(count); };
+    
+    // Header
     var h = '<div class="dhctt-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#b8860b;font-weight:900">✨ Chưa thu tiền ✨</span> <span style="color:var(--navy)">───</span></div>';
+    
+    // Grand Total
     if (isFull) {
         h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ</span><span>'+_dhcttFmt(data.grandTotal||0)+'</span></div>';
+    } else {
+        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ</span><span>'+_dhcttFmtCount(data.grandCount||0)+'</span></div>';
     }
-    var years = _dhctt.tree.length > 0 ? _dhctt.tree : [{year:curYear,total:0,count:0,categories:[]}];
-    years.forEach(function(yr) {
-        var yKey = 'y'+yr.year;
-        var yOpen = !!_dhctt.open[yKey];
-        h += '<div class="dhctt-sb-year" onclick="_dhcttToggleKey(\''+yKey+'\')"><span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span><span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(yr.total, yr.count)+'</span></div>';
-        h += '<div style="display:'+(yOpen?'block':'none')+'">';
-        var cats = _dhctt.categories.map(function(cat) {
-            var found = (yr.categories||[]).find(function(c){return c.id===cat.id;});
-            return {id:cat.id,name:cat.name,total:found?found.total:0,count:found?found.count:0,months:found?found.months:[]};
-        });
-        (yr.categories||[]).forEach(function(c){if(c.id===0&&!cats.find(function(x){return x.id===0;}))cats.unshift(c);});
-        if(cats.length===0)cats=[{id:0,name:'Chưa có lĩnh vực',total:0,months:[]}];
-        cats.forEach(function(cat) {
-            var cKey = yKey+'c'+cat.id;
-            var cOpen = !!_dhctt.open[cKey];
-            var cActive = _dhctt.filter.year==yr.year&&_dhctt.filter.category_id==cat.id&&!_dhctt.filter.month;
-            h += '<div class="dhctt-sb-cat'+(cActive?' active':'')+'" onclick="_dhcttToggleKey(\''+cKey+'\','+yr.year+','+cat.id+')"><span>'+(cOpen?'▼':'▶')+' 🏷️ '+cat.name+'</span><span style="color:#b8860b;font-weight:800">'+_sbVal(cat.total, cat.count)+'</span></div>';
-            h += '<div style="display:'+(cOpen?'block':'none')+'">';
-            for(var mi=12;mi>=1;mi--){
-                var mData=(cat.months||[]).find(function(m){return m.month===mi;});
-                var mTotal=mData?mData.total:0;
-                var mCount=mData?mData.count:0;
-                var mVal=isFull?mTotal:mCount;
-                var mActive=_dhctt.filter.year==yr.year&&_dhctt.filter.category_id==cat.id&&_dhctt.filter.month==mi;
-                h += '<div class="dhctt-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhcttFilterOnly({year:'+yr.year+',category_id:'+cat.id+',month:'+mi+'})"><span>▸ Tháng '+String(mi).padStart(2,'0')+'</span><span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mTotal, mCount)+'</span></div>';
-            }
+
+    // Initialize open state for first render if not set
+    if (!_dhctt.open._init) {
+        if (_dhctt.tree.length > 0) {
+            var firstCid = _dhctt.tree[0].carrier_id;
+            _dhctt.open['c' + firstCid] = true;
+            
+            var curYear = new Date().getFullYear();
+            _dhctt.open['c' + firstCid + 'y' + curYear] = true;
+        }
+        _dhctt.open._init = true;
+    }
+
+    _dhctt.tree.forEach(function(carrier) {
+        var cKey = 'c' + carrier.carrier_id;
+        var cOpen = !!_dhctt.open[cKey];
+        var cActive = _dhctt.filter.carrier_id == carrier.carrier_id && !_dhctt.filter.year && !_dhctt.filter.month;
+        
+        h += '<div class="dhctt-sb-year" onclick="_dhcttToggleCarrier(\''+cKey+'\','+carrier.carrier_id+')">'
+            + '<span>'+(cOpen?'▼':'▶')+' 🚛 '+carrier.carrier_name+'</span>'
+            + '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(carrier.total, carrier.count)+'</span>'
+            + '</div>';
+        
+        h += '<div style="display:'+(cOpen?'block':'none')+'">';
+        
+        (carrier.years || []).forEach(function(yr) {
+            var yKey = cKey + 'y' + yr.year;
+            var yOpen = !!_dhctt.open[yKey];
+            var yActive = _dhctt.filter.carrier_id == carrier.carrier_id && _dhctt.filter.year == yr.year && !_dhctt.filter.month;
+            
+            h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation();_dhcttToggleYear(\''+yKey+'\','+carrier.carrier_id+','+yr.year+')">'
+                + '<span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span>'
+                + '<span style="color:#b8860b;font-weight:800">'+_sbVal(yr.total, yr.count)+'</span>'
+                + '</div>';
+            
+            h += '<div style="display:'+(yOpen?'block':'none')+'">';
+            
+            (yr.months || []).forEach(function(mo) {
+                var mActive = _dhctt.filter.carrier_id == carrier.carrier_id && _dhctt.filter.year == yr.year && _dhctt.filter.month == mo.month;
+                var mVal = isFull ? mo.total : mo.count;
+                
+                h += '<div class="dhctt-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhcttFilterOnly({carrier_id:'+carrier.carrier_id+',year:'+yr.year+',month:'+mo.month+'})">'
+                    + '<span>▸ Tháng '+String(mo.month).padStart(2,'0')+'</span>'
+                    + '<span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mo.total, mo.count)+'</span>'
+                    + '</div>';
+            });
+            
             h += '</div>';
         });
+        
         h += '</div>';
     });
+
     sb.innerHTML = h;
 }
 
-function _dhcttToggleKey(key, year, catId) {
+function _dhcttToggleCarrier(key, carrierId) {
     _dhctt.open = _dhctt.open || {};
     _dhctt.open[key] = !_dhctt.open[key];
-    if (_dhctt.open[key] && year && catId) {
-        _dhctt.filter = {year:year,category_id:catId};
+    if (_dhctt.open[key]) {
+        _dhctt.filter = { carrier_id: carrierId };
+        _dhcttLoadOrders();
+    }
+    _dhcttLoadTree();
+}
+
+function _dhcttToggleYear(key, carrierId, year) {
+    _dhctt.open = _dhctt.open || {};
+    _dhctt.open[key] = !_dhctt.open[key];
+    if (_dhctt.open[key]) {
+        _dhctt.filter = { carrier_id: carrierId, year: year };
         _dhcttLoadOrders();
     }
     _dhcttLoadTree();
@@ -387,6 +512,7 @@ async function _dhcttLoadOrders() {
     if (search) {
         url += `search=${encodeURIComponent(search)}&`;
     } else {
+        if (f.carrier_id !== undefined) url += `carrier_id=${f.carrier_id}&`;
         if (f.year) url += `year=${f.year}&`;
         if (f.month) url += `month=${f.month}&`;
         if (f.day) url += `day=${f.day}&`;
@@ -510,7 +636,16 @@ function _dhcttRenderOrderRows(filtered) {
                 }
             }
         }
-        const shipDateFmt = o.shipped_at ? '🚛' + fmtD(o.shipped_at) : '—';
+        let shipDateVal = o.shipped_at;
+        if (_dhctt.filter.carrier_id !== undefined && _dhctt.filter.carrier_id > 0) {
+            const matchingItem = (o.items || []).find(item => 
+                item.shipping_status === 'shipped' && Number(item.actual_carrier_id) === Number(_dhctt.filter.carrier_id)
+            );
+            if (matchingItem && matchingItem.shipping_date) {
+                shipDateVal = matchingItem.shipping_date;
+            }
+        }
+        const shipDateFmt = shipDateVal ? '🚛' + fmtD(shipDateVal) : '—';
         const priStyle = (o.shipping_priority === 'GẤP' ? 'background:#dc2626;color:#fff;' : (o.shipping_priority === 'GỬI' ? 'background:#2563eb;color:#fff;' : 'background:#7c3aed;color:#fff;'));
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
