@@ -802,11 +802,18 @@ module.exports = async function(fastify) {
 
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
-        // 2. Order items (with TSAM base prices)
+        // 2. Order items (with TSAM base prices and shipping details)
         const items = await db.all(`
-            SELECT i.*, ts.factory_price AS tsam_factory_price, ts.processing_price AS tsam_processing_price
+            SELECT i.*, 
+                   ts.factory_price AS tsam_factory_price, 
+                   ts.processing_price AS tsam_processing_price,
+                   cr.name AS actual_carrier_name,
+                   cr.tracking_url_template AS actual_carrier_tracking_url,
+                   u.full_name AS shipped_by_name
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
+            LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
+            LEFT JOIN users u ON i.shipped_by = u.id
             WHERE i.dht_order_id = $1 ORDER BY i.id ASC
         `, [orderId]);
 
