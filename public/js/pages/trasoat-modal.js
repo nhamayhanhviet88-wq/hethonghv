@@ -139,6 +139,48 @@ async function _tsOpenStepModal(orderId, stepName){
                     }
                 })();
             });
+        } else if (stepKey === 'cat' && res.records && res.records.length > 0) {
+            res.records.forEach(function(r) {
+                (async function() {
+                    try {
+                        var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat';
+                        if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+                        url += '&record_type=cutting&record_id=' + r.id;
+                        var remRes = await apiCall(url);
+                        var cutReminders = remRes.reminders || [];
+                        var cutReminderIds = remRes.reminder_ids || [];
+                        var cutViewedIds = remRes.viewed_ids || [];
+                        
+                        if (cutReminders.length > 0) {
+                            var el = document.getElementById('_tsCatRemindersContainer_' + r.id);
+                            if (!el) return;
+                            
+                            var b = '';
+                            b += '<div style="font-weight:800;color:#ef4444;margin:16px 0 8px;font-size:13px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+                            b += '<div style="display:flex; flex-direction:column; gap:8px;">';
+                            cutReminders.forEach(function(rem, remIdx) {
+                                var remId = cutReminderIds[remIdx] || 0;
+                                var isViewed = cutViewedIds.indexOf(remId) >= 0;
+                                
+                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                if (isViewed) {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                } else {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                }
+                                b += '</div>';
+                            });
+                            b += '</div>';
+                            
+                            el.innerHTML = b;
+                            el.style.display = 'block';
+                        }
+                    } catch(e) {
+                        console.error('Lỗi tải nhắc nhở chi tiết cắt:', e);
+                    }
+                })();
+            });
         }
     } catch(e) {
         document.getElementById('tsModalBody').innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">❌ Chưa có dữ liệu hoặc chưa đến giai đoạn này</div><div style="padding:0 20px 20px;text-align:center"><button onclick="_tsCloseModal()" style="padding:10px 40px;border:none;border-radius:10px;background:#1e293b;color:white;font-weight:700;cursor:pointer">Đóng</button></div>';
@@ -176,6 +218,7 @@ function _tsRenderStepModal(step, d){
                 body+=section('🧶','CÂY VẢI ĐÃ CHỌN ('+r.rolls.length+')');
                 r.rolls.forEach(rl=>{ body+=`<div style="padding:6px 12px;background:#f8fafc;border-radius:8px;margin:4px 0;font-size:12px;font-weight:600">${rl.material_name} - ${rl.color} - ${rl.kg}kg</div>`; });
             }
+            body+=`<div id="_tsCatRemindersContainer_${r.id}" style="display:none;margin-top:12px"></div>`;
             body+=`</div></div>`;
         }); body+=`</div>`; }
     }
