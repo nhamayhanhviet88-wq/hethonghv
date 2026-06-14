@@ -731,7 +731,93 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
             `, [orderId]);
-            return { step: 'ep', order_code: order.order_code, cskh_name: order.cskh_name, records };
+
+            const items = await db.all(`
+                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+            `, [orderId]);
+
+            const itemsStatus = [];
+            for (const item of items) {
+                const hasPresserClaimed = records.some(r => r.order_item_id === item.id);
+
+                // Check cutting status
+                const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE order_item_id = $1`, [item.id]);
+                const isCutDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+
+                // Check print status
+                const printAssign = await db.get(`
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                      AND pf.name IN ('IN PET', 'IN DECAL')
+                      AND qa.operator_type = 'user'
+                    LIMIT 1
+                `, [item.id, orderId]);
+                const hasPrintAssignment = !!printAssign;
+
+                let isPrintDone = true;
+                if (hasPrintAssignment) {
+                    const pendingPrint = await db.get(`
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.print_field IN ('IN PET', 'IN DECAL')
+                          AND (pr.is_print_done = false AND pr.contractor_id IS NULL)
+                        LIMIT 1
+                    `, [item.id, orderId]);
+                    isPrintDone = !pendingPrint;
+                }
+
+                itemsStatus.push({
+                    item_id: item.id,
+                    description: item.description,
+                    quantity: item.quantity,
+                    is_cut_done: isCutDone,
+                    is_print_done: isPrintDone,
+                    has_print_assignment: hasPrintAssignment,
+                    has_presser_claimed: hasPresserClaimed
+                });
+            }
+
+            if (items.length === 0) {
+                const hasPresserClaimed = records.length > 0;
+
+                const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                const isCutDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+
+                const printAssign = await db.get(`
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL
+                      AND pf.name IN ('IN PET', 'IN DECAL')
+                      AND qa.operator_type = 'user'
+                    LIMIT 1
+                `, [orderId]);
+                const hasPrintAssignment = !!printAssign;
+
+                let isPrintDone = true;
+                if (hasPrintAssignment) {
+                    const pendingPrint = await db.get(`
+                        SELECT 1 FROM printing_records pr
+                        WHERE pr.dht_order_id = $1 AND pr.order_item_id IS NULL
+                          AND pr.print_field IN ('IN PET', 'IN DECAL')
+                          AND (pr.is_print_done = false AND pr.contractor_id IS NULL)
+                        LIMIT 1
+                    `, [orderId]);
+                    isPrintDone = !pendingPrint;
+                }
+
+                itemsStatus.push({
+                    item_id: null,
+                    description: order.order_code,
+                    quantity: order.total_quantity || 0,
+                    is_cut_done: isCutDone,
+                    is_print_done: isPrintDone,
+                    has_print_assignment: hasPrintAssignment,
+                    has_presser_claimed: hasPresserClaimed
+                });
+            }
+
+            return { step: 'ep', order_code: order.order_code, cskh_name: order.cskh_name, records, items_status: itemsStatus };
         }
 
         if (step === 'may') {

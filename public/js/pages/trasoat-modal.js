@@ -675,7 +675,94 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='ep'){
         html = hdr('🔥','CHI TIẾT PHIẾU ÉP',d.order_code,'#ea580c,#c2410c');
-        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔥</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu ép</div></div>'; }
+        if(!d.records||!d.records.length){
+            if (d.items_status && d.items_status.length > 0) {
+                body = `<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+                body += `<div style="text-align:center;padding:12px;background:#fff5f5;border:1.5px solid #fee2e2;border-radius:12px;color:#991b1b;font-weight:700;font-size:13px">
+                            ⚠️ Đơn hàng chưa có dữ liệu ép
+                         </div>`;
+                
+                d.items_status.forEach((item, index) => {
+                    const itemTitle = item.description 
+                        ? `${d.order_code} - Phiếu ${index + 1} — ${item.description}` 
+                        : `${d.order_code} - Phiếu ${index + 1}`;
+                    
+                    let statusLabel = '';
+                    let statusColor = '';
+                    let statusBg = '';
+                    
+                    if (item.has_presser_claimed) {
+                        statusLabel = 'Đã nhận ép';
+                        statusColor = '#166534';
+                        statusBg = '#dcfce7';
+                    } else if (item.is_cut_done && item.is_print_done) {
+                        statusLabel = 'Chờ thợ nhận';
+                        statusColor = '#1e40af';
+                        statusBg = '#dbeafe';
+                    } else {
+                        statusLabel = 'Chưa đủ điều kiện';
+                        statusColor = '#991b1b';
+                        statusBg = '#fee2e2';
+                    }
+
+                    // Print status label
+                    let printStatusLabel = '';
+                    let printStatusStyle = '';
+                    if (item.has_print_assignment) {
+                        if (item.is_print_done) {
+                            printStatusLabel = '🟢 Đã in xong';
+                            printStatusStyle = 'background:#d1fae5;color:#065f46';
+                        } else {
+                            printStatusLabel = '🔴 Chưa in xong';
+                            printStatusStyle = 'background:#fee2e2;color:#991b1b';
+                        }
+                    } else {
+                        printStatusLabel = '⚪ Không yêu cầu in PET/Decal';
+                        printStatusStyle = 'background:#f1f5f9;color:#475569';
+                    }
+
+                    body += `<div style="border:1.5px solid #e2e8f0;border-radius:14px;background:white;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.02)">
+                                <div style="background:#f8fafc;padding:12px 16px;border-bottom:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+                                    <span style="font-weight:800;color:#1e293b;font-size:13px">${itemTitle}</span>
+                                    <span style="padding:3px 10px;border-radius:6px;background:${statusBg};color:${statusColor};font-size:11px;font-weight:800">${statusLabel}</span>
+                                </div>
+                                <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600">
+                                        <span style="color:#64748b">1. Bộ phận cắt</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_cut_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_cut_done ? '🟢 Đã cắt xong' : '🔴 Chưa cắt xong'}</span>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
+                                        <span style="color:#64748b">2. Bộ phận in (PET/Decal)</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${printStatusStyle}">${printStatusLabel}</span>
+                                    </div>`;
+
+                    let detailMsg = '';
+                    let detailColor = '';
+                    if (item.has_presser_claimed) {
+                        detailMsg = 'Đơn đã được thợ nhận ép và đang xử lý.';
+                        detailColor = '#166534';
+                    } else if (item.is_cut_done && item.is_print_done) {
+                        detailMsg = 'Đã đủ điều kiện. Đang chờ thợ ép nhận đơn.';
+                        detailColor = '#1e40af';
+                    } else {
+                        const missing = [];
+                        if (!item.is_cut_done) missing.push('chưa cắt xong');
+                        if (!item.is_print_done) missing.push('chưa in xong');
+                        detailMsg = `Chưa sẵn sàng nhận ép do: ${missing.join(' & ')}.`;
+                        detailColor = '#b45309';
+                    }
+
+                    body += `        <div style="margin-top:4px;padding:10px;background:#f8fafc;border-radius:8px;font-size:11px;color:${detailColor};font-weight:700;text-align:center">
+                                        ℹ️ ${detailMsg}
+                                     </div>
+                                </div>
+                             </div>`;
+                });
+                body += `</div>`;
+            } else {
+                body = '<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔥</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu ép</div></div>';
+            }
+        }
         else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
             const title = `🔥 ${r.product_name || r.item_description || 'Sản phẩm'}`;
             body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
