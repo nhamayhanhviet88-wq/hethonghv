@@ -908,7 +908,55 @@ module.exports = async function(fastify) {
                     ORDER BY qct.sort_order
                 `, [r.id]);
             }
-            return { step: 'qc', order_code: order.order_code, cskh_name: order.cskh_name, records };
+
+            const items = await db.all(`
+                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+            `, [orderId]);
+
+            const itemsStatus = [];
+            for (const item of items) {
+                const sewRec = await db.get(`SELECT id, is_sew_done FROM sewing_records WHERE order_item_id = $1 LIMIT 1`, [item.id]);
+                const hasSewingRecord = !!sewRec;
+                const isSewingDone = sewRec ? !!sewRec.is_sew_done : false;
+
+                let isQcDone = false;
+                if (sewRec) {
+                    const qcAns = await db.get(`SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1`, [sewRec.id]);
+                    isQcDone = !!qcAns;
+                }
+
+                itemsStatus.push({
+                    item_id: item.id,
+                    description: item.description,
+                    quantity: item.quantity,
+                    has_sewing_record: hasSewingRecord,
+                    is_sewing_done: isSewingDone,
+                    is_qc_done: isQcDone
+                });
+            }
+
+            if (items.length === 0) {
+                const sewRec = await db.get(`SELECT id, is_sew_done FROM sewing_records WHERE dht_order_id = $1 AND order_item_id IS NULL LIMIT 1`, [orderId]);
+                const hasSewingRecord = !!sewRec;
+                const isSewingDone = sewRec ? !!sewRec.is_sew_done : false;
+
+                let isQcDone = false;
+                if (sewRec) {
+                    const qcAns = await db.get(`SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1`, [sewRec.id]);
+                    isQcDone = !!qcAns;
+                }
+
+                itemsStatus.push({
+                    item_id: null,
+                    description: order.order_code,
+                    quantity: order.total_quantity || 0,
+                    has_sewing_record: hasSewingRecord,
+                    is_sewing_done: isSewingDone,
+                    is_qc_done: isQcDone
+                });
+            }
+
+            return { step: 'qc', order_code: order.order_code, cskh_name: order.cskh_name, records, items_status: itemsStatus };
         }
 
         if (step === 'ht') {
