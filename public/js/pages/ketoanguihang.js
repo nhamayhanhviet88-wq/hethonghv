@@ -375,7 +375,7 @@ function _shBuildItemsTable(order) {
     return html;
 }
 
-function _shShowAlert(title, contentHtml) {
+function _shShowAlert(title, contentHtml, width = '480px') {
     document.getElementById('shAlertModal')?.remove();
     
     if (!document.getElementById('shAlertStyles')) {
@@ -393,7 +393,7 @@ function _shShowAlert(title, contentHtml) {
     m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:shAlertFadeIn 0.2s ease-out;';
     
     m.innerHTML = `
-    <div style="background:white;border-radius:16px;width:480px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+    <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
         <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
             <span style="font-size:22px;">⚠️</span>
             <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">${title}</div>
@@ -443,38 +443,21 @@ function _shAlertCannotShipOrder(orderId) {
     } else {
         html = `
             <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                <div>Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có các phiếu sản phẩm chưa hoàn thành sản xuất:</div>
+                <div>Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có phiếu sản phẩm chưa hoàn thành sản xuất:</div>
                 <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>
             </div>
-            <div style="display:flex;flex-direction:column;gap:10px;">
-        `;
-
-        pendingItems.filter(item => !item.all_done).forEach(item => {
-            const missingBadges = item.missing_steps.map(step => 
-                `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">${step}</span>`
-            ).join(' ');
-
-            html += `
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
-                    <div style="font-weight:700;color:#1e293b;margin-bottom:4px;font-size:12px;">📦 ${item.product_name}</div>
-                    <div style="font-size:10px;color:#64748b;margin-bottom:6px;">${item.description || ''} (SL: ${item.quantity})</div>
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                        <span style="font-size:11px;color:#b91c1c;font-weight:600;">Chưa xong:</span>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;">${missingBadges}</div>
-                    </div>
-                </div>
-            `;
-        });
-
-        html += `
+            
+            <div style="margin-bottom:14px;">
+                ${_shBuildItemsTable(o)}
             </div>
+            
             <div style="color:#475569;font-size:11.5px;margin-top:14px;background:#fef3c7;border:1.5px dashed #fcd34d;padding:10px;border-radius:8px;line-height:1.5;">
-                💡 <b>Mẹo cho Kế toán:</b> Bạn có thể click vào biểu tượng <b>▶</b> ở đầu dòng để xem chi tiết tiến độ từng bộ phận và gửi trước những phiếu đã hoàn thành xong!
+                💡 <b>Mẹo cho Kế toán:</b> Bạn có thể gửi trước các phiếu đã hoàn thành xong bằng cách bấm nút <b>📤 Gửi Phiếu</b> màu xanh lá ở trên!
             </div>
         `;
     }
 
-    _shShowAlert(`Đơn hàng chưa đủ điều kiện gửi`, html);
+    _shShowAlert(`Đơn hàng chưa đủ điều kiện gửi`, html, '850px');
 }
 
 // ===== CARRIER RULES =====
@@ -506,6 +489,7 @@ function _shGetCarrierGroup(name) {
 function _shShipOrder(id, code, itemId = null, itemName = null) {
     const o = _shOrders.find(x => x.id === id); if (!o) return;
     document.getElementById('shShipModal')?.remove();
+    document.getElementById('shAlertModal')?.remove(); // Auto-dismiss warning modal
     const m = document.createElement('div'); m.id = 'shShipModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;';
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014';
