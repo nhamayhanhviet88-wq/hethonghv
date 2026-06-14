@@ -1081,9 +1081,11 @@ module.exports = async function(fastify) {
                         : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = true LIMIT 1`, [orderId]);
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'may') {
-                    const row = r.item_id
-                        ? await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND done_date IS NOT NULL LIMIT 1`, [orderId, r.item_id])
-                        : await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND done_date IS NOT NULL LIMIT 1`, [orderId]);
+                    const row = record_id
+                        ? await db.get(`SELECT 1 FROM sewing_records WHERE id = $1 AND done_date IS NOT NULL LIMIT 1`, [Number(record_id)])
+                        : (r.item_id
+                            ? await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND done_date IS NOT NULL LIMIT 1`, [orderId, r.item_id])
+                            : await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND done_date IS NOT NULL LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'hoanthien') {
                     const row = r.item_id
