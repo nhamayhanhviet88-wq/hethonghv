@@ -950,6 +950,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
 function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone) {
     cutChoice = cutChoice || '';
+    var isLocked = isProductionDone || isCutDone;
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
     var oninput = 'oninput="_qlxFabPreview(\'' + mat + '\',\'' + col + '\',\'' + unit + '\')"';
@@ -962,12 +963,11 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số cây</label><input id="_qlxFabCallTrees" type="number" min="0" value="0" ' + oninput + ' ' + disabledAttr + ' style="display:block;width:70px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px;background:' + inputBg + '"></div>';
     html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số ' + unitLabel + '</label><input id="_qlxFabCallAmount" type="number" min="0" step="0.1" value="0" ' + oninput + ' ' + disabledAttr + ' style="display:block;width:80px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px;background:' + inputBg + '"></div>';
     html += '<div style="flex:1;min-width:150px"><label style="font-size:10px;font-weight:600;color:#475569">Ghi chú</label><input id="_qlxFabCallNote" placeholder="..." ' + oninput + ' ' + disabledAttr + ' style="display:block;width:100%;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:' + inputBg + '"></div>';
-    html += '</div>
+    html += '</div>';
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" value="' + new Date(new Date().getTime() + 7*3600000).toISOString().slice(0,10) + '" readonly style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:#f1f5f9;color:#475569;cursor:not-allowed"></div>';
 
     // Nhắc Nhở Bộ Phận Cắt
     html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
-    var isLocked = isProductionDone || isCutDone;
     if (isLocked) {
         var headerText = isProductionDone ? '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã hoàn thành sản xuất)' : '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã cắt xong)';
         var subText = isProductionDone ? '🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.' : '🔒 Phiếu đã cắt xong, không thể chỉnh sửa nhắc nhở.';
