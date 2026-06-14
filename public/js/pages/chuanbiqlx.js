@@ -2366,11 +2366,10 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px;margin-bottom:12px">';
         
         // Table Headers
-        html += '<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,0.9fr) minmax(0,1.8fr) minmax(0,1.2fr) 34px;gap:8px;padding:0 10px;border:1px solid transparent;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
+        html += '<div style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,2fr) 34px;gap:8px;padding:0 10px;border:1px solid transparent;margin-bottom:10px;color:#475569;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">';
         html += '<div>Phân Công May</div>';
         html += '<div style="text-align:center">Số Lượng</div>';
         html += '<div style="text-align:left">QLX Hẹn Ra <span style="color:#dc2626">*</span></div>';
-        html += '<div>Lưu Ý May</div>';
         html += '<div></div>';
         html += '</div>';
 
@@ -2591,7 +2590,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
-    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,0.9fr) minmax(0,1.8fr) minmax(0,1.2fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
+    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,2fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
     html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
@@ -2604,9 +2603,6 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
 
     // Target completion Date
     html += '<div><input type="date" class="form-control may-date" value="' + date + '" min="' + minDateStr + '" onchange="_qlxAssignMayHandleDateChange(this)" style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
-
-    // Notes
-    html += '<div><input type="text" class="form-control may-notes" value="' + noteText.replace(/"/g, '&quot;') + '" placeholder="Ghi chú hạn/phối..." style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
 
     // Delete button
     html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#ef4444;border:1px solid #fca5a5">🗑️</button></div>';
