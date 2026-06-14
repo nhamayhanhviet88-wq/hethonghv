@@ -1251,9 +1251,19 @@ async function _dhtShowDetail(id) {
         saleKtHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>');
         var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
         saleKtHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);
-        saleKtHTML += row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.expected_ship_date));
-        if (o.standard_delivery_time) saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>`);
-        if (o.standard_proof_image) saleKtHTML += row('📷 Ảnh TC', `<a href="${o.standard_proof_image}" target="_blank" style="color:var(--info);font-weight:700">📷 Xem ảnh</a>`);
+        
+        var proofHtml = '<span style="color:#94a3b8;font-style:italic">Chưa có ảnh</span>';
+        if (o.standard_proof_image) {
+            proofHtml = `
+                <div style="margin-top:4px;">
+                    <a href="${o.standard_proof_image}" target="_blank">
+                        <img src="${o.standard_proof_image}" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,0.08);" title="Bấm để phóng to">
+                    </a>
+                </div>
+            `;
+        }
+        saleKtHTML += row('📷 Ảnh TC', proofHtml);
+
         var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
         if (o.expected_ship_date) {
             var shipVN = new Date(o.expected_ship_date);
@@ -1285,6 +1295,12 @@ async function _dhtShowDetail(id) {
             }
         }
         saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
+        saleKtHTML += row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.expected_ship_date));
+        
+        var deliveryTimeHtml = o.standard_delivery_time 
+            ? `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>` 
+            : '<span style="color:#94a3b8;font-style:italic">—</span>';
+        saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', deliveryTimeHtml);
         saleKtHTML += `</table></div>`;
 
         // ── Section 6B: 📄 Thông tin đơn hàng (cleaned) ──

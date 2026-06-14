@@ -543,54 +543,106 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
     document.getElementById('shAlertModal')?.remove(); // Auto-dismiss warning modal
     const m = document.createElement('div'); m.id = 'shShipModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;';
-    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014';
+    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const fmtMoney = n => (Number(n)||0).toLocaleString('vi-VN');
-    const today = new Date().toISOString().split('T')[0];
-    let diffText = '\u2014';
-    if (o.expected_ship_date) {
-        const expectedD = new Date(o.expected_ship_date); expectedD.setHours(0,0,0,0);
-        if (o.shipped_at) {
-            const actualD = new Date(o.shipped_at); actualD.setHours(0,0,0,0);
-            const diff = Math.round((expectedD - actualD) / 86400000);
-            if (diff > 0) diffText = '\ud83d\ude80 Nhanh ' + diff + ' ng\u00e0y';
-            else if (diff < 0) diffText = '\u26a0\ufe0f Tr\u1ec5 ' + Math.abs(diff) + ' ng\u00e0y';
-            else diffText = '\ud83d\udce6 \u0110\u00fang h\u1ea1n';
-        } else {
-            const todayD = new Date(today);
-            const remain = Math.round((expectedD - todayD) / 86400000);
-            if (remain > 0) diffText = '\ud83d\udcc5 C\u00f2n ' + remain + ' ng\u00e0y';
-            else if (remain < 0) diffText = '\u26a0\ufe0f Qu\u00e1 h\u1ea1n ' + Math.abs(remain) + ' ng\u00e0y';
-            else diffText = '\ud83d\udce6 H\u00f4m nay g\u1eedi';
-        }
-    }
-    const prioMap = {'G\u1eecI':'#3b82f6','G\u1ea4P':'#dc2626','CHU\u1ea8N':'#7c3aed'};
-    const pc = prioMap[o.shipping_priority] || '#6b7280';
+
     const deposit = Number(o.deposit_amount) || 0;
     const remaining = (Number(o.total_amount)||0) - deposit - (Number(o.discount_amount)||0);
-    let carrierOpts = '<option value="">\u2014 Ch\u1ecdn NVC \u2014</option>';
+    let carrierOpts = '<option value="">— Chọn NVC —</option>';
     _shCarriers.forEach(c => { carrierOpts += '<option value="' + c.id + '" data-name="' + c.name + '">' + c.name + '</option>'; });
+
     // Parse carrier_extra
     let ce = null;
     try { ce = o.carrier_extra ? (typeof o.carrier_extra === 'string' ? JSON.parse(o.carrier_extra) : o.carrier_extra) : null; } catch(e){}
-    // Build Sale D\u1eb7n KT rows dynamically
-    const _R = (icon, lbl, val) => !val ? '' : '<span style="color:#92400e;font-weight:600;">' + icon + ' ' + lbl + '</span><span style="font-weight:700;color:#1e293b;">' + val + '</span>';
-    let sR = _R('\ud83d\ude9a','V\u1eadn Chuy\u1ec3n YC C\u1ee7a Sale', o.carrier_name);
-    if (ce && ce.type === 'nha_xe') {
-        sR += _R('\ud83d\ude8c','T\u00ean Nh\u00e0 Xe', ce.bus_name);
-        if (ce.bus_phone) sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcde S\u0110T Nh\u00e0 Xe</span><span style="font-weight:700;"><a href="tel:' + ce.bus_phone + '" style="color:#2563eb;text-decoration:underline;">' + ce.bus_phone + '</a></span>';
-        sR += _R('\ud83d\udccd','\u0110\u1ecba \u0110i\u1ec3m Xe \u0110\u1ed7', ce.bus_location);
-        sR += _R('\ud83d\ude80','Xe \u0110i V\u1ec1 \u0110\u00e2u', ce.bus_destination);
-        sR += _R('\u23f0','Gi\u1edd Xe Ch\u1ea1y', ce.bus_departure_time);
+
+    // Build Sale Dặn KT rows dynamically
+    const row = (label, val) => `<tr><td style="padding:6px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:6px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
+    
+    var allReminders = [];
+    if (o.items && o.items.length) {
+        for (const it of o.items) { if(it.accounting_notes) allReminders.push(it.accounting_notes); }
     }
-    if (o.notes) sR += _R('\ud83d\udd14','Nh\u1eafc Nh\u1edf', o.notes);
-    sR += _R('\ud83d\udcdd','N\u1ed9i Dung D\u1eb7n KT', o.sale_note_for_accountant);
-    sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udd25 TC G\u1eedi</span><span><span style="background:' + pc + ';color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;">' + (o.shipping_priority||'CHU\u1ea8N') + '</span></span>';
-    if (o.standard_delivery_time) sR += _R('\u23f1\ufe0f','Y\u00eau C\u1ea7u Chu\u1ea9n Gi\u1edd H\u00e0ng Ra', o.standard_delivery_time);
-    if (o.standard_proof_image) sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcf7 \u1ea2nh TC</span><span><a href="' + o.standard_proof_image + '" target="_blank" style="color:#2563eb;text-weight:underline;font-weight:700;">Xem \u1ea3nh</a></span>';
-    sR += '<span style="color:#92400e;font-weight:600;">\ud83d\ude80 Ti\u1ebfn \u0110\u1ed9 Ra H\u00e0ng</span><span style="font-weight:700;color:#059669;">' + diffText + '</span>';
-    sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcc5 Ng\u00e0y g\u1eedi d\u1ef1 ki\u1ebfn</span><span style="font-weight:700;color:#1e293b;">' + fmt(o.expected_ship_date) + '</span>';
+    var reminderText = allReminders.length > 0 ? allReminders.join(' | ') : '<span style="color:#94a3b8;font-style:italic">Chưa có nhắc nhở</span>';
+
+    const formatExpectedShipDateWithDay = (dateVal) => {
+        if (!dateVal) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const day = localDt.getDate();
+        const month = localDt.getMonth() + 1;
+        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = daysOfWeek[localDt.getDay()];
+        return `${dayName} - Ngày ${day}/${month}`;
+    };
+
+    let saleKtHTML = row('🚚 Vận Chuyển YC Của Sale', o.carrier_name || '—');
+    if (ce) {
+        if (ce.type === 'nha_xe') {
+            saleKtHTML += row('🚌 Tên Nhà Xe', ce.bus_name || '—');
+            saleKtHTML += row('📞 SĐT Nhà Xe', ce.bus_phone ? '<a href="tel:'+ce.bus_phone+'" style="color:#2563eb;text-decoration:underline;">'+ce.bus_phone+'</a>' : '—');
+            saleKtHTML += row('📍 Địa Điểm Xe Đỗ', ce.bus_location || '—');
+            saleKtHTML += row('🗺️ Xe Đi Về Đâu', ce.bus_destination || '—');
+            saleKtHTML += row('🕐 Giờ Xe Chạy', ce.bus_departure_time || '—');
+        } else if (ce.type === 'nguoi_nhan_ho') {
+            saleKtHTML += row('🤝 Người Nhận Hộ', ce.proxy_name || '—');
+            saleKtHTML += row('📍 Địa Chỉ Nhận Hộ', ce.proxy_address || '—');
+            saleKtHTML += row('📞 SĐT Nhận Hộ', ce.proxy_phone ? '<a href="tel:'+ce.proxy_phone+'" style="color:#2563eb;text-decoration:underline;">'+ce.proxy_phone+'</a>' : '—');
+        }
+    }
+    saleKtHTML += row('⚠️ Nhắc Nhở', reminderText);
+    saleKtHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>');
+    var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
+    saleKtHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);
+    
+    var proofHtml = '<span style="color:#94a3b8;font-style:italic">Chưa có ảnh</span>';
+    if (o.standard_proof_image) {
+        proofHtml = `
+            <div style="margin-top:4px;">
+                <a href="${o.standard_proof_image}" target="_blank">
+                    <img src="${o.standard_proof_image}" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,0.08);" title="Bấm để phóng to">
+                </a>
+            </div>
+        `;
+    }
+    saleKtHTML += row('📷 Ảnh TC', proofHtml);
+    
+    var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
+    if (o.expected_ship_date) {
+        var shipVN = new Date(o.expected_ship_date);
+        shipVN.setHours(0,0,0,0);
+        if (o.shipped_at) {
+            var actualVN = new Date(o.shipped_at);
+            actualVN.setHours(0,0,0,0);
+            var diffDays = Math.round((shipVN - actualVN) / 86400000);
+            if (diffDays > 0) {
+                progressSaleHTML = '<span style="color:#0369a1;font-weight:900;font-size:14px">🚀 Nhanh ' + diffDays + ' ngày</span>';
+            } else if (diffDays < 0) {
+                progressSaleHTML = '<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Trễ ' + Math.abs(diffDays) + ' ngày</span>';
+            } else {
+                progressSaleHTML = '<span style="color:#059669;font-weight:900;font-size:14px">✅ Đúng hạn</span>';
+            }
+        } else {
+            var todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            todayVN.setHours(0,0,0,0);
+            var remainDays = Math.round((shipVN - todayVN) / 86400000);
+            if (remainDays > 0) {
+                progressSaleHTML = '<span style="color:#3b82f6;font-weight:900;font-size:14px">📅 Còn ' + remainDays + ' ngày</span>';
+            } else if (remainDays < 0) {
+                progressSaleHTML = '<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Quá hạn ' + Math.abs(remainDays) + ' ngày</span>';
+            } else {
+                progressSaleHTML = '<span style="color:#d97706;font-weight:900;font-size:14px">📦 Hôm nay gửi</span>';
+            }
+        }
+    }
+    saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
+    saleKtHTML += row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.expected_ship_date));
+    var deliveryTimeHtml = o.standard_delivery_time 
+        ? `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>` 
+        : '<span style="color:#94a3b8;font-style:italic">—</span>';
+    saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', deliveryTimeHtml);
+
     // Customer phone link
-    const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '\u2014';
+    const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '—';
 
     const isMultiple = Array.isArray(itemId);
     const itemIdsArray = isMultiple ? itemId : (itemId ? [itemId] : []);
@@ -598,18 +650,18 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
         ? `📤 Gửi Chung ${itemIdsArray.length} Phiếu — ${code}` 
         : (itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : `📤 Gửi Hàng — ${code}`);
 
-    const backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Tr\u1edf l\u1ea1i</button>';
+    const backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">← Trở lại</button>';
 
     m.innerHTML = '<div style="background:white;border-radius:16px;width:560px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
     + '<div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">'
     + '<div style="color:white;font-weight:800;font-size:16px;">' + modalTitle + '</div>'
-    + '<div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;">Ti\u1ec1n \u0111\u01a1n c\u00f2n l\u1ea1i: <b style="color:#fbbf24">' + fmtMoney(remaining) + '\u0111</b></div>'
+    + '<div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;">Tiền đơn còn lại: <b style="color:#fbbf24">' + fmtMoney(remaining) + 'đ</b></div>'
     + '</div>'
     + '<div style="padding:20px 24px;">'
-    // P1: Sale D\u1eb7n KT
-    + '<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
-    + '<div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:10px;">\ud83d\udccb Sale D\u1eb7n K\u1ebf To\u00e1n Tr\u01b0\u1edbc G\u1eedi H\u00e0ng</div>'
-    + '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;">' + sR + '</div>'
+    // P1: Sale Dặn KT
+    + '<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid #fb923c;border-radius:12px;padding:16px;margin-bottom:16px;">'
+    + '<div style="font-size:15px;font-weight:900;color:#9a3412;margin-bottom:12px;">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>'
+    + '<table style="width:100%;border-collapse:collapse;">' + saleKtHTML + '</table>'
     + '</div>'
     // P1.5: Th\u00f4ng tin \u0111\u01a1n h\u00e0ng
     + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'

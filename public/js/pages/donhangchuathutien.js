@@ -445,7 +445,7 @@ async function _dhcttLoadTree() {
     _dhctt.open = _dhctt.open || {};
 
     var isFull = _dhctt.summaryVisibility === 'full';
-    var _sbVal = function(total, count) { return isFull ? _dhcttFmt(total) : _dhcttFmtCount(count); };
+    var _sbVal = function(total, count) { return isFull ? _dhcttFmt(total) : ''; };
     
     // Header
     var h = '<div class="dhctt-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#b8860b;font-weight:900">✨ Chưa thu tiền ✨</span> <span style="color:var(--navy)">───</span></div>';
@@ -454,7 +454,7 @@ async function _dhcttLoadTree() {
     if (isFull) {
         h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ</span><span>'+_dhcttFmt(data.grandTotal||0)+'</span></div>';
     } else {
-        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ</span><span>'+_dhcttFmtCount(data.grandCount||0)+'</span></div>';
+        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ</span></div>';
     }
 
     // Initialize open state for first render if not set
@@ -474,9 +474,10 @@ async function _dhcttLoadTree() {
         var cOpen = !!_dhctt.open[cKey];
         var cActive = _dhctt.filter.carrier_id == carrier.carrier_id && !_dhctt.filter.year && !_dhctt.filter.month;
         
+        var valSpan = isFull ? '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(carrier.total, carrier.count)+'</span>' : '';
         h += '<div class="dhctt-sb-year" onclick="_dhcttToggleCarrier(\''+cKey+'\','+carrier.carrier_id+')">'
             + '<span>'+(cOpen?'▼':'▶')+' 🚛 '+carrier.carrier_name+'</span>'
-            + '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(carrier.total, carrier.count)+'</span>'
+            + valSpan
             + '</div>';
         
         h += '<div style="display:'+(cOpen?'block':'none')+'">';
@@ -485,10 +486,11 @@ async function _dhcttLoadTree() {
             var yKey = cKey + 'y' + yr.year;
             var yOpen = !!_dhctt.open[yKey];
             var yActive = _dhctt.filter.carrier_id == carrier.carrier_id && _dhctt.filter.year == yr.year && !_dhctt.filter.month;
+            var yrValSpan = isFull ? '<span style="color:#b8860b;font-weight:800">'+_sbVal(yr.total, yr.count)+'</span>' : '';
             
             h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation();_dhcttToggleYear(\''+yKey+'\','+carrier.carrier_id+','+yr.year+')">'
                 + '<span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span>'
-                + '<span style="color:#b8860b;font-weight:800">'+_sbVal(yr.total, yr.count)+'</span>'
+                + yrValSpan
                 + '</div>';
             
             h += '<div style="display:'+(yOpen?'block':'none')+'">';
@@ -496,10 +498,11 @@ async function _dhcttLoadTree() {
             (yr.months || []).forEach(function(mo) {
                 var mActive = _dhctt.filter.carrier_id == carrier.carrier_id && _dhctt.filter.year == yr.year && _dhctt.filter.month == mo.month;
                 var mVal = isFull ? mo.total : mo.count;
+                var moValSpan = isFull ? '<span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mo.total, mo.count)+'</span>' : '';
                 
                 h += '<div class="dhctt-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhcttFilterOnly({carrier_id:'+carrier.carrier_id+',year:'+yr.year+',month:'+mo.month+'})">'
                     + '<span>▸ Tháng '+String(mo.month).padStart(2,'0')+'</span>'
-                    + '<span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mo.total, mo.count)+'</span>'
+                    + moValSpan
                     + '</div>';
             });
             
@@ -575,16 +578,7 @@ function _dhcttUpdateInfo(count, filtered) {
     var fmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
     var sc = document.getElementById('dhcttStatCards');
     if (sc) {
-        var vis = _dhctt.summaryVisibility || 'none';
-        if (vis === 'none') {
-            sc.innerHTML = '';
-        } else {
-            sc.innerHTML = '<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:180px;text-align:center;box-shadow:0 4px 15px #dc262630;position:relative;overflow:hidden;transition:all .2s">'
-                +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:dhcttShimmer 2.5s infinite"></div>'
-                +'<div style="font-size:9px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:2px">⚠️ TỔNG NỢ CHƯA THU (TRANG NÀY)</div>'
-                +'<div style="font-size:15px;font-weight:900">'+fmt(totalRemaining)+'đ</div>'
-                +'</div>';
-        }
+        sc.innerHTML = '';
     }
 }
 
