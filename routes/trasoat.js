@@ -989,7 +989,80 @@ module.exports = async function(fastify) {
                     ORDER BY fct.sort_order
                 `, [r.id]);
             }
-            return { step: 'ht', order_code: order.order_code, cskh_name: order.cskh_name, is_order_shipped: !!order.delivery_date, records };
+
+            const items = await db.all(`
+                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+            `, [orderId]);
+
+            const itemsStatus = [];
+            for (const item of items) {
+                const sewRec = await db.get(`SELECT id, done_date FROM sewing_records WHERE order_item_id = $1 LIMIT 1`, [item.id]);
+                const hasSewingRecord = !!sewRec;
+                const isSewingDone = sewRec ? !!sewRec.done_date : false;
+
+                let isQcDone = false;
+                if (sewRec) {
+                    const qcAns = await db.get(`SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1`, [sewRec.id]);
+                    isQcDone = !!qcAns;
+                }
+
+                // Check if it has CCHT process step
+                const prodName = item.description;
+                const hasCCHT = await db.get(`
+                    SELECT 1 FROM dht_product_process pp
+                    JOIN dht_process_steps ps ON pp.step_id = ps.id
+                    JOIN dht_products p ON pp.product_id = p.id
+                    LEFT JOIN dht_settings_options so ON so.category = 'sale_type' AND so.name = (SELECT sale_type FROM dht_order_items WHERE id = $2)
+                    WHERE ps.short_name = 'CCHT' AND pp.is_active = true AND ps.is_active = true
+                      AND (p.sale_type_id = so.id OR (so.id IS NULL AND p.sale_type_id = 1))
+                      AND (p.name = $1 OR p.name = $3 OR $1 LIKE '%' || p.name)
+                    LIMIT 1
+                `, [prodName, item.id, prodName ? prodName.trim() : '']);
+
+                itemsStatus.push({
+                    item_id: item.id,
+                    description: item.description,
+                    quantity: item.quantity,
+                    has_sewing_record: hasSewingRecord,
+                    is_sewing_done: isSewingDone,
+                    is_qc_done: isQcDone,
+                    has_ccht: !!hasCCHT
+                });
+            }
+
+            if (items.length === 0) {
+                const sewRec = await db.get(`SELECT id, done_date FROM sewing_records WHERE dht_order_id = $1 AND order_item_id IS NULL LIMIT 1`, [orderId]);
+                const hasSewingRecord = !!sewRec;
+                const isSewingDone = sewRec ? !!sewRec.done_date : false;
+
+                let isQcDone = false;
+                if (sewRec) {
+                    const qcAns = await db.get(`SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1`, [sewRec.id]);
+                    isQcDone = !!qcAns;
+                }
+
+                const hasCCHT = await db.get(`
+                    SELECT 1 FROM dht_product_process pp
+                    JOIN dht_process_steps ps ON pp.step_id = ps.id
+                    JOIN dht_products p ON pp.product_id = p.id
+                    WHERE ps.short_name = 'CCHT' AND pp.is_active = true AND ps.is_active = true
+                      AND p.sale_type_id = 1
+                      AND (p.name = $1 OR $1 LIKE '%' || p.name)
+                    LIMIT 1
+                `, [order.category_name]);
+
+                itemsStatus.push({
+                    item_id: null,
+                    description: order.order_code,
+                    quantity: order.total_quantity || 0,
+                    has_sewing_record: hasSewingRecord,
+                    is_sewing_done: isSewingDone,
+                    is_qc_done: isQcDone,
+                    has_ccht: !!hasCCHT
+                });
+            }
+
+            return { step: 'ht', order_code: order.order_code, cskh_name: order.cskh_name, is_order_shipped: !!order.delivery_date, records, items_status: itemsStatus };
         }
 
         if (step === 'gui') {

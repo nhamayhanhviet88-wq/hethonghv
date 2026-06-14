@@ -1116,7 +1116,94 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='ht'){
         html = hdr('🔧','CHI TIẾT HOÀN THIỆN & CHECKLIST',d.order_code,'#334155,#475569');
-        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔧</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu hoàn thiện</div></div>'; }
+        if(!d.records||!d.records.length){
+            body = `<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            body += `<div style="text-align:center;padding:12px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:12px;color:#475569;font-weight:700;font-size:13px">
+                        ⚠️ Đơn hàng chưa có dữ liệu hoàn thiện
+                     </div>`;
+            
+            if (d.items_status && d.items_status.length) {
+                d.items_status.forEach((item, index) => {
+                    const itemTitle = item.description 
+                        ? `${d.order_code} - Phiếu ${index + 1} — ${item.description}` 
+                        : `${d.order_code} - Phiếu ${index + 1}`;
+                    
+                    let statusLabel = '';
+                    let statusColor = '';
+                    let statusBg = '';
+                    
+                    if (!item.has_ccht) {
+                        statusLabel = 'Không cần HT';
+                        statusColor = '#475569';
+                        statusBg = '#f1f5f9';
+                    } else if (item.is_qc_done) {
+                        statusLabel = 'Chờ hoàn thiện';
+                        statusColor = '#1e40af';
+                        statusBg = '#dbeafe';
+                    } else {
+                        statusLabel = 'Chưa đủ điều kiện';
+                        statusColor = '#991b1b';
+                        statusBg = '#fee2e2';
+                    }
+
+                    body += `<div style="border:1.5px solid #e2e8f0;border-radius:14px;background:white;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.02)">
+                                <div style="background:#f8fafc;padding:12px 16px;border-bottom:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+                                    <span style="font-weight:800;color:#1e293b;font-size:13px">${itemTitle}</span>
+                                    <span style="padding:3px 10px;border-radius:6px;background:${statusBg};color:${statusColor};font-size:11px;font-weight:800">${statusLabel}</span>
+                                </div>
+                                <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600">
+                                        <span style="color:#64748b">1. Phân công may</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.has_sewing_record ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.has_sewing_record ? '🟢 Đã phân công' : '🔴 Chưa phân công'}</span>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
+                                        <span style="color:#64748b">2. Tiến độ may</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_sewing_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_sewing_done ? '🟢 Đã may xong' : '🔴 Chưa may xong'}</span>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
+                                        <span style="color:#64748b">3. Kiểm tra chất lượng (QC)</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_qc_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_qc_done ? '🟢 Đã QC' : '🔴 Chưa QC'}</span>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
+                                        <span style="color:#64748b">4. Quy trình hoàn thiện</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.has_ccht ? 'background:#d1fae5;color:#065f46' : 'background:#f1f5f9;color:#475569'}">${item.has_ccht ? '🟢 Cần hoàn thiện' : '⚪ Không cần hoàn thiện'}</span>
+                                    </div>`;
+
+                    let detailMsg = '';
+                    let detailColor = '';
+                    if (!item.has_ccht) {
+                        detailMsg = 'Sản phẩm này không yêu cầu hoàn thiện trong quy trình công nghệ.';
+                        detailColor = '#475569';
+                    } else if (item.is_qc_done) {
+                        detailMsg = 'Đã hoàn thành QC. Chờ nhân viên bộ phận Hoàn thiện thực hiện checklist và báo cáo hoàn thành.';
+                        detailColor = '#1e40af';
+                    } else {
+                        const missing = [];
+                        if (!item.has_sewing_record) {
+                            missing.push('Quản Lý Xưởng chưa phân công thợ may / tổ may');
+                        } else {
+                            if (!item.is_sewing_done) {
+                                missing.push('chưa may xong');
+                            }
+                            if (!item.is_qc_done) {
+                                missing.push('chưa kiểm tra QC');
+                            }
+                        }
+                        detailMsg = `Chưa sẵn sàng hoàn thiện do: ${missing.join(' & ')}.`;
+                        detailColor = '#b45309';
+                    }
+
+                    body += `        <div style="margin-top:4px;padding:10px;background:#f8fafc;border-radius:8px;font-size:11px;color:${detailColor};font-weight:700;text-align:center">
+                                        ℹ️ ${detailMsg}
+                                     </div>
+                                </div>
+                             </div>`;
+                });
+            } else {
+                body += `<div style="text-align:center;padding:20px;color:#64748b;font-size:13px">Không có thông tin chi tiết.</div>`;
+            }
+            body += `</div>`;
+        }
         else {
             body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
             // Group by order_item_id
