@@ -166,6 +166,7 @@ async function _getShippingItemsProgress(orderIds) {
         FROM dht_order_items oi
         LEFT JOIN dht_carriers cr ON oi.actual_carrier_id = cr.id
         WHERE oi.dht_order_id = ANY($1::int[])
+        ORDER BY oi.dht_order_id, oi.id
     `, [orderIds]);
 
     return items;
