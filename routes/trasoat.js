@@ -338,12 +338,17 @@ module.exports = async function(fastify) {
             });
         }
 
+        const hasItemSpecificCutting = cutting.some(c => c.order_item_id !== null);
+        const hasItemSpecificPrinting = printing.some(p => p.order_item_id !== null);
+        const hasItemSpecificPressing = pressing.some(p => p.order_item_id !== null);
+        const hasItemSpecificSewing = sewing.some(s => s.order_item_id !== null);
+
         const itemsTimeline = items.map((item, idx) => {
             const isFirst = idx === 0;
-            const itemCutting = cutting.filter(c => c.order_item_id === item.id || (c.order_item_id === null && isFirst));
-            const itemPrinting = printing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst));
-            const itemPressing = pressing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst));
-            const itemSewing = sewing.filter(s => s.order_item_id === item.id || (s.order_item_id === null && isFirst));
+            const itemCutting = cutting.filter(c => c.order_item_id === item.id || (c.order_item_id === null && isFirst && !hasItemSpecificCutting));
+            const itemPrinting = printing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst && !hasItemSpecificPrinting));
+            const itemPressing = pressing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst && !hasItemSpecificPressing));
+            const itemSewing = sewing.filter(s => s.order_item_id === item.id || (s.order_item_id === null && isFirst && !hasItemSpecificSewing));
             const itemSewingIds = new Set(itemSewing.map(s => s.id));
             const itemFinishing = finishing.filter(f => itemSewingIds.has(f.sewing_record_id));
 

@@ -1503,6 +1503,8 @@ module.exports = async function(fastify) {
             // Save order print assignments (replace all for this order/item)
             if (itemId) {
                 await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+                // Clean up any stale order-level assignments since we are now assigning at the item level
+                await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
             } else {
                 await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
             }
@@ -1667,6 +1669,8 @@ module.exports = async function(fastify) {
             let existingRecs = [];
             if (itemId) {
                 existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE order_item_id = $1`, [itemId]);
+                // Clean up any stale order-level printing records since we are now assigning at the item level
+                await db.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             } else {
                 existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             }
