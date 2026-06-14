@@ -2108,47 +2108,47 @@ module.exports = async function(fastify) {
 
         const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
         const isCutDone = await checkItemCuttingDone(item_id);
-        const isLocked = isProdDone || isCutDone;
+        if (isProdDone || isCutDone) {
+            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể thay đổi dữ liệu vải!' : 'Phiếu này đã hoàn thành cắt, không thể thay đổi dữ liệu vải!' });
+        }
 
-        if (!isLocked) {
-            // Validate cutting reminders choice and content (required for reservation POST)
-            if (!cut_remind_choice) {
-                return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
+        // Validate cutting reminders choice and content (required for reservation POST)
+        if (!cut_remind_choice) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
+        }
+        if (!['yes', 'none'].includes(cut_remind_choice)) {
+            return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
+        }
+
+        if (cut_remind_choice === 'yes') {
+            if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
             }
-            if (!['yes', 'none'].includes(cut_remind_choice)) {
-                return reply.code(400).send({ error: 'Trạng thái Nhắc Nhở cho Bộ Phận Cắt không hợp lệ!' });
-            }
-
-            if (cut_remind_choice === 'yes') {
-                if (!Array.isArray(cut_reminders) || cut_reminders.length === 0) {
-                    return reply.code(400).send({ error: 'Vui lòng nhập nội dung nhắc nhở bộ phận cắt!' });
-                }
-                for (const content of cut_reminders) {
-                    if (!content || !content.trim()) {
-                        return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
-                    }
+            for (const content of cut_reminders) {
+                if (!content || !content.trim()) {
+                    return reply.code(400).send({ error: 'Nội dung nhắc nhở bộ phận cắt không được để trống!' });
                 }
             }
+        }
 
-            // Persist cutting reminders choice
-            await ensureItemPrepRow(dht_order_id, item_id);
-            await db.run(`
-                UPDATE qlx_preparation
-                SET cut_remind_choice = $1, updated_at = $2
-                WHERE item_id = $3
-            `, [cut_remind_choice, now, item_id]);
+        // Persist cutting reminders choice
+        await ensureItemPrepRow(dht_order_id, item_id);
+        await db.run(`
+            UPDATE qlx_preparation
+            SET cut_remind_choice = $1, updated_at = $2
+            WHERE item_id = $3
+        `, [cut_remind_choice, now, item_id]);
 
-            // Delete existing cutting reminders for this item
-            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+        // Delete existing cutting reminders for this item
+        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
 
-            // Insert new cutting reminders
-            if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
-                for (const content of cut_reminders) {
-                    await db.run(`
-                        INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
-                        VALUES ($1, $2, 'cat', $3, $4, $5)
-                    `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
-                }
+        // Insert new cutting reminders
+        if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
+            for (const content of cut_reminders) {
+                await db.run(`
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                    VALUES ($1, $2, 'cat', $3, $4, $5)
+                `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
             }
         }
 
@@ -2342,6 +2342,12 @@ module.exports = async function(fastify) {
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (res.reservation_type !== 'from_stock') return reply.code(400).send({ error: 'Chỉ sửa được loại lấy từ kho' });
 
+        const isProdDone = await checkItemProductionDone(res.item_id, res.dht_order_id);
+        const isCutDone = await checkItemCuttingDone(res.item_id);
+        if (isProdDone || isCutDone) {
+            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể sửa số kg!' : 'Phiếu này đã hoàn thành cắt, không thể sửa số kg!' });
+        }
+
         const oldKg = Number(res.kg_reserved);
 
         // Validate: new total must not exceed roll weight
@@ -2379,6 +2385,12 @@ module.exports = async function(fastify) {
         const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [request.params.id]);
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (res.status === 'arrived') return reply.code(400).send({ error: 'Đã xác nhận rồi' });
+
+        const isProdDone = await checkItemProductionDone(res.item_id, res.dht_order_id);
+        const isCutDone = await checkItemCuttingDone(res.item_id);
+        if (isProdDone || isCutDone) {
+            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể xác nhận vải về!' : 'Phiếu này đã hoàn thành cắt, không thể xác nhận vải về!' });
+        }
 
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
@@ -2453,6 +2465,12 @@ module.exports = async function(fastify) {
 
         const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [request.params.id]);
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const isProdDone = await checkItemProductionDone(res.item_id, res.dht_order_id);
+        const isCutDone = await checkItemCuttingDone(res.item_id);
+        if (isProdDone || isCutDone) {
+            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể hủy giữ vải!' : 'Phiếu này đã hoàn thành cắt, không thể hủy giữ vải!' });
+        }
 
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
