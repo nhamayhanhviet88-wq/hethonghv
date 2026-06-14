@@ -147,7 +147,21 @@ module.exports = async function(fastify) {
                 COALESCE(
                     CASE 
                         WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id) 
-                        THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id AND done_date IS NULL)
+                        THEN NOT EXISTS (
+                            SELECT 1 FROM sewing_records sr
+                            WHERE sr.dht_order_id = o.id
+                              AND (
+                                  (sr.contractor_id IS NULL AND NOT EXISTS (
+                                      SELECT 1 FROM finishing_records fr 
+                                      WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                  ))
+                                  OR
+                                  (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                      SELECT 1 FROM qc_checklist_answers qca 
+                                      WHERE qca.sewing_record_id = sr.id
+                                  ))
+                              )
+                        )
                         ELSE false
                     END,
                     false
@@ -155,11 +169,37 @@ module.exports = async function(fastify) {
                 COALESCE(
                     CASE 
                         WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id) 
-                        THEN NOT EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id AND is_completed = false)
+                        THEN NOT EXISTS (
+                            SELECT 1 FROM finishing_records fr 
+                            JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                            WHERE fr.dht_order_id = o.id
+                              AND (
+                                  NOT EXISTS (
+                                      SELECT 1 FROM qc_checklist_answers qca 
+                                      WHERE qca.sewing_record_id = fr.sewing_record_id
+                                  )
+                                  OR
+                                  (sr.contractor_id IS NULL AND fr.is_completed = false)
+                              )
+                        )
                         ELSE (
                             CASE 
                                 WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id)
-                                THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id AND done_date IS NULL)
+                                THEN NOT EXISTS (
+                                    SELECT 1 FROM sewing_records sr
+                                    WHERE sr.dht_order_id = o.id
+                                      AND (
+                                          (sr.contractor_id IS NULL AND NOT EXISTS (
+                                              SELECT 1 FROM finishing_records fr 
+                                              WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                          ))
+                                          OR
+                                          (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                              SELECT 1 FROM qc_checklist_answers qca 
+                                              WHERE qca.sewing_record_id = sr.id
+                                          ))
+                                      )
+                                )
                                 ELSE false
                             END
                         )
@@ -1468,10 +1508,38 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             COALESCE(
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
-                    THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id AND done_date IS NULL)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM sewing_records sr
+                        WHERE sr.order_item_id = oi.id
+                          AND (
+                              (sr.contractor_id IS NULL AND NOT EXISTS (
+                                  SELECT 1 FROM finishing_records fr 
+                                  WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                              ))
+                              OR
+                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                  SELECT 1 FROM qc_checklist_answers qca 
+                                  WHERE qca.sewing_record_id = sr.id
+                              ))
+                          )
+                    )
                     WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
                          AND EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
-                    THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND done_date IS NULL)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM sewing_records sr
+                        WHERE sr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
+                          AND (
+                              (sr.contractor_id IS NULL AND NOT EXISTS (
+                                  SELECT 1 FROM finishing_records fr 
+                                  WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                              ))
+                              OR
+                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                  SELECT 1 FROM qc_checklist_answers qca 
+                                  WHERE qca.sewing_record_id = sr.id
+                              ))
+                          )
+                    )
                     ELSE false
                 END,
                 false
@@ -1479,10 +1547,34 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             COALESCE(
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
-                    THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id AND fr.is_completed = false)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM finishing_records fr 
+                        JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                        WHERE sr.order_item_id = oi.id
+                          AND (
+                              NOT EXISTS (
+                                  SELECT 1 FROM qc_checklist_answers qca 
+                                  WHERE qca.sewing_record_id = fr.sewing_record_id
+                              )
+                              OR
+                              (sr.contractor_id IS NULL AND fr.is_completed = false)
+                          )
+                    )
                     WHEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NOT NULL)
                          AND EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL)
-                    THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL AND fr.is_completed = false)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM finishing_records fr 
+                        JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                        WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
+                          AND (
+                              NOT EXISTS (
+                                  SELECT 1 FROM qc_checklist_answers qca 
+                                  WHERE qca.sewing_record_id = fr.sewing_record_id
+                              )
+                              OR
+                              (sr.contractor_id IS NULL AND fr.is_completed = false)
+                          )
+                    )
                     ELSE false
                 END,
                 false
