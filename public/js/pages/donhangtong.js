@@ -1330,99 +1330,145 @@ async function _dhtShowDetail(id) {
                 <span>${summaryText}</span>
             </div>`;
             
-            // Loop through each item to display its shipping status/info
+            // Group shipped items by batch key
+            const shippedBatches = {};
+            const pendingItems = [];
+            
             for (let i = 0; i < items.length; i++) {
                 const it = items[i];
-                const itemName = it.product_name || it.description || 'Sản phẩm';
-                const qty = it.quantity || 0;
                 const phieuLabel = `Phiếu ${i + 1}`;
-                
                 if (it.shipping_status === 'shipped') {
-                    // Carrier info
-                    const carrierName = it.actual_carrier_name || '—';
-                    let trackingDisplay = it.tracking_code || '—';
-                    if (it.tracking_code && it.actual_carrier_tracking_url) {
-                        const trackingUrl = it.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(it.tracking_code));
-                        trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
+                    const batchKey = [
+                        it.shipped_at || '',
+                        it.actual_carrier_id || '',
+                        it.tracking_code || '',
+                        it.shipping_bill_link || '',
+                        it.shipping_fee || '0',
+                        it.shipping_fee_payer || '',
+                        it.shipping_fee_method || ''
+                    ].join('|');
+                    
+                    if (!shippedBatches[batchKey]) {
+                        shippedBatches[batchKey] = {
+                            details: it,
+                            labels: []
+                        };
                     }
-                    
-                    const payerLabel = it.shipping_fee_payer === 'hv' ? 'HV trả' : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
-                    const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
-                    const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
-                    const feeAmt = Number(it.shipping_fee || 0);
-                    
-                    // Bill image setup
-                    let billHtml = '—';
-                    if (it.shipping_bill_link) {
-                        const itBillCid = `_itBillImg_${id}_${it.id}`;
-                        billHtml = `<span id="${itBillCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
-                        
-                        // Deferred bill loader for this item
-                        (function(_cid, _origUrl) {
-                            setTimeout(async function() {
-                                const el = document.getElementById(_cid);
-                                if (!el) return;
-                                let imgSrc = _origUrl;
-                                try {
-                                    if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
-                                        const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
-                                        if (r && r.direct_url) imgSrc = r.direct_url;
-                                    } else {
-                                        const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
-                                        if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
-                                        const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
-                                        if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
-                                    }
-                                } catch(e) { console.warn('[BillResolve]', e); }
-                                
-                                const img = document.createElement('img');
-                                img.src = imgSrc;
-                                img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
-                                img.onerror = function() {
-                                    el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
-                                };
-                                const link = document.createElement('a');
-                                link.href = _origUrl;
-                                link.target = '_blank';
-                                link.title = 'Click xem ảnh gốc';
-                                link.appendChild(img);
-                                el.innerHTML = '';
-                                el.appendChild(link);
-                            }, 100);
-                        })(itBillCid, it.shipping_bill_link);
-                    }
-                    
-                    const timeValue = it.actual_ship_datetime ? vnFormat(it.actual_ship_datetime) : (it.shipped_at ? vnFormat(it.shipped_at) : '—');
-                    
-                    shipHTML += `
-                    <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 4px rgba(22,163,74,0.03)">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;">
-                            <span style="font-weight:800;color:#166534;font-size:13px;display:flex;align-items:center;gap:6px;">
-                                📦 ${phieuLabel.toUpperCase()} — ${itemName.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${qty}</span>
-                            </span>
-                            <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>
-                        </div>
-                        <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
-                            <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${it.shipped_by_name || '—'}</span>
-                            <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValue}</span>
-                            <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierName}</span>
-                            ${it.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
-                            ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
-                            ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
-                            <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
-                            <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
-                            ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
-                        </div>
-                    </div>`;
+                    shippedBatches[batchKey].labels.push({
+                        label: phieuLabel,
+                        name: it.product_name || it.description || 'Sản phẩm',
+                        qty: it.quantity || 0
+                    });
                 } else {
-                    shipHTML += `
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px;opacity:0.85;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-weight:700;color:#475569;font-size:12.5px;display:flex;align-items:center;gap:6px;">
-                            📦 ${phieuLabel.toUpperCase()} — ${itemName.toUpperCase()} <span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">SL: ${qty}</span>
-                        </span>
-                        <span style="background:#e2e8f0;color:#475569;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">⏳ CHỜ GỬI</span>
-                    </div>`;
+                    pendingItems.push({
+                        label: phieuLabel,
+                        name: it.product_name || it.description || 'Sản phẩm',
+                        qty: it.quantity || 0
+                    });
                 }
+            }
+            
+            // Render Shipped Batches
+            for (const batchKey in shippedBatches) {
+                const batch = shippedBatches[batchKey];
+                const it = batch.details;
+                
+                const carrierName = it.actual_carrier_name || '—';
+                let trackingDisplay = it.tracking_code || '—';
+                if (it.tracking_code && it.actual_carrier_tracking_url) {
+                    const trackingUrl = it.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(it.tracking_code));
+                    trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
+                }
+                
+                const payerLabel = it.shipping_fee_payer === 'hv' ? 'HV trả' : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
+                const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+                const feeAmt = Number(it.shipping_fee || 0);
+                
+                let billHtml = '—';
+                if (it.shipping_bill_link) {
+                    const itBillCid = `_itBillImg_${id}_${it.id}`;
+                    billHtml = `<span id="${itBillCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                    
+                    (function(_cid, _origUrl) {
+                        setTimeout(async function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            try {
+                                if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                    const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                    if (r && r.direct_url) imgSrc = r.direct_url;
+                                } else {
+                                    const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                    if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                    const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                    if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                                }
+                            } catch(e) { console.warn('[BillResolve]', e); }
+                            
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                            };
+                            const link = document.createElement('a');
+                            link.href = _origUrl;
+                            link.target = '_blank';
+                            link.title = 'Click xem ảnh gốc';
+                            link.appendChild(img);
+                            el.innerHTML = '';
+                            el.appendChild(link);
+                        }, 100);
+                    })(itBillCid, it.shipping_bill_link);
+                }
+                
+                const timeValue = it.actual_ship_datetime ? vnFormat(it.actual_ship_datetime) : (it.shipped_at ? vnFormat(it.shipped_at) : '—');
+                
+                let headerHtml = '';
+                if (batch.labels.length === 1) {
+                    const l = batch.labels[0];
+                    headerHtml = `📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                } else {
+                    const itemsHeader = batch.labels.map(l => `
+                        <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
+                            ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
+                        </span>
+                    `).join(' ');
+                    headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI CHUNG: ${itemsHeader}</span>`;
+                }
+                
+                shipHTML += `
+                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 4px rgba(22,163,74,0.03)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        ${headerHtml}
+                        <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>
+                    </div>
+                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${it.shipped_by_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValue}</span>
+                        <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierName}</span>
+                        ${it.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
+                        ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
+                        ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
+                        <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
+                        <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
+                        ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                    </div>
+                </div>`;
+            }
+            
+            // Render Pending Items
+            for (let i = 0; i < pendingItems.length; i++) {
+                const pit = pendingItems[i];
+                shipHTML += `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px;opacity:0.85;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;color:#475569;font-size:12.5px;display:flex;align-items:center;gap:6px;">
+                        📦 ${pit.label.toUpperCase()} — ${pit.name.toUpperCase()} <span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">SL: ${pit.qty}</span>
+                    </span>
+                    <span style="background:#e2e8f0;color:#475569;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">⏳ CHỜ GỬI</span>
+                </div>`;
             }
         } else {
             // Fallback to order-level shipping details

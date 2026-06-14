@@ -449,10 +449,19 @@ function _shAlertCannotShipOrder(orderId) {
             <div style="margin-bottom:12px;">Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> hiện tại chưa có phiếu sản phẩm nào ở trạng thái chờ gửi.</div>
         `;
     } else {
+        const completedPendingItems = pendingItems.filter(item => item.all_done);
+        const completedPendingIds = completedPendingItems.map(item => item.item_id);
+        const shipMultiBtn = completedPendingIds.length > 1 
+            ? `<button onclick="event.stopPropagation();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Chung ${completedPendingIds.length} Phiếu Đã Xong</button>`
+            : '';
+
         html = `
             <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                 <div>Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có phiếu sản phẩm chưa hoàn thành sản xuất:</div>
-                <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    ${shipMultiBtn}
+                    <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>
+                </div>
             </div>
             
             <div style="margin-bottom:14px;">
@@ -543,13 +552,17 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
     sR += _R('\ud83d\udcdd','N\u1ed9i Dung D\u1eb7n KT', o.sale_note_for_accountant);
     sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udd25 TC G\u1eedi</span><span><span style="background:' + pc + ';color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;">' + (o.shipping_priority||'CHU\u1ea8N') + '</span></span>';
     if (o.standard_delivery_time) sR += _R('\u23f1\ufe0f','Y\u00eau C\u1ea7u Chu\u1ea9n Gi\u1edd H\u00e0ng Ra', o.standard_delivery_time);
-    if (o.standard_proof_image) sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcf7 \u1ea2nh TC</span><span><a href="' + o.standard_proof_image + '" target="_blank" style="color:#2563eb;text-decoration:underline;font-weight:700;">Xem \u1ea3nh</a></span>';
+    if (o.standard_proof_image) sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcf7 \u1ea2nh TC</span><span><a href="' + o.standard_proof_image + '" target="_blank" style="color:#2563eb;text-weight:underline;font-weight:700;">Xem \u1ea3nh</a></span>';
     sR += '<span style="color:#92400e;font-weight:600;">\ud83d\ude80 Ti\u1ebfn \u0110\u1ed9 Ra H\u00e0ng</span><span style="font-weight:700;color:#059669;">' + diffText + '</span>';
     sR += '<span style="color:#92400e;font-weight:600;">\ud83d\udcc5 Ng\u00e0y g\u1eedi d\u1ef1 ki\u1ebfn</span><span style="font-weight:700;color:#1e293b;">' + fmt(o.expected_ship_date) + '</span>';
     // Customer phone link
     const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '\u2014';
 
-    const modalTitle = itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : `📤 Gửi Hàng — ${code}`;
+    const isMultiple = Array.isArray(itemId);
+    const itemIdsArray = isMultiple ? itemId : (itemId ? [itemId] : []);
+    const modalTitle = isMultiple 
+        ? `📤 Gửi Chung ${itemIdsArray.length} Phiếu — ${code}` 
+        : (itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : `📤 Gửi Hàng — ${code}`);
 
     let backBtnHtml = '';
     if (itemId) {
@@ -603,7 +616,20 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
     + '</div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    window._shModalState = { payer: null, method: null, orderId: id, remaining, orderCode: code, selectedPaymentId: null, skipPayment: false, matchingPayments: [], paymentLoaded: false, payLaterCarrier: false, itemId: itemId };
+    window._shModalState = { 
+        payer: null, 
+        method: null, 
+        orderId: id, 
+        remaining, 
+        orderCode: code, 
+        selectedPaymentId: null, 
+        skipPayment: false, 
+        matchingPayments: [], 
+        paymentLoaded: false, 
+        payLaterCarrier: false, 
+        itemId: isMultiple ? null : itemId, 
+        itemIds: itemIdsArray 
+    };
 }
 
 
@@ -806,6 +832,7 @@ async function _shDoShip(id) {
         };
         if (s.selectedPaymentId) body.selected_payment_id = s.selectedPaymentId;
         if (s.itemId) body.item_id = s.itemId;
+        if (s.itemIds && s.itemIds.length > 0) body.item_ids = s.itemIds;
         if (tracking) body.tracking_code = tracking;
         if (bill) body.shipping_bill_link = bill;
         if (phone) body.carrier_phone = phone;

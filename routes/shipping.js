@@ -534,12 +534,26 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const todayStr = vnDateStr(now);
 
-        // If itemId is provided, check and validate item
-        let item = null;
-        if (itemId) {
-            item = await db.get('SELECT id, dht_order_id, shipping_status, product_name, description FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
-            if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu/sản phẩm này của đơn hàng' });
-            if (item.shipping_status === 'shipped') return reply.code(400).send({ error: 'Phiếu này đã được gửi rồi' });
+        const itemId = b.item_id ? Number(b.item_id) : null;
+        const itemIds = Array.isArray(b.item_ids) ? b.item_ids.map(Number) : [];
+        if (itemId && !itemIds.includes(itemId)) {
+            itemIds.push(itemId);
+        }
+
+        // If itemIds are provided, check and validate items
+        let itemsToShip = [];
+        if (itemIds.length > 0) {
+            itemsToShip = await db.all(`
+                SELECT id, dht_order_id, shipping_status, product_name, description 
+                FROM dht_order_items 
+                WHERE id = ANY($1::int[]) AND dht_order_id = $2
+            `, [itemIds, orderId]);
+            if (itemsToShip.length !== itemIds.length) {
+                return reply.code(404).send({ error: 'Không tìm thấy đầy đủ các phiếu/sản phẩm được chọn' });
+            }
+            if (itemsToShip.some(it => it.shipping_status === 'shipped')) {
+                return reply.code(400).send({ error: 'Một số phiếu được chọn đã được gửi trước đó' });
+            }
         }
 
         // Build update SET
@@ -579,8 +593,9 @@ module.exports = async function(fastify) {
                 const seq = await _getNextTMSeq(todayStr);
                 const cfCode = _buildTMCode(seq, todayStr);
                 let cfDescription = `Tiền ship đơn ${order.order_code}`;
-                if (item) {
-                    cfDescription = `Tiền ship phiếu ${item.product_name} đơn ${order.order_code}`;
+                if (itemsToShip.length > 0) {
+                    const names = itemsToShip.map(it => it.product_name).join(', ');
+                    cfDescription = `Tiền ship phiếu (${names}) đơn ${order.order_code}`;
                 }
                 const cfImageUrl = b.shipping_bill_link || null;
 
@@ -622,7 +637,7 @@ module.exports = async function(fastify) {
         }
 
         // Update database
-        if (itemId) {
+        if (itemIds.length > 0) {
             const itemSets = [];
             const itemParams = [];
             let itemIdx = 1;
@@ -646,8 +661,8 @@ module.exports = async function(fastify) {
                 itemSets.push(`shipping_cashflow_id = $${itemIdx++}`); itemParams.push(cashflowResult.id);
             }
             
-            itemParams.push(itemId);
-            await db.run(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE id = $${itemIdx}`, itemParams);
+            itemParams.push(itemIds);
+            await db.run(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE id = ANY($${itemIdx}::int[])`, itemParams);
 
             // Check if all items in order are now shipped
             const unshipped = await db.get('SELECT COUNT(*) AS cnt FROM dht_order_items WHERE dht_order_id = $1 AND shipping_status = \'pending\'', [orderId]);
@@ -739,8 +754,9 @@ module.exports = async function(fastify) {
 
         // Build result message
         let resultMsgParts = [];
-        if (itemId && item) {
-            resultMsgParts.push(`✅ Đã gửi phiếu "${item.product_name}" của đơn ${order.order_code}`);
+        if (itemsToShip.length > 0) {
+            const names = itemsToShip.map(it => it.product_name).join(', ');
+            resultMsgParts.push(`✅ Đã gửi phiếu (${names}) của đơn ${order.order_code}`);
         } else {
             resultMsgParts.push(`✅ Đã gửi đơn ${order.order_code}`);
         }
@@ -764,8 +780,9 @@ module.exports = async function(fastify) {
             if (b.receiver_name) changes.push({ field: 'receiver_name', label: 'Người nhận', old: null, new: b.receiver_name });
             
             let summary = `Đã gửi hàng qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
-            if (itemId && item) {
-                summary = `Đã gửi phiếu "${item.product_name}" qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+            if (itemsToShip.length > 0) {
+                const names = itemsToShip.map(it => it.product_name).join(', ');
+                summary = `Đã gửi phiếu (${names}) qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
             }
             await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
                 orderId, 'ship', summary, JSON.stringify(changes), request.user.id
