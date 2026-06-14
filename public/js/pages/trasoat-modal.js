@@ -85,7 +85,7 @@ function _tsShowImagePreview(url) {
     document.body.appendChild(overlay);
 }
 
-async function _tsOpenStepModal(orderId, stepName){
+async function _tsOpenStepModal(orderId, stepName, itemId = null){
     const stepKey = _STEP_MAP[stepName]; if(!stepKey) return;
     _tsModalOrderId = orderId;
     _tsCloseModal();
@@ -95,7 +95,9 @@ async function _tsOpenStepModal(orderId, stepName){
             <div style="text-align:center;padding:40px;color:#9ca3af">⏳ Đang tải báo cáo...</div>
         </div></div>`);
     try {
-        const res = await apiCall('/api/trasoat/orders/'+orderId+'/step/'+stepKey);
+        let url = '/api/trasoat/orders/'+orderId+'/step/'+stepKey;
+        if (itemId) url += '?item_id=' + itemId;
+        const res = await apiCall(url);
         document.getElementById('tsModalBody').innerHTML = _tsRenderStepModal(stepKey, res);
 
         if (stepKey === 'ep' && res.records && res.records.length > 0) {

@@ -145,7 +145,7 @@ module.exports = async function(fastify) {
             ORDER BY o.expected_ship_date DESC NULLS LAST, o.created_at DESC
         `, params);
 
-        const orders = rows.map(o => _processOrder(o, todayStr));
+        const orders = await _getOrdersWithItemsProgress(rows, todayStr);
 
         // Post-query filters (computed fields)
         let filtered = orders;
@@ -247,128 +247,58 @@ module.exports = async function(fastify) {
         const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
         const isShipped = order.shipping_status === 'shipped' || !!order.shipped_at;
 
-        // Determine print completion from printing_records
-        // contractor_id != null → considered done (same as bophanin.js)
-        const isPrintRecDone = p => p.contractor_id ? true : p.is_print_done;
-        const allPrintDone = printing.length > 0 && printing.every(isPrintRecDone);
-        const completedPrints = printing
-            .filter(isPrintRecDone)
-            .map(p => ({
-                time: p.contractor_id ? p.created_at : p.print_done_at,
-                worker: p.contractor_id ? 'In Gia Công' : p.printer_name
-            }));
-        const lastPrint = completedPrints.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0))[0];
-        const printWorker = lastPrint ? lastPrint.worker : null;
-        const printTime = lastPrint ? lastPrint.time : null;
-        const printFields = [...new Set(printing.map(p => p.print_field).filter(Boolean))].join(', ') || null;
-        const printDoneCount = printing.filter(isPrintRecDone).length;
-        const printTotalCount = printing.length;
-        const printProgress = printTotalCount > 0 ? `${printDoneCount}/${printTotalCount}` : null;
+        // Get order items
+        const items = await db.all(`
+            SELECT 
+                oi.id, 
+                oi.product_name, 
+                oi.description, 
+                oi.quantity,
+                (
+                    SELECT string_agg(pp.step_id::text, ',') 
+                    FROM dht_product_process pp 
+                    JOIN dht_products p ON pp.product_id = p.id 
+                    WHERE (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                      AND pp.is_active = true
+                ) AS required_steps
+            FROM dht_order_items oi
+            WHERE oi.dht_order_id = $1
+            ORDER BY oi.id
+        `, [orderId]);
 
-        // Determine pressing completion from pressing_records
-        const pressDoneCount = pressing.filter(p => p.is_reported).length;
-        const pressTotalCount = pressing.length;
-        const pressProgress = pressTotalCount > 0 ? `${pressDoneCount}/${pressTotalCount}` : null;
-        const allPressDone = pressTotalCount > 0 && pressing.every(p => p.is_reported);
-        const donePresses = pressing.filter(p => p.is_reported && p.reported_at);
-        const pressTime = donePresses.length > 0 ? new Date(Math.max(...donePresses.map(p => new Date(p.reported_at).getTime()))) : null;
-        const pressWorker = [...new Set(pressing.map(p => p.presser_name).filter(Boolean))].join(', ') || null;
-
-        let timeline;
-        if (isPetTem) {
-            const printStep = prodSteps.find(s => s.step_id === 3);
-            const printDone = allPrintDone || (printStep?.is_completed || false);
-            timeline = [
-                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
-                { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
-            ];
-        } else {
-            const cutDoneCount = cutting.filter(c => c.is_cut_done).length;
-            const cutTotalCount = cutting.length;
-            const cutProgress = cutTotalCount > 0 ? `${cutDoneCount}/${cutTotalCount}` : null;
-            const allCutDone = cutTotalCount > 0 && cutting.every(c => c.is_cut_done);
-
-            const doneCuts = cutting.filter(c => c.is_cut_done && c.cut_done_at);
-            const cutTime = doneCuts.length > 0 ? new Date(Math.max(...doneCuts.map(c => new Date(c.cut_done_at).getTime()))) : null;
-            const cutWorker = [...new Set(cutting.map(c => c.cutter_name).filter(Boolean))].join(', ') || null;
-
-            const printStep = prodSteps.find(s => s.step_id === 3);
-            const pressStep = prodSteps.find(s => s.step_id === 4);
-            const sewRec = sewing.find(s => s.done_date);
-            const finRec = finishing.find(f => f.is_completed);
-
-            const printDone = allPrintDone || (printStep?.is_completed || false);
-            const pressDone = pressTotalCount > 0 ? allPressDone : (pressStep?.is_completed || false);
-            const pressDisplayTime = pressTotalCount > 0 ? pressTime : pressStep?.completed_at;
-            const pressDisplayWorker = pressTotalCount > 0 ? pressWorker : pressStep?.completed_by_name;
-
-            // May calculations
-            // Apply custom done_date logic: internal sewing uses finishing completed time; contractor sewing uses QC time.
-            for (const s of sewing) {
-                if (s.contractor_id === null) {
-                    const finishRow = finishing.find(f => f.sewing_record_id === s.id && f.is_completed);
-                    s.done_date = finishRow ? finishRow.completed_at : null;
-                } else {
-                    s.done_date = s.qc_date;
-                }
-            }
-
-            const sewDoneCount = sewing.filter(s => s.done_date).length;
-            const sewTotalCount = sewing.length;
-            const sewProgress = sewTotalCount > 0 ? `${sewDoneCount}/${sewTotalCount}` : null;
-            const allSewDone = sewTotalCount > 0 && sewing.every(s => s.done_date);
-            const doneSewings = sewing.filter(s => s.done_date);
-            const sewTime = doneSewings.length > 0 ? new Date(Math.max(...doneSewings.map(s => new Date(s.done_date).getTime()))) : null;
-            const sewWorker = [...new Set(sewing.map(s => s.sewer_name || s.contractor_name || s.team_name).filter(Boolean))].join(', ') || null;
-
-            const sewDone = sewTotalCount > 0 ? allSewDone : (sewRec ? true : false);
-            const sewDisplayTime = sewTotalCount > 0 ? sewTime : sewRec?.done_date;
-            const sewDisplayWorker = sewTotalCount > 0 ? sewWorker : (sewRec?.sewer_name || sewRec?.contractor_name || sewRec?.team_name);
-
-            // QC calculations
-            const qcDoneCount = sewing.filter(s => s.qc_count > 0).length;
-            const qcTotalCount = sewing.length;
-            const qcProgress = qcTotalCount > 0 ? `${qcDoneCount}/${qcTotalCount}` : null;
-            const allQcDone = qcTotalCount > 0 && sewing.every(s => s.qc_count > 0);
-            const lastQcDone = sewing.filter(s => s.qc_count > 0).sort((a,b) => new Date(b.qc_date || 0) - new Date(a.qc_date || 0))[0];
-            const qcTime = lastQcDone ? lastQcDone.qc_date : null;
-            const qcWorker = [...new Set(sewing.map(s => s.qc_by_name).filter(Boolean))].join(', ') || null;
-
-            const qcDone = qcTotalCount > 0 ? allQcDone : false;
-            const qcDisplayTime = qcTotalCount > 0 ? qcTime : null;
-            const qcDisplayWorker = qcTotalCount > 0 ? qcWorker : null;
-
-            // HT calculations
-            const isOrderShipped = !!order.delivery_date;
-            const checkFDone = f => {
-                if (isOrderShipped) return f.is_completed;
-                const isQcDone = f.qc_count > 0;
-                const isOutsourced = f.contractor_id !== null;
-                return isOutsourced ? isQcDone : (isQcDone && f.is_completed);
-            };
-
-            const htDoneCount = finishing.filter(checkFDone).length;
-            const htTotalCount = finishing.length;
-            const htProgress = htTotalCount > 0 ? `${htDoneCount}/${htTotalCount}` : null;
-            const allHtDone = htTotalCount > 0 && finishing.every(checkFDone);
-            const lastHtDone = finishing.filter(checkFDone).sort((a,b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))[0];
-            const htTime = lastHtDone ? lastHtDone.completed_at : null;
-            const htWorker = [...new Set(finishing.map(f => f.finisher_name).filter(Boolean))].join(', ') || null;
-
-            const htDone = htTotalCount > 0 ? allHtDone : (finRec?.is_completed || false);
-            const htDisplayTime = htTotalCount > 0 ? htTime : finRec?.completed_at;
-            const htDisplayWorker = htTotalCount > 0 ? htWorker : finRec?.finisher_name;
-
-            timeline = [
-                { name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress },
-                { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
-                { name: 'Ép', short: 'ÉP', done: pressDone, time: pressDisplayTime, worker: pressDisplayWorker, progress: pressProgress },
-                { name: 'May', short: 'MAY', done: sewDone, time: sewDisplayTime, worker: sewDisplayWorker, progress: sewProgress },
-                { name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress },
-                { name: 'Hoàn Thiện', short: 'HT', done: htDone, time: htDisplayTime, worker: htDisplayWorker, progress: htProgress },
-                { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
-            ];
+        if (!items.length) {
+            items.push({
+                id: null,
+                product_name: order.order_code,
+                description: order.order_code,
+                quantity: order.total_quantity || 0,
+                required_steps: null
+            });
         }
+
+        const itemsTimeline = items.map((item, idx) => {
+            const isFirst = idx === 0;
+            const itemCutting = cutting.filter(c => c.order_item_id === item.id || (c.order_item_id === null && isFirst));
+            const itemPrinting = printing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst));
+            const itemPressing = pressing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst));
+            const itemSewing = sewing.filter(s => s.order_item_id === item.id || (s.order_item_id === null && isFirst));
+            const itemSewingIds = new Set(itemSewing.map(s => s.id));
+            const itemFinishing = finishing.filter(f => itemSewingIds.has(f.sewing_record_id));
+
+            const timeline = _buildItemTimeline(
+                item, isShipped, order, 
+                itemCutting, itemPrinting, itemPressing, itemSewing, itemFinishing, 
+                prodSteps
+            );
+
+            return {
+                id: item.id,
+                product_name: item.product_name,
+                description: item.description,
+                quantity: item.quantity,
+                timeline
+            };
+        });
 
         return {
             order: {
@@ -386,10 +316,10 @@ module.exports = async function(fastify) {
                 is_pet_tem: isPetTem, parent_order_id: order.parent_order_id,
                 category_name: order.category_name, standard_delivery_time: order.standard_delivery_time
             },
-            timeline,
-            cutting: cutting.map(c => ({ cutter: c.cutter_name, fabric: c.fabric_name, kg: c.kg_cut, ratio: c.cut_ratio, started: c.cutting_at, done: c.cut_done_at, is_done: c.is_cut_done })),
-            sewing: sewing.map(s => ({ worker: s.sewer_name || s.contractor_name, qty: s.quantity, handover: s.handover_date, done: s.done_date, note: s.note })),
-            finishing: finishing.map(f => ({ worker: f.finisher_name, done: f.completed_at, is_done: f.is_completed }))
+            items: itemsTimeline,
+            cutting: cutting.map(c => ({ item_id: c.order_item_id, cutter: c.cutter_name, fabric: c.fabric_name, kg: c.kg_cut, ratio: c.cut_ratio, started: c.cutting_at, done: c.cut_done_at, is_done: c.is_cut_done })),
+            sewing: sewing.map(s => ({ item_id: s.order_item_id, worker: s.sewer_name || s.contractor_name, qty: s.quantity, handover: s.handover_date, done: s.done_date, note: s.note })),
+            finishing: finishing.map(f => ({ item_id: f.sewing_record_id ? sewing.find(s => s.id === f.sewing_record_id)?.order_item_id : null, worker: f.finisher_name, done: f.completed_at, is_done: f.is_completed }))
         };
     });
 
@@ -592,6 +522,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/trasoat/orders/:id/step/:step', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         const step = request.params.step; // cat, in, ep, may, qc, ht, gui
+        const itemId = request.query.item_id ? Number(request.query.item_id) : null;
 
         const order = await db.get(`
             SELECT o.id, o.order_code, o.customer_name, o.customer_phone, o.province, o.address,
@@ -619,8 +550,10 @@ module.exports = async function(fastify) {
                 FROM cutting_records cr
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 LEFT JOIN dht_order_items doi ON cr.order_item_id = doi.id
-                WHERE cr.dht_order_id = $1 ORDER BY cr.id ASC
-            `, [orderId]);
+                WHERE cr.dht_order_id = $1
+                  AND ($2::int IS NULL OR cr.order_item_id = $2)
+                ORDER BY cr.id ASC
+            `, [orderId, itemId]);
             // Get selected rolls for each record
             for (const r of records) {
                 try {
@@ -717,8 +650,10 @@ module.exports = async function(fastify) {
                 LEFT JOIN pettem_rolls ptr ON pr.pettem_roll_id = ptr.id
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
-                WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
-            `, [orderId]);
+                WHERE pr.dht_order_id = $1
+                  AND ($2::int IS NULL OR pr.order_item_id = $2)
+                ORDER BY pr.id ASC
+            `, [orderId, itemId]);
             return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };
         }
 
@@ -729,12 +664,17 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u ON pr.presser_id = u.id
                 LEFT JOIN dht_orders o2 ON pr.dht_order_id = o2.id
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
-                WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
-            `, [orderId]);
+                WHERE pr.dht_order_id = $1
+                  AND ($2::int IS NULL OR pr.order_item_id = $2)
+                ORDER BY pr.id ASC
+            `, [orderId, itemId]);
 
-            const items = await db.all(`
+            let items = await db.all(`
                 SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
             `, [orderId]);
+            if (itemId) {
+                items = items.filter(item => item.id === itemId);
+            }
 
             const itemsStatus = [];
             for (const item of items) {
@@ -833,8 +773,10 @@ module.exports = async function(fastify) {
                 LEFT JOIN sewing_contractors ct ON sr.contractor_id = ct.id
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
-                WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
-            `, [orderId]);
+                WHERE sr.dht_order_id = $1
+                  AND ($2::int IS NULL OR sr.order_item_id = $2)
+                ORDER BY sr.id ASC
+            `, [orderId, itemId]);
 
             const formatCombinedString = (str) => {
                 if (!str) return '—';
@@ -896,8 +838,10 @@ module.exports = async function(fastify) {
                     FROM qc_checklist_answers
                 ) qca ON sr.id = qca.sewing_record_id
                 LEFT JOIN users qc_u ON qca.answered_by = qc_u.id
-                WHERE sr.dht_order_id = $1 ORDER BY sr.id ASC
-            `, [orderId]);
+                WHERE sr.dht_order_id = $1
+                  AND ($2::int IS NULL OR sr.order_item_id = $2)
+                ORDER BY sr.id ASC
+            `, [orderId, itemId]);
             // Get checklist answers for each record
             for (const r of records) {
                 r.answers = await db.all(`
@@ -909,9 +853,12 @@ module.exports = async function(fastify) {
                 `, [r.id]);
             }
 
-            const items = await db.all(`
+            let items = await db.all(`
                 SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
             `, [orderId]);
+            if (itemId) {
+                items = items.filter(item => item.id === itemId);
+            }
 
             const itemsStatus = [];
             for (const item of items) {
@@ -977,8 +924,10 @@ module.exports = async function(fastify) {
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 LEFT JOIN dht_orders o ON fr.dht_order_id = o.id
-                WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
-            `, [orderId]);
+                WHERE fr.dht_order_id = $1
+                  AND ($2::int IS NULL OR sr.order_item_id = $2)
+                ORDER BY fr.id ASC
+            `, [orderId, itemId]);
             // Get checklist answers for each record
             for (const r of records) {
                 r.checklist = await db.all(`
@@ -990,9 +939,12 @@ module.exports = async function(fastify) {
                 `, [r.id]);
             }
 
-            const items = await db.all(`
+            let items = await db.all(`
                 SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
             `, [orderId]);
+            if (itemId) {
+                items = items.filter(item => item.id === itemId);
+            }
 
             const itemsStatus = [];
             for (const item of items) {
@@ -1119,66 +1071,128 @@ module.exports = async function(fastify) {
 
 // ========== Helper: Process order row → add progress fields ==========
 function _processOrder(o, todayStr) {
+    return _processOrderWithItems(o, [], todayStr);
+}
+
+function _processOrderWithItems(o, items, todayStr) {
     const code = (o.order_code || '').toUpperCase();
     const catName = (o.category_name || '').toUpperCase();
     const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
     const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
 
-    let requiredStepIds = null;
-    if (o.required_steps) {
-        requiredStepIds = new Set(o.required_steps.split(',').map(Number));
+    let orderItems = items;
+    if (!orderItems || !orderItems.length) {
+        orderItems = [{
+            item_id: null,
+            dht_order_id: o.id,
+            product_name: o.order_code,
+            description: o.order_code,
+            quantity: o.total_quantity || 0,
+            required_steps: o.required_steps,
+            cut_done: o.cut_done,
+            print_done: o.print_done,
+            press_done: o.press_done,
+            sew_done: o.sew_done,
+            finish_done: o.finish_done
+        }];
     }
 
-    if (!requiredStepIds) {
-        if (isPetTem) {
-            requiredStepIds = new Set([3]); // Only IN (3) is required
-        } else {
-            requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]); // Default all steps
+    let orderTotalSteps = 0;
+    let orderDoneSteps = 0;
+
+    const STEP_PRIORITY = {
+        'Chờ Cắt': 1,
+        'Chờ In': 2,
+        'Chờ Ép': 3,
+        'Đang May / QC / HT': 4,
+        'Chờ Gửi': 5,
+        'Hoàn thành': 6
+    };
+
+    let slowestStepPriority = 999;
+    let slowestStepName = 'Hoàn thành';
+
+    const processedItems = orderItems.map(item => {
+        let requiredStepIds = null;
+        if (item.required_steps) {
+            requiredStepIds = new Set(item.required_steps.split(',').map(Number));
         }
-    }
 
-    const needsCut = requiredStepIds.has(2);
-    const needsPrint = requiredStepIds.has(3);
-    const needsPress = requiredStepIds.has(4);
-    const needsSew = requiredStepIds.has(5);
-    const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+        if (!requiredStepIds) {
+            if (isPetTem) {
+                requiredStepIds = new Set([3]);
+            } else {
+                requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]);
+            }
+        }
 
-    const cutDone = !needsCut || o.cut_done;
-    const printDone = !needsPrint || o.print_done;
-    const pressDone = !needsPress || o.press_done;
-    const sewDone = !needsSew || o.sew_done;
-    const finishDone = !needsFinishing || o.finish_done;
+        const needsCut = requiredStepIds.has(2);
+        const needsPrint = requiredStepIds.has(3);
+        const needsPress = requiredStepIds.has(4);
+        const needsSew = requiredStepIds.has(5);
+        const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
-    let totalSteps = 1; // Always has Gửi
-    if (needsCut) totalSteps++;
-    if (needsPrint) totalSteps++;
-    if (needsPress) totalSteps++;
-    if (needsSew) totalSteps++;
-    if (needsFinishing) totalSteps++;
+        const cutDone = !needsCut || item.cut_done;
+        const printDone = !needsPrint || item.print_done;
+        const pressDone = !needsPress || item.press_done;
+        const sewDone = !needsSew || item.sew_done;
+        const finishDone = !needsFinishing || item.finish_done;
 
-    let doneSteps = 0;
-    if (needsCut && o.cut_done) doneSteps++;
-    if (needsPrint && o.print_done) doneSteps++;
-    if (needsPress && o.press_done) doneSteps++;
-    if (needsSew && o.sew_done) doneSteps++;
-    if (needsFinishing && o.finish_done) doneSteps++;
-    if (isShipped) doneSteps++;
+        let totalSteps = 1; // Always has Gửi
+        if (needsCut) totalSteps++;
+        if (needsPrint) totalSteps++;
+        if (needsPress) totalSteps++;
+        if (needsSew) totalSteps++;
+        if (needsFinishing) totalSteps++;
 
-    let currentStepName = 'Hoàn thành';
-    if (isShipped) {
-        currentStepName = 'Hoàn thành';
-        doneSteps = totalSteps;
-    } else if (!cutDone) {
-        currentStepName = 'Chờ Cắt';
-    } else if (!printDone) {
-        currentStepName = 'Chờ In';
-    } else if (!pressDone) {
-        currentStepName = 'Chờ Ép';
-    } else if (!finishDone) {
-        currentStepName = 'Đang May / QC / HT';
-    } else {
-        currentStepName = 'Chờ Gửi';
-    }
+        let doneSteps = 0;
+        if (needsCut && item.cut_done) doneSteps++;
+        if (needsPrint && item.print_done) doneSteps++;
+        if (needsPress && item.press_done) doneSteps++;
+        if (needsSew && item.sew_done) doneSteps++;
+        if (needsFinishing && item.finish_done) doneSteps++;
+        if (isShipped) {
+            doneSteps = totalSteps;
+        } else if (doneSteps === totalSteps) {
+            doneSteps = totalSteps - 1; // Not shipped yet
+        }
+
+        let currentStepName = 'Hoàn thành';
+        if (isShipped) {
+            currentStepName = 'Hoàn thành';
+            doneSteps = totalSteps;
+        } else if (!cutDone) {
+            currentStepName = 'Chờ Cắt';
+        } else if (!printDone) {
+            currentStepName = 'Chờ In';
+        } else if (!pressDone) {
+            currentStepName = 'Chờ Ép';
+        } else if (!finishDone) {
+            currentStepName = 'Đang May / QC / HT';
+        } else {
+            currentStepName = 'Chờ Gửi';
+        }
+
+        orderTotalSteps += totalSteps;
+        orderDoneSteps += doneSteps;
+
+        const pri = STEP_PRIORITY[currentStepName] || 6;
+        if (pri < slowestStepPriority) {
+            slowestStepPriority = pri;
+            slowestStepName = currentStepName;
+        }
+
+        return {
+            item_id: item.item_id,
+            product_name: item.product_name,
+            description: item.description,
+            quantity: item.quantity,
+            total_steps: totalSteps,
+            done_steps: doneSteps,
+            current_step_name: currentStepName,
+            progress_percent: totalSteps ? Math.round(doneSteps / totalSteps * 100) : 0
+        };
+    });
 
     // Deviation calculation
     const expectedDate = o.rescheduled_ship_date || o.expected_ship_date;
@@ -1226,11 +1240,226 @@ function _processOrder(o, todayStr) {
         cskh_name: o.cskh_name, created_by_name: o.created_by_name,
         total_amount: o.total_amount, category_name: o.category_name,
         is_pet_tem: isPetTem, is_repair: !!o.parent_order_id,
-        total_steps: totalSteps, done_steps: doneSteps,
-        current_step_name: currentStepName,
-        progress_percent: Math.round(doneSteps / totalSteps * 100),
+        total_steps: orderTotalSteps, done_steps: orderDoneSteps,
+        current_step_name: slowestStepName,
+        progress_percent: orderTotalSteps ? Math.round(orderDoneSteps / orderTotalSteps * 100) : 0,
         deviation_days: deviationDays, deviation_label: deviationLabel, deviation_class: deviationClass,
         shipping_priority: o.shipping_priority,
-        standard_delivery_time: o.standard_delivery_time
+        standard_delivery_time: o.standard_delivery_time,
+        items: processedItems
     };
+}
+
+async function _getOrdersWithItemsProgress(orders, todayStr) {
+    if (!orders.length) return [];
+    const orderIds = orders.map(o => o.id);
+
+    const items = await db.all(`
+        SELECT 
+            oi.id AS item_id,
+            oi.dht_order_id,
+            oi.product_name,
+            oi.description,
+            oi.quantity,
+            (
+                SELECT string_agg(pp.step_id::text, ',') 
+                FROM dht_product_process pp 
+                JOIN dht_products p ON pp.product_id = p.id 
+                WHERE (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                  AND pp.is_active = true
+            ) AS required_steps,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                    ELSE false
+                END,
+                false
+            ) AS cut_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
+                    ELSE false
+                END,
+                false
+            ) AS print_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id AND is_reported = false)
+                    ELSE false
+                END,
+                false
+            ) AS press_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id AND done_date IS NULL)
+                    ELSE false
+                END,
+                false
+            ) AS sew_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id AND fr.is_completed = false)
+                    ELSE false
+                END,
+                false
+            ) AS finish_done
+        FROM dht_order_items oi
+        WHERE oi.dht_order_id = ANY($1::int[])
+    `, [orderIds]);
+
+    const itemsByOrderId = {};
+    for (const item of items) {
+        if (!itemsByOrderId[item.dht_order_id]) {
+            itemsByOrderId[item.dht_order_id] = [];
+        }
+        itemsByOrderId[item.dht_order_id].push(item);
+    }
+
+    return orders.map(o => _processOrderWithItems(o, itemsByOrderId[o.id] || [], todayStr));
+}
+
+function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, itemPressing, itemSewing, itemFinishing, prodSteps) {
+    const isPrintRecDone = p => p.contractor_id ? true : p.is_print_done;
+    const allPrintDone = itemPrinting.length > 0 && itemPrinting.every(isPrintRecDone);
+    const completedPrints = itemPrinting
+        .filter(isPrintRecDone)
+        .map(p => ({
+            time: p.contractor_id ? p.created_at : p.print_done_at,
+            worker: p.contractor_id ? 'In Gia Công' : p.printer_name
+        }));
+    const lastPrint = completedPrints.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0))[0];
+    const printWorker = lastPrint ? lastPrint.worker : null;
+    const printTime = lastPrint ? lastPrint.time : null;
+    const printFields = [...new Set(itemPrinting.map(p => p.print_field).filter(Boolean))].join(', ') || null;
+    const printDoneCount = itemPrinting.filter(isPrintRecDone).length;
+    const printTotalCount = itemPrinting.length;
+    const printProgress = printTotalCount > 0 ? `${printDoneCount}/${printTotalCount}` : null;
+
+    const pressDoneCount = itemPressing.filter(p => p.is_reported).length;
+    const pressTotalCount = itemPressing.length;
+    const pressProgress = pressTotalCount > 0 ? `${pressDoneCount}/${pressTotalCount}` : null;
+    const allPressDone = pressTotalCount > 0 && itemPressing.every(p => p.is_reported);
+    const donePresses = itemPressing.filter(p => p.is_reported && p.reported_at);
+    const pressTime = donePresses.length > 0 ? new Date(Math.max(...donePresses.map(p => new Date(p.reported_at).getTime()))) : null;
+    const pressWorker = [...new Set(itemPressing.map(p => p.presser_name).filter(Boolean))].join(', ') || null;
+
+    let requiredStepIds = null;
+    if (item.required_steps) {
+        requiredStepIds = new Set(item.required_steps.split(',').map(Number));
+    }
+    const catName = (order.category_name || '').toUpperCase();
+    const code = (order.order_code || '').toUpperCase();
+    const isPetTem = catName === 'PET' || catName === 'TEM' || code.includes('PET') || code.includes('TEM');
+
+    if (!requiredStepIds) {
+        if (isPetTem) {
+            requiredStepIds = new Set([3]);
+        } else {
+            requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]);
+        }
+    }
+
+    const needsCut = requiredStepIds.has(2);
+    const needsPrint = requiredStepIds.has(3);
+    const needsPress = requiredStepIds.has(4);
+    const needsSew = requiredStepIds.has(5);
+    const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+
+    let timeline;
+    if (isPetTem) {
+        const printStep = prodSteps.find(s => s.step_id === 3);
+        const printDone = allPrintDone || (printStep?.is_completed || false);
+        timeline = [
+            { name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress },
+            { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
+        ];
+    } else {
+        const cutDoneCount = itemCutting.filter(c => c.is_cut_done).length;
+        const cutTotalCount = itemCutting.length;
+        const cutProgress = cutTotalCount > 0 ? `${cutDoneCount}/${cutTotalCount}` : null;
+        const allCutDone = cutTotalCount > 0 && itemCutting.every(c => c.is_cut_done);
+
+        const doneCuts = itemCutting.filter(c => c.is_cut_done && c.cut_done_at);
+        const cutTime = doneCuts.length > 0 ? new Date(Math.max(...doneCuts.map(c => new Date(c.cut_done_at).getTime()))) : null;
+        const cutWorker = [...new Set(itemCutting.map(c => c.cutter_name).filter(Boolean))].join(', ') || null;
+
+        const printStep = prodSteps.find(s => s.step_id === 3);
+        const pressStep = prodSteps.find(s => s.step_id === 4);
+        const sewRec = itemSewing.find(s => s.done_date);
+        const finRec = itemFinishing.find(f => f.is_completed);
+
+        const printDone = allPrintDone || (printStep?.is_completed || false);
+        const pressDone = pressTotalCount > 0 ? allPressDone : (pressStep?.is_completed || false);
+        const pressDisplayTime = pressTotalCount > 0 ? pressTime : pressStep?.completed_at;
+        const pressDisplayWorker = pressTotalCount > 0 ? pressWorker : pressStep?.completed_by_name;
+
+        for (const s of itemSewing) {
+            if (s.contractor_id === null) {
+                const finishRow = itemFinishing.find(f => f.sewing_record_id === s.id && f.is_completed);
+                s.done_date = finishRow ? finishRow.completed_at : null;
+            } else {
+                s.done_date = s.qc_date;
+            }
+        }
+
+        const sewDoneCount = itemSewing.filter(s => s.done_date).length;
+        const sewTotalCount = itemSewing.length;
+        const sewProgress = sewTotalCount > 0 ? `${sewDoneCount}/${sewTotalCount}` : null;
+        const allSewDone = sewTotalCount > 0 && itemSewing.every(s => s.done_date);
+        const doneSewings = itemSewing.filter(s => s.done_date);
+        const sewTime = doneSewings.length > 0 ? new Date(Math.max(...doneSewings.map(s => new Date(s.done_date).getTime()))) : null;
+        const sewWorker = [...new Set(itemSewing.map(s => s.sewer_name || s.contractor_name || s.team_name).filter(Boolean))].join(', ') || null;
+
+        const sewDone = sewTotalCount > 0 ? allSewDone : (sewRec ? true : false);
+        const sewDisplayTime = sewTotalCount > 0 ? sewTime : sewRec?.done_date;
+        const sewDisplayWorker = sewTotalCount > 0 ? sewWorker : (sewRec?.sewer_name || sewRec?.contractor_name || sewRec?.team_name);
+
+        const qcDoneCount = itemSewing.filter(s => s.qc_count > 0).length;
+        const qcTotalCount = itemSewing.length;
+        const qcProgress = qcTotalCount > 0 ? `${qcDoneCount}/${qcTotalCount}` : null;
+        const allQcDone = qcTotalCount > 0 && itemSewing.every(s => s.qc_count > 0);
+        const lastQcDone = itemSewing.filter(s => s.qc_count > 0).sort((a,b) => new Date(b.qc_date || 0) - new Date(a.qc_date || 0))[0];
+        const qcTime = lastQcDone ? lastQcDone.qc_date : null;
+        const qcWorker = [...new Set(itemSewing.map(s => s.qc_by_name).filter(Boolean))].join(', ') || null;
+
+        const qcDone = qcTotalCount > 0 ? allQcDone : false;
+        const qcDisplayTime = qcTotalCount > 0 ? qcTime : null;
+        const qcDisplayWorker = qcTotalCount > 0 ? qcWorker : null;
+
+        const isOrderShipped = !!order.delivery_date;
+        const checkFDone = f => {
+            if (isOrderShipped) return f.is_completed;
+            const isQcDone = f.qc_count > 0;
+            const isOutsourced = f.contractor_id !== null;
+            return isOutsourced ? isQcDone : (isQcDone && f.is_completed);
+        };
+
+        const htDoneCount = itemFinishing.filter(checkFDone).length;
+        const htTotalCount = itemFinishing.length;
+        const htProgress = htTotalCount > 0 ? `${htDoneCount}/${htTotalCount}` : null;
+        const allHtDone = htTotalCount > 0 && itemFinishing.every(checkFDone);
+        const lastHtDone = itemFinishing.filter(checkFDone).sort((a,b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))[0];
+        const htTime = lastHtDone ? lastHtDone.completed_at : null;
+        const htWorker = [...new Set(itemFinishing.map(f => f.finisher_name).filter(Boolean))].join(', ') || null;
+
+        const htDone = htTotalCount > 0 ? allHtDone : (finRec?.is_completed || false);
+        const htDisplayTime = htTotalCount > 0 ? htTime : finRec?.completed_at;
+        const htDisplayWorker = htTotalCount > 0 ? htWorker : finRec?.finisher_name;
+
+        timeline = [];
+        if (needsCut) timeline.push({ name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress });
+        if (needsPrint) timeline.push({ name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress });
+        if (needsPress) timeline.push({ name: 'Ép', short: 'ÉP', done: pressDone, time: pressDisplayTime, worker: pressDisplayWorker, progress: pressProgress });
+        if (needsSew) timeline.push({ name: 'May', short: 'MAY', done: sewDone, time: sewDisplayTime, worker: sewDisplayWorker, progress: sewProgress });
+        timeline.push({ name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress });
+        if (needsFinishing) timeline.push({ name: 'Hoàn Thiện', short: 'HT', done: htDone, time: htDisplayTime, worker: htDisplayWorker, progress: htProgress });
+        timeline.push({ name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name });
+    }
+
+    return timeline;
 }

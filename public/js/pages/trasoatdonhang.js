@@ -274,26 +274,41 @@ async function _tsToggleDetail(id) {
 }
 
 function _tsRenderTimeline(res) {
-    const { order: o, timeline } = res;
+    const { order: o, items } = res;
     const fmtDT = d => { if (!d) return ''; const dt = new Date(d); return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); };
 
-    let html = '<div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px">📋 ' + o.order_code + ' — ' + (o.customer_name||'') + '</div>';
-    html += '<div class="ts-timeline">';
-    timeline.forEach((s, i) => {
-        const cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
-        const icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
-        const lineCls = s.done ? 'done' : '';
-        html += `<div class="ts-step">`;
-        if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
-        html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();_tsOpenStepModal(${o.id},'${s.name}')" style="cursor:pointer" title="Xem báo cáo ${s.name}">${icon}</div>
-            <div class="ts-step-name">${s.short || s.name}</div>
-            ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
-            <div class="ts-step-time">${s.time ? fmtDT(s.time) : ''}</div>
-            <div class="ts-step-time">${s.worker || ''}</div>
-            ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
-        </div>`;
-    });
-    html += '</div>';
+    let html = '<div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px;padding: 4px 8px;border-left:4px solid #4f46e5;background:#f3f4f6;border-radius:0 4px 4px 0">📋 ' + o.order_code + ' — ' + (o.customer_name||'') + '</div>';
+    
+    if (!items || !items.length) {
+        html += '<div style="text-align:center;padding:12px;color:#9ca3af">Không có sản phẩm nào</div>';
+    } else {
+        items.forEach((item, itemIdx) => {
+            html += `<div class="ts-item-timeline-section" style="margin-bottom: 24px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background:#fff">`;
+            html += `<div style="font-weight:700;font-size:13px;color:#4338ca;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+                <span>🏷️ Phiếu ${itemIdx + 1}: ${item.product_name || 'Sản phẩm'} ${item.description ? `(${item.description})` : ''}</span>
+                <span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;font-size:11px">SL: ${item.quantity || 0}</span>
+            </div>`;
+            
+            html += '<div class="ts-timeline">';
+            const timeline = item.timeline || [];
+            timeline.forEach((s, i) => {
+                const cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
+                const icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
+                const lineCls = s.done ? 'done' : '';
+                html += `<div class="ts-step">`;
+                if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
+                html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();_tsOpenStepModal(${o.id},'${s.name}',${item.id})" style="cursor:pointer" title="Xem báo cáo ${s.name}">${icon}</div>
+                    <div class="ts-step-name">${s.short || s.name}</div>
+                    ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
+                    <div class="ts-step-time">${s.time ? fmtDT(s.time) : ''}</div>
+                    <div class="ts-step-time">${s.worker || ''}</div>
+                    ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+            html += `</div>`;
+        });
+    }
 
     // Shipping info
     if (o.shipping_status === 'shipped') {
