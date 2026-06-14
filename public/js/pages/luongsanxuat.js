@@ -1544,7 +1544,7 @@ async function _lsxOpenCuttingDetail(recordId) {
         var cutReminderIds = [];
         var cutViewedIds = [];
         try {
-            var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat';
+            var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
             if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(remUrl);
             cutReminders = remRes.reminders || [];

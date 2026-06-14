@@ -1360,7 +1360,7 @@ async function _bpcOpenCutModal(recordId) {
     try {
         var rollsRes = apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(rec.material_name || '') + '&color_name=' + encodeURIComponent(rec.fabric_color || ''));
         
-        var remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat';
+        var remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
         if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
         var remRes = apiCall(remUrl);
         
@@ -1566,7 +1566,7 @@ async function _bpcOpenDetail(recordId) {
         var cutReminderIds = [];
         var cutViewedIds = [];
         try {
-            var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat';
+            var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
             if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(remUrl);
             cutReminders = remRes.reminders || [];

@@ -1499,7 +1499,7 @@ async function mOpenCutModal(recordId){
     requestAnimationFrame(()=>document.getElementById('_mmCutModal').classList.add('show'));
     try{
         const rollsRes=mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(rec.material_name||'')+'&color_name='+encodeURIComponent(rec.fabric_color||''));
-        let remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat';
+        let remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
         if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
         const remRes = mApi(remUrl);
 
@@ -1686,7 +1686,7 @@ async function mOpenDetail(recordId){
         let cutReminderIds = [];
         let cutViewedIds = [];
         try {
-            let remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat';
+            let remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
             if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
             const remRes = await mApi(remUrl);
             cutReminders = remRes.reminders || [];
