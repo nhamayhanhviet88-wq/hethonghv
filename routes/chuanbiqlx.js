@@ -2625,7 +2625,7 @@ module.exports = async function(fastify) {
         }
 
         const isSewingDone = rawAssignments.length > 0 && rawAssignments.every(a => a.done_date !== null || a.salary_approved === true);
-        const fRec = await db.get(`SELECT is_completed FROM finishing_records WHERE order_item_id = $1`, [itemId]);
+        const fRec = await db.get(`SELECT fr.is_completed FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = $1 LIMIT 1`, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
 
         return {
@@ -2684,7 +2684,7 @@ module.exports = async function(fastify) {
         `, [itemId]);
         const isSewingDone = lockedCheck && lockedCheck.cnt > 0;
 
-        const fRec = await db.get(`SELECT is_completed FROM finishing_records WHERE order_item_id = $1`, [itemId]);
+        const fRec = await db.get(`SELECT fr.is_completed FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = $1 LIMIT 1`, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
 
         // Fetch existing prep row to preserve choices if done
