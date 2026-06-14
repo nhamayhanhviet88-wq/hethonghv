@@ -1035,7 +1035,7 @@ async function _bpeOpenReportModal(id) {
     var pressReminderIds = [];
     var pressViewedIds = [];
     try {
-        var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+        var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep&record_type=pressing&record_id=' + r.id;
         if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
         var remRes = await apiCall(remUrl);
         pressReminders = remRes.reminders || [];
@@ -1459,7 +1459,7 @@ function _bpeOpenDetail(recordId, orderItemId) {
     // Fetch and display QLX reminders asynchronously
     (async function() {
         try {
-            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep&record_type=pressing&record_id=' + r.id;
             if (r.order_item_id) url += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(url);
             var pressReminders = remRes.reminders || [];

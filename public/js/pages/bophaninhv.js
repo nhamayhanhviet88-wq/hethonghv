@@ -808,7 +808,7 @@ async function _bpiShowDoneModal(r) {
     var printViewedIds = [];
     if (!r.contractor_id) {
         try {
-            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in';
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in&record_type=printing&record_id=' + r.id;
             if (r.order_item_id) url += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(url);
             printReminders = remRes.reminders || [];
@@ -1367,7 +1367,7 @@ window._bpiShowDetailModal = async function(id) {
     var printViewedIds = [];
     if (!r.contractor_id) {
         try {
-            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in';
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in&record_type=printing&record_id=' + r.id;
             if (r.order_item_id) url += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(url);
             printReminders = remRes.reminders || [];

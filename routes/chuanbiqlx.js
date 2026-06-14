@@ -1076,14 +1076,18 @@ module.exports = async function(fastify) {
             for (const r of reminders) {
                 if (viewedIds.includes(r.id)) continue;
                 if (r.dept === 'in') {
-                    const row = r.item_id 
-                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
-                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId]);
+                    const row = record_id
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [Number(record_id)])
+                        : (r.item_id 
+                            ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
+                            : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'ep') {
-                    const row = r.item_id
-                        ? await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_reported = true LIMIT 1`, [orderId, r.item_id])
-                        : await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND is_reported = true LIMIT 1`, [orderId]);
+                    const row = record_id
+                        ? await db.get(`SELECT 1 FROM pressing_records WHERE id = $1 AND is_reported = true LIMIT 1`, [Number(record_id)])
+                        : (r.item_id
+                            ? await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_reported = true LIMIT 1`, [orderId, r.item_id])
+                            : await db.get(`SELECT 1 FROM pressing_records WHERE dht_order_id = $1 AND is_reported = true LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'cat') {
                     const row = record_id

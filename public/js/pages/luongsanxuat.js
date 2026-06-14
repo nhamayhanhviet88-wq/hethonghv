@@ -1863,7 +1863,7 @@ async function _lsxOpenPressingDetail(recordId) {
         // Fetch and display QLX reminders asynchronously
         (async function() {
             try {
-                var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+                var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep&record_type=pressing&record_id=' + recordId;
                 if (r.order_item_id) url += '&item_id=' + r.order_item_id;
                 var remRes = await apiCall(url);
                 var pressReminders = remRes.reminders || [];
