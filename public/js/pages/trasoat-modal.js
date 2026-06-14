@@ -207,6 +207,7 @@ async function _tsOpenStepModal(orderId, stepName){
 
             groups.forEach(function(g, i) {
                 g.print_items.forEach(function(item) {
+                    if (item.contractor_id) return;
                     (async function() {
                         try {
                             var url = '/api/qlx/reminders?order_id=' + item.dht_order_id + '&dept=in';
