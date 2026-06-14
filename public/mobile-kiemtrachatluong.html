@@ -1916,11 +1916,32 @@
             });
 
             row.innerHTML = `
-                <select class="split-team-select">${options}</select>
+                <select class="split-team-select" onchange="updateTeamSelectOptions()">${options}</select>
                 <input type="number" pattern="[0-9]*" inputmode="numeric" class="split-team-qty" placeholder="SL" value="${defaultQty}">
-                <span class="split-team-remove" onclick="this.parentElement.remove()">🗑️</span>
+                <span class="split-team-remove" onclick="this.parentElement.remove(); updateTeamSelectOptions();">🗑️</span>
             `;
             container.appendChild(row);
+            updateTeamSelectOptions();
+        }
+
+        // Prevent duplicate team selection by disabling already selected teams in other dropdowns
+        function updateTeamSelectOptions() {
+            const selects = document.querySelectorAll('#splitTeamsContainer .split-team-select');
+            const selectedValues = Array.from(selects)
+                .map(s => s.value)
+                .filter(val => val !== '');
+
+            selects.forEach(select => {
+                const currentVal = select.value;
+                Array.from(select.options).forEach(opt => {
+                    if (opt.value === '') {
+                        opt.disabled = false;
+                        return;
+                    }
+                    const isSelectedElsewhere = selectedValues.includes(opt.value) && opt.value !== currentVal;
+                    opt.disabled = isSelectedElsewhere;
+                });
+            });
         }
 
         // Submit Phân Tổ
@@ -1934,6 +1955,7 @@
 
             const rows = document.querySelectorAll('#splitTeamsContainer .split-team-row');
             const assignments = [];
+            const selectedTeams = new Set();
             let total = 0;
 
             for (const row of rows) {
@@ -1944,10 +1966,15 @@
                     toast('Vui lòng chọn tổ may cho tất cả dòng', 'error');
                     return;
                 }
+                if (selectedTeams.has(teamId)) {
+                    toast('Không được chọn trùng tổ may!', 'error');
+                    return;
+                }
                 if (!qty || qty <= 0) {
                     toast('Số lượng chia phải lớn hơn 0', 'error');
                     return;
                 }
+                selectedTeams.add(teamId);
                 assignments.push({ team_id: Number(teamId), quantity: qty });
                 total += qty;
             }
