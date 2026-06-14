@@ -331,7 +331,7 @@ function _shBuildItemsTable(order) {
     <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:700px;">
         <thead>
             <tr style="border-bottom:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;">
-                <th style="padding:6px 8px;text-align:left;font-weight:700;width:220px;">Sản phẩm / Mô tả</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;width:220px;">Mã Phiếu đơn</th>
                 <th style="padding:6px 8px;text-align:center;font-weight:700;width:60px;">SL</th>
                 <th style="padding:6px 8px;text-align:left;font-weight:700;">Tiến độ bộ phận</th>
                 <th style="padding:6px 8px;text-align:center;font-weight:700;width:110px;">Trạng thái gửi</th>
@@ -340,7 +340,8 @@ function _shBuildItemsTable(order) {
         </thead>
         <tbody>`;
 
-    for (const item of order.items) {
+    for (let i = 0; i < order.items.length; i++) {
+        const item = order.items[i];
         const trStyle = `border-bottom:1px solid #f1f5f9;`;
         
         let actionHtml = '';
@@ -361,7 +362,7 @@ function _shBuildItemsTable(order) {
 
         html += `<tr style="${trStyle}">
             <td style="padding:6px 8px;font-weight:600;color:#1e293b;">
-                <div>${item.product_name}</div>
+                <div>🏷️ Phiếu ${i + 1}: ${item.product_name}</div>
                 <div style="font-size:10px;color:#64748b;font-weight:normal;margin-top:2px;">${item.description || ''}</div>
             </td>
             <td style="padding:6px 8px;text-align:center;font-weight:700;color:#334155;">${item.quantity}</td>
