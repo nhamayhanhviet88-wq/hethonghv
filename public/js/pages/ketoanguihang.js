@@ -8,6 +8,8 @@ let _shCskhVal = '';
 let _shSearched = [];
 let _shPage = 1;
 const _SH_PER_PAGE = 100;
+let _shAllOrdersLoaded = false;
+let _shAllOrdersLoading = null;
 
 async function renderKetoanguihangPage(container) {
     _shFilter = 'today'; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
@@ -65,6 +67,8 @@ function _shRenderSidebar() {
 
 function _shSetFilter(key) {
     _shFilter = key; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
+    _shAllOrdersLoaded = false;
+    _shAllOrdersLoading = null;
     const si = document.getElementById('shSearchInput'); if (si) si.value = '';
     _shRenderSidebar(); _shLoadOrders();
 }
@@ -83,8 +87,33 @@ function _shRenderSearchBar() {
         </div>
     </div>`;
 }
-function _shOnSearch(val) {
-    _shSearchVal = val; _shPage = 1; _shApplySearch(); _shRenderContent();
+async function _shOnSearch(val) {
+    _shSearchVal = val; _shPage = 1;
+    if (val.trim() !== '') {
+        if (!_shAllOrdersLoaded) {
+            if (!_shAllOrdersLoading) {
+                _shAllOrdersLoading = _shLoadAllOrders();
+            }
+            await _shAllOrdersLoading;
+        }
+    }
+    _shApplySearch();
+    _shRenderContent();
+}
+
+async function _shLoadAllOrders() {
+    try {
+        const data = await apiCall('/api/shipping/orders?filter=all&page_type=ketoan');
+        _shOrders = data.orders || [];
+        _shCounts = data.counts || {};
+        _shAllOrdersLoaded = true;
+        _shRenderSidebar();
+    } catch(e) {
+        console.error('Error loading all orders for search:', e);
+        showToast('Lỗi tải dữ liệu tìm kiếm: ' + e.message, 'error');
+    } finally {
+        _shAllOrdersLoading = null;
+    }
 }
 
 // ===== DATA PIPELINE =====
@@ -92,6 +121,8 @@ async function _shLoadOrders() {
     const el = document.getElementById('shContent');
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
+    _shAllOrdersLoaded = false;
+    _shAllOrdersLoading = null;
     try {
         const data = await apiCall(`/api/shipping/orders?filter=${_shFilter}&page_type=ketoan`);
         _shOrders = data.orders || [];
@@ -116,8 +147,40 @@ function _shApplySearch() {
                 || (o.customer_phone || '').toLowerCase().includes(q)
                 || (o.customer_name || '').toLowerCase().includes(q);
         });
+    } else {
+        list = list.filter(o => {
+            const menu = _shGetOrderMenu(o);
+            return menu.key === _shFilter;
+        });
     }
     _shSearched = list;
+}
+
+function _shGetOrderMenu(o) {
+    const today = new Date().toISOString().split('T')[0];
+    let effDate = o.rescheduled_ship_date || o.expected_ship_date;
+    if (effDate) {
+        try {
+            effDate = new Date(effDate).toISOString().split('T')[0];
+        } catch(e) {}
+    }
+    if (o.shipping_status === 'shipped') {
+        return { key: 'shipped', label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
+    }
+    if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
+        let reschedDate = o.rescheduled_ship_date;
+        try { reschedDate = new Date(reschedDate).toISOString().split('T')[0]; } catch(e){}
+        if (reschedDate > today) {
+            return { key: 'rescheduled', label: 'Chưa Gửi', color: '#d97706', bg: '#fffbeb' };
+        }
+    }
+    if (o.shipping_status === 'pending' && effDate && effDate > today) {
+        return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
+    }
+    if (['pending', 'rescheduled'].includes(o.shipping_status) && effDate && effDate <= today) {
+        return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+    }
+    return { key: 'unknown', label: 'Khác', color: '#6b7280', bg: '#f3f4f6' };
 }
 
 
@@ -246,7 +309,11 @@ function _shBuildTable(orders) {
         // Col 6: Progress
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
         // Col 7: Order code
-        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '—'}</td>`;
+        const menu = _shGetOrderMenu(o);
+        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">
+            ${o.order_code || '—'}
+            ${_shSearchVal ? `<br><span style="background:${menu.bg};color:${menu.color};padding:2px 6px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;margin-top:4px;border:1px solid ${menu.color}40;">${menu.label}</span>` : ''}
+        </td>`;
         // Col 8: Priority
         html += `<td style="padding:8px 6px;"><span style="background:${prioColor};color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority || 'CHUẨN'}</span></td>`;
         // Col 9-10: Customer
