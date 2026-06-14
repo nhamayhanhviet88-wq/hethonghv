@@ -630,7 +630,77 @@ module.exports = async function(fastify) {
                     } else { r.rolls = []; }
                 } catch(e) { r.rolls = []; }
             }
-            return { step: 'cat', order_code: order.order_code, customer_name: order.customer_name, records };
+
+            // Get preparation and assignment status for all items in the order
+            const items = await db.all(`
+                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+            `, [orderId]);
+
+            const itemsStatus = [];
+            for (const item of items) {
+                const hasCuttingRecord = records.some(r => r.order_item_id === item.id);
+
+                const prep = await db.get(`
+                    SELECT fabric_arrived FROM qlx_preparation
+                    WHERE dht_order_id = $1 AND (item_id = $2 OR item_id IS NULL)
+                    ORDER BY item_id DESC NULLS LAST LIMIT 1
+                `, [orderId, item.id]);
+                const fabricArrived = prep ? !!prep.fabric_arrived : false;
+
+                const assignment = await db.get(`
+                    SELECT 1 FROM qlx_assignments
+                    WHERE assignment_type = 'in'
+                      AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
+                      AND (item_id = $1 OR (dht_order_id = $2 AND item_id IS NULL))
+                    LIMIT 1
+                `, [item.id, orderId]);
+                const hasPrintAssignment = !!assignment;
+
+                itemsStatus.push({
+                    item_id: item.id,
+                    description: item.description,
+                    quantity: item.quantity,
+                    fabric_arrived: fabricArrived,
+                    has_print_assignment: hasPrintAssignment,
+                    has_cutter_claimed: hasCuttingRecord
+                });
+            }
+
+            if (items.length === 0) {
+                const prep = await db.get(`
+                    SELECT fabric_arrived FROM qlx_preparation
+                    WHERE dht_order_id = $1 AND item_id IS NULL
+                    LIMIT 1
+                `, [orderId]);
+                const fabricArrived = prep ? !!prep.fabric_arrived : false;
+
+                const assignment = await db.get(`
+                    SELECT 1 FROM qlx_assignments
+                    WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL
+                      AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
+                    LIMIT 1
+                `, [orderId]);
+                const hasPrintAssignment = !!assignment;
+
+                const hasCuttingRecord = records.length > 0;
+
+                itemsStatus.push({
+                    item_id: null,
+                    description: order.order_code,
+                    quantity: order.total_quantity || 0,
+                    fabric_arrived: fabricArrived,
+                    has_print_assignment: hasPrintAssignment,
+                    has_cutter_claimed: hasCuttingRecord
+                });
+            }
+
+            return {
+                step: 'cat',
+                order_code: order.order_code,
+                customer_name: order.customer_name,
+                records,
+                items_status: itemsStatus
+            };
         }
 
         if (step === 'in') {
