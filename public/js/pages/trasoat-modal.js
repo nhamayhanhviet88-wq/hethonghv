@@ -833,6 +833,11 @@ function _tsRenderStepModal(step, d){
             });
 
             groups.forEach((g, i) => {
+                g.assignments.sort((a, b) => {
+                    const aGC = a.contractor_id !== null ? 1 : 0;
+                    const bGC = b.contractor_id !== null ? 1 : 0;
+                    return aGC - bGC;
+                });
                 const title = '🔧 ' + d.order_code + ' — Phiếu ' + (i+1) + (g.item_description ? ' — ' + g.item_description : '');
                 
                 // Determine if all are completed
