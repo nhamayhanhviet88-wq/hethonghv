@@ -307,6 +307,53 @@ async function _tsOpenStepModal(orderId, stepName){
                 });
             });
         }
+        if (stepKey === 'ht' && res.records && res.records.length > 0) {
+            res.records.forEach(function(r) {
+                if (r.contractor_id) return; // Skip reminders for outsourced/Gia công
+                (async function() {
+                    try {
+                        var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=hoanthien';
+                        if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+                        url += '&record_type=finishing_records&record_id=' + r.id;
+                        
+                        var remRes = await apiCall(url);
+                        var htReminders = remRes.reminders || [];
+                        var htReminderIds = remRes.reminder_ids || [];
+                        var htViewedIds = remRes.viewed_ids || [];
+                        
+                        if (htReminders.length > 0) {
+                            var el = document.getElementById('_tsHtRemindersContainer_' + r.id);
+                            if (!el) return;
+                            
+                            var b = '';
+                            b += '<div style="margin-top:12px;background:#fff7ed;border:1.5px solid #ffedd5;padding:12px 14px;border-radius:12px;">';
+                            b += '  <div style="font-weight:800;color:#c2410c;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🍊 NHẮC NHỞ QLX HOÀN THIỆN:</div>';
+                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                            htReminders.forEach(function(rem, remIdx) {
+                                var remId = htReminderIds[remIdx] || 0;
+                                var isViewed = htViewedIds.indexOf(remId) >= 0;
+                                
+                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f97316') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                if (isViewed) {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                } else {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#f97316; border:1.5px solid #f97316; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                }
+                                b += '</div>';
+                            });
+                            b += '  </div>';
+                            b += '</div>';
+                            
+                            el.innerHTML = b;
+                            el.style.display = 'block';
+                        }
+                    } catch(e) {
+                        console.error('Lỗi tải nhắc nhở chi tiết hoàn thiện:', e);
+                    }
+                })();
+            });
+        }
     } catch(e) {
         document.getElementById('tsModalBody').innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">❌ Chưa có dữ liệu hoặc chưa đến giai đoạn này</div><div style="padding:0 20px 20px;text-align:center"><button onclick="_tsCloseModal()" style="padding:10px 40px;border:none;border-radius:10px;background:#1e293b;color:white;font-weight:700;cursor:pointer">Đóng</button></div>';
     }
@@ -909,6 +956,10 @@ function _tsRenderStepModal(step, d){
 
                     if(r.finishing_notes){
                         body+=`<div style="margin-top:6px;color:#475569;font-style:italic">Ghi Chú NV Hoàn Thiện: ${r.finishing_notes}</div>`;
+                    }
+
+                    if (!r.contractor_id) {
+                        body += `<div id="_tsHtRemindersContainer_${r.id}" style="display:none;margin-top:12px"></div>`;
                     }
 
                     body+=`</div>`;

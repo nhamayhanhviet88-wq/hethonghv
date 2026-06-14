@@ -1228,6 +1228,8 @@ async function _bphtLoadHoanThienReminders(r) {
     area.style.display = 'none';
     content.innerHTML = '';
 
+    if (r.contractor_id) return; // Skip reminders for outsourced/Gia công
+
     if (!document.getElementById('bptReminderPulseStyle')) {
         const style = document.createElement('style');
         style.id = 'bptReminderPulseStyle';
