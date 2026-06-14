@@ -95,6 +95,39 @@ var _dhcttFormatDetailedQuantity = function(items, totalQuantity, orderCode) {
 };
 var _dhcttFormatCurrentStep = window.formatCurrentStep || function(stepName, doneCount, totalCount, orderCode, categoryName, isShipped) { return stepName || 'Chờ SX'; };
 
+function _dhcttGetOrderCarriers(o) {
+    var carriers = [];
+    if (o.items && o.items.length > 0) {
+        o.items.forEach(function(item) {
+            var cid = Number(item.actual_carrier_id || 0);
+            var cname = '';
+            if (cid === 0) {
+                cname = 'Chưa Gửi Đơn Hàng';
+            } else {
+                var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
+                cname = found ? found.name : ('NVC #' + cid);
+            }
+            if (carriers.indexOf(cname) === -1) {
+                carriers.push(cname);
+            }
+        });
+    } else {
+        var cid = 0;
+        if (o.shipping_status === 'shipped' && o.actual_carrier_id) {
+            cid = Number(o.actual_carrier_id);
+        }
+        var cname = '';
+        if (cid === 0) {
+            cname = 'Chưa Gửi Đơn Hàng';
+        } else {
+            var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
+            cname = found ? found.name : ('NVC #' + cid);
+        }
+        carriers.push(cname);
+    }
+    return carriers.join(', ');
+}
+
 // ========== FILTER CHIPS ==========
 var _dhcttFilterDefs = [
     { key: 'vat',  label: 'VAT',         bg: '#fef3c7', color: '#92400e', activeBg: '#f59e0b', activeColor: '#fff' },
@@ -214,23 +247,18 @@ function _dhcttPopulateCskhDropdown() {
 
 // ========== SORT DEFINITIONS ==========
 var _dhcttSortDefs = [
-    { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
-    { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'shipped_at',       label: '🚛Ngày Gửi',    type: 'date' },
-    { key: null,               label: 'Tiến Độ',        type: 'none' },
-    { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
-    { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
-    { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
-    { key: 'customer_phone',   label: 'SĐT',            type: 'text' },
-    { key: 'province',         label: 'Thành Phố',      type: 'text' },
-    { key: 'cskh_name',        label: 'CSKH',           type: 'text' },
-    { key: 'source',           label: 'Nguồn',          type: 'text' },
-    { key: 'total_quantity',   label: 'Tổng SL',        type: 'num' },
-    { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
-    { key: 'deposit_amount',   label: 'Đặt Cọc',       type: 'num' },
-    { key: 'shipping_priority',label: 'TC Gửi',         type: 'text' },
-    { key: 'last_updated_at',  label: 'Lịch Sử CN',    type: 'date' },
-    { key: null,               label: '',                type: 'none' }
+    { key: 'category_name',    label: 'Lĩnh Vực',              type: 'text' },
+    { key: null,               label: 'Hình Thức Vận Chuyển',   type: 'none' },
+    { key: 'shipped_at',       label: 'Ngày Gửi',              type: 'date' },
+    { key: null,               label: 'Tiến Độ',                type: 'none' },
+    { key: 'remaining_amount', label: 'Còn Lại',                type: 'num' },
+    { key: 'order_code',       label: 'Mã Đơn',                type: 'text' },
+    { key: 'customer_name',    label: 'Tên Khách',              type: 'text' },
+    { key: 'customer_phone',   label: 'Sđt',                    type: 'text' },
+    { key: 'province',         label: 'Thành Phố',              type: 'text' },
+    { key: 'cskh_name',        label: 'CSKH',                   type: 'text' },
+    { key: 'total_quantity',   label: 'Tổng SL',                type: 'num' },
+    { key: null,               label: '',                       type: 'none' }
 ];
 
 function _dhcttSortCol(key) {
@@ -299,7 +327,7 @@ function _dhcttRenderSortHeaders() {
     var ths = '';
     for (var i = 0; i < _dhcttSortDefs.length; i++) {
         var d = _dhcttSortDefs[i];
-        if (d.type === 'none') { ths += '<th>' + (d.label || '') + '</th>'; continue; }
+        if (d.type === 'none') { ths += '<th style="color:#fff">' + (d.label || '') + '</th>'; continue; }
         var isActive = _dhctt.sortCol === d.key;
         var arrow = '';
         if (isActive && _dhctt.sortDir === 'asc') arrow = ' ▲';
@@ -308,7 +336,7 @@ function _dhcttRenderSortHeaders() {
         if (isActive) {
             ths += '<th class="dhctt-th-sort" onclick="_dhcttSortCol(\'' + d.key + '\')" style="background:#ffd700;color:#122546;cursor:pointer;user-select:none' + align + '">' + d.label + '<span class="dhctt-sort-arrow">' + arrow + '</span></th>';
         } else {
-            ths += '<th class="dhctt-th-sort" onclick="_dhcttSortCol(\'' + d.key + '\')" style="cursor:pointer;user-select:none' + align + '">' + d.label + '</th>';
+            ths += '<th class="dhctt-th-sort" onclick="_dhcttSortCol(\'' + d.key + '\')" style="color:#fff;cursor:pointer;user-select:none' + align + '">' + d.label + '</th>';
         }
     }
     thead.innerHTML = ths;
@@ -317,8 +345,7 @@ function _dhcttRenderSortHeaders() {
 function _dhcttRenderPagination(totalItems, totalPages) {
     var html = '';
     if (totalPages <= 1) {
-        html = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px">'
-            + '<span style="font-weight:700">' + totalItems + ' đơn</span></div>';
+        html = '';
     } else {
         html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;padding:6px 0">';
         html += '<button onclick="_dhcttGoPage(' + (_dhctt.page - 1) + ')" ' + (_dhctt.page <= 1 ? 'disabled' : '')
@@ -361,8 +388,14 @@ function _dhcttRenderPagination(totalItems, totalPages) {
     }
     var top = document.getElementById('dhcttPaginationTop');
     var bot = document.getElementById('dhcttPaginationBottom');
-    if (top) top.innerHTML = html;
-    if (bot) bot.innerHTML = html;
+    if (top) {
+        top.innerHTML = html;
+        top.style.display = html ? 'block' : 'none';
+    }
+    if (bot) {
+        bot.innerHTML = html;
+        bot.style.display = html ? 'block' : 'none';
+    }
 }
 
 function _dhcttGoPage(p) {
@@ -560,7 +593,7 @@ function _dhcttRenderOrderRows(filtered) {
     if (!tbody) return;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="17"><div class="empty-state"><div class="icon">📭</div><h3>Không có đơn hàng chưa thu tiền</h3></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="icon">📭</div><h3>Không có đơn hàng chưa thu tiền</h3></div></td></tr>';
         _dhcttUpdateInfo(0, []); return;
     }
 
@@ -655,7 +688,7 @@ function _dhcttRenderOrderRows(filtered) {
 
         return `<tr data-id="${o.id}" onclick="${clickHandler}" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
-            <td>${fmtD(o.order_date)}</td>
+            <td style="font-weight:600;">${_dhcttGetOrderCarriers(o)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
@@ -664,12 +697,7 @@ function _dhcttRenderOrderRows(filtered) {
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
             <td>${o.cskh_name || '—'}</td>
-            <td>${o.source || '—'}</td>
             <td style="text-align:center;font-weight:800;">${_dhcttFormatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
-            <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
-            <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
-            <td><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;${priStyle}">${o.shipping_priority || 'CHUẨN'}</span></td>
-            <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
                 ${(window.canDo && canDo('dht_sua_don', 'view')) ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>`) : ''}
             </td>
@@ -706,14 +734,15 @@ async function renderDonhangchuathutienPage(content) {
         document.head.appendChild(st);
     }
 
-    const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
+    const [catRes, staffRes, carrierRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff'), apiCall('/api/dht/carriers')]);
     _dhctt.categories = catRes.categories || [];
     _dhctt.staff = staffRes.staff || [];
+    _dhctt.carriers = carrierRes.carriers || [];
 
     content.innerHTML = '<div class="dhctt-wrap"><div class="dhctt-sidebar" id="dhcttSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dhctt-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="dhcttSearchWrap" style="position:relative;display:flex;align-items:center;gap:0"><input type="text" id="dhcttSearch" class="form-control" placeholder="🔍 Tìm mã đơn, SĐT, tên khách..." style="width:320px;font-size:13px;padding:8px 36px 8px 14px;border-radius:10px 0 0 10px;border:2px solid #ea580c;border-right:none;transition:all .2s" onfocus="this.style.borderColor=&apos;#c2410c&apos;;this.style.boxShadow=&apos;0 0 0 3px rgba(194,65,12,0.15)&apos;" onblur="this.style.borderColor=&apos;#ea580c&apos;;this.style.boxShadow=&apos;none&apos;"><button onclick="_dhcttDoSearch()" style="background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;border:none;padding:8px 16px;border-radius:0 10px 10px 0;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;height:100%;transition:all .15s" onmouseover="this.style.filter=&apos;brightness(1.1)&apos;" onmouseout="this.style.filter=&apos;&apos;">Tìm</button><button id="dhcttSearchClear" onclick="_dhcttClearSearch()" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;white-space:nowrap" title="Xóa tìm kiếm">✕</button></div><div id="dhcttSearchBadge" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#92400e"></div><div id="dhcttFilterInfo" style="font-size:12px"></div>'
         +'<div id="dhcttStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'</div>'
-        +'<div id="dhcttFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
+        +'<div id="dhcttFilterChips" style="display:none"></div>'
         +'<div id="dhcttDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:10px">'
         +'<button onclick="_dhcttDateFilterToday()" style="background:#ea580c;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
         +'<button onclick="_dhcttDateFilterMonth(0)" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Này</button>'
@@ -729,7 +758,7 @@ async function renderDonhangchuathutienPage(content) {
         +'<button onclick="_dhcttDateFilterClear()" style="background:none;border:1px solid #fed7aa;color:#c2410c;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div id="dhcttPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhcttTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>🚛Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhcttTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhcttTable"><thead><tr style="background:#1e293b;color:#fff"><th>Lĩnh Vực</th><th>Hình Thức Vận Chuyển</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>Sđt</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th></th></tr></thead><tbody id="dhcttTbody"><tr><td colspan="12" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dhcttPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
 

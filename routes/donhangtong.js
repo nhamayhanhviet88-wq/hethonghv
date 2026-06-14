@@ -276,7 +276,7 @@ module.exports = async function(fastify) {
                 )
                 SELECT 
                     oc.carrier_id,
-                    COALESCE(c.name, 'Chưa gửi / Chưa chọn NVC') AS carrier_name,
+                    COALESCE(c.name, 'Chưa Gửi Đơn Hàng') AS carrier_name,
                     oc.year,
                     oc.month,
                     COALESCE(SUM(oc.remaining_amount), 0)::numeric AS revenue,
