@@ -2192,6 +2192,16 @@ async function _ktclOpenQCModal(recordId) {
                             </div>
                         </div>
 
+                        <!-- Card 5b: Nhắc Nhở Phân Tổ May / KTTL -->
+                        <div class="qc-section-card" id="ktclQcRemindersGroup" style="display:none; border: 1.5px solid #ef4444; background: #fff5f5; border-radius: 8px; padding: 12px; margin-bottom: 12px; margin-top: 12px;">
+                            <div class="qc-section-title" style="color: #ef4444; font-weight: 800; display: flex; align-items: center; gap: 6px; font-size: 14px;">
+                                🔔 Nhắc Nhở Phân Tổ May / KTTL
+                            </div>
+                            <div id="ktclQcRemindersContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                                <!-- Reminders will be rendered dynamically here -->
+                            </div>
+                        </div>
+
                         <!-- Card 6: QC Checklist Questions -->
                         <div class="qc-section-card" id="ktclQcChecklistGroup" style="display:none;">
                             <div class="qc-section-title" style="color: #d97706;">🔍 KIỂM TRA CHẤT LƯỢNG (QC) <span style="font-size: 10px; font-weight: normal; color: #ef4444;">(Bắt buộc trả lời tất cả)</span></div>
@@ -2337,7 +2347,132 @@ async function _ktclOpenQCModal(recordId) {
 
     // Load checklist
     await _ktclLoadQcChecklist(recordId);
+    _ktclFetchRemindersForQC(r);
     _ktclUpdateEvidenceGroupVisibility();
+}
+
+async function _ktclFetchRemindersForQC(r) {
+    const group = document.getElementById('ktclQcRemindersGroup');
+    const container = document.getElementById('ktclQcRemindersContainer');
+    if (!group || !container) return;
+
+    if (!document.getElementById('bptReminderPulseStyle')) {
+        const style = document.createElement('style');
+        style.id = 'bptReminderPulseStyle';
+        style.innerHTML = `
+            @keyframes bptReminderPulse {
+                0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                70% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+                100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    group.style.display = 'none';
+    container.innerHTML = '';
+
+    try {
+        const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=may&item_id=${r.order_item_id}&record_type=sewing_qc&record_id=${r.id}`;
+        const res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const reminders = data.reminders || [];
+        const reminderIds = data.reminder_ids || [];
+        const viewedIds = data.viewed_ids || [];
+
+        if (reminders.length > 0) {
+            group.style.display = 'block';
+            reminders.forEach((remContent, idx) => {
+                const remId = reminderIds[idx];
+                const isViewed = viewedIds.includes(remId);
+
+                const itemDiv = document.createElement('div');
+                itemDiv.style.display = 'flex';
+                itemDiv.style.alignItems = 'center';
+                itemDiv.style.gap = '10px';
+                itemDiv.style.background = '#fff';
+                itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#ef4444'}`;
+                itemDiv.style.borderRadius = '8px';
+                itemDiv.style.padding = '8px 12px';
+                itemDiv.style.marginBottom = '6px';
+                itemDiv.style.transition = 'all 0.3s';
+
+                const text = document.createElement('div');
+                text.style.flex = '1';
+                text.style.fontSize = '12.5px';
+                text.style.fontWeight = '700';
+                text.style.color = isViewed ? '#065f46' : '#991b1b';
+                text.textContent = remContent;
+                itemDiv.appendChild(text);
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.flexShrink = '0';
+                btn.style.padding = '5px 10px';
+                btn.style.borderRadius = '6px';
+                btn.style.fontSize = '11px';
+                btn.style.fontWeight = '800';
+                btn.style.cursor = 'pointer';
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.gap = '4px';
+                btn.style.transition = 'all 0.2s';
+
+                if (isViewed) {
+                    btn.style.border = '1.5px solid #10b981';
+                    btn.style.background = '#ecfdf5';
+                    btn.style.color = '#047857';
+                    btn.innerHTML = '✅ Đã Xem và Làm';
+                } else {
+                    btn.className = 'ktcl-unviewed-btn';
+                    btn.style.border = '1.5px solid #ef4444';
+                    btn.style.background = '#fef2f2';
+                    btn.style.color = '#b91c1c';
+                    btn.style.animation = 'bptReminderPulse 2s infinite';
+                    btn.innerHTML = '👉 Đã Xem và Làm';
+                }
+
+                btn.onclick = async () => {
+                    if (btn.disabled || !btn.classList.contains('ktcl-unviewed-btn')) return;
+                    try {
+                        btn.disabled = true;
+                        const saveRes = await fetch('/api/qlx/reminders/viewed', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                reminder_ids: [remId],
+                                record_type: 'sewing_qc',
+                                record_id: r.id
+                            }),
+                            credentials: 'include'
+                        });
+                        if (!saveRes.ok) {
+                            const errData = await saveRes.json();
+                            throw new Error(errData.error || 'Lỗi lưu nhắc nhở');
+                        }
+                        showToast('Đã xác nhận xem nhắc nhở', 'success');
+                        btn.classList.remove('ktcl-unviewed-btn');
+                        btn.style.border = '1.5px solid #10b981';
+                        btn.style.background = '#ecfdf5';
+                        btn.style.color = '#047857';
+                        btn.style.animation = 'none';
+                        btn.innerHTML = '✅ Đã Xem và Làm';
+                        itemDiv.style.borderColor = '#10b981';
+                        itemDiv.style.color = '#065f46';
+                    } catch (err) {
+                        btn.disabled = false;
+                        showToast(err.message, 'error');
+                    }
+                };
+
+                itemDiv.appendChild(btn);
+                container.appendChild(itemDiv);
+            });
+        }
+    } catch (err) {
+        console.error('[QLX] Error loading QC reminders:', err);
+    }
 }
 
 function _ktclResizeImage(file, maxW = 800, maxH = 800, quality = 0.6) {
@@ -2642,6 +2777,13 @@ async function _ktclDeleteMissingPriceEvidenceImage(imgSrc) {
 }
 
 async function _ktclSubmitQC() {
+    // Validation: Must view all reminders
+    const unviewedBtns = document.querySelectorAll('#ktclQcRemindersContainer .ktcl-unviewed-btn');
+    if (unviewedBtns.length > 0) {
+        showToast('🔔 Bạn phải bấm xác nhận "Đã Xem và Làm" tất cả các nhắc nhở trước khi Xác Nhận!', 'error');
+        return;
+    }
+
     const isMissingPrice = document.getElementById('ktclMissingPriceCheckbox').checked;
     let finalNotes = '';
 
