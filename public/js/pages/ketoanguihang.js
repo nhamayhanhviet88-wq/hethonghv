@@ -912,6 +912,21 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + surHTML
     + finHTML
     + '</div>'
+    // Checkbox confirm (Moved above info)
+    + '<style>'
+    + '@keyframes pulseBlinkConfirm {'
+    + '  0% { border-color: #fb923c; box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.3); background-color: #fffbeb; }'
+    + '  50% { border-color: #dc2626; box-shadow: 0 0 14px 6px rgba(220, 38, 38, 0.25); background-color: #fef2f2; }'
+    + '  100% { border-color: #fb923c; box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.3); background-color: #fffbeb; }'
+    + '}'
+    + '.sh-blink-confirm { animation: pulseBlinkConfirm 1.8s infinite ease-in-out; transition: all 0.3s ease; }'
+    + '</style>'
+    + '<div class="sh-blink-confirm" style="margin: 16px 0; padding: 14px 18px; border: 2.5px solid #fb923c; border-radius: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="const chk=document.getElementById(\'shReadConfirmCheck\'); if(event.target!==chk) { chk.checked=!chk.checked; }">'
+    + '<input type="checkbox" id="shReadConfirmCheck" style="width: 20px; height: 20px; cursor: pointer; accent-color: #dc2626;" onclick="event.stopPropagation()">'
+    + '<label for="shReadConfirmCheck" style="font-size: 13.5px; font-weight: 900; color: #9a3412; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;">'
+    + '👉 <span style="color: #dc2626; font-size: 14px; text-decoration: underline; text-underline-offset: 3px;">Đã Đọc Và Làm Theo Sale Dặn</span> 👈'
+    + '</label>'
+    + '</div>'
     // P1.5: Thông tin đơn hàng
     + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
     + '<div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">📄 Thông tin đơn hàng</div>'
@@ -939,13 +954,6 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + '</div>'
     + '<div id="shNoFeeNote" style="display:none;border-top:1px solid #e2e8f0;padding-top:14px;"><div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:22px;">📦</span><div><div style="font-weight:800;font-size:12px;color:#059669;">NVC thu phí ship riêng</div><div style="font-size:11px;color:#065f46;margin-top:2px;">Không cần nhập phí gửi hàng — NVC sẽ quyết toán sau</div></div></div></div>'
     + '<div id="shPaymentSection" style="margin-top:4px;"></div>'
-    // Checkbox confirm
-    + '<div style="margin: 16px 0; padding: 12px 16px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; display: flex; align-items: center; gap: 10px;">'
-    + '<input type="checkbox" id="shReadConfirmCheck" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c;">'
-    + '<label for="shReadConfirmCheck" style="font-size: 13px; font-weight: 800; color: #92400e; cursor: pointer; user-select: none;">'
-    + '✅ Đã Đọc và Làm Sale Dặn'
-    + '</label>'
-    + '</div>'
     + '</div>'
     // Footer
     + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
@@ -1125,7 +1133,7 @@ async function _shDoShip(id) {
     // Checkbox validation
     const readConfirmCheck = document.getElementById('shReadConfirmCheck');
     if (readConfirmCheck && !readConfirmCheck.checked) {
-        return alert('⚠️ Bạn bắt buộc phải tích chọn "Đã Đọc và Làm Sale Dặn" thì mới được phép gửi hàng!');
+        return alert('⚠️ Bạn bắt buộc phải tích chọn "Đã Đọc Và Làm Theo Sale Dặn" thì mới được phép gửi hàng!');
     }
 
     const carrierId = document.getElementById('shCarrierSel')?.value;
