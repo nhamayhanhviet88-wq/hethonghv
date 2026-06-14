@@ -1098,9 +1098,11 @@ module.exports = async function(fastify) {
                             : await db.get(`SELECT 1 FROM sewing_records WHERE dht_order_id = $1 AND done_date IS NOT NULL LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'hoanthien') {
-                    const row = r.item_id
-                        ? await db.get(`SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = $1 AND sr.order_item_id = $2 AND (fr.is_completed = true OR fr.done_date IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
-                        : await db.get(`SELECT 1 FROM finishing_records WHERE dht_order_id = $1 AND (is_completed = true OR done_date IS NOT NULL) LIMIT 1`, [orderId]);
+                    const row = record_id
+                        ? await db.get(`SELECT 1 FROM finishing_records WHERE id = $1 AND (is_completed = true OR done_date IS NOT NULL) LIMIT 1`, [Number(record_id)])
+                        : (r.item_id
+                            ? await db.get(`SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = $1 AND sr.order_item_id = $2 AND (fr.is_completed = true OR fr.done_date IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
+                            : await db.get(`SELECT 1 FROM finishing_records WHERE dht_order_id = $1 AND (is_completed = true OR done_date IS NOT NULL) LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 }
             }
