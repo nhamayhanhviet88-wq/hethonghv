@@ -660,6 +660,34 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS receiver_name TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
 
+    // Item-level shipping fields in dht_order_items
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_status TEXT DEFAULT 'pending'`); } catch(e) {}
+    try {
+        const itemChkRows = await db.all(`
+            SELECT con.conname FROM pg_constraint con
+            JOIN pg_class rel ON rel.oid = con.conrelid
+            WHERE rel.relname = 'dht_order_items' AND con.contype = 'c'
+              AND pg_get_constraintdef(con.oid) ILIKE '%shipping_status%'
+        `);
+        for (const r of itemChkRows) {
+            await db.exec(`ALTER TABLE dht_order_items DROP CONSTRAINT IF EXISTS "${r.conname}"`);
+        }
+        await db.exec(`ALTER TABLE dht_order_items ADD CONSTRAINT dht_order_items_shipping_status_check CHECK (shipping_status IN ('pending','shipped'))`);
+    } catch(e) { console.error('[Shipping Item] CHECK:', e.message); }
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipped_by INTEGER`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMPTZ`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_date DATE`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS actual_ship_datetime TIMESTAMPTZ`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS actual_carrier_id INTEGER`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS tracking_code TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_bill_link TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS carrier_phone TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS receiver_name TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_fee_payer TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_fee_method TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
+
     // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS dht_audit_logs (

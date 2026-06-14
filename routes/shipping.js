@@ -37,6 +37,209 @@ async function _getNextTMSeq(cfDate) {
     return Math.max(Number(prRow.max_seq), Number(cfRow.max_seq)) + 1;
 }
 
+// Helper: get item-level progress for orders
+async function _getShippingItemsProgress(orderIds) {
+    if (!orderIds || !orderIds.length) return [];
+    
+    const items = await db.all(`
+        SELECT 
+            oi.id AS item_id,
+            oi.dht_order_id,
+            oi.product_name,
+            oi.description,
+            oi.quantity,
+            oi.shipping_status,
+            oi.shipped_at,
+            oi.shipped_by,
+            oi.shipping_date,
+            oi.actual_carrier_id,
+            oi.tracking_code,
+            oi.shipping_bill_link,
+            oi.carrier_phone,
+            oi.receiver_name,
+            oi.shipping_fee,
+            oi.shipping_fee_payer,
+            oi.shipping_fee_method,
+            cr.name AS actual_carrier_name,
+            (
+                SELECT string_agg(pp.step_id::text, ',') 
+                FROM dht_product_process pp 
+                JOIN dht_products p ON pp.product_id = p.id 
+                WHERE (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                  AND pp.is_active = true
+            ) AS required_steps,
+            (
+                EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                      AND pf.name IN ('IN PET', 'IN DECAL')
+                ) OR EXISTS (
+                    SELECT 1 FROM printing_records pr
+                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                      AND pr.print_field IN ('IN PET', 'IN DECAL')
+                )
+            ) AS has_press_printing,
+            (
+                EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                ) OR EXISTS (
+                    SELECT 1 FROM printing_records pr
+                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                )
+            ) AS has_any_printing,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                    ELSE false
+                END,
+                false
+            ) AS cut_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
+                    ELSE false
+                END,
+                false
+            ) AS print_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id AND is_reported = false)
+                    ELSE false
+                END,
+                false
+            ) AS press_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id AND done_date IS NULL)
+                    ELSE false
+                END,
+                false
+            ) AS sew_done,
+            COALESCE(
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
+                    THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id AND fr.is_completed = false)
+                    ELSE false
+                END,
+                false
+            ) AS finish_done,
+            COALESCE(
+                CASE
+                    WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM sewing_records sr
+                        WHERE sr.order_item_id = oi.id
+                          AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
+                    )
+                    ELSE false
+                END,
+                false
+            ) AS qc_done
+        FROM dht_order_items oi
+        LEFT JOIN dht_carriers cr ON oi.actual_carrier_id = cr.id
+        WHERE oi.dht_order_id = ANY($1::int[])
+    `, [orderIds]);
+
+    return items;
+}
+
+function _processShippingOrderItems(order, itemsList, isPetTem) {
+    let orderItems = itemsList.filter(item => item.dht_order_id === order.id);
+    if (!orderItems.length) {
+        orderItems = [{
+            item_id: null,
+            dht_order_id: order.id,
+            product_name: order.order_code,
+            description: order.order_code,
+            quantity: order.total_quantity || 0,
+            shipping_status: order.shipping_status,
+            shipped_at: order.shipped_at,
+            shipped_by: order.shipped_by,
+            shipping_date: order.shipping_date,
+            actual_carrier_id: order.actual_carrier_id,
+            actual_carrier_name: order.actual_carrier_name,
+            tracking_code: order.tracking_code,
+            shipping_bill_link: order.shipping_bill_link,
+            carrier_phone: order.carrier_phone,
+            receiver_name: order.receiver_name,
+            shipping_fee: order.shipping_fee,
+            shipping_fee_payer: order.shipping_fee_payer,
+            shipping_fee_method: order.shipping_fee_method,
+            required_steps: null,
+            cut_done: true,
+            print_done: true,
+            press_done: true,
+            sew_done: true,
+            finish_done: true,
+            qc_done: true
+        }];
+    }
+    
+    return orderItems.map(item => {
+        let requiredStepIds = null;
+        if (item.required_steps) {
+            requiredStepIds = new Set(item.required_steps.split(',').map(Number));
+        }
+
+        if (!requiredStepIds) {
+            if (isPetTem) {
+                requiredStepIds = new Set([3]);
+            } else {
+                requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]);
+            }
+        }
+
+        const needsCut = requiredStepIds.has(2);
+        const needsPrint = requiredStepIds.has(3);
+        let needsPress = requiredStepIds.has(4);
+        if (item.has_any_printing) {
+            needsPress = !!item.has_press_printing;
+        }
+        const needsSew = requiredStepIds.has(5);
+        const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+
+        const cutDone = !needsCut || item.cut_done;
+        const printDone = !needsPrint || item.print_done;
+        const pressDone = !needsPress || item.press_done;
+        const sewDone = !needsSew || item.sew_done;
+        const qcDone = !needsSew || item.qc_done; // QC is tied to Sewing
+        const finishDone = !needsFinishing || item.finish_done;
+
+        const allDone = cutDone && printDone && pressDone && sewDone && qcDone && finishDone;
+        
+        const missingSteps = [];
+        if (!cutDone) missingSteps.push('Cắt');
+        if (!printDone) missingSteps.push('In');
+        if (!pressDone) missingSteps.push('Ép');
+        if (!sewDone) missingSteps.push('May');
+        if (!qcDone) missingSteps.push('Kiểm Tra QC');
+        if (!finishDone) missingSteps.push('Hoàn Thiện');
+
+        return {
+            ...item,
+            needs_cut: needsCut,
+            needs_print: needsPrint,
+            needs_press: needsPress,
+            needs_sew: needsSew,
+            needs_finishing: needsFinishing,
+            cut_done: cutDone,
+            print_done: printDone,
+            press_done: pressDone,
+            sew_done: sewDone,
+            qc_done: qcDone,
+            finish_done: finishDone,
+            all_done: allDone,
+            missing_steps: missingSteps
+        };
+    });
+}
+
 module.exports = async function(fastify) {
 
     // ========== LIST ORDERS — 4 Filters ==========
@@ -122,7 +325,7 @@ module.exports = async function(fastify) {
                 o.shipping_fee_payer, o.shipping_fee_method, o.receiver_name,
                 o.discount_amount, o.has_vat, o.vat_amount,
                 o.deposit_amount_cache,
-                o.carrier_extra, o.notes, o.standard_delivery_time, o.standard_proof_image,
+                o.carrier_extra, o.notes, o.standard_delivery_time, o.standard_proof_image, o.category_id,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
                 cr2.tracking_url_template AS actual_carrier_tracking_url,
@@ -151,6 +354,14 @@ module.exports = async function(fastify) {
             ${filterWhere}
             ORDER BY ${orderBy}
         `, [...params, todayStr]);
+
+        // Fetch item progress and attach to orders
+        const orderIds = orders.map(o => o.id);
+        const itemsList = await _getShippingItemsProgress(orderIds);
+        for (const o of orders) {
+            const isPetTem = Number(o.category_id) === 2;
+            o.items = _processShippingOrderItems(o, itemsList, isPetTem);
+        }
 
         // Count for each filter (for sidebar badges)
         const todayParam = todayStr;
@@ -247,6 +458,14 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const todayStr = vnDateStr(now);
 
+        // If itemId is provided, check and validate item
+        let item = null;
+        if (itemId) {
+            item = await db.get('SELECT id, dht_order_id, shipping_status, product_name, description FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+            if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu/sản phẩm này của đơn hàng' });
+            if (item.shipping_status === 'shipped') return reply.code(400).send({ error: 'Phiếu này đã được gửi rồi' });
+        }
+
         // Build update SET
         const sets = [];
         const params = [];
@@ -283,7 +502,10 @@ module.exports = async function(fastify) {
             try {
                 const seq = await _getNextTMSeq(todayStr);
                 const cfCode = _buildTMCode(seq, todayStr);
-                const cfDescription = `Tiền ship đơn ${order.order_code}`;
+                let cfDescription = `Tiền ship đơn ${order.order_code}`;
+                if (item) {
+                    cfDescription = `Tiền ship phiếu ${item.product_name} đơn ${order.order_code}`;
+                }
                 const cfImageUrl = b.shipping_bill_link || null;
 
                 // Reserve TM code in payment_records (same as cashflow.js pattern)
@@ -323,9 +545,98 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Update order
-        params.push(orderId);
-        await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+        // Update database
+        if (itemId) {
+            const itemSets = [];
+            const itemParams = [];
+            let itemIdx = 1;
+            
+            itemSets.push(`shipping_status = 'shipped'`);
+            itemSets.push(`shipped_by = $${itemIdx++}`); itemParams.push(userId);
+            itemSets.push(`shipped_at = $${itemIdx++}`); itemParams.push(now.toISOString());
+            itemSets.push(`shipping_date = $${itemIdx++}`); itemParams.push(todayStr);
+            itemSets.push(`actual_ship_datetime = $${itemIdx++}`); itemParams.push(now.toISOString());
+            itemSets.push(`actual_carrier_id = $${itemIdx++}`); itemParams.push(Number(b.actual_carrier_id));
+            
+            if (b.tracking_code) { itemSets.push(`tracking_code = $${itemIdx++}`); itemParams.push(b.tracking_code); }
+            if (b.shipping_bill_link) { itemSets.push(`shipping_bill_link = $${itemIdx++}`); itemParams.push(b.shipping_bill_link); }
+            if (b.carrier_phone) { itemSets.push(`carrier_phone = $${itemIdx++}`); itemParams.push(b.carrier_phone); }
+            if (b.receiver_name) { itemSets.push(`receiver_name = $${itemIdx++}`); itemParams.push(b.receiver_name); }
+
+            itemSets.push(`shipping_fee = $${itemIdx++}`); itemParams.push(shipFee);
+            itemSets.push(`shipping_fee_payer = $${itemIdx++}`); itemParams.push(b.shipping_fee_payer);
+            itemSets.push(`shipping_fee_method = $${itemIdx++}`); itemParams.push(b.shipping_fee_method);
+            if (cashflowResult) {
+                itemSets.push(`shipping_cashflow_id = $${itemIdx++}`); itemParams.push(cashflowResult.id);
+            }
+            
+            itemParams.push(itemId);
+            await db.run(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE id = $${itemIdx}`, itemParams);
+
+            // Check if all items in order are now shipped
+            const unshipped = await db.get('SELECT COUNT(*) AS cnt FROM dht_order_items WHERE dht_order_id = $1 AND shipping_status = \'pending\'', [orderId]);
+            if (Number(unshipped?.cnt || 0) === 0) {
+                // All items are shipped! Update order status to shipped.
+                const orderSets = [];
+                const orderParams = [];
+                let orderIdx = 1;
+                
+                orderSets.push(`shipping_status = 'shipped'`);
+                orderSets.push(`shipped_by = $${orderIdx++}`); orderParams.push(userId);
+                orderSets.push(`shipped_at = $${orderIdx++}`); orderParams.push(now.toISOString());
+                orderSets.push(`shipping_date = $${orderIdx++}`); orderParams.push(todayStr);
+                orderSets.push(`actual_ship_datetime = $${orderIdx++}`); orderParams.push(now.toISOString());
+                orderSets.push(`actual_carrier_id = $${orderIdx++}`); orderParams.push(Number(b.actual_carrier_id));
+                orderSets.push(`rescheduled_ship_date = NULL`);
+                orderSets.push(`reschedule_reason = NULL`);
+                
+                if (b.tracking_code) { orderSets.push(`tracking_code = $${orderIdx++}`); orderParams.push(b.tracking_code); }
+                if (b.shipping_bill_link) { orderSets.push(`shipping_bill_link = $${orderIdx++}`); orderParams.push(b.shipping_bill_link); }
+                if (b.carrier_phone) { orderSets.push(`carrier_phone = $${orderIdx++}`); orderParams.push(b.carrier_phone); }
+                if (b.receiver_name) { orderSets.push(`receiver_name = $${orderIdx++}`); orderParams.push(b.receiver_name); }
+                
+                orderSets.push(`shipping_fee = $${orderIdx++}`); orderParams.push(shipFee);
+                orderSets.push(`shipping_fee_payer = $${orderIdx++}`); orderParams.push(b.shipping_fee_payer);
+                orderSets.push(`shipping_fee_method = $${orderIdx++}`); orderParams.push(b.shipping_fee_method);
+                if (cashflowResult) {
+                    orderSets.push(`shipping_cashflow_id = $${orderIdx++}`); orderParams.push(cashflowResult.id);
+                }
+                
+                orderSets.push(`last_updated_by = $${orderIdx++}`); orderParams.push(userId);
+                orderSets.push(`last_updated_at = NOW()`);
+                
+                orderParams.push(orderId);
+                await db.run(`UPDATE dht_orders SET ${orderSets.join(', ')} WHERE id = $${orderIdx}`, orderParams);
+            }
+        } else {
+            params.push(orderId);
+            await db.run(`UPDATE dht_orders SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+
+            // Also mark all items as shipped
+            await db.run(`
+                UPDATE dht_order_items SET
+                    shipping_status = 'shipped',
+                    shipped_by = $1,
+                    shipped_at = $2,
+                    shipping_date = $3,
+                    actual_ship_datetime = $2,
+                    actual_carrier_id = $4,
+                    tracking_code = $5,
+                    shipping_bill_link = $6,
+                    carrier_phone = $7,
+                    receiver_name = $8,
+                    shipping_fee = $9,
+                    shipping_fee_payer = $10,
+                    shipping_fee_method = $11,
+                    shipping_cashflow_id = $12
+                WHERE dht_order_id = $13 AND shipping_status = 'pending'
+            `, [
+                userId, now.toISOString(), todayStr, Number(b.actual_carrier_id),
+                b.tracking_code || null, b.shipping_bill_link || null, b.carrier_phone || null,
+                b.receiver_name || null, shipFee, b.shipping_fee_payer || null,
+                b.shipping_fee_method || null, cashflowResult?.id || null, orderId
+            ]);
+        }
 
         // ★ Link payment record for order settlement (if selected)
         let paymentLinkResult = null;
@@ -351,7 +662,12 @@ module.exports = async function(fastify) {
         }
 
         // Build result message
-        let resultMsgParts = [`✅ Đã gửi đơn ${order.order_code}`];
+        let resultMsgParts = [];
+        if (itemId && item) {
+            resultMsgParts.push(`✅ Đã gửi phiếu "${item.product_name}" của đơn ${order.order_code}`);
+        } else {
+            resultMsgParts.push(`✅ Đã gửi đơn ${order.order_code}`);
+        }
         if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
         if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
         const resultMsg = resultMsgParts.join(' — ');
@@ -370,7 +686,11 @@ module.exports = async function(fastify) {
             if (b.tracking_code) changes.push({ field: 'tracking_code', label: 'Mã vận đơn', old: null, new: b.tracking_code });
             if (b.carrier_phone) changes.push({ field: 'carrier_phone', label: 'SĐT Nhà Xe', old: null, new: b.carrier_phone });
             if (b.receiver_name) changes.push({ field: 'receiver_name', label: 'Người nhận', old: null, new: b.receiver_name });
-            const summary = `Đã gửi hàng qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+            
+            let summary = `Đã gửi hàng qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+            if (itemId && item) {
+                summary = `Đã gửi phiếu "${item.product_name}" qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+            }
             await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
                 orderId, 'ship', summary, JSON.stringify(changes), request.user.id
             ]);

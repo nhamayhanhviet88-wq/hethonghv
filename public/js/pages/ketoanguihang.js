@@ -172,7 +172,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','🔗','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
+        ${['','','🔗','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
             `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;">${h}</th>`
         ).join('')}
     </tr></thead><tbody>`;
@@ -183,6 +183,34 @@ function _shBuildTable(orders) {
         const prioColors = { 'GỬI':'#3b82f6', 'GẤP':'#dc2626', 'CHUẨN':'#7c3aed' };
         const prioColor = prioColors[o.shipping_priority] || '#6b7280';
         const isKT = o.shipping_status !== 'shipped';
+
+        // Check pending items and their completions
+        const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+        const allPendingCompleted = pendingItems.every(item => item.all_done);
+
+        let orderLevelAction = '';
+        if (isKT && o.shipping_status !== 'shipped') {
+            if (allPendingCompleted && pendingItems.length > 0) {
+                // All pending items are done -> Show Gửi
+                orderLevelAction = `
+                    <button onclick="event.stopPropagation();_shShipOrder(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
+                    <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                `;
+            } else {
+                // Not all pending items are done -> Show Không gửi được
+                const missingSummaries = pendingItems
+                    .filter(item => !item.all_done)
+                    .map(item => `• ${item.product_name}: Chưa hoàn thành ${item.missing_steps.join(', ')}`)
+                    .join('\\n');
+                
+                orderLevelAction = `
+                    <button onclick="event.stopPropagation();_shAlertCannotShipOrder('${(o.order_code||'').replace(/'/g,"\\'")}', \`${missingSummaries.replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`)" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
+                    <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                `;
+            }
+        } else {
+            orderLevelAction = `<span style="color:#059669;font-size:14px;">✅</span>`;
+        }
 
         // Progress badge
         let progressBadge = '<span style="color:#d1d5db;">—</span>';
@@ -204,15 +232,14 @@ function _shBuildTable(orders) {
         }
 
         html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail(${o.id})" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
-        // Col 1: Ship button
-        if (isKT && o.shipping_status !== 'shipped') {
-            html += `<td style="padding:8px 6px;text-align:center;">
-                <button onclick="event.stopPropagation();_shShipOrder(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
-                <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
-            </td>`;
-        } else {
-            html += `<td style="padding:8px 6px;text-align:center;"><span style="color:#059669;font-size:14px;">✅</span></td>`;
-        }
+        
+        // Expander column
+        html += `<td style="padding:8px 6px;text-align:center;" onclick="event.stopPropagation();_shToggleOrderItems(${o.id})">
+            <span id="shChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
+        </td>`;
+
+        // Col 1: Action
+        html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
         // Col 2: Bill link
         html += `<td style="padding:8px 4px;text-align:center;">${o.shipping_bill_link ? `<a href="${o.shipping_bill_link}" target="_blank" style="color:#3b82f6;font-size:14px;" title="Xem bill" onclick="event.stopPropagation()">🔗</a>` : `<span style="color:#d1d5db;cursor:pointer;font-size:14px;" onclick="event.stopPropagation();_shEditTracking(${o.id},'shipping_bill_link','${(o.shipping_bill_link||'').replace(/'/g,"\\'")}')" title="Thêm link bill">➕</span>`}</td>`;
         // Col 3: Gửi Dự Kiến
@@ -249,9 +276,116 @@ function _shBuildTable(orders) {
         // Col 17: History
         html += `<td style="padding:8px 6px;text-align:center;"><button onclick="event.stopPropagation();_shShowHistory(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;cursor:pointer;font-size:10px;font-weight:600;">📋</button></td>`;
         html += '</tr>';
+
+        // Sub-row for items/slips
+        const itemsTableHtml = _shBuildItemsTable(o);
+        html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
+            <td colspan="19" style="padding:12px 16px;">
+                <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                    <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
+                </div>
+                ${itemsTableHtml}
+            </td>
+        </tr>`;
     }
     html += '</tbody></table></div>';
     return html;
+}
+
+function _shToggleOrderItems(orderId) {
+    const row = document.getElementById(`shItemsRow_${orderId}`);
+    const chevron = document.getElementById(`shChevron_${orderId}`);
+    if (!row || !chevron) return;
+    if (row.style.display === 'none') {
+        row.style.display = '';
+        chevron.innerText = '▼';
+    } else {
+        row.style.display = 'none';
+        chevron.innerText = '▶';
+    }
+}
+
+function _shBuildProgressHTML(item) {
+    const steps = [
+        { label: 'Cắt', done: item.cut_done, needed: item.needs_cut },
+        { label: 'In', done: item.print_done, needed: item.needs_print },
+        { label: 'Ép', done: item.press_done, needed: item.needs_press },
+        { label: 'May', done: item.sew_done, needed: item.needs_sew },
+        { label: 'QC', done: item.qc_done, needed: item.needs_sew },
+        { label: 'HT', done: item.finish_done, needed: item.needs_finishing }
+    ];
+
+    return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">` + 
+        steps.map(s => {
+            if (!s.needed) return '';
+            const bg = s.done ? '#dcfce7' : '#fee2e2';
+            const color = s.done ? '#15803d' : '#b91c1c';
+            const icon = s.done ? '✓' : '✗';
+            return `<span style="padding:1.5px 5px;border-radius:4px;font-size:9.5px;font-weight:700;background:${bg};color:${color};display:inline-flex;align-items:center;gap:2.5px;" title="${s.label}: ${s.done ? 'Đã hoàn thành' : 'Chưa hoàn thành'}">
+                ${s.label} ${icon}
+            </span>`;
+        }).join('') + `</div>`;
+}
+
+function _shBuildItemsTable(order) {
+    if (!order.items || !order.items.length) {
+        return `<div style="color:#64748b;font-style:italic;font-size:11px;">Không có chi tiết phiếu sản phẩm</div>`;
+    }
+
+    let html = `<div style="background:white;border:1px solid #cbd5e1;border-radius:10px;padding:8px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:700px;">
+        <thead>
+            <tr style="border-bottom:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;">
+                <th style="padding:6px 8px;text-align:left;font-weight:700;width:220px;">Sản phẩm / Mô tả</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:700;width:60px;">SL</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;">Tiến độ bộ phận</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:700;width:110px;">Trạng thái gửi</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:700;width:140px;">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    for (const item of order.items) {
+        const trStyle = `border-bottom:1px solid #f1f5f9;`;
+        
+        let actionHtml = '';
+        if (item.shipping_status === 'shipped') {
+            actionHtml = `<span style="color:#64748b;font-size:11px;">—</span>`;
+        } else {
+            if (item.all_done) {
+                actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
+            } else {
+                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
+            }
+        }
+
+        const progressHtml = _shBuildProgressHTML(item);
+        const statusBadge = item.shipping_status === 'shipped' 
+            ? `<span style="background:#ecfdf5;color:#047857;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">✅ Đã gửi</span>` 
+            : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`;
+
+        html += `<tr style="${trStyle}">
+            <td style="padding:6px 8px;font-weight:600;color:#1e293b;">
+                <div>${item.product_name}</div>
+                <div style="font-size:10px;color:#64748b;font-weight:normal;margin-top:2px;">${item.description || ''}</div>
+            </td>
+            <td style="padding:6px 8px;text-align:center;font-weight:700;color:#334155;">${item.quantity}</td>
+            <td style="padding:6px 8px;">${progressHtml}</td>
+            <td style="padding:6px 8px;text-align:center;">${statusBadge}</td>
+            <td style="padding:6px 8px;text-align:center;">${actionHtml}</td>
+        </tr>`;
+    }
+
+    html += `</tbody></table></div>`;
+    return html;
+}
+
+function _shAlertCannotShip(itemName, missing) {
+    alert(`Phiếu "${itemName}" chưa hoàn thành công việc bộ phận: ${missing}\nNên không thể gửi!`);
+}
+
+function _shAlertCannotShipOrder(orderCode, missingInfo) {
+    alert(`Đơn hàng ${orderCode} chưa hoàn thành các phiếu:\n\n${missingInfo}\n\nNên không thể xác nhận gửi.`);
 }
 
 // ===== CARRIER RULES =====
@@ -280,7 +414,7 @@ function _shGetCarrierGroup(name) {
 }
 
 // ===== SHIP MODAL =====
-function _shShipOrder(id, code) {
+function _shShipOrder(id, code, itemId = null, itemName = null) {
     const o = _shOrders.find(x => x.id === id); if (!o) return;
     document.getElementById('shShipModal')?.remove();
     const m = document.createElement('div'); m.id = 'shShipModal';
@@ -334,9 +468,11 @@ function _shShipOrder(id, code) {
     // Customer phone link
     const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '\u2014';
 
+    const modalTitle = itemId ? `📤 Gửi Phiếu — ${code} (${itemName})` : `📤 Gửi Hàng — ${code}`;
+
     m.innerHTML = '<div style="background:white;border-radius:16px;width:560px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
     + '<div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">'
-    + '<div style="color:white;font-weight:800;font-size:16px;">\ud83d\udce4 G\u1eedi H\u00e0ng \u2014 ' + code + '</div>'
+    + '<div style="color:white;font-weight:800;font-size:16px;">' + modalTitle + '</div>'
     + '<div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;">Ti\u1ec1n \u0111\u01a1n c\u00f2n l\u1ea1i: <b style="color:#fbbf24">' + fmtMoney(remaining) + '\u0111</b></div>'
     + '</div>'
     + '<div style="padding:20px 24px;">'
@@ -380,7 +516,7 @@ function _shShipOrder(id, code) {
     + '</div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    window._shModalState = { payer: null, method: null, orderId: id, remaining, orderCode: code, selectedPaymentId: null, skipPayment: false, matchingPayments: [], paymentLoaded: false, payLaterCarrier: false };
+    window._shModalState = { payer: null, method: null, orderId: id, remaining, orderCode: code, selectedPaymentId: null, skipPayment: false, matchingPayments: [], paymentLoaded: false, payLaterCarrier: false, itemId: itemId };
 }
 
 
@@ -571,6 +707,7 @@ async function _shDoShip(id) {
             return alert('Vui lòng chọn mã tiền thanh toán hoặc đánh dấu "Không thanh toán lần này"');
         }
     }
+
     // Submit
     try {
         const body = {
@@ -581,6 +718,7 @@ async function _shDoShip(id) {
             no_fee_carrier: isNoFee
         };
         if (s.selectedPaymentId) body.selected_payment_id = s.selectedPaymentId;
+        if (s.itemId) body.item_id = s.itemId;
         if (tracking) body.tracking_code = tracking;
         if (bill) body.shipping_bill_link = bill;
         if (phone) body.carrier_phone = phone;
