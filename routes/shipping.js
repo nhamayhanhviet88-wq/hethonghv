@@ -359,7 +359,8 @@ module.exports = async function(fastify) {
         const orderIds = orders.map(o => o.id);
         const itemsList = await _getShippingItemsProgress(orderIds);
         for (const o of orders) {
-            const isPetTem = Number(o.category_id) === 2;
+            const code = (o.order_code || '').toUpperCase();
+            const isPetTem = Number(o.category_id) === 8 || Number(o.category_id) === 9 || code.includes('PET') || code.includes('TEM');
             o.items = _processShippingOrderItems(o, itemsList, isPetTem);
         }
 
