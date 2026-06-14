@@ -841,10 +841,9 @@ async function _bphtDeleteImage(imgSrc) {
 }
 
 async function _bphtSubmitComplete() {
-    // Enforce reminders viewed
-    const unviewedBtns = document.querySelectorAll('#bphtHoanThienRemindersContent button');
+    const unviewedBtns = document.querySelectorAll('#bphtHoanThienRemindersContent .bpht-unviewed-btn');
     if (unviewedBtns.length > 0) {
-        showToast('⚠️ Bạn phải xác nhận "Tôi đã đọc & hiểu" tất cả nhắc nhở của QLX trước khi hoàn thành!', 'error');
+        showToast('⚠️ Bạn phải bấm xác nhận "Đã Xem và Làm" tất cả các nhắc nhở trước khi hoàn thành!', 'error');
         return;
     }
 
@@ -1172,8 +1171,21 @@ async function _bphtLoadHoanThienReminders(r) {
     area.style.display = 'none';
     content.innerHTML = '';
 
+    if (!document.getElementById('bptReminderPulseStyle')) {
+        const style = document.createElement('style');
+        style.id = 'bptReminderPulseStyle';
+        style.innerHTML = `
+            @keyframes bptReminderPulse {
+                0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                70% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+                100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     try {
-        const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=hoanthien&item_id=${r.order_item_id}`;
+        const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=hoanthien&item_id=${r.order_item_id}&record_type=finishing_records&record_id=${r.id}`;
         const res = await apiCall(url);
         if (res.reminders && res.reminders.length > 0) {
             area.style.display = 'block';
@@ -1182,66 +1194,78 @@ async function _bphtLoadHoanThienReminders(r) {
                 const isViewed = res.viewed_ids.includes(remId);
 
                 const itemDiv = document.createElement('div');
-                itemDiv.style.background = '#f8fafc';
-                itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#f59e0b'}`;
-                itemDiv.style.borderRadius = '8px';
-                itemDiv.style.padding = '10px';
                 itemDiv.style.display = 'flex';
-                itemDiv.style.flexDirection = 'column';
-                itemDiv.style.gap = '8px';
-                itemDiv.style.marginBottom = '8px';
+                itemDiv.style.alignItems = 'center';
+                itemDiv.style.gap = '10px';
+                itemDiv.style.background = '#fff';
+                itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#ef4444'}`;
+                itemDiv.style.borderRadius = '8px';
+                itemDiv.style.padding = '8px 12px';
+                itemDiv.style.marginBottom = '6px';
+                itemDiv.style.transition = 'all 0.3s';
 
                 const text = document.createElement('div');
-                text.style.fontSize = '12px';
+                text.style.flex = '1';
+                text.style.fontSize = '12.5px';
                 text.style.fontWeight = '700';
-                text.style.color = '#1e293b';
-                text.style.lineHeight = '1.4';
+                text.style.color = isViewed ? '#065f46' : '#991b1b';
                 text.textContent = remContent;
                 itemDiv.appendChild(text);
 
-                const actionRow = document.createElement('div');
-                actionRow.style.display = 'flex';
-                actionRow.style.justifyContent = 'flex-end';
-                actionRow.style.alignItems = 'center';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.flexShrink = '0';
+                btn.style.padding = '5px 10px';
+                btn.style.borderRadius = '6px';
+                btn.style.fontSize = '11px';
+                btn.style.fontWeight = '800';
+                btn.style.cursor = 'pointer';
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.gap = '4px';
+                btn.style.transition = 'all 0.2s';
+                btn.style.width = 'auto';
+                btn.style.height = 'auto';
 
                 if (isViewed) {
-                    const badge = document.createElement('span');
-                    badge.style.fontSize = '11px';
-                    badge.style.fontWeight = '800';
-                    badge.style.color = '#10b981';
-                    badge.textContent = '✓ ĐÃ XEM';
-                    actionRow.appendChild(badge);
+                    btn.style.border = '1.5px solid #10b981';
+                    btn.style.background = '#ecfdf5';
+                    btn.style.color = '#047857';
+                    btn.innerHTML = '✅ Đã Xem và Làm';
                 } else {
-                    const btn = document.createElement('button');
-                    btn.style.width = 'auto';
-                    btn.style.padding = '4px 10px';
-                    btn.style.fontSize = '11px';
-                    btn.style.background = '#f59e0b';
-                    btn.style.border = 'none';
-                    btn.style.color = '#fff';
-                    btn.style.borderRadius = '4px';
-                    btn.style.cursor = 'pointer';
-                    btn.textContent = 'Tôi đã đọc & hiểu';
-                    btn.onclick = async () => {
-                        try {
-                            btn.disabled = true;
-                            await apiCall('/api/qlx/reminders/viewed', 'POST', {
-                                reminder_ids: [remId],
-                                record_type: 'finishing_records',
-                                record_id: r.id
-                            });
-                            showToast('Đã xác nhận xem nhắc nhở', 'success');
-                            // Refresh reminders
-                            await _bphtLoadHoanThienReminders(r);
-                        } catch (err) {
-                            btn.disabled = false;
-                            showToast(err.message || 'Lỗi xác nhận nhắc nhở', 'error');
-                        }
-                    };
-                    actionRow.appendChild(btn);
+                    btn.className = 'bpht-unviewed-btn';
+                    btn.style.border = '1.5px solid #ef4444';
+                    btn.style.background = '#fef2f2';
+                    btn.style.color = '#b91c1c';
+                    btn.style.animation = 'bptReminderPulse 2s infinite';
+                    btn.innerHTML = '👉 Đã Xem và Làm';
                 }
 
-                itemDiv.appendChild(actionRow);
+                btn.onclick = async () => {
+                    if (btn.disabled || !btn.classList.contains('bpht-unviewed-btn')) return;
+                    try {
+                        btn.disabled = true;
+                        await apiCall('/api/qlx/reminders/viewed', 'POST', {
+                            reminder_ids: [remId],
+                            record_type: 'finishing_records',
+                            record_id: r.id
+                        });
+                        showToast('Đã xác nhận xem nhắc nhở', 'success');
+                        btn.classList.remove('bpht-unviewed-btn');
+                        btn.style.border = '1.5px solid #10b981';
+                        btn.style.background = '#ecfdf5';
+                        btn.style.color = '#047857';
+                        btn.style.animation = 'none';
+                        btn.innerHTML = '✅ Đã Xem và Làm';
+                        itemDiv.style.borderColor = '#10b981';
+                        itemDiv.style.color = '#065f46';
+                    } catch (err) {
+                        btn.disabled = false;
+                        showToast(err.message || 'Lỗi xác nhận nhắc nhở', 'error');
+                    }
+                };
+
+                itemDiv.appendChild(btn);
                 content.appendChild(itemDiv);
             });
         }

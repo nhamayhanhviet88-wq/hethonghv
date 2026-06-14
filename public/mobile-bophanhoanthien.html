@@ -1354,9 +1354,9 @@ async function mDeleteImage(imgSrc) {
 
 async function mSubmitComplete() {
     // Enforce reminders viewed
-    const unviewedBtns = document.querySelectorAll('#mHoanThienRemindersContent button');
+    const unviewedBtns = document.querySelectorAll('#mHoanThienRemindersContent .m-unviewed-btn');
     if (unviewedBtns.length > 0) {
-        toast('⚠️ Bạn phải xác nhận "Tôi đã đọc & hiểu" tất cả nhắc nhở của QLX trước khi hoàn thành!', 'error');
+        toast('⚠️ Bạn phải bấm xác nhận "Đã Xem và Làm" tất cả các nhắc nhở trước khi hoàn thành!', 'error');
         return;
     }
 
@@ -1459,8 +1459,21 @@ async function mLoadHoanThienReminders(r) {
     area.style.display = 'none';
     content.innerHTML = '';
 
+    if (!document.getElementById('bptReminderPulseStyleMobile')) {
+        const style = document.createElement('style');
+        style.id = 'bptReminderPulseStyleMobile';
+        style.innerHTML = `
+            @keyframes bptReminderPulseMobile {
+                0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                70% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+                100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     try {
-        const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=hoanthien&item_id=${r.order_item_id}`;
+        const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=hoanthien&item_id=${r.order_item_id}&record_type=finishing_records&record_id=${r.id}`;
         const res = await api(url);
         if (res.reminders && res.reminders.length > 0) {
             area.style.display = 'block';
@@ -1469,16 +1482,18 @@ async function mLoadHoanThienReminders(r) {
                 const isViewed = res.viewed_ids.includes(remId);
 
                 const itemDiv = document.createElement('div');
-                itemDiv.style.background = 'rgba(255,255,255,0.02)';
-                itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#f59e0b'}`;
-                itemDiv.style.borderRadius = '8px';
-                itemDiv.style.padding = '10px';
                 itemDiv.style.display = 'flex';
-                itemDiv.style.flexDirection = 'column';
-                itemDiv.style.gap = '8px';
+                itemDiv.style.alignItems = 'center';
+                itemDiv.style.gap = '10px';
+                itemDiv.style.background = 'rgba(255,255,255,0.02)';
+                itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#ef4444'}`;
+                itemDiv.style.borderRadius = '10px';
+                itemDiv.style.padding = '10px 12px';
                 itemDiv.style.marginBottom = '8px';
+                itemDiv.style.transition = 'all 0.3s';
 
                 const text = document.createElement('div');
+                text.style.flex = '1';
                 text.style.fontSize = '12px';
                 text.style.fontWeight = '700';
                 text.style.color = '#fff';
@@ -1486,48 +1501,59 @@ async function mLoadHoanThienReminders(r) {
                 text.textContent = remContent;
                 itemDiv.appendChild(text);
 
-                const actionRow = document.createElement('div');
-                actionRow.style.display = 'flex';
-                actionRow.style.justifyContent = 'flex-end';
-                actionRow.style.alignItems = 'center';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.flexShrink = '0';
+                btn.style.padding = '5px 8px';
+                btn.style.borderRadius = '8px';
+                btn.style.fontSize = '9.5px';
+                btn.style.fontWeight = '800';
+                btn.style.cursor = 'pointer';
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.gap = '4px';
+                btn.style.transition = 'all 0.2s';
+                btn.style.width = 'auto';
+                btn.style.height = 'auto';
 
                 if (isViewed) {
-                    const badge = document.createElement('span');
-                    badge.style.fontSize = '11px';
-                    badge.style.fontWeight = '800';
-                    badge.style.color = '#10b981';
-                    badge.textContent = '✓ ĐÃ XEM';
-                    actionRow.appendChild(badge);
+                    btn.style.border = '1.5px solid #10b981';
+                    btn.style.background = 'rgba(16,185,129,0.1)';
+                    btn.style.color = '#34d399';
+                    btn.innerHTML = '✅ Đã Xem và Làm';
                 } else {
-                    const btn = document.createElement('button');
-                    btn.className = 'm-btn-confirm';
-                    btn.style.width = 'auto';
-                    btn.style.padding = '4px 10px';
-                    btn.style.fontSize = '11px';
-                    btn.style.background = '#f59e0b';
-                    btn.style.borderColor = '#f59e0b';
-                    btn.style.height = 'auto';
-                    btn.textContent = 'Tôi đã đọc & hiểu';
-                    btn.onclick = async () => {
-                        try {
-                            btn.disabled = true;
-                            await api('/api/qlx/reminders/viewed', 'POST', {
-                                reminder_ids: [remId],
-                                record_type: 'finishing_records',
-                                record_id: r.id
-                            });
-                            toast('Đã xác nhận xem nhắc nhở', 'success');
-                            // Refresh reminders
-                            await mLoadHoanThienReminders(r);
-                        } catch (err) {
-                            btn.disabled = false;
-                            toast(err.message || 'Lỗi xác nhận nhắc nhở', 'error');
-                        }
-                    };
-                    actionRow.appendChild(btn);
+                    btn.className = 'm-unviewed-btn';
+                    btn.style.border = '1.5px solid #ef4444';
+                    btn.style.background = 'rgba(239,68,68,0.1)';
+                    btn.style.color = '#fca5a5';
+                    btn.style.animation = 'bptReminderPulseMobile 2s infinite';
+                    btn.innerHTML = '👉 Đã Xem và Làm';
                 }
 
-                itemDiv.appendChild(actionRow);
+                btn.onclick = async () => {
+                    if (btn.disabled || !btn.classList.contains('m-unviewed-btn')) return;
+                    try {
+                        btn.disabled = true;
+                        await api('/api/qlx/reminders/viewed', 'POST', {
+                            reminder_ids: [remId],
+                            record_type: 'finishing_records',
+                            record_id: r.id
+                        });
+                        toast('Đã xác nhận xem nhắc nhở', 'success');
+                        btn.classList.remove('m-unviewed-btn');
+                        btn.style.border = '1.5px solid #10b981';
+                        btn.style.background = 'rgba(16,185,129,0.1)';
+                        btn.style.color = '#34d399';
+                        btn.style.animation = 'none';
+                        btn.innerHTML = '✅ Đã Xem và Làm';
+                        itemDiv.style.borderColor = '#10b981';
+                    } catch (err) {
+                        btn.disabled = false;
+                        toast(err.message || 'Lỗi xác nhận nhắc nhở', 'error');
+                    }
+                };
+
+                itemDiv.appendChild(btn);
                 content.appendChild(itemDiv);
             });
         }
