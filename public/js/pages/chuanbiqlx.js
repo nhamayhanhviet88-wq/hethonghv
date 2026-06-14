@@ -2519,8 +2519,8 @@ async function _qlxAssignMay(orderId, itemId) {
                 _qlxAssignMayAddRow(a.contractor_id, a.quantity, formattedDate, a.notes);
             });
         } else {
-            // Default 1 row with full cut quantity and default target May Nhà
-            _qlxAssignMayAddRow('', res.cut_qty, '', '');
+            // Default 1 row with empty quantity and default target May Nhà
+            _qlxAssignMayAddRow('', '', '', '');
         }
 
     } catch(e) {
@@ -2793,42 +2793,49 @@ async function _qlxAssignMaySave() {
         var notesInput = row.querySelector('.may-notes');
 
         var contractorId = targetSelect ? targetSelect.value : '';
-        var qty = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+        var qtyVal = qtyInput ? qtyInput.value.trim() : '';
+        if (!qtyVal) {
+            validationError = 'Vui lòng điền Số Lượng phân công!';
+            return;
+        }
+        var qty = parseInt(qtyVal) || 0;
+        if (qty <= 0) {
+            validationError = 'Số lượng phân công phải lớn hơn 0!';
+            return;
+        }
         var date = dateInput ? dateInput.value : '';
         var notes = notesInput ? notesInput.value : '';
 
         var isGiaCong = contractorId !== '';
         var price = isGiaCong ? pricing.processing_price : pricing.factory_price;
 
-        if (qty > 0) {
-            if (!date) {
-                validationError = 'Vui lòng chọn QLX Hẹn Ra cho tất cả các bên nhận may!';
-                return;
-            }
-            if (date < todayStr) {
-                validationError = 'QLX Hẹn Ra không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
-                return;
-            }
-            var holidays = (window._qlxMayData && window._qlxMayData.holidays) || [];
-            var holidayMatch = holidays.find(function(h) { return h.holiday_date === date; });
-            if (holidayMatch) {
-                var dateFormatted = date.split('-').reverse().join('/');
-                validationError = 'Ngày ' + dateFormatted + ' là ngày lễ (' + holidayMatch.holiday_name + '), không thể chọn!';
-                return;
-            }
+        if (!date) {
+            validationError = 'Vui lòng chọn QLX Hẹn Ra cho tất cả các bên nhận may!';
+            return;
+        }
+        if (date < todayStr) {
+            validationError = 'QLX Hẹn Ra không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
+            return;
+        }
+        var holidays = (window._qlxMayData && window._qlxMayData.holidays) || [];
+        var holidayMatch = holidays.find(function(h) { return h.holiday_date === date; });
+        if (holidayMatch) {
+            var dateFormatted = date.split('-').reverse().join('/');
+            validationError = 'Ngày ' + dateFormatted + ' là ngày lễ (' + holidayMatch.holiday_name + '), không thể chọn!';
+            return;
+        }
 
-            assignments.push({
-                contractor_id: isGiaCong ? parseInt(contractorId) : null,
-                quantity: qty,
-                expected_date: date,
-                notes: notes || null
-            });
-            totalQty += qty;
+        assignments.push({
+            contractor_id: isGiaCong ? parseInt(contractorId) : null,
+            quantity: qty,
+            expected_date: date,
+            notes: notes || null
+        });
+        totalQty += qty;
 
-            if (price <= 0) {
-                priceCheckFailed = true;
-                failedTargetLabel = isGiaCong ? 'Gia Công' : 'Trong Nhà';
-            }
+        if (price <= 0) {
+            priceCheckFailed = true;
+            failedTargetLabel = isGiaCong ? 'Gia Công' : 'Trong Nhà';
         }
     });
 
