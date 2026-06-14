@@ -93,6 +93,9 @@ async function _getShippingItemsProgress(orderIds) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_cut_done = false)
                     ELSE false
                 END,
                 false
@@ -101,6 +104,9 @@ async function _getShippingItemsProgress(orderIds) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
+                    WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL)
                     ELSE false
                 END,
                 false
@@ -109,6 +115,9 @@ async function _getShippingItemsProgress(orderIds) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id AND is_reported = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_reported = false)
                     ELSE false
                 END,
                 false
@@ -117,6 +126,9 @@ async function _getShippingItemsProgress(orderIds) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id AND done_date IS NULL)
+                    WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND done_date IS NULL)
                     ELSE false
                 END,
                 false
@@ -125,6 +137,9 @@ async function _getShippingItemsProgress(orderIds) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id AND fr.is_completed = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL AND fr.is_completed = false)
                     ELSE false
                 END,
                 false
@@ -135,6 +150,13 @@ async function _getShippingItemsProgress(orderIds) {
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
                         WHERE sr.order_item_id = oi.id
+                          AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
+                    )
+                    WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM sewing_records sr
+                        WHERE sr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
                           AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
                     )
                     ELSE false
@@ -198,7 +220,7 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
         const needsCut = requiredStepIds.has(2);
         const needsPrint = requiredStepIds.has(3);
         let needsPress = requiredStepIds.has(4);
-        if (item.has_any_printing) {
+        if (item.has_any_printing && !isPetTem) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = requiredStepIds.has(5);

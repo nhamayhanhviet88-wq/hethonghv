@@ -618,7 +618,15 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u ON cr.cutter_id = u.id
                 LEFT JOIN dht_order_items doi ON cr.order_item_id = doi.id
                 WHERE cr.dht_order_id = $1
-                  AND ($2::int IS NULL OR cr.order_item_id = $2)
+                  AND (
+                      $2::int IS NULL 
+                      OR cr.order_item_id = $2 
+                      OR (
+                          cr.order_item_id IS NULL 
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND NOT EXISTS (SELECT 1 FROM cutting_records cr2 WHERE cr2.dht_order_id = $1 AND cr2.order_item_id IS NOT NULL)
+                      )
+                  )
                 ORDER BY cr.id ASC
             `, [orderId, itemId]);
             // Get selected rolls for each record
@@ -718,7 +726,15 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
                 WHERE pr.dht_order_id = $1
-                  AND ($2::int IS NULL OR pr.order_item_id = $2)
+                  AND (
+                      $2::int IS NULL 
+                      OR pr.order_item_id = $2 
+                      OR (
+                          pr.order_item_id IS NULL 
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.dht_order_id = $1 AND pr2.order_item_id IS NOT NULL)
+                      )
+                  )
                 ORDER BY pr.id ASC
             `, [orderId, itemId]);
             return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };
@@ -732,7 +748,15 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_orders o2 ON pr.dht_order_id = o2.id
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 WHERE pr.dht_order_id = $1
-                  AND ($2::int IS NULL OR pr.order_item_id = $2)
+                  AND (
+                      $2::int IS NULL 
+                      OR pr.order_item_id = $2 
+                      OR (
+                          pr.order_item_id IS NULL 
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND NOT EXISTS (SELECT 1 FROM pressing_records pr2 WHERE pr2.dht_order_id = $1 AND pr2.order_item_id IS NOT NULL)
+                      )
+                  )
                 ORDER BY pr.id ASC
             `, [orderId, itemId]);
 
@@ -841,7 +865,15 @@ module.exports = async function(fastify) {
                 LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 WHERE sr.dht_order_id = $1
-                  AND ($2::int IS NULL OR sr.order_item_id = $2)
+                  AND (
+                      $2::int IS NULL 
+                      OR sr.order_item_id = $2 
+                      OR (
+                          sr.order_item_id IS NULL 
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND NOT EXISTS (SELECT 1 FROM sewing_records sr2 WHERE sr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
+                      )
+                  )
                 ORDER BY sr.id ASC
             `, [orderId, itemId]);
 
@@ -906,7 +938,15 @@ module.exports = async function(fastify) {
                 ) qca ON sr.id = qca.sewing_record_id
                 LEFT JOIN users qc_u ON qca.answered_by = qc_u.id
                 WHERE sr.dht_order_id = $1
-                  AND ($2::int IS NULL OR sr.order_item_id = $2)
+                  AND (
+                      $2::int IS NULL 
+                      OR sr.order_item_id = $2 
+                      OR (
+                          sr.order_item_id IS NULL 
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND NOT EXISTS (SELECT 1 FROM sewing_records sr2 WHERE sr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
+                      )
+                  )
                 ORDER BY sr.id ASC
             `, [orderId, itemId]);
             // Get checklist answers for each record
@@ -992,7 +1032,15 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_order_items doi ON sr.order_item_id = doi.id
                 LEFT JOIN dht_orders o ON fr.dht_order_id = o.id
                 WHERE fr.dht_order_id = $1
-                  AND ($2::int IS NULL OR sr.order_item_id = $2)
+                  AND (
+                      $2::int IS NULL 
+                      OR sr.order_item_id = $2 
+                      OR (
+                          sr.order_item_id IS NULL 
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND NOT EXISTS (SELECT 1 FROM finishing_records fr2 JOIN sewing_records sr2 ON fr2.sewing_record_id = sr2.id WHERE fr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
+                      )
+                  )
                 ORDER BY fr.id ASC
             `, [orderId, itemId]);
             // Get checklist answers for each record
@@ -1198,7 +1246,7 @@ function _processOrderWithItems(o, items, todayStr) {
         const needsCut = requiredStepIds.has(2);
         const needsPrint = requiredStepIds.has(3);
         let needsPress = requiredStepIds.has(4);
-        if (item.has_any_printing) {
+        if (item.has_any_printing && !isPetTem) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = requiredStepIds.has(5);
@@ -1365,6 +1413,9 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_cut_done = false)
                     ELSE false
                 END,
                 false
@@ -1373,6 +1424,9 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
+                    WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL)
                     ELSE false
                 END,
                 false
@@ -1381,6 +1435,9 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id AND is_reported = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_reported = false)
                     ELSE false
                 END,
                 false
@@ -1389,6 +1446,9 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id AND done_date IS NULL)
+                    WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND done_date IS NULL)
                     ELSE false
                 END,
                 false
@@ -1397,6 +1457,9 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
                     THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id AND fr.is_completed = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NOT NULL)
+                         AND EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL)
+                    THEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL AND fr.is_completed = false)
                     ELSE false
                 END,
                 false
@@ -1460,7 +1523,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
     const needsCut = requiredStepIds.has(2);
     const needsPrint = requiredStepIds.has(3);
     let needsPress = requiredStepIds.has(4);
-    if (item.has_any_printing) {
+    if (item.has_any_printing && !isPetTem) {
         needsPress = !!item.has_press_printing;
     }
     const needsSew = requiredStepIds.has(5);
