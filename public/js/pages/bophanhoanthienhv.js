@@ -1,5 +1,5 @@
 // ========== CẮT CHỈ & HOÀN THIỆN — Desktop SPA ==========
-var _bpht={records:[],tree:null,filter:{year:null,month:null,finisher_id:null},search:'',page:1};
+var _bpht={records:[],tree:null,filter:{year:null,month:null,finisher_id:null},search:'',page:1,statusFilter:'all'};
 var _bphtOpen={};
 var _bphtState={currentRecordId:null,finishImages:[],staff:[]};
 var _bphtRemindCooldown={};
@@ -141,7 +141,8 @@ finishersList.forEach(function(fin){
 sb.innerHTML=h;}
 
 function _bphtTgl(k){_bphtOpen[k]=!_bphtOpen[k];_bphtRenderSb();}
-function _bphtFilter(y,m,f){_bpht.page=1;_bpht.filter={year:y||null,month:m||null,finisher_id:f!==undefined?f:null};_bphtRenderSb();_bphtLoadRecs();}
+function _bphtFilter(y,m,f){_bpht.page=1;_bpht.statusFilter='all';_bpht.filter={year:y||null,month:m||null,finisher_id:f!==undefined?f:null};_bphtRenderSb();_bphtLoadRecs();}
+function _bphtSetStatusFilter(status){_bpht.statusFilter=status;_bpht.page=1;_bphtRender();}
 
 async function _bphtLoadRecs(){var f=_bpht.filter,qs='?_=1';
 if(f.year)qs+='&year='+f.year;if(f.month)qs+='&month='+f.month;if(f.finisher_id)qs+='&finisher_id='+f.finisher_id;
@@ -271,7 +272,22 @@ function _bphtGetOrderCodeWithTicket(r) {
 function _bphtRender(){
     var all=_bpht.records.slice();
     if(_bpht.search){var q=_bpht.search.toLowerCase();all=all.filter(function(r){return(r.cut_product_name||r.product_name||'').toLowerCase().indexOf(q)>=0||(r.cskh_name||'').toLowerCase().indexOf(q)>=0||(r.order_code||'').toLowerCase().indexOf(q)>=0;});}
-    var tot=all.length;
+    
+    var totalCount = all.length;
+    var uncompletedCount = all.filter(function(r){return !r.done_date;}).length;
+    var completedCount = all.filter(function(r){return r.done_date;}).length;
+    var errorCount = all.filter(function(r){return r.error_reported;}).length;
+
+    var filtered = all;
+    if (_bpht.statusFilter === 'uncompleted') {
+        filtered = all.filter(function(r){return !r.done_date;});
+    } else if (_bpht.statusFilter === 'completed') {
+        filtered = all.filter(function(r){return r.done_date;});
+    } else if (_bpht.statusFilter === 'error') {
+        filtered = all.filter(function(r){return r.error_reported;});
+    }
+
+    var tot=filtered.length;
     var itemsPerPage = 100;
     var totalPages = Math.ceil(tot / itemsPerPage) || 1;
     
@@ -280,7 +296,7 @@ function _bphtRender(){
     if (_bpht.page < 1) _bpht.page = 1;
     
     var startIdx = (_bpht.page - 1) * itemsPerPage;
-    var paginated = all.slice(startIdx, startIdx + itemsPerPage);
+    var paginated = filtered.slice(startIdx, startIdx + itemsPerPage);
     
     var pagEl = document.getElementById('bphtPagination');
     if (!pagEl) {
@@ -292,7 +308,7 @@ function _bphtRender(){
     }
     
     var tb=document.getElementById('bphtTb');if(!tb)return;
-    if(!all.length){
+    if(!filtered.length){
         tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">✅</div><h3>Chưa có đơn hoàn thiện</h3></div></td></tr>';
         if (pagEl) pagEl.style.display = 'none';
     }else{
@@ -392,11 +408,29 @@ function _bphtRender(){
     var el=document.getElementById('bphtInfo');if(el){var parts=['✅ Cắt Chỉ & Hoàn Thiện'];if(_bpht.filter.year)parts.push('📆 '+_bpht.filter.year);if(_bpht.filter.month)parts.push('🗓️ T'+_bpht.filter.month);
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#bbf7d0;font-weight:900">'+tot+'</span> đơn</div>';}
     var sc=document.getElementById('bphtStats');if(sc){
-    var prog=all.filter(function(r){return r.is_completed&&!r.done_date;}).length,done=all.filter(function(r){return r.done_date;}).length,err=all.filter(function(r){return r.error_reported;}).length;
-    sc.innerHTML='<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div><div style="font-size:15px;font-weight:900">'+tot+'</div></div>'
-    +'<div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #3b82f630"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🔄 ĐANG LÀM</div><div style="font-size:15px;font-weight:900">'+prog+'</div></div>'
-    +'<div style="background:linear-gradient(135deg,#059669,#047857);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #05966930"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ XONG</div><div style="font-size:15px;font-weight:900">'+done+'</div></div>'
-    +'<div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;padding:8px 18px;border-radius:10px;min-width:90px;text-align:center;box-shadow:0 4px 15px #ef444430"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div><div style="font-size:15px;font-weight:900">'+err+'</div></div>';}
+        var activeTotal = (_bpht.statusFilter === 'all');
+        var activeUncompleted = (_bpht.statusFilter === 'uncompleted');
+        var activeCompleted = (_bpht.statusFilter === 'completed');
+        var activeError = (_bpht.statusFilter === 'error');
+
+        sc.innerHTML = 
+        '<div onclick="_bphtSetStatusFilter(\'all\')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;cursor:pointer;user-select:none;box-shadow:0 4px 15px rgba(5,150,105,0.2);transition:all .2s;' + (activeTotal ? 'transform:scale(1.06);box-shadow:0 8px 25px rgba(5,150,105,0.4);border:2px solid #ffffff;' : 'opacity:0.55;') + '" onmouseover="this.style.opacity=\'1\'" onmouseout="if(!' + activeTotal + ')this.style.opacity=\'0.55\'">'
+            + '<div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">📦 TỔNG</div>'
+            + '<div style="font-size:15px;font-weight:900">' + totalCount + '</div>'
+        + '</div>'
+        + '<div onclick="_bphtSetStatusFilter(\'uncompleted\')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;cursor:pointer;user-select:none;box-shadow:0 4px 15px rgba(37,99,235,0.2);transition:all .2s;' + (activeUncompleted ? 'transform:scale(1.06);box-shadow:0 8px 25px rgba(37,99,235,0.4);border:2px solid #ffffff;' : 'opacity:0.55;') + '" onmouseover="this.style.opacity=\'1\'" onmouseout="if(!' + activeUncompleted + ')this.style.opacity=\'0.55\'">'
+            + '<div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">🔄 Chưa Hoàn Thiện</div>'
+            + '<div style="font-size:15px;font-weight:900">' + uncompletedCount + '</div>'
+        + '</div>'
+        + '<div onclick="_bphtSetStatusFilter(\'completed\')" style="background:linear-gradient(135deg,#059669,#047857);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;cursor:pointer;user-select:none;box-shadow:0 4px 15px rgba(4,120,87,0.2);transition:all .2s;' + (activeCompleted ? 'transform:scale(1.06);box-shadow:0 8px 25px rgba(4,120,87,0.4);border:2px solid #ffffff;' : 'opacity:0.55;') + '" onmouseover="this.style.opacity=\'1\'" onmouseout="if(!' + activeCompleted + ')this.style.opacity=\'0.55\'">'
+            + '<div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ Đã Hoàn Thiện</div>'
+            + '<div style="font-size:15px;font-weight:900">' + completedCount + '</div>'
+        + '</div>'
+        + '<div onclick="_bphtSetStatusFilter(\'error\')" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;cursor:pointer;user-select:none;box-shadow:0 4px 15px rgba(239,68,68,0.2);transition:all .2s;' + (activeError ? 'transform:scale(1.06);box-shadow:0 8px 25px rgba(239,68,68,0.4);border:2px solid #ffffff;' : 'opacity:0.55;') + '" onmouseover="this.style.opacity=\'1\'" onmouseout="if(!' + activeError + ')this.style.opacity=\'0.55\'">'
+            + '<div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">⚠️ LỖI</div>'
+            + '<div style="font-size:15px;font-weight:900">' + errorCount + '</div>'
+        + '</div>';
+    }
 }
 
 async function _bphtTog(id,action){
