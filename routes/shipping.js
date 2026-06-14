@@ -158,7 +158,7 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
             product_name: order.order_code,
             description: order.order_code,
             quantity: order.total_quantity || 0,
-            shipping_status: order.shipping_status,
+            shipping_status: order.shipping_status === 'shipped' ? 'shipped' : 'pending',
             shipped_at: order.shipped_at,
             shipped_by: order.shipped_by,
             shipping_date: order.shipping_date,

@@ -198,13 +198,8 @@ function _shBuildTable(orders) {
                 `;
             } else {
                 // Not all pending items are done -> Show Không gửi được
-                const missingSummaries = pendingItems
-                    .filter(item => !item.all_done)
-                    .map(item => `• ${item.product_name}: Chưa hoàn thành ${item.missing_steps.join(', ')}`)
-                    .join('\\n');
-                
                 orderLevelAction = `
-                    <button onclick="event.stopPropagation();_shAlertCannotShipOrder('${(o.order_code||'').replace(/'/g,"\\'")}', \`${missingSummaries.replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`)" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
+                    <button onclick="event.stopPropagation();_shAlertCannotShipOrder(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
                     <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
                 `;
             }
@@ -380,12 +375,100 @@ function _shBuildItemsTable(order) {
     return html;
 }
 
-function _shAlertCannotShip(itemName, missing) {
-    alert(`Phiếu "${itemName}" chưa hoàn thành công việc bộ phận: ${missing}\nNên không thể gửi!`);
+function _shShowAlert(title, contentHtml) {
+    document.getElementById('shAlertModal')?.remove();
+    
+    if (!document.getElementById('shAlertStyles')) {
+        const style = document.createElement('style');
+        style.id = 'shAlertStyles';
+        style.innerHTML = `
+            @keyframes shAlertFadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes shAlertSlideUp { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const m = document.createElement('div');
+    m.id = 'shAlertModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:shAlertFadeIn 0.2s ease-out;';
+    
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;width:480px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+        <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">⚠️</span>
+            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">${title}</div>
+        </div>
+        <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;">
+            ${contentHtml}
+        </div>
+        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">
+            <button onclick="document.getElementById('shAlertModal')?.remove()" style="padding:8px 20px;border:none;border-radius:8px;background:#374151;color:white;cursor:pointer;font-weight:700;font-size:13px;transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#374151'">Đóng</button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 }
 
-function _shAlertCannotShipOrder(orderCode, missingInfo) {
-    alert(`Đơn hàng ${orderCode} chưa hoàn thành các phiếu:\n\n${missingInfo}\n\nNên không thể xác nhận gửi.`);
+function _shAlertCannotShip(itemName, missing) {
+    const missingBadges = missing.split(', ').map(step => 
+        `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;margin:2px 4px 2px 0;">${step}</span>`
+    ).join('');
+
+    const html = `
+        <div style="margin-bottom:12px;">Phiếu sản phẩm <b style="color:#1e293b;font-size:14px;">"${itemName}"</b> chưa đủ điều kiện để gửi hàng.</div>
+        <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;padding:12px;margin-bottom:8px;">
+            <div style="font-weight:700;color:#c2410c;margin-bottom:6px;font-size:12px;">🔴 Các bộ phận chưa hoàn thành:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">${missingBadges}</div>
+        </div>
+        <div style="color:#64748b;font-size:12px;margin-top:12px;">Vui lòng đốc thúc các bộ phận liên quan hoàn thành để kế toán có thể xuất hàng.</div>
+    `;
+    _shShowAlert('Không thể gửi phiếu hàng', html);
+}
+
+function _shAlertCannotShipOrder(orderId) {
+    const o = _shOrders.find(x => x.id === orderId);
+    if (!o) return;
+
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+    
+    let html = '';
+    if (pendingItems.length === 0) {
+        html = `
+            <div style="margin-bottom:12px;">Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> hiện tại chưa có phiếu sản phẩm nào ở trạng thái chờ gửi.</div>
+        `;
+    } else {
+        html = `
+            <div style="margin-bottom:14px;">Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có các phiếu sản phẩm chưa hoàn thành sản xuất:</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+        `;
+
+        pendingItems.filter(item => !item.all_done).forEach(item => {
+            const missingBadges = item.missing_steps.map(step => 
+                `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">${step}</span>`
+            ).join(' ');
+
+            html += `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
+                    <div style="font-weight:700;color:#1e293b;margin-bottom:4px;font-size:12px;">📦 ${item.product_name}</div>
+                    <div style="font-size:10px;color:#64748b;margin-bottom:6px;">${item.description || ''} (SL: ${item.quantity})</div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span style="font-size:11px;color:#b91c1c;font-weight:600;">Chưa xong:</span>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">${missingBadges}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+            </div>
+            <div style="color:#475569;font-size:11.5px;margin-top:14px;background:#fef3c7;border:1.5px dashed #fcd34d;padding:10px;border-radius:8px;line-height:1.5;">
+                💡 <b>Mẹo cho Kế toán:</b> Bạn có thể click vào biểu tượng <b>▶</b> ở đầu dòng để xem chi tiết tiến độ từng bộ phận và gửi trước những phiếu đã hoàn thành xong!
+            </div>
+        `;
+    }
+
+    _shShowAlert(`Đơn hàng chưa đủ điều kiện gửi`, html);
 }
 
 // ===== CARRIER RULES =====
