@@ -667,15 +667,15 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
 
     // Build Sale Dặn KT rows dynamically
     const row = (label, val) => `<tr><td style="padding:6px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:6px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
-    
+
     var allReminders = [];
     if (items && items.length) {
         for (const it of items) { if(it.accounting_notes) allReminders.push(it.accounting_notes); }
     }
-    var reminderText = allReminders.length > 0 ? allReminders.join(' | ') : '<span style="color:#94a3b8;font-style:italic">Chưa có nhắc nhở</span>';
+    var reminderText = allReminders.length > 0 ? allReminders.join(' | ') : '';
 
     const formatExpectedShipDateWithDay = (dateVal) => {
-        if (!dateVal) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
+        if (!dateVal) return '';
         const dt = new Date(dateVal);
         const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
         const day = localDt.getDate();
@@ -685,39 +685,61 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         return `${dayName} - Ngày ${day}/${month}`;
     };
 
-    let saleKtHTML = row('🚚 Vận Chuyển YC Của Sale', o.carrier_name || '—');
+    let saleKtHTML = '';
+    if (o.carrier_name && o.carrier_name.trim() !== '' && o.carrier_name.trim() !== '—') {
+        saleKtHTML += row('🚚 Vận Chuyển YC Của Sale', o.carrier_name);
+    }
     if (ce) {
         if (ce.type === 'nha_xe') {
-            saleKtHTML += row('🚌 Tên Nhà Xe', ce.bus_name || '—');
-            saleKtHTML += row('📞 SĐT Nhà Xe', ce.bus_phone ? '<a href="tel:'+ce.bus_phone+'" style="color:#2563eb;text-decoration:underline;">'+ce.bus_phone+'</a>' : '—');
-            saleKtHTML += row('📍 Địa Điểm Xe Đỗ', ce.bus_location || '—');
-            saleKtHTML += row('🗺️ Xe Đi Về Đâu', ce.bus_destination || '—');
-            saleKtHTML += row('🕐 Giờ Xe Chạy', ce.bus_departure_time || '—');
+            if (ce.bus_name && ce.bus_name.trim() !== '' && ce.bus_name.trim() !== '—') {
+                saleKtHTML += row('🚌 Tên Nhà Xe', ce.bus_name);
+            }
+            if (ce.bus_phone && ce.bus_phone.trim() !== '' && ce.bus_phone.trim() !== '—') {
+                saleKtHTML += row('📞 SĐT Nhà Xe', '<a href="tel:'+ce.bus_phone+'" style="color:#2563eb;text-decoration:underline;">'+ce.bus_phone+'</a>');
+            }
+            if (ce.bus_location && ce.bus_location.trim() !== '' && ce.bus_location.trim() !== '—') {
+                saleKtHTML += row('📍 Địa Điểm Xe Đỗ', ce.bus_location);
+            }
+            if (ce.bus_destination && ce.bus_destination.trim() !== '' && ce.bus_destination.trim() !== '—') {
+                saleKtHTML += row('🗺️ Xe Đi Về Đâu', ce.bus_destination);
+            }
+            if (ce.bus_departure_time && ce.bus_departure_time.trim() !== '' && ce.bus_departure_time.trim() !== '—') {
+                saleKtHTML += row('🕐 Giờ Xe Chạy', ce.bus_departure_time);
+            }
         } else if (ce.type === 'nguoi_nhan_ho') {
-            saleKtHTML += row('🤝 Người Nhận Hộ', ce.proxy_name || '—');
-            saleKtHTML += row('📍 Địa Chỉ Nhận Hộ', ce.proxy_address || '—');
-            saleKtHTML += row('📞 SĐT Nhận Hộ', ce.proxy_phone ? '<a href="tel:'+ce.proxy_phone+'" style="color:#2563eb;text-decoration:underline;">'+ce.proxy_phone+'</a>' : '—');
+            if (ce.proxy_name && ce.proxy_name.trim() !== '' && ce.proxy_name.trim() !== '—') {
+                saleKtHTML += row('🤝 Người Nhận Hộ', ce.proxy_name);
+            }
+            if (ce.proxy_address && ce.proxy_address.trim() !== '' && ce.proxy_address.trim() !== '—') {
+                saleKtHTML += row('📍 Địa Chỉ Nhận Hộ', ce.proxy_address);
+            }
+            if (ce.proxy_phone && ce.proxy_phone.trim() !== '' && ce.proxy_phone.trim() !== '—') {
+                saleKtHTML += row('📞 SĐT Nhận Hộ', '<a href="tel:'+ce.proxy_phone+'" style="color:#2563eb;text-decoration:underline;">'+ce.proxy_phone+'</a>');
+            }
         }
     }
-    saleKtHTML += row('⚠️ Nhắc Nhở', reminderText);
-    saleKtHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>');
+    if (reminderText) {
+        saleKtHTML += row('⚠️ Nhắc Nhở', reminderText);
+    }
+    if (o.sale_note_for_accountant && o.sale_note_for_accountant.trim() !== '' && o.sale_note_for_accountant.trim() !== '—') {
+        saleKtHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant);
+    }
     var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
     saleKtHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);
     
-    var proofHtml = '<span style="color:#94a3b8;font-style:italic">Chưa có ảnh</span>';
     if (o.standard_proof_image) {
-        proofHtml = `
+        var proofHtml = `
             <div style="margin-top:4px;">
                 <a href="${o.standard_proof_image}" target="_blank">
                     <img src="${o.standard_proof_image}" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,0.08);" title="Bấm để phóng to">
                 </a>
             </div>
         `;
+        saleKtHTML += row('📷 Ảnh TC', proofHtml);
     }
-    saleKtHTML += row('📷 Ảnh TC', proofHtml);
     
-    var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
     if (o.expected_ship_date) {
+        var progressSaleHTML = '';
         var shipVN = new Date(o.expected_ship_date);
         shipVN.setHours(0,0,0,0);
         if (o.shipped_at) {
@@ -743,13 +765,14 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
                 progressSaleHTML = '<span style="color:#d97706;font-weight:900;font-size:14px">📦 Hôm nay gửi</span>';
             }
         }
+        saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
+        saleKtHTML += row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.expected_ship_date));
     }
-    saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
-    saleKtHTML += row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.expected_ship_date));
-    var deliveryTimeHtml = o.standard_delivery_time 
-        ? `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>` 
-        : '<span style="color:#94a3b8;font-style:italic">—</span>';
-    saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', deliveryTimeHtml);
+    
+    if (o.standard_delivery_time && o.standard_delivery_time.trim() !== '' && o.standard_delivery_time.trim() !== '—') {
+        var deliveryTimeHtml = `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>`;
+        saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', deliveryTimeHtml);
+    }
 
     // Customer phone link
     const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '—';
