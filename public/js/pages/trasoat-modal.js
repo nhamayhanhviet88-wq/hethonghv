@@ -400,6 +400,52 @@ async function _tsOpenStepModal(orderId, stepName){
                 })();
             });
         }
+        if (stepKey === 'qc' && res.records && res.records.length > 0) {
+            res.records.forEach(function(r) {
+                (async function() {
+                    try {
+                        var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=may';
+                        if (r.order_item_id) url += '&item_id=' + r.order_item_id;
+                        url += '&record_type=sewing_phan_to&record_id=' + r.id;
+                        
+                        var remRes = await apiCall(url);
+                        var sewReminders = remRes.reminders || [];
+                        var sewReminderIds = remRes.reminder_ids || [];
+                        var sewViewedIds = remRes.viewed_ids || [];
+                        
+                        if (sewReminders.length > 0) {
+                            var el = document.getElementById('_tsQcSewRemindersContainer_' + r.id);
+                            if (!el) return;
+                            
+                            var b = '';
+                            b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
+                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân TổMay / KTTL:</div>';
+                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                            sewReminders.forEach(function(rem, remIdx) {
+                                var remId = sewReminderIds[remIdx] || 0;
+                                var isViewed = sewViewedIds.indexOf(remId) >= 0;
+                                
+                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                if (isViewed) {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                } else {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#7c3aed; border:1.5px solid #7c3aed; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                }
+                                b += '</div>';
+                            });
+                            b += '  </div>';
+                            b += '</div>';
+                            
+                            el.innerHTML = b;
+                            el.style.display = 'block';
+                        }
+                    } catch(e) {
+                        console.error('Lỗi tải nhắc nhở chi tiết QC (may):', e);
+                    }
+                })();
+            });
+        }
     } catch(e) {
         document.getElementById('tsModalBody').innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">❌ Chưa có dữ liệu hoặc chưa đến giai đoạn này</div><div style="padding:0 20px 20px;text-align:center"><button onclick="_tsCloseModal()" style="padding:10px 40px;border:none;border-radius:10px;background:#1e293b;color:white;font-weight:700;cursor:pointer">Đóng</button></div>';
     }
@@ -830,6 +876,7 @@ function _tsRenderStepModal(step, d){
                         body+=`<div style="margin-top:6px;color:#475569;font-style:italic">Ghi chú quản lý may: ${r.sew_notes}</div>`;
                     }
 
+                    body+=`<div id="_tsQcSewRemindersContainer_${r.id}" style="display:none;margin-top:12px"></div>`;
                     body+=`</div>`;
                 });
 
