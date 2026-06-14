@@ -350,7 +350,7 @@ function _shBuildItemsTable(order) {
             if (item.all_done) {
                 actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
             } else {
-                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
+                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
             }
         }
 
@@ -410,13 +410,16 @@ function _shShowAlert(title, contentHtml) {
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 }
 
-function _shAlertCannotShip(itemName, missing) {
+function _shAlertCannotShip(itemName, missing, orderCode) {
     const missingBadges = missing.split(', ').map(step => 
         `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;margin:2px 4px 2px 0;">${step}</span>`
     ).join('');
 
     const html = `
-        <div style="margin-bottom:12px;">Phiếu sản phẩm <b style="color:#1e293b;font-size:14px;">"${itemName}"</b> chưa đủ điều kiện để gửi hàng.</div>
+        <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div>Phiếu sản phẩm <b style="color:#1e293b;font-size:14px;">"${itemName}"</b> chưa đủ điều kiện để gửi hàng.</div>
+            ${orderCode ? `<a href="/trasoatdonhang?search=${orderCode}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>` : ''}
+        </div>
         <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;padding:12px;margin-bottom:8px;">
             <div style="font-weight:700;color:#c2410c;margin-bottom:6px;font-size:12px;">🔴 Các bộ phận chưa hoàn thành:</div>
             <div style="display:flex;flex-wrap:wrap;gap:4px;">${missingBadges}</div>
@@ -439,7 +442,10 @@ function _shAlertCannotShipOrder(orderId) {
         `;
     } else {
         html = `
-            <div style="margin-bottom:14px;">Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có các phiếu sản phẩm chưa hoàn thành sản xuất:</div>
+            <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div>Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có các phiếu sản phẩm chưa hoàn thành sản xuất:</div>
+                <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>
+            </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
         `;
 

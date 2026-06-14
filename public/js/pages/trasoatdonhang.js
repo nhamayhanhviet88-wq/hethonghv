@@ -4,16 +4,35 @@ var _ts = { page: 1, search: '', month: '', year: '', current_step: '', debounce
 function renderTrasoatdonhangPage(content) {
     const now = new Date();
     const curMonth = now.getMonth() + 1, curYear = now.getFullYear();
-    _ts = { page: 1, search: '', month: '', year: '', current_step: '', debounce: null, expandedId: null };
+
+    // Parse URL parameter to auto-search
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSearch = urlParams.get('search') || '';
+
+    _ts = { 
+        page: 1, 
+        search: urlSearch, 
+        month: urlSearch ? '' : String(curMonth), 
+        year: urlSearch ? '' : String(curYear), 
+        current_step: '', 
+        debounce: null, 
+        expandedId: null 
+    };
 
     let monthOpts = '<option value="">Tất cả thời gian</option>';
     monthOpts += '<option value="Q1">Quý 1 (Tháng 1-3)</option>';
     monthOpts += '<option value="Q2">Quý 2 (Tháng 4-6)</option>';
     monthOpts += '<option value="Q3">Quý 3 (Tháng 7-9)</option>';
     monthOpts += '<option value="Q4">Quý 4 (Tháng 10-12)</option>';
-    for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m===curMonth?'selected':''}>${'Tháng '+m}</option>`;
+    for (let m = 1; m <= 12; m++) {
+        const selected = (!urlSearch && m === curMonth) ? 'selected' : '';
+        monthOpts += `<option value="${m}" ${selected}>${'Tháng '+m}</option>`;
+    }
     let yearOpts = '<option value="">Tất cả các năm</option>';
-    for (let y = curYear; y >= curYear - 3; y--) yearOpts += `<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`;
+    for (let y = curYear; y >= curYear - 3; y--) {
+        const selected = (!urlSearch && y === curYear) ? 'selected' : '';
+        yearOpts += `<option value="${y}" ${selected}>${y}</option>`;
+    }
 
     content.innerHTML = `
     <style>
@@ -80,7 +99,7 @@ function renderTrasoatdonhangPage(content) {
     <div class="ts-wrap">
         <div class="ts-chart-wrap" id="tsChartWrap"></div>
         <div class="ts-search-bar">
-            <input class="ts-search-input" id="tsSearch" placeholder="🔍 Tìm mã đơn, tên KH, SĐT..." autocomplete="off">
+            <input class="ts-search-input" id="tsSearch" placeholder="🔍 Tìm mã đơn, tên KH, SĐT..." autocomplete="off" value="${_ts.search}">
             <select class="ts-select" id="tsMonth" onchange="_tsFilter()">${monthOpts}</select>
             <select class="ts-select" id="tsYear" onchange="_tsFilter()">${yearOpts}</select>
             <select class="ts-select" id="tsStatus" onchange="_tsFilter()">
@@ -92,7 +111,6 @@ function renderTrasoatdonhangPage(content) {
         <div id="tsTableWrap"></div>
     </div>`;
 
-    _ts.month = String(curMonth); _ts.year = String(curYear);
     document.getElementById('tsSearch').addEventListener('input', e => {
         const val = e.target.value;
         if (val.trim()) {
@@ -126,7 +144,11 @@ async function _tsLoad() {
 
     try {
         const res = await apiCall('/api/trasoat/orders?' + p.toString());
-        _tsRenderTable(res.orders || [], res.totalCount || 0);
+        const orders = res.orders || [];
+        if (_ts.search && orders.length > 0 && _ts.expandedId === null) {
+            _ts.expandedId = orders[0].id;
+        }
+        _tsRenderTable(orders, res.totalCount || 0);
     } catch (e) {
         document.getElementById('tsTableWrap').innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444">❌ Lỗi tải dữ liệu</div>';
     }
