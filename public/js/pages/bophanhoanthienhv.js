@@ -366,7 +366,14 @@ function _bphtRender(){
             ? _bphtGetCompletedTime(r) 
             : (!isSewerAssigned ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Phân Công</span>' : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Kiểm Tra Chất Lượng</span>');
 
-        var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length)imgs=`<span style="color:#059669;cursor:pointer;font-weight:700;text-decoration:underline;" onclick="_bphtViewImages(${r.id})">📸 ${ia.length}</span>`;}catch(e){}
+        var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length){
+            var t = Date.now();
+            var thumbnails = ia.map(src => {
+                const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+                return `<img src="${src}${buster}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1.5px solid #cbd5e1; cursor: pointer; transition: all 0.2s;" onclick="_bphtViewImages(${r.id})" onmouseover="this.style.transform='scale(1.15)';" onmouseout="this.style.transform='scale(1)';">`;
+            }).join(' ');
+            imgs = `<div style="display:flex; gap:4px; justify-content:center; align-items:center;">${thumbnails}</div>`;
+        }}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(startIdx+i+1)+'</td>'
         +'<td style="text-align:center">'+clickHtml+'</td>'
@@ -433,25 +440,42 @@ function _bphtViewImages(recordId) {
     if (!images.length) return;
     
     let html = `
-        <div id="bphtImageViewOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;" onclick="document.getElementById('bphtImageViewOverlay').remove()">
-            <div style="position:relative;background:#fff;border-radius:12px;padding:20px;max-width:90vw;max-height:85vh;overflow-y:auto;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;" onclick="event.stopPropagation()">
-                <button onclick="document.getElementById('bphtImageViewOverlay').remove()" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#475569;">✕</button>
-                <div style="width:100%;text-align:center;font-weight:800;color:#0f172a;margin-bottom:10px;font-size:14px;">📷 Ảnh hoàn thiện đơn hàng #${r.order_code || r.id}</div>
+        <div id="bphtImageViewOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;" onclick="document.getElementById('bphtImageViewOverlay').remove()">
+            <div style="position:relative;background:#fff;border-radius:16px;padding:24px;width:90vw;max-width:650px;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                <button onclick="document.getElementById('bphtImageViewOverlay').remove()" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:24px;cursor:pointer;font-weight:bold;color:#64748b;transition:all 0.15s;" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#64748b'">✕</button>
+                <div style="width:100%;text-align:center;font-weight:800;color:#0f172a;margin-bottom:10px;font-size:15px;font-family:'Inter',sans-serif;">📷 Ảnh hoàn thiện đơn hàng #${r.order_code || r.id}</div>
+                <div style="display:flex;flex-direction:column;gap:16px;">
     `;
     const t = Date.now();
     images.forEach(src => {
         const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
         html += `
-            <div style="border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;width:200px;height:200px;">
-                <img src="${src}${buster}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+            <div style="border:1.5px solid #cbd5e1;border-radius:10px;overflow:hidden;width:100%;background:#f8fafc;display:flex;align-items:center;justify-content:center;padding:6px;box-sizing:border-box;">
+                <img src="${src}${buster}" style="width:100%;max-height:60vh;object-fit:contain;border-radius:6px;">
             </div>
         `;
     });
     html += `
+                </div>
             </div>
         </div>
     `;
     const old = document.getElementById('bphtImageViewOverlay'); if (old) old.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _bphtViewSingleImage(src) {
+    const t = Date.now();
+    const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
+    const html = `
+        <div id="bphtSingleImageViewOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="document.getElementById('bphtSingleImageViewOverlay').remove()">
+            <div style="position:relative;background:#fff;border-radius:16px;padding:24px;width:90vw;max-width:650px;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);" onclick="event.stopPropagation()">
+                <button onclick="document.getElementById('bphtSingleImageViewOverlay').remove()" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:24px;cursor:pointer;font-weight:bold;color:#64748b;transition:all 0.15s;" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#64748b'">✕</button>
+                <img src="${src}${buster}" style="width:100%;max-height:65vh;object-fit:contain;border-radius:8px;margin-top:12px;">
+            </div>
+        </div>
+    `;
+    const old = document.getElementById('bphtSingleImageViewOverlay'); if (old) old.remove();
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
@@ -500,7 +524,7 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
         const buster = src.includes('?') ? `&t=${t}` : `?t=${t}`;
         imagesHtml += `
             <div style="position:relative; width:80px; height:80px; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
-                <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open('${src}${buster}', '_blank')">
+                <img src="${src}${buster}" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="_bphtViewSingleImage('${src}')">
                 ${readOnly ? '' : `<button onclick="_bphtDeleteImage('${src}')" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>`}
             </div>
         `;
@@ -657,9 +681,8 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
                         </div>
                     </div>
 
-                    <!-- Reminders Area -->
                     <div id="bphtHoanThienRemindersArea" style="display:none; margin-bottom:12px;">
-                        <label style="display:block; font-size:11px; font-weight:700; color:#fbbf24; margin-bottom:4px;">
+                        <label style="display:block; font-size:12.5px; font-weight:800; color:#ea580c; margin-bottom:6px;">
                             🔔 NHẮC NHỞ QLX HOÀN THIỆN
                         </label>
                         <div id="bphtHoanThienRemindersContent" style="display:flex; flex-direction:column; gap:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
