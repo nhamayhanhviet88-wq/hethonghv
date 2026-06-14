@@ -915,9 +915,9 @@ module.exports = async function(fastify) {
 
             const itemsStatus = [];
             for (const item of items) {
-                const sewRec = await db.get(`SELECT id, is_sew_done FROM sewing_records WHERE order_item_id = $1 LIMIT 1`, [item.id]);
+                const sewRec = await db.get(`SELECT id, done_date FROM sewing_records WHERE order_item_id = $1 LIMIT 1`, [item.id]);
                 const hasSewingRecord = !!sewRec;
-                const isSewingDone = sewRec ? !!sewRec.is_sew_done : false;
+                const isSewingDone = sewRec ? !!sewRec.done_date : false;
 
                 let isQcDone = false;
                 if (sewRec) {
@@ -936,9 +936,9 @@ module.exports = async function(fastify) {
             }
 
             if (items.length === 0) {
-                const sewRec = await db.get(`SELECT id, is_sew_done FROM sewing_records WHERE dht_order_id = $1 AND order_item_id IS NULL LIMIT 1`, [orderId]);
+                const sewRec = await db.get(`SELECT id, done_date FROM sewing_records WHERE dht_order_id = $1 AND order_item_id IS NULL LIMIT 1`, [orderId]);
                 const hasSewingRecord = !!sewRec;
-                const isSewingDone = sewRec ? !!sewRec.is_sew_done : false;
+                const isSewingDone = sewRec ? !!sewRec.done_date : false;
 
                 let isQcDone = false;
                 if (sewRec) {
