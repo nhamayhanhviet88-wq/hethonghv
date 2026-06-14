@@ -6,6 +6,7 @@
 <title>Tra Soát Đơn Hàng — Mobile</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-webkit-tap-highlight-color:transparent}
@@ -82,9 +83,14 @@ body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-we
 <body>
 <div class="header">
     <h1>🔍 Tra Soát Đơn Hàng</h1>
-    <div class="search-box">
-        <span class="icon">🔎</span>
-        <input id="mSearch" placeholder="Mã đơn, SĐT, tên KH..." autocomplete="off">
+    <div style="display:flex;gap:8px;align-items:center">
+        <div class="search-box" style="flex:1">
+            <span class="icon">🔎</span>
+            <input id="mSearch" placeholder="Mã đơn, SĐT, tên KH..." autocomplete="off">
+        </div>
+        <button onclick="mScanQR()" style="background: rgba(255,255,255,.15); border: none; border-radius: 12px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-size: 18px; flex-shrink: 0;" title="Quét mã QR">
+            📷
+        </button>
     </div>
     <div class="filters">
         <select id="mMonth"><option value="">Tất cả tháng</option></select>
@@ -373,6 +379,99 @@ function _mSelectPipelineStep(stepName) {
     _m.orders = [];
     load();
     loadStats();
+}
+
+let html5QrcodeScanner = null;
+
+function mScanQR() {
+    if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        alert("Để sử dụng camera quét mã QR, vui lòng truy cập địa chỉ có bảo mật (https):\nhttps://" + window.location.host + window.location.pathname + window.location.search);
+        return;
+    }
+    let overlay = document.getElementById('qrScannerOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'qrScannerOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
+        overlay.innerHTML = `
+            <div style="width:100%;max-width:400px;background:#1f2937;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,0.5);display:flex;flex-direction:column;align-items:center;gap:20px;color:white;font-family:system-ui,sans-serif;">
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:12px;">
+                    <h3 style="font-size:16px;font-weight:800;color:#f97316;margin:0;">📷 QUÉT MÃ QR ĐƠN HÀNG</h3>
+                    <button onclick="stopQRScan()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;line-height:1;">&times;</button>
+                </div>
+                <div id="qrReader" style="width:100%;aspect-ratio:1;background:#111827;border-radius:16px;overflow:hidden;border:2px dashed rgba(249,115,22,0.3);position:relative;">
+                </div>
+                <div style="font-size:12px;color:#9ca3af;text-align:center;line-height:1.5;">
+                    Di chuyển camera đến gần mã QR của đơn hàng để quét tự động.
+                </div>
+                <button onclick="stopQRScan()" style="width:100%;padding:12px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                    HỦY BỎ
+                </button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        overlay.style.display = 'flex';
+    }
+
+    html5QrcodeScanner = new Html5Qrcode("qrReader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+    ).catch(err => {
+        console.error("Camera access error:", err);
+        html5QrcodeScanner.start(
+            { facingMode: "user" },
+            config,
+            onScanSuccess,
+            onScanFailure
+        ).catch(err2 => {
+            alert("❌ Không thể truy cập camera. Vui lòng cấp quyền camera!");
+            stopQRScan();
+        });
+    });
+}
+
+function onScanSuccess(decodedText) {
+    const searchInp = document.getElementById('mSearch');
+    if (searchInp) {
+        const text = decodedText.trim();
+        searchInp.value = text;
+        const mSel = document.getElementById('mMonth');
+        const ySel = document.getElementById('mYear');
+        if (mSel) mSel.value = '';
+        if (ySel) ySel.value = '';
+        
+        _m.search = text; 
+        _m.page = 1; 
+        _m.orders = []; 
+        load(); 
+        loadStats();
+    }
+    stopQRScan();
+}
+
+function onScanFailure(error) {
+}
+
+function stopQRScan() {
+    const overlay = document.getElementById('qrScannerOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+            html5QrcodeScanner.clear();
+            html5QrcodeScanner = null;
+        }).catch(err => {
+            console.error("Failed to stop scanner:", err);
+            html5QrcodeScanner = null;
+        });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', init);
