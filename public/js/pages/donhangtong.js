@@ -1301,7 +1301,12 @@ async function _dhtShowDetail(id) {
             ? `<span style="font-weight:800;color:#0369a1">${o.standard_delivery_time}</span>` 
             : '<span style="color:#94a3b8;font-style:italic">—</span>';
         saleKtHTML += row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', deliveryTimeHtml);
-        saleKtHTML += `</table></div>`;
+        saleKtHTML += `</table>`;
+        saleKtHTML += itemsHTML;
+        saleKtHTML += payHTML;
+        saleKtHTML += surHTML;
+        saleKtHTML += finHTML;
+        saleKtHTML += `</div>`;
 
         // ── Section 6B: 📄 Thông tin đơn hàng (cleaned) ──
         var infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
@@ -1701,7 +1706,7 @@ async function _dhtShowDetail(id) {
         histHTML += `</div>`;
 
         // ── Combine all sections ──
-        const bodyHTML = actionsHTML + itemsHTML + payHTML + surHTML + finHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
+        const bodyHTML = actionsHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
 
         const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;

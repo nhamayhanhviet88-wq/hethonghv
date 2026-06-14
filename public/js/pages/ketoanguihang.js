@@ -537,17 +537,60 @@ function _shGetCarrierGroup(name) {
 }
 
 // ===== SHIP MODAL =====
-function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null) {
-    const o = _shOrders.find(x => x.id === id); if (!o) return;
+async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null) {
+    let o = _shOrders.find(x => x.id === id); if (!o) return;
+    
     document.getElementById('shShipModal')?.remove();
     document.getElementById('shAlertModal')?.remove(); // Auto-dismiss warning modal
     const m = document.createElement('div'); m.id = 'shShipModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;';
+    
+    // Show spinner/loading content inside m first
+    m.innerHTML = `<div style="background:white;border-radius:16px;width:768px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);padding:40px;text-align:center;">
+        <div style="display:inline-block;width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #ea580c;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:12px;"></div>
+        <div style="font-weight:700;color:#334155;font-size:14px;">Đang tải chi tiết đơn hàng...</div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+
+    let items = [];
+    let payments = [];
+    let surcharges = [];
+    try {
+        const detailData = await apiCall(`/api/dht/orders/${id}/detail`);
+        if (detailData && detailData.order) {
+            o = detailData.order;
+            items = detailData.items || [];
+            payments = detailData.payments || [];
+            surcharges = detailData.surcharges || [];
+        }
+    } catch (e) {
+        console.error('Error loading order details for shipping modal:', e);
+    }
+
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const fmtMoney = n => (Number(n)||0).toLocaleString('vi-VN');
+    const fmtDt = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
 
+    // Recalculate totals from items (source of truth)
+    let calcBase = 0, calcVat = 0;
+    for (const it of items) {
+        try {
+            const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
+            const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+            calcBase += base;
+            calcVat += (Number(it.item_total) || 0) - base;
+        } catch(e) { calcBase += Number(it.item_total) || 0; }
+    }
+    if (calcVat < 0) calcVat = 0;
     const deposit = Number(o.deposit_amount) || 0;
-    const remaining = (Number(o.total_amount)||0) - deposit - (Number(o.discount_amount)||0);
+    const vat = calcVat;
+    const discount = Number(o.discount_amount) || 0;
+    const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const total = calcBase + calcVat + surchargeTotal - discount;
+    const remaining = total - deposit;
+
     let carrierOpts = '<option value="">— Chọn NVC —</option>';
     _shCarriers.forEach(c => { carrierOpts += '<option value="' + c.id + '" data-name="' + c.name + '">' + c.name + '</option>'; });
 
@@ -559,8 +602,8 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
     const row = (label, val) => `<tr><td style="padding:6px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:6px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
     
     var allReminders = [];
-    if (o.items && o.items.length) {
-        for (const it of o.items) { if(it.accounting_notes) allReminders.push(it.accounting_notes); }
+    if (items && items.length) {
+        for (const it of items) { if(it.accounting_notes) allReminders.push(it.accounting_notes); }
     }
     var reminderText = allReminders.length > 0 ? allReminders.join(' | ') : '<span style="color:#94a3b8;font-style:italic">Chưa có nhắc nhở</span>';
 
@@ -652,7 +695,142 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
 
     const backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">← Trở lại</button>';
 
-    m.innerHTML = '<div style="background:white;border-radius:16px;width:560px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
+    // Build items, payments, and financial HTML
+    var itemsHTML = '';
+    if (items.length > 0) {
+        itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px;overflow:hidden">`;
+        itemsHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span></div>`;
+        itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+        itemsHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHỐI</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:6px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:6px;text-align:left;font-size:10px">MÀU</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:center;font-size:10px">VAT</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">THÀNH TIỀN</th></tr></thead><tbody>`;
+        const _phoiColors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626'];
+        const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
+        for (let idx = 0; idx < items.length; idx++) {
+            const it = items[idx];
+            const saleText = (it.sale_type || '').toLowerCase();
+            const isBan = saleText === 'bán' || saleText === 'ban';
+            const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+            let itVat = 0;
+            try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
+            let matPairs = [];
+            try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
+            if (matPairs.length === 0) {
+                matPairs = [{ material_name: it.material_name || '—', color_name: it.color_name || '—' }];
+            }
+            const totalQty = it.quantity || 0;
+            for (let pi = 0; pi < matPairs.length; pi++) {
+                const mp = matPairs[pi];
+                const isFirst = pi === 0;
+                const pColor = _phoiColors[idx % _phoiColors.length];
+                const pBg = _phoiBgs[idx % _phoiBgs.length];
+                const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
+                const phieuLabel = `Phiếu ${idx+1}`;
+                const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
+                itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}">`;
+                itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
+                itemsHTML += `<td style="padding:6px;font-weight:700;color:#1e3a8a">${isFirst ? (it.product_name || it.description || '—') : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
+                itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
+                itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
+                if (isFirst) {
+                    itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
+                    itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmtMoney(it.unit_price)}đ</td>`;
+                    itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
+                    itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmtMoney(it.item_total || it.total)}đ</td>`;
+                } else {
+                    itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
+                    itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
+                }
+                itemsHTML += `</tr>`;
+            }
+        }
+        itemsHTML += `</tbody></table></div></div>`;
+    }
+
+    var displayPayments = payments.slice();
+    if (displayPayments.length === 0 && deposit > 0) {
+        displayPayments.push({
+            payment_code: '—',
+            total_order_codes: o.order_code,
+            amount: deposit,
+            payment_date: o.order_date || o.created_at,
+            payment_type: 'dat_coc',
+            payment_method: null,
+            transfer_note: 'Đặt cọc khi tạo đơn',
+            _synthetic: true
+        });
+    }
+    var payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px">`;
+    payHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${displayPayments.length}</span></div>`;
+    if (displayPayments.length > 0) {
+        payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+        payHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">MÃ THANH TOÁN</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
+        const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
+        for (const p of displayPayments) {
+            payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
+            payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
+            payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmtMoney(p.amount)}đ</td>`;
+            payHTML += `<td style="padding:8px 10px;text-align:center">${fmtDt(p.payment_date)}</td>`;
+            payHTML += `<td style="padding:8px 10px;text-align:center"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${typeLabels[p.payment_type] || p.payment_type || '—'}</span></td>`;
+            payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
+            payHTML += `</tr>`;
+        }
+        payHTML += `</tbody></table></div>`;
+    } else {
+        payHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px">Chưa có thanh toán / cọc nào được ghi nhận</div>`;
+    }
+    payHTML += `</div>`;
+
+    var surHTML = '';
+    if (surcharges.length > 0) {
+        surHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px">`;
+        surHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">📋 Phụ phí <span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${surcharges.length}</span></div>`;
+        for (const sc of surcharges) {
+            surHTML += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">`;
+            surHTML += `<span style="font-weight:600;color:#334155">${sc.name || 'Phụ phí'}</span>`;
+            surHTML += `<span style="font-weight:800;color:#dc2626">${fmtMoney(sc.amount)}đ</span>`;
+            surHTML += `</div>`;
+        }
+        surHTML += `</div>`;
+    }
+
+    const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+    const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
+    const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
+    var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
+    finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
+    const finRows = [
+        ['Tổng tiền hàng (trước VAT)', fmtMoney(calcBase) + 'đ', '#1e293b', false],
+        ['Phụ phí', fmtMoney(surchargeTotal) + 'đ', '#f59e0b', false],
+        ['VAT', fmtMoney(vat) + 'đ', '#6366f1', false],
+        ['Ưu đãi / Giảm giá', '-' + fmtMoney(discount) + 'đ', '#059669', false],
+    ];
+    if (o.discount_reason) {
+        finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
+    }
+    finRows.push(
+        ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
+        ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
+    );
+    if (shipCK > 0) {
+        finRows.push(['🚚 Ship HV Trả CK', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
+    }
+    finRows.push(
+        ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true],
+    );
+    for (const [label, val, color, bold] of finRows) {
+        if (label === '_reason_') {
+            finHTML += `<div style="padding:2px 0 6px 16px;border-bottom:1px solid rgba(0,0,0,0.05)">`;
+            finHTML += `<span style="font-size:11px;color:#dc2626;font-weight:700;font-style:italic">📝 Lý do: ${val}</span>`;
+            finHTML += `</div>`;
+            continue;
+        }
+        finHTML += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">`;
+        finHTML += `<span style="font-size:13px;color:#64748b;font-weight:${bold?700:500}">${label}</span>`;
+        finHTML += `<span style="font-size:${bold?15:13}px;font-weight:${bold?900:700};color:${color}">${val}</span>`;
+        finHTML += `</div>`;
+    }
+    finHTML += `</div>`;
+
+    m.innerHTML = '<div style="background:white;border-radius:16px;width:768px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
     + '<div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">'
     + '<div style="color:white;font-weight:800;font-size:16px;">' + modalTitle + '</div>'
     + '<div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;">Tiền đơn còn lại: <b style="color:#fbbf24">' + fmtMoney(remaining) + 'đ</b></div>'
@@ -661,44 +839,54 @@ function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null
     // P1: Sale Dặn KT
     + '<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid #fb923c;border-radius:12px;padding:16px;margin-bottom:16px;">'
     + '<div style="font-size:15px;font-weight:900;color:#9a3412;margin-bottom:12px;">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>'
-    + '<table style="width:100%;border-collapse:collapse;">' + saleKtHTML + '</table>'
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">' + saleKtHTML + '</table>'
+    + itemsHTML
+    + payHTML
+    + surHTML
+    + finHTML
     + '</div>'
-    // P1.5: Th\u00f4ng tin \u0111\u01a1n h\u00e0ng
+    // P1.5: Thông tin đơn hàng
     + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
-    + '<div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">\ud83d\udcc4 Th\u00f4ng tin \u0111\u01a1n h\u00e0ng</div>'
+    + '<div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">📄 Thông tin đơn hàng</div>'
     + '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;">'
-    + '<span style="color:#64748b;font-weight:600;">\ud83d\udc64 Kh\u00e1ch h\u00e0ng</span><span style="font-weight:700;color:#1e293b;">' + (o.customer_name||'\u2014') + '</span>'
-    + '<span style="color:#64748b;font-weight:600;">\ud83d\udcde S\u0110T</span><span style="font-weight:700;color:#2563eb;">' + phoneHtml + '</span>'
-    + '<span style="color:#64748b;font-weight:600;">\ud83c\udfe0 \u0110\u1ecba ch\u1ec9</span><span style="color:#334155;">' + (o.address||'\u2014') + '</span>'
-    + '<span style="color:#64748b;font-weight:600;">\ud83d\uddfa T\u1ec9nh / TP</span><span style="font-weight:700;color:#1e293b;">' + (o.province||'\u2014') + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">👤 Khách hàng</span><span style="font-weight:700;color:#1e293b;">' + (o.customer_name||'—') + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">📞 SĐT</span><span style="font-weight:700;color:#2563eb;">' + phoneHtml + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">🏠 Địa chỉ</span><span style="color:#334155;">' + (o.address||'—') + '</span>'
+    + '<span style="color:#64748b;font-weight:600;">🗺️ Tỉnh / TP</span><span style="font-weight:700;color:#1e293b;">' + (o.province||'—') + '</span>'
     + '</div></div>'
     // P2: NVC
     + '<div style="margin-bottom:16px;">'
-    + '<label style="font-size:12px;font-weight:700;color:#374151;">\ud83d\ude9b Nh\u00e0 V\u1eadn Chuy\u1ec3n <span style="color:#dc2626">*</span></label>'
+    + '<label style="font-size:12px;font-weight:700;color:#374151;">🚚 Nhà Vận Chuyển <span style="color:#dc2626">*</span></label>'
     + '<select id="shCarrierSel" onchange="_shOnCarrierChange()" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:600;">' + carrierOpts + '</select>'
     + '</div>'
     + '<div id="shDynFields" style="margin-bottom:16px;"></div>'
-    // P3: Ph\u00ed Ship (wrapped in shFeeSection for show/hide)
+    // P3: Phí Ship
     + '<div id="shFeeSection" style="border-top:1px solid #e2e8f0;padding-top:14px;">'
-    + '<label style="font-size:12px;font-weight:700;color:#374151;">\ud83d\udcb0 Ph\u00ed G\u1eedi H\u00e0ng <span style="color:#dc2626">*</span></label>'
-    + '<div style="position:relative;margin-top:4px;margin-bottom:12px;"><input type="text" id="shFeeInput" placeholder="0" oninput="_shFmtFee()" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;font-weight:600;">\u0111</span></div>'
+    + '<label style="font-size:12px;font-weight:700;color:#374151;">💰 Phí Gửi Hàng <span style="color:#dc2626">*</span></label>'
+    + '<div style="position:relative;margin-top:4px;margin-bottom:12px;"><input type="text" id="shFeeInput" placeholder="0" oninput="_shFmtFee()" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;"><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;font-weight:600;">đ</span></div>'
     + '<div style="display:flex;gap:12px;margin-bottom:10px;">'
-    + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">Ng\u01b0\u1eddi tr\u1ea3 <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shPayerBtns"><button type="button" onclick="_shToggle(\'payer\',\'hv\')" data-val="hv" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">HV tr\u1ea3</button><button type="button" onclick="_shToggle(\'payer\',\'khach\')" data-val="khach" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">Kh\u00e1ch tr\u1ea3</button></div></div>'
-    + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">H\u00ecnh th\u1ee9c <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shMethodBtns"><button type="button" onclick="_shToggle(\'method\',\'ck\')" data-val="ck" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">CK</button><button type="button" onclick="_shToggle(\'method\',\'tm\')" data-val="tm" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">TM</button></div></div>'
+    + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">Người trả <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shPayerBtns"><button type="button" onclick="_shToggle(\'payer\',\'hv\')" data-val="hv" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">HV trả</button><button type="button" onclick="_shToggle(\'payer\',\'khach\')" data-val="khach" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">Khách trả</button></div></div>'
+    + '<div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:4px;">Hình thức <span style="color:#dc2626">*</span></div><div style="display:flex;gap:6px;" id="shMethodBtns"><button type="button" onclick="_shToggle(\'method\',\'ck\')" data-val="ck" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">CK</button><button type="button" onclick="_shToggle(\'method\',\'tm\')" data-val="tm" style="flex:1;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;font-weight:700;font-size:12px;cursor:pointer;">TM</button></div></div>'
     + '</div>'
     + '<div id="shFeeNote" style="font-size:11px;color:#6b7280;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:12px;display:none;"></div>'
     + '</div>'
-    + '<div id="shNoFeeNote" style="display:none;border-top:1px solid #e2e8f0;padding-top:14px;"><div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:22px;">\ud83d\udce6</span><div><div style="font-weight:800;font-size:12px;color:#059669;">NVC thu ph\u00ed ship ri\u00eang</div><div style="font-size:11px;color:#065f46;margin-top:2px;">Kh\u00f4ng c\u1ea7n nh\u1eadp ph\u00ed g\u1eedi h\u00e0ng \u2014 NVC s\u1ebd quy\u1ebft to\u00e1n sau</div></div></div></div>'
+    + '<div id="shNoFeeNote" style="display:none;border-top:1px solid #e2e8f0;padding-top:14px;"><div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:22px;">📦</span><div><div style="font-weight:800;font-size:12px;color:#059669;">NVC thu phí ship riêng</div><div style="font-size:11px;color:#065f46;margin-top:2px;">Không cần nhập phí gửi hàng — NVC sẽ quyết toán sau</div></div></div></div>'
     + '<div id="shPaymentSection" style="margin-top:4px;"></div>'
+    // Checkbox confirm
+    + '<div style="margin: 16px 0; padding: 12px 16px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; display: flex; align-items: center; gap: 10px;">'
+    + '<input type="checkbox" id="shReadConfirmCheck" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c;">'
+    + '<label for="shReadConfirmCheck" style="font-size: 13px; font-weight: 800; color: #92400e; cursor: pointer; user-select: none;">'
+    + '✅ Đã Đọc và Làm Sale Dặn'
+    + '</label>'
+    + '</div>'
     + '</div>'
     // Footer
     + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
     + backBtnHtml
-    + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">H\u1ee7y b\u1ecf</button>'
-    + '<button onclick="_shDoShip(' + id + ')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">\ud83d\udce4 G\u1eedi H\u00e0ng</button>'
+    + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy bỏ</button>'
+    + '<button onclick="_shDoShip(' + id + ')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">📤 Gửi Hàng</button>'
     + '</div></div>';
-    document.body.appendChild(m);
-    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+
     window._shModalState = { 
         payer: null, 
         method: null, 
@@ -866,6 +1054,13 @@ function _shFmtFee() {
 
 async function _shDoShip(id) {
     const s = window._shModalState; if (!s) return;
+    
+    // Checkbox validation
+    const readConfirmCheck = document.getElementById('shReadConfirmCheck');
+    if (readConfirmCheck && !readConfirmCheck.checked) {
+        return alert('⚠️ Bạn bắt buộc phải tích chọn "Đã Đọc và Làm Sale Dặn" thì mới được phép gửi hàng!');
+    }
+
     const carrierId = document.getElementById('shCarrierSel')?.value;
     if (!carrierId) return alert('Vui lòng chọn Nhà Vận Chuyển');
     const carrierName = document.getElementById('shCarrierSel')?.options[document.getElementById('shCarrierSel').selectedIndex]?.dataset?.name || '';
