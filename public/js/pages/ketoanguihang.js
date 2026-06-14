@@ -349,7 +349,7 @@ function _shBuildItemsTable(order) {
             actionHtml = `<span style="color:#64748b;font-size:11px;">—</span>`;
         } else {
             if (item.all_done) {
-                actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
+                actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
             } else {
                 actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
             }
@@ -487,7 +487,7 @@ function _shGetCarrierGroup(name) {
 }
 
 // ===== SHIP MODAL =====
-function _shShipOrder(id, code, itemId = null, itemName = null) {
+function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null) {
     const o = _shOrders.find(x => x.id === id); if (!o) return;
     document.getElementById('shShipModal')?.remove();
     document.getElementById('shAlertModal')?.remove(); // Auto-dismiss warning modal
@@ -542,7 +542,12 @@ function _shShipOrder(id, code, itemId = null, itemName = null) {
     // Customer phone link
     const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '\u2014';
 
-    const modalTitle = itemId ? `📤 Gửi Phiếu — ${code} (${itemName})` : `📤 Gửi Hàng — ${code}`;
+    const modalTitle = itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : `📤 Gửi Hàng — ${code}`;
+
+    let backBtnHtml = '';
+    if (itemId) {
+        backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Tr\u1edf l\u1ea1i</button>';
+    }
 
     m.innerHTML = '<div style="background:white;border-radius:16px;width:560px;max-width:98vw;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:95vh;overflow-y:auto;">'
     + '<div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">'
@@ -585,6 +590,7 @@ function _shShipOrder(id, code, itemId = null, itemName = null) {
     + '</div>'
     // Footer
     + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
+    + backBtnHtml
     + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">H\u1ee7y b\u1ecf</button>'
     + '<button onclick="_shDoShip(' + id + ')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">\ud83d\udce4 G\u1eedi H\u00e0ng</button>'
     + '</div></div>';
