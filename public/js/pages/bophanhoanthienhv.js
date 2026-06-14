@@ -78,7 +78,7 @@ var totalActive = !f.year && !f.month && !f.finisher_id;
 var unassignedActive = !f.year && !f.month && f.finisher_id === 'unassigned';
 
 h+='<div class="bpht-sb-total '+(totalActive?'active':'')+'" onclick="_bphtFilter()"><span>📦 Tổng đơn</span><span style="font-size:16px">'+(t.total||0)+'</span></div>';
-h+='<div class="bpht-sb-unassigned '+(unassignedActive?'active':'')+'" onclick="_bphtFilter(null,null,\'unassigned\')"><span>⚠️ Chưa Phân Công</span><span style="font-size:16px">'+unassignedTotal+'</span></div>';
+h+='<div class="bpht-sb-unassigned '+(unassignedActive?'active':'')+'" onclick="_bphtFilter(null,null,\'unassigned\')"><span>⚠️ Chưa Phân Công & Hoàn Thiện</span><span style="font-size:16px">'+unassignedTotal+'</span></div>';
 
 // Pivot tree to group by finisher
 var finishers = {};
