@@ -5,6 +5,17 @@ const { vnNow, vnDateStr } = require('../utils/timezone');
 
 const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
 
+async function isKeToan(userId) {
+    const row = await db.get(`
+        SELECT d.name FROM users u
+        JOIN departments d ON u.department_id = d.id
+        WHERE u.id = $1
+    `, [userId]);
+    if (!row || !row.name) return false;
+    const n = row.name.toLowerCase();
+    return n.includes('kế toán') || n.includes('ke toan');
+}
+
 module.exports = async function(fastify) {
     // Run database migrations/indexes if not exist to speed up queries
     try {
@@ -29,8 +40,14 @@ module.exports = async function(fastify) {
         const params = [];
         let idx = 1;
 
-        // Permission: NV chỉ xem đơn mình tạo/CSKH
-        if (!FULL_VIEW_ROLES.includes(userRole)) {
+        // Permission: NV chỉ xem đơn mình tạo/CSKH, ngoại trừ Kế Toán và GĐ/QLCC
+        let isFullView = FULL_VIEW_ROLES.includes(userRole);
+        if (!isFullView) {
+            const kt = await isKeToan(userId);
+            if (kt) isFullView = true;
+        }
+
+        if (!isFullView) {
             conditions.push(`(o.created_by = $${idx} OR o.cskh_user_id = $${idx})`);
             params.push(userId); idx++;
         }
@@ -398,10 +415,16 @@ module.exports = async function(fastify) {
         const targetYear = Number(year) || new Date().getFullYear();
         const todayStr = vnDateStr(vnNow());
 
+        let isFullView = FULL_VIEW_ROLES.includes(userRole);
+        if (!isFullView) {
+            const kt = await isKeToan(userId);
+            if (kt) isFullView = true;
+        }
+
         let permFilter = '';
         const permParams = [];
         let pIdx = 1;
-        if (!FULL_VIEW_ROLES.includes(userRole)) {
+        if (!isFullView) {
             permFilter = `AND (created_by = $${pIdx} OR cskh_user_id = $${pIdx})`;
             permParams.push(userId); pIdx++;
         }
@@ -487,7 +510,7 @@ module.exports = async function(fastify) {
         // Calculate backlog counts (unshipped orders)
         let backlogFilter = '';
         const backlogParams = [];
-        if (!FULL_VIEW_ROLES.includes(userRole)) {
+        if (!isFullView) {
             backlogFilter = `AND (o.created_by = $1 OR o.cskh_user_id = $1)`;
             backlogParams.push(userId);
         }
