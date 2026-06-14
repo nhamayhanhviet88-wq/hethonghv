@@ -1045,15 +1045,25 @@ module.exports = async function(fastify) {
             let views;
             if (record_type) {
                 const rId = record_id ? Number(record_id) : null;
-                views = await db.all(
-                    `SELECT DISTINCT reminder_id FROM qlx_reminder_views 
-                     WHERE reminder_id = ANY($1) 
-                       AND (
-                           (record_type = $2 AND COALESCE(record_id, 0) = COALESCE($3, 0))
-                           OR (record_type = 'sewing_records' AND COALESCE(record_id, 0) = COALESCE($3, 0))
-                       )`,
-                    [reminderIds, record_type, rId]
-                );
+                if (record_type === 'sewing_qc') {
+                    views = await db.all(
+                        `SELECT DISTINCT reminder_id FROM qlx_reminder_views 
+                         WHERE reminder_id = ANY($1) 
+                           AND record_type = 'sewing_qc' 
+                           AND COALESCE(record_id, 0) = COALESCE($2, 0)`,
+                        [reminderIds, rId]
+                    );
+                } else {
+                    views = await db.all(
+                        `SELECT DISTINCT reminder_id FROM qlx_reminder_views 
+                         WHERE reminder_id = ANY($1) 
+                           AND (
+                               (record_type = $2 AND COALESCE(record_id, 0) = COALESCE($3, 0))
+                               OR (record_type = 'sewing_records' AND COALESCE(record_id, 0) = COALESCE($3, 0))
+                           )`,
+                        [reminderIds, record_type, rId]
+                    );
+                }
             } else {
                 views = await db.all(
                     `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1)`,
