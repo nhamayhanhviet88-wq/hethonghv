@@ -2192,10 +2192,10 @@ async function _ktclOpenQCModal(recordId) {
                             </div>
                         </div>
 
-                        <!-- Card 5b: Nhắc Nhở Phân Tổ May / KTTL -->
+                        <!-- Card 5b: Nhắc Nhở Phân Tổ May / Kiểm Tra QC -->
                         <div class="qc-section-card" id="ktclQcRemindersGroup" style="display:none; border: 1.5px solid #ef4444; background: #fff5f5; border-radius: 8px; padding: 12px; margin-bottom: 12px; margin-top: 12px;">
                             <div class="qc-section-title" style="color: #ef4444; font-weight: 800; display: flex; align-items: center; gap: 6px; font-size: 14px;">
-                                🔔 Nhắc Nhở Phân Tổ May / KTTL
+                                🔔 Nhắc Nhở Phân Tổ May / Kiểm Tra QC
                             </div>
                             <div id="ktclQcRemindersContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
                                 <!-- Reminders will be rendered dynamically here -->

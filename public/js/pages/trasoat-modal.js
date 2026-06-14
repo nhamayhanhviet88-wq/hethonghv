@@ -373,7 +373,7 @@ async function _tsOpenStepModal(orderId, stepName){
                             
                             var b = '';
                             b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân TổMay / KTTL:</div>';
+                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân Tổ May / Kiểm Tra QC:</div>';
                             b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
                             sewReminders.forEach(function(rem, remIdx) {
                                 var remId = sewReminderIds[remIdx] || 0;
@@ -419,7 +419,7 @@ async function _tsOpenStepModal(orderId, stepName){
                             
                             var b = '';
                             b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân TổMay / KTTL:</div>';
+                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân Tổ May / Kiểm Tra QC:</div>';
                             b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
                             sewReminders.forEach(function(rem, remIdx) {
                                 var remId = sewReminderIds[remIdx] || 0;

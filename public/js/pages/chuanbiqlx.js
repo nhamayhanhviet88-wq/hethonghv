@@ -2407,10 +2407,10 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div style="margin-top:20px; display:flex; flex-direction:column; gap:16px;">';
         html += '  <div style="font-size:12px; font-weight:800; color:#1e1b4b; border-bottom:2px solid #e2e8f0; padding-bottom:6px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">🔔 QLX NHẮC NHỞ</div>';
 
-        // 1. Phân Tổ May / KTTL
+        // 1. Phân Tổ May / Kiểm Tra QC
         html += '  <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
         if (res.is_sewing_done) {
-            html += '    <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">🖡 NHẮC NHỞ PHÂN TỔ MAY / KTTL</div>';
+            html += '    <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">🖡 Nhắc Nhở Phân Tổ May / Kiểm Tra QC</div>';
             if (mayReminders.length > 0) {
                 html += '    <div style="display:flex; flex-direction:column; gap:8px;">';
                 mayReminders.forEach(function(r) {
@@ -2430,7 +2430,7 @@ async function _qlxAssignMay(orderId, itemId) {
             }
         } else {
             html += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
-            html += '      <span style="font-weight:700; font-size:12px; color:#1e293b;">🖡 Nhắc Nhở Phân Tổ May / KTTL <span style="color:#dc2626">*</span></span>';
+            html += '      <span style="font-weight:700; font-size:12px; color:#1e293b;">🖡 Nhắc Nhở Phân Tổ May / Kiểm Tra QC <span style="color:#dc2626">*</span></span>';
             html += '      <div style="display:flex; gap:12px;">';
             html += '        <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; cursor:pointer; color:#ef4444; margin:0;">';
             html += '          <input type="radio" name="qlx_may_remind_choice" value="yes" ' + (mayChoice === 'yes' ? 'checked' : '') + ' onchange="_qlxToggleRemindersArea(\'may\')" style="accent-color:#ef4444; cursor:pointer; width:14px; height:14px; margin:0 4px 0 0;"> Có';
