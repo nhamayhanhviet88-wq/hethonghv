@@ -2386,9 +2386,9 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '</div>';
 
         // Reminders Choices & Lists
-        var mayChoice = res.may_remind_choice || 'none';
+        var mayChoice = res.may_remind_choice || '';
         var mayReminders = res.may_reminders || [];
-        var htChoice = res.hoanthien_remind_choice || 'none';
+        var htChoice = res.hoanthien_remind_choice || '';
         var htReminders = res.hoanthien_reminders || [];
 
         html += '<div style="margin-top:20px; display:flex; flex-direction:column; gap:16px;">';
