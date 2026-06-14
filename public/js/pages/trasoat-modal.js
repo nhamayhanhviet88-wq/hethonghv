@@ -114,7 +114,8 @@ async function _tsOpenStepModal(orderId, stepName){
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="font-weight:800;color:#ef4444;margin:16px 0 8px;font-size:13px">🔥 NHẮC NHỞ BỘ PHẬN ÉP</div>';
+                            b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+                            b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔥 NHẮC NHỞ BỘ PHẬN ÉP:</div>';
                             b += '<div style="display:flex; flex-direction:column; gap:8px;">';
                             pressReminders.forEach(function(rem, remIdx) {
                                 var remId = pressReminderIds[remIdx] || 0;
@@ -129,6 +130,7 @@ async function _tsOpenStepModal(orderId, stepName){
                                 }
                                 b += '</div>';
                             });
+                            b += '</div>';
                             b += '</div>';
                             
                             el.innerHTML = b;
@@ -156,7 +158,8 @@ async function _tsOpenStepModal(orderId, stepName){
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="font-weight:800;color:#ef4444;margin:16px 0 8px;font-size:13px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+                            b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+                            b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
                             b += '<div style="display:flex; flex-direction:column; gap:8px;">';
                             cutReminders.forEach(function(rem, remIdx) {
                                 var remId = cutReminderIds[remIdx] || 0;
@@ -172,12 +175,77 @@ async function _tsOpenStepModal(orderId, stepName){
                                 b += '</div>';
                             });
                             b += '</div>';
+                            b += '</div>';
                             
                             el.innerHTML = b;
                             el.style.display = 'block';
                         }
                     } catch(e) {
                         console.error('Lỗi tải nhắc nhở chi tiết cắt:', e);
+                    }
+                })();
+            });
+        } else if (stepKey === 'in' && res.records && res.records.length > 0) {
+            const groups = [];
+            const groupMap = {};
+            let noIdCounter = 0;
+            res.records.forEach(r => {
+                let key = r.order_item_id;
+                if (!key) {
+                    key = 'no-id-' + (++noIdCounter);
+                }
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        order_item_id: r.order_item_id,
+                        print_items: []
+                    };
+                    groups.push(groupMap[key]);
+                }
+                const g = groupMap[key];
+                g.print_items.push(r);
+            });
+
+            groups.forEach(function(g, i) {
+                (async function() {
+                    try {
+                        const firstItem = g.print_items[0];
+                        if (!firstItem) return;
+                        var url = '/api/qlx/reminders?order_id=' + firstItem.dht_order_id + '&dept=in';
+                        if (g.order_item_id) url += '&item_id=' + g.order_item_id;
+                        var remRes = await apiCall(url);
+                        var printReminders = remRes.reminders || [];
+                        var printReminderIds = remRes.reminder_ids || [];
+                        var printViewedIds = remRes.viewed_ids || [];
+                        
+                        if (printReminders.length > 0) {
+                            var el = document.getElementById('_tsInRemindersContainer_' + i);
+                            if (!el) return;
+                            
+                            var b = '';
+                            b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+                            b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
+                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                            printReminders.forEach(function(rem, remIdx) {
+                                var remId = printReminderIds[remIdx] || 0;
+                                var isViewed = printViewedIds.indexOf(remId) >= 0;
+                                
+                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                if (isViewed) {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                } else {
+                                    b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                }
+                                b += '</div>';
+                            });
+                            b += '  </div>';
+                            b += '</div>';
+                            
+                            el.innerHTML = b;
+                            el.style.display = 'block';
+                        }
+                    } catch(e) {
+                        console.error('Lỗi tải nhắc nhở chi tiết in:', e);
                     }
                 })();
             });
@@ -335,6 +403,7 @@ function _tsRenderStepModal(step, d){
                     body += `</div>`;
                 });
 
+                body+=`<div id="_tsInRemindersContainer_${i}" style="display:none;margin-top:12px"></div>`;
                 body+=`</div></div>`;
             });
             body+=`</div>`;
