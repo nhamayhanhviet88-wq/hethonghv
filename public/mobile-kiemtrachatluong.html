@@ -528,6 +528,10 @@
             color: #f3f4f6;
             outline: none;
         }
+        .split-team-select option:disabled {
+            color: rgba(243, 244, 246, 0.3) !important;
+            background: #1e293b !important;
+        }
         .split-team-qty {
             flex: 1;
             background: rgba(255, 255, 255, 0.06);
@@ -1912,7 +1916,7 @@
             
             let options = '<option value="">-- Chọn Tổ May --</option>';
             teamsList.forEach(t => {
-                options += `<option value="${t.id}">${t.name}</option>`;
+                options += `<option value="${t.id}" data-name="${t.name}">${t.name}</option>`;
             });
 
             row.innerHTML = `
@@ -1938,8 +1942,17 @@
                         opt.disabled = false;
                         return;
                     }
+                    const origName = opt.getAttribute('data-name') || opt.textContent;
                     const isSelectedElsewhere = selectedValues.includes(opt.value) && opt.value !== currentVal;
                     opt.disabled = isSelectedElsewhere;
+                    
+                    if (isSelectedElsewhere) {
+                        opt.textContent = `${origName} (Đã chọn)`;
+                        opt.style.color = 'rgba(243, 244, 246, 0.3)';
+                    } else {
+                        opt.textContent = origName;
+                        opt.style.color = '';
+                    }
                 });
             });
         }
