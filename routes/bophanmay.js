@@ -312,6 +312,8 @@ module.exports = async function(fastify) {
 
         const orderByClause = tab ? `
                 CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                o.order_code DESC NULLS LAST,
+                sr.product_name ASC,
                 sr.expected_date ASC NULLS LAST,
                 CASE 
                     WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 1
@@ -327,6 +329,8 @@ module.exports = async function(fastify) {
                 END ASC,
                 sr.created_at DESC` : `
                 CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                o.order_code DESC NULLS LAST,
+                sr.product_name ASC,
                 sr.expected_date ASC NULLS LAST,
                 CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
                 sr.created_at DESC`;
