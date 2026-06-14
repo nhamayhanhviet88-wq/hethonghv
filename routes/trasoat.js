@@ -82,6 +82,27 @@ module.exports = async function(fastify) {
                 u_created.full_name AS created_by_name,
                 cr2.name AS carrier_name,
                 req.required_steps,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE qa.dht_order_id = o.id AND qa.item_id IS NULL
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                    ) OR EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE pr.dht_order_id = o.id AND pr.order_item_id IS NULL
+                          AND pr.print_field IN ('IN PET', 'IN DECAL')
+                    )
+                ) AS has_press_printing,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        WHERE qa.dht_order_id = o.id AND qa.item_id IS NULL
+                    ) OR EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE pr.dht_order_id = o.id AND pr.order_item_id IS NULL
+                    )
+                ) AS has_any_printing,
                 COALESCE(
                     CASE 
                         WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
@@ -260,19 +281,60 @@ module.exports = async function(fastify) {
                     JOIN dht_products p ON pp.product_id = p.id 
                     WHERE (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
                       AND pp.is_active = true
-                ) AS required_steps
+                ) AS required_steps,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                    ) OR EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                          AND pr.print_field IN ('IN PET', 'IN DECAL')
+                    )
+                ) AS has_press_printing,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                    ) OR EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                    )
+                ) AS has_any_printing
             FROM dht_order_items oi
             WHERE oi.dht_order_id = $1
             ORDER BY oi.id
         `, [orderId]);
 
         if (!items.length) {
+            const pressPrintAssign = await db.get(`
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL
+                  AND pf.name IN ('IN PET', 'IN DECAL')
+                LIMIT 1
+            `, [orderId]);
+            const hasPressPrinting = !!pressPrintAssign || await db.get(`
+                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field IN ('IN PET', 'IN DECAL') LIMIT 1
+            `, [orderId]);
+
+            const anyPrintAssign = await db.get(`
+                SELECT 1 FROM qlx_order_print_assignments qa WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL LIMIT 1
+            `, [orderId]);
+            const hasAnyPrinting = !!anyPrintAssign || await db.get(`
+                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL LIMIT 1
+            `, [orderId]);
+
             items.push({
                 id: null,
                 product_name: order.order_code,
                 description: order.order_code,
                 quantity: order.total_quantity || 0,
-                required_steps: null
+                required_steps: null,
+                has_press_printing: !!hasPressPrinting,
+                has_any_printing: !!hasAnyPrinting
             });
         }
 
@@ -1093,7 +1155,9 @@ function _processOrderWithItems(o, items, todayStr) {
             print_done: o.print_done,
             press_done: o.press_done,
             sew_done: o.sew_done,
-            finish_done: o.finish_done
+            finish_done: o.finish_done,
+            has_press_printing: o.has_press_printing,
+            has_any_printing: o.has_any_printing
         }];
     }
 
@@ -1128,7 +1192,10 @@ function _processOrderWithItems(o, items, todayStr) {
 
         const needsCut = requiredStepIds.has(2);
         const needsPrint = requiredStepIds.has(3);
-        const needsPress = requiredStepIds.has(4);
+        let needsPress = requiredStepIds.has(4);
+        if (item.has_any_printing) {
+            needsPress = !!item.has_press_printing;
+        }
         const needsSew = requiredStepIds.has(5);
         const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
@@ -1268,6 +1335,27 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 WHERE (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
                   AND pp.is_active = true
             ) AS required_steps,
+            (
+                EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                      AND pf.name IN ('IN PET', 'IN DECAL')
+                ) OR EXISTS (
+                    SELECT 1 FROM printing_records pr
+                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                      AND pr.print_field IN ('IN PET', 'IN DECAL')
+                )
+            ) AS has_press_printing,
+            (
+                EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                ) OR EXISTS (
+                    SELECT 1 FROM printing_records pr
+                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                )
+            ) AS has_any_printing,
             COALESCE(
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
@@ -1366,7 +1454,10 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
 
     const needsCut = requiredStepIds.has(2);
     const needsPrint = requiredStepIds.has(3);
-    const needsPress = requiredStepIds.has(4);
+    let needsPress = requiredStepIds.has(4);
+    if (item.has_any_printing) {
+        needsPress = !!item.has_press_printing;
+    }
     const needsSew = requiredStepIds.has(5);
     const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
