@@ -211,7 +211,7 @@ module.exports = async function(fastify) {
                       AND sr.contractor_id IS NULL
                   )
               )
-            ORDER BY fr.expected_date DESC NULLS LAST, fr.created_at DESC`, params);
+            ORDER BY o.order_code DESC NULLS LAST, fr.product_name ASC, fr.expected_date DESC NULLS LAST, fr.created_at DESC`, params);
         return { records };
     });
 
