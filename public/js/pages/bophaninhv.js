@@ -814,6 +814,72 @@ async function _bpiShowDoneModal(r) {
             printReminders = remRes.reminders || [];
             printReminderIds = remRes.reminder_ids || [];
             printViewedIds = remRes.viewed_ids || [];
+            
+            if (printReminders.length > 0) {
+                var cleanAccents = function(str) {
+                    if (!str) return '';
+                    return str.normalize('NFD')
+                              .replace(/[\u0300-\u036f]/g, '')
+                              .replace(/đ/g, 'd')
+                              .replace(/Đ/g, 'D');
+                };
+                var allTechs = ['IN PET', 'IN DECAL', 'THÊU', 'IN LƯỚI', 'IN 3D', 'IN KHÁC', 'IN TEM'];
+                var currentField = r.print_field || '';
+                var filteredRem = [];
+                var filteredRemIds = [];
+                var filteredVwIds = [];
+                
+                printReminders.forEach(function(rem, remIdx) {
+                    var remId = printReminderIds[remIdx] || 0;
+                    var isViewed = printViewedIds.indexOf(remId) >= 0;
+                    
+                    var matchedField = null;
+                    var remLower = rem.toLowerCase();
+                    var remClean = cleanAccents(remLower);
+                    
+                    for (var fIdx = 0; fIdx < allTechs.length; fIdx++) {
+                        var f = allTechs[fIdx];
+                        var fLower = f.toLowerCase();
+                        var fClean = cleanAccents(fLower);
+                        
+                        if (remLower.indexOf(fLower) >= 0 || remClean.indexOf(fClean) >= 0) {
+                            matchedField = f;
+                            break;
+                        }
+                        if (fLower.indexOf('pet') >= 0 && remLower.indexOf('pet') >= 0) { matchedField = f; break; }
+                        if (fLower.indexOf('decal') >= 0 && remLower.indexOf('decal') >= 0) { matchedField = f; break; }
+                        if (fLower.indexOf('thêu') >= 0 && (remLower.indexOf('thêu') >= 0 || remLower.indexOf('theu') >= 0)) { matchedField = f; break; }
+                        if (fLower.indexOf('lưới') >= 0 && (remLower.indexOf('lưới') >= 0 || remLower.indexOf('luoi') >= 0)) { matchedField = f; break; }
+                        if (fLower.indexOf('3d') >= 0 && remLower.indexOf('3d') >= 0) { matchedField = f; break; }
+                    }
+                    
+                    var isMatchCurrent = false;
+                    if (matchedField) {
+                        var currentLower = currentField.toLowerCase();
+                        var currentClean = cleanAccents(currentLower);
+                        var mClean = cleanAccents(matchedField.toLowerCase());
+                        if (currentClean.indexOf(mClean) >= 0 || mClean.indexOf(currentClean) >= 0) {
+                            isMatchCurrent = true;
+                        }
+                    }
+                    
+                    if (matchedField) {
+                        if (isMatchCurrent) {
+                            filteredRem.push(rem);
+                            filteredRemIds.push(remId);
+                            if (isViewed) filteredVwIds.push(remId);
+                        }
+                    } else {
+                        filteredRem.push(rem);
+                        filteredRemIds.push(remId);
+                        if (isViewed) filteredVwIds.push(remId);
+                    }
+                });
+                
+                printReminders = filteredRem;
+                printReminderIds = filteredRemIds;
+                printViewedIds = filteredVwIds;
+            }
         } catch(e) {
             console.error('Lỗi tải nhắc nhở:', e);
         }
@@ -1307,6 +1373,72 @@ window._bpiShowDetailModal = async function(id) {
             printReminders = remRes.reminders || [];
             printReminderIds = remRes.reminder_ids || [];
             printViewedIds = remRes.viewed_ids || [];
+            
+            if (printReminders.length > 0) {
+                var cleanAccents = function(str) {
+                    if (!str) return '';
+                    return str.normalize('NFD')
+                              .replace(/[\u0300-\u036f]/g, '')
+                              .replace(/đ/g, 'd')
+                              .replace(/Đ/g, 'D');
+                };
+                var allTechs = ['IN PET', 'IN DECAL', 'THÊU', 'IN LƯỚI', 'IN 3D', 'IN KHÁC', 'IN TEM'];
+                var currentField = r.print_field || '';
+                var filteredRem = [];
+                var filteredRemIds = [];
+                var filteredVwIds = [];
+                
+                printReminders.forEach(function(rem, remIdx) {
+                    var remId = printReminderIds[remIdx] || 0;
+                    var isViewed = printViewedIds.indexOf(remId) >= 0;
+                    
+                    var matchedField = null;
+                    var remLower = rem.toLowerCase();
+                    var remClean = cleanAccents(remLower);
+                    
+                    for (var fIdx = 0; fIdx < allTechs.length; fIdx++) {
+                        var f = allTechs[fIdx];
+                        var fLower = f.toLowerCase();
+                        var fClean = cleanAccents(fLower);
+                        
+                        if (remLower.indexOf(fLower) >= 0 || remClean.indexOf(fClean) >= 0) {
+                            matchedField = f;
+                            break;
+                        }
+                        if (fLower.indexOf('pet') >= 0 && remLower.indexOf('pet') >= 0) { matchedField = f; break; }
+                        if (fLower.indexOf('decal') >= 0 && remLower.indexOf('decal') >= 0) { matchedField = f; break; }
+                        if (fLower.indexOf('thêu') >= 0 && (remLower.indexOf('thêu') >= 0 || remLower.indexOf('theu') >= 0)) { matchedField = f; break; }
+                        if (fLower.indexOf('lưới') >= 0 && (remLower.indexOf('lưới') >= 0 || remLower.indexOf('luoi') >= 0)) { matchedField = f; break; }
+                        if (fLower.indexOf('3d') >= 0 && remLower.indexOf('3d') >= 0) { matchedField = f; break; }
+                    }
+                    
+                    var isMatchCurrent = false;
+                    if (matchedField) {
+                        var currentLower = currentField.toLowerCase();
+                        var currentClean = cleanAccents(currentLower);
+                        var mClean = cleanAccents(matchedField.toLowerCase());
+                        if (currentClean.indexOf(mClean) >= 0 || mClean.indexOf(currentClean) >= 0) {
+                            isMatchCurrent = true;
+                        }
+                    }
+                    
+                    if (matchedField) {
+                        if (isMatchCurrent) {
+                            filteredRem.push(rem);
+                            filteredRemIds.push(remId);
+                            if (isViewed) filteredVwIds.push(remId);
+                        }
+                    } else {
+                        filteredRem.push(rem);
+                        filteredRemIds.push(remId);
+                        if (isViewed) filteredVwIds.push(remId);
+                    }
+                });
+                
+                printReminders = filteredRem;
+                printReminderIds = filteredRemIds;
+                printViewedIds = filteredVwIds;
+            }
         } catch(e) {
             console.error('Lỗi tải nhắc nhở:', e);
         }

@@ -206,48 +206,104 @@ async function _tsOpenStepModal(orderId, stepName){
             });
 
             groups.forEach(function(g, i) {
-                (async function() {
-                    try {
-                        const firstItem = g.print_items[0];
-                        if (!firstItem) return;
-                        var url = '/api/qlx/reminders?order_id=' + firstItem.dht_order_id + '&dept=in';
-                        if (g.order_item_id) url += '&item_id=' + g.order_item_id;
-                        var remRes = await apiCall(url);
-                        var printReminders = remRes.reminders || [];
-                        var printReminderIds = remRes.reminder_ids || [];
-                        var printViewedIds = remRes.viewed_ids || [];
-                        
-                        if (printReminders.length > 0) {
-                            var el = document.getElementById('_tsInRemindersContainer_' + i);
-                            if (!el) return;
+                g.print_items.forEach(function(item) {
+                    (async function() {
+                        try {
+                            var url = '/api/qlx/reminders?order_id=' + item.dht_order_id + '&dept=in';
+                            if (g.order_item_id) url += '&item_id=' + g.order_item_id;
+                            url += '&record_type=printing&record_id=' + item.id;
                             
-                            var b = '';
-                            b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
-                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
-                            printReminders.forEach(function(rem, remIdx) {
-                                var remId = printReminderIds[remIdx] || 0;
-                                var isViewed = printViewedIds.indexOf(remId) >= 0;
+                            var remRes = await apiCall(url);
+                            var printReminders = remRes.reminders || [];
+                            var printReminderIds = remRes.reminder_ids || [];
+                            var printViewedIds = remRes.viewed_ids || [];
+                            
+                            if (printReminders.length > 0) {
+                                var cleanAccents = function(str) {
+                                    if (!str) return '';
+                                    return str.normalize('NFD')
+                                              .replace(/[\u0300-\u036f]/g, '')
+                                              .replace(/đ/g, 'd')
+                                              .replace(/Đ/g, 'D');
+                                };
                                 
-                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
-                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                                if (isViewed) {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
-                                } else {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                var uniqueFields = [];
+                                g.print_items.forEach(function(pi) {
+                                    var fName = pi.print_field || pi.field_name || '';
+                                    if (fName && uniqueFields.indexOf(fName) === -1) {
+                                        uniqueFields.push(fName);
+                                    }
+                                });
+                                
+                                var filteredReminders = [];
+                                printReminders.forEach(function(rem, remIdx) {
+                                    var remId = printReminderIds[remIdx] || 0;
+                                    var isViewed = printViewedIds.indexOf(remId) >= 0;
+                                    var remObj = { content: rem, id: remId, isViewed: isViewed };
+                                    
+                                    var matchedField = null;
+                                    var remLower = rem.toLowerCase();
+                                    var remClean = cleanAccents(remLower);
+                                    
+                                    for (var fIdx = 0; fIdx < uniqueFields.length; fIdx++) {
+                                        var f = uniqueFields[fIdx];
+                                        var fLower = f.toLowerCase();
+                                        var fClean = cleanAccents(fLower);
+                                        
+                                        if (remLower.indexOf(fLower) >= 0 || remClean.indexOf(fClean) >= 0) {
+                                            matchedField = f;
+                                            break;
+                                        }
+                                        
+                                        if (fLower.indexOf('pet') >= 0 && remLower.indexOf('pet') >= 0) { matchedField = f; break; }
+                                        if (fLower.indexOf('decal') >= 0 && remLower.indexOf('decal') >= 0) { matchedField = f; break; }
+                                        if (fLower.indexOf('thêu') >= 0 && (remLower.indexOf('thêu') >= 0 || remLower.indexOf('theu') >= 0)) { matchedField = f; break; }
+                                        if (fLower.indexOf('lưới') >= 0 && (remLower.indexOf('lưới') >= 0 || remLower.indexOf('luoi') >= 0)) { matchedField = f; break; }
+                                        if (fLower.indexOf('3d') >= 0 && remLower.indexOf('3d') >= 0) { matchedField = f; break; }
+                                    }
+                                    
+                                    var currentFieldName = item.print_field || item.field_name || '';
+                                    if (matchedField) {
+                                        if (currentFieldName === matchedField) {
+                                            filteredReminders.push(remObj);
+                                        }
+                                    } else {
+                                        filteredReminders.push(remObj);
+                                    }
+                                });
+                                
+                                if (filteredReminders.length > 0) {
+                                    var el = document.getElementById('_tsInRemindersContainer_' + item.id);
+                                    if (!el) return;
+                                    
+                                    var b = '';
+                                    b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+                                    b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN IN:</div>';
+                                    b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                    
+                                    filteredReminders.forEach(function(rObj) {
+                                        b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (rObj.isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                        b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rObj.content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                        if (rObj.isViewed) {
+                                            b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                        } else {
+                                            b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                        }
+                                        b += '</div>';
+                                    });
+                                    
+                                    b += '  </div>';
+                                    b += '</div>';
+                                    
+                                    el.innerHTML = b;
+                                    el.style.display = 'block';
                                 }
-                                b += '</div>';
-                            });
-                            b += '  </div>';
-                            b += '</div>';
-                            
-                            el.innerHTML = b;
-                            el.style.display = 'block';
+                            }
+                        } catch(e) {
+                            console.error('Lỗi tải nhắc nhở chi tiết in:', e);
                         }
-                    } catch(e) {
-                        console.error('Lỗi tải nhắc nhở chi tiết in:', e);
-                    }
-                })();
+                    })();
+                });
             });
         }
     } catch(e) {
@@ -400,10 +456,10 @@ function _tsRenderStepModal(step, d){
                         </div>`;
                     }
 
+                    body += `<div id="_tsInRemindersContainer_${r.id}" style="display:none;margin-top:12px"></div>`;
                     body += `</div>`;
                 });
 
-                body+=`<div id="_tsInRemindersContainer_${i}" style="display:none;margin-top:12px"></div>`;
                 body+=`</div></div>`;
             });
             body+=`</div>`;
