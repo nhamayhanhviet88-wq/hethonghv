@@ -2381,7 +2381,9 @@ async function _qlxAssignMay(orderId, itemId) {
 
         // Add button
         html += '<div style="text-align:right;margin-bottom:16px">';
-        html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px;color:#ffffff;background-color:#1e3a8a;border:none">➕ Thêm bên nhận may</button>';
+        if (!res.is_sewing_done) {
+            html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px;color:#ffffff;background-color:#1e3a8a;border:none">➕ Thêm bên nhận may</button>';
+        }
         html += '</div>';
 
         // Reminders Choices & Lists
@@ -2479,7 +2481,9 @@ async function _qlxAssignMay(orderId, itemId) {
         // Footer
         html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
         html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#ffffff;background-color:#1e3a8a;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
-        html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+        if (!res.is_sewing_done || !res.is_finishing_done) {
+            html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+        }
         html += '</div>';
         html += '</div>';
 
@@ -2590,22 +2594,29 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
+    var isSewingDone = window._qlxMayData && window._qlxMayData.is_sewing_done;
+    var disabledAttr = isSewingDone ? 'disabled' : '';
+
     var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,2fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
-    html += '<div><select class="form-control may-target" style="padding:6px;font-size:11px;font-weight:600;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
+    html += '<div><select class="form-control may-target" ' + disabledAttr + ' style="padding:6px;font-size:11px;font-weight:600;height:auto;background:' + (isSewingDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
     html += '<option value="" ' + (cId === '' ? 'selected' : '') + '>🏠 May Nhà (Trong xưởng)</option>';
     html += '<optgroup label="Bên Nhận Gia Công ngoài">' + contractorOpts + '</optgroup>';
     html += '</select></div>';
 
     // Quantity input
-    html += '<div><input type="number" class="form-control may-qty" value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1" oninput="_qlxAssignMayUpdateTotal()"></div>';
+    html += '<div><input type="number" class="form-control may-qty" ' + disabledAttr + ' value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:' + (isSewingDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1" oninput="_qlxAssignMayUpdateTotal()"></div>';
 
     // Target completion Date
-    html += '<div><input type="date" class="form-control may-date" value="' + date + '" min="' + minDateStr + '" onchange="_qlxAssignMayHandleDateChange(this)" style="padding:6px;font-size:11px;height:auto;background:#ffffff;color:#1e293b;border:1.5px solid #cbd5e1"></div>';
+    html += '<div><input type="date" class="form-control may-date" ' + disabledAttr + ' value="' + date + '" min="' + minDateStr + '" onchange="_qlxAssignMayHandleDateChange(this)" style="padding:6px;font-size:11px;height:auto;background:' + (isSewingDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1"></div>';
 
     // Delete button
-    html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#ef4444;border:1px solid #fca5a5">🗑️</button></div>';
+    if (isSewingDone) {
+        html += '<div><button class="btn btn-danger" disabled style="padding:4px 8px;font-size:11px;border-radius:6px;background:#e2e8f0;color:#94a3b8;border:1px solid #cbd5e1;cursor:not-allowed">🗑️</button></div>';
+    } else {
+        html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#ef4444;border:1px solid #fca5a5">🗑️</button></div>';
+    }
 
 
     var container = document.getElementById('may_assignment_rows');
