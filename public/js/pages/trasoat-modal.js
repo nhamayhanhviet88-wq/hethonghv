@@ -470,9 +470,8 @@ function _tsRenderStepModal(step, d){
                 body += `<div style="text-align:center;padding:12px;background:#fffbeb;border:1.5px solid #fef3c7;border-radius:12px;color:#b45309;font-weight:700;font-size:13px">
                             ⚠️ Đơn hàng chưa có dữ liệu cắt
                          </div>`;
-                
                 d.items_status.forEach((item, index) => {
-                    const itemTitle = item.description ? `Phiếu ${index + 1}: ${item.description} (SL: ${item.quantity})` : `Phiếu ${index + 1} (SL: ${item.quantity})`;
+                    const itemTitle = item.description ? `${d.order_code} - Phiếu ${index + 1} — ${item.description}` : `${d.order_code} - Phiếu ${index + 1}`;
                     
                     let statusLabel = '';
                     let statusColor = '';
