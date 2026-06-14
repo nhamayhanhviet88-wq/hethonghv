@@ -351,7 +351,7 @@ function _shBuildItemsTable(order) {
             if (item.all_done) {
                 actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
             } else {
-                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
+                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}', ${order.id})" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
             }
         }
 
@@ -376,7 +376,7 @@ function _shBuildItemsTable(order) {
     return html;
 }
 
-function _shShowAlert(title, contentHtml, width = '480px') {
+function _shShowAlert(title, contentHtml, width = '480px', backBtnHtml = '') {
     document.getElementById('shAlertModal')?.remove();
     
     if (!document.getElementById('shAlertStyles')) {
@@ -402,7 +402,8 @@ function _shShowAlert(title, contentHtml, width = '480px') {
         <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;">
             ${contentHtml}
         </div>
-        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">
+        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
+            ${backBtnHtml}
             <button onclick="document.getElementById('shAlertModal')?.remove()" style="padding:8px 20px;border:none;border-radius:8px;background:#374151;color:white;cursor:pointer;font-weight:700;font-size:13px;transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#374151'">Đóng</button>
         </div>
     </div>`;
@@ -411,7 +412,7 @@ function _shShowAlert(title, contentHtml, width = '480px') {
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 }
 
-function _shAlertCannotShip(itemName, missing, orderCode) {
+function _shAlertCannotShip(itemName, missing, orderCode, orderId = null) {
     const missingBadges = missing.split(', ').map(step => 
         `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;margin:2px 4px 2px 0;">${step}</span>`
     ).join('');
@@ -427,7 +428,13 @@ function _shAlertCannotShip(itemName, missing, orderCode) {
         </div>
         <div style="color:#64748b;font-size:12px;margin-top:12px;">Vui lòng đốc thúc các bộ phận liên quan hoàn thành để kế toán có thể xuất hàng.</div>
     `;
-    _shShowAlert('Không thể gửi phiếu hàng', html);
+
+    let backBtnHtml = '';
+    if (orderId) {
+        backBtnHtml = `<button onclick="document.getElementById('shAlertModal')?.remove();_shAlertCannotShipOrder(${orderId})" style="padding:8px 20px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:700;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Trở lại</button>`;
+    }
+
+    _shShowAlert('Không thể gửi phiếu hàng', html, '480px', backBtnHtml);
 }
 
 function _shAlertCannotShipOrder(orderId) {
