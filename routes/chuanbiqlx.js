@@ -308,7 +308,7 @@ module.exports = async function(fastify) {
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records pr
                     WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
-                      AND pr.is_print_done = false
+                      AND pr.is_print_done = false AND pr.contractor_id IS NULL
                 ) AS pending
             `, [itemId, orderId]);
             if (printPending && printPending.pending) {
@@ -1077,8 +1077,8 @@ module.exports = async function(fastify) {
                 if (viewedIds.includes(r.id)) continue;
                 if (r.dept === 'in') {
                     const row = r.item_id 
-                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_print_done = true LIMIT 1`, [orderId, r.item_id])
-                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND is_print_done = true LIMIT 1`, [orderId]);
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
+                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId]);
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'ep') {
                     const row = r.item_id
@@ -1255,8 +1255,8 @@ module.exports = async function(fastify) {
                 if (viewedIds.includes(r.id)) continue;
                 if (r.dept === 'in') {
                     const row = itemId 
-                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_print_done = true LIMIT 1`, [orderId, itemId])
-                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND is_print_done = true LIMIT 1`, [orderId]);
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId, itemId])
+                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId]);
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'ep') {
                     const row = itemId
@@ -1289,14 +1289,14 @@ module.exports = async function(fastify) {
         let isPrintDone = false;
         let isPressDone = false;
         if (itemId) {
-            const printRecs = await db.all(`SELECT is_print_done FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         } else {
-            const printRecs = await db.all(`SELECT is_print_done FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
@@ -1366,14 +1366,14 @@ module.exports = async function(fastify) {
         let isPrintDone = false;
         let isPressDone = false;
         if (itemId) {
-            const printRecs = await db.all(`SELECT is_print_done FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         } else {
-            const printRecs = await db.all(`SELECT is_print_done FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
