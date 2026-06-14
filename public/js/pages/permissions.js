@@ -70,7 +70,6 @@ const PERM_FEATURES = [
     // ===== XƯỞNG SẢN XUẤT =====
     { key: 'bang_mau_vai', label: 'Bảng Màu Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'lich_ra_don_hang', label: 'Lịch Ra Đơn Hàng', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'ke_toan_gui_hang', label: 'Đơn Hàng Kế Toán Gửi', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kinh_doanh_gui_hang', label: 'Đơn Hàng Kinh Doanh Gửi', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'don_hang_hom_nay_qlx', label: 'Đơn Hàng Hôm Nay QLX', perms: ['view','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'quan_ly_xuong_qlx', label: 'Quản Lý Xưởng', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
@@ -121,6 +120,7 @@ const PERM_FEATURES = [
     { key: 'so_ghi_nhan_tien', label: 'Sổ Ghi Nhận Tiền', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_thu_chi', label: 'Sổ Thu Chi', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'so_co_phan_may', label: 'Sổ Cổ Phần May', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'ke_toan_gui_hang', label: 'Đơn Hàng Kế Toán Gửi', perms: ['view','create','edit'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_hang_thiet_ke', label: 'Đơn Hàng Thiết Kế', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'tao_phieu_xu_ly_cv', label: 'Tạo Phiếu Xử Lý CV', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
