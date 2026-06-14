@@ -1041,10 +1041,25 @@ module.exports = async function(fastify) {
         let viewedIds = [];
         if (reminders.length > 0) {
             const reminderIds = reminders.map(r => r.id);
-            const views = await db.all(
-                `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1)`,
-                [reminderIds]
-            );
+            const { record_type, record_id } = request.query || {};
+            let views;
+            if (record_type) {
+                const rId = record_id ? Number(record_id) : null;
+                views = await db.all(
+                    `SELECT DISTINCT reminder_id FROM qlx_reminder_views 
+                     WHERE reminder_id = ANY($1) 
+                       AND (
+                           (record_type = $2 AND COALESCE(record_id, 0) = COALESCE($3, 0))
+                           OR (record_type = 'sewing_records' AND COALESCE(record_id, 0) = COALESCE($3, 0))
+                       )`,
+                    [reminderIds, record_type, rId]
+                );
+            } else {
+                views = await db.all(
+                    `SELECT DISTINCT reminder_id FROM qlx_reminder_views WHERE reminder_id = ANY($1)`,
+                    [reminderIds]
+                );
+            }
             viewedIds = views.map(v => v.reminder_id);
             
             // Auto-view if task is completed
