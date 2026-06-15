@@ -73,6 +73,10 @@ async function renderSoghinhantienPage(content) {
     _pr.trackedBanks = bankData.banks || _prBanks;
     _pr.appsheetEnabled = asData.enabled || false;
     _pr.filter = {};
+    _pr.filterSearch = '';
+    _pr.filterType = '';
+    _pr.currentPage = 1;
+    _pr.pageSize = 200;
 
     _prRenderSidebar();
     await _prLoadRecords();
@@ -109,10 +113,31 @@ function _prRenderSidebar() {
     sb.innerHTML = h;
 }
 
-function _prFilterAll() { _pr.filter={}; _prRenderSidebar(); _prLoadRecords(); }
-function _prFilterYear(y) { _pr.filter={year:y}; _prRenderSidebar(); _prLoadRecords(); }
-function _prFilterMonth(y,m) { _pr.filter={year:y,month:m}; _prRenderSidebar(); _prLoadRecords(); }
-function _prFilterDay(y,m,d) { _pr.filter={year:y,month:m,day:d}; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterAll() { _pr.filter={}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterYear(y) { _pr.filter={year:y}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterMonth(y,m) { _pr.filter={year:y,month:m}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterDay(y,m,d) { _pr.filter={year:y,month:m,day:d}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+
+function _prGetFilteredRecords() {
+    return _pr.records.filter(function(r) {
+        if (_pr.filterHandover && r.handover_status === 'thu_quy_nhan') return false;
+        if (_pr.filterType && r.payment_type !== _pr.filterType) return false;
+        if (_pr.filterSearch) {
+            var q = _pr.filterSearch.toLowerCase().trim();
+            var matchCode = (r.payment_code || '').toLowerCase().includes(q);
+            var matchName = (r.customer_name || '').toLowerCase().includes(q);
+            var matchPhone = (r.customer_phone || '').toLowerCase().includes(q);
+            
+            var cleanAmtQuery = q.replace(/[\.,đ]/g, '');
+            var matchAmount = cleanAmtQuery && String(r.amount || '').includes(cleanAmtQuery);
+            
+            if (!matchCode && !matchName && !matchPhone && !matchAmount) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
 
 async function _prLoadRecords() {
     var params = [];
@@ -122,6 +147,7 @@ async function _prLoadRecords() {
     var url = '/api/payment-records' + (params.length ? '?'+params.join('&') : '');
     var data = await apiCall(url);
     _pr.records = data.records || [];
+    _pr.currentPage = 1;
     _prRenderToolbar();
     _prRenderTable();
 }
@@ -133,7 +159,10 @@ function _prRenderToolbar() {
     if (_pr.filter.day) filterText = _pr.filter.day+'/'+_pr.filter.month+'/'+_pr.filter.year;
     else if (_pr.filter.month) filterText = 'Tháng '+_pr.filter.month+'/'+_pr.filter.year;
     else if (_pr.filter.year) filterText = 'Năm '+_pr.filter.year;
-    var total = _pr.records.reduce(function(s,r){return s+Number(r.amount||0)},0);
+
+    var filtered = _prGetFilteredRecords();
+    var total = filtered.reduce(function(s,r){return s+Number(r.amount||0)},0);
+
     var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     var settingsBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowSettings()">⚙️ Cài Đặt Email</button>' : '';
     var tgBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowTgSettings()" style="background:linear-gradient(135deg,#0088cc,#29b6f6);color:#fff">📢 Telegram</button>' : '';
@@ -145,7 +174,18 @@ function _prRenderToolbar() {
     var pendingCount = _pr.records.filter(function(r){return r.handover_status !== 'thu_quy_nhan';}).length;
     var handoverActive = _pr.filterHandover;
     var handoverBtn = '<button class="pr-settings-btn" onclick="_prToggleFilterHandover()" style="background:' + (handoverActive ? 'linear-gradient(135deg,#dc2626,#ef4444)' : 'linear-gradient(135deg,#f59e0b,#d97706)') + ';color:#fff;position:relative">' + (handoverActive ? '✅ Tất Cả' : '⏳ Chưa BG') + (pendingCount > 0 ? ' <span style="background:#fff;color:#dc2626;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:900;margin-left:4px">' + pendingCount + '</span>' : '') + '</button>';
-    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+handoverBtn+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
+
+    var searchBox = '<div style="display:flex;align-items:center;gap:6px;background:#f1f5f9;padding:4px 10px;border-radius:8px;border:1px solid #cbd5e1;margin-right:10px">'
+        + '<input type="text" id="prSearchInput" placeholder="Tìm tiền, mã, khách, SĐT..." value="' + (_pr.filterSearch || '') + '" style="border:none;background:transparent;outline:none;font-size:12.5px;width:200px" onkeydown="if(event.key===\'Enter\') _prDoSearch()" oninput="_prOnSearchInput(this.value)">'
+        + '<button onclick="_prDoSearch()" style="background:var(--navy);color:#fff;border:none;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">🔍 Tìm</button>'
+        + (_pr.filterSearch ? '<button onclick="_prClearSearch()" style="background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;font-weight:bold;padding:0 4px">✕</button>' : '')
+        + '</div>';
+
+    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+filtered.length+' mã</span></span>'
+        + '<span style="flex:1"></span>'
+        + searchBox
+        + '<span style="font-size:13px;font-weight:800;color:var(--success);margin-right:15px">💰 '+_prFmt(total)+'</span>'
+        + handoverBtn+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
 }
 
 function _prRenderTable() {
@@ -155,25 +195,53 @@ function _prRenderTable() {
         wrap.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--gray-400)"><div style="font-size:40px;margin-bottom:12px">💵</div><div style="font-size:13px;font-weight:600">Chưa có mã thanh toán nào</div></div>';
         return;
     }
+
+    var filtered = _prGetFilteredRecords();
+    if (filtered.length === 0) {
+        wrap.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--gray-400)"><div style="font-size:40px;margin-bottom:12px">🔍</div><div style="font-size:13px;font-weight:600">Không tìm thấy mã tiền nào phù hợp bộ lọc</div></div>';
+        return;
+    }
+
     var cols = [
         {k:'code',l:'Mã TT',w:115},{k:'customer',l:'Khách Hàng',w:140},{k:'cskh',l:'CSKH',w:85},
-        {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:65},{k:'order',l:'Mã Đơn TT/Cọc',w:100},
+        {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:100},
         {k:'sample',l:'Áo Mẫu',w:70},{k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
         {k:'bank',l:'NH',w:65},{k:'totalOrders',l:'SLL Mã Đơn TT',w:100},{k:'cod',l:'Tổng COD',w:80},
         {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100},{k:'date',l:'Ngày',w:65}
     ];
     var totalW = cols.reduce(function(s,c){return s+c.w},0);
     var h = '<table class="pr-table" style="min-width:'+totalW+'px"><thead><tr>';
-    cols.forEach(function(c){h+='<th style="width:'+c.w+'px">'+c.l+'</th>';});
+    cols.forEach(function(c){
+        if (c.k === 'type') {
+            var typeFilterHTML = '<select onchange="event.stopPropagation(); _prFilterByType(this.value)" style="background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:4px;padding:2px 4px;font-size:9.5px;font-weight:800;cursor:pointer;outline:none;width:100%;text-transform:uppercase">'
+                + '<option value=""' + (_pr.filterType === '' ? ' selected' : '') + '>LOẠI (TẤT CẢ)</option>'
+                + '<option value="thanh_toan"' + (_pr.filterType === 'thanh_toan' ? ' selected' : '') + '>Thanh Toán</option>'
+                + '<option value="dat_coc"' + (_pr.filterType === 'dat_coc' ? ' selected' : '') + '>Đặt Cọc</option>'
+                + '<option value="tt_sll"' + (_pr.filterType === 'tt_sll' ? ' selected' : '') + '>SLL</option>'
+                + '<option value="tra_lai_coc"' + (_pr.filterType === 'tra_lai_coc' ? ' selected' : '') + '>Trả Lại Cọc</option>'
+                + '<option value="pending"' + (_pr.filterType === 'pending' ? ' selected' : '') + '>Chờ xử lý</option>'
+                + '</select>';
+            h += '<th style="width:'+c.w+'px;padding:4px 6px">' + typeFilterHTML + '</th>';
+        } else {
+            h += '<th style="width:'+c.w+'px">'+c.l+'</th>';
+        }
+    });
     h += '</tr></thead><tbody>';
 
     var typeLabels = {thanh_toan:'Thanh Toán',dat_coc:'Đặt Cọc',tt_sll:'SLL',pending:'⏳',tra_lai_coc:'Trả Lại Cọc'};
     var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll',pending:'pr-pending',tra_lai_coc:'pr-tlc'};
     var srcLabels = {khach_hang:'KH',khach_hang_sll:'KH SLL',nha_van_chuyen:'NVC'};
 
-    _pr.records.forEach(function(r) {
-        // Filter by handover status if active
-        if (_pr.filterHandover && r.handover_status === 'thu_quy_nhan') return;
+    // Pagination
+    var totalCount = filtered.length;
+    var totalPages = Math.ceil(totalCount / _pr.pageSize);
+    if (_pr.currentPage > totalPages) _pr.currentPage = Math.max(1, totalPages);
+    
+    var startIdx = (_pr.currentPage - 1) * _pr.pageSize;
+    var endIdx = startIdx + _pr.pageSize;
+    var pageRecords = filtered.slice(startIdx, endIdx);
+
+    pageRecords.forEach(function(r) {
         var methodBadge = r.payment_method === 'TM' ? '<span class="pr-badge pr-tm">💵'+r.payment_code+'</span>' : '<span class="pr-badge pr-ck">🏦'+r.payment_code+'</span>';
         var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
         var typeBadge = '<span class="pr-badge '+(typeClass[r.payment_type]||'pr-tt')+'">'+(typeLabels[r.payment_type]||'TT')+'</span>';
@@ -196,7 +264,7 @@ function _prRenderTable() {
         h += '<td title="'+(r.total_order_codes||'')+'">'+(r.total_order_codes||'')+'</td>';
         h += '<td style="text-align:right">'+(Number(r.total_cod)?_prFmt(r.total_cod):'')+'</td>';
         h += '<td style="text-align:right">'+(Number(r.shipping_fee)?_prFmt(r.shipping_fee):'')+'</td>';
-        // Lịch Sử CN: show source
+        
         var historyDisplay = '';
         if (r.source === 'email_auto') {
             historyDisplay = updatedAt + ' <span class="pr-mail-tag">📧 Mail</span>';
@@ -211,13 +279,104 @@ function _prRenderTable() {
         h += '</tr>';
     });
     h += '</tbody></table>';
+
+    if (totalPages > 1) {
+        h += '<div class="pr-pagination" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;background:#fff;border-top:1px solid var(--gray-200);border-bottom:1px solid var(--gray-200);flex-wrap:wrap">';
+        
+        var prevDisabled = _pr.currentPage === 1 ? ' disabled style="opacity:.5;cursor:not-allowed"' : 'onclick="_prGoToPage(' + (_pr.currentPage - 1) + ')"';
+        h += '<button class="btn btn-secondary"' + prevDisabled + ' style="padding:4px 10px;font-size:11px;font-weight:700">◀ Trước</button>';
+        
+        var startPage = Math.max(1, _pr.currentPage - 2);
+        var endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        
+        if (startPage > 1) {
+            h += '<button class="btn btn-secondary" onclick="_prGoToPage(1)" style="padding:4px 8px;font-size:11px">1</button>';
+            if (startPage > 2) h += '<span style="color:var(--gray-400);font-size:11px;padding:0 4px">...</span>';
+        }
+        
+        for (var p = startPage; p <= endPage; p++) {
+            if (p < 1) continue;
+            var activeStyle = p === _pr.currentPage 
+                ? 'background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700' 
+                : '';
+            h += '<button class="btn btn-secondary" onclick="_prGoToPage(' + p + ')" style="padding:4px 8px;font-size:11px;' + activeStyle + '">' + p + '</button>';
+        }
+        
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) h += '<span style="color:var(--gray-400);font-size:11px;padding:0 4px">...</span>';
+            h += '<button class="btn btn-secondary" onclick="_prGoToPage(' + totalPages + ')" style="padding:4px 8px;font-size:11px">' + totalPages + '</button>';
+        }
+        
+        var nextDisabled = _pr.currentPage === totalPages ? ' disabled style="opacity:.5;cursor:not-allowed"' : 'onclick="_prGoToPage(' + (_pr.currentPage + 1) + ')"';
+        h += '<button class="btn btn-secondary"' + nextDisabled + ' style="padding:4px 10px;font-size:11px;font-weight:700">Sau ▶</button>';
+        
+        h += '<span style="font-size:11.5px;color:var(--gray-500);margin-left:12px;font-weight:600">Trang ' + _pr.currentPage + ' / ' + totalPages + ' (Hiển thị ' + (startIdx + 1) + '-' + Math.min(endIdx, totalCount) + ' trong ' + totalCount + ' mã)</span>';
+        
+        h += '</div>';
+    }
+
     wrap.innerHTML = h;
 }
 
 function _prToggleFilterHandover() {
     _pr.filterHandover = !_pr.filterHandover;
+    _pr.currentPage = 1;
     _prRenderToolbar();
     _prRenderTable();
+}
+
+function _prFilterByType(type) {
+    _pr.filterType = type;
+    _pr.currentPage = 1;
+    _prRenderToolbar();
+    _prRenderTable();
+}
+
+function _prDoSearch() {
+    var val = document.getElementById('prSearchInput')?.value || '';
+    _pr.filterSearch = val;
+    _pr.currentPage = 1;
+    _prRenderToolbar();
+    _prRenderTable();
+}
+
+function _prClearSearch() {
+    _pr.filterSearch = '';
+    var input = document.getElementById('prSearchInput');
+    if (input) input.value = '';
+    _pr.currentPage = 1;
+    _prRenderToolbar();
+    _prRenderTable();
+}
+
+var _prSearchDebounce = null;
+function _prOnSearchInput(val) {
+    clearTimeout(_prSearchDebounce);
+    _prSearchDebounce = setTimeout(function() {
+        _pr.filterSearch = val;
+        _pr.currentPage = 1;
+        _prRenderTable();
+        _prUpdateToolbarCounts();
+    }, 250);
+}
+
+function _prUpdateToolbarCounts() {
+    var filtered = _prGetFilteredRecords();
+    var total = filtered.reduce(function(s,r){return s+Number(r.amount||0)},0);
+    var countEl = document.querySelector('.pr-toolbar .pr-count');
+    if (countEl) countEl.textContent = filtered.length + ' mã';
+    var amountEl = document.querySelector('.pr-toolbar span[style*="color:var(--success)"]');
+    if (amountEl) amountEl.innerHTML = '💰 ' + _prFmt(total);
+}
+
+function _prGoToPage(p) {
+    _pr.currentPage = p;
+    _prRenderTable();
+    var wrap = document.getElementById('prTableWrap');
+    if (wrap) wrap.scrollTop = 0;
 }
 
 async function _prToggleHandover(id, newStatus) {
