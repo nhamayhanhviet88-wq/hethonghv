@@ -1404,6 +1404,9 @@ function _tsRenderStepModal(step, d){
         body+=row('👤 CSKH',V(d.cskh_name));
         body+=row('📅 Ngày lên đơn',fmtD(d.order_date));
         
+        var tcColor2 = (d.shipping_priority === 'GẤP') ? '#dc2626' : (d.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
+        body+=row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${d.shipping_priority || 'CHUẨN'}</span>`);
+
         const formatExpectedShipDateWithDay = (dateVal) => {
             if (!dateVal) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
             const dt = new Date(dateVal);
@@ -1415,9 +1418,6 @@ function _tsRenderStepModal(step, d){
             return `${dayName} - Ngày ${day}/${month}`;
         };
         body+=row('📅 Ngày gửi dự kiến',formatExpectedShipDateWithDay(d.expected_ship_date));
-        
-        var tcColor2 = (d.shipping_priority === 'GẤP') ? '#dc2626' : (d.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
-        body+=row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${d.shipping_priority || 'CHUẨN'}</span>`);
         
         if ((d.shipping_priority || 'CHUẨN').toUpperCase() === 'CHUẨN') {
             var deliveryTimeHtml = d.standard_delivery_time 
