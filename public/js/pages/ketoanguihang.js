@@ -350,6 +350,30 @@ function _shBuildTable(orders) {
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const today = new Date().toISOString().split('T')[0];
 
+    const formatExpectedShipDateWithDay = (dateVal) => {
+        if (!dateVal) return '—';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const day = localDt.getDate();
+        const month = localDt.getMonth() + 1;
+        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = daysOfWeek[localDt.getDay()];
+        return `${dayName} - ${day}/${month}`;
+    };
+
+    const formatActualShipDateWithDay = (dateVal) => {
+        if (!dateVal) return '—';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const hh = String(localDt.getHours()).padStart(2, '0');
+        const mm = String(localDt.getMinutes()).padStart(2, '0');
+        const day = localDt.getDate();
+        const month = localDt.getMonth() + 1;
+        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = daysOfWeek[localDt.getDay()];
+        return `<span class="shimmer-sparkle">${hh}:${mm} ${dayName} - ${day}/${month}</span>`;
+    };
+
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
@@ -416,19 +440,9 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
 
         // Col 3: Gửi Dự Kiến
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${formatExpectedShipDateWithDay(o.expected_ship_date)}</td>`;
         // Col 4: 🚛 Ngày Gửi
-        const shipTimeFmt = o.shipped_at ? (() => {
-            const d = new Date(o.shipped_at);
-            const vnStr = d.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
-            const vnDate = new Date(vnStr);
-            const hh = String(vnDate.getHours()).padStart(2, '0');
-            const mm = String(vnDate.getMinutes()).padStart(2, '0');
-            const dd = String(vnDate.getDate()).padStart(2, '0');
-            const mo = String(vnDate.getMonth() + 1).padStart(2, '0');
-            return `<span class="shimmer-sparkle">${hh}:${mm} ${dd}/${mo}</span>`;
-        })() : '—';
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${shipTimeFmt}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${formatActualShipDateWithDay(o.shipped_at)}</td>`;
         // Col 5: Hẹn Lại
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
