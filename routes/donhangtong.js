@@ -495,7 +495,12 @@ module.exports = async function(fastify) {
         let where = 'WHERE 1=1';
         let orderBy = 'o.order_date DESC, o.id DESC';
         if (unpaid === 'true') {
-            orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) ASC, o.id DESC';
+            orderBy = `
+                (CASE WHEN o.shipped_at IS NULL THEN 0 ELSE 1 END) ASC,
+                (CASE WHEN o.shipped_at IS NULL THEN COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) END) ASC,
+                (CASE WHEN o.shipped_at IS NOT NULL THEN o.shipped_at END) ASC,
+                o.id DESC
+            `;
         }
         const params = [];
         let idx = 1;
@@ -503,7 +508,12 @@ module.exports = async function(fastify) {
         if (unpaid === 'true' && carrier_id !== undefined) {
             const carrierId = Number(carrier_id);
             if (carrierId === 0) {
-                orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) ASC, o.id DESC';
+                orderBy = `
+                    (CASE WHEN o.shipped_at IS NULL THEN 0 ELSE 1 END) ASC,
+                    (CASE WHEN o.shipped_at IS NULL THEN COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) END) ASC,
+                    (CASE WHEN o.shipped_at IS NOT NULL THEN o.shipped_at END) ASC,
+                    o.id DESC
+                `;
                 where += ` AND (
                     (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND (COALESCE(o.shipping_status, 'pending') != 'shipped' OR o.actual_carrier_id IS NULL OR o.actual_carrier_id = 0))
                     OR

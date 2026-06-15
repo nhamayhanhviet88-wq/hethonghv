@@ -311,15 +311,35 @@ function _dhcttRenderTable() {
         // Default sorting requested by the user
         const carrierId = _dhctt.filter.carrier_id !== undefined ? Number(_dhctt.filter.carrier_id) : null;
         if (carrierId === 0 || carrierId === null) {
-            // Chưa Gửi Đơn: sort by expected/rescheduled ship date ascending (oldest/more overdue first)
+            // Chưa Gửi Đơn or default list:
+            // 1. Unshipped orders (no shipping date) at the top, sorted by expected/rescheduled ship date ascending (oldest/more overdue first)
+            // 2. Shipped orders (has shipping date) at the bottom, sorted by shipping date ascending (oldest shipped first)
             filtered.sort(function(a, b) {
-                const getEffectiveDate = (o) => {
-                    const dStr = o.rescheduled_ship_date || o.expected_ship_date || o.order_date;
-                    if (!dStr) return 0;
-                    const t = new Date(dStr).getTime();
-                    return isNaN(t) ? 0 : t;
+                const getShipDateVal = (o) => {
+                    let dStr = o.shipped_at;
+                    return dStr ? new Date(dStr).getTime() : 0;
                 };
-                return getEffectiveDate(a) - getEffectiveDate(b);
+
+                const shipA = getShipDateVal(a);
+                const shipB = getShipDateVal(b);
+
+                // If one has shipping date and the other does not:
+                if (shipA === 0 && shipB > 0) return -1; // a comes first
+                if (shipA > 0 && shipB === 0) return 1;  // b comes first
+
+                if (shipA === 0 && shipB === 0) {
+                    // Both have no shipping date: sort by expected ship date ascending
+                    const getEffectiveDate = (o) => {
+                        const dStr = o.rescheduled_ship_date || o.expected_ship_date || o.order_date;
+                        if (!dStr) return 0;
+                        const t = new Date(dStr).getTime();
+                        return isNaN(t) ? 0 : t;
+                    };
+                    return getEffectiveDate(a) - getEffectiveDate(b);
+                } else {
+                    // Both have shipping dates: sort by shipping date ascending (oldest first)
+                    return shipA - shipB;
+                }
             });
         } else if (carrierId !== null) {
             // Shipped carriers: sort by resolved ship date ascending (oldest shipped first)
