@@ -34,7 +34,7 @@ var _dhcttFormatDetailedQuantity = function(items, totalQuantity, orderCode) {
 
         // Determine if this item matches the active carrier filter
         let isMatching = true;
-        if (isCarrierFilterActive) {
+        if (isCarrierFilterActive && Number(activeCarrierId) !== -2) {
             const itemCarrierId = item.actual_carrier_id || 0;
             const itemShipped = item.shipping_status === 'shipped';
             if (activeCarrierId === 0) {

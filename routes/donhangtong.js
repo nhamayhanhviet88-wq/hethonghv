@@ -228,7 +228,11 @@ module.exports = async function(fastify) {
                 whereClause += ` AND o.created_by = $${paramIdx++}`;
                 queryParams.push(request.user.id);
             }
-            whereClause += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
+            whereClause += ` AND (
+                (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0
+                OR
+                o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
+            )`;
 
             const unpaidTreeRows = await db.all(`
                 WITH unpaid_orders AS (
@@ -246,7 +250,10 @@ module.exports = async function(fastify) {
                 order_carriers AS (
                     SELECT DISTINCT
                         o.id AS order_id,
-                        COALESCE(oi.actual_carrier_id, 0) AS carrier_id,
+                        CASE 
+                            WHEN (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = o.id AND action = 'ship') >= 2 THEN -2
+                            ELSE COALESCE(oi.actual_carrier_id, 0)
+                        END AS carrier_id,
                         CASE 
                             WHEN oi.shipping_status = 'shipped' AND oi.actual_carrier_id IS NOT NULL 
                             THEN COALESCE(oi.shipping_date, o.order_date)
@@ -261,9 +268,13 @@ module.exports = async function(fastify) {
                     SELECT
                         o.id AS order_id,
                         CASE 
-                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                            THEN o.actual_carrier_id 
-                            ELSE 0 
+                            WHEN (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = o.id AND action = 'ship') >= 2 THEN -2
+                            ELSE 
+                                CASE 
+                                    WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
+                                    THEN o.actual_carrier_id 
+                                    ELSE 0 
+                                END
                         END AS carrier_id,
                         CASE 
                             WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
@@ -276,7 +287,10 @@ module.exports = async function(fastify) {
                 )
                 SELECT 
                     oc.carrier_id,
-                    COALESCE(c.name, 'Chưa Gửi Đơn') AS carrier_name,
+                    CASE 
+                        WHEN oc.carrier_id = -2 THEN 'Vận Chuyển 2 Lần'
+                        ELSE COALESCE(c.name, 'Chưa Gửi Đơn')
+                    END AS carrier_name,
                     oc.year,
                     oc.month,
                     COALESCE(SUM(oc.remaining_amount), 0)::numeric AS revenue,
@@ -360,7 +374,7 @@ module.exports = async function(fastify) {
 
             const grandInfo = await db.get(`
                 SELECT 
-                    COALESCE(SUM(remaining_amount), 0)::numeric AS total,
+                    COALESCE(SUM(GREATEST(remaining_amount, 0)), 0)::numeric AS total,
                     COUNT(*)::int AS count
                 FROM (
                     SELECT 
@@ -493,6 +507,33 @@ module.exports = async function(fastify) {
                 if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
                 if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
                 if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
+            } else if (carrierId === -2) {
+                // Vận Chuyển 2 Lần: order must have been shipped >= 2 times
+                where += ` AND (o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2))`;
+                if (year) {
+                    where += ` AND (
+                        EXTRACT(YEAR FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}
+                        OR EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND EXTRACT(YEAR FROM COALESCE(shipping_date, o.order_date)) = $${idx})
+                    )`;
+                    params.push(Number(year));
+                    idx++;
+                }
+                if (month) {
+                    where += ` AND (
+                        EXTRACT(MONTH FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}
+                        OR EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND EXTRACT(MONTH FROM COALESCE(shipping_date, o.order_date)) = $${idx})
+                    )`;
+                    params.push(Number(month));
+                    idx++;
+                }
+                if (day) {
+                    where += ` AND (
+                        EXTRACT(DAY FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}
+                        OR EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND EXTRACT(DAY FROM COALESCE(shipping_date, o.order_date)) = $${idx})
+                    )`;
+                    params.push(Number(day));
+                    idx++;
+                }
             } else {
                 const carrierParamIdx = idx++;
                 params.push(carrierId);
@@ -544,7 +585,7 @@ module.exports = async function(fastify) {
         }
 
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
-        if (unpaid === 'true') {
+        if (unpaid === 'true' && Number(carrier_id) !== -2) {
             where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
         }
         if (search) {
