@@ -1093,9 +1093,6 @@ async function _prUpdateCustomer(id) {
             +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng SLL</label>'
             +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
             +'</div>'
-            +'<div style="display:flex;gap:8px;margin-bottom:12px">'
-            +'<button class="btn btn-sm btn-outline-primary" onclick="_prAutoAllocateSLL(' + r.amount + ')" style="padding:4px 10px;font-size:12px;font-weight:700">⚡ Tự động phân bổ</button>'
-            +'</div>'
             +'<div id="prSelectedOrdersContainer" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;max-height:220px;overflow-y:auto"></div>'
             +'<div id="prSLLSummaryBox" style="background:#fffbeb;border:1px dashed #d97706;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#92400e;display:none"></div>'
             +'<div id="prOrderResults" style="max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
@@ -1234,13 +1231,17 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
     var h = '';
     var totalAllocated = 0;
     _prSelectedOrders.forEach(function(o) {
+        var discount = Number(o.discount_amount) || 0;
+        var shipCk = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+        var totalAmt = (Number(o.total_amount) || 0) - discount - shipCk;
+        var paid = Number(o.deposit_paid) || 0;
         var remain = Number(o.remaining) || 0;
         var allocated = Number(o.allocatedAmount) || 0;
         totalAllocated += allocated;
 
         h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">'
             +'<div style="flex:1">'
-            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#dc2626;font-weight:600">(Còn thiếu: ' + _prFmt(remain) + ')</span></div>'
+            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#64748b;font-weight:600">(Tổng: ' + _prFmt(totalAmt) + ' - Cọc: ' + _prFmt(paid) + ' - Còn thiếu: <span style="color:#dc2626">' + _prFmt(remain) + '</span>)</span></div>'
             +'<div style="font-size:11px;color:#64748b">' + (o.customer_name||'') + '</div>'
             +'</div>'
             +'<div style="display:flex;align-items:center;gap:6px">'
