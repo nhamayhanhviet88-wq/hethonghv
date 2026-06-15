@@ -1231,17 +1231,13 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
     var h = '';
     var totalAllocated = 0;
     _prSelectedOrders.forEach(function(o) {
-        var discount = Number(o.discount_amount) || 0;
-        var shipCk = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
-        var totalAmt = (Number(o.total_amount) || 0) - discount - shipCk;
-        var paid = Number(o.deposit_paid) || 0;
         var remain = Number(o.remaining) || 0;
         var allocated = Number(o.allocatedAmount) || 0;
         totalAllocated += allocated;
 
         h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">'
             +'<div style="flex:1">'
-            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#64748b;font-weight:600">(Tổng: ' + _prFmt(totalAmt) + ' - Cọc: ' + _prFmt(paid) + ' - Còn thiếu: <span style="color:#dc2626">' + _prFmt(remain) + '</span>)</span></div>'
+            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#64748b;font-weight:600">(Còn nợ: ' + _prFmt(remain) + ' - Thanh toán: ' + _prFmt(allocated) + ' - Còn lại: <span style="color:#dc2626">' + _prFmt(remain - allocated) + '</span>)</span></div>'
             +'<div style="font-size:11px;color:#64748b">' + (o.customer_name||'') + '</div>'
             +'</div>'
             +'<div style="display:flex;align-items:center;gap:6px">'
