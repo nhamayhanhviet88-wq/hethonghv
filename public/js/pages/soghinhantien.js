@@ -840,12 +840,6 @@ async function _prShowDetail(id) {
 
     // Action buttons (permission-based) — horizontal row
     var btnsHTML = '';
-    var canChangeSource = (up.pr_change_source || isKT || isTrinh || isGD) && (!isClaimed || (isParentSll && (isGD || isTrinh)));
-    if (isKT && r.money_source === 'nha_van_chuyen') {
-        canChangeSource = false;
-    }
-
-    if (canChangeSource) btnsHTML += '<div onclick="event.stopPropagation();_prChangeSource('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🔄</div><div style="font-size:10px;font-weight:700;color:#0c4a6e">Đổi nguồn tiền</div></div>';
     if (up.pr_delete) btnsHTML += '<div onclick="event.stopPropagation();_prDeleteRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🗑️</div><div style="font-size:10px;font-weight:700;color:#991b1b">Xóa</div></div>';
     
     var canEdit = up.pr_edit && (!isClaimed || (isParentSll && (isGD || isTrinh)));
@@ -887,6 +881,20 @@ async function _prShowDetail(id) {
                         + '<td style="padding:6px 12px;text-align:right;font-weight:700;color:#d32f2f">' + _prFmt(c.amount) + '</td>'
                         + '</tr>';
                 }).join('');
+                
+                var parentAmt = Number(r.amount) || 0;
+                var childSum = children.reduce(function(sum, ch){ return sum + (Number(ch.amount)||0); }, 0);
+                var remDu = parentAmt - childSum;
+                var remDuHTML = '';
+                if (remDu > 0) {
+                    remDuHTML = '<div style="margin-top:8px;padding:10px 14px;background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+                        + '<div style="font-weight:700;font-size:12px;color:#c2410c;display:flex;align-items:center;gap:6px">'
+                        + '<span>💵 Tiền dư chưa phân bổ:</span>'
+                        + '</div>'
+                        + '<div style="font-weight:800;font-size:13px;color:#ea580c">' + _prFmt(remDu) + '</div>'
+                        + '</div>';
+                }
+
                 childrenHTML = '<div style="margin-top:16px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden">'
                     + '<div style="background:#f8fafc;padding:8px 12px;font-weight:700;font-size:12px;color:#1e293b;border-bottom:1px solid #cbd5e1">📊 Chi tiết phân bổ đơn hàng</div>'
                     + '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'
@@ -898,6 +906,7 @@ async function _prShowDetail(id) {
                     + '<tbody>' + rowsHTML + '</tbody>'
                     + '</table>'
                     + '</div>'
+                    + remDuHTML
                     + splitHTML;
             } else if (splitHTML) {
                 childrenHTML = splitHTML;
@@ -1193,45 +1202,27 @@ async function _prUpdateCustomer(id) {
     _prSelectedOrders = [];
     _prPaymentAmount = Number(r.amount) || 0;
     var icon = r.payment_method === 'TM' ? '💵' : '🏦';
-    var isSLL = r.money_source === 'khach_hang_sll';
 
     var bodyHTML = '<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:14px 16px;border-radius:12px;margin-bottom:16px;text-align:center">'
-        +'<div style="font-size:11px;opacity:.8">Mã thanh toán' + (isSLL ? ' (Khách hàng SLL)' : '') + '</div>'
+        +'<div style="font-size:11px;opacity:.8">Mã thanh toán</div>'
         +'<div style="font-size:18px;font-weight:900;letter-spacing:1px">'+icon+' '+r.payment_code+' — '+_prFmt(r.amount)+'</div></div>';
 
-    if (isSLL) {
-        bodyHTML += '<div style="margin-bottom:12px">'
-            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng SLL</label>'
-            +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
-            +'</div>'
-            +'<div id="prSelectedOrdersContainer" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;max-height:220px;overflow-y:auto"></div>'
-            +'<div id="prSLLSummaryBox" style="background:#fffbeb;border:1px dashed #d97706;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#92400e;display:none"></div>'
-            +'<div id="prOrderResults" style="max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
-            +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
-            +'</div>';
-    } else {
-        bodyHTML += '<div style="margin-bottom:12px">'
-            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng</label>'
-            +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
-            +'</div>'
-            +'<div id="prOrderResults" style="max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
-            +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
-            +'</div>'
-            +'<div id="prSelectedOrderBox" style="display:none;margin-top:12px;padding:12px 16px;border-radius:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px solid #10b981"></div>';
-    }
+    bodyHTML += '<div style="margin-bottom:12px">'
+        +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng</label>'
+        +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
+        +'</div>'
+        +'<div id="prSelectedOrdersContainer" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;max-height:220px;overflow-y:auto"></div>'
+        +'<div id="prSLLSummaryBox" style="background:#fffbeb;border:1px dashed #d97706;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#92400e;display:none"></div>'
+        +'<div id="prOrderResults" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
+        +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
+        +'</div>';
 
-    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>';
-    if (isSLL) {
-        footerHTML += '<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrderSLL(' + id + ',' + r.amount + ')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💾 XÁC NHẬN SLL</button>';
-    } else {
-        footerHTML += '<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrder(' + id + ')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💳 NHẬN THANH TOÁN ĐƠN HÀNG</button>';
-    }
+    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        +'<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrderSLL(' + id + ',' + r.amount + ')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💾 XÁC NHẬN LIÊN KẾT</button>';
 
-    openModal(isSLL ? '🔗 Liên Kết Đơn Hàng SLL' : '🔗 Liên Kết Đơn Hàng', bodyHTML, footerHTML);
+    openModal('🔗 Liên Kết Đơn Hàng', bodyHTML, footerHTML);
     setTimeout(function(){ var mc = document.querySelector('.modal-content'); if(mc){ mc.style.maxWidth='680px'; mc.style.width='90vw'; } }, 30);
-    if (isSLL) {
-        _prRenderSelectedOrdersSLL(r.amount);
-    }
+    _prRenderSelectedOrdersSLL(r.amount);
     _prSearchUnpaidOrders();
 }
 
@@ -1248,18 +1239,8 @@ function _prSearchUnpaidOrders() {
                 box.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Không tìm thấy đơn hàng nào còn nợ</div>';
                 return;
             }
-            var r = _pr.records.find(function(x){return x.id===_prActiveRecordId;});
-            var isSLL = r && r.money_source === 'khach_hang_sll';
-
-            // Smart sort: closest remaining to payment amount first (only for non-SLL)
+            var isSLL = true;
             var orders = data.orders.slice();
-            if (!isSLL) {
-                orders.sort(function(a, b) {
-                    var diffA = Math.abs((Number(a.remaining) || 0) - _prPaymentAmount);
-                    var diffB = Math.abs((Number(b.remaining) || 0) - _prPaymentAmount);
-                    return diffA - diffB;
-                });
-            }
             var h = '';
             orders.forEach(function(o){
                 var discount = Number(o.discount_amount) || 0;
@@ -1362,7 +1343,7 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
     var diff = recordAmount - totalAllocated;
     var summaryText = 'Tổng phân bổ: ' + _prFmt(totalAllocated) + ' / ' + _prFmt(recordAmount);
     if (diff > 0) {
-        summaryText += ' <span style="color:#2563eb">(Dư: ' + _prFmt(diff) + ' - Sẽ tách mã mới)</span>';
+        summaryText += ' <span style="color:#2563eb">(Dư: ' + _prFmt(diff) + ' - Sẽ cập nhật tiền dư)</span>';
     } else if (diff < 0) {
         summaryText += ' <span style="color:#dc2626">(Vượt quá: ' + _prFmt(Math.abs(diff)) + ')</span>';
     } else {
@@ -1371,7 +1352,7 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
     summaryBox.innerHTML = summaryText;
     summaryBox.style.display = 'block';
 
-    var isValid = _prSelectedOrders.length >= 2 && totalAllocated <= recordAmount && totalAllocated > 0;
+    var isValid = _prSelectedOrders.length >= 1 && totalAllocated <= recordAmount && totalAllocated > 0;
     if (btn) {
         if (isValid) {
             btn.style.opacity = '1';
@@ -1443,23 +1424,23 @@ function _prConfirmSLLSplit(opts) {
 
         overlay.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:440px;width:92%;box-shadow:0 25px 60px rgba(0,0,0,0.3);overflow:hidden;animation:_diiScaleIn .3s cubic-bezier(0.34,1.56,0.64,1);font-family:inherit">'
             + '<div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:18px 24px;text-align:center">'
-            + '<div style="font-size:36px;margin-bottom:4px">🥞</div>'
-            + '<div style="color:#fff;font-size:16px;font-weight:800;letter-spacing:0.5px">PHÂN BỔ SLL & TÁCH TIỀN DƯ</div>'
+            + '<div style="font-size:36px;margin-bottom:4px">💰</div>'
+            + '<div style="color:#fff;font-size:16px;font-weight:800;letter-spacing:0.5px">PHÂN BỔ LIÊN KẾT & LƯU TIỀN DƯ</div>'
             + '</div>'
             + '<div style="padding:20px 24px">'
-            + '<p style="font-size:12.5px;color:#64748b;line-height:1.6;margin-bottom:16px;margin-top:0">Tổng tiền phân bổ cho các đơn hàng chưa bằng tổng số tiền mã gốc. Hệ thống sẽ tự động tách số dư này:</p>'
+            + '<p style="font-size:12.5px;color:#64748b;line-height:1.6;margin-bottom:16px;margin-top:0">Tổng tiền phân bổ cho các đơn hàng chưa bằng tổng số tiền mã gốc. Hệ thống sẽ lưu số dư còn lại:</p>'
             + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:16px">'
             + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span style="color:#64748b">Mã tiền gốc:</span><strong style="color:#1e293b">' + opts.prCode + '</strong></div>'
             + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span style="color:#64748b">Số tiền gốc:</span><strong style="color:#1e293b">' + _prFmt(opts.prAmount) + '</strong></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px"><span style="color:#64748b">Đã phân bổ SLL:</span><strong style="color:#2563eb">' + _prFmt(opts.totalAllocated) + '</strong></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#64748b;font-weight:700">Tách tạo mã mới (Số dư):</span><strong style="color:#10b981">+' + _prFmt(opts.diff) + '</strong></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px"><span style="color:#64748b">Đã phân bổ:</span><strong style="color:#2563eb">' + _prFmt(opts.totalAllocated) + '</strong></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#64748b;font-weight:700">Lưu dư còn lại (Tiền dư):</span><strong style="color:#10b981">+' + _prFmt(opts.diff) + '</strong></div>'
             + '</div>'
             + '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;text-align:left;margin-bottom:18px">'
-            + '<span style="color:#1e40af;font-size:11.5px;font-weight:700;line-height:1.5;display:block">ℹ️ Ghi chú: Mã tiền mới sẽ tự động tạo cùng ngày, phương thức và có ghi chú: "(Tách từ ' + opts.prCode + ')"</span>'
+            + '<span style="color:#1e40af;font-size:11.5px;font-weight:700;line-height:1.5;display:block">ℹ️ Ghi chú: Số tiền dư này sẽ được tiếp tục sử dụng để đặt cọc hoặc thanh toán cho các đơn khác dưới mã gốc.</span>'
             + '</div>'
             + '<div style="display:flex;gap:10px">'
             + '<button id="_sllCancel" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit">Hủy bỏ</button>'
-            + '<button id="_sllConfirm" style="flex:1;padding:10px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.4);transition:all .15s;font-family:inherit">Xác nhận phân bổ</button>'
+            + '<button id="_sllConfirm" style="flex:1;padding:10px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.4);transition:all .15s;font-family:inherit">Xác nhận</button>'
             + '</div>'
             + '</div></div>';
 
@@ -1486,8 +1467,8 @@ function _prConfirmSLLSplit(opts) {
 
 async function _prSubmitLinkOrderSLL(prId, recordAmount) {
     var totalAllocated = _prSelectedOrders.reduce(function(sum, o){return sum + (Number(o.allocatedAmount)||0);}, 0);
-    if (_prSelectedOrders.length < 2) {
-        return showToast('Yêu cầu phải nhập từ 2 đơn hàng trở lên mới cho xác nhận.','error');
+    if (_prSelectedOrders.length < 1) {
+        return showToast('Vui lòng chọn ít nhất 1 đơn hàng để liên kết.','error');
     }
     if (totalAllocated > recordAmount) {
         return showToast('Tổng số tiền phân bổ không được vượt quá số tiền của mã tiền','error');
@@ -1520,7 +1501,7 @@ async function _prSubmitLinkOrderSLL(prId, recordAmount) {
 
     try {
         var res = await apiCall('/api/payment-records/' + prId, 'PUT', body);
-        var msg = '✅ Đã hoàn thành phân bổ SLL';
+        var msg = '✅ Đã hoàn thành liên kết đơn hàng';
         if (res.auto_completed_orders && res.auto_completed_orders.length > 0) {
             msg += '\n🏆 Đơn đã hoàn thành: ' + res.auto_completed_orders.join(', ');
         }
