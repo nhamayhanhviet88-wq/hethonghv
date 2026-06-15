@@ -1147,6 +1147,18 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
 }
 
 
+function _shValidatePhoneInput(inp) {
+    let val = inp.value.replace(/\D/g, '');
+    if (val.length > 0 && val[0] !== '0') {
+        val = '';
+    }
+    if (val.length > 10) {
+        val = val.substring(0, 10);
+    }
+    inp.value = val;
+}
+window._shValidatePhoneInput = _shValidatePhoneInput;
+
 function _shOnCarrierChange() {
     const sel = document.getElementById('shCarrierSel'); if (!sel) return;
     const name = sel.options[sel.selectedIndex]?.dataset?.name || '';
@@ -1159,13 +1171,20 @@ function _shOnCarrierChange() {
     } else if (g === 'bill_link') {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label><input id="shBillLink" style="${fStyle}" placeholder="https://...">`;
     } else if (g === 'bill_and_phone') {
-        h = `<label style="font-size:12px;font-weight:700;color:#374151;">SĐT Nhà Xe <span style="color:#dc2626">*</span></label><input id="shCarrierPhone" style="${fStyle}" placeholder="0909...">
+        h = `<label style="font-size:12px;font-weight:700;color:#374151;">SĐT Nhà Xe <span style="color:#dc2626">*</span></label><input id="shCarrierPhone" style="${fStyle}" placeholder="0909..." oninput="_shValidatePhoneInput(this)">
         <div style="margin-top:8px;"><label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label><input id="shBillLink" style="${fStyle}" placeholder="https://..."></div>`;
     } else if (g === 'receiver_name') {
         const isNVHV = name.toLowerCase().includes('nhân viên hv') || name.toLowerCase().includes('nhan vien hv');
+        const isProxy = name.toLowerCase().includes('người nhận hàng hộ') || name.toLowerCase().includes('nguoi nhan hang ho');
         const lbl = isNVHV ? 'Tên Nhân Viên Gửi Hàng' : 'Tên Người Nhận Hàng';
         const ph = isNVHV ? 'Nhập tên nhân viên gửi...' : 'Nhập tên người nhận...';
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">${lbl} <span style="color:#dc2626">*</span></label><input id="shReceiverName" style="${fStyle}" placeholder="${ph}">`;
+        if (isProxy) {
+            h += `<div style="margin-top:8px;">
+                <label style="font-size:12px;font-weight:700;color:#374151;">SĐT Người Nhận Hộ <span style="color:#dc2626">*</span></label>
+                <input id="shReceiverPhone" style="${fStyle}" placeholder="0909..." oninput="_shValidatePhoneInput(this)">
+            </div>`;
+        }
     }
     el.innerHTML = h;
     // ★ Toggle fee section visibility based on carrier type
@@ -1220,13 +1239,19 @@ function _shOnCarrierChange() {
                 _shLoadMatchingPayments();
             }
         } else {
-            // Reset payment section (needs payer+method to trigger)
-            var payEl = document.getElementById('shPaymentSection');
-            if (payEl) payEl.innerHTML = '';
-            s.selectedPaymentId = null;
-            s.skipPayment = false;
-            s.paymentLoaded = false;
-            s.matchingPayments = [];
+            const isGrab = name.toLowerCase().includes('grab');
+            const isProxy = name.toLowerCase().includes('người nhận hàng hộ') || name.toLowerCase().includes('nguoi nhan hang ho');
+            if (isGrab || isProxy) {
+                _shLoadMatchingPayments();
+            } else {
+                // Reset payment section (needs payer+method to trigger)
+                var payEl = document.getElementById('shPaymentSection');
+                if (payEl) payEl.innerHTML = '';
+                s.selectedPaymentId = null;
+                s.skipPayment = false;
+                s.paymentLoaded = false;
+                s.matchingPayments = [];
+            }
         }
     }
 }
@@ -1318,10 +1343,23 @@ async function _shDoShip(id) {
     if (g === 'bill_and_phone') {
         if (!phone) return alert('Vui lòng nhập SĐT Nhà Xe');
         var phoneDigits = phone.replace(/\D/g, '');
-        if (phoneDigits.length !== 10) return alert('SĐT Nhà Xe phải đúng 10 số (hiện tại: ' + phoneDigits.length + ' số)');
+        if (phoneDigits.length !== 10 || phoneDigits[0] !== '0') {
+            return alert('SĐT Nhà Xe phải bắt đầu bằng số 0 và đúng 10 số');
+        }
         if (!bill) return alert('Vui lòng nhập Bill Gửi Hàng');
     }
-    if (g === 'receiver_name' && !receiver) return alert('Vui lòng nhập Tên Người Nhận');
+    if (g === 'receiver_name') {
+        if (!receiver) return alert('Vui lòng nhập Tên Người Nhận');
+        const isProxy = carrierName.toLowerCase().includes('người nhận hàng hộ') || carrierName.toLowerCase().includes('nguoi nhan hang ho');
+        if (isProxy) {
+            const rxPhone = document.getElementById('shReceiverPhone')?.value?.trim();
+            if (!rxPhone) return alert('Vui lòng nhập SĐT Người Nhận Hộ');
+            const rxPhoneDigits = rxPhone.replace(/\D/g, '');
+            if (rxPhoneDigits.length !== 10 || rxPhoneDigits[0] !== '0') {
+                return alert('SĐT Người Nhận Hộ phải bắt đầu bằng số 0 và đúng 10 số');
+            }
+        }
+    }
     // ★ Fee validation: skip for no-fee carriers
     const isNoFee = s.noFeeCarrier || false;
     let feeRaw = '0';
@@ -1356,7 +1394,13 @@ async function _shDoShip(id) {
         if (s.itemIds && s.itemIds.length > 0) body.item_ids = s.itemIds;
         if (tracking) body.tracking_code = tracking;
         if (bill) body.shipping_bill_link = bill;
-        if (phone) body.carrier_phone = phone;
+        const isProxy = carrierName.toLowerCase().includes('người nhận hàng hộ') || carrierName.toLowerCase().includes('nguoi nhan hang ho');
+        if (isProxy) {
+            const rxPhone = document.getElementById('shReceiverPhone')?.value?.trim();
+            if (rxPhone) body.carrier_phone = rxPhone;
+        } else if (phone) {
+            body.carrier_phone = phone;
+        }
         if (receiver) body.receiver_name = receiver;
         const r = await apiCall(`/api/shipping/orders/${id}/ship`, 'POST', body);
         if (r.error) { alert(r.error); return; }
