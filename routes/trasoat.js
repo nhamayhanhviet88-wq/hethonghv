@@ -424,6 +424,20 @@ module.exports = async function(fastify) {
             };
         });
 
+        const shipments = await db.all(`
+            SELECT os.*, 
+                   cr.name AS actual_carrier_name,
+                   cr.tracking_url_template AS actual_carrier_tracking_url,
+                   u.full_name AS shipped_by_name,
+                   pr_ship.payment_code AS shipping_payment_code,
+                   pr_ship.amount AS shipping_payment_amount
+            FROM dht_order_shipments os
+            LEFT JOIN dht_carriers cr ON os.actual_carrier_id = cr.id
+            LEFT JOIN users u ON os.shipped_by = u.id
+            LEFT JOIN payment_records pr_ship ON os.shipping_payment_id = pr_ship.id
+            WHERE os.dht_order_id = $1 ORDER BY os.id ASC
+        `, [orderId]);
+
         return {
             order: {
                 id: order.id, order_code: order.order_code,
@@ -443,7 +457,8 @@ module.exports = async function(fastify) {
             items: itemsTimeline,
             cutting: cutting.map(c => ({ item_id: c.order_item_id, cutter: c.cutter_name, fabric: c.fabric_name, kg: c.kg_cut, ratio: c.cut_ratio, started: c.cutting_at, done: c.cut_done_at, is_done: c.is_cut_done })),
             sewing: sewing.map(s => ({ item_id: s.order_item_id, worker: s.sewer_name || s.contractor_name, qty: s.quantity, handover: s.handover_date, done: s.done_date, note: s.note })),
-            finishing: finishing.map(f => ({ item_id: f.sewing_record_id ? sewing.find(s => s.id === f.sewing_record_id)?.order_item_id : null, worker: f.finisher_name, done: f.completed_at, is_done: f.is_completed }))
+            finishing: finishing.map(f => ({ item_id: f.sewing_record_id ? sewing.find(s => s.id === f.sewing_record_id)?.order_item_id : null, worker: f.finisher_name, done: f.completed_at, is_done: f.is_completed })),
+            shipments
         };
     });
 

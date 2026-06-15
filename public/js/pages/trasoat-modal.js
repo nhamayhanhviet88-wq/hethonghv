@@ -1486,43 +1486,89 @@ function _tsRenderStepModal(step, d){
                 <span>${summaryText}</span>
             </div>`;
             
-            // Group shipped items by batch key
+            // Group shipped items by batch key OR load from shipments history
             const shippedBatches = {};
             const pendingItems = [];
-            
-            for (let i = 0; i < items.length; i++) {
-                const it = items[i];
-                const phieuLabel = `Phiếu ${i + 1}`;
-                if (it.shipping_status === 'shipped') {
-                    const batchKey = [
-                        it.shipped_at || '',
-                        it.actual_carrier_id || '',
-                        it.tracking_code || '',
-                        it.shipping_bill_link || '',
-                        it.shipping_fee || '0',
-                        it.shipping_fee_payer || '',
-                        it.shipping_fee_method || '',
-                        it.shipping_payment_code || '',
-                        it.shipping_payment_amount || ''
-                    ].join('|');
-                    
-                    if (!shippedBatches[batchKey]) {
-                        shippedBatches[batchKey] = {
-                            details: it,
-                            labels: []
-                        };
+
+            if (d.shipments && d.shipments.length > 0) {
+                // Load batches from backend shipments history
+                for (const s of d.shipments) {
+                    let labels = [];
+                    try {
+                        labels = typeof s.item_labels === 'string' ? JSON.parse(s.item_labels) : (s.item_labels || []);
+                    } catch(e) { console.warn('Parse item_labels error:', e); }
+
+                    const batchKey = `shipment_${s.id}`;
+                    shippedBatches[batchKey] = {
+                        details: {
+                            id: s.id,
+                            shipped_at: s.shipped_at || s.actual_ship_datetime,
+                            actual_ship_datetime: s.actual_ship_datetime || s.shipped_at,
+                            actual_carrier_name: s.actual_carrier_name,
+                            actual_carrier_tracking_url: s.actual_carrier_tracking_url,
+                            tracking_code: s.tracking_code,
+                            shipping_bill_link: s.shipping_bill_link,
+                            carrier_phone: s.carrier_phone,
+                            receiver_name: s.receiver_name,
+                            shipping_fee: s.shipping_fee,
+                            shipping_fee_payer: s.shipping_fee_payer,
+                            shipping_fee_method: s.shipping_fee_method,
+                            shipping_payment_code: s.shipping_payment_code,
+                            shipping_payment_amount: s.shipping_payment_amount,
+                            shipped_by_name: s.shipped_by_name
+                        },
+                        labels: labels
+                    };
+                }
+                
+                // Populate pending items
+                for (let i = 0; i < items.length; i++) {
+                    const it = items[i];
+                    const phieuLabel = `Phiếu ${i + 1}`;
+                    if (it.shipping_status !== 'shipped') {
+                        pendingItems.push({
+                            label: phieuLabel,
+                            name: it.product_name || it.description || 'Sản phẩm',
+                            qty: it.quantity || 0
+                        });
                     }
-                    shippedBatches[batchKey].labels.push({
-                        label: phieuLabel,
-                        name: it.product_name || it.description || 'Sản phẩm',
-                        qty: it.quantity || 0
-                    });
-                } else {
-                    pendingItems.push({
-                        label: phieuLabel,
-                        name: it.product_name || it.description || 'Sản phẩm',
-                        qty: it.quantity || 0
-                    });
+                }
+            } else {
+                // Fallback grouping for legacy orders
+                for (let i = 0; i < items.length; i++) {
+                    const it = items[i];
+                    const phieuLabel = `Phiếu ${i + 1}`;
+                    if (it.shipping_status === 'shipped') {
+                        const batchKey = [
+                            it.shipped_at || '',
+                            it.actual_carrier_id || '',
+                            it.tracking_code || '',
+                            it.shipping_bill_link || '',
+                            it.shipping_fee || '0',
+                            it.shipping_fee_payer || '',
+                            it.shipping_fee_method || '',
+                            it.shipping_payment_code || '',
+                            it.shipping_payment_amount || ''
+                        ].join('|');
+                        
+                        if (!shippedBatches[batchKey]) {
+                            shippedBatches[batchKey] = {
+                                details: it,
+                                labels: []
+                            };
+                        }
+                        shippedBatches[batchKey].labels.push({
+                            label: phieuLabel,
+                            name: it.product_name || it.description || 'Sản phẩm',
+                            qty: it.quantity || 0
+                        });
+                    } else {
+                        pendingItems.push({
+                            label: phieuLabel,
+                            name: it.product_name || it.description || 'Sản phẩm',
+                            qty: it.quantity || 0
+                        });
+                    }
                 }
             }
             

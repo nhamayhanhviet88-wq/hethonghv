@@ -657,6 +657,31 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_sr_order ON dht_shipping_reschedules(dht_order_id)`);
     } catch(e) { console.error('[Shipping v8] Reschedules:', e.message); }
+
+    // Shipping history table
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_shipments (
+            id                    SERIAL PRIMARY KEY,
+            dht_order_id          INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            shipped_by            INTEGER REFERENCES users(id),
+            shipped_at            TIMESTAMPTZ DEFAULT NOW(),
+            shipping_date         DATE,
+            actual_ship_datetime  TIMESTAMPTZ,
+            actual_carrier_id     INTEGER REFERENCES dht_carriers(id),
+            tracking_code         TEXT,
+            shipping_bill_link    TEXT,
+            carrier_phone         TEXT,
+            receiver_name         TEXT,
+            shipping_fee          REAL,
+            shipping_fee_payer    TEXT,
+            shipping_fee_method   TEXT,
+            shipping_cashflow_id  INTEGER,
+            shipping_payment_id   INTEGER,
+            item_ids              TEXT,
+            item_labels           TEXT
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_os_order ON dht_order_shipments(dht_order_id)`);
+    } catch(e) { console.error('[Shipping] dht_order_shipments table:', e.message); }
     // Penalty config for shipping delays
     try { await db.exec(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('gui_hang_tre', 'Gửi hàng trễ — KT chưa gửi đơn hôm nay', 100000) ON CONFLICT (key) DO NOTHING`); } catch(e) {}
     try { await db.exec(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('phieu_qlx_qua_han', 'Phiếu QLX quá hạn — QLX không xử lý', 50000) ON CONFLICT (key) DO NOTHING`); } catch(e) {}

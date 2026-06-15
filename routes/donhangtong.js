@@ -1235,6 +1235,21 @@ module.exports = async function(fastify) {
             WHERE i.dht_order_id = $1 ORDER BY i.id ASC
         `, [orderId]);
 
+        // 2.5. Shipments history
+        const shipments = await db.all(`
+            SELECT os.*, 
+                   cr.name AS actual_carrier_name,
+                   cr.tracking_url_template AS actual_carrier_tracking_url,
+                   u.full_name AS shipped_by_name,
+                   pr_ship.payment_code AS shipping_payment_code,
+                   pr_ship.amount AS shipping_payment_amount
+            FROM dht_order_shipments os
+            LEFT JOIN dht_carriers cr ON os.actual_carrier_id = cr.id
+            LEFT JOIN users u ON os.shipped_by = u.id
+            LEFT JOIN payment_records pr_ship ON os.shipping_payment_id = pr_ship.id
+            WHERE os.dht_order_id = $1 ORDER BY os.id ASC
+        `, [orderId]);
+
         // 3. Linked payment records (by order_code match OR by deposit_payment_id)
         let payments = await db.all(`
             SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
@@ -1354,7 +1369,8 @@ module.exports = async function(fastify) {
             items,
             payments,
             surcharges,
-            audit_logs: merged_logs
+            audit_logs: merged_logs,
+            shipments
         };
     });
 

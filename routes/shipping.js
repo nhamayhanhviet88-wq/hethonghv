@@ -590,7 +590,7 @@ module.exports = async function(fastify) {
         let itemsToShip = [];
         if (itemIds.length > 0) {
             itemsToShip = await db.all(`
-                SELECT id, dht_order_id, shipping_status, product_name, description 
+                SELECT id, dht_order_id, shipping_status, product_name, description, quantity 
                 FROM dht_order_items 
                 WHERE id = ANY($1::int[]) AND dht_order_id = $2
             `, [itemIds, orderId]);
@@ -787,6 +787,49 @@ module.exports = async function(fastify) {
                 b.shipping_fee_method || null, cashflowResult?.id || null, orderId,
                 b.selected_payment_id ? Number(b.selected_payment_id) : null
             ]);
+        }
+
+        // Record shipment in dht_order_shipments
+        try {
+            const allOrderItems = await db.all(`SELECT id, product_name, quantity, description FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC`, [orderId]);
+            let shippedItemIds = [];
+            let shippedItemsList = [];
+            if (itemIds.length > 0) {
+                shippedItemIds = itemIds;
+                shippedItemsList = itemsToShip;
+            } else {
+                shippedItemIds = allOrderItems.map(it => it.id);
+                shippedItemsList = allOrderItems;
+            }
+
+            const labelsArray = shippedItemsList.map(it => {
+                const idxInOrder = allOrderItems.findIndex(x => x.id === it.id);
+                const labelName = `Phiếu ${idxInOrder !== -1 ? idxInOrder + 1 : 1}`;
+                return {
+                    label: labelName,
+                    name: it.product_name || it.description || 'Sản phẩm',
+                    qty: it.quantity || 0
+                };
+            });
+            const itemLabelsJson = JSON.stringify(labelsArray);
+
+            await db.run(`
+                INSERT INTO dht_order_shipments (
+                    dht_order_id, shipped_by, shipped_at, shipping_date, actual_ship_datetime,
+                    actual_carrier_id, tracking_code, shipping_bill_link, carrier_phone, receiver_name,
+                    shipping_fee, shipping_fee_payer, shipping_fee_method, shipping_cashflow_id, shipping_payment_id,
+                    item_ids, item_labels
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            `, [
+                orderId, userId, now.toISOString(), todayStr, now.toISOString(),
+                Number(b.actual_carrier_id), b.tracking_code || null, b.shipping_bill_link || null,
+                b.carrier_phone || null, b.receiver_name || null, shipFee,
+                isNoFeeCarrier ? null : b.shipping_fee_payer, isNoFeeCarrier ? null : b.shipping_fee_method,
+                cashflowResult ? cashflowResult.id : null, b.selected_payment_id ? Number(b.selected_payment_id) : null,
+                shippedItemIds.join(','), itemLabelsJson
+            ]);
+        } catch (shipErr) {
+            console.error('[Shipments Log] Error inserting shipment:', shipErr.message);
         }
 
         // ★ Link payment record for order settlement (if selected)
