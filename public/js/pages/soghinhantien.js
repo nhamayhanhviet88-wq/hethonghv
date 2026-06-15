@@ -75,6 +75,8 @@ async function renderSoghinhantienPage(content) {
     _pr.filter = {};
     _pr.filterSearch = '';
     _pr.filterType = '';
+    _pr.filterClaimState = '';
+    _pr.filterSource = '';
     _pr.currentPage = 1;
     _pr.pageSize = 200;
 
@@ -122,6 +124,15 @@ function _prGetFilteredRecords() {
     return _pr.records.filter(function(r) {
         if (_pr.filterHandover && r.handover_status === 'thu_quy_nhan') return false;
         if (_pr.filterType && r.payment_type !== _pr.filterType) return false;
+
+        // Lọc trạng thái nhận
+        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+        if (_pr.filterClaimState === 'unclaimed' && isClaimed) return false;
+        if (_pr.filterClaimState === 'claimed' && !isClaimed) return false;
+
+        // Lọc nguồn tiền
+        if (_pr.filterSource && r.money_source !== _pr.filterSource) return false;
+
         if (_pr.filterSearch) {
             var q = _pr.filterSearch.toLowerCase().trim();
             var matchCode = (r.payment_code || '').toLowerCase().includes(q);
@@ -182,10 +193,37 @@ function _prRenderToolbar() {
         + '</div>';
 
     tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+filtered.length+' mã</span></span>'
+        + '<div style="display:flex;gap:6px;margin-left:10px">'
+        + '<select id="prFilterClaim" style="padding:4px 10px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;outline:none;cursor:pointer;font-weight:700;color:#334155;height:32px" onchange="_prChangeFilterClaim(this.value)">'
+        + '<option value=""' + (_pr.filterClaimState === '' ? ' selected' : '') + '>-- Trạng thái nhận --</option>'
+        + '<option value="unclaimed"' + (_pr.filterClaimState === 'unclaimed' ? ' selected' : '') + '>Chưa ai nhận</option>'
+        + '<option value="claimed"' + (_pr.filterClaimState === 'claimed' ? ' selected' : '') + '>Đã nhận</option>'
+        + '</select>'
+        + '<select id="prFilterSource" style="padding:4px 10px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;outline:none;cursor:pointer;font-weight:700;color:#334155;height:32px" onchange="_prChangeFilterSource(this.value)">'
+        + '<option value=""' + (_pr.filterSource === '' ? ' selected' : '') + '>-- Nguồn tiền --</option>'
+        + '<option value="khach_hang"' + (_pr.filterSource === 'khach_hang' ? ' selected' : '') + '>Khách hàng</option>'
+        + '<option value="khach_hang_sll"' + (_pr.filterSource === 'khach_hang_sll' ? ' selected' : '') + '>Khách hàng SLL</option>'
+        + '<option value="nha_van_chuyen"' + (_pr.filterSource === 'nha_van_chuyen' ? ' selected' : '') + '>Nhà vận chuyển</option>'
+        + '</select>'
+        + '</div>'
         + '<span style="flex:1"></span>'
         + searchBox
         + '<span style="font-size:13px;font-weight:800;color:var(--success);margin-right:15px">💰 '+_prFmt(total)+'</span>'
         + handoverBtn+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
+}
+
+function _prChangeFilterClaim(val) {
+    _pr.filterClaimState = val;
+    _pr.currentPage = 1;
+    _prRenderToolbar();
+    _prRenderTable();
+}
+
+function _prChangeFilterSource(val) {
+    _pr.filterSource = val;
+    _pr.currentPage = 1;
+    _prRenderToolbar();
+    _prRenderTable();
 }
 
 function _prRenderTable() {
