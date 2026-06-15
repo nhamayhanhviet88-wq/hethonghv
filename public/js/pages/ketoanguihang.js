@@ -238,9 +238,6 @@ async function _shLoadOrders() {
 
 function _shApplySearch() {
     let list = _shOrders.slice();
-    // CSKH filter
-    if (_shCskhVal) list = list.filter(o => String(o.cskh_user_id) === _shCskhVal);
-    // Search filter
     const q = (_shSearchVal || '').toLowerCase().trim();
     if (q) {
         list = list.filter(o => {
@@ -249,6 +246,7 @@ function _shApplySearch() {
                 || (o.customer_name || '').toLowerCase().includes(q);
         });
     } else {
+        if (_shCskhVal) list = list.filter(o => String(o.cskh_user_id) === _shCskhVal);
         list = list.filter(o => {
             const menu = _shGetOrderMenu(o);
             if (menu.key !== _shFilter) return false;
@@ -355,7 +353,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','','🔗','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
+        ${['','','🔗','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','Trạng Thái','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
             `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;">${h}</th>`
         ).join('')}
     </tr></thead><tbody>`;
@@ -440,9 +438,11 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
         // Col 7: Order code
         const menu = _shGetOrderMenu(o);
-        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">
-            ${o.order_code || '—'}
-            ${_shSearchVal ? `<br><span style="background:${menu.bg};color:${menu.color};padding:2px 6px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;margin-top:4px;border:1px solid ${menu.color}40;">${menu.label}</span>` : ''}
+        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '—'}</td>`;
+        
+        // Col 7b: Trạng Thái
+        html += `<td style="padding:8px 6px;text-align:left;">
+            <span style="background:${menu.bg};color:${menu.color};padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;border:1px solid ${menu.color}40;white-space:nowrap;">${menu.label}</span>
         </td>`;
         // Col 8: Priority
         html += `<td style="padding:8px 6px;"><span style="background:${prioColor};color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority || 'CHUẨN'}</span></td>`;
@@ -472,7 +472,7 @@ function _shBuildTable(orders) {
         // Sub-row for items/slips
         const itemsTableHtml = _shBuildItemsTable(o);
         html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="19" style="padding:12px 16px;">
+            <td colspan="20" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>
