@@ -992,7 +992,13 @@ async function _prShowDetail(id) {
     var titleText = r.payment_code+'| '+_prFmt(r.amount)+'|'+(r.transfer_note||'').substring(0,50);
     var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
     openModal(titleText, bodyHTML, footerHTML);
-    setTimeout(function(){ var mc = document.querySelector('.modal-content'); if(mc){ mc.style.maxWidth='720px'; mc.style.width='90vw'; } }, 30);
+    setTimeout(function(){ 
+        var mc = document.querySelector('.modal-content'); 
+        if(mc){ 
+            mc.style.maxWidth = (r.money_source === 'nha_van_chuyen') ? '1100px' : '720px'; 
+            mc.style.width = '95vw'; 
+        } 
+    }, 30);
 }
 
 // ========== CHANGE SOURCE ==========
@@ -1767,8 +1773,8 @@ async function _prProcessExcel(input, recordAmount) {
                     }
                 }
                 
-                // 2. Otherwise, look in the next non-empty cells in the same row
-                for (var next = colIdx + 1; next < row.length; next++) {
+                // 2. Otherwise, look in the row from right to left (backwards) to find the amount column first
+                for (var next = row.length - 1; next > colIdx; next--) {
                     var nextValStr = String(row[next] || '').trim();
                     if (!nextValStr) continue;
                     var cleanValStr = nextValStr.replace(/[^\d]/g, '');
@@ -1808,7 +1814,7 @@ async function _prProcessExcel(input, recordAmount) {
                 if (!row || !row.length) continue;
                 
                 if (!foundCod) {
-                    var codVal = getNumberFromRow(row, /Tổng COD phát thành công|Tổng COD|Tổng tiền COD|Cộng tiền COD|Tổng tiền thu hộ|Tổng phát thành công|Tổng thu hộ/i);
+                    var codVal = getNumberFromRow(row, /Tổng COD phát thành công|Tổng COD|Tổng tiền COD|Cộng tiền COD|Tổng tiền thu hộ|Tổng thu hộ/i);
                     if (codVal !== null) { fileCod = codVal; foundCod = true; }
                 }
                 if (!foundFee) {
@@ -1955,7 +1961,7 @@ function _prRenderExcelComparison(waybills, matchedOrders, totalCod, totalFee, t
         rowsHTML += '<tr style="border-bottom:1px solid #e2e8f0; ' + rowBg + '">'
             + '<td style="padding:8px 12px;font-family:monospace;font-weight:700">' + wb.code + ' <div style="font-size:9px;color:#94a3b8;font-weight:normal">Dòng ' + wb.rowIndex + labelFileSuffix + '</div></td>'
             + '<td style="padding:8px 12px">' + crmInfoHTML + '</td>'
-            + '<td style="padding:8px 12px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (wb.goods || '') + '">' + (wb.goods || '—') + '</td>'
+            + '<td style="padding:8px 12px;color:#475569;word-break:break-all">' + (wb.goods || '—') + '</td>'
             + '<td style="padding:8px 12px;font-weight:800;color:#d32f2f;text-align:right">' + _prFmt(wb.cod) + '</td>'
             + '<td style="padding:8px 12px;text-align:center">' + matchStatusHTML + '</td>'
             + '</tr>';
@@ -1967,14 +1973,14 @@ function _prRenderExcelComparison(waybills, matchedOrders, totalCod, totalFee, t
         + '<span>Khớp được: <strong style="color:var(--success)">' + totalMatched + ' / ' + waybills.length + ' đơn</strong></span>'
         + '</div>'
         + '<div style="max-height:280px;overflow-y:auto;overflow-x:auto">'
-        + '<table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:650px">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:950px">'
         + '<thead>'
         + '<tr style="background:#f8fafc;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1">'
-        + '<th style="padding:8px 12px;text-align:left;min-width:130px">Mã Vận Đơn</th>'
-        + '<th style="padding:8px 12px;text-align:left;min-width:140px">Đơn Hàng CRM</th>'
-        + '<th style="padding:8px 12px;text-align:left;min-width:200px">Nội Dung MVĐ</th>'
-        + '<th style="padding:8px 12px;text-align:right;min-width:100px">COD Excel (F)</th>'
-        + '<th style="padding:8px 12px;text-align:center;min-width:110px">Trạng Thái</th>'
+        + '<th style="padding:8px 12px;text-align:left;min-width:150px">Mã Vận Đơn</th>'
+        + '<th style="padding:8px 12px;text-align:left;min-width:200px">Đơn Hàng CRM</th>'
+        + '<th style="padding:8px 12px;text-align:left;min-width:320px">Nội Dung MVĐ</th>'
+        + '<th style="padding:8px 12px;text-align:right;min-width:120px">COD Excel (F)</th>'
+        + '<th style="padding:8px 12px;text-align:center;min-width:160px">Trạng Thái</th>'
         + '</tr>'
         + '</thead>'
         + '<tbody>'
