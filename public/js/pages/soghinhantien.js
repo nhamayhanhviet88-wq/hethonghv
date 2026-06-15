@@ -1995,7 +1995,10 @@ async function _prProcessExcel(input, recordAmount) {
         var combinedWaybillQueryList = allWaybills.map(function(w) { return { code: w.code }; })
             .concat(partBWaybills.map(function(w) { return { code: w.code }; }));
 
-        var compareRes = await apiCall('/api/payment-records/compare-waybills', 'POST', { waybills: combinedWaybillQueryList });
+        var compareRes = await apiCall('/api/payment-records/compare-waybills', 'POST', {
+            waybills: combinedWaybillQueryList,
+            exclude_parent_id: _prActiveRecordId
+        });
         var matchedOrders = compareRes.orders || [];
 
         _pr.reconcileState = {

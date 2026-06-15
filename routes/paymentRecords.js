@@ -88,7 +88,7 @@ module.exports = async function(fastify) {
         const hasPerm = await _checkPrPerm(user.role, 'pr_excel_reconcile');
         if (!hasPerm) return reply.code(403).send({ error: 'Bạn không có quyền đối soát file excel nhà vận chuyển' });
 
-        const { waybills } = request.body || {};
+        const { waybills, exclude_parent_id } = request.body || {};
         if (!waybills || !Array.isArray(waybills) || waybills.length === 0) {
             return reply.code(400).send({ error: 'Danh sách mã vận đơn trống hoặc không hợp lệ' });
         }
@@ -106,11 +106,14 @@ module.exports = async function(fastify) {
                 orConditions.push(`transfer_note ILIKE $${idx + 1}`);
                 params.push(`%MVĐ: ${code}%`);
             });
-            const reconciledQuery = `
+            let reconciledQuery = `
                 SELECT id, payment_code, transfer_note
                 FROM payment_records
-                WHERE ${orConditions.join(' OR ')}
+                WHERE (${orConditions.join(' OR ')})
             `;
+            if (exclude_parent_id) {
+                reconciledQuery += ` AND id != ${Number(exclude_parent_id)} AND (parent_id IS NULL OR parent_id != ${Number(exclude_parent_id)})`;
+            }
             const reconciledRecords = await db.all(reconciledQuery, params);
             
             reconciledRecords.forEach(r => {
@@ -160,8 +163,9 @@ module.exports = async function(fastify) {
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
-                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
-                   OR order_tt_coc = o.order_code
+                WHERE (total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code)
+                   ${exclude_parent_id ? `AND id != ${Number(exclude_parent_id)} AND (parent_id IS NULL OR parent_id != ${Number(exclude_parent_id)})` : ''}
             ) pr_dep ON true
         `;
         const orders = await db.all(query, [...trackingCodes, ...trackingCodes]);
