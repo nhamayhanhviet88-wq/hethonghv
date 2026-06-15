@@ -539,7 +539,7 @@ module.exports = async function(fastify) {
             await db.run("DELETE FROM payment_records WHERE parent_id = $1 OR (source_ref_id = $1::text AND payment_type = 'child_sll')", [Number(id)]);
             
             // Khôi phục mã cha về trạng thái chưa liên kết (pending) và xóa liên kết đơn
-            await db.run("UPDATE payment_records SET payment_type = 'pending', order_tt_coc = NULL, total_order_codes = NULL, updated_at = NOW() WHERE id = $1", [id]);
+            await db.run("UPDATE payment_records SET payment_type = 'pending', order_tt_coc = NULL, total_order_codes = NULL, reconciled_waybills = NULL, updated_at = NOW() WHERE id = $1", [id]);
             existing.payment_type = 'pending';
             existing.order_tt_coc = null;
             existing.total_order_codes = null;
@@ -621,14 +621,16 @@ module.exports = async function(fastify) {
                     handover_status = $3,
                     total_cod = COALESCE($4, total_cod),
                     shipping_fee = COALESCE($5, shipping_fee),
+                    reconciled_waybills = $6,
                     updated_at = NOW()
-                WHERE id = $6
+                WHERE id = $7
             `, [
                 (pr.transfer_note || '') + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')',
                 moneySource,
                 parentHandover,
                 b.total_cod !== undefined ? Number(b.total_cod) : null,
                 b.shipping_fee !== undefined ? Number(b.shipping_fee) : null,
+                b.reconciled_waybills ? JSON.stringify(b.reconciled_waybills) : null,
                 id
             ]);
 

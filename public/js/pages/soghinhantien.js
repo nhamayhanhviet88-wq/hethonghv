@@ -935,6 +935,81 @@ async function _prShowDetail(id) {
             } else if (splitHTML) {
                 childrenHTML = splitHTML;
             }
+
+            var reconciledWaybillsObj = null;
+            if (r.reconciled_waybills) {
+                try {
+                    reconciledWaybillsObj = JSON.parse(r.reconciled_waybills);
+                } catch(e) {
+                    console.error('Lỗi parse reconciled_waybills:', e);
+                }
+            }
+
+            if (reconciledWaybillsObj && reconciledWaybillsObj.part_b && reconciledWaybillsObj.part_b.length > 0) {
+                var partBRowsHTML = '';
+                var totalPartBMatched = 0;
+                var partBWaybills = reconciledWaybillsObj.part_b;
+                var totalPartBWaybills = partBWaybills.length;
+
+                partBWaybills.forEach(function(wb) {
+                    var code = String(wb.code || '').trim();
+                    var match = wb.match;
+
+                    var crmInfoHTML = '';
+                    var matchStatusHTML = '';
+                    var rowBg = '';
+
+                    if (match) {
+                        totalPartBMatched++;
+                        matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp đơn</span>';
+                        rowBg = 'background:#f0fdf4';
+                        
+                        var typeTag = match.order_type === 'ao_mau' 
+                            ? '<span style="background:#ede9fe;color:#6d28d9;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Áo mẫu</span>'
+                            : '<span style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Đơn tổng</span>';
+
+                        crmInfoHTML = '<div style="display:flex;align-items:center;gap:4px"><strong style="color:var(--navy);font-size:12px">' + match.order_code + '</strong>' + typeTag + '</div>'
+                            + '<div style="font-size:10px;color:#64748b;margin-top:2px">' + (match.customer_name || '—') + ' · SĐT: ' + (match.customer_phone || '—') + '</div>';
+                    } else {
+                        matchStatusHTML = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">? Không tìm thấy</span>';
+                        crmInfoHTML = '<div style="color:#94a3b8;font-style:italic">Không có trên CRM</div>';
+                    }
+
+                    var labelFileSuffix = wb.fileName ? '<br><span style="font-size:8.5px;color:#64748b;font-weight:normal;word-break:break-all">' + wb.fileName + '</span>' : '';
+                    var rowIndexLabel = wb.rowIndex ? 'Dòng ' + wb.rowIndex : '';
+
+                    partBRowsHTML += '<tr style="border-bottom:1px solid #e2e8f0; ' + rowBg + '">'
+                        + '<td style="padding:8px 10px;font-family:monospace;font-weight:700">' + wb.code + ' <div style="font-size:9px;color:#94a3b8;font-weight:normal">' + rowIndexLabel + labelFileSuffix + '</div></td>'
+                        + '<td style="padding:8px 10px">' + crmInfoHTML + '</td>'
+                        + '<td style="padding:8px 10px;font-weight:800;color:#2563eb;text-align:left">' + _prFmt(wb.shippingFee || wb.shipping_fee) + '</td>'
+                        + '<td style="padding:8px 10px;text-align:left">' + matchStatusHTML + '</td>'
+                        + '</tr>';
+                });
+
+                var partBTableHTML = '<div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-top: 14px;">'
+                    + '<div style="background:#e0f2fe;padding:8px 12px;font-weight:800;font-size:11px;color:#0369a1;display:flex;justify-content:space-between">'
+                    + '<span>🚚 DANH SÁCH MÃ VẬN ĐƠN PHÁT SINH CƯỚC (CHƯA PHÁT THÀNH CÔNG: ' + totalPartBWaybills + ' mã)</span>'
+                    + '<span>Khớp được: <strong style="color:#0369a1">' + totalPartBMatched + ' / ' + totalPartBWaybills + ' đơn</strong></span>'
+                    + '</div>'
+                    + '<div style="max-height:300px;overflow-y:auto;overflow-x:auto">'
+                    + '<table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:700px">'
+                    + '<thead>'
+                    + '<tr style="background:#f8fafc;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1">'
+                    + '<th style="padding:8px 10px;text-align:left;width:180px">Mã Vận Đơn</th>'
+                    + '<th style="padding:8px 10px;text-align:left;width:250px">Đơn Hàng CRM</th>'
+                    + '<th style="padding:8px 10px;text-align:left;width:150px">Cước Chuyển Phát</th>'
+                    + '<th style="padding:8px 10px;text-align:left;width:120px">Trạng Thái</th>'
+                    + '</tr>'
+                    + '</thead>'
+                    + '<tbody>'
+                    + partBRowsHTML
+                    + '</tbody>'
+                    + '</table>'
+                    + '</div>'
+                    + '</div>';
+                
+                childrenHTML = (childrenHTML || '') + partBTableHTML;
+            }
         } catch(e) { console.error(e); }
     }
 
@@ -950,6 +1025,13 @@ async function _prShowDetail(id) {
         finalOrderVal = '<span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + sllOrdersVal + '</span>';
     }
 
+    var netRowHTML = row('Số tiền về TK', '<span style="font-size:14px;color:#d32f2f">💰 '+_prFmt(r.amount)+'</span>');
+    if (r.money_source === 'nha_van_chuyen' && (Number(r.total_cod) > 0 || Number(r.shipping_fee) > 0)) {
+        netRowHTML = row('Tổng COD nhận', '<span style="font-size:13px;color:#1e293b">' + _prFmt(r.total_cod) + '</span>')
+            + row('Tổng cước ship (HV trả)', '<span style="font-size:13px;color:#dc2626">-' + _prFmt(r.shipping_fee) + '</span>')
+            + row('Thực nhận về TK', '<span style="font-size:14px;color:#10b981;font-weight:900">💰 ' + _prFmt(r.amount) + '</span>');
+    }
+
     var infoTable = '<table style="width:100%;border-collapse:collapse">'
         +row('Ngày', payDate)
         +row('Mã thanh toán', icon+' '+r.payment_code)
@@ -961,7 +1043,7 @@ async function _prShowDetail(id) {
         +row('Ngân hàng', r.bank_name||'—')
         +row('Nội dung CK', '<span style="word-break:break-all">'+(r.transfer_note||'—')+'</span>')
         +row('Mã Đơn TT/Cọc', finalOrderVal)
-        +row('Số tiền về TK', '<span style="font-size:14px;color:#d32f2f">💰 '+_prFmt(r.amount)+'</span>')
+        + netRowHTML
         +row('Trạng thái BG', statusLabels[r.handover_status]||r.handover_status||'')
         +row('Lịch sử CN', (updatedAt ? '🗓️ '+updatedAt+'<br>' : '')+(histSrc||''))
         +'</table>'
@@ -970,7 +1052,7 @@ async function _prShowDetail(id) {
     var excelHTML = '';
     if (r.money_source === 'nha_van_chuyen') {
         var canReconcile = _pr.userPerms.pr_excel_reconcile !== false;
-        if (canReconcile) {
+        if (canReconcile && r.payment_type !== 'parent_sll') {
             excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05)">'
                 + '<div style="background: linear-gradient(135deg, var(--navy), var(--navy-light)); padding: 12px 16px; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: space-between">'
                 + '<span>📊 ĐỐI SOÁT FILE EXCEL NHÀ VẬN CHUYỂN</span>'
@@ -988,7 +1070,7 @@ async function _prShowDetail(id) {
                 + '<div id="prExcelResult" style="display: none; flex-direction: column; gap: 12px"></div>'
                 + '</div>'
                 + '</div>';
-        } else {
+        } else if (r.payment_type !== 'parent_sll') {
             excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px dashed #fca5a5; border-radius: 12px; overflow: hidden; background: #fef2f2; padding: 16px; text-align: center; color: #991b1b">'
                 + '<div style="font-size: 24px; margin-bottom: 6px">⚠️</div>'
                 + '<div style="font-size: 12.5px; font-weight: 700">Không có quyền đối soát</div>'
@@ -2593,7 +2675,45 @@ async function _prSubmitExcelAllocation(prId, recordAmount, totalCod, totalFee) 
                 tracking_code: o.tracking_code || ''
             };
         }),
-        part_b_waybills: _prSelectedPartBOrders || []
+        part_b_waybills: _prSelectedPartBOrders || [],
+        reconciled_waybills: {
+            part_a: (_pr.reconcileState && _pr.reconcileState.waybills || []).map(function(wb) {
+                var match = _pr.reconcileState.matchedMap[wb.code];
+                return {
+                    code: wb.code,
+                    cod: wb.cod,
+                    goods: wb.goods,
+                    rowIndex: wb.rowIndex,
+                    fileName: wb.fileName,
+                    match: match ? {
+                        order_code: match.order_code,
+                        order_type: match.order_type,
+                        customer_name: match.customer_name,
+                        customer_phone: match.customer_phone,
+                        remaining: match.remaining,
+                        allocatedAmount: match.allocatedAmount,
+                        already_reconciled: match.already_reconciled,
+                        reconciled_payment_code: match.reconciled_payment_code,
+                        shipment_count: match.shipment_count
+                    } : null
+                };
+            }),
+            part_b: (_pr.reconcileState && _pr.reconcileState.partBWaybills || []).map(function(wb) {
+                var match = _pr.reconcileState.partBMatchedMap[wb.code];
+                return {
+                    code: wb.code,
+                    shippingFee: wb.shippingFee,
+                    rowIndex: wb.rowIndex,
+                    fileName: wb.fileName,
+                    match: match ? {
+                        order_code: match.order_code,
+                        order_type: match.order_type,
+                        customer_name: match.customer_name,
+                        customer_phone: match.customer_phone
+                    } : null
+                };
+            })
+        }
     };
 
     try {

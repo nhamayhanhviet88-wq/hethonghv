@@ -251,6 +251,11 @@ async function start() {
         await db.exec(`ALTER TABLE payment_records ADD COLUMN parent_id INTEGER REFERENCES payment_records(id)`);
     } catch(e) { /* already exists */ }
 
+    // Migration: add reconciled_waybills to payment_records
+    try {
+        await db.exec(`ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS reconciled_waybills TEXT`);
+    } catch(e) { /* already exists */ }
+
     // Migration: Email Import Config + Bank Parsers
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS email_import_config (
