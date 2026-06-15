@@ -3259,17 +3259,16 @@ function _dhtTriggerExportVat(orderId, orderCode) {
     window._pastedVatFile = null;
     const body = `
         <div style="padding:10px 0;">
-            <p style="margin-bottom:16px;font-size:13px;color:#475569;line-height:1.5;">Vui lòng tải lên hoặc dán hình ảnh hóa đơn/phiếu xuất VAT cho đơn hàng <strong>${orderCode}</strong> để xác nhận xuất VAT. <strong>(Hỗ trợ Ctrl + V để dán ảnh)</strong></p>
-            <div style="border:2.5px dashed #cbd5e1;border-radius:12px;padding:30px;text-align:center;background:#f8fafc;position:relative;cursor:pointer;transition:border-color 0.2s;" id="vatDragArea" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#cbd5e1'">
-                <div style="font-size:40px;margin-bottom:12px;">📷</div>
-                <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px;">Kéo thả ảnh, click hoặc nhấn Ctrl + V để dán</div>
-                <div style="font-size:11px;color:#64748b;">Hỗ trợ định dạng PNG, JPG, JPEG, WEBP</div>
-                <input type="file" id="vatFileInput" accept="image/*" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+            <p style="margin-bottom:16px;font-size:13px;color:#475569;line-height:1.5;">Vui lòng dán hình ảnh hóa đơn/phiếu xuất VAT cho đơn hàng <strong>${orderCode}</strong> để xác nhận xuất VAT.</p>
+            <div style="border:2.5px dashed #cbd5e1;border-radius:12px;padding:40px 20px;text-align:center;background:#f8fafc;" id="vatDragArea">
+                <div style="font-size:48px;margin-bottom:12px;">📋</div>
+                <div style="font-weight:700;font-size:15px;color:#1e293b;margin-bottom:4px;">Nhấn Ctrl + V để dán ảnh hóa đơn trực tiếp</div>
+                <div style="font-size:12px;color:#64748b;">Chụp ảnh màn hình hoặc copy ảnh rồi dán tại đây</div>
             </div>
             <div id="vatImagePreviewWrap" style="margin-top:16px;display:none;text-align:center;">
                 <div style="position:relative;display:inline-block;max-width:100%;">
                     <img id="vatImagePreview" style="max-height:240px;max-width:100%;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.1);object-fit:contain;">
-                    <button onclick="window._pastedVatFile=null;document.getElementById('vatFileInput').value='';document.getElementById('vatImagePreviewWrap').style.display='none';document.getElementById('vatDragArea').style.display='block';document.getElementById('vatSubmitBtn').setAttribute('disabled', 'true');" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">✕</button>
+                    <button onclick="window._pastedVatFile=null;document.getElementById('vatImagePreviewWrap').style.display='none';document.getElementById('vatDragArea').style.display='block';document.getElementById('vatSubmitBtn').setAttribute('disabled', 'true');" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">✕</button>
                 </div>
             </div>
         </div>
@@ -3282,7 +3281,6 @@ function _dhtTriggerExportVat(orderId, orderCode) {
 
     // Setup events
     setTimeout(() => {
-        const fileInput = document.getElementById('vatFileInput');
         const previewWrap = document.getElementById('vatImagePreviewWrap');
         const previewImg = document.getElementById('vatImagePreview');
         const dragArea = document.getElementById('vatDragArea');
@@ -3313,13 +3311,6 @@ function _dhtTriggerExportVat(orderId, orderCode) {
             }
         };
 
-        if (fileInput) {
-            fileInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                processFile(file);
-            });
-        }
-
         const handlePaste = function(e) {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (let i = 0; i < items.length; i++) {
@@ -3340,14 +3331,13 @@ function _dhtTriggerExportVat(orderId, orderCode) {
 }
 
 async function _dhtSubmitVat(orderId) {
-    const fileInput = document.getElementById('vatFileInput');
-    const file = window._pastedVatFile || (fileInput && fileInput.files ? fileInput.files[0] : null);
+    const file = window._pastedVatFile;
     if (!file) {
-        showToast('Vui lòng chọn hình ảnh hoặc nhấn Ctrl + V để dán phiếu VAT', 'error');
+        showToast('Vui lòng nhấn Ctrl + V để dán phiếu VAT', 'error');
         return;
     }
     const formData = new FormData();
-    formData.append('file', file, file.name || 'vat_proof.jpg');
+    formData.append('file', file, 'vat_proof.jpg');
 
     const submitBtn = document.getElementById('vatSubmitBtn');
     if (submitBtn) {
