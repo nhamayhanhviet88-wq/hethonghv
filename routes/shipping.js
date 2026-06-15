@@ -531,6 +531,39 @@ module.exports = async function(fastify) {
                     error: '⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.'
                 });
             }
+
+            // Enforce selecting a non-deficit transaction when HV+CK is selected (except for pay-later carriers)
+            const carrier = await db.get('SELECT name FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
+            const carrierName = carrier?.name || '';
+            const PAY_LATER_CARRIERS = ['Vận Chuyển J&T', 'Viettel Post', 'Hoả Tốc Máy Bay Nasco', 'Hoả Tốc Máy Bay ViettelPost'];
+            const isPayLaterCarrier = PAY_LATER_CARRIERS.some(n => carrierName.toLowerCase().includes(n.toLowerCase()));
+
+            if (!isPayLaterCarrier) {
+                const target = remaining - shipFee;
+                if (target > 0) {
+                    if (!b.selected_payment_id) {
+                        return reply.code(400).send({
+                            error: '⚠️ Bắt buộc phải chọn mã giao dịch thanh toán trong mục "Thanh Toán Đơn Hàng" khi chọn HV trả bằng CK.'
+                        });
+                    }
+                    const payment = await db.get('SELECT amount, order_tt_coc, total_order_codes FROM payment_records WHERE id = $1', [Number(b.selected_payment_id)]);
+                    if (!payment) {
+                        return reply.code(400).send({
+                            error: '⚠️ Không tìm thấy giao dịch thanh toán đã chọn.'
+                        });
+                    }
+                    if (payment.order_tt_coc || payment.total_order_codes) {
+                        return reply.code(400).send({
+                            error: '⚠️ Giao dịch này đã được liên kết với đơn hàng khác rồi. Vui lòng chọn giao dịch khác.'
+                        });
+                    }
+                    if (Number(payment.amount) < target) {
+                        return reply.code(400).send({
+                            error: `⚠️ Số tiền giao dịch được chọn (${Number(payment.amount).toLocaleString('vi-VN')}đ) nhỏ hơn số tiền tối thiểu cần thanh toán (${target.toLocaleString('vi-VN')}đ).`
+                        });
+                    }
+                }
+            }
         }
 
         const now = vnNow();
