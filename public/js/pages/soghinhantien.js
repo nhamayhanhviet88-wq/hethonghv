@@ -940,6 +940,13 @@ async function _prShowDetail(id) {
         sllOrdersVal = r.sll_order_codes;
     }
 
+    var finalOrderVal = '—';
+    if (r.order_tt_coc) {
+        finalOrderVal = '<span style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.order_tt_coc + '</span>';
+    } else if (sllOrdersVal && sllOrdersVal.trim()) {
+        finalOrderVal = '<span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + sllOrdersVal + '</span>';
+    }
+
     var infoTable = '<table style="width:100%;border-collapse:collapse">'
         +row('Ngày', payDate)
         +row('Mã thanh toán', icon+' '+r.payment_code)
@@ -950,8 +957,7 @@ async function _prShowDetail(id) {
         +row('Hình thức TT', r.payment_method||'')
         +row('Ngân hàng', r.bank_name||'—')
         +row('Nội dung CK', '<span style="word-break:break-all">'+(r.transfer_note||'—')+'</span>')
-        +row('Mã Đơn TT/Cọc', (r.order_tt_coc ? '<span style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.order_tt_coc + '</span>' : '—'))
-        +row('SLL Mã Đơn TT', (sllOrdersVal && sllOrdersVal.trim() ? '<span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + sllOrdersVal + '</span>' : '—'))
+        +row('Mã Đơn TT/Cọc', finalOrderVal)
         +row('Số tiền về TK', '<span style="font-size:14px;color:#d32f2f">💰 '+_prFmt(r.amount)+'</span>')
         +row('Trạng thái BG', statusLabels[r.handover_status]||r.handover_status||'')
         +row('Lịch sử CN', (updatedAt ? '🗓️ '+updatedAt+'<br>' : '')+(histSrc||''))
