@@ -1304,6 +1304,9 @@ async function _dhtShowDetail(id) {
                 } else if (p.money_source === 'khach_hang_sll' || p.payment_type === 'tt_sll' || p.payment_type === 'child_sll') {
                     badgeStyle = 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
                     typeText = 'KH SLL';
+                } else if (p.payment_type === 'dat_coc') {
+                    badgeStyle = 'background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;text-shadow:0 1px 2px rgba(0,0,0,.15);';
+                    typeText = 'Đặt Cọc';
                 }
                 payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
                 payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
