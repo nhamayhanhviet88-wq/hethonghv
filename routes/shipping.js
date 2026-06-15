@@ -584,6 +584,9 @@ module.exports = async function(fastify) {
         sets.push(`shipping_fee = $${idx++}`); params.push(shipFee);
         sets.push(`shipping_fee_payer = $${idx++}`); params.push(b.shipping_fee_payer);
         sets.push(`shipping_fee_method = $${idx++}`); params.push(b.shipping_fee_method);
+        if (b.selected_payment_id) {
+            sets.push(`shipping_payment_id = $${idx++}`); params.push(Number(b.selected_payment_id));
+        }
 
         sets.push(`last_updated_by = $${idx++}`); params.push(userId);
         sets.push(`last_updated_at = NOW()`);
@@ -662,6 +665,9 @@ module.exports = async function(fastify) {
             if (cashflowResult) {
                 itemSets.push(`shipping_cashflow_id = $${itemIdx++}`); itemParams.push(cashflowResult.id);
             }
+            if (b.selected_payment_id) {
+                itemSets.push(`shipping_payment_id = $${itemIdx++}`); itemParams.push(Number(b.selected_payment_id));
+            }
             
             itemParams.push(itemIds);
             await db.run(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE id = ANY($${itemIdx}::int[])`, itemParams);
@@ -694,6 +700,9 @@ module.exports = async function(fastify) {
                 if (cashflowResult) {
                     orderSets.push(`shipping_cashflow_id = $${orderIdx++}`); orderParams.push(cashflowResult.id);
                 }
+                if (b.selected_payment_id) {
+                    orderSets.push(`shipping_payment_id = $${orderIdx++}`); orderParams.push(Number(b.selected_payment_id));
+                }
                 
                 orderSets.push(`last_updated_by = $${orderIdx++}`); orderParams.push(userId);
                 orderSets.push(`last_updated_at = NOW()`);
@@ -721,13 +730,15 @@ module.exports = async function(fastify) {
                     shipping_fee = $9,
                     shipping_fee_payer = $10,
                     shipping_fee_method = $11,
-                    shipping_cashflow_id = $12
+                    shipping_cashflow_id = $12,
+                    shipping_payment_id = $14
                 WHERE dht_order_id = $13 AND shipping_status = 'pending'
             `, [
                 userId, now.toISOString(), todayStr, Number(b.actual_carrier_id),
                 b.tracking_code || null, b.shipping_bill_link || null, b.carrier_phone || null,
                 b.receiver_name || null, shipFee, b.shipping_fee_payer || null,
-                b.shipping_fee_method || null, cashflowResult?.id || null, orderId
+                b.shipping_fee_method || null, cashflowResult?.id || null, orderId,
+                b.selected_payment_id ? Number(b.selected_payment_id) : null
             ]);
         }
 

@@ -1827,7 +1827,8 @@ async function _shShowShippingDetailOnly(orderId) {
                         it.shipping_bill_link || '',
                         it.shipping_fee || '0',
                         it.shipping_fee_payer || '',
-                        it.shipping_fee_method || ''
+                        it.shipping_fee_method || '',
+                        it.shipping_payment_code || ''
                     ].join('|');
                     
                     if (!shippedBatches[batchKey]) {
@@ -1936,6 +1937,7 @@ async function _shShowShippingDetailOnly(orderId) {
                         ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
                         <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
                         <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
+                        ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
                     </div>
                 </div>`;
@@ -2008,6 +2010,9 @@ async function _shShowShippingDetailOnly(orderId) {
                     })(_billCid, o.shipping_bill_link);
                 }
                 shipHTML += row('📷 Bill gửi hàng', billHtml);
+                if (o.shipping_payment_code) {
+                    shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
+                }
                 shipHTML += `</table>`;
             } else {
                 shipHTML += `<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;font-weight:600;">📭 Đơn hàng chưa có thông tin vận chuyển.</div>`;

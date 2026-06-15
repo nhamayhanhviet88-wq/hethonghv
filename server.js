@@ -660,6 +660,8 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS receiver_name TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
 
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`); } catch(e) {}
+
     // Item-level shipping fields in dht_order_items
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_status TEXT DEFAULT 'pending'`); } catch(e) {}
     try {
@@ -687,6 +689,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_fee_payer TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_fee_method TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`); } catch(e) {}
     try { await db.exec(`UPDATE dht_order_items SET shipping_status = 'pending' WHERE shipping_status IS NULL`); } catch(e) {}
 
     // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng

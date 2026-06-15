@@ -664,13 +664,15 @@ module.exports = async function(fastify) {
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name, u_created.full_name AS created_by_name,
                 u_shipped.full_name AS shipped_by_name,
-                cr2.name AS carrier_name, cr2.tracking_url_template AS carrier_tracking_url
+                cr2.name AS carrier_name, cr2.tracking_url_template AS carrier_tracking_url,
+                pr_ship.payment_code AS shipping_payment_code
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
+            LEFT JOIN payment_records pr_ship ON o.shipping_payment_id = pr_ship.id
             WHERE o.id = $1
         `, [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
@@ -1227,10 +1229,12 @@ module.exports = async function(fastify) {
                 SELECT i.*, 
                        cr.name AS actual_carrier_name,
                        cr.tracking_url_template AS actual_carrier_tracking_url,
-                       u.full_name AS shipped_by_name
+                       u.full_name AS shipped_by_name,
+                       pr.payment_code AS shipping_payment_code
                 FROM dht_order_items i
                 LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
                 LEFT JOIN users u ON i.shipped_by = u.id
+                LEFT JOIN payment_records pr ON i.shipping_payment_id = pr.id
                 WHERE i.dht_order_id = $1 ORDER BY i.id ASC
             `, [orderId]);
 

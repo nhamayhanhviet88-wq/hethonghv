@@ -1080,6 +1080,7 @@ module.exports = async function(fastify) {
                 cr2.name AS actual_carrier_name,
                 cr2.tracking_url_template AS actual_carrier_tracking_url,
                 u_shipped.full_name AS shipped_by_name,
+                pr_ship.payment_code AS shipping_payment_code,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
@@ -1095,6 +1096,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
+            LEFT JOIN payment_records pr_ship ON o.shipping_payment_id = pr_ship.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
@@ -1123,11 +1125,13 @@ module.exports = async function(fastify) {
                    ts.processing_price AS tsam_processing_price,
                    cr.name AS actual_carrier_name,
                    cr.tracking_url_template AS actual_carrier_tracking_url,
-                   u.full_name AS shipped_by_name
+                   u.full_name AS shipped_by_name,
+                   pr_ship.payment_code AS shipping_payment_code
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
             LEFT JOIN users u ON i.shipped_by = u.id
+            LEFT JOIN payment_records pr_ship ON i.shipping_payment_id = pr_ship.id
             WHERE i.dht_order_id = $1 ORDER BY i.id ASC
         `, [orderId]);
 
