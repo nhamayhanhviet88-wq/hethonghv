@@ -379,6 +379,8 @@ module.exports = async function(fastify) {
 
             const tree = Object.values(carrierMap)
                 .sort((a, b) => {
+                    if (a.carrier_id === -2) return 1;
+                    if (b.carrier_id === -2) return -1;
                     if (a.carrier_id === 0) return -1;
                     if (b.carrier_id === 0) return 1;
                     return a.carrier_name.localeCompare(b.carrier_name, 'vi');

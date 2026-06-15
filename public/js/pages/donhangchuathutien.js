@@ -553,8 +553,20 @@ async function _dhcttLoadTree() {
         var cActive = _dhctt.filter.carrier_id == carrier.carrier_id && !_dhctt.filter.year && !_dhctt.filter.month;
         
         var valSpan = isFull ? '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(carrier.total, carrier.count)+'</span>' : '';
-        h += '<div class="dhctt-sb-year'+(cActive?' active':'')+'" onclick="_dhcttSelectCarrier('+carrier.carrier_id+')">'
-            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 🚛 '+carrier.carrier_name+' <span style="font-size:10px;font-weight:bold;color:#1e3a8a;margin-left:3px;white-space:nowrap;">('+carrier.count+' đơn)</span></span>'
+        
+        var itemStyle = '';
+        var countColor = '#1e3a8a';
+        if (carrier.carrier_id === -2) {
+            itemStyle = 'style="background:#fee2e2;color:#b91c1c;border-left:4px solid #f87171;"';
+            countColor = '#b91c1c';
+            if (cActive) {
+                itemStyle = 'style="background:#fca5a5;color:#7f1d1d;border-left:4px solid #b91c1c;font-weight:900;"';
+                countColor = '#7f1d1d';
+            }
+        }
+
+        h += '<div class="dhctt-sb-year'+(cActive?' active':'')+'" onclick="_dhcttSelectCarrier('+carrier.carrier_id+')" '+itemStyle+'>'
+            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 🚛 '+carrier.carrier_name+' <span style="font-size:10px;font-weight:bold;color:'+countColor+';margin-left:3px;white-space:nowrap;">('+carrier.count+' đơn)</span></span>'
             + valSpan
             + '</div>';
         
@@ -566,8 +578,19 @@ async function _dhcttLoadTree() {
             var yActive = _dhctt.filter.carrier_id == carrier.carrier_id && _dhctt.filter.year == yr.year && !_dhctt.filter.month;
             var yrValSpan = isFull ? '<span style="color:#b8860b;font-weight:800">'+_sbVal(yr.total, yr.count)+'</span>' : '';
             
-            h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation(); _dhcttSelectYear('+carrier.carrier_id+','+yr.year+')">'
-                + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyYear(\''+yKey+'\')">'+(yOpen?'▼':'▶')+'</span> Năm '+yr.year+' <span style="font-size:9.5px;font-weight:bold;color:#374151;margin-left:3px;white-space:nowrap;">('+yr.count+' đơn)</span></span>'
+            var yrStyle = '';
+            var yrCountColor = '#374151';
+            if (carrier.carrier_id === -2) {
+                yrStyle = 'style="background:#fff1f2;color:#9f1239;"';
+                yrCountColor = '#9f1239';
+                if (yActive) {
+                    yrStyle = 'style="background:#ffe4e6;color:#881337;font-weight:800;"';
+                    yrCountColor = '#881337';
+                }
+            }
+
+            h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation(); _dhcttSelectYear('+carrier.carrier_id+','+yr.year+')" '+yrStyle+'>'
+                + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyYear(\''+yKey+'\')">'+(yOpen?'▼':'▶')+'</span> Năm '+yr.year+' <span style="font-size:9.5px;font-weight:bold;color:'+yrCountColor+';margin-left:3px;white-space:nowrap;">('+yr.count+' đơn)</span></span>'
                 + yrValSpan
                 + '</div>';
             
@@ -578,8 +601,19 @@ async function _dhcttLoadTree() {
                 var mVal = isFull ? mo.total : mo.count;
                 var moValSpan = isFull ? '<span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mo.total, mo.count)+'</span>' : '';
                 
-                h += '<div class="dhctt-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhcttFilterOnly({carrier_id:'+carrier.carrier_id+',year:'+yr.year+',month:'+mo.month+'})">'
-                    + '<span>▸ Tháng '+String(mo.month).padStart(2,'0')+' <span style="font-size:9.5px;font-weight:bold;color:#374151;margin-left:3px;white-space:nowrap;">('+mo.count+' đơn)</span></span>'
+                var moStyle = '';
+                var moCountColor = '#374151';
+                if (carrier.carrier_id === -2) {
+                    moStyle = 'style="background:#fff5f5;color:#e11d48;padding-left:44px;"';
+                    moCountColor = '#be123c';
+                    if (mActive) {
+                        moStyle = 'style="background:#ffe4e6;color:#9f1239;font-weight:800;padding-left:44px;"';
+                        moCountColor = '#be123c';
+                    }
+                }
+
+                h += '<div class="dhctt-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhcttFilterOnly({carrier_id:'+carrier.carrier_id+',year:'+yr.year+',month:'+mo.month+'})" '+moStyle+'>'
+                    + '<span>▸ Tháng '+String(mo.month).padStart(2,'0')+' <span style="font-size:9.5px;font-weight:bold;color:'+moCountColor+';margin-left:3px;white-space:nowrap;">('+mo.count+' đơn)</span></span>'
                     + moValSpan
                     + '</div>';
             });
