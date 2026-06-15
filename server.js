@@ -235,6 +235,9 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_method_date ON payment_records(payment_method, payment_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_date ON payment_records(payment_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_parent_id ON payment_records(parent_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_payment_type ON payment_records(payment_type)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_source_ref_id ON payment_records(source_ref_id)`);
     } catch(e) { /* exists */ }
 
     // Migration: source_ref_id from INTEGER to TEXT for email hash
