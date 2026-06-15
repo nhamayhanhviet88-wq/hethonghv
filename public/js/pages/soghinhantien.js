@@ -895,6 +895,26 @@ async function _prShowDetail(id) {
                         + '</div>';
                 }
 
+                var unpaidMsgs = [];
+                children.forEach(function(c) {
+                    var remDebt = Number(c.order_remaining) || 0;
+                    if (remDebt > 0) {
+                        unpaidMsgs.push('⚠️ Đơn <strong>' + (c.order_tt_coc || '—') + '</strong> còn <strong>' + _prFmt(remDebt) + '</strong> chưa thanh toán do mã tiền <strong>' + r.payment_code + ' (' + _prFmt(r.amount) + ')</strong> không đủ');
+                    }
+                });
+                var warningHTML = '';
+                if (unpaidMsgs.length > 0) {
+                    if (!document.getElementById('_prSllBlinkStyles')) {
+                        var st = document.createElement('style');
+                        st.id = '_prSllBlinkStyles';
+                        st.textContent = '@keyframes prSllBlink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } } .pr-sll-blink { animation: prSllBlink 1.2s infinite; }';
+                        document.head.appendChild(st);
+                    }
+                    warningHTML = '<div class="pr-sll-blink" style="margin-top:12px;padding:12px;background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;font-weight:800;color:#991b1b;text-align:center;box-shadow:0 2px 8px rgba(239,68,68,0.08)">'
+                        + unpaidMsgs.join('<br>')
+                        + '</div>';
+                }
+
                 childrenHTML = '<div style="margin-top:16px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden">'
                     + '<div style="background:#f8fafc;padding:8px 12px;font-weight:700;font-size:12px;color:#1e293b;border-bottom:1px solid #cbd5e1">📊 Chi tiết phân bổ đơn hàng</div>'
                     + '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'
@@ -907,7 +927,8 @@ async function _prShowDetail(id) {
                     + '</table>'
                     + '</div>'
                     + remDuHTML
-                    + splitHTML;
+                    + splitHTML
+                    + warningHTML;
             } else if (splitHTML) {
                 childrenHTML = splitHTML;
             }
