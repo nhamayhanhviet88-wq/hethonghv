@@ -1237,7 +1237,7 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
 
         h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">'
             +'<div style="flex:1">'
-            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#64748b;font-weight:600">(Còn nợ: ' + _prFmt(remain) + ' - Thanh toán: ' + _prFmt(allocated) + ' - Còn lại: <span style="color:#dc2626">' + _prFmt(remain - allocated) + '</span>)</span></div>'
+            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#64748b;font-weight:600">(' + _prFmt(remain) + ' - ' + _prFmt(allocated) + ' TT = <span style="color:#dc2626">' + _prFmt(remain - allocated) + '</span>)</span></div>'
             +'<div style="font-size:11px;color:#64748b">' + (o.customer_name||'') + '</div>'
             +'</div>'
             +'<div style="display:flex;align-items:center;gap:6px">'
