@@ -1159,6 +1159,109 @@ function _shValidatePhoneInput(inp) {
 }
 window._shValidatePhoneInput = _shValidatePhoneInput;
 
+function _shResizeImage(file, maxW, maxH, quality) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxW || height > maxH) {
+                    if (width > height) {
+                        height = Math.round((height * maxW) / width);
+                        width = maxW;
+                    } else {
+                        width = Math.round((width * maxH) / height);
+                        height = maxH;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    resolve(blob || file);
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+window._shResizeImage = _shResizeImage;
+
+async function _shHandleBillPaste(e) {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const blob = items[i].getAsFile();
+            const inp = e.target;
+            
+            inp.value = 'Đang tải ảnh lên...';
+            inp.disabled = true;
+            
+            const preview = document.getElementById('shBillPreview');
+            if (preview) {
+                preview.style.display = 'block';
+                preview.innerHTML = '<div style="color:#f59e0b;font-size:11px;font-weight:600;">⏳ Đang nén và upload ảnh...</div>';
+            }
+            
+            try {
+                const resizedBlob = await _shResizeImage(blob, 1000, 1000, 0.75);
+                
+                const fd = new FormData();
+                fd.append('file', resizedBlob, 'bill_' + Date.now() + '.jpg');
+                
+                const resp = await fetch('/api/tsam/upload', { method: 'POST', body: fd, credentials: 'include' });
+                const data = await resp.json();
+                
+                if (data.success && data.url) {
+                    inp.value = window.location.origin + data.url;
+                    inp.disabled = false;
+                    _shUpdateBillPreview();
+                } else {
+                    alert(data.error || 'Lỗi upload ảnh');
+                    inp.value = '';
+                    inp.disabled = false;
+                    if (preview) preview.style.display = 'none';
+                }
+            } catch (err) {
+                alert('Lỗi xử lý ảnh: ' + err.message);
+                inp.value = '';
+                inp.disabled = false;
+                if (preview) preview.style.display = 'none';
+            }
+            return;
+        }
+    }
+}
+window._shHandleBillPaste = _shHandleBillPaste;
+
+function _shUpdateBillPreview() {
+    const inp = document.getElementById('shBillLink'); if (!inp) return;
+    const preview = document.getElementById('shBillPreview'); if (!preview) return;
+    const val = inp.value.trim();
+    if (!val || val.startsWith('Đang')) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        return;
+    }
+    preview.style.display = 'block';
+    
+    const isImg = val.match(/\.(jpeg|jpg|gif|png|webp)/i) || val.includes('/uploads/');
+    if (isImg) {
+        preview.innerHTML = `<img src="${val}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #cbd5e1;margin-top:4px;cursor:pointer;" onclick="window.open('${val}','_blank')">`;
+    } else {
+        preview.innerHTML = `<a href="${val}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link bill →</a>`;
+    }
+}
+window._shUpdateBillPreview = _shUpdateBillPreview;
+
 function _shOnCarrierChange() {
     const sel = document.getElementById('shCarrierSel'); if (!sel) return;
     const name = sel.options[sel.selectedIndex]?.dataset?.name || '';
@@ -1169,10 +1272,16 @@ function _shOnCarrierChange() {
     if (g === 'tracking_code') {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">Mã Vận Đơn <span style="color:#dc2626">*</span></label><input id="shTrackingCode" style="${fStyle}" placeholder="Nhập mã vận đơn...">`;
     } else if (g === 'bill_link') {
-        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label><input id="shBillLink" style="${fStyle}" placeholder="https://...">`;
+        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span> <span style="font-size:10px;color:#3b82f6;font-weight:normal;">(Nhấn Ctrl+V vào ô dưới để dán ảnh)</span></label>
+             <input id="shBillLink" style="${fStyle}" placeholder="Nhập link hoặc dán ảnh...">
+             <div id="shBillPreview" style="margin-top:8px;display:none;"></div>`;
     } else if (g === 'bill_and_phone') {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">SĐT Nhà Xe <span style="color:#dc2626">*</span></label><input id="shCarrierPhone" style="${fStyle}" placeholder="0909..." oninput="_shValidatePhoneInput(this)">
-        <div style="margin-top:8px;"><label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label><input id="shBillLink" style="${fStyle}" placeholder="https://..."></div>`;
+        <div style="margin-top:8px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span> <span style="font-size:10px;color:#3b82f6;font-weight:normal;">(Nhấn Ctrl+V vào ô dưới để dán ảnh)</span></label>
+            <input id="shBillLink" style="${fStyle}" placeholder="Nhập link hoặc dán ảnh...">
+            <div id="shBillPreview" style="margin-top:8px;display:none;"></div>
+        </div>`;
     } else if (g === 'receiver_name') {
         const isNVHV = name.toLowerCase().includes('nhân viên hv') || name.toLowerCase().includes('nhan vien hv');
         const isProxy = name.toLowerCase().includes('người nhận hàng hộ') || name.toLowerCase().includes('nguoi nhan hang ho');
@@ -1187,6 +1296,13 @@ function _shOnCarrierChange() {
         }
     }
     el.innerHTML = h;
+    
+    // Attach paste listener to Bill Link input if present
+    const billInp = document.getElementById('shBillLink');
+    if (billInp) {
+        billInp.addEventListener('paste', _shHandleBillPaste);
+        billInp.addEventListener('input', _shUpdateBillPreview);
+    }
     // ★ Toggle fee section visibility based on carrier type
     const noFee = _shIsNoFeeCarrier(name);
     const feeSection = document.getElementById('shFeeSection');
