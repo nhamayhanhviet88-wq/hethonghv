@@ -836,7 +836,7 @@ function _dhtRenderOrderRows(filtered) {
             const canExportVat = isGD || isQLCC || isKeToan;
 
             if (o.vat_exported) {
-                vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtViewVat('${o.vat_proof_image}')" title="Xem hóa đơn VAT" style="background:#d1fae5;color:#065f46;border:1.5px solid #a7f3d0;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xem VAT</button>`;
+                vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtViewVat('${o.vat_proof_image}', '${o.vat_exported_by_name || ''}', '${o.vat_exported_at || ''}')" title="Xem hóa đơn VAT" style="background:#d1fae5;color:#065f46;border:1.5px solid #a7f3d0;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xem VAT</button>`;
             } else {
                 if (canExportVat) {
                     vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtTriggerExportVat(${o.id}, '${o.order_code}')" title="Xuất hóa đơn VAT" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xuất VAT</button>`;
@@ -1177,7 +1177,7 @@ async function _dhtShowDetail(id) {
                             label: 'Đã Xuất VAT',
                             color: '#059669',
                             bg: '#d1fae5',
-                            fn: `_dhtViewVat('${o.vat_proof_image}')`,
+                            fn: `_dhtViewVat('${o.vat_proof_image}', '${o.vat_exported_by_name || ''}', '${o.vat_exported_at || ''}')`,
                             perm: true
                         };
                     } else {
@@ -3140,13 +3140,13 @@ async function _dhtSubmitErrorReturnUnified(orderId) {
     }
 }
 
-function showShippingBillLightbox(url) {
+function showShippingBillLightbox(url, infoText) {
     const existing = document.getElementById('shippingBillLightbox');
     if (existing) existing.remove();
 
     const overlay = document.createElement('div');
     overlay.id = 'shippingBillLightbox';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease';
     overlay.onclick = function() { overlay.remove(); };
 
     if (!document.getElementById('shippingLightboxStyles')) {
@@ -3163,9 +3163,17 @@ function showShippingBillLightbox(url) {
 
     const img = document.createElement('img');
     img.src = url;
-    img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain';
+    img.style.cssText = 'max-width:90vw;max-height:80vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain';
     img.onclick = function(e) { e.stopPropagation(); };
     overlay.appendChild(img);
+
+    if (infoText) {
+        const caption = document.createElement('div');
+        caption.innerText = infoText;
+        caption.style.cssText = 'margin-top:20px;color:#fff;background:rgba(0,0,0,0.6);padding:8px 16px;border-radius:20px;font-size:14px;font-weight:700;letter-spacing:0.5px;max-width:80%;text-align:center;';
+        caption.onclick = function(e) { e.stopPropagation(); };
+        overlay.appendChild(caption);
+    }
 
     const closeBtn = document.createElement('div');
     closeBtn.innerHTML = '✕';
@@ -3184,28 +3192,84 @@ function showShippingBillLightbox(url) {
     document.addEventListener('keydown', escHandler);
 }
 
-function _dhtViewVat(imgUrl) {
+function _dhtResizeImage(file, maxWidth, maxHeight, quality) {
+    return new Promise((resolve) => {
+        if (!file || !file.type.match(/image.*/)) {
+            resolve(file);
+            return;
+        }
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(function(blob) {
+                    if (blob) {
+                        const newFile = new File([blob], file.name || 'vat_image.jpg', {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        resolve(newFile);
+                    } else {
+                        resolve(file);
+                    }
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = function() { resolve(file); };
+            img.src = e.target.result;
+        };
+        reader.onerror = function() { resolve(file); };
+        reader.readAsDataURL(file);
+    });
+}
+
+function _dhtViewVat(imgUrl, userName, timeStr) {
     if (!imgUrl) {
         showToast('Không tìm thấy ảnh phiếu VAT', 'error');
         return;
     }
-    showShippingBillLightbox(imgUrl);
+    let info = '';
+    if (userName && timeStr) {
+        const d = new Date(timeStr);
+        const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        const dm = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+        info = `bởi ${userName} lúc ${hm} ${dm}`;
+    }
+    showShippingBillLightbox(imgUrl, info);
 }
 
 function _dhtTriggerExportVat(orderId, orderCode) {
+    window._pastedVatFile = null;
     const body = `
         <div style="padding:10px 0;">
-            <p style="margin-bottom:16px;font-size:13px;color:#475569;line-height:1.5;">Vui lòng tải lên hình ảnh hóa đơn/phiếu xuất VAT cho đơn hàng <strong>${orderCode}</strong> để xác nhận xuất VAT.</p>
+            <p style="margin-bottom:16px;font-size:13px;color:#475569;line-height:1.5;">Vui lòng tải lên hoặc dán hình ảnh hóa đơn/phiếu xuất VAT cho đơn hàng <strong>${orderCode}</strong> để xác nhận xuất VAT. <strong>(Hỗ trợ Ctrl + V để dán ảnh)</strong></p>
             <div style="border:2.5px dashed #cbd5e1;border-radius:12px;padding:30px;text-align:center;background:#f8fafc;position:relative;cursor:pointer;transition:border-color 0.2s;" id="vatDragArea" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#cbd5e1'">
                 <div style="font-size:40px;margin-bottom:12px;">📷</div>
-                <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px;">Kéo thả ảnh hoặc click để chọn</div>
+                <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px;">Kéo thả ảnh, click hoặc nhấn Ctrl + V để dán</div>
                 <div style="font-size:11px;color:#64748b;">Hỗ trợ định dạng PNG, JPG, JPEG, WEBP</div>
                 <input type="file" id="vatFileInput" accept="image/*" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
             </div>
             <div id="vatImagePreviewWrap" style="margin-top:16px;display:none;text-align:center;">
                 <div style="position:relative;display:inline-block;max-width:100%;">
                     <img id="vatImagePreview" style="max-height:240px;max-width:100%;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.1);object-fit:contain;">
-                    <button onclick="document.getElementById('vatFileInput').value='';document.getElementById('vatImagePreviewWrap').style.display='none';document.getElementById('vatDragArea').style.display='block';document.getElementById('vatSubmitBtn').setAttribute('disabled', 'true');" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">✕</button>
+                    <button onclick="window._pastedVatFile=null;document.getElementById('vatFileInput').value='';document.getElementById('vatImagePreviewWrap').style.display='none';document.getElementById('vatDragArea').style.display='block';document.getElementById('vatSubmitBtn').setAttribute('disabled', 'true');" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">✕</button>
                 </div>
             </div>
         </div>
@@ -3224,33 +3288,66 @@ function _dhtTriggerExportVat(orderId, orderCode) {
         const dragArea = document.getElementById('vatDragArea');
         const submitBtn = document.getElementById('vatSubmitBtn');
 
+        const processFile = async (file) => {
+            if (!file) return;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⌛ Đang nén ảnh...';
+            try {
+                const compressed = await _dhtResizeImage(file, 1200, 1200, 0.7);
+                window._pastedVatFile = compressed;
+                
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    previewImg.src = evt.target.result;
+                    previewWrap.style.display = 'block';
+                    dragArea.style.display = 'none';
+                    submitBtn.removeAttribute('disabled');
+                    submitBtn.innerHTML = 'Xác Nhận';
+                };
+                reader.readAsDataURL(compressed);
+            } catch (err) {
+                console.error(err);
+                showToast('Lỗi xử lý hình ảnh', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Xác Nhận';
+            }
+        };
+
         if (fileInput) {
             fileInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(evt) {
-                        previewImg.src = evt.target.result;
-                        previewWrap.style.display = 'block';
-                        dragArea.style.display = 'none';
-                        submitBtn.removeAttribute('disabled');
-                    };
-                    reader.readAsDataURL(file);
-                }
+                processFile(file);
             });
+        }
+
+        const handlePaste = function(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    processFile(blob);
+                    e.preventDefault();
+                    break;
+                }
+            }
+        };
+
+        const modalContainer = document.getElementById('globalModal');
+        if (modalContainer) {
+            modalContainer.addEventListener('paste', handlePaste);
         }
     }, 100);
 }
 
 async function _dhtSubmitVat(orderId) {
     const fileInput = document.getElementById('vatFileInput');
-    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-        showToast('Vui lòng chọn hình ảnh phiếu VAT', 'error');
+    const file = window._pastedVatFile || (fileInput && fileInput.files ? fileInput.files[0] : null);
+    if (!file) {
+        showToast('Vui lòng chọn hình ảnh hoặc nhấn Ctrl + V để dán phiếu VAT', 'error');
         return;
     }
-    const file = fileInput.files[0];
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', file, file.name || 'vat_proof.jpg');
 
     const submitBtn = document.getElementById('vatSubmitBtn');
     if (submitBtn) {
