@@ -1042,7 +1042,7 @@ async function _dhtShowDetail(id) {
         // ── Section 1: Action Buttons (permission-aware) ──
         // Hide when opened from shipping page
         var actionsHTML = '';
-        if (window._dhtDetailSource !== 'shipping') {
+        if (window._dhtDetailSource !== 'shipping' && currentPage !== 'don-hang-chua-thu-tien' && currentPage !== 'ke-toan-gui-hang') {
         // Mỗi nút có feature key riêng → GĐ tick từng nút trong trang Phân Quyền
         actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
         const _isFullyPaid = remaining <= 0;

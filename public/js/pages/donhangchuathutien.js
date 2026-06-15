@@ -693,9 +693,7 @@ function _dhcttRenderOrderRows(filtered) {
             <td>${o.province || '—'}</td>
             <td>${o.cskh_name || '—'}</td>
             <td style="text-align:center;font-weight:800;">${_dhcttFormatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
-            <td>
-                ${(window.canDo && canDo('dht_sua_don', 'view')) ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>`) : ''}
-            </td>
+            <td></td>
         </tr>`;
     }).join('');
 
