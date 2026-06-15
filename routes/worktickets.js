@@ -527,14 +527,7 @@ async function routes(fastify) {
             `);
         } catch(e) {}
 
-        let orderByClause = `
-            CASE WHEN t.is_overdue = true AND t.status IN ('pending','in_progress') THEN 0 ELSE 1 END,
-            CASE t.priority_level WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
-            t.created_at DESC
-        `;
-        if (sort === 'created_at_desc') {
-            orderByClause = `t.created_at DESC`;
-        }
+        let orderByClause = `t.created_at DESC`;
 
         const tickets = await db.all(`
             SELECT t.*,
