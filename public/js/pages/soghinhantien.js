@@ -2126,9 +2126,10 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
             + '</tr>';
 
         if (hasShipmentWarning) {
+            var orderCodeStr = match ? (match.order_code || '') : '';
             rowsHTML += '<tr style="background:#fff7ed;border-bottom:1px solid #ffedd5">'
-                + '<td colspan="6" style="padding:6px 12px;color:#c2410c;font-size:11px;font-weight:bold;text-align:left;border-top:1px dashed #fed7aa">'
-                + '⚠️ Đơn này đã mất phí ship đến lần thứ 2, Bạn hãy chú ý xem lỗi ship lần 2 là do ai?'
+                + '<td colspan="6" style="padding:6px 12px;color:#c2410c;font-size:11px;font-weight:bold;text-align:center;border-top:1px dashed #fed7aa">'
+                + '⚠️ Mã Đơn ' + orderCodeStr + ' đã mất phí ship đến lần thứ 2, Bạn hãy chú ý xem lỗi ship lần 2 là do ai?'
                 + '</td>'
                 + '</tr>';
         }
