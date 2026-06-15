@@ -146,6 +146,30 @@ module.exports = async function(fastify) {
              ORDER BY pr.id ASC`,
             [Number(id)]
         );
+        if (rows.length === 0) {
+            const parentRec = await db.get(
+                `SELECT pr.*,
+                        o.deposit_payment_id,
+                        COALESCE(o.total_amount, 0)
+                          - COALESCE(o.discount_amount, 0)
+                          - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                          - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                          AS order_remaining
+                 FROM payment_records pr
+                 LEFT JOIN dht_orders o ON pr.order_tt_coc = o.order_code
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                     FROM payment_records
+                     WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                        OR order_tt_coc = o.order_code
+                 ) pr_dep ON true
+                 WHERE pr.id = $1 AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''`,
+                [Number(id)]
+            );
+            if (parentRec) {
+                rows.push(parentRec);
+            }
+        }
         const splitRows = await db.all(
             `SELECT payment_code, amount, payment_type FROM payment_records WHERE parent_id = $1 AND payment_type != 'child_sll' ORDER BY id ASC`,
             [Number(id)]

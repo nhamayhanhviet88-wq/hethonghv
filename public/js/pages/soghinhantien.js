@@ -853,7 +853,8 @@ async function _prShowDetail(id) {
     var row = function(label,val){ return '<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:130px">'+label+'</td><td style="padding:8px 12px;font-size:12.5px;font-weight:700;color:#1e293b">'+val+'</td></tr>'; };
 
     var childrenHTML = '';
-    if (isParentSll) {
+    var hasAllocation = isParentSll || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+    if (hasAllocation) {
         try {
             var childRes = await apiCall('/api/payment-records/parent/' + id + '/children');
             var children = childRes.children || [];
@@ -875,7 +876,7 @@ async function _prShowDetail(id) {
 
             if (children.length > 0) {
                 var rowsHTML = children.map(function(c) {
-                    var isDeposit = c.deposit_payment_id && Number(c.deposit_payment_id) === Number(r.id);
+                    var isDeposit = (c.deposit_payment_id && Number(c.deposit_payment_id) === Number(r.id)) || c.payment_type === 'dat_coc';
                     var typeBadge = isDeposit 
                         ? '<span class="pr-badge pr-coc">Đặt Cọc</span>' 
                         : '<span class="pr-badge pr-tt">Thanh Toán</span>';
