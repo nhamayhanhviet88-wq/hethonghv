@@ -314,7 +314,7 @@ function _prRenderTable() {
             tienDuDisplay = '<span style="background:#fff;border:1px solid #22c55e;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.05)">0đ</span>';
         }
 
-        h += '<td style="font-weight:900;color:#d32f2f;text-align:center;font-size:12.5px">'+_prFmt(r.amount)+'</td>';
+        h += '<td style="font-weight:900;color:#d32f2f;text-align:left;padding-left:8px;font-size:12.5px">'+_prFmt(r.amount)+'</td>';
         h += '<td style="text-align:center">'+tienDuDisplay+'</td>';
         h += '<td>'+typeBadge+'</td>';
         var displayOrder = r.order_tt_coc || '';
