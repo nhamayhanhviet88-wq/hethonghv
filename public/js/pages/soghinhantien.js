@@ -817,6 +817,8 @@ async function _prSendReport() {
 async function _prShowDetail(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
+    _prActiveRecordId = id;
+    _prPaymentAmount = Number(r.amount) || 0;
     var up = _pr.userPerms || {};
     var srcLabels = {khach_hang:'Khách hàng',khach_hang_sll:'Khách hàng SLL',nha_van_chuyen:'Nhà vận chuyển'};
     var typeLabels = {thanh_toan:'Thanh toán',dat_coc:'Đặt cọc',tt_sll:'TT Số Lượng Lớn',pending:'⏳ Chờ xử lý',tra_lai_coc:'Trả Lại Cọc',parent_sll:'📊 SLL (Mã Cha)',child_sll:'📊 SLL (Mã Con)'};
@@ -965,7 +967,28 @@ async function _prShowDetail(id) {
         +'</table>'
         + childrenHTML;
 
-    var bodyHTML = actionsBar + infoTable;
+    var excelHTML = '';
+    if (r.money_source === 'nha_van_chuyen') {
+        excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05)">'
+            + '<div style="background: linear-gradient(135deg, var(--navy), var(--navy-light)); padding: 12px 16px; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: space-between">'
+            + '<span>📊 ĐỐI SOÁT FILE EXCEL NHÀ VẬN CHUYỂN</span>'
+            + '<span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 700">Xử lý tại trình duyệt</span>'
+            + '</div>'
+            + '<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">'
+            + '<div style="display: flex; align-items: center; gap: 12px">'
+            + '<label for="prExcelFile" style="flex: 1; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc" onmouseover="this.style.borderColor=\'var(--navy)\'; this.style.background=\'#f0fdf4\'" onmouseout="this.style.borderColor=\'#cbd5e1\'; this.style.background=\'#f8fafc\'">'
+            + '<div style="font-size: 24px; margin-bottom: 6px">📁</div>'
+            + '<div style="font-size: 12px; font-weight: 700; color: #334155" id="prExcelFileName">Chọn file Excel đối soát (2-5MB)</div>'
+            + '<div style="font-size: 10px; color: #64748b; margin-top: 2px">Đọc nội dung và đối soát trực tiếp, không upload file lên server</div>'
+            + '</label>'
+            + '<input type="file" id="prExcelFile" accept=".xlsx, .xls" style="display: none" onchange="_prProcessExcel(this, ' + r.amount + ')">'
+            + '</div>'
+            + '<div id="prExcelResult" style="display: none; flex-direction: column; gap: 12px"></div>'
+            + '</div>'
+            + '</div>';
+    }
+
+    var bodyHTML = actionsBar + infoTable + excelHTML;
     var titleText = r.payment_code+'| '+_prFmt(r.amount)+'|'+(r.transfer_note||'').substring(0,50);
     var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
     openModal(titleText, bodyHTML, footerHTML);
@@ -1671,4 +1694,296 @@ async function _prDeleteBank(name) {
         _pr.trackedBanks = bankData.banks || _prBanks;
         await _prRenderBankList();
     } catch(e) { showToast('Lỗi: '+(e.message||'Không thể xóa'),'error'); }
+}
+
+// ========== EXCEL IMPORT & CROSS-CHECK FOR SHIPPING CARRIERS ==========
+
+async function _prProcessExcel(input, recordAmount) {
+    var file = input.files[0];
+    if (!file) return;
+    
+    var fileNameEl = document.getElementById('prExcelFileName');
+    if (fileNameEl) fileNameEl.textContent = '📄 ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + 'MB)';
+
+    var resultBox = document.getElementById('prExcelResult');
+    if (resultBox) {
+        resultBox.style.display = 'flex';
+        resultBox.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b"><span style="display:inline-block;animation:spin 1s linear infinite;margin-right:8px">⌛</span> Đang đọc và đối soát dữ liệu...</div>';
+    }
+
+    // Load sheetjs dynamically if not present
+    if (typeof XLSX === 'undefined') {
+        try {
+            await new Promise(function(resolve, reject) {
+                var script = document.createElement('script');
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        } catch(e) {
+            resultBox.innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;font-weight:700">⚠️ Lỗi không thể tải thư viện XLSX từ CDN. Vui lòng tải lại trang.</div>';
+            return;
+        }
+    }
+
+    var reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            var data = new Uint8Array(e.target.result);
+            var workbook = XLSX.read(data, {type: 'array'});
+            var firstSheetName = workbook.SheetNames[0];
+            var worksheet = workbook.Sheets[firstSheetName];
+            var sheetData = XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: true});
+            
+            // 1. Scan the whole sheet for summary metrics
+            var totalCodExcel = 0;
+            var totalFeeExcel = 0;
+            var totalNetExcel = 0;
+            
+            var foundCod = false, foundFee = false, foundNet = false;
+            
+            function getNumberFromRow(row, startCol, labelRegex) {
+                for (var colIdx = startCol; colIdx < row.length; colIdx++) {
+                    var cellVal = String(row[colIdx] || '').trim();
+                    if (labelRegex.test(cellVal)) {
+                        for (var next = colIdx + 1; next < row.length; next++) {
+                            var valStr = String(row[next] || '').replace(/[\.,\sđđ\-]/g, '');
+                            var val = parseFloat(valStr);
+                            if (!isNaN(val) && val > 0) {
+                                return val;
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+            
+            for (var rIdx = 0; rIdx < sheetData.length; rIdx++) {
+                var row = sheetData[rIdx];
+                if (!row || !row.length) continue;
+                
+                if (!foundCod) {
+                    var codVal = getNumberFromRow(row, 0, /Tổng COD|Tổng tiền COD|Cộng tiền COD|Tổng tiền thu hộ|Tổng phát thành công|Tổng thu hộ/i);
+                    if (codVal !== null) { totalCodExcel = codVal; foundCod = true; }
+                }
+                if (!foundFee) {
+                    var feeVal = getNumberFromRow(row, 0, /Tổng đơn thanh toán cước|Tổng cước|Tổng phí|Cộng cước|Cước phí|Phí dịch vụ/i);
+                    if (feeVal !== null) { totalFeeExcel = feeVal; foundFee = true; }
+                }
+                if (!foundNet) {
+                    var netVal = getNumberFromRow(row, 0, /Số tiền còn lại|Thực nhận|Số tiền thanh toán|Chuyển khoản|Thực thanh toán/i);
+                    if (netVal !== null) { totalNetExcel = netVal; foundNet = true; }
+                }
+            }
+            
+            // 2. Parse individual waybill rows starting from row 25 (index 24)
+            var extractedWaybills = [];
+            var calculatedCodSum = 0;
+            
+            for (var rIdx = 24; rIdx < sheetData.length; rIdx++) {
+                var row = sheetData[rIdx];
+                if (!row || row.length <= 1) continue;
+                
+                var waybillCode = String(row[1] || '').trim(); // Column B (index 1)
+                if (!waybillCode) continue;
+                
+                if (/cộng|tổng|total/i.test(waybillCode)) {
+                    continue;
+                }
+                
+                var codAmount = parseFloat(String(row[5] || '').replace(/[\.,\sđđ]/g, '')) || 0;
+                var goodsContent = String(row[13] || '').trim(); // Column N (index 13)
+                
+                extractedWaybills.push({
+                    code: waybillCode,
+                    cod: codAmount,
+                    goods: goodsContent,
+                    rowIndex: rIdx + 1
+                });
+                
+                calculatedCodSum += codAmount;
+            }
+            
+            if (!foundCod) {
+                totalCodExcel = calculatedCodSum;
+            }
+            if (!foundNet && foundCod) {
+                totalNetExcel = totalCodExcel - totalFeeExcel;
+            }
+            
+            if (extractedWaybills.length === 0) {
+                resultBox.innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;font-weight:700">⚠️ Không tìm thấy dữ liệu vận đơn nào bắt đầu từ dòng 25. Vui lòng kiểm tra lại cấu trúc file.</div>';
+                return;
+            }
+            
+            var compareRes = await apiCall('/api/payment-records/compare-waybills', 'POST', { waybills: extractedWaybills });
+            var matchedOrders = compareRes.orders || [];
+            
+            // Save to global _pr namespace
+            _pr.matchedExcelOrders = matchedOrders.map(function(o) {
+                var wb = extractedWaybills.find(function(w) {
+                    return String(o.tracking_code || '').trim().toLowerCase() === String(w.code || '').trim().toLowerCase()
+                        || String(o.order_code || '').trim().toLowerCase() === String(w.code || '').trim().toLowerCase();
+                });
+                var ordCopy = Object.assign({}, o);
+                ordCopy.allocatedAmount = wb ? wb.cod : 0;
+                return ordCopy;
+            }).filter(function(o) { return o.allocatedAmount > 0; });
+            
+            _pr.excelTotalCod = totalCodExcel;
+            _pr.excelTotalFee = totalFeeExcel;
+            _pr.excelTotalNet = totalNetExcel;
+
+            _prRenderExcelComparison(extractedWaybills, matchedOrders, totalCodExcel, totalFeeExcel, totalNetExcel, recordAmount);
+            
+        } catch(err) {
+            console.error(err);
+            resultBox.innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;font-weight:700">⚠️ Lỗi phân tích file Excel: ' + err.message + '</div>';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function _prRenderExcelComparison(waybills, matchedOrders, totalCod, totalFee, totalNet, recordAmount) {
+    var resultBox = document.getElementById('prExcelResult');
+    if (!resultBox) return;
+
+    var diff = totalNet - recordAmount;
+    var isAmountMatched = Math.abs(diff) < 1;
+    
+    var matchBadge = isAmountMatched 
+        ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #34d399">✅ KHỚP SỐ TIỀN 100%</span>'
+        : '<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #f87171">❌ LỆCH: ' + _prFmt(diff) + '</span>';
+
+    var summaryHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-bottom:12px">'
+        + '<div>'
+        + '<div style="font-size:11px;font-weight:800;color:var(--navy);margin-bottom:8px;text-transform:uppercase">📊 CHI TIẾT TỔNG HỢP EXCEL</div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:#64748b">Tổng COD phát thành công:</span><strong>' + _prFmt(totalCod) + '</strong></div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:#64748b">Tổng đơn thanh toán cước:</span><strong style="color:#dc2626">-' + _prFmt(totalFee) + '</strong></div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;border-top:1px solid #cbd5e1;padding-top:4px;margin-top:4px"><span style="color:#1e293b;font-weight:700">Số tiền còn lại:</span><strong style="color:#10b981">' + _prFmt(totalNet) + '</strong></div>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;border-left:1px solid #cbd5e1;padding-left:12px">'
+        + '<div style="font-size:11px;color:#64748b;margin-bottom:4px">Mã tiền từ hệ thống:</div>'
+        + '<div style="font-size:16px;font-weight:900;color:var(--navy);margin-bottom:8px">' + _prFmt(recordAmount) + '</div>'
+        + matchBadge
+        + '</div>'
+        + '</div>';
+
+    var rowsHTML = '';
+    var totalMatched = 0;
+
+    waybills.forEach(function(wb) {
+        var matched = matchedOrders.find(function(o) {
+            return String(o.tracking_code || '').trim().toLowerCase() === String(wb.code || '').trim().toLowerCase()
+                || String(o.order_code || '').trim().toLowerCase() === String(wb.code || '').trim().toLowerCase();
+        });
+
+        var matchStatusHTML = '';
+        var crmInfoHTML = '';
+        var rowBg = '';
+
+        if (matched) {
+            totalMatched++;
+            var remain = Number(matched.remaining) || 0;
+            var isCodMatched = Math.abs(wb.cod - remain) < 1;
+            
+            if (isCodMatched) {
+                matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp COD</span>';
+                rowBg = 'background:#f0fdf4';
+            } else {
+                matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">Lệch: Excel ' + _prFmt(wb.cod) + ' | CRM ' + _prFmt(remain) + '</span>';
+                rowBg = 'background:#fdf2f2';
+            }
+            
+            crmInfoHTML = '<div style="font-weight:800;color:var(--navy)">' + matched.order_code + '</div>'
+                + '<div style="font-size:10px;color:#64748b">' + (matched.customer_name || '—') + ' · ' + (matched.cskh_name || '—') + '</div>';
+        } else {
+            matchStatusHTML = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">? Không tìm thấy</span>';
+            crmInfoHTML = '<span style="color:#94a3b8;font-style:italic">Không có trên CRM</span>';
+        }
+
+        rowsHTML += '<tr style="border-bottom:1px solid #e2e8f0; ' + rowBg + '">'
+            + '<td style="padding:8px 12px;font-family:monospace;font-weight:700">' + wb.code + ' <div style="font-size:9px;color:#94a3b8;font-weight:normal">Dòng ' + wb.rowIndex + '</div></td>'
+            + '<td style="padding:8px 12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (wb.goods || '') + '">' + (wb.goods || '—') + '</td>'
+            + '<td style="padding:8px 12px;font-weight:800;color:#d32f2f;text-align:right">' + _prFmt(wb.cod) + '</td>'
+            + '<td style="padding:8px 12px">' + crmInfoHTML + '</td>'
+            + '<td style="padding:8px 12px;text-align:center">' + matchStatusHTML + '</td>'
+            + '</tr>';
+    });
+
+    var tableHTML = '<div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden">'
+        + '<div style="background:#f1f5f9;padding:8px 12px;font-weight:800;font-size:11px;color:#475569;display:flex;justify-content:space-between">'
+        + '<span>📋 DANH SÁCH VẬN ĐƠN (' + waybills.length + ' mã)</span>'
+        + '<span>Khớp được: <strong style="color:var(--success)">' + totalMatched + ' / ' + waybills.length + ' đơn</strong></span>'
+        + '</div>'
+        + '<div style="max-height:280px;overflow-y:auto">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'
+        + '<thead>'
+        + '<tr style="background:#f8fafc;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1">'
+        + '<th style="padding:8px 12px;text-align:left">Mã Vận Đơn</th>'
+        + '<th style="padding:8px 12px;text-align:left">Hàng Hóa (N)</th>'
+        + '<th style="padding:8px 12px;text-align:right">COD Excel (F)</th>'
+        + '<th style="padding:8px 12px;text-align:left">Đơn Hàng CRM</th>'
+        + '<th style="padding:8px 12px;text-align:center">Trạng Thái</th>'
+        + '</tr>'
+        + '</thead>'
+        + '<tbody>'
+        + rowsHTML
+        + '</tbody>'
+        + '</table>'
+        + '</div>'
+        + '</div>';
+
+    var actionBtnHTML = '';
+    if (totalMatched > 0) {
+        actionBtnHTML = '<div style="margin-top:12px;display:flex;justify-content:flex-end">'
+            + '<button onclick="_prAutoAllocateExcel()" class="btn" style="background:linear-gradient(135deg,var(--success),#059669);color:#fff;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;box-shadow:0 4px 12px rgba(16,185,129,0.3);cursor:pointer;transition:all 0.2s">'
+            + '✅ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG (' + totalMatched + ' ĐƠN KHỚP)'
+            + '</button>'
+            + '</div>';
+    }
+
+    resultBox.innerHTML = summaryHTML + tableHTML + actionBtnHTML;
+}
+
+async function _prAutoAllocateExcel() {
+    if (!_pr.matchedExcelOrders || _pr.matchedExcelOrders.length === 0) {
+        showToast('Không có đơn hàng nào khớp để phân bổ!', 'error');
+        return;
+    }
+
+    _prSelectedOrders = _pr.matchedExcelOrders.slice();
+    await _prSubmitExcelAllocation(_prActiveRecordId, _prPaymentAmount, _pr.excelTotalCod, _pr.excelTotalFee);
+}
+
+async function _prSubmitExcelAllocation(prId, recordAmount, totalCod, totalFee) {
+    var body = {
+        is_sll: true,
+        total_cod: totalCod,
+        shipping_fee: totalFee,
+        allocations: _prSelectedOrders.map(function(o) {
+            return {
+                order_code: o.order_code,
+                amount: o.allocatedAmount,
+                customer_name: o.customer_name || '',
+                customer_phone: o.customer_phone || ''
+            };
+        })
+    };
+
+    try {
+        var res = await apiCall('/api/payment-records/' + prId, 'PUT', body);
+        var msg = '✅ Đã hoàn thành đối soát & liên kết đơn hàng từ Excel!';
+        if (res.auto_completed_orders && res.auto_completed_orders.length > 0) {
+            msg += '\n🏆 Đơn đã hoàn thành: ' + res.auto_completed_orders.join(', ');
+        }
+        showToast(msg);
+        _prSelectedOrders = [];
+        closeModal();
+        await _prLoadRecords();
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || 'Không thể liên kết'), 'error');
+    }
+}
 }

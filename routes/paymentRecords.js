@@ -72,6 +72,53 @@ async function syncCashflowRecord(paymentRecordId, paymentCode, amount, date, no
 
 module.exports = async function(fastify) {
 
+    // ========== COMPARE WAYBILLS: So sánh mã vận đơn từ Excel ==========
+    fastify.post('/api/payment-records/compare-waybills', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const { waybills } = request.body || {};
+        if (!waybills || !Array.isArray(waybills) || waybills.length === 0) {
+            return reply.code(400).send({ error: 'Danh sách mã vận đơn trống hoặc không hợp lệ' });
+        }
+
+        const trackingCodes = waybills.map(w => String(w.code || '').trim()).filter(Boolean);
+        if (trackingCodes.length === 0) {
+            return { orders: [] };
+        }
+
+        const placeholders1 = trackingCodes.map((_, i) => `$${i + 1}`).join(',');
+        const placeholders2 = trackingCodes.map((_, i) => `$${i + 1 + trackingCodes.length}`).join(',');
+        
+        const query = `
+            SELECT DISTINCT ON (o.order_code)
+                o.id, o.order_code, o.customer_name, o.customer_phone,
+                o.shipping_status, o.total_amount, o.discount_amount,
+                COALESCE(oi.tracking_code, o.tracking_code) AS tracking_code,
+                u.full_name AS cskh_name,
+                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_paid,
+                COALESCE(o.total_amount, 0)
+                  - COALESCE(o.discount_amount, 0)
+                  - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                  - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                  AS remaining
+            FROM dht_orders o
+            LEFT JOIN dht_order_items oi ON oi.dht_order_id = o.id
+            LEFT JOIN users u ON o.cskh_user_id = u.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
+            WHERE o.tracking_code IN (${placeholders1}) OR oi.tracking_code IN (${placeholders2})
+        `;
+        const orders = await db.all(query, [...trackingCodes, ...trackingCodes]);
+        return { orders };
+    });
+
     // ========== TREE: Năm → Tháng → Ngày + tổng tiền ==========
     fastify.get('/api/payment-records/tree', async (request, reply) => {
         const token = request.cookies?.token;
@@ -480,11 +527,12 @@ module.exports = async function(fastify) {
             }
 
             const totalAllocated = allocations.reduce((sum, item) => sum + Number(item.amount), 0);
-            if (totalAllocated > pr.amount) {
-                return reply.code(400).send({ error: 'Tổng tiền phân bổ không được vượt quá số tiền của mã tiền' });
+            const maxAllowedAmount = pr.money_source === 'nha_van_chuyen' ? (Number(pr.amount) + Number(b.shipping_fee || pr.shipping_fee || 0)) : Number(pr.amount);
+            if (totalAllocated > maxAllowedAmount) {
+                return reply.code(400).send({ error: `Tổng tiền phân bổ (${totalAllocated.toLocaleString('vi-VN')}đ) vượt quá giới hạn tối đa cho phép (${maxAllowedAmount.toLocaleString('vi-VN')}đ)` });
             }
 
-            const moneySource = allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang';
+            const moneySource = pr.money_source === 'nha_van_chuyen' ? 'nha_van_chuyen' : (allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang');
             const parentHandover = computeHandoverStatus('tt_sll');
 
             // 1. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
@@ -496,12 +544,16 @@ module.exports = async function(fastify) {
                     transfer_note = $1,
                     money_source = $2,
                     handover_status = $3,
+                    total_cod = COALESCE($4, total_cod),
+                    shipping_fee = COALESCE($5, shipping_fee),
                     updated_at = NOW()
-                WHERE id = $4
+                WHERE id = $6
             `, [
                 (pr.transfer_note || '') + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')',
                 moneySource,
                 parentHandover,
+                b.total_cod !== undefined ? Number(b.total_cod) : null,
+                b.shipping_fee !== undefined ? Number(b.shipping_fee) : null,
                 id
             ]);
 
