@@ -130,7 +130,11 @@ module.exports = async function(fastify) {
             `SELECT * FROM payment_records WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text) ORDER BY id ASC`,
             [Number(id)]
         );
-        return { children: rows };
+        const splitRows = await db.all(
+            `SELECT payment_code, amount, payment_type FROM payment_records WHERE parent_id = $1 AND payment_type != 'child_sll' ORDER BY id ASC`,
+            [Number(id)]
+        );
+        return { children: rows, splitRecords: splitRows };
     });
 
     // ========== LIST: Lấy records theo filter ==========
@@ -365,8 +369,25 @@ module.exports = async function(fastify) {
             if (!isGD && !isTrinh) {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được sửa/hủy liên kết mã tiền SLL' });
             }
-            // Hủy liên kết SLL: Xóa toàn bộ các mã con
-            await db.run("DELETE FROM payment_records WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)", [Number(id)]);
+            // Kiểm tra xem có mã tiền thừa nào được tách ra đã được nhận đơn/cọc chưa
+            const claimedSplit = await db.get(
+                `SELECT payment_code FROM payment_records 
+                 WHERE parent_id = $1 AND payment_type != 'child_sll' AND (
+                     (payment_type = 'dat_coc') OR 
+                     (payment_type = 'tra_lai_coc') OR 
+                     (total_order_codes IS NOT NULL AND total_order_codes != '') OR 
+                     (order_tt_coc IS NOT NULL AND order_tt_coc != '')
+                 )`, [Number(id)]
+            );
+            if (claimedSplit) {
+                return reply.code(400).send({ 
+                    error: `Không thể hủy liên kết SLL vì mã tiền thừa ${claimedSplit.payment_code} đã được nhận đơn hoặc đặt cọc!` 
+                });
+            }
+
+            // Xóa toàn bộ các mã con SLL và các mã tiền thừa pending chưa sử dụng
+            await db.run("DELETE FROM payment_records WHERE parent_id = $1 OR (source_ref_id = $1::text AND payment_type = 'child_sll')", [Number(id)]);
+            
             // Khôi phục mã cha về trạng thái chưa liên kết (pending) và xóa liên kết đơn
             await db.run("UPDATE payment_records SET payment_type = 'pending', order_tt_coc = NULL, total_order_codes = NULL, updated_at = NOW() WHERE id = $1", [id]);
             existing.payment_type = 'pending';
@@ -455,8 +476,9 @@ module.exports = async function(fastify) {
                         order_tt_coc, order_ao_mau,
                         transfer_note, money_source, bank_name,
                         total_order_codes, total_cod, shipping_fee,
-                        handover_status, source, payment_date, created_by
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                        handover_status, source, payment_date, created_by,
+                        parent_id
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
                     RETURNING id, payment_code
                 `, [
                     code, pr.payment_method, seq,
@@ -465,7 +487,8 @@ module.exports = async function(fastify) {
                     null, null,
                     excessNote, 'khach_hang', pr.bank_name || null,
                     null, 0, 0,
-                    autoHandover, pr.source, pr.payment_date, user.id
+                    autoHandover, pr.source, pr.payment_date, user.id,
+                    Number(id)
                 ]);
 
                 if (pr.payment_method === 'TM') {

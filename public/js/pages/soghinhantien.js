@@ -849,6 +849,22 @@ async function _prShowDetail(id) {
         try {
             var childRes = await apiCall('/api/payment-records/parent/' + id + '/children');
             var children = childRes.children || [];
+            var splitRecords = childRes.splitRecords || [];
+            
+            var splitHTML = '';
+            if (splitRecords.length > 0) {
+                var splitItems = splitRecords.map(function(s) {
+                    return '<div style="margin-top:8px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+                        + '<div style="font-weight:700;font-size:12px;color:#b45309;display:flex;align-items:center;gap:6px">'
+                        + '<span>💸 Mã Tiền Thừa Tách ra:</span>'
+                        + '<span style="background:#fef3c7;border:1px solid #fde68a;color:#d97706;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:12.5px;font-weight:800">' + s.payment_code + '</span>'
+                        + '</div>'
+                        + '<div style="font-weight:800;font-size:13px;color:#dc2626">' + _prFmt(s.amount) + '</div>'
+                        + '</div>';
+                }).join('');
+                splitHTML = splitItems;
+            }
+
             if (children.length > 0) {
                 var rowsHTML = children.map(function(c) {
                     return '<tr style="border-bottom:1px solid #f1f5f9">'
@@ -867,7 +883,10 @@ async function _prShowDetail(id) {
                     + '</tr></thead>'
                     + '<tbody>' + rowsHTML + '</tbody>'
                     + '</table>'
-                    + '</div>';
+                    + '</div>'
+                    + splitHTML;
+            } else if (splitHTML) {
+                childrenHTML = splitHTML;
             }
         } catch(e) { console.error(e); }
     }
