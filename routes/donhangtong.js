@@ -69,6 +69,24 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
 
 module.exports = async function(fastify) {
 
+    // Auto-migrate: create dht_order_notes table
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS dht_order_notes (
+                id SERIAL PRIMARY KEY,
+                dht_order_id INTEGER NOT NULL,
+                note_text TEXT NOT NULL,
+                created_by INTEGER NOT NULL,
+                created_by_name VARCHAR(255) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_dht_order_notes_order_id ON dht_order_notes(dht_order_id)`);
+    } catch(e) {
+        console.error('Error creating dht_order_notes table:', e.message);
+    }
+
     // Auto-migrate: add ship_count if not exists
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS ship_count INTEGER DEFAULT 0`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE`); } catch(e) {}
@@ -2644,5 +2662,135 @@ module.exports = async function(fastify) {
             `, ['%' + q + '%', cat]);
         }
         return { customers: rows };
+    });
+
+    // ========== NOTE ENDPOINTS ==========
+    // Get notes for an order
+    fastify.get('/api/dht/orders/:id/notes', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const notes = await db.all(
+            `SELECT * FROM dht_order_notes 
+             WHERE dht_order_id = $1 
+             ORDER BY created_at ASC`,
+            [orderId]
+        );
+        return notes;
+    });
+
+    // Add a note to an order
+    fastify.post('/api/dht/orders/:id/notes', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const { note_text } = request.body || {};
+        if (!note_text || !note_text.trim()) {
+            return reply.code(400).send({ error: 'Nội dung ghi chú không được để trống' });
+        }
+
+        // Check permission: GĐ, QLCC or Phòng Kế Toán
+        let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
+        if (!allowed) {
+            const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
+            if (dept && dept.name) {
+                const n = dept.name.toLowerCase();
+                allowed = n.includes('kế toán') || n.includes('ke toan');
+            }
+        }
+        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được ghi chú' });
+
+        const order = await db.get('SELECT id FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const result = await db.run(
+            `INSERT INTO dht_order_notes (dht_order_id, note_text, created_by, created_by_name, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+            [orderId, note_text.trim(), request.user.id, request.user.name || request.user.username]
+        );
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    orderId,
+                    'add_note',
+                    `📝 Thêm ghi chú: "${note_text.trim()}"`,
+                    JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: null, new: note_text.trim() }]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+
+        return { success: true, id: result.lastInsertRowid };
+    });
+
+    // Update a note
+    fastify.put('/api/dht/order-notes/:noteId', { preHandler: [authenticate] }, async (request, reply) => {
+        const noteId = Number(request.params.noteId);
+        const { note_text } = request.body || {};
+        if (!note_text || !note_text.trim()) {
+            return reply.code(400).send({ error: 'Nội dung ghi chú không được để trống' });
+        }
+
+        const note = await db.get('SELECT * FROM dht_order_notes WHERE id = $1', [noteId]);
+        if (!note) return reply.code(404).send({ error: 'Không tìm thấy ghi chú' });
+
+        // Only the creator can edit
+        if (note.created_by !== request.user.id) {
+            return reply.code(403).send({ error: '🔒 Chỉ người tạo ghi chú mới được chỉnh sửa' });
+        }
+
+        await db.run(
+            `UPDATE dht_order_notes 
+             SET note_text = $1, 
+                 updated_at = NOW() 
+             WHERE id = $2`,
+            [note_text.trim(), noteId]
+        );
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    note.dht_order_id,
+                    'edit_note',
+                    `📝 Sửa ghi chú`,
+                    JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: note.note_text, new: note_text.trim() }]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+
+        return { success: true };
+    });
+
+    // Delete a note
+    fastify.delete('/api/dht/order-notes/:noteId', { preHandler: [authenticate] }, async (request, reply) => {
+        const noteId = Number(request.params.noteId);
+
+        const note = await db.get('SELECT * FROM dht_order_notes WHERE id = $1', [noteId]);
+        if (!note) return reply.code(404).send({ error: 'Không tìm thấy ghi chú' });
+
+        // Only the creator can delete
+        if (note.created_by !== request.user.id) {
+            return reply.code(403).send({ error: '🔒 Chỉ người tạo ghi chú mới được xóa' });
+        }
+
+        await db.run('DELETE FROM dht_order_notes WHERE id = $1', [noteId]);
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    note.dht_order_id,
+                    'delete_note',
+                    `📝 Xóa ghi chú`,
+                    JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: note.note_text, new: null }]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+
+        return { success: true };
     });
 };

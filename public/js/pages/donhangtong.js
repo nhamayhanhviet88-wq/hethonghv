@@ -1072,7 +1072,10 @@ async function _dhtToggleShip(id, current) {
 // ========== DETAIL MODAL ==========
 async function _dhtShowDetail(id) {
     try {
-        const data = await apiCall(`/api/dht/orders/${id}/detail`);
+        const [data, notes] = await Promise.all([
+            apiCall(`/api/dht/orders/${id}/detail`),
+            apiCall(`/api/dht/orders/${id}/notes`)
+        ]);
         if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
         const o = data.order;
         window._dhtCurrentOrder = o; // Store for sub-modals like Báo Đơn Lỗi
@@ -1082,6 +1085,33 @@ async function _dhtShowDetail(id) {
         const auditLogs = data.audit_logs || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
         const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+        const fmtDateTimeHM = d => {
+            if (!d) return '—';
+            try {
+                const dt = new Date(d);
+                const formatter = new Intl.DateTimeFormat('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: 'numeric',
+                    month: 'numeric',
+                    hour12: false
+                });
+                const parts = formatter.formatToParts(dt);
+                let hour = '', minute = '', day = '', month = '';
+                for (const part of parts) {
+                    if (part.type === 'hour') hour = part.value;
+                    if (part.type === 'minute') minute = part.value;
+                    if (part.type === 'day') day = part.value;
+                    if (part.type === 'month') month = part.value;
+                }
+                hour = String(hour).padStart(2, '0');
+                minute = String(minute).padStart(2, '0');
+                return `${hour}:${minute} ${day}/${month}`;
+            } catch (e) {
+                return '—';
+            }
+        };
         const formatExpectedShipDateWithDay = (dateVal) => {
             if (!dateVal) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
             const dt = new Date(dateVal);
@@ -1831,8 +1861,57 @@ async function _dhtShowDetail(id) {
         }
         histHTML += `</div>`;
 
+        // ── Notes Section ──
+        let notesHTML = '';
+        const deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name.toLowerCase() : '';
+        const isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
+        const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+        const isQLCC = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao';
+        const canWriteNote = isGD || isQLCC || isKeToan;
+
+        if ((notes && notes.length > 0) || canWriteNote) {
+            notesHTML = `<div style="background:#f8fafc;border-radius:12px;border:1px solid #cbd5e1;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);">`;
+            notesHTML += `<div style="font-weight:900;font-size:14px;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;">📝 Ghi chú đơn hàng <span style="background:#64748b;color:#fff;padding:1px 6px;border-radius:8px;font-size:11px;margin-left:6px;font-weight:700;">${notes.length}</span></div>`;
+            
+            if (notes.length > 0) {
+                notesHTML += `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;">`;
+                for (const nt of notes) {
+                    const isOwner = nt.created_by === (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null);
+                    const formattedTime = fmtDateTimeHM(nt.created_at);
+                    
+                    notesHTML += `
+                        <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px;position:relative;box-shadow: 0 1px 2px rgba(0,0,0,0.02);transition:all .15s;" id="note-container-${nt.id}">
+                            <div style="font-size:13px;color:#1e293b;line-height:1.5;white-space:pre-wrap;font-weight:500;" id="note-text-display-${nt.id}">${nt.note_text}</div>
+                            <div style="font-size:11px;color:#64748b;margin-top:6px;display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #f1f5f9;padding-top:6px;">
+                                <span>bởi <strong style="color:#334155;">${nt.created_by_name}</strong> lúc <span style="font-weight:600;">${formattedTime}</span></span>
+                                ${isOwner ? `
+                                    <div style="display:flex;gap:12px;">
+                                        <span onclick="_dhtEditNoteInline(${nt.id}, ${id})" style="cursor:pointer;color:#2563eb;font-weight:800;font-size:11px;display:inline-flex;align-items:center;gap:2px;" title="Sửa">✏️ Sửa</span>
+                                        <span onclick="_dhtDeleteNote(${nt.id}, ${id})" style="cursor:pointer;color:#dc2626;font-weight:800;font-size:11px;display:inline-flex;align-items:center;gap:2px;" title="Xóa">🗑️ Xóa</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                notesHTML += `</div>`;
+            } else {
+                notesHTML += `<div style="font-size:12px;color:#64748b;font-style:italic;margin-bottom:12px;text-align:center;padding:10px;background:#fff;border-radius:8px;border:1px dashed #cbd5e1;">Chưa có ghi chú nào.</div>`;
+            }
+
+            if (canWriteNote) {
+                notesHTML += `
+                    <div style="display:flex;gap:10px;margin-top:10px;align-items:stretch;">
+                        <textarea id="newNoteInput" class="form-control" rows="1" placeholder="Nhập ghi chú mới... (Nhấn Enter để gửi)" style="flex:1;font-size:13px;padding:8px 12px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); _dhtSubmitNote(${id}); }"></textarea>
+                        <button onclick="_dhtSubmitNote(${id})" class="btn" style="padding:0 20px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;font-weight:800;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(3,105,161,0.2);transition:all .15s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">Gửi</button>
+                    </div>
+                `;
+            }
+            notesHTML += `</div>`;
+        }
+
         // ── Combine all sections ──
-        const bodyHTML = actionsHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
+        const bodyHTML = actionsHTML + notesHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
 
         const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
@@ -3211,5 +3290,102 @@ async function _dhtSubmitVat(orderId) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = 'Xác Nhận';
         }
+    }
+}
+
+// ========== ORDER NOTES HELPERS ==========
+async function _dhtSubmitNote(orderId) {
+    const textarea = document.getElementById('newNoteInput');
+    if (!textarea) return;
+    const noteText = textarea.value.trim();
+    if (!noteText) {
+        showToast('Vui lòng nhập nội dung ghi chú', 'error');
+        return;
+    }
+    
+    try {
+        const res = await apiCall(`/api/dht/orders/${orderId}/notes`, 'POST', { note_text: noteText });
+        if (res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        showToast('Đã thêm ghi chú', 'success');
+        _dhtShowDetail(orderId);
+    } catch(e) {
+        console.error(e);
+        showToast('Có lỗi xảy ra', 'error');
+    }
+}
+
+function _dhtEditNoteInline(noteId, orderId) {
+    const textDisplay = document.getElementById(`note-text-display-${noteId}`);
+    if (!textDisplay) return;
+    const originalText = textDisplay.textContent.trim();
+    
+    const container = document.getElementById(`note-container-${noteId}`);
+    if (!container) return;
+    
+    container.setAttribute('data-original-html', container.innerHTML);
+    
+    container.innerHTML = `
+        <textarea id="editNoteInput-${noteId}" class="form-control" rows="2" style="width:100%;font-size:13px;padding:8px 10px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;margin-bottom:6px;">${originalText}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="_dhtCancelNoteInline(${noteId})" class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 10px;font-weight:700;">Hủy</button>
+            <button onclick="_dhtSaveNoteInline(${noteId}, ${orderId})" class="btn btn-sm" style="background:#059669;color:white;font-size:11px;padding:3px 10px;border:none;border-radius:4px;font-weight:800;cursor:pointer;">Lưu</button>
+        </div>
+    `;
+    
+    const textarea = document.getElementById(`editNoteInput-${noteId}`);
+    if (textarea) {
+        textarea.focus();
+        textarea.select();
+    }
+}
+
+function _dhtCancelNoteInline(noteId) {
+    const container = document.getElementById(`note-container-${noteId}`);
+    if (!container) return;
+    const originalHtml = container.getAttribute('data-original-html');
+    if (originalHtml) {
+        container.innerHTML = originalHtml;
+    }
+}
+
+async function _dhtSaveNoteInline(noteId, orderId) {
+    const textarea = document.getElementById(`editNoteInput-${noteId}`);
+    if (!textarea) return;
+    const noteText = textarea.value.trim();
+    if (!noteText) {
+        showToast('Nội dung ghi chú không được để trống', 'error');
+        return;
+    }
+    
+    try {
+        const res = await apiCall(`/api/dht/order-notes/${noteId}`, 'PUT', { note_text: noteText });
+        if (res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        showToast('Đã cập nhật ghi chú', 'success');
+        _dhtShowDetail(orderId);
+    } catch(e) {
+        console.error(e);
+        showToast('Có lỗi xảy ra', 'error');
+    }
+}
+
+async function _dhtDeleteNote(noteId, orderId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa ghi chú này không?')) return;
+    try {
+        const res = await apiCall(`/api/dht/order-notes/${noteId}`, 'DELETE');
+        if (res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        showToast('Đã xóa ghi chú', 'success');
+        _dhtShowDetail(orderId);
+    } catch(e) {
+        console.error(e);
+        showToast('Có lỗi xảy ra', 'error');
     }
 }
