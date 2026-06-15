@@ -1319,7 +1319,6 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 5: Tổng kết tài chính ──
-        const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
         const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
         const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
