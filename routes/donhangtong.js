@@ -1714,6 +1714,24 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const b = request.body || {};
 
+        if (b.tracking_code) {
+            const trackingCode = String(b.tracking_code).trim();
+            if (trackingCode) {
+                const dup = await db.get(`
+                    SELECT order_code FROM (
+                        SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
+                        UNION
+                        SELECT o.order_code FROM dht_order_shipments s
+                        JOIN dht_orders o ON s.dht_order_id = o.id
+                        WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                    ) LIMIT 1
+                `, [trackingCode, orderId]);
+                if (dup) {
+                    return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                }
+            }
+        }
+
         // ★ Edit restriction and negative remaining amount check
         const currentObj = await db.get(`
             SELECT o.id, o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,

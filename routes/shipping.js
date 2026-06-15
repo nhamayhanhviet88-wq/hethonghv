@@ -492,6 +492,24 @@ module.exports = async function(fastify) {
 
         const b = request.body || {};
 
+        if (b.tracking_code) {
+            const trackingCode = String(b.tracking_code).trim();
+            if (trackingCode) {
+                const dup = await db.get(`
+                    SELECT order_code FROM (
+                        SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
+                        UNION
+                        SELECT o.order_code FROM dht_order_shipments s
+                        JOIN dht_orders o ON s.dht_order_id = o.id
+                        WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                    ) LIMIT 1
+                `, [trackingCode, orderId]);
+                if (dup) {
+                    return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                }
+            }
+        }
+
         // Validate carrier
         if (!b.actual_carrier_id) return reply.code(400).send({ error: 'Vui lòng chọn Nhà Vận Chuyển' });
 
@@ -1071,6 +1089,24 @@ module.exports = async function(fastify) {
 
         const orderId = Number(request.params.id);
         const b = request.body || {};
+
+        if (b.tracking_code) {
+            const trackingCode = String(b.tracking_code).trim();
+            if (trackingCode) {
+                const dup = await db.get(`
+                    SELECT order_code FROM (
+                        SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
+                        UNION
+                        SELECT o.order_code FROM dht_order_shipments s
+                        JOIN dht_orders o ON s.dht_order_id = o.id
+                        WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                    ) LIMIT 1
+                `, [trackingCode, orderId]);
+                if (dup) {
+                    return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                }
+            }
+        }
         const allowed = ['actual_carrier_id', 'tracking_code', 'carrier_phone', 'shipping_bill_link'];
         const sets = [];
         const params = [];
