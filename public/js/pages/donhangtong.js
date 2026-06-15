@@ -1963,6 +1963,19 @@ function _dhtEditOrder(id) {
 }
 
 async function _dhtSubmitEdit(id) {
+    const o = _dht.orders.find(x => x.id === id);
+    if (o) {
+        const total = Number(document.getElementById('dhtEdTotal')?.value) || 0;
+        const discount = Number(document.getElementById('dhtEdDiscount')?.value) || 0;
+        const deposit = Number(o.deposit_amount) || 0;
+        const sfee = Number(o.shipping_fee) || 0;
+        const sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? sfee : 0;
+        const remain = total - discount - deposit - sck;
+        if (remain < 0) {
+            showToast(`⛔ Số tiền Còn Lại không được phép âm! (Còn lại: ${remain.toLocaleString('vi-VN')}đ)`, 'error');
+            return;
+        }
+    }
     const data = await apiCall(`/api/dht/orders/${id}`, 'PUT', {
         order_date: document.getElementById('dhtEdDate')?.value || undefined,
         category_id: document.getElementById('dhtEdCat')?.value || null,
@@ -2501,6 +2514,19 @@ async function _dhtConfirmDiscount(orderId) {
         inp.style.borderColor = '#dc2626';
         showToast('⛔ Bạn chỉ được giảm tối đa ' + maxLimit.toLocaleString('vi-VN') + 'đ', 'error');
         return;
+    }
+    // Check if remaining amount becomes negative with this discount
+    var o = (_dht.orders || []).find(function(x) { return x.id === orderId; });
+    if (o) {
+        var total = Number(o.total_amount) || 0;
+        var deposit = Number(o.deposit_amount) || 0;
+        var sfee = Number(o.shipping_fee) || 0;
+        var sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? sfee : 0;
+        var remain = total - amount - deposit - sck;
+        if (remain < 0) {
+            showToast('⛔ Số tiền Còn Lại không được phép âm! (Còn lại: ' + remain.toLocaleString('vi-VN') + 'đ)', 'error');
+            return;
+        }
     }
     var reason = (reasonEl ? reasonEl.value.trim() : '');
     if (amount > 0 && !reason) {

@@ -2516,6 +2516,20 @@ async function _dhtSubmitEditV2() {
     items.forEach(function(p) { if(!p)return; totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var surTotal = 0;
     (_dhtCreate.surcharges||[]).forEach(function(s) { surTotal += Number(s.amount) || 0; });
+
+    // Validate that remaining amount is not negative
+    var discountAmt = Number(_dhtCreate.editData?.order?.discount_amount) || 0;
+    var depAmt = Number(_dhtCreate.depositAmount) || 0;
+    var shipFee = Number(_dhtCreate.editData?.order?.shipping_fee) || 0;
+    var shipPayer = _dhtCreate.editData?.order?.shipping_fee_payer || '';
+    var shipMethod = _dhtCreate.editData?.order?.shipping_fee_method || '';
+    var shipCK = (shipPayer === 'hv' && shipMethod === 'ck') ? shipFee : 0;
+    var remain = (totalAmt + totalVatAmt + surTotal) - discountAmt - depAmt - shipCK;
+    if (remain < 0) {
+        showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn mới (' + (totalAmt + totalVatAmt + surTotal).toLocaleString('vi-VN') + 'đ) nhỏ hơn cọc (' + depAmt.toLocaleString('vi-VN') + 'đ) và chiết khấu/phí ship (' + (discountAmt + shipCK).toLocaleString('vi-VN') + 'đ)', 'error');
+        return;
+    }
+
     var hasVat = totalVatAmt > 0;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
     // Handle proof image for CHUẨN

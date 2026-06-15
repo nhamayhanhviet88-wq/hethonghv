@@ -779,6 +779,18 @@ module.exports = async function(fastify) {
 
     fastify.post('/api/dht/orders', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body || {};
+
+        // Validate that remaining amount is not negative
+        const totalAmt = Number(b.total_amount) || 0;
+        const discountAmt = Number(b.discount_amount) || 0;
+        const depositAmt = Number(b.deposit_amount) || 0;
+        const shipFee = Number(b.shipping_fee) || 0;
+        const shipCK = (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck') ? shipFee : 0;
+        const remaining = totalAmt - discountAmt - depositAmt - shipCK;
+        if (remaining < 0) {
+            return reply.code(400).send({ error: `Số tiền Còn Lại không được phép âm! (Còn lại: ${remaining.toLocaleString('vi-VN')}đ)` });
+        }
+
         const catId = b.category_id ? Number(b.category_id) : null;
         const isFreeOrder = !!FREE_CAT_MAP[catId];
         const isRepairOrder = b.is_repair === true;
@@ -1684,34 +1696,49 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const b = request.body || {};
 
-        // ★ Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details
-        if (request.user.role !== 'giam_doc') {
-            const currentObj = await db.get(`
-                SELECT o.id, o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,
-                       COALESCE(o.total_amount, 0) AS total_amount,
-                       COALESCE(o.discount_amount, 0) AS discount_amount,
-                       GREATEST(
-                           COALESCE(pr_dep.deposit_total, 0),
-                           COALESCE(o.deposit_amount_cache, 0)
-                       ) AS deposit_amount
-                FROM dht_orders o
-                LEFT JOIN LATERAL (
-                    SELECT COALESCE(SUM(amount), 0) AS deposit_total
-                    FROM payment_records
-                    WHERE total_order_codes ILIKE '%' || o.order_code || '%'
-                       OR order_tt_coc = o.order_code
-                ) pr_dep ON true
-                WHERE o.id = $1
-            `, [orderId]);
-            if (currentObj) {
-                const dep = Number(currentObj.deposit_amount) || 0;
-                const tot = Number(currentObj.total_amount) || 0;
-                const disc = Number(currentObj.discount_amount) || 0;
-                const shipCK = (currentObj.shipping_fee_payer === 'hv' && currentObj.shipping_fee_method === 'ck') ? (Number(currentObj.shipping_fee) || 0) : 0;
-                const rem = tot - disc - dep - shipCK;
-                if (rem <= 0) {
-                    return reply.code(403).send({ error: '🔒 Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' });
-                }
+        // ★ Edit restriction and negative remaining amount check
+        const currentObj = await db.get(`
+            SELECT o.id, o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,
+                   COALESCE(o.total_amount, 0) AS total_amount,
+                   COALESCE(o.discount_amount, 0) AS discount_amount,
+                   GREATEST(
+                       COALESCE(pr_dep.deposit_total, 0),
+                       COALESCE(o.deposit_amount_cache, 0)
+                   ) AS deposit_amount
+            FROM dht_orders o
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
+            WHERE o.id = $1
+        `, [orderId]);
+
+        if (currentObj) {
+            const dep = Number(currentObj.deposit_amount) || 0;
+            const tot = Number(currentObj.total_amount) || 0;
+            const disc = Number(currentObj.discount_amount) || 0;
+            const shipCK = (currentObj.shipping_fee_payer === 'hv' && currentObj.shipping_fee_method === 'ck') ? (Number(currentObj.shipping_fee) || 0) : 0;
+            const rem = tot - disc - dep - shipCK;
+
+            // Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details
+            if (request.user.role !== 'giam_doc' && rem <= 0) {
+                return reply.code(403).send({ error: '🔒 Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' });
+            }
+
+            // Negative remaining check:
+            const newTotal = b.total_amount !== undefined ? (Number(b.total_amount) || 0) : tot;
+            const newDiscount = b.discount_amount !== undefined ? (Number(b.discount_amount) || 0) : disc;
+            const newDeposit = b.deposit_amount_cache !== undefined ? (Number(b.deposit_amount_cache) || 0) : dep;
+            const newShipFee = b.shipping_fee !== undefined ? (Number(b.shipping_fee) || 0) : (Number(currentObj.shipping_fee) || 0);
+            const newShipPayer = b.shipping_fee_payer !== undefined ? b.shipping_fee_payer : currentObj.shipping_fee_payer;
+            const newShipMethod = b.shipping_fee_method !== undefined ? b.shipping_fee_method : currentObj.shipping_fee_method;
+
+            const newShipCK = (newShipPayer === 'hv' && newShipMethod === 'ck') ? newShipFee : 0;
+            const newRemain = newTotal - newDiscount - newDeposit - newShipCK;
+            if (newRemain < 0) {
+                return reply.code(400).send({ error: `⛔ Số tiền Còn Lại không được phép âm! (Mới tính: ${newRemain.toLocaleString('vi-VN')}đ)` });
             }
         }
 
