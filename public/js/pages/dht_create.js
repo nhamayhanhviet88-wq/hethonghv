@@ -143,7 +143,18 @@ async function _dhtShowCreateFree() {
         // Vận chuyển
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
         +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
-        +'<div class="form-group"><label>Tiêu Chuẩn Gửi</label><select id="_co_pri" class="form-control"><option selected>GẤP</option><option>GỬI</option></select></div></div>'
+        +'<div class="form-group"><label>Tiêu Chuẩn Gửi <span style="color:red">*</span></label><select id="_co_pri" class="form-control" onchange="_dhtOnPriorityChange()"><option>CHUẨN</option><option>GỬI</option><option selected>GẤP</option></select></div></div>'
+        // === Paste zone for CHUẨN proof (hidden by default since GẤP is default) ===
+        +'<div id="_co_proofWrap" style="margin-top:8px;display:none">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label style="font-weight:700;font-size:12px;color:#1e293b">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:red">*</span></label>'
+        +'<div style="display:flex;gap:6px;align-items:center"><select id="_co_deliveryHour" class="form-control" style="font-size:12px;flex:1"><option value="">Giờ</option>'+_dhtHourOpts()+'</select><span style="font-weight:800">:</span><select id="_co_deliveryMin" class="form-control" style="font-size:12px;flex:1"><option value="">Phút</option>'+_dhtMinOpts()+'</select></div></div>'
+        +'<div></div></div>'
+        +'<label style="font-weight:700;font-size:12px;color:#1e293b">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN <span style="color:red">*</span></label>'
+        +'<div id="_co_proofZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-top:4px;background:#f8fafc;transition:all .2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column" onpaste="_dhtPasteProof(event)" onclick="this.focus()" onfocus="this.style.borderColor=\'#b8860b\';this.style.background=\'#fffbeb\'" onblur="this.style.borderColor=\'#cbd5e1\';this.style.background=\'#f8fafc\'">'
+        +'<div id="_co_proofPlaceholder" style="color:#94a3b8;font-size:12px"><span style="font-size:24px">📋</span><br>Click vào đây rồi <b>Ctrl+V</b> dán hình ảnh</div>'
+        +'<img id="_co_proofImg" style="display:none;max-width:100%;max-height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">'
+        +'</div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
         +'<div class="form-group"><label>Nhà Vận Chuyển <span style="color:red">*</span></label><select id="_co_carrier" class="form-control" onchange="_dhtOnCarrierChange()"><option value="">-- Chọn --</option>'+carOpts+'</select></div>'
         +'<div class="form-group"><label>Gửi Zalo OA</label><select id="_co_zalo" class="form-control"><option value="1">✅ Gửi Zalo OA</option><option value="0">Không gửi</option></select></div></div>'
@@ -1765,7 +1776,7 @@ async function _dhtSubmitCreateV2() {
     var carrierExtra = _dhtGetCarrierExtra();
     if (carrierExtra === false) return;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
-    if (!isFree && pri === 'CHUẨN') {
+    if (pri === 'CHUẨN') {
         var dH = document.getElementById('_co_deliveryHour')?.value;
         var dM = document.getElementById('_co_deliveryMin')?.value;
         if (!dH || dH === '') { showToast('⏰ Chọn Giờ Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
@@ -1834,9 +1845,9 @@ async function _dhtSubmitCreateV2() {
         carrier_id: carrier,
         carrier_extra: carrierExtra,
         expected_ship_date: shipDate,
-        shipping_priority: isFree ? (pri || 'GẤP') : pri,
-        standard_delivery_time: (!isFree && pri === 'CHUẨN') ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
-        standard_proof_image: (!isFree && pri === 'CHUẨN') ? _dhtProofBase64 : null,
+        shipping_priority: pri,
+        standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
+        standard_proof_image: pri === 'CHUẨN' ? _dhtProofBase64 : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         sale_note_for_accountant: saleNote || null,
         free_customer_id: _dhtSelectedCustId || null,
@@ -2532,10 +2543,19 @@ async function _dhtSubmitEditV2() {
 
     var hasVat = totalVatAmt > 0;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
-    // Handle proof image for CHUẨN
+    // Handle proof image for CHUẨN and validate time + image
     var proofImg = undefined;
     if (pri === 'CHUẨN') {
+        var dH = document.getElementById('_co_deliveryHour')?.value;
+        var dM = document.getElementById('_co_deliveryMin')?.value;
+        if (!dH || dH === '') { showToast('⏰ Chọn Giờ Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
+        if (dM === undefined || dM === null || dM === '') { showToast('⏰ Chọn Phút Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
         proofImg = _dhtProofBase64 || _dhtCreate.editData?.order?.standard_proof_image || null;
+        if (!proofImg) {
+            showToast('📸 Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN (Ctrl+V)', 'error');
+            document.getElementById('_co_proofZone')?.focus();
+            return;
+        }
     }
     var desVal = document.getElementById('_co_designer')?.value;
     var desType = desVal === 'old_design' ? 'old_design' : 'staff';

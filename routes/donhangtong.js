@@ -881,9 +881,9 @@ module.exports = async function(fastify) {
             orderCode = b.order_code.trim();
         }
 
-        // Validate proof image for CHUẨN priority (skip for free/repair orders)
+        // Validate proof image for CHUẨN priority (skip for repair orders)
         let proofPath = null;
-        if (!isFreeOrder && !isRepairOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
+        if (!isRepairOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
             if (!b.standard_proof_image) {
                 return reply.code(400).send({ error: 'Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN' });
             }
