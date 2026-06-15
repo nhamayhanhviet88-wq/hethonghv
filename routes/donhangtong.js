@@ -1629,10 +1629,16 @@ module.exports = async function(fastify) {
                        COALESCE(o.total_amount, 0) AS total_amount,
                        COALESCE(o.discount_amount, 0) AS discount_amount,
                        GREATEST(
-                           COALESCE((SELECT SUM(amount) FROM dht_payments WHERE dht_order_id = o.id AND payment_type IN ('dat_coc','thanh_toan','tt_sll')), 0),
+                           COALESCE(pr_dep.deposit_total, 0),
                            COALESCE(o.deposit_amount_cache, 0)
                        ) AS deposit_amount
                 FROM dht_orders o
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                    FROM payment_records
+                    WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                       OR order_tt_coc = o.order_code
+                ) pr_dep ON true
                 WHERE o.id = $1
             `, [orderId]);
             if (currentObj) {
