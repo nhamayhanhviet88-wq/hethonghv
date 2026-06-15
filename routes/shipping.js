@@ -546,20 +546,30 @@ module.exports = async function(fastify) {
                             error: '⚠️ Bắt buộc phải chọn mã giao dịch thanh toán trong mục "Thanh Toán Đơn Hàng" khi chọn HV trả bằng CK.'
                         });
                     }
-                    const payment = await db.get('SELECT amount, order_tt_coc, total_order_codes FROM payment_records WHERE id = $1', [Number(b.selected_payment_id)]);
+                    const payment = await db.get(`
+                        SELECT pr.id, pr.payment_code, 
+                               (pr.amount - COALESCE(pr_child.child_sum, 0)) AS remaining_balance
+                        FROM payment_records pr
+                        LEFT JOIN LATERAL (
+                            SELECT COALESCE(SUM(amount), 0) AS child_sum
+                            FROM payment_records
+                            WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
+                        ) pr_child ON true
+                        WHERE pr.id = $1
+                    `, [Number(b.selected_payment_id)]);
                     if (!payment) {
                         return reply.code(400).send({
                             error: '⚠️ Không tìm thấy giao dịch thanh toán đã chọn.'
                         });
                     }
-                    if (payment.order_tt_coc || payment.total_order_codes) {
+                    if (Number(payment.remaining_balance) <= 0) {
                         return reply.code(400).send({
-                            error: '⚠️ Giao dịch này đã được liên kết với đơn hàng khác rồi. Vui lòng chọn giao dịch khác.'
+                            error: '⚠️ Giao dịch này đã được sử dụng hết số dư. Vui lòng chọn giao dịch khác.'
                         });
                     }
-                    if (Number(payment.amount) < target) {
+                    if (Number(payment.remaining_balance) < target) {
                         return reply.code(400).send({
-                            error: `⚠️ Số tiền giao dịch được chọn (${Number(payment.amount).toLocaleString('vi-VN')}đ) nhỏ hơn số tiền tối thiểu cần thanh toán (${target.toLocaleString('vi-VN')}đ).`
+                            error: `⚠️ Số tiền giao dịch được chọn (${Number(payment.remaining_balance).toLocaleString('vi-VN')}đ) nhỏ hơn số tiền tối thiểu cần thanh toán (${target.toLocaleString('vi-VN')}đ).`
                         });
                     }
                 }
@@ -780,21 +790,85 @@ module.exports = async function(fastify) {
         if (b.selected_payment_id) {
             const prId = Number(b.selected_payment_id);
             try {
-                // Atomic: only link if not already linked (prevents race condition)
-                const linked = await db.get(
-                    `UPDATE payment_records SET order_tt_coc = $1, payment_type = 'thanh_toan', handover_status = 'chua_bangiao', updated_at = NOW()
-                     WHERE id = $2 AND (order_tt_coc IS NULL OR order_tt_coc = '')
-                     RETURNING id, payment_code, amount`,
-                    [order.order_code, prId]
-                );
-                if (linked) {
-                    paymentLinkResult = linked;
-                } else {
-                    console.warn(`[Ship Payment] PR #${prId} already linked, skipping`);
+                const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [prId]);
+                if (pr) {
+                    const childSumRow = await db.get(`
+                        SELECT COALESCE(SUM(amount), 0) AS child_sum
+                        FROM payment_records
+                        WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                    `, [prId]);
+                    
+                    const depRow = await db.get(
+                        `SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                         FROM payment_records
+                         WHERE total_order_codes ILIKE '%' || $1 || '%'
+                            OR order_tt_coc = $1`,
+                        [order.order_code]
+                    );
+                    const depositTotal = Number(depRow?.deposit_total) || 0;
+                    const remainingDebt = (Number(order.total_amount) || 0)
+                        - (Number(order.discount_amount) || 0)
+                        - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0);
+
+                    const target = remainingDebt - shipFee;
+                    const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
+                    const allocAmount = Math.min(remainingBalance, target > 0 ? target : remainingDebt);
+
+                    if (allocAmount > 0) {
+                        const childCountRow = await db.get(`
+                            SELECT COUNT(*) AS cnt FROM payment_records
+                            WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                        `, [prId]);
+                        const childIdx = Number(childCountRow.cnt) + 1;
+                        const splitCode = `${pr.payment_code}-S${childIdx}`;
+
+                        // Insert child record
+                        await db.run(`
+                            INSERT INTO payment_records (
+                                payment_code, payment_method, daily_seq,
+                                customer_name, customer_phone, cskh_user_id,
+                                amount, payment_type,
+                                order_tt_coc, order_ao_mau,
+                                transfer_note, money_source, bank_name,
+                                total_order_codes, total_cod, shipping_fee,
+                                handover_status, handover_at, handover_by,
+                                source, source_ref_id, payment_date, created_by,
+                                parent_id
+                            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                        `, [
+                            splitCode, pr.payment_method, pr.daily_seq,
+                            pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                            allocAmount, 'child_sll',
+                            order.order_code, null,
+                            (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
+                            'khach_hang', pr.bank_name || null,
+                            null, 0, 0,
+                            'chua_bangiao',
+                            pr.handover_at || null,
+                            pr.handover_by || null,
+                            pr.source, null, pr.payment_date, userId,
+                            prId
+                        ]);
+
+                        // Update parent
+                        const totalAllocationsCount = childIdx;
+                        const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+
+                        await db.run(`
+                            UPDATE payment_records SET
+                                payment_type = 'parent_sll',
+                                order_tt_coc = NULL,
+                                total_order_codes = NULL,
+                                money_source = $1,
+                                updated_at = NOW()
+                            WHERE id = $2
+                        `, [moneySource, prId]);
+
+                        paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                    }
                 }
             } catch (prErr) {
                 console.error('[Ship Payment] Link error:', prErr.message);
-                // Don't fail shipment — payment linking is best-effort
             }
         }
 
@@ -990,17 +1064,22 @@ module.exports = async function(fastify) {
         if (isNaN(target) || target <= 0) return { payments: [], target_amount: 0 };
 
         const payments = await db.all(`
-            SELECT pr.id, pr.payment_code, pr.amount, pr.payment_date,
+            SELECT pr.id, pr.payment_code, 
+                   (pr.amount - COALESCE(pr_child.child_sum, 0)) AS amount,
+                   pr.payment_date,
                    pr.payment_method, pr.bank_name, pr.transfer_note,
                    pr.customer_name, pr.customer_phone,
-                   ABS(pr.amount - $1) AS diff
+                   ABS((pr.amount - COALESCE(pr_child.child_sum, 0)) - $1) AS diff
             FROM payment_records pr
-            WHERE (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
-              AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
-              AND pr.payment_type IN ('pending', 'thanh_toan', 'dat_coc')
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS child_sum
+                FROM payment_records
+                WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
+            ) pr_child ON true
+            WHERE COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'child_sll')
               AND COALESCE(pr.source, '') != 'cashflow_chi'
-              AND pr.amount > 0
-            ORDER BY ABS(pr.amount - $1) ASC
+              AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
+            ORDER BY ABS((pr.amount - COALESCE(pr_child.child_sum, 0)) - $1) ASC
             LIMIT 15
         `, [target]);
 

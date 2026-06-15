@@ -946,10 +946,63 @@ module.exports = async function(fastify) {
 
         // Link deposit permanently
         if (b.deposit_payment_id) {
-            await db.run(
-                'UPDATE payment_records SET order_tt_coc = $1, locked_by = NULL, locked_at = NULL WHERE id = $2',
-                [orderCode, Number(b.deposit_payment_id)]
-            );
+            const depositPrId = Number(b.deposit_payment_id);
+            const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [depositPrId]);
+            if (pr) {
+                const depositAllocatedAmount = Number(b.deposit_amount_cache) || pr.amount;
+                
+                // Count current children
+                const childCountRow = await db.get(`
+                    SELECT COUNT(*) AS cnt FROM payment_records
+                    WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                `, [depositPrId]);
+                const childIdx = Number(childCountRow.cnt) + 1;
+                const splitCode = `${pr.payment_code}-S${childIdx}`;
+                
+                // We insert the child record
+                await db.run(`
+                    INSERT INTO payment_records (
+                        payment_code, payment_method, daily_seq,
+                        customer_name, customer_phone, cskh_user_id,
+                        amount, payment_type,
+                        order_tt_coc, order_ao_mau,
+                        transfer_note, money_source, bank_name,
+                        total_order_codes, total_cod, shipping_fee,
+                        handover_status, handover_at, handover_by,
+                        source, source_ref_id, payment_date, created_by,
+                        parent_id
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                `, [
+                    splitCode, pr.payment_method, pr.daily_seq,
+                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                    depositAllocatedAmount, 'child_sll',
+                    orderCode, null,
+                    (pr.transfer_note || '') + ' (Đặt cọc đơn ' + orderCode + ')',
+                    'khach_hang', pr.bank_name || null,
+                    null, 0, 0,
+                    'chua_bangiao',
+                    pr.handover_at || null,
+                    pr.handover_by || null,
+                    pr.source, null, pr.payment_date, request.user.id,
+                    depositPrId
+                ]);
+
+                // Update parent
+                const totalAllocationsCount = childIdx;
+                const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+                
+                await db.run(`
+                    UPDATE payment_records SET
+                        payment_type = 'parent_sll',
+                        order_tt_coc = NULL,
+                        total_order_codes = NULL,
+                        money_source = $1,
+                        locked_by = NULL,
+                        locked_at = NULL,
+                        updated_at = NOW()
+                    WHERE id = $2
+                `, [moneySource, depositPrId]);
+            }
         }
 
         // Insert order items (rich phiếu)
@@ -2617,16 +2670,21 @@ module.exports = async function(fastify) {
     // ========== PET/TEM: Available Deposits (from Sổ Ghi Nhận Tiền) ==========
     fastify.get('/api/dht/available-deposits', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
-            SELECT pr.id, pr.payment_code, pr.amount, pr.customer_name, pr.customer_phone,
+            SELECT pr.id, pr.payment_code, 
+                   (pr.amount - COALESCE(pr_child.child_sum, 0)) AS amount,
+                   pr.customer_name, pr.customer_phone,
                    pr.payment_date, pr.bank_name, pr.transfer_note as description, pr.payment_method
             FROM payment_records pr
-            WHERE (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
-              AND COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'thanh_toan', 'tt_sll')
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS child_sum
+                FROM payment_records
+                WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
+            ) pr_child ON true
+            WHERE COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'child_sll')
+              AND COALESCE(pr.source, '') != 'cashflow_chi'
+              AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
               AND (pr.locked_by IS NULL OR pr.locked_by = $1
                    OR pr.locked_at < NOW() - INTERVAL '10 minutes')
-              AND NOT EXISTS (
-                  SELECT 1 FROM dht_orders d WHERE d.deposit_payment_id = pr.id
-              )
             ORDER BY pr.payment_date DESC, pr.id DESC
             LIMIT 100
         `, [request.user.id]);

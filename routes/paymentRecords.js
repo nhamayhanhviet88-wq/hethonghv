@@ -430,8 +430,8 @@ module.exports = async function(fastify) {
             }
 
             const allocations = b.allocations || [];
-            if (allocations.length < 2) {
-                return reply.code(400).send({ error: 'Yêu cầu phải chọn từ 2 đơn hàng trở lên mới cho xác nhận.' });
+            if (allocations.length < 1) {
+                return reply.code(400).send({ error: 'Yêu cầu phải chọn ít nhất 1 đơn hàng để liên kết.' });
             }
 
             const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [id]);
@@ -444,83 +444,29 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Tổng tiền phân bổ không được vượt quá số tiền của mã tiền' });
             }
 
-            // 1. Split excess (created as pending with source = 'khach_hang')
-            if (totalAllocated < pr.amount) {
-                const excessAmount = pr.amount - totalAllocated;
-                
-                const seqRow = await db.get(
-                    `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq
-                     FROM payment_records
-                     WHERE payment_method = $1 AND payment_date = $2`,
-                    [pr.payment_method, pr.payment_date]
-                );
-                let seq = Number(seqRow.max_seq) + 1;
-                if (pr.payment_method === 'TM') {
-                    const cfRow = await db.get(
-                        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1`,
-                        [pr.payment_date]
-                    );
-                    seq = Math.max(seq, Number(cfRow.max_seq) + 1);
-                }
-
-                const d = new Date(pr.payment_date);
-                const dd = d.getDate();
-                const mm = d.getMonth() + 1;
-                const yy = d.getFullYear().toString().slice(-2);
-                const code = `${pr.payment_method}${seq}-${dd}-${mm}-Y${yy}`;
-
-                const autoHandover = computeHandoverStatus('pending');
-                const formattedAmount = Number(pr.amount).toLocaleString('vi-VN') + 'đ';
-                const excessNote = (pr.transfer_note || '') + ' (Tách từ ' + pr.payment_code + ' : ' + formattedAmount + ')';
-
-                const newRecord = await db.get(`
-                    INSERT INTO payment_records (
-                        payment_code, payment_method, daily_seq,
-                        customer_name, customer_phone, cskh_user_id,
-                        amount, payment_type,
-                        order_tt_coc, order_ao_mau,
-                        transfer_note, money_source, bank_name,
-                        total_order_codes, total_cod, shipping_fee,
-                        handover_status, source, payment_date, created_by,
-                        parent_id
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-                    RETURNING id, payment_code
-                `, [
-                    code, pr.payment_method, seq,
-                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
-                    excessAmount, 'pending',
-                    null, null,
-                    excessNote, 'khach_hang', pr.bank_name || null,
-                    null, 0, 0,
-                    autoHandover, pr.source, pr.payment_date, user.id,
-                    Number(id)
-                ]);
-
-                if (pr.payment_method === 'TM') {
-                    await syncCashflowRecord(newRecord.id, code, excessAmount, pr.payment_date, excessNote, 'TM', user.id);
-                }
-            }
-
-            // 2. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
+            const moneySource = allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang';
             const parentHandover = computeHandoverStatus('tt_sll');
+
+            // 1. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
             await db.run(`
                 UPDATE payment_records SET
                     payment_type = 'parent_sll',
                     order_tt_coc = NULL,
                     total_order_codes = NULL,
                     transfer_note = $1,
-                    money_source = 'khach_hang_sll',
-                    handover_status = $2,
+                    money_source = $2,
+                    handover_status = $3,
                     updated_at = NOW()
-                WHERE id = $3
+                WHERE id = $4
             `, [
-                (pr.transfer_note || '') + ' (Gốc: Liên kết SLL các đơn: ' + allocations.map(a => a.order_code).join(', ') + ')',
+                (pr.transfer_note || '') + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')',
+                moneySource,
                 parentHandover,
                 id
             ]);
 
             if (pr.payment_method === 'TM') {
-                await syncCashflowRecord(id, pr.payment_code, pr.amount, pr.payment_date, (pr.transfer_note || '') + ' (SLL: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
+                await syncCashflowRecord(id, pr.payment_code, pr.amount, pr.payment_date, (pr.transfer_note || '') + ' (Liên kết: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
             }
 
             const autoCompletedOrders = [];
@@ -617,7 +563,7 @@ module.exports = async function(fastify) {
                 }
             };
 
-            // 3. Create child records for ALL allocations (from 0 to allocations.length - 1)
+            // 2. Create child records for ALL allocations (from 0 to allocations.length - 1)
             for (let i = 0; i < allocations.length; i++) {
                 const alloc = allocations[i];
                 const splitCode = `${pr.payment_code}-S${i + 1}`;
@@ -640,7 +586,7 @@ module.exports = async function(fastify) {
                     alloc.amount, 'child_sll',
                     alloc.order_code, null,
                     (pr.transfer_note || '') + ' (Phân bổ từ ' + pr.payment_code + ')',
-                    'khach_hang_sll', pr.bank_name || null,
+                    moneySource, pr.bank_name || null,
                     null, 0, 0,
                     parentHandover,
                     pr.handover_at || null,
