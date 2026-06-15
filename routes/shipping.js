@@ -779,7 +779,7 @@ module.exports = async function(fastify) {
                     shipping_fee_method = $11,
                     shipping_cashflow_id = $12,
                     shipping_payment_id = $14
-                WHERE dht_order_id = $13 AND shipping_status = 'pending'
+                WHERE dht_order_id = $13
             `, [
                 userId, now.toISOString(), todayStr, Number(b.actual_carrier_id),
                 b.tracking_code || null, b.shipping_bill_link || null, b.carrier_phone || null,

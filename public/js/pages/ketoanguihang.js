@@ -410,7 +410,7 @@ function _shBuildTable(orders) {
         } else {
             orderLevelAction = `
                 <button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
-                <button onclick="event.stopPropagation();_shShowReshipModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
+                <button onclick="event.stopPropagation();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
             `;
         }
 
@@ -562,7 +562,7 @@ function _shBuildItemsTable(order) {
         
         let actionHtml = '';
         if (item.shipping_status === 'shipped') {
-            actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi lại phiếu này">🔁 Gửi lại</button>`;
+            actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">🔁 Gửi lại</button>`;
         } else {
             if (item.all_done) {
                 actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
@@ -926,13 +926,14 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     // Customer phone link
     const phoneHtml = o.customer_phone ? '<a href="tel:' + o.customer_phone + '" style="color:#2563eb;text-decoration:underline;">' + o.customer_phone + '</a>' : '—';
 
+    const isReship = o.shipping_status === 'shipped' || (Number(o.ship_count) > 0);
     const isMultiple = Array.isArray(itemId);
     const itemIdsArray = isMultiple ? itemId : (itemId ? [itemId] : []);
     const modalTitle = isMultiple 
         ? `📤 Gửi Chung ${itemIdsArray.length} Phiếu — ${code}` 
-        : (itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : `📤 Gửi Hàng — ${code}`);
+        : (itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : (isReship ? `📤 Gửi Lại / Thêm Hàng — ${code}` : `📤 Gửi Hàng — ${code}`));
 
-    const backBtnHtml = '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">← Trở lại</button>';
+    const backBtnHtml = isReship ? '' : '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">← Trở lại</button>';
 
     // Build items, payments, and financial HTML
     var itemsHTML = '';
