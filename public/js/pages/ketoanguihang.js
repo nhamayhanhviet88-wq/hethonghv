@@ -353,7 +353,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','Trạng Thái','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h =>
+        ${['','','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h =>
             `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;">${h}</th>`
         ).join('')}
     </tr></thead><tbody>`;
@@ -361,8 +361,6 @@ function _shBuildTable(orders) {
     for (const o of orders) {
         const overdue = o.is_overdue;
         const rowBg = overdue ? '#fef2f2' : '';
-        const prioColors = { 'GỬI':'#3b82f6', 'GẤP':'#dc2626', 'CHUẨN':'#7c3aed' };
-        const prioColor = prioColors[o.shipping_priority] || '#6b7280';
         const isKT = o.shipping_status !== 'shipped';
 
         // Check pending items and their completions
@@ -435,16 +433,24 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
-        // Col 7: Order code
-        const menu = _shGetOrderMenu(o);
-        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;">${o.order_code || '—'}</td>`;
         
-        // Col 7b: Trạng Thái
-        html += `<td style="padding:8px 6px;text-align:left;">
-            <span style="background:${menu.bg};color:${menu.color};padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;border:1px solid ${menu.color}40;white-space:nowrap;">${menu.label}</span>
+        // Col 7: Order code + Priority (combined)
+        const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        let prioBadgeHtml = '';
+        if (prio === 'GẤP') {
+            prioBadgeHtml = `<span style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;margin-right:6px;display:inline-block;vertical-align:middle;line-height:1;">GẤP</span>`;
+        } else if (prio === 'GỬI') {
+            prioBadgeHtml = `<span style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;margin-right:6px;display:inline-block;vertical-align:middle;line-height:1;">GỬI</span>`;
+        } else {
+            prioBadgeHtml = `<span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;margin-right:6px;display:inline-block;vertical-align:middle;line-height:1;">Chuẩn</span>`;
+        }
+        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;white-space:nowrap;">
+            <div style="display:flex;align-items:center;">
+                ${prioBadgeHtml}
+                <span style="font-size:12px;font-weight:900;color:#1e1b4b;letter-spacing:0.5px;">${o.order_code || '—'}</span>
+            </div>
         </td>`;
-        // Col 8: Priority
-        html += `<td style="padding:8px 6px;"><span style="background:${prioColor};color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;">${o.shipping_priority || 'CHUẨN'}</span></td>`;
+
         // Col 9-10: Customer
         html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '—'}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
@@ -467,7 +473,7 @@ function _shBuildTable(orders) {
         // Sub-row for items/slips
         const itemsTableHtml = _shBuildItemsTable(o);
         html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="16" style="padding:12px 16px;">
+            <td colspan="14" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>
