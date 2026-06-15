@@ -102,7 +102,7 @@ function _dhcttGetOrderCarriers(o) {
             var cid = Number(item.actual_carrier_id || 0);
             var cname = '';
             if (cid === 0) {
-                cname = 'Chưa Gửi Đơn Hàng';
+                cname = 'Chưa Gửi Đơn';
             } else {
                 var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
                 cname = found ? found.name : ('NVC #' + cid);
@@ -118,7 +118,7 @@ function _dhcttGetOrderCarriers(o) {
         }
         var cname = '';
         if (cid === 0) {
-            cname = 'Chưa Gửi Đơn Hàng';
+            cname = 'Chưa Gửi Đơn';
         } else {
             var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
             cname = found ? found.name : ('NVC #' + cid);
