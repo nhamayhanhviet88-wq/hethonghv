@@ -2059,7 +2059,7 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         + '<span>📋 DANH SÁCH VẬN ĐƠN (' + totalWaybills + ' mã)</span>'
         + '<span>Khớp được: <strong style="color:var(--success)">' + totalMatched + ' / ' + totalWaybills + ' đơn</strong></span>'
         + '</div>'
-        + '<div style="max-height:500px;overflow-y:auto;overflow-x:auto">'
+        + '<div id="prExcelTableWrapper" style="max-height:500px;overflow-y:auto;overflow-x:auto">'
         + '<table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:950px">'
         + '<thead>'
         + '<tr style="background:#f8fafc;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1">'
@@ -2110,7 +2110,17 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         }
     }
 
+    var wrapper = document.getElementById('prExcelTableWrapper');
+    var savedScrollTop = wrapper ? wrapper.scrollTop : 0;
+    var savedScrollLeft = wrapper ? wrapper.scrollLeft : 0;
+
     resultBox.innerHTML = summaryHTML + tableHTML + actionBtnHTML;
+
+    var newWrapper = document.getElementById('prExcelTableWrapper');
+    if (newWrapper) {
+        newWrapper.scrollTop = savedScrollTop;
+        newWrapper.scrollLeft = savedScrollLeft;
+    }
 }
 
 function _prToggleVerifyRow(code) {
