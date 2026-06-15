@@ -200,6 +200,16 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         }
 
+        let moneySource = b.money_source || 'khach_hang';
+        if (b.bank_name === 'Nhà Vận Chuyển') {
+            const isGD = user.role === 'giam_doc';
+            const isTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+            if (!isGD && !isTrinh) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được tạo mã tiền với ngân hàng Nhà Vận Chuyển' });
+            }
+            moneySource = 'nha_van_chuyen';
+        }
+
         // Get next STT (check cả payment_records + cashflow_records cho TM)
         const seqRow = await db.get(
             `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq
@@ -242,7 +252,7 @@ module.exports = async function(fastify) {
                 b.customer_name || null, b.customer_phone || null, b.cskh_user_id || null,
                 b.amount, b.payment_type || 'pending',
                 b.order_tt_coc || null, b.order_ao_mau || null,
-                b.transfer_note || null, b.money_source || 'khach_hang', b.bank_name || null,
+                b.transfer_note || null, moneySource, b.bank_name || null,
                 b.total_order_codes || null, b.total_cod || 0, b.shipping_fee || 0,
                 autoHandover, 'manual', b.payment_date, user.id
             ]);
@@ -315,6 +325,22 @@ module.exports = async function(fastify) {
 
         const { id } = request.params;
         const b = request.body;
+
+        let moneySource = b.money_source;
+        if (b.bank_name === 'Nhà Vận Chuyển') {
+            const isGD = user.role === 'giam_doc';
+            const isTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+            if (!isGD && !isTrinh) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được sửa mã tiền thành ngân hàng Nhà Vận Chuyển' });
+            }
+            moneySource = 'nha_van_chuyen';
+        } else if (b.money_source === 'nha_van_chuyen') {
+            const isGD = user.role === 'giam_doc';
+            const isTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+            if (!isGD && !isTrinh) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được sửa nguồn tiền thành Nhà Vận Chuyển' });
+            }
+        }
 
         if (b.is_sll) {
             const isUserGD = user.role === 'giam_doc';
@@ -579,7 +605,7 @@ module.exports = async function(fastify) {
             b.customer_name, b.customer_phone, b.cskh_user_id || null,
             b.amount, b.payment_type,
             b.order_tt_coc || null, b.order_ao_mau || null,
-            b.transfer_note || null, b.money_source, b.bank_name || null,
+            b.transfer_note || null, moneySource, b.bank_name || null,
             b.total_order_codes || null, b.total_cod, b.shipping_fee,
             id
         ]);
@@ -807,7 +833,8 @@ module.exports = async function(fastify) {
         const token = request.cookies?.token;
         if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
         const jwt = require('jsonwebtoken');
-        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
         // Merge: email bank parsers + custom banks from app_config
         const emailBanks = await db.all('SELECT bank_name FROM email_bank_parsers ORDER BY id');
         let customBanks = [];
@@ -815,8 +842,15 @@ module.exports = async function(fastify) {
             const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_custom_banks'");
             if (row && row.value) customBanks = JSON.parse(row.value);
         } catch {}
-        const allNames = emailBanks.map(b => b.bank_name);
+        let allNames = emailBanks.map(b => b.bank_name);
         customBanks.forEach(b => { if (!allNames.includes(b)) allNames.push(b); });
+
+        // Filter out "Nhà Vận Chuyển" if user is not Giám đốc or Trinh
+        const isUserGD = user.role === 'giam_doc';
+        const isUserTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+        if (!isUserGD && !isUserTrinh) {
+            allNames = allNames.filter(b => b !== 'Nhà Vận Chuyển');
+        }
         return { banks: allNames };
     });
 

@@ -415,7 +415,7 @@ async function _prShowAddModal() {
         +'<div>'+lbl('💳 PT Thanh Toán',true)+'<select id="prMethod" class="form-control" style="padding:10px 12px;font-size:13px" onchange="_prPreviewCode();_prToggleBankRow()"><option value="CK">🏦 CK - Chuyển Khoản</option><option value="TM">💵 TM - Tiền Mặt</option></select></div>'
         +'</div></div>'
         // Nguồn tiền (auto)
-        +'<div class="form-group">'+lbl('🏷️ Nguồn Tiền',false)+'<div style="padding:10px 12px;background:#f0fdf4;border-radius:8px;font-weight:700;font-size:13px;color:#065f46;border:1px solid #bbf7d0">✅ Khách Hàng</div><input type="hidden" id="prSource" value="khach_hang"></div>'
+        +'<div class="form-group">'+lbl('🏷️ Nguồn Tiền',false)+'<div id="prSourceDisplay" style="padding:10px 12px;background:#f0fdf4;border-radius:8px;font-weight:700;font-size:13px;color:#065f46;border:1px solid #bbf7d0">✅ Khách Hàng</div><input type="hidden" id="prSource" value="khach_hang"></div>'
         // Số tiền
         +'<div class="form-group">'+lbl('💰 Số Tiền',true)+'<input type="number" id="prAmount" class="form-control" placeholder="Nhập số tiền" style="padding:12px;font-size:15px;font-weight:700"></div>'
         // Ngân hàng (chips) — hidden when TM
@@ -445,6 +445,25 @@ function _prSelectBank(el, bank) {
     el.style.color = '#fff';
     el.style.borderColor = 'var(--navy)';
     document.getElementById('prBank').value = bank;
+
+    // Auto update source based on bank selection
+    var sourceInput = document.getElementById('prSource');
+    var sourceDisplay = document.getElementById('prSourceDisplay');
+    if (sourceInput && sourceDisplay) {
+        if (bank === 'Nhà Vận Chuyển') {
+            sourceInput.value = 'nha_van_chuyen';
+            sourceDisplay.innerHTML = '✅ Nhà Vận Chuyển';
+            sourceDisplay.style.background = '#fef2f2';
+            sourceDisplay.style.color = '#991b1b';
+            sourceDisplay.style.borderColor = '#fca5a5';
+        } else {
+            sourceInput.value = 'khach_hang';
+            sourceDisplay.innerHTML = '✅ Khách Hàng';
+            sourceDisplay.style.background = '#f0fdf4';
+            sourceDisplay.style.color = '#065f46';
+            sourceDisplay.style.borderColor = '#bbf7d0';
+        }
+    }
 }
 
 function _prToggleBankRow() {
@@ -454,6 +473,15 @@ function _prToggleBankRow() {
     if (method === 'TM') {
         row.style.display = 'none';
         document.getElementById('prBank').value = '';
+        var sourceInput = document.getElementById('prSource');
+        var sourceDisplay = document.getElementById('prSourceDisplay');
+        if (sourceInput && sourceDisplay) {
+            sourceInput.value = 'khach_hang';
+            sourceDisplay.innerHTML = '✅ Khách Hàng';
+            sourceDisplay.style.background = '#f0fdf4';
+            sourceDisplay.style.color = '#065f46';
+            sourceDisplay.style.borderColor = '#bbf7d0';
+        }
     } else {
         row.style.display = '';
     }
@@ -850,8 +878,23 @@ function _prEditRecord(id) {
     closeModal();
     var dateVal = r.payment_date ? r.payment_date.split('T')[0] : '';
     var staffOpts = _pr.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id==r.cskh_user_id?' selected':'')+'>'+s.full_name+'</option>';}).join('');
-    var bankOpts = _prBanks.map(function(b){return '<option value="'+b+'"'+(b===r.bank_name?' selected':'')+'>'+b+'</option>';}).join('');
-    var srcOpts = [{k:'khach_hang',l:'Khách Hàng'},{k:'khach_hang_sll',l:'Khách Hàng SLL'},{k:'nha_van_chuyen',l:'Nhà Vận Chuyển'}];
+    var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
+    var isAllowedNVC = isGD || isTrinh;
+
+    var activeBanksForEdit = _pr.trackedBanks && _pr.trackedBanks.length ? _pr.trackedBanks.slice() : _prBanks.slice();
+    if (!isAllowedNVC) {
+        activeBanksForEdit = activeBanksForEdit.filter(function(b){ return b !== 'Nhà Vận Chuyển'; });
+    }
+    if (r.bank_name && !activeBanksForEdit.includes(r.bank_name)) {
+        activeBanksForEdit.push(r.bank_name);
+    }
+
+    var bankOpts = activeBanksForEdit.map(function(b){return '<option value="'+b+'"'+(b===r.bank_name?' selected':'')+'>'+b+'</option>';}).join('');
+    var srcOpts = [{k:'khach_hang',l:'Khách Hàng'},{k:'khach_hang_sll',l:'Khách Hàng SLL'}];
+    if (isAllowedNVC || r.money_source === 'nha_van_chuyen') {
+        srcOpts.push({k:'nha_van_chuyen',l:'Nhà Vận Chuyển'});
+    }
     var srcOptsHTML = srcOpts.map(function(s){return '<option value="'+s.k+'"'+(s.k===r.money_source?' selected':'')+'>'+s.l+'</option>';}).join('');
     var typeOpts = [{k:'thanh_toan',l:'Thanh Toán'},{k:'dat_coc',l:'Đặt Cọc'},{k:'tt_sll',l:'TT Số Lượng Lớn'},{k:'tra_lai_coc',l:'🔓 Trả Lại Cọc'}];
     var typeOptsHTML = typeOpts.map(function(t){return '<option value="'+t.k+'"'+(t.k===r.payment_type?' selected':'')+'>'+t.l+'</option>';}).join('');
@@ -864,7 +907,7 @@ function _prEditRecord(id) {
         +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Số Tiền <span style="color:var(--danger)">*</span></label><input type="number" id="prEditAmount" class="form-control" value="'+(r.amount||0)+'" style="padding:10px 12px;font-size:13px"></div>'
         +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Loại Tiền</label><select id="prEditType" class="form-control" style="padding:10px 12px;font-size:13px">'+typeOptsHTML+'</select></div>'
         +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Nguồn Tiền</label><select id="prEditSource" class="form-control" style="padding:10px 12px;font-size:13px">'+srcOptsHTML+'</select></div>'
-        +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Ngân Hàng</label><select id="prEditBank" class="form-control" style="padding:10px 12px;font-size:13px"><option value="">-- Chọn --</option>'+bankOpts+'</select></div>'
+        +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Ngân Hàng</label><select id="prEditBank" class="form-control" style="padding:10px 12px;font-size:13px" onchange="if(this.value===\'Nhà Vận Chuyển\'){var se=document.getElementById(\'prEditSource\');if(se)se.value=\'nha_van_chuyen\';}"><option value="">-- Chọn --</option>'+bankOpts+'</select></div>'
         +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Đơn TT/Cọc</label><input type="text" id="prEditOrderTT" class="form-control" value="'+(r.order_tt_coc||'')+'" style="padding:10px 12px;font-size:13px"></div>'
         +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Đơn Áo Mẫu</label><input type="text" id="prEditOrderAM" class="form-control" value="'+(r.order_ao_mau||'')+'" style="padding:10px 12px;font-size:13px"></div>'
         +'<div class="form-group" style="grid-column:span 2"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">Nội Dung CK</label><input type="text" id="prEditNote" class="form-control" value="'+(r.transfer_note||'')+'" style="padding:10px 12px;font-size:13px"></div>'
