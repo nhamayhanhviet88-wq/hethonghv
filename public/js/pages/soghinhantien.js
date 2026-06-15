@@ -847,7 +847,7 @@ async function _prShowDetail(id) {
     var canEdit = up.pr_edit && (!isClaimed || (isParentSll && (isGD || isTrinh)));
     if (canEdit) btnsHTML += '<div onclick="event.stopPropagation();_prEditRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">✏️</div><div style="font-size:10px;font-weight:700;color:#065f46">Chỉnh sửa</div></div>';
     
-    var canUpdateCust = isKT ? (r.money_source === 'khach_hang' || r.money_source === 'khach_hang_sll') : !!up.pr_update_customer;
+    var canUpdateCust = (isKT ? (r.money_source === 'khach_hang' || r.money_source === 'khach_hang_sll') : !!up.pr_update_customer) && r.money_source !== 'nha_van_chuyen';
     if (canUpdateCust && !isClaimed && !isParentSll) btnsHTML += '<div onclick="event.stopPropagation();_prUpdateCustomer('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">💳</div><div style="font-size:10px;font-weight:700;color:#c2410c">Cập Nhật Tiền<br>Đơn Hàng</div></div>';
 
     var actionsBar = btnsHTML ? '<div style="display:flex;gap:4px;background:#f8fafc;border-radius:12px;padding:12px 8px;border:1px solid #e2e8f0;margin-bottom:16px">'+btnsHTML+'</div>' : '';
