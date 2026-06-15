@@ -243,7 +243,7 @@ function _prRenderTable() {
     var cols = [
         {k:'code',l:'Mã TT',w:115},{k:'customer',l:'Khách Hàng',w:140},{k:'cskh',l:'CSKH',w:85},
         {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:140},
-        {k:'sample',l:'Áo Mẫu',w:70},{k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
+        {k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
         {k:'bank',l:'NH',w:65},{k:'cod',l:'Tổng COD',w:80},
         {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100},{k:'date',l:'Ngày',w:65}
     ];
@@ -309,7 +309,6 @@ function _prRenderTable() {
             displayOrder = r.total_order_codes;
         }
         h += '<td title="'+(displayOrder||'')+'">'+(displayOrder||'')+'</td>';
-        h += '<td title="'+(r.order_ao_mau||'')+'">'+(r.order_ao_mau||'')+'</td>';
         h += '<td title="'+(r.transfer_note||'')+'" style="color:var(--gray-600)">'+(r.transfer_note||'')+'</td>';
         var srcStyle = srcStyles[r.money_source] || 'background:#f3f4f6;color:#374151;border:1px solid #e5e7eb';
         h += '<td><span class="pr-badge" style="'+srcStyle+'">'+(srcLabels[r.money_source]||r.money_source||'')+'</span></td>';
