@@ -1152,6 +1152,52 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
 }
 
 
+async function _shCheckTrackingDup(val) {
+    const s = window._shModalState;
+    if (!s) return;
+    const trackingCode = String(val || '').trim();
+    const warnElId = 'shTrackingCodeWarning';
+    let warnEl = document.getElementById(warnElId);
+    
+    if (!trackingCode) {
+        if (warnEl) warnEl.remove();
+        const inputEl = document.getElementById('shTrackingCode');
+        if (inputEl) {
+            inputEl.style.borderColor = '#e2e8f0';
+            inputEl.style.background = 'white';
+        }
+        return;
+    }
+    
+    try {
+        const r = await apiCall(`/api/shipping/check-tracking-dup?code=${encodeURIComponent(trackingCode)}&excludeOrderId=${s.orderId}`);
+        if (r.duplicate) {
+            if (!warnEl) {
+                warnEl = document.createElement('div');
+                warnEl.id = warnElId;
+                warnEl.style = 'color: #dc2626; font-size: 12px; font-weight: 700; margin-top: 6px; padding: 6px 10px; background: #fee2e2; border: 1.5px solid #fca5a5; border-radius: 6px;';
+                const inputEl = document.getElementById('shTrackingCode');
+                if (inputEl) {
+                    inputEl.parentNode.insertBefore(warnEl, inputEl.nextSibling);
+                    inputEl.style.borderColor = '#dc2626';
+                    inputEl.style.background = '#fef2f2';
+                }
+            }
+            warnEl.innerHTML = `⚠️ Mã Vận Đơn * này đã bị trùng với đơn <b>${r.order_code}</b>`;
+        } else {
+            if (warnEl) warnEl.remove();
+            const inputEl = document.getElementById('shTrackingCode');
+            if (inputEl) {
+                inputEl.style.borderColor = '#e2e8f0';
+                inputEl.style.background = 'white';
+            }
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+window._shCheckTrackingDup = _shCheckTrackingDup;
+
 function _shValidatePhoneInput(inp) {
     let val = inp.value.replace(/\D/g, '');
     if (val.length > 0 && val[0] !== '0') {
@@ -1262,7 +1308,7 @@ function _shOnCarrierChange() {
     let h = '';
     const fStyle = 'width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;';
     if (g === 'tracking_code') {
-        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Mã Vận Đơn <span style="color:#dc2626">*</span></label><input id="shTrackingCode" style="${fStyle}" placeholder="Nhập mã vận đơn...">`;
+        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Mã Vận Đơn <span style="color:#dc2626">*</span></label><input id="shTrackingCode" oninput="_shCheckTrackingDup(this.value)" style="${fStyle}" placeholder="Nhập mã vận đơn...">`;
     } else if (g === 'bill_link') {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label>
              <div id="shBillPasteZone" style="border:2px dashed #cbd5e1;border-radius:8px;min-height:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background:#fafafa;margin-top:4px;" tabindex="0">

@@ -473,6 +473,30 @@ module.exports = async function(fastify) {
         };
     });
 
+    // ========== CHECK DUP TRACKING CODE ==========
+    fastify.get('/api/shipping/check-tracking-dup', { preHandler: [authenticate] }, async (request, reply) => {
+        const { code, excludeOrderId } = request.query;
+        if (!code) return { duplicate: false };
+        const trackingCode = String(code).trim();
+        if (!trackingCode) return { duplicate: false };
+        const orderId = excludeOrderId ? Number(excludeOrderId) : 0;
+
+        const dup = await db.get(`
+            SELECT order_code FROM (
+                SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
+                UNION
+                SELECT o.order_code FROM dht_order_shipments s
+                JOIN dht_orders o ON s.dht_order_id = o.id
+                WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+            ) LIMIT 1
+        `, [trackingCode, orderId]);
+
+        if (dup) {
+            return { duplicate: true, order_code: dup.order_code };
+        }
+        return { duplicate: false };
+    });
+
     // ========== SHIP — Xác nhận gửi hàng (FULL MODAL) ==========
     fastify.post('/api/shipping/orders/:id/ship', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
