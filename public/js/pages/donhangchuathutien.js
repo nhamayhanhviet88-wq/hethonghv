@@ -566,7 +566,7 @@ async function _dhcttLoadTree() {
         }
 
         h += '<div class="dhctt-sb-year'+(cActive?' active':'')+'" onclick="_dhcttSelectCarrier('+carrier.carrier_id+')" '+itemStyle+'>'
-            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 🚛 '+carrier.carrier_name+' <span style="font-size:10px;font-weight:bold;color:'+countColor+';margin-left:3px;white-space:nowrap;">('+carrier.count+' đơn)</span></span>'
+            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> '+carrier.carrier_name+' <span style="font-size:10px;font-weight:bold;color:'+countColor+';margin-left:3px;white-space:nowrap;">('+carrier.count+' đơn)</span></span>'
             + valSpan
             + '</div>';
         
