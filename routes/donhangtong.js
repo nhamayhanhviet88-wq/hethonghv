@@ -1622,6 +1622,31 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const b = request.body || {};
 
+        // ★ Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details
+        if (request.user.role !== 'giam_doc') {
+            const currentObj = await db.get(`
+                SELECT o.id, o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,
+                       COALESCE(o.total_amount, 0) AS total_amount,
+                       COALESCE(o.discount_amount, 0) AS discount_amount,
+                       GREATEST(
+                           COALESCE((SELECT SUM(amount) FROM dht_payments WHERE dht_order_id = o.id AND payment_type IN ('dat_coc','thanh_toan','tt_sll')), 0),
+                           COALESCE(o.deposit_amount_cache, 0)
+                       ) AS deposit_amount
+                FROM dht_orders o
+                WHERE o.id = $1
+            `, [orderId]);
+            if (currentObj) {
+                const dep = Number(currentObj.deposit_amount) || 0;
+                const tot = Number(currentObj.total_amount) || 0;
+                const disc = Number(currentObj.discount_amount) || 0;
+                const shipCK = (currentObj.shipping_fee_payer === 'hv' && currentObj.shipping_fee_method === 'ck') ? (Number(currentObj.shipping_fee) || 0) : 0;
+                const rem = tot - disc - dep - shipCK;
+                if (rem <= 0) {
+                    return reply.code(403).send({ error: '🔒 Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' });
+                }
+            }
+        }
+
         // ★ Layer 2: If updating discount, require "Giảm Giá" permission
         if (b.discount_amount !== undefined || b.discount_reason !== undefined) {
             if (request.user.role !== 'giam_doc') {
@@ -1637,8 +1662,8 @@ module.exports = async function(fastify) {
                     return reply.code(403).send({ error: '🔒 Bạn không có quyền Giảm Giá' });
                 }
             }
-            // ★ Discount limit: only GĐ and QLCC can discount unlimited
-            if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
+            // ★ Discount limit: only GĐ can discount unlimited
+            if (request.user.role !== 'giam_doc') {
                 const discAmt = Number(b.discount_amount) || 0;
                 if (discAmt > 5000) {
                     return reply.code(403).send({ error: '⛔ Bạn chỉ được giảm tối đa 5.000đ' });

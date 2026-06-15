@@ -1149,9 +1149,10 @@ async function _dhtShowDetail(id) {
         if (window._dhtDetailSource !== 'shipping' && currentPage !== 'don-hang-chua-thu-tien' && currentPage !== 'ke-toan-gui-hang') {
         // Mỗi nút có feature key riêng → GĐ tick từng nút trong trang Phân Quyền
         actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
-        const _isFullyPaid = remaining <= 0;
+        const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+        const _isFullyPaid = remaining <= 0 && !isGD;
         const actionBtns = [
-            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn' },
+            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('dht_xoa_don', 'view') },
             { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `_dhtReportError()`, perm: canDo('dht_bao_loi', 'view') },
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
@@ -1880,15 +1881,13 @@ async function _dhtShowDetail(id) {
                     const formattedTime = fmtDateTimeHM(nt.created_at);
                     
                     notesHTML += `
-                        <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px;position:relative;box-shadow: 0 1px 2px rgba(0,0,0,0.02);transition:all .15s;" id="note-container-${nt.id}">
-                            <div style="font-size:13px;color:#1e293b;line-height:1.5;white-space:pre-wrap;font-weight:500;" id="note-text-display-${nt.id}">${nt.note_text}</div>
-                            <div style="font-size:11px;color:#64748b;margin-top:6px;display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #f1f5f9;padding-top:6px;">
+                        <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:10px 14px;box-shadow: 0 1px 2px rgba(0,0,0,0.02);display:flex;justify-content:space-between;align-items:center;gap:16px;transition:all .15s;" id="note-container-${nt.id}">
+                            <div style="font-size:13px;color:#1e293b;line-height:1.5;white-space:pre-wrap;font-weight:500;flex:1;min-width:0;word-break:break-word;" id="note-text-display-${nt.id}">${nt.note_text}</div>
+                            <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:12px;white-space:nowrap;flex-shrink:0;">
                                 <span>bởi <strong style="color:#334155;">${nt.created_by_name}</strong> lúc <span style="font-weight:600;">${formattedTime}</span></span>
                                 ${isOwner ? `
-                                    <div style="display:flex;gap:12px;">
-                                        <span onclick="_dhtEditNoteInline(${nt.id}, ${id})" style="cursor:pointer;color:#2563eb;font-weight:800;font-size:11px;display:inline-flex;align-items:center;gap:2px;" title="Sửa">✏️ Sửa</span>
-                                        <span onclick="_dhtDeleteNote(${nt.id}, ${id})" style="cursor:pointer;color:#dc2626;font-weight:800;font-size:11px;display:inline-flex;align-items:center;gap:2px;" title="Xóa">🗑️ Xóa</span>
-                                    </div>
+                                    <span onclick="_dhtEditNoteInline(${nt.id}, ${id})" style="cursor:pointer;color:#2563eb;font-weight:800;font-size:11px;" title="Sửa">✏️ Sửa</span>
+                                    <span onclick="_dhtDeleteNote(${nt.id}, ${id})" style="cursor:pointer;color:#dc2626;font-weight:800;font-size:11px;" title="Xóa">🗑️ Xóa</span>
                                 ` : ''}
                             </div>
                         </div>
@@ -2450,7 +2449,7 @@ async function _dhtApplyDiscount(orderId) {
     var role = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
     var maxDiscount = 0; // 0 = unlimited
     var limitMsg = '';
-    if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
+    if (role === 'giam_doc') {
         limitMsg = '<div style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:11px;color:#059669;font-weight:700">✅ Không giới hạn số tiền giảm</div>';
     } else {
         maxDiscount = 5000;
@@ -2500,7 +2499,7 @@ async function _dhtConfirmDiscount(orderId) {
     var maxLimit = Number(document.getElementById('dhtDiscountMaxLimit')?.value || 0);
     if (maxLimit > 0 && amount > maxLimit) {
         inp.style.borderColor = '#dc2626';
-        showToast('⛔ Kế Toán chỉ được giảm tối đa ' + maxLimit.toLocaleString('vi-VN') + 'đ', 'error');
+        showToast('⛔ Bạn chỉ được giảm tối đa ' + maxLimit.toLocaleString('vi-VN') + 'đ', 'error');
         return;
     }
     var reason = (reasonEl ? reasonEl.value.trim() : '');
@@ -3328,10 +3327,10 @@ function _dhtEditNoteInline(noteId, orderId) {
     container.setAttribute('data-original-html', container.innerHTML);
     
     container.innerHTML = `
-        <textarea id="editNoteInput-${noteId}" class="form-control" rows="2" style="width:100%;font-size:13px;padding:8px 10px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;margin-bottom:6px;">${originalText}</textarea>
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-            <button onclick="_dhtCancelNoteInline(${noteId})" class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 10px;font-weight:700;">Hủy</button>
-            <button onclick="_dhtSaveNoteInline(${noteId}, ${orderId})" class="btn btn-sm" style="background:#059669;color:white;font-size:11px;padding:3px 10px;border:none;border-radius:4px;font-weight:800;cursor:pointer;">Lưu</button>
+        <textarea id="editNoteInput-${noteId}" class="form-control" rows="1" style="flex:1;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;margin:0;">${originalText}</textarea>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            <button onclick="_dhtCancelNoteInline(${noteId})" class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 10px;font-weight:700;margin:0;">Hủy</button>
+            <button onclick="_dhtSaveNoteInline(${noteId}, ${orderId})" class="btn btn-sm" style="background:#059669;color:white;font-size:11px;padding:3px 10px;border:none;border-radius:4px;font-weight:800;cursor:pointer;margin:0;">Lưu</button>
         </div>
     `;
     
