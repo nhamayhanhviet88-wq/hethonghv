@@ -20,25 +20,26 @@ async function renderKetoanguihangPage(container) {
         @keyframes shimmerSparkle {
             0% {
                 background-position: -200% center;
-                text-shadow: 0 0 4px rgba(16, 185, 129, 0.2);
+                text-shadow: 0 0 4px rgba(124, 58, 237, 0.2);
             }
             50% {
-                text-shadow: 0 0 10px rgba(52, 211, 153, 0.5), 0 0 20px rgba(16, 185, 129, 0.2);
+                text-shadow: 0 0 10px rgba(124, 58, 237, 0.5), 0 0 20px rgba(236, 72, 153, 0.2);
             }
             100% {
                 background-position: 200% center;
-                text-shadow: 0 0 4px rgba(16, 185, 129, 0.2);
+                text-shadow: 0 0 4px rgba(124, 58, 237, 0.2);
             }
         }
         .shimmer-sparkle {
             font-weight: 900;
             font-size: 12px;
-            background: linear-gradient(90deg, #047857 0%, #10b981 25%, #34d399 50%, #10b981 75%, #047857 100%);
+            background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 25%, #ec4899 50%, #7c3aed 75%, #4f46e5 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             animation: shimmerSparkle 2.5s linear infinite;
             display: inline-block;
+            white-space: nowrap;
         }
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
@@ -432,7 +433,7 @@ function _shBuildTable(orders) {
             const mo = String(vnDate.getMonth() + 1).padStart(2, '0');
             return `<span class="shimmer-sparkle">${hh}:${mm} ${dd}/${mo}</span>`;
         })() : '—';
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;">${shipTimeFmt}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${shipTimeFmt}</td>`;
         // Col 5: Hẹn Lại
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
