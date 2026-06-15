@@ -1902,7 +1902,8 @@ async function _prProcessExcel(input, recordAmount) {
         _pr.reconcileState = {
             waybills: allWaybills.slice(),
             matchedMap: {},
-            verifiedMap: {}
+            verifiedMap: {},
+            alreadyReconciledMap: compareRes.alreadyReconciledMap || {}
         };
 
         allWaybills.forEach(function(wb) {
@@ -1919,7 +1920,9 @@ async function _prProcessExcel(input, recordAmount) {
                     customer_name: matchedOrder.customer_name,
                     customer_phone: matchedOrder.customer_phone,
                     remaining: Number(matchedOrder.remaining) || 0,
-                    allocatedAmount: wb.cod
+                    allocatedAmount: wb.cod,
+                    already_reconciled: matchedOrder.already_reconciled || false,
+                    reconciled_payment_code: matchedOrder.reconciled_payment_code || ''
                 };
             } else {
                 _pr.reconcileState.matchedMap[code] = null;
@@ -1980,6 +1983,7 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
     var totalMatched = 0;
     var totalWaybills = _pr.reconcileState.waybills.length;
     var allChecked = true;
+    var hasCriticalBlock = false;
 
     _pr.reconcileState.waybills.forEach(function(wb) {
         var code = String(wb.code || '').trim();
@@ -1991,28 +1995,54 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         var rowBg = '';
         var isCodMatched = false;
 
-        if (match) {
-            totalMatched++;
+        // Check for duplicate waybill
+        var isAlreadyReconciled = _pr.reconcileState.alreadyReconciledMap && !!_pr.reconcileState.alreadyReconciledMap[code];
+        var reconciledPaymentCode = isAlreadyReconciled ? (_pr.reconcileState.alreadyReconciledMap[code].payment_code || '') : '';
+
+        if (isAlreadyReconciled) {
+            hasCriticalBlock = true;
+            matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4;display:inline-block">❌ Đã đối soát<br>(' + reconciledPaymentCode + ')</span>';
+            rowBg = 'background:#fee2e2;opacity:0.95';
+            
+            if (match) {
+                var typeTag = match.order_type === 'ao_mau' 
+                    ? '<span style="background:#ede9fe;color:#6d28d9;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Áo mẫu</span>'
+                    : '<span style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Đơn tổng</span>';
+
+                crmInfoHTML = '<div style="display:flex;align-items:center;gap:4px"><strong style="color:var(--navy);font-size:12px">' + match.order_code + '</strong>' + typeTag + '</div>'
+                    + '<div style="font-size:10px;color:#64748b;margin-top:2px">' + (match.customer_name || '—') + ' · SĐT: ' + (match.customer_phone || '—') + '</div>';
+            } else {
+                crmInfoHTML = '<div style="color:#94a3b8;font-style:italic">Không tìm thấy đơn</div>';
+            }
+        } else if (match) {
             var remain = Number(match.remaining) || 0;
             isCodMatched = Math.abs(wb.cod - remain) < 1;
-            
-            if (isCodMatched) {
-                matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp COD</span>';
-                rowBg = 'background:#f0fdf4';
+            var isFullyPaid = remain <= 0;
+
+            if (isFullyPaid) {
+                hasCriticalBlock = true;
+                matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4;display:inline-block">❌ Đơn đã thanh toán<br>(Còn lại 0đ)</span>';
+                rowBg = 'background:#fee2e2;opacity:0.95';
             } else {
-                var diffAmt = Math.abs(remain - wb.cod);
-                var badgeStyle = '';
-                var diffText = '';
-                if (remain > wb.cod) {
-                    diffText = 'Đơn ' + _prFmt(remain) + ' - Excel ' + _prFmt(wb.cod) + '<br>= ' + _prFmt(diffAmt) + ' Chưa TT';
-                    badgeStyle = 'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;';
-                    rowBg = 'background:#fdf2f2';
+                totalMatched++;
+                if (isCodMatched) {
+                    matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp COD</span>';
+                    rowBg = 'background:#f0fdf4';
                 } else {
-                    diffText = 'Excel ' + _prFmt(wb.cod) + ' - Đơn ' + _prFmt(remain) + '<br>= ' + _prFmt(diffAmt) + ' Thừa';
-                    badgeStyle = 'background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe;';
-                    rowBg = 'background:#faf5ff';
+                    var diffAmt = Math.abs(remain - wb.cod);
+                    var badgeStyle = '';
+                    var diffText = '';
+                    if (remain > wb.cod) {
+                        diffText = 'Đơn ' + _prFmt(remain) + ' - Excel ' + _prFmt(wb.cod) + '<br>= ' + _prFmt(diffAmt) + ' Chưa TT';
+                        badgeStyle = 'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;';
+                        rowBg = 'background:#fdf2f2';
+                    } else {
+                        diffText = 'Excel ' + _prFmt(wb.cod) + ' - Đơn ' + _prFmt(remain) + '<br>= ' + _prFmt(diffAmt) + ' Thừa';
+                        badgeStyle = 'background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe;';
+                        rowBg = 'background:#faf5ff';
+                    }
+                    matchStatusHTML = '<span style="display:inline-block;' + badgeStyle + 'padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4">' + diffText + '</span>';
                 }
-                matchStatusHTML = '<span style="display:inline-block;' + badgeStyle + 'padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4">' + diffText + '</span>';
             }
             
             var typeTag = match.order_type === 'ao_mau' 
@@ -2029,7 +2059,9 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         }
 
         var verifyActionHTML = '';
-        if (isCodMatched) {
+        if (isAlreadyReconciled || (match && Number(match.remaining) <= 0)) {
+            verifyActionHTML = '<span style="color:#dc2626;font-weight:bold;font-size:11px">❌ Bị chặn</span>';
+        } else if (isCodMatched) {
             var btnBg = isVerified ? '#16a34a' : '#94a3b8';
             var btnText = isVerified ? '✓ Đã kiểm tra' : '○ Chưa kiểm tra';
             verifyActionHTML = '<button onclick="_prToggleVerifyRow(\'' + code + '\')" style="background:' + btnBg + ';color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10.5px;font-weight:bold;cursor:pointer;transition:all 0.15s">' + btnText + '</button>';
@@ -2086,8 +2118,15 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
     }
 
     var actionBtnHTML = '';
-    if (totalMatched > 0) {
-        if (isWithinLimit && allChecked) {
+    if (totalMatched > 0 || hasCriticalBlock) {
+        if (hasCriticalBlock) {
+            actionBtnHTML = '<div style="margin-top:12px;display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
+                + '<button class="btn" style="background:#cbd5e1;color:#94a3b8;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;cursor:not-allowed;" disabled>'
+                + '❌ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG'
+                + '</button>'
+                + '<div style="font-size:11.5px;color:#dc2626;font-weight:bold">❌ Không thể lưu vì có vận đơn đã đối soát trùng hoặc đơn đã thanh toán đủ.</div>'
+                + '</div>';
+        } else if (isWithinLimit && allChecked) {
             actionBtnHTML = '<div style="margin-top:12px;display:flex;justify-content:flex-end">'
                 + '<button onclick="_prAutoAllocateExcel()" class="btn" style="background:linear-gradient(135deg,var(--success),#059669);color:#fff;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;box-shadow:0 4px 12px rgba(16,185,129,0.3);cursor:pointer;transition:all 0.2s">'
                 + '✅ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG (' + totalMatched + ' ĐƠN KHỚP)'
@@ -2318,7 +2357,8 @@ async function _prAutoAllocateExcel() {
                 order_type: match.order_type,
                 allocatedAmount: match.allocatedAmount,
                 customer_name: match.customer_name,
-                customer_phone: match.customer_phone
+                customer_phone: match.customer_phone,
+                tracking_code: waybillCode
             });
         }
     }
@@ -2343,7 +2383,8 @@ async function _prSubmitExcelAllocation(prId, recordAmount, totalCod, totalFee) 
                 amount: o.allocatedAmount,
                 customer_name: o.customer_name || '',
                 customer_phone: o.customer_phone || '',
-                order_type: o.order_type || 'dht_order'
+                order_type: o.order_type || 'dht_order',
+                tracking_code: o.tracking_code || ''
             };
         })
     };

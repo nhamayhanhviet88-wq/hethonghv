@@ -95,7 +95,34 @@ module.exports = async function(fastify) {
 
         const trackingCodes = waybills.map(w => String(w.code || '').trim()).filter(Boolean);
         if (trackingCodes.length === 0) {
-            return { orders: [] };
+            return { orders: [], alreadyReconciledMap: {} };
+        }
+
+        let alreadyReconciledMap = {};
+        if (trackingCodes.length > 0) {
+            const orConditions = [];
+            const params = [];
+            trackingCodes.forEach((code, idx) => {
+                orConditions.push(`transfer_note ILIKE $${idx + 1}`);
+                params.push(`%MVĐ: ${code}%`);
+            });
+            const reconciledQuery = `
+                SELECT id, payment_code, transfer_note
+                FROM payment_records
+                WHERE ${orConditions.join(' OR ')}
+            `;
+            const reconciledRecords = await db.all(reconciledQuery, params);
+            
+            reconciledRecords.forEach(r => {
+                trackingCodes.forEach(code => {
+                    if (r.transfer_note.includes(`MVĐ: ${code}`)) {
+                        alreadyReconciledMap[code] = {
+                            payment_id: r.id,
+                            payment_code: r.payment_code
+                        };
+                    }
+                });
+            });
         }
 
         const placeholders1 = trackingCodes.map((_, i) => `$${i + 1}`).join(',');
@@ -132,7 +159,16 @@ module.exports = async function(fastify) {
             ) pr_dep ON true
         `;
         const orders = await db.all(query, [...trackingCodes, ...trackingCodes]);
-        return { orders };
+
+        orders.forEach(o => {
+            const code = String(o.tracking_code || '').trim();
+            if (alreadyReconciledMap[code]) {
+                o.already_reconciled = true;
+                o.reconciled_payment_code = alreadyReconciledMap[code].payment_code;
+            }
+        });
+
+        return { orders, alreadyReconciledMap };
     });
 
     // ========== TREE: Năm → Tháng → Ngày + tổng tiền ==========
@@ -719,6 +755,7 @@ module.exports = async function(fastify) {
                 const alloc = allocations[i];
                 const splitCode = `${pr.payment_code}-S${i + 1}`;
                 const isAoMau = alloc.order_type === 'ao_mau';
+                const trackingSuffix = alloc.tracking_code ? ` - MVĐ: ${alloc.tracking_code}` : '';
                 
                 await db.run(`
                     INSERT INTO payment_records (
@@ -738,7 +775,7 @@ module.exports = async function(fastify) {
                     alloc.amount, 'child_sll',
                     isAoMau ? null : alloc.order_code,
                     isAoMau ? alloc.order_code : null,
-                    (pr.transfer_note || '') + ' (Phân bổ từ ' + pr.payment_code + ')',
+                    (pr.transfer_note || '') + ' (Phân bổ từ ' + pr.payment_code + trackingSuffix + ')',
                     moneySource, pr.bank_name || null,
                     null, 0, 0,
                     parentHandover,
