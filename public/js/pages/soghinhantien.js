@@ -1986,4 +1986,3 @@ async function _prSubmitExcelAllocation(prId, recordAmount, totalCod, totalFee) 
         showToast('Lỗi: ' + (e.message || 'Không thể liên kết'), 'error');
     }
 }
-}
