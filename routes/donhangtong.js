@@ -1262,7 +1262,7 @@ module.exports = async function(fastify) {
         // 3. Linked payment records (by order_code match OR by deposit_payment_id)
         let payments = await db.all(`
             SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
-                   customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by
+                   customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by, money_source
             FROM payment_records
             WHERE total_order_codes ILIKE '%' || $1 || '%'
                OR order_tt_coc = $1
@@ -1273,7 +1273,7 @@ module.exports = async function(fastify) {
         if (payments.length === 0 && order.deposit_payment_id) {
             const depRecord = await db.get(`
                 SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
-                       customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by
+                       customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by, money_source
                 FROM payment_records WHERE id = $1
             `, [order.deposit_payment_id]);
             if (depRecord) {

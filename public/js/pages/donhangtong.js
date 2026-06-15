@@ -1297,9 +1297,13 @@ async function _dhtShowDetail(id) {
                 
                 let badgeStyle = 'background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
                 let typeText = typeLabels[p.payment_type] || p.payment_type || '—';
-                if (p.payment_type === 'child_sll') {
+                
+                if (p.money_source === 'nha_van_chuyen') {
                     badgeStyle = 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
                     typeText = 'NVC';
+                } else if (p.money_source === 'khach_hang_sll' || p.payment_type === 'tt_sll' || p.payment_type === 'child_sll') {
+                    badgeStyle = 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'KH SLL';
                 }
                 payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
                 payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
