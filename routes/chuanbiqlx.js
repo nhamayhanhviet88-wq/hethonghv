@@ -2733,13 +2733,16 @@ module.exports = async function(fastify) {
 
         const productName = item.product_name || item.description || 'N/A';
 
-        // 2. Check if any existing sewing records are completed or salary approved
-        const lockedCheck = await db.get(`
-            SELECT COUNT(*)::int AS cnt
+        // 2. Load existing sewing records to determine locking status
+        const existingRecords = await db.all(`
+            SELECT id, done_date, salary_approved
             FROM sewing_records
-            WHERE order_item_id = $1 AND (done_date IS NOT NULL OR salary_approved = true)
+            WHERE order_item_id = $1
         `, [itemId]);
-        const isSewingDone = lockedCheck && lockedCheck.cnt > 0;
+        const lockedIds = existingRecords
+            .filter(r => r.done_date !== null || r.salary_approved === true)
+            .map(r => r.id);
+        const isSewingDone = existingRecords.length > 0 && existingRecords.length === lockedIds.length;
 
         const fRec = await db.get(`SELECT fr.is_completed FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = $1 LIMIT 1`, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
@@ -2911,8 +2914,13 @@ module.exports = async function(fastify) {
         }
 
         // 7. Perform save operations
-        // Delete all old sewing records for this item (verified they aren't reported/approved)
-        await db.run('DELETE FROM sewing_records WHERE order_item_id = $1', [itemId]);
+        // Delete only the unlocked sewing records for this item
+        await db.run(`
+            DELETE FROM sewing_records
+            WHERE order_item_id = $1
+              AND done_date IS NULL
+              AND COALESCE(salary_approved, false) = false
+        `, [itemId]);
 
         // Also clean up any legacy qlx_assignments for sewing on this item
         await db.run("DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'may'", [itemId]);
@@ -2939,9 +2947,20 @@ module.exports = async function(fastify) {
         const totalProcessingPrice = processingPrice + extraProcessing;
 
         for (const ass of assignments) {
+            // Check if this assignment corresponds to an existing locked record
+            if (ass.id && lockedIds.includes(Number(ass.id))) {
+                const isGiaCong = !!ass.contractor_id;
+                let contractorName = 'May Nhà';
+                if (isGiaCong) {
+                    const cNameRow = await db.get('SELECT name FROM sewing_contractors WHERE id = $1', [Number(ass.contractor_id)]);
+                    contractorName = cNameRow ? cNameRow.name : `Gia công #${ass.contractor_id}`;
+                }
+                descParts.push(`${contractorName} (${ass.quantity})`);
+                continue;
+            }
+
             const isGiaCong = !!ass.contractor_id;
             const price = isGiaCong ? totalProcessingPrice : totalFactoryPrice;
-            const sal = Number(ass.quantity) * price;
 
             let contractorName = 'May Nhà';
             if (isGiaCong) {

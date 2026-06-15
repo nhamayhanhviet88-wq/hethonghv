@@ -2525,17 +2525,18 @@ async function _qlxAssignMay(orderId, itemId) {
         if (window._qlxMayPendingRows && window._qlxMayPendingRows.length > 0) {
             // Restore from pending (reopened modal after price warn)
             window._qlxMayPendingRows.forEach(function(row) {
-                _qlxAssignMayAddRow(row.contractor_id, row.quantity, row.expected_date, row.notes);
+                _qlxAssignMayAddRow(row.contractor_id, row.quantity, row.expected_date, row.notes, row.id, row.is_done);
             });
             window._qlxMayPendingRows = null;
         } else if (res.assignments && res.assignments.length > 0) {
             res.assignments.forEach(function(a) {
                 var formattedDate = a.expected_date ? a.expected_date.split('T')[0] : '';
-                _qlxAssignMayAddRow(a.contractor_id, a.quantity, formattedDate, a.notes);
+                var isDone = a.done_date !== null || a.salary_approved === true;
+                _qlxAssignMayAddRow(a.contractor_id, a.quantity, formattedDate, a.notes, a.id, isDone);
             });
         } else {
             // Default 1 row with empty quantity and default target May Nhà
-            _qlxAssignMayAddRow('', '', '', '');
+            _qlxAssignMayAddRow('', '', '', '', null, false);
         }
 
     } catch(e) {
@@ -2566,7 +2567,7 @@ function _qlxAssignMayHandleTargetChange() {
     _qlxAssignMayUpdateTotal();
 }
 
-function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
+function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes, id, isDone) {
     var cId = contractorId;
     if (cId === undefined) {
         var selectedValues = Array.from(document.querySelectorAll('.may-target')).map(function(s) { return s.value; });
@@ -2591,6 +2592,7 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
     var qty = (quantity !== undefined && quantity !== null) ? quantity : '';
     var date = (expectedDate !== undefined && expectedDate !== null) ? expectedDate : '';
     var noteText = (notes !== undefined && notes !== null) ? notes : '';
+    var rowIdAttr = id ? 'data-assignment-id="' + id + '"' : '';
 
     var tzToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     var yyyy = tzToday.getFullYear();
@@ -2606,25 +2608,24 @@ function _qlxAssignMayAddRow(contractorId, quantity, expectedDate, notes) {
 
     var rowId = 'may_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
-    var isSewingDone = window._qlxMayData && window._qlxMayData.is_sewing_done;
-    var disabledAttr = isSewingDone ? 'disabled' : '';
+    var disabledAttr = isDone ? 'disabled' : '';
 
-    var html = '<div id="' + rowId + '" class="may-assign-row" style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,2fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
+    var html = '<div id="' + rowId + '" class="may-assign-row" ' + rowIdAttr + ' style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,2fr) 34px;gap:8px;align-items:center;background:#ffffff;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px">';
     
     // Target dropdown (May Nhà / Gia Công)
-    html += '<div><select class="form-control may-target" ' + disabledAttr + ' style="padding:6px;font-size:11px;font-weight:600;height:auto;background:' + (isSewingDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
+    html += '<div><select class="form-control may-target" ' + disabledAttr + ' style="padding:6px;font-size:11px;font-weight:600;height:auto;background:' + (isDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1" onchange="_qlxAssignMayHandleTargetChange()">';
     html += '<option value="" ' + (cId === '' ? 'selected' : '') + '>🏠 May Nhà (Trong xưởng)</option>';
     html += '<optgroup label="Bên Nhận Gia Công ngoài">' + contractorOpts + '</optgroup>';
     html += '</select></div>';
 
     // Quantity input
-    html += '<div><input type="number" class="form-control may-qty" ' + disabledAttr + ' value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:' + (isSewingDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1" oninput="_qlxAssignMayUpdateTotal()"></div>';
+    html += '<div><input type="number" class="form-control may-qty" ' + disabledAttr + ' value="' + qty + '" min="1" placeholder="SL" style="padding:6px;font-size:11px;font-weight:700;text-align:center;height:auto;background:' + (isDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1" oninput="_qlxAssignMayUpdateTotal()"></div>';
 
     // Target completion Date
-    html += '<div><input type="date" class="form-control may-date" ' + disabledAttr + ' value="' + date + '" min="' + minDateStr + '" onchange="_qlxAssignMayHandleDateChange(this)" style="padding:6px;font-size:11px;height:auto;background:' + (isSewingDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1"></div>';
+    html += '<div><input type="date" class="form-control may-date" ' + disabledAttr + ' value="' + date + '" min="' + minDateStr + '" onchange="_qlxAssignMayHandleDateChange(this)" style="padding:6px;font-size:11px;height:auto;background:' + (isDone ? '#f1f5f9' : '#ffffff') + ';color:#1e293b;border:1.5px solid #cbd5e1"></div>';
 
     // Delete button
-    if (isSewingDone) {
+    if (isDone) {
         html += '<div><button class="btn btn-danger" disabled style="padding:4px 8px;font-size:11px;border-radius:6px;background:#e2e8f0;color:#94a3b8;border:1px solid #cbd5e1;cursor:not-allowed">🗑️</button></div>';
     } else {
         html += '<div><button class="btn btn-danger" onclick="_qlxAssignMayRemoveRow(this)" style="padding:4px 8px;font-size:11px;border-radius:6px;background:#fef2f2;color:#ef4444;border:1px solid #fca5a5">🗑️</button></div>';
@@ -2828,23 +2829,31 @@ async function _qlxAssignMaySave() {
         var isGiaCong = contractorId !== '';
         var price = isGiaCong ? pricing.processing_price : pricing.factory_price;
 
-        if (!date) {
-            validationError = 'Vui lòng chọn QLX Hẹn Ra cho tất cả các bên nhận may!';
-            return;
-        }
-        if (date < todayStr) {
-            validationError = 'QLX Hẹn Ra không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
-            return;
-        }
-        var holidays = (window._qlxMayData && window._qlxMayData.holidays) || [];
-        var holidayMatch = holidays.find(function(h) { return h.holiday_date === date; });
-        if (holidayMatch) {
-            var dateFormatted = date.split('-').reverse().join('/');
-            validationError = 'Ngày ' + dateFormatted + ' là ngày lễ (' + holidayMatch.holiday_name + '), không thể chọn!';
-            return;
+        var rowId = row.getAttribute('data-assignment-id');
+        var assId = rowId ? parseInt(rowId) : null;
+        var isDone = targetSelect ? targetSelect.disabled : false;
+
+        // Skip standard validations for done records since they are disabled/unchangeable
+        if (!isDone) {
+            if (!date) {
+                validationError = 'Vui lòng chọn QLX Hẹn Ra cho tất cả các bên nhận may!';
+                return;
+            }
+            if (date < todayStr) {
+                validationError = 'QLX Hẹn Ra không được ở quá khứ (phải chọn từ hôm nay hoặc tương lai)!';
+                return;
+            }
+            var holidays = (window._qlxMayData && window._qlxMayData.holidays) || [];
+            var holidayMatch = holidays.find(function(h) { return h.holiday_date === date; });
+            if (holidayMatch) {
+                var dateFormatted = date.split('-').reverse().join('/');
+                validationError = 'Ngày ' + dateFormatted + ' là ngày lễ (' + holidayMatch.holiday_name + '), không thể chọn!';
+                return;
+            }
         }
 
         assignments.push({
+            id: assId,
             contractor_id: isGiaCong ? parseInt(contractorId) : null,
             quantity: qty,
             expected_date: date,
@@ -2852,7 +2861,7 @@ async function _qlxAssignMaySave() {
         });
         totalQty += qty;
 
-        if (price <= 0) {
+        if (!isDone && price <= 0) {
             priceCheckFailed = true;
             failedTargetLabel = isGiaCong ? 'Gia Công' : 'Trong Nhà';
         }
@@ -2880,11 +2889,16 @@ async function _qlxAssignMaySave() {
         // Store current form state to restore when reopening
         window._qlxMayPendingRows = [];
         rows.forEach(function(row) {
+            var rowId = row.getAttribute('data-assignment-id');
+            var assId = rowId ? parseInt(rowId) : null;
+            var isDone = row.querySelector('.may-target').disabled;
             window._qlxMayPendingRows.push({
+                id: assId,
+                is_done: isDone,
                 contractor_id: row.querySelector('.may-target').value,
                 quantity: parseInt(row.querySelector('.may-qty').value) || 0,
                 expected_date: row.querySelector('.may-date').value,
-                notes: row.querySelector('.may-notes').value
+                notes: row.querySelector('.may-notes') ? row.querySelector('.may-notes').value : ''
             });
         });
 
