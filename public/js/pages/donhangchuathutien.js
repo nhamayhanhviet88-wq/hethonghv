@@ -84,7 +84,7 @@ var _dhcttFormatDetailedQuantity = function(items, totalQuantity, orderCode) {
                 return `<span style="opacity:0.35;filter:grayscale(0.6);text-decoration:line-through;font-size:10px;">${qty} ${item.product_name || item.description || ''}</span>`;
             }
         }
-        return innerHTML;
+        return `<span style="display:inline-block;padding:2px 6px;background:#fef08a;border:1.5px solid #ca8a04;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">${innerHTML}</span>`;
     }).filter(Boolean);
 
     if (parts.length === 0) {
