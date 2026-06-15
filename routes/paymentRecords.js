@@ -681,10 +681,37 @@ module.exports = async function(fastify) {
                 }
             };
 
+            const processAutoCompleteAoMau = async (sampleOrderCode) => {
+                try {
+                    const sampleOrder = await db.get(
+                        'SELECT id, total_amount, sample_order_code FROM don_gui_ao_mau WHERE sample_order_code = $1', [sampleOrderCode]
+                    );
+                    if (sampleOrder) {
+                        const remainRow = await db.get(`
+                            SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+                            FROM don_gui_ao_mau d
+                            LEFT JOIN LATERAL (
+                                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                                FROM payment_records
+                                WHERE order_ao_mau = d.sample_order_code
+                            ) pr_dep ON true
+                            WHERE d.sample_order_code = $1
+                        `, [sampleOrderCode]);
+
+                        if (remainRow && remainRow.remaining <= 0) {
+                            await db.run("UPDATE don_gui_ao_mau SET order_status = 'hoan_thanh', updated_at = NOW() WHERE id = $1", [sampleOrder.id]);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[AoMau AutoComplete] Error for sample order ' + sampleOrderCode + ':', err.message);
+                }
+            };
+
             // 2. Create child records for ALL allocations (from 0 to allocations.length - 1)
             for (let i = 0; i < allocations.length; i++) {
                 const alloc = allocations[i];
                 const splitCode = `${pr.payment_code}-S${i + 1}`;
+                const isAoMau = alloc.order_type === 'ao_mau';
                 
                 await db.run(`
                     INSERT INTO payment_records (
@@ -702,7 +729,8 @@ module.exports = async function(fastify) {
                     splitCode, pr.payment_method, pr.daily_seq,
                     alloc.customer_name || null, alloc.customer_phone || null, pr.cskh_user_id || null,
                     alloc.amount, 'child_sll',
-                    alloc.order_code, null,
+                    isAoMau ? null : alloc.order_code,
+                    isAoMau ? alloc.order_code : null,
                     (pr.transfer_note || '') + ' (Phân bổ từ ' + pr.payment_code + ')',
                     moneySource, pr.bank_name || null,
                     null, 0, 0,
@@ -713,7 +741,11 @@ module.exports = async function(fastify) {
                     Number(id)
                 ]);
 
-                await processAutoComplete(alloc.order_code);
+                if (isAoMau) {
+                    await processAutoCompleteAoMau(alloc.order_code);
+                } else {
+                    await processAutoComplete(alloc.order_code);
+                }
             }
 
             return { success: true, auto_completed_orders: autoCompletedOrders };
@@ -1393,6 +1425,97 @@ module.exports = async function(fastify) {
             [JSON.stringify(permissions)]
         );
         return { success: true };
+    });
+
+    // ========== SEARCH RECONCILE ORDERS: Tìm kiếm đơn đối soát ==========
+    fastify.get('/api/payment-records/search-reconcile-orders', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const q = String(request.query.q || '').trim();
+        const cod = Number(request.query.cod) || 0;
+
+        let dhtOrders = [];
+        let sampleOrders = [];
+
+        // 1. Query dht_orders
+        let dhtQuery = `
+            SELECT DISTINCT ON (o.order_code)
+                'dht_order' AS order_type,
+                o.id,
+                o.order_code,
+                o.customer_name,
+                o.customer_phone,
+                o.order_date,
+                (COALESCE(o.total_amount, 0)
+                 - COALESCE(o.discount_amount, 0)
+                 - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                 - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining
+            FROM dht_orders o
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
+        `;
+        let dhtParams = [];
+        if (q) {
+            dhtQuery += ` WHERE (o.order_code ILIKE $1 OR o.customer_name ILIKE $1 OR o.customer_phone ILIKE $1)`;
+            dhtParams.push(`%${q}%`);
+        }
+        
+        dhtQuery = `SELECT * FROM (${dhtQuery}) sub WHERE remaining > 0 LIMIT 100`;
+        dhtOrders = await db.all(dhtQuery, dhtParams);
+
+        // 2. Query don_gui_ao_mau
+        let sampleQuery = `
+            SELECT 
+                'ao_mau' AS order_type,
+                d.id,
+                d.sample_order_code AS order_code,
+                d.customer_name,
+                d.customer_phone,
+                d.order_date,
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+            FROM don_gui_ao_mau d
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+            ) pr_dep ON true
+            WHERE COALESCE(d.sample_order_code, '') != ''
+        `;
+        let sampleParams = [];
+        if (q) {
+            sampleQuery += ` AND (d.sample_order_code ILIKE $1 OR d.customer_name ILIKE $1 OR d.customer_phone ILIKE $1)`;
+            sampleParams.push(`%${q}%`);
+        }
+
+        sampleQuery = `SELECT * FROM (${sampleQuery}) sub WHERE remaining > 0 LIMIT 100`;
+        sampleOrders = await db.all(sampleQuery, sampleParams);
+
+        // Combine
+        let combined = [...dhtOrders, ...sampleOrders];
+
+        // Sort
+        if (cod > 0) {
+            combined.sort((a, b) => {
+                const diffA = Math.abs(Number(a.remaining) - cod);
+                const diffB = Math.abs(Number(b.remaining) - cod);
+                if (Math.abs(diffA - diffB) < 1) {
+                    return new Date(b.order_date) - new Date(a.order_date);
+                }
+                return diffA - diffB;
+            });
+        } else {
+            combined.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+        }
+
+        return { orders: combined.slice(0, 50) };
     });
 
     // ========== CHANGE SOURCE: Đổi nguồn tiền ==========
