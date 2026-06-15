@@ -2001,14 +2001,18 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
                 rowBg = 'background:#f0fdf4';
             } else {
                 var diffAmt = Math.abs(remain - wb.cod);
+                var badgeStyle = '';
                 var diffText = '';
                 if (remain > wb.cod) {
-                    diffText = 'Đơn ' + _prFmt(remain) + ' - Excel ' + _prFmt(wb.cod) + ' = ' + _prFmt(diffAmt) + ' Chưa TT';
+                    diffText = 'Đơn ' + _prFmt(remain) + ' - Excel ' + _prFmt(wb.cod) + '<br>= ' + _prFmt(diffAmt) + ' Chưa TT';
+                    badgeStyle = 'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;';
+                    rowBg = 'background:#fdf2f2';
                 } else {
-                    diffText = 'Excel ' + _prFmt(wb.cod) + ' - Đơn ' + _prFmt(remain) + ' = ' + _prFmt(diffAmt) + ' Thừa';
+                    diffText = 'Excel ' + _prFmt(wb.cod) + ' - Đơn ' + _prFmt(remain) + '<br>= ' + _prFmt(diffAmt) + ' Thừa';
+                    badgeStyle = 'background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe;';
+                    rowBg = 'background:#faf5ff';
                 }
-                matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">' + diffText + '</span>';
-                rowBg = 'background:#fdf2f2';
+                matchStatusHTML = '<span style="display:inline-block;' + badgeStyle + 'padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4">' + diffText + '</span>';
             }
             
             var typeTag = match.order_type === 'ao_mau' 
