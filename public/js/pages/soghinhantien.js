@@ -1324,6 +1324,55 @@ async function _prSubmitLinkOrder(prId) {
     } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
 }
 
+function _prConfirmSLLSplit(opts) {
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.id = '_sllSplitOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;animation:_diiFadeIn .25s ease';
+
+        overlay.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:440px;width:92%;box-shadow:0 25px 60px rgba(0,0,0,0.3);overflow:hidden;animation:_diiScaleIn .3s cubic-bezier(0.34,1.56,0.64,1);font-family:inherit">'
+            + '<div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:18px 24px;text-align:center">'
+            + '<div style="font-size:36px;margin-bottom:4px">🥞</div>'
+            + '<div style="color:#fff;font-size:16px;font-weight:800;letter-spacing:0.5px">PHÂN BỔ SLL & TÁCH TIỀN DƯ</div>'
+            + '</div>'
+            + '<div style="padding:20px 24px">'
+            + '<p style="font-size:12.5px;color:#64748b;line-height:1.6;margin-bottom:16px;margin-top:0">Tổng tiền phân bổ cho các đơn hàng chưa bằng tổng số tiền mã gốc. Hệ thống sẽ tự động tách số dư này:</p>'
+            + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:16px">'
+            + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span style="color:#64748b">Mã tiền gốc:</span><strong style="color:#1e293b">' + opts.prCode + '</strong></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span style="color:#64748b">Số tiền gốc:</span><strong style="color:#1e293b">' + _prFmt(opts.prAmount) + '</strong></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px"><span style="color:#64748b">Đã phân bổ SLL:</span><strong style="color:#2563eb">' + _prFmt(opts.totalAllocated) + '</strong></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#64748b;font-weight:700">Tách tạo mã mới (Số dư):</span><strong style="color:#10b981">+' + _prFmt(opts.diff) + '</strong></div>'
+            + '</div>'
+            + '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;text-align:left;margin-bottom:18px">'
+            + '<span style="color:#1e40af;font-size:11.5px;font-weight:700;line-height:1.5;display:block">ℹ️ Ghi chú: Mã tiền mới sẽ tự động tạo cùng ngày, phương thức và có ghi chú: "(Tách từ ' + opts.prCode + ')"</span>'
+            + '</div>'
+            + '<div style="display:flex;gap:10px">'
+            + '<button id="_sllCancel" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit">Hủy bỏ</button>'
+            + '<button id="_sllConfirm" style="flex:1;padding:10px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.4);transition:all .15s;font-family:inherit">Xác nhận phân bổ</button>'
+            + '</div>'
+            + '</div></div>';
+
+        if (!document.getElementById('_diiStyles')) {
+            var st = document.createElement('style');
+            st.id = '_diiStyles';
+            st.textContent = '@keyframes _diiFadeIn{from{opacity:0}to{opacity:1}}@keyframes _diiScaleIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}';
+            document.head.appendChild(st);
+        }
+
+        document.body.appendChild(overlay);
+
+        function cleanup(result) {
+            overlay.style.animation = '_diiFadeIn .2s ease reverse';
+            setTimeout(function(){ overlay.remove(); }, 200);
+            resolve(result);
+        }
+
+        overlay.querySelector('#_sllCancel').onclick = function(){ cleanup(false); };
+        overlay.querySelector('#_sllConfirm').onclick = function(){ cleanup(true); };
+        overlay.addEventListener('click', function(e){ if(e.target === overlay) cleanup(false); });
+    });
+}
+
 async function _prSubmitLinkOrderSLL(prId, recordAmount) {
     var totalAllocated = _prSelectedOrders.reduce(function(sum, o){return sum + (Number(o.allocatedAmount)||0);}, 0);
     if (_prSelectedOrders.length < 2) {
@@ -1335,8 +1384,15 @@ async function _prSubmitLinkOrderSLL(prId, recordAmount) {
 
     var diff = recordAmount - totalAllocated;
     if (diff > 0) {
-        var confirmMsg = 'Bạn đang thanh toán dư ' + _prFmt(diff) + '. Hệ thống sẽ tự động tách số dư này thành một mã tiền mới cùng ngày/phương thức. Xác nhận?';
-        if (!confirm(confirmMsg)) return;
+        var pr = _pr.records.find(function(x){return x.id === prId;}) || {};
+        var prCode = pr.payment_code || '';
+        var confirmed = await _prConfirmSLLSplit({
+            prCode: prCode,
+            prAmount: recordAmount,
+            totalAllocated: totalAllocated,
+            diff: diff
+        });
+        if (!confirmed) return;
     }
 
     var body = {
