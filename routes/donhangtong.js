@@ -281,6 +281,7 @@ module.exports = async function(fastify) {
                         o.remaining_amount
                     FROM unpaid_orders o
                     JOIN dht_order_items oi ON oi.dht_order_id = o.id
+                    WHERE o.remaining_amount > 0
                     
                     UNION
                     
@@ -299,6 +300,7 @@ module.exports = async function(fastify) {
                         o.remaining_amount
                     FROM unpaid_orders o
                     WHERE NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id)
+                      AND o.remaining_amount > 0
 
                     UNION
                     
