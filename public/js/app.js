@@ -2312,6 +2312,8 @@ function closeModal() {
     var container = document.getElementById('modalContainer');
     if (container) {
         container.classList.remove('modal-dark');
+        container.style.maxWidth = '';
+        container.style.width = '';
     }
 }
 

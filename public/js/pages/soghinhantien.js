@@ -993,7 +993,7 @@ async function _prShowDetail(id) {
     var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
     openModal(titleText, bodyHTML, footerHTML);
     setTimeout(function(){ 
-        var mc = document.querySelector('.modal-content'); 
+        var mc = document.getElementById('modalContainer'); 
         if(mc){ 
             mc.style.maxWidth = (r.money_source === 'nha_van_chuyen') ? '1100px' : '720px'; 
             mc.style.width = '95vw'; 
