@@ -1212,6 +1212,7 @@ async function _prUpdateCustomer(id) {
         +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
         +'</div>'
         +'<div id="prSelectedOrdersContainer" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;max-height:220px;overflow-y:auto"></div>'
+        +'<div id="prSLLConclusionBox" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13.5px;font-weight:800;color:#991b1b;display:none;text-align:center;box-shadow:0 2px 8px rgba(239,68,68,0.08)"></div>'
         +'<div id="prSLLSummaryBox" style="background:#fffbeb;border:1px dashed #d97706;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#92400e;display:none"></div>'
         +'<div id="prOrderResults" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
         +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
@@ -1374,6 +1375,28 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
     }
     summaryBox.innerHTML = summaryText;
     summaryBox.style.display = 'block';
+
+    var conclusionBox = document.getElementById('prSLLConclusionBox');
+    if (conclusionBox) {
+        if (_prSelectedOrders.length > 0) {
+            var lastOrder = _prSelectedOrders[_prSelectedOrders.length - 1];
+            var missingAmount = (Number(lastOrder.remaining) || 0) - (Number(lastOrder.allocatedAmount) || 0);
+            if (missingAmount > 0) {
+                if (!document.getElementById('_prSllBlinkStyles')) {
+                    var st = document.createElement('style');
+                    st.id = '_prSllBlinkStyles';
+                    st.textContent = '@keyframes prSllBlink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } } .pr-sll-blink { animation: prSllBlink 1.2s infinite; }';
+                    document.head.appendChild(st);
+                }
+                conclusionBox.innerHTML = '<span class="pr-sll-blink">⚠️ <strong>' + lastOrder.order_code + '</strong> = còn lại <strong>' + _prFmt(missingAmount) + '</strong> chưa thanh toán</span>';
+                conclusionBox.style.display = 'block';
+            } else {
+                conclusionBox.style.display = 'none';
+            }
+        } else {
+            conclusionBox.style.display = 'none';
+        }
+    }
 
     var isValid = _prSelectedOrders.length >= 1 && totalAllocated <= recordAmount && totalAllocated > 0;
     if (btn) {
