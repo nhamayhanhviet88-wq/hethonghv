@@ -1137,6 +1137,7 @@ async function _dhtShowDetail(id) {
         const vat = calcVat;
         const discount = Number(o.discount_amount) || 0;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
+        const total = calcBase + calcVat + surchargeTotal - discount;
         const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
         const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
