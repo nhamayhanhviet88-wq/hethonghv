@@ -1397,13 +1397,7 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
             var lastOrder = _prSelectedOrders[_prSelectedOrders.length - 1];
             var missingAmount = (Number(lastOrder.remaining) || 0) - (Number(lastOrder.allocatedAmount) || 0);
             if (missingAmount > 0) {
-                if (!document.getElementById('_prSllBlinkStyles')) {
-                    var st = document.createElement('style');
-                    st.id = '_prSllBlinkStyles';
-                    st.textContent = '@keyframes prSllBlink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } } .pr-sll-blink { animation: prSllBlink 1.2s infinite; }';
-                    document.head.appendChild(st);
-                }
-                conclusionBox.innerHTML = '<span class="pr-sll-blink">⚠️ <strong>' + lastOrder.order_code + '</strong> = còn lại <strong>' + _prFmt(missingAmount) + '</strong> chưa thanh toán</span>';
+                conclusionBox.innerHTML = '⚠️ <strong>' + lastOrder.order_code + '</strong> = còn lại <strong>' + _prFmt(missingAmount) + '</strong> chưa thanh toán';
                 conclusionBox.style.display = 'block';
             } else {
                 conclusionBox.style.display = 'none';
