@@ -1774,6 +1774,7 @@ async function _prProcessExcel(input, recordAmount) {
     }
 
     var allWaybills = [];
+    var partBWaybills = [];
     var combinedCodExcel = 0;
     var combinedFeeExcel = 0;
     var combinedNetExcel = 0;
@@ -1851,6 +1852,7 @@ async function _prProcessExcel(input, recordAmount) {
             }
 
             var fileWaybills = [];
+            var filePartBWaybills = [];
             var calculatedCodSum = 0;
 
             for (var rIdx = 24; rIdx < sheetData.length; rIdx++) {
@@ -1858,23 +1860,33 @@ async function _prProcessExcel(input, recordAmount) {
                 if (!row || row.length <= 1) continue;
                 
                 var waybillCode = String(row[1] || '').trim(); // Column B (index 1)
-                if (!waybillCode) continue;
-                
-                if (/cộng|tổng|total/i.test(waybillCode)) {
-                    continue;
+                if (waybillCode && !/cộng|tổng|total/i.test(waybillCode)) {
+                    var codAmount = parseFloat(String(row[5] || '').replace(/[\.,\sđđ]/g, '')) || 0;
+                    var goodsContent = String(row[13] || '').trim(); // Column N (index 13)
+                    
+                    fileWaybills.push({
+                        code: waybillCode,
+                        cod: codAmount,
+                        goods: goodsContent,
+                        rowIndex: rIdx + 1,
+                        fileName: files.length > 1 ? file.name : ''
+                    });
+                    calculatedCodSum += codAmount;
                 }
-                
-                var codAmount = parseFloat(String(row[5] || '').replace(/[\.,\sđđ]/g, '')) || 0;
-                var goodsContent = String(row[13] || '').trim(); // Column N (index 13)
-                
-                fileWaybills.push({
-                    code: waybillCode,
-                    cod: codAmount,
-                    goods: goodsContent,
-                    rowIndex: rIdx + 1,
-                    fileName: files.length > 1 ? file.name : ''
-                });
-                calculatedCodSum += codAmount;
+
+                // Parse Part B waybills
+                if (row.length > 19) {
+                    var partBWaybillCode = String(row[19] || '').trim(); // Column T (index 19)
+                    if (partBWaybillCode && !/cộng|tổng|total|mã vận đơn/i.test(partBWaybillCode)) {
+                        var shippingFee = parseFloat(String(row[23] || '').replace(/[\.,\sđđ]/g, '')) || 0; // Column X (index 23)
+                        filePartBWaybills.push({
+                            code: partBWaybillCode,
+                            shippingFee: shippingFee,
+                            rowIndex: rIdx + 1,
+                            fileName: files.length > 1 ? file.name : ''
+                        });
+                    }
+                }
             }
 
             if (!foundCod) {
@@ -1889,19 +1901,25 @@ async function _prProcessExcel(input, recordAmount) {
             combinedNetExcel += fileNet;
             
             allWaybills = allWaybills.concat(fileWaybills);
+            partBWaybills = partBWaybills.concat(filePartBWaybills);
         }
 
-        if (allWaybills.length === 0) {
+        if (allWaybills.length === 0 && partBWaybills.length === 0) {
             resultBox.innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;font-weight:700">⚠️ Không tìm thấy dữ liệu vận đơn nào bắt đầu từ dòng 25. Vui lòng kiểm tra lại cấu trúc file.</div>';
             return;
         }
 
-        var compareRes = await apiCall('/api/payment-records/compare-waybills', 'POST', { waybills: allWaybills });
+        var combinedWaybillQueryList = allWaybills.map(function(w) { return { code: w.code }; })
+            .concat(partBWaybills.map(function(w) { return { code: w.code }; }));
+
+        var compareRes = await apiCall('/api/payment-records/compare-waybills', 'POST', { waybills: combinedWaybillQueryList });
         var matchedOrders = compareRes.orders || [];
 
         _pr.reconcileState = {
             waybills: allWaybills.slice(),
+            partBWaybills: partBWaybills.slice(),
             matchedMap: {},
+            partBMatchedMap: {},
             verifiedMap: {},
             alreadyReconciledMap: compareRes.alreadyReconciledMap || {}
         };
@@ -1916,7 +1934,7 @@ async function _prProcessExcel(input, recordAmount) {
             if (matchedOrder) {
                 _pr.reconcileState.matchedMap[code] = {
                     order_code: matchedOrder.order_code,
-                    order_type: 'dht_order',
+                    order_type: matchedOrder.order_type || 'dht_order',
                     customer_name: matchedOrder.customer_name,
                     customer_phone: matchedOrder.customer_phone,
                     remaining: Number(matchedOrder.remaining) || 0,
@@ -1929,6 +1947,26 @@ async function _prProcessExcel(input, recordAmount) {
                 _pr.reconcileState.matchedMap[code] = null;
             }
             _pr.reconcileState.verifiedMap[code] = false;
+        });
+
+        partBWaybills.forEach(function(wb) {
+            var code = String(wb.code || '').trim();
+            if (!code) return;
+            var matchedOrder = matchedOrders.find(function(o) {
+                return String(o.tracking_code || '').trim().toLowerCase() === code.toLowerCase()
+                    || String(o.order_code || '').trim().toLowerCase() === code.toLowerCase();
+            });
+            if (matchedOrder) {
+                _pr.reconcileState.partBMatchedMap[code] = {
+                    order_code: matchedOrder.order_code,
+                    order_type: matchedOrder.order_type || 'dht_order',
+                    customer_name: matchedOrder.customer_name,
+                    customer_phone: matchedOrder.customer_phone,
+                    shippingFee: wb.shippingFee
+                };
+            } else {
+                _pr.reconcileState.partBMatchedMap[code] = null;
+            }
         });
 
         _pr.excelTotalCod = combinedCodExcel;
@@ -2159,6 +2197,70 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         + '</div>'
         + '</div>';
 
+    var partBRowsHTML = '';
+    var totalPartBMatched = 0;
+    var partBWaybills = _pr.reconcileState.partBWaybills || [];
+    var totalPartBWaybills = partBWaybills.length;
+
+    partBWaybills.forEach(function(wb) {
+        var code = String(wb.code || '').trim();
+        var match = _pr.reconcileState.partBMatchedMap ? _pr.reconcileState.partBMatchedMap[code] : null;
+
+        var crmInfoHTML = '';
+        var matchStatusHTML = '';
+        var rowBg = '';
+
+        if (match) {
+            totalPartBMatched++;
+            matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp đơn</span>';
+            rowBg = 'background:#f0fdf4';
+            
+            var typeTag = match.order_type === 'ao_mau' 
+                ? '<span style="background:#ede9fe;color:#6d28d9;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Áo mẫu</span>'
+                : '<span style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Đơn tổng</span>';
+
+            crmInfoHTML = '<div style="display:flex;align-items:center;gap:4px"><strong style="color:var(--navy);font-size:12px">' + match.order_code + '</strong>' + typeTag + '</div>'
+                + '<div style="font-size:10px;color:#64748b;margin-top:2px">' + (match.customer_name || '—') + ' · SĐT: ' + (match.customer_phone || '—') + '</div>';
+        } else {
+            matchStatusHTML = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">? Không tìm thấy</span>';
+            crmInfoHTML = '<div style="color:#94a3b8;font-style:italic">Không có trên CRM</div>';
+        }
+
+        var labelFileSuffix = wb.fileName ? '<br><span style="font-size:8.5px;color:#64748b;font-weight:normal;word-break:break-all">' + wb.fileName + '</span>' : '';
+
+        partBRowsHTML += '<tr style="border-bottom:1px solid #e2e8f0; ' + rowBg + '">'
+            + '<td style="padding:8px 10px;font-family:monospace;font-weight:700">' + wb.code + ' <div style="font-size:9px;color:#94a3b8;font-weight:normal">Dòng ' + wb.rowIndex + labelFileSuffix + '</div></td>'
+            + '<td style="padding:8px 10px">' + crmInfoHTML + '</td>'
+            + '<td style="padding:8px 10px;font-weight:800;color:#2563eb;text-align:left">' + _prFmt(wb.shippingFee) + '</td>'
+            + '<td style="padding:8px 10px;text-align:left">' + matchStatusHTML + '</td>'
+            + '</tr>';
+    });
+
+    var partBTableHTML = '';
+    if (totalPartBWaybills > 0) {
+        partBTableHTML = '<div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-top: 14px;">'
+            + '<div style="background:#e0f2fe;padding:8px 12px;font-weight:800;font-size:11px;color:#0369a1;display:flex;justify-content:space-between">'
+            + '<span>🚚 DANH SÁCH MÃ VẬN ĐƠN PHÁT SINH CƯỚC (CHƯA PHÁT THÀNH CÔNG: ' + totalPartBWaybills + ' mã)</span>'
+            + '<span>Khớp được: <strong style="color:#0369a1">' + totalPartBMatched + ' / ' + totalPartBWaybills + ' đơn</strong></span>'
+            + '</div>'
+            + '<div style="max-height:300px;overflow-y:auto;overflow-x:auto">'
+            + '<table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:700px">'
+            + '<thead>'
+            + '<tr style="background:#f8fafc;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1">'
+            + '<th style="padding:8px 10px;text-align:left;width:180px">Mã Vận Đơn</th>'
+            + '<th style="padding:8px 10px;text-align:left;width:250px">Đơn Hàng CRM</th>'
+            + '<th style="padding:8px 10px;text-align:left;width:150px">Cước Phát Nhanh</th>'
+            + '<th style="padding:8px 10px;text-align:left;width:120px">Trạng Thái</th>'
+            + '</tr>'
+            + '</thead>'
+            + '<tbody>'
+            + partBRowsHTML
+            + '</tbody>'
+            + '</table>'
+            + '</div>'
+            + '</div>';
+    }
+
     if (!document.getElementById('pulseVerifyStyle')) {
         var style = document.createElement('style');
         style.id = 'pulseVerifyStyle';
@@ -2202,7 +2304,7 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
     var savedScrollTop = wrapper ? wrapper.scrollTop : 0;
     var savedScrollLeft = wrapper ? wrapper.scrollLeft : 0;
 
-    resultBox.innerHTML = summaryHTML + tableHTML + actionBtnHTML;
+    resultBox.innerHTML = summaryHTML + tableHTML + partBTableHTML + actionBtnHTML;
 
     var newWrapper = document.getElementById('prExcelTableWrapper');
     if (newWrapper) {
@@ -2451,12 +2553,28 @@ async function _prAutoAllocateExcel() {
         }
     }
 
-    if (allocations.length === 0) {
+    var partBWaybillsBody = [];
+    if (_pr.reconcileState && _pr.reconcileState.partBWaybills) {
+        _pr.reconcileState.partBWaybills.forEach(function(wb) {
+            var code = String(wb.code || '').trim();
+            var match = _pr.reconcileState.partBMatchedMap ? _pr.reconcileState.partBMatchedMap[code] : null;
+            if (match) {
+                partBWaybillsBody.push({
+                    tracking_code: code,
+                    shipping_fee: wb.shippingFee,
+                    order_code: match.order_code
+                });
+            }
+        });
+    }
+
+    if (allocations.length === 0 && partBWaybillsBody.length === 0) {
         showToast('Không có đơn hàng nào được chọn hoặc khớp để liên kết!', 'error');
         return;
     }
 
     _prSelectedOrders = allocations;
+    _prSelectedPartBOrders = partBWaybillsBody;
     await _prSubmitExcelAllocation(_prActiveRecordId, _prPaymentAmount, _pr.excelTotalCod, _pr.excelTotalFee);
 }
 
@@ -2474,7 +2592,8 @@ async function _prSubmitExcelAllocation(prId, recordAmount, totalCod, totalFee) 
                 order_type: o.order_type || 'dht_order',
                 tracking_code: o.tracking_code || ''
             };
-        })
+        }),
+        part_b_waybills: _prSelectedPartBOrders || []
     };
 
     try {
@@ -2485,6 +2604,7 @@ async function _prSubmitExcelAllocation(prId, recordAmount, totalCod, totalFee) 
         }
         showToast(msg);
         _prSelectedOrders = [];
+        _prSelectedPartBOrders = [];
         closeModal();
         await _prLoadRecords();
     } catch(e) {

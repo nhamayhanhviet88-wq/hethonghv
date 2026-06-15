@@ -1588,7 +1588,7 @@ async function _dhtShowDetail(id) {
                     trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
                 }
                 
-                const payerLabel = it.shipping_fee_payer === 'hv' ? 'HV trả' : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const payerLabel = it.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 const feeAmt = Number(it.shipping_fee || 0);
@@ -1676,7 +1676,7 @@ async function _dhtShowDetail(id) {
                 
                 shipHTML += `
                 <div style="background:${boxBg};border:${boxBorder};border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:${boxShadow}">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:${boxHeaderBorder};padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:${boxHeaderBorder};padding-bottom:8px;flex-wrap:wrap;gap:6px;">
                         ${headerHtml}
                         ${badgeHtml}
                     </div>
@@ -1688,7 +1688,7 @@ async function _dhtShowDetail(id) {
                         ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
                         ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
                         <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
-                        <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Chuyển Phát Nhanh:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
@@ -1772,12 +1772,12 @@ async function _dhtShowDetail(id) {
                     var _rnLabel = _acn.includes('nhân viên hv') || _acn.includes('nhan vien hv') ? '👷 Tên Nhân Viên Gửi Hàng' : '🤝 Tên Người Nhận Hàng';
                     shipHTML += row(_rnLabel, `<span style="font-weight:800;color:#1e293b">${o.receiver_name}</span>`);
                 }
-                var _payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                var _payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 var _methodLabel = o.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : o.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 var _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span> — <span style="font-weight:700;color:#334155">${_methodLabel}</span>`);
                 var _sfee = Number(o.shipping_fee) || 0;
-                shipHTML += row('💰 Phí Gửi Hàng', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
+                shipHTML += row('💰 Cước Chuyển Phát Nhanh', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
                 if (o.shipping_payment_code) {
                     shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
                     shipHTML += row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(o.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);

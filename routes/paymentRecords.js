@@ -798,6 +798,32 @@ module.exports = async function(fastify) {
                 }
             }
 
+            // 3. Process Part B waybill carrier shipping fee updates
+            const partBWaybills = b.part_b_waybills || [];
+            for (const item of partBWaybills) {
+                const trackingCode = String(item.tracking_code || '').trim();
+                if (!trackingCode) continue;
+                const shippingFee = Number(item.shipping_fee) || 0;
+                
+                await db.run(`
+                    UPDATE dht_order_shipments 
+                    SET shipping_fee = $1, 
+                        shipping_fee_payer = 'hv', 
+                        shipping_fee_method = 'ck', 
+                        updated_at = NOW() 
+                    WHERE tracking_code = $2
+                `, [shippingFee, trackingCode]);
+
+                await db.run(`
+                    UPDATE dht_orders 
+                    SET shipping_fee = $1, 
+                        shipping_fee_payer = 'hv', 
+                        shipping_fee_method = 'ck', 
+                        updated_at = NOW() 
+                    WHERE tracking_code = $2
+                `, [shippingFee, trackingCode]);
+            }
+
             return { success: true, auto_completed_orders: autoCompletedOrders };
         }
 
