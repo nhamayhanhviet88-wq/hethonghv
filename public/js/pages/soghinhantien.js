@@ -875,9 +875,14 @@ async function _prShowDetail(id) {
 
             if (children.length > 0) {
                 var rowsHTML = children.map(function(c) {
+                    var isDeposit = c.deposit_payment_id && Number(c.deposit_payment_id) === Number(r.id);
+                    var typeBadge = isDeposit 
+                        ? '<span class="pr-badge pr-coc">Đặt Cọc</span>' 
+                        : '<span class="pr-badge pr-tt">Thanh Toán</span>';
                     return '<tr style="border-bottom:1px solid #f1f5f9">'
                         + '<td style="padding:6px 12px;font-weight:700;color:#475569">' + c.payment_code + '</td>'
                         + '<td style="padding:6px 12px"><span style="background:#7c3aed;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700">' + (c.order_tt_coc || '—') + '</span></td>'
+                        + '<td style="padding:6px 12px">' + typeBadge + '</td>'
                         + '<td style="padding:6px 12px;text-align:right;font-weight:700;color:#d32f2f">' + _prFmt(c.amount) + '</td>'
                         + '</tr>';
                 }).join('');
@@ -915,6 +920,7 @@ async function _prShowDetail(id) {
                     + '<thead><tr style="background:#f1f5f9;border-bottom:1px solid #cbd5e1">'
                     + '<th style="padding:6px 12px;text-align:left">Mã Con</th>'
                     + '<th style="padding:6px 12px;text-align:left">Mã Đơn</th>'
+                    + '<th style="padding:6px 12px;text-align:left">Loại</th>'
                     + '<th style="padding:6px 12px;text-align:right">Số Tiền</th>'
                     + '</tr></thead>'
                     + '<tbody>' + rowsHTML + '</tbody>'

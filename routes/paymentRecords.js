@@ -128,6 +128,7 @@ module.exports = async function(fastify) {
         const { id } = request.params;
         const rows = await db.all(
             `SELECT pr.*,
+                    o.deposit_payment_id,
                     COALESCE(o.total_amount, 0)
                       - COALESCE(o.discount_amount, 0)
                       - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
