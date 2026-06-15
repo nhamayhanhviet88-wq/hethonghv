@@ -639,14 +639,25 @@ module.exports = async function(fastify) {
 
         // Handle "HV trả + TM" → Auto create CHI in Sổ Thu Chi
         let cashflowResult = null;
+        let cfDescription = null;
         if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
             try {
                 const seq = await _getNextTMSeq(todayStr);
                 const cfCode = _buildTMCode(seq, todayStr);
-                let cfDescription = `Tiền ship đơn ${order.order_code}`;
-                if (itemsToShip.length > 0) {
-                    const names = itemsToShip.map(it => it.product_name).join(', ');
-                    cfDescription = `Tiền ship phiếu (${names}) đơn ${order.order_code}`;
+                
+                const existingShipments = await db.all(`
+                    SELECT id FROM dht_order_shipments WHERE dht_order_id = $1
+                `, [orderId]);
+                const shipmentCount = existingShipments.length + 1;
+                
+                if (shipmentCount > 1) {
+                    cfDescription = `Gửi ship lần ${shipmentCount} đơn ${order.order_code}`;
+                } else {
+                    cfDescription = `Tiền ship đơn ${order.order_code}`;
+                    if (itemsToShip.length > 0) {
+                        const names = itemsToShip.map(it => it.product_name).join(', ');
+                        cfDescription = `Tiền ship phiếu (${names}) đơn ${order.order_code}`;
+                    }
                 }
                 const cfImageUrl = b.shipping_bill_link || null;
 
@@ -961,7 +972,7 @@ module.exports = async function(fastify) {
                     { field: 'payment_code', label: 'Mã phiếu CHI', old: null, new: cashflowResult.cashflow_code },
                     { field: 'payment_amount', label: 'Số tiền CHI', old: null, new: String(shipFee) },
                     { field: 'payment_method', label: 'Hình thức', old: null, new: 'Tiền Mặt' },
-                    { field: 'transfer_note', label: 'Nội dung', old: null, new: `Tiền ship đơn ${order.order_code}` }
+                    { field: 'transfer_note', label: 'Nội dung', old: null, new: cfDescription || `Tiền ship đơn ${order.order_code}` }
                 ];
                 const chiSummary = `🔴 Phí ship (CHI tự động): ${Number(shipFee).toLocaleString('vi-VN')}đ — Mã phiếu: ${cashflowResult.cashflow_code}`;
                 await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
