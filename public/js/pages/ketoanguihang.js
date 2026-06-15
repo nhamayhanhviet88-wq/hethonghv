@@ -10,9 +10,12 @@ let _shPage = 1;
 const _SH_PER_PAGE = 100;
 let _shAllOrdersLoaded = false;
 let _shAllOrdersLoading = null;
+let _shSelectedYear = 'all';
+let _shSelectedMonth = 'all';
 
 async function renderKetoanguihangPage(container) {
     _shFilter = 'today'; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
+    _shSelectedYear = 'all'; _shSelectedMonth = 'all';
     container.innerHTML = `<div style="max-width:1600px;margin:0 auto;padding:16px;">
         <h2 style="margin:0 0 16px;font-size:22px;color:#122546;font-weight:800;">📤 Đơn Hàng Kế Toán Gửi</h2>
         <div style="display:flex;gap:16px;align-items:flex-start;">
@@ -47,13 +50,17 @@ function _shRenderSidebar() {
     sb.innerHTML = filters.map(f => {
         const active = _shFilter === f.key;
         const cnt = _shCounts[f.key] || 0;
-        return `<div onclick="_shSetFilter('${f.key}')" style="padding:12px 14px;margin-bottom:6px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .2s;border:2px solid ${active ? f.color : '#e2e8f0'};background:${active ? f.bg : 'white'};box-shadow:${active ? '0 2px 8px rgba(0,0,0,.08)' : 'none'};" onmouseover="if(!${active})this.style.borderColor='${f.color}'" onmouseout="if(!${active})this.style.borderColor='#e2e8f0'">
+        let html = `<div onclick="_shSetFilter('${f.key}')" style="padding:12px 14px;margin-bottom:6px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .2s;border:2px solid ${active ? f.color : '#e2e8f0'};background:${active ? f.bg : 'white'};box-shadow:${active ? '0 2px 8px rgba(0,0,0,.08)' : 'none'};" onmouseover="if(!${active})this.style.borderColor='${f.color}'" onmouseout="if(!${active})this.style.borderColor='#e2e8f0'">
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:16px;">${f.icon}</span>
                 <span style="font-size:13px;font-weight:700;color:${active ? f.color : '#334155'};">${f.label}</span>
             </div>
             <span style="background:${active ? f.color : '#e2e8f0'};color:${active ? 'white' : '#64748b'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800;">${cnt}</span>
         </div>`;
+        if (f.key === 'shipped' && active) {
+            html += _shBuildYearMonthTreeHTML();
+        }
+        return html;
     }).join('') + `
     <div style="margin-top:12px;padding:10px 12px;border-radius:10px;border:2px solid #e2e8f0;background:white;">
         <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">👤 CSKH</div>
@@ -65,8 +72,76 @@ function _shRenderSidebar() {
     ` + `${_shCounts.overdue > 0 ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;"><div style="font-size:11px;font-weight:700;color:#dc2626;">⚠️ ${_shCounts.overdue} đơn quá hạn!</div><div style="font-size:10px;color:#991b1b;margin-top:2px;">Phạt 100.000đ/ngày nếu không gửi</div></div>` : ''}`;
 }
 
+function _shBuildYearMonthTreeHTML() {
+    const shippedOrders = _shOrders.filter(o => o.shipping_status === 'shipped');
+    const yearMonthMap = {};
+    shippedOrders.forEach(o => {
+        let dateObj = null;
+        if (o.shipped_at) dateObj = new Date(o.shipped_at);
+        else if (o.shipping_date) dateObj = new Date(o.shipping_date);
+        else if (o.expected_ship_date) dateObj = new Date(o.expected_ship_date);
+        else if (o.created_at) dateObj = new Date(o.created_at);
+        
+        if (dateObj) {
+            const y = dateObj.getFullYear();
+            const m = dateObj.getMonth() + 1;
+            if (!yearMonthMap[y]) yearMonthMap[y] = {};
+            if (!yearMonthMap[y][m]) yearMonthMap[y][m] = 0;
+            yearMonthMap[y][m]++;
+        }
+    });
+
+    const sortedYears = Object.keys(yearMonthMap).map(Number).sort((a, b) => b - a);
+    if (sortedYears.length === 0) return '';
+
+    let html = `<div style="margin-left: 10px; border-left: 2px dashed #cbd5e1; padding-left: 10px; margin-top: 4px; margin-bottom: 8px; font-size: 12px;">`;
+    
+    const isAllActive = _shSelectedYear === 'all';
+    html += `<div onclick="event.stopPropagation(); _shSelectYearMonth('all', 'all')" style="padding: 4px 8px; margin-bottom: 2px; border-radius: 6px; cursor: pointer; font-weight: 700; color: ${isAllActive ? '#059669' : '#475569'}; background: ${isAllActive ? '#ecfdf5' : 'transparent'}; display: flex; justify-content: space-between; align-items: center;">
+        <span>📅 Tất cả đã gửi</span>
+        <span style="font-size: 10px; background: ${isAllActive ? '#059669' : '#e2e8f0'}; color: ${isAllActive ? 'white' : '#64748b'}; padding: 1px 6px; border-radius: 8px;">${shippedOrders.length}</span>
+    </div>`;
+
+    sortedYears.forEach(y => {
+        const isYearActive = _shSelectedYear === y && _shSelectedMonth === 'all';
+        const yearTotal = Object.values(yearMonthMap[y]).reduce((a, b) => a + b, 0);
+        
+        html += `<div onclick="event.stopPropagation(); _shSelectYearMonth(${y}, 'all')" style="padding: 4px 8px; margin-top: 4px; margin-bottom: 2px; border-radius: 6px; cursor: pointer; font-weight: 700; color: ${_shSelectedYear === y ? '#059669' : '#1e293b'}; background: ${isYearActive ? '#ecfdf5' : 'transparent'}; display: flex; justify-content: space-between; align-items: center;">
+            <span>🗓️ Năm ${y}</span>
+            <span style="font-size: 10px; background: ${isYearActive ? '#059669' : '#cbd5e1'}; color: ${isYearActive ? 'white' : '#475569'}; padding: 1px 6px; border-radius: 8px;">${yearTotal}</span>
+        </div>`;
+
+        const sortedMonths = Object.keys(yearMonthMap[y]).map(Number).sort((a, b) => b - a);
+        html += `<div style="margin-left: 12px; border-left: 1px solid #e2e8f0; padding-left: 8px;">`;
+        sortedMonths.forEach(m => {
+            const isMonthActive = _shSelectedYear === y && _shSelectedMonth === m;
+            const count = yearMonthMap[y][m];
+            const monthLabel = m < 10 ? '0' + m : m;
+            html += `<div onclick="event.stopPropagation(); _shSelectYearMonth(${y}, ${m})" style="padding: 3px 6px; margin-bottom: 2px; border-radius: 5px; cursor: pointer; font-weight: 600; color: ${isMonthActive ? '#059669' : '#64748b'}; background: ${isMonthActive ? '#ecfdf5' : 'transparent'}; display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='${isMonthActive ? '#ecfdf5' : '#f8fafc'}'" onmouseout="this.style.background='${isMonthActive ? '#ecfdf5' : 'transparent'}'">
+                <span>Tháng ${monthLabel}</span>
+                <span style="font-size: 9px; font-weight: 800; color: ${isMonthActive ? '#059669' : '#94a3b8'};">${count}</span>
+            </div>`;
+        });
+        html += `</div>`;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+function _shSelectYearMonth(year, month) {
+    _shSelectedYear = year;
+    _shSelectedMonth = month;
+    _shPage = 1;
+    _shApplySearch();
+    _shRenderContent();
+    _shRenderSidebar();
+}
+
 function _shSetFilter(key) {
     _shFilter = key; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
+    _shSelectedYear = 'all';
+    _shSelectedMonth = 'all';
     _shAllOrdersLoaded = false;
     _shAllOrdersLoading = null;
     const si = document.getElementById('shSearchInput'); if (si) si.value = '';
@@ -150,7 +225,26 @@ function _shApplySearch() {
     } else {
         list = list.filter(o => {
             const menu = _shGetOrderMenu(o);
-            return menu.key === _shFilter;
+            if (menu.key !== _shFilter) return false;
+            
+            // Year & Month filter for shipped status
+            if (_shFilter === 'shipped') {
+                if (_shSelectedYear !== 'all') {
+                    let dateObj = null;
+                    if (o.shipped_at) dateObj = new Date(o.shipped_at);
+                    else if (o.shipping_date) dateObj = new Date(o.shipping_date);
+                    else if (o.expected_ship_date) dateObj = new Date(o.expected_ship_date);
+                    else if (o.created_at) dateObj = new Date(o.created_at);
+                    
+                    if (!dateObj) return false;
+                    const y = dateObj.getFullYear();
+                    const m = dateObj.getMonth() + 1;
+                    
+                    if (y !== Number(_shSelectedYear)) return false;
+                    if (_shSelectedMonth !== 'all' && m !== Number(_shSelectedMonth)) return false;
+                }
+            }
+            return true;
         });
     }
     _shSearched = list;
