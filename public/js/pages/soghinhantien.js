@@ -1240,6 +1240,9 @@ function _prSearchUnpaidOrders() {
                 return;
             }
             var isSLL = true;
+            var totalAllocated = _prSelectedOrders.reduce(function(sum, x){return sum + (Number(x.allocatedAmount)||0);}, 0);
+            var isFullyAllocated = totalAllocated >= _prPaymentAmount;
+
             var orders = data.orders.slice();
             var h = '';
             orders.forEach(function(o){
@@ -1257,11 +1260,26 @@ function _prSearchUnpaidOrders() {
                     isSelected = _prSelectedOrder && _prSelectedOrder.order_code === o.order_code;
                 }
 
-                var clickFn = isSLL 
-                    ? '_prSelectOrderSLL(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')'
-                    : '_prSelectOrder(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')';
+                var isBlocked = isFullyAllocated && !isSelected;
+                var style = 'padding:10px 14px;border-bottom:1px solid #e2e8f0;transition:all .15s;display:flex;align-items:center;gap:10px;';
+                if (isSelected) {
+                    style += 'background:#dbeafe;border-left:4px solid #3b82f6;cursor:pointer;';
+                } else if (isBlocked) {
+                    style += 'background:#f8fafc;border-left:4px solid transparent;cursor:not-allowed;opacity:0.5;';
+                } else {
+                    style += 'background:#fff;border-left:4px solid transparent;cursor:pointer;';
+                }
 
-                h += '<div onclick="' + clickFn + '" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .15s;display:flex;align-items:center;gap:10px;'+(isSelected?'background:#dbeafe;border-left:4px solid #3b82f6;':'background:#fff;border-left:4px solid transparent;')+'" onmouseover="if(!'+isSelected+')this.style.background=\'#f0f9ff\'" onmouseout="if(!'+isSelected+')this.style.background=\'#fff\'">'
+                var clickFn = '';
+                if (!isBlocked) {
+                    clickFn = isSLL 
+                        ? '_prSelectOrderSLL(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')'
+                        : '_prSelectOrder(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')';
+                } else {
+                    clickFn = 'showToast(\'Mã tiền đã phân bổ hết, không thể chọn thêm đơn!\', \'warning\')';
+                }
+
+                h += '<div onclick="' + clickFn + '" style="' + style + '"' + (!isBlocked && !isSelected ? ' onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'#fff\'"' : '') + '>'
                     +'<div style="flex:1">'
                     +'<div style="font-weight:800;font-size:13px;color:#1a1a2e">'+o.order_code+'</div>'
                     +'<div style="font-size:11px;color:#64748b;margin-top:2px">'+(o.customer_name||'—')+' · '+(o.customer_phone||'')+' · '+orderDate+'</div>'
@@ -1300,10 +1318,15 @@ function _prSelectOrderSLL(o) {
     if (exists) {
         _prSelectedOrders = _prSelectedOrders.filter(function(x){return x.order_code !== o.order_code;});
     } else {
-        o.allocatedAmount = Math.min(Number(o.remaining) || 0, _prPaymentAmount);
+        var totalAllocated = _prSelectedOrders.reduce(function(sum, x){return sum + (Number(x.allocatedAmount)||0);}, 0);
+        if (totalAllocated >= _prPaymentAmount) {
+            showToast('Mã tiền đã phân bổ hết, không thể chọn thêm đơn!', 'warning');
+            return;
+        }
+        o.allocatedAmount = 0; // Will be set by auto allocate below
         _prSelectedOrders.push(o);
     }
-    _prRenderSelectedOrdersSLL(_prPaymentAmount);
+    _prAutoAllocateSLL(_prPaymentAmount);
     _prSearchUnpaidOrders();
 }
 
@@ -1333,7 +1356,7 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
             +'<div style="font-size:11px;color:#64748b">' + (o.customer_name||'') + '</div>'
             +'</div>'
             +'<div style="display:flex;align-items:center;gap:6px">'
-            +'<input type="number" class="form-control" data-code="' + o.order_code + '" value="' + allocated + '" style="width:110px;text-align:right;padding:4px 8px;font-size:12px;font-weight:700" oninput="_prOnSLLAllocatedInput(this, ' + recordAmount + ')">'
+            +'<input type="number" readonly class="form-control" data-code="' + o.order_code + '" value="' + allocated + '" style="width:110px;text-align:right;padding:4px 8px;font-size:12px;font-weight:700;background-color:#f1f5f9;border:1px solid #cbd5e1;cursor:default" tabindex="-1">'
             +'<button onclick="_prRemoveOrderSLL(\'' + o.order_code + '\',' + recordAmount + ')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px">🗑️</button>'
             +'</div>'
             +'</div>';
@@ -1367,18 +1390,12 @@ function _prRenderSelectedOrdersSLL(recordAmount) {
 }
 
 function _prOnSLLAllocatedInput(el, recordAmount) {
-    var code = el.getAttribute('data-code');
-    var val = Number(el.value) || 0;
-    var o = _prSelectedOrders.find(function(x){return x.order_code === code;});
-    if (o) {
-        o.allocatedAmount = val;
-    }
-    _prRenderSelectedOrdersSLL(recordAmount);
+    // Left empty since inputs are readonly, but kept for compatibility
 }
 
 function _prRemoveOrderSLL(code, recordAmount) {
     _prSelectedOrders = _prSelectedOrders.filter(function(x){return x.order_code !== code;});
-    _prRenderSelectedOrdersSLL(recordAmount);
+    _prAutoAllocateSLL(recordAmount);
     _prSearchUnpaidOrders();
 }
 
