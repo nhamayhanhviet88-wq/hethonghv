@@ -978,7 +978,7 @@ async function _prShowDetail(id) {
             + '<div style="display: flex; align-items: center; gap: 12px">'
             + '<label for="prExcelFile" style="flex: 1; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc" onmouseover="this.style.borderColor=\'var(--navy)\'; this.style.background=\'#f0fdf4\'" onmouseout="this.style.borderColor=\'#cbd5e1\'; this.style.background=\'#f8fafc\'">'
             + '<div style="font-size: 24px; margin-bottom: 6px">📁</div>'
-            + '<div style="font-size: 12px; font-weight: 700; color: #334155" id="prExcelFileName">Chọn file Excel đối soát (2-5MB)</div>'
+            + '<div style="font-size: 12px; font-weight: 700; color: #334155" id="prExcelFileName">Chọn file Excel đối soát (Tối đa 25MB)</div>'
             + '<div style="font-size: 10px; color: #64748b; margin-top: 2px">Đọc nội dung và đối soát trực tiếp, không upload file lên server</div>'
             + '</label>'
             + '<input type="file" id="prExcelFile" accept=".xlsx, .xls" style="display: none" onchange="_prProcessExcel(this, ' + r.amount + ')">'
@@ -1701,6 +1701,12 @@ async function _prDeleteBank(name) {
 async function _prProcessExcel(input, recordAmount) {
     var file = input.files[0];
     if (!file) return;
+    
+    if (file.size > 25 * 1024 * 1024) {
+        showToast('⚠️ Dung lượng file vượt quá giới hạn 25MB!', 'error');
+        input.value = '';
+        return;
+    }
     
     var fileNameEl = document.getElementById('prExcelFileName');
     if (fileNameEl) fileNameEl.textContent = '📄 ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + 'MB)';
