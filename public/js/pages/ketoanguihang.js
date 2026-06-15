@@ -377,7 +377,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h =>
+        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h =>
             `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;">${h}</th>`
         ).join('')}
     </tr></thead><tbody>`;
@@ -408,7 +408,7 @@ function _shBuildTable(orders) {
             }
         } else {
             orderLevelAction = `
-                <button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;display:inline-flex;align-items:center;justify-content:center;transition:transform 0.1s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">✅</button>
+                <button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
                 <button onclick="event.stopPropagation();_shShowReshipModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
             `;
         }
