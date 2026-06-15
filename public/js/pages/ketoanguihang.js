@@ -440,7 +440,7 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
 
         // Col 3: Gửi Dự Kiến
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${formatExpectedShipDateWithDay(o.expected_ship_date)}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;">${formatExpectedShipDateWithDay(o.expected_ship_date)}</td>`;
         // Col 4: 🚛 Ngày Gửi
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${formatActualShipDateWithDay(o.shipped_at)}</td>`;
         // Col 5: Hẹn Lại
