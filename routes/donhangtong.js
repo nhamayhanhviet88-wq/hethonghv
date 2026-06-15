@@ -652,8 +652,18 @@ module.exports = async function(fastify) {
         }
 
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
-        if (unpaid === 'true' && Number(carrier_id) !== -2) {
-            where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
+        if (unpaid === 'true') {
+            if (carrier_id !== undefined) {
+                if (Number(carrier_id) !== -2) {
+                    where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
+                }
+            } else {
+                where += ` AND (
+                    (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0
+                    OR
+                    o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
+                )`;
+            }
         }
         if (search) {
             where += ` AND (o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR o.customer_phone ILIKE $${idx})`;
