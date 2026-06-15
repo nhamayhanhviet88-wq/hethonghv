@@ -462,9 +462,6 @@ async function _dhcttLoadTree() {
         if (_dhctt.tree.length > 0) {
             var firstCid = _dhctt.tree[0].carrier_id;
             _dhctt.open['c' + firstCid] = true;
-            
-            var curYear = new Date().getFullYear();
-            _dhctt.open['c' + firstCid + 'y' + curYear] = true;
         }
         _dhctt.open._init = true;
     }
@@ -475,8 +472,8 @@ async function _dhcttLoadTree() {
         var cActive = _dhctt.filter.carrier_id == carrier.carrier_id && !_dhctt.filter.year && !_dhctt.filter.month;
         
         var valSpan = isFull ? '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(carrier.total, carrier.count)+'</span>' : '';
-        h += '<div class="dhctt-sb-year" onclick="_dhcttToggleCarrier(\''+cKey+'\','+carrier.carrier_id+')">'
-            + '<span>'+(cOpen?'▼':'▶')+' 🚛 '+carrier.carrier_name+'</span>'
+        h += '<div class="dhctt-sb-year'+(cActive?' active':'')+'" onclick="_dhcttSelectCarrier('+carrier.carrier_id+')">'
+            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 🚛 '+carrier.carrier_name+'</span>'
             + valSpan
             + '</div>';
         
@@ -488,8 +485,8 @@ async function _dhcttLoadTree() {
             var yActive = _dhctt.filter.carrier_id == carrier.carrier_id && _dhctt.filter.year == yr.year && !_dhctt.filter.month;
             var yrValSpan = isFull ? '<span style="color:#b8860b;font-weight:800">'+_sbVal(yr.total, yr.count)+'</span>' : '';
             
-            h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation();_dhcttToggleYear(\''+yKey+'\','+carrier.carrier_id+','+yr.year+')">'
-                + '<span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span>'
+            h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation(); _dhcttSelectYear('+carrier.carrier_id+','+yr.year+')">'
+                + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyYear(\''+yKey+'\')">'+(yOpen?'▼':'▶')+'</span> Năm '+yr.year+'</span>'
                 + yrValSpan
                 + '</div>';
             
@@ -515,24 +512,28 @@ async function _dhcttLoadTree() {
     sb.innerHTML = h;
 }
 
-function _dhcttToggleCarrier(key, carrierId) {
+function _dhcttToggleOnlyCarrier(key) {
     _dhctt.open = _dhctt.open || {};
     _dhctt.open[key] = !_dhctt.open[key];
-    if (_dhctt.open[key]) {
-        _dhctt.filter = { carrier_id: carrierId };
-        _dhcttLoadOrders();
-    }
     _dhcttLoadTree();
 }
 
-function _dhcttToggleYear(key, carrierId, year) {
+function _dhcttToggleOnlyYear(key) {
     _dhctt.open = _dhctt.open || {};
     _dhctt.open[key] = !_dhctt.open[key];
-    if (_dhctt.open[key]) {
-        _dhctt.filter = { carrier_id: carrierId, year: year };
-        _dhcttLoadOrders();
-    }
     _dhcttLoadTree();
+}
+
+function _dhcttSelectCarrier(carrierId) {
+    _dhctt.filter = { carrier_id: carrierId };
+    _dhcttLoadTree();
+    _dhcttLoadOrders();
+}
+
+function _dhcttSelectYear(carrierId, year) {
+    _dhctt.filter = { carrier_id: carrierId, year: year };
+    _dhcttLoadTree();
+    _dhcttLoadOrders();
 }
 
 function _dhcttFilterOnly(filter) {
@@ -715,6 +716,9 @@ async function renderDonhangchuathutienPage(content) {
             +'.dhctt-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:dhcttGlow 2.5s infinite}'
             +'@keyframes dhcttGlow{0%{left:-100%}100%{left:150%}}'
             +'.dhctt-sb-year{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200)}'
+            +'.dhctt-sb-year.active{background:#ffedd5;font-weight:900}'
+            +'.dhctt-arrow-btn{display:inline-block;padding:2px 8px;margin-right:2px;cursor:pointer;transition:transform 0.2s ease,color 0.2s ease;font-size:10px}'
+            +'.dhctt-arrow-btn:hover{color:#ea580c;transform:scale(1.25)}'
             +'.dhctt-sb-cat{padding:6px 16px 6px 28px;font-size:11px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;color:#c2410c}'
             +'.dhctt-sb-cat:hover{background:#fffbeb}.dhctt-sb-cat.active{background:#ffedd5;font-weight:800}'
             +'.dhctt-sb-month{padding:5px 16px 5px 44px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fafafa}'
