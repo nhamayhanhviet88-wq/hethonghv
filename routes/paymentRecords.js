@@ -102,10 +102,10 @@ module.exports = async function(fastify) {
         const placeholders2 = trackingCodes.map((_, i) => `$${i + 1 + trackingCodes.length}`).join(',');
         
         const query = `
-            SELECT DISTINCT ON (o.order_code)
+            SELECT 
                 o.id, o.order_code, o.customer_name, o.customer_phone,
                 o.shipping_status, o.total_amount, o.discount_amount,
-                COALESCE(oi.tracking_code, o.tracking_code) AS tracking_code,
+                o.matched_tracking_code AS tracking_code,
                 u.full_name AS cskh_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_paid,
                 COALESCE(o.total_amount, 0)
@@ -113,8 +113,16 @@ module.exports = async function(fastify) {
                   - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
                   - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                   AS remaining
-            FROM dht_orders o
-            LEFT JOIN dht_order_items oi ON oi.dht_order_id = o.id
+            FROM (
+                SELECT o.*, o.tracking_code AS matched_tracking_code
+                FROM dht_orders o
+                WHERE o.tracking_code IN (${placeholders1})
+                UNION
+                SELECT o.*, oi.tracking_code AS matched_tracking_code
+                FROM dht_orders o
+                JOIN dht_order_items oi ON oi.dht_order_id = o.id
+                WHERE oi.tracking_code IN (${placeholders2})
+            ) o
             LEFT JOIN users u ON o.cskh_user_id = u.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -122,7 +130,6 @@ module.exports = async function(fastify) {
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
-            WHERE o.tracking_code IN (${placeholders1}) OR oi.tracking_code IN (${placeholders2})
         `;
         const orders = await db.all(query, [...trackingCodes, ...trackingCodes]);
         return { orders };
