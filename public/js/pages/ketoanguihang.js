@@ -353,7 +353,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','','🔗','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','Trạng Thái','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX','Giờ Gửi','Lịch Sử'].map(h =>
+        ${['','','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','Trạng Thái','TC','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h =>
             `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;">${h}</th>`
         ).join('')}
     </tr></thead><tbody>`;
@@ -416,8 +416,7 @@ function _shBuildTable(orders) {
 
         // Col 1: Action
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
-        // Col 2: Bill link
-        html += `<td style="padding:8px 4px;text-align:center;">${o.shipping_bill_link ? `<a href="${o.shipping_bill_link}" target="_blank" style="color:#3b82f6;font-size:14px;" title="Xem bill" onclick="event.stopPropagation()">🔗</a>` : `<span style="color:#d1d5db;cursor:pointer;font-size:14px;" onclick="event.stopPropagation();_shEditTracking(${o.id},'shipping_bill_link','${(o.shipping_bill_link||'').replace(/'/g,"\\'")}')" title="Thêm link bill">➕</span>`}</td>`;
+
         // Col 3: Gửi Dự Kiến
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</td>`;
         // Col 4: 🚛 Ngày Gửi
@@ -463,16 +462,12 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${_tcDisplay}</td>`;
         // Col 15: Carrier phone
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_phone || '—'}</td>`;
-        // Col 16: Ship time
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '—'}</td>`;
-        // Col 17: History
-        html += `<td style="padding:8px 6px;text-align:center;"><button onclick="event.stopPropagation();_shShowHistory(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;cursor:pointer;font-size:10px;font-weight:600;">📋</button></td>`;
         html += '</tr>';
 
         // Sub-row for items/slips
         const itemsTableHtml = _shBuildItemsTable(o);
         html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="20" style="padding:12px 16px;">
+            <td colspan="16" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>
