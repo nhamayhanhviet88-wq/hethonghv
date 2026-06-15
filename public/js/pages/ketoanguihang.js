@@ -1905,13 +1905,11 @@ async function _shShowShippingDetailOnly(orderId) {
                             img.onerror = function() {
                                 el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
                             };
-                            const link = document.createElement('a');
-                            link.href = linkHref;
-                            link.target = '_blank';
-                            link.title = 'Click xem ảnh gốc';
-                            link.appendChild(img);
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
                             el.innerHTML = '';
-                            el.appendChild(link);
+                            el.appendChild(img);
                         }, 100);
                     })(itBillCid, it.shipping_bill_link);
                 }
@@ -2017,13 +2015,11 @@ async function _shShowShippingDetailOnly(orderId) {
                             img.onerror = function() {
                                 el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
                             };
-                            const link = document.createElement('a');
-                            link.href = linkHref;
-                            link.target = '_blank';
-                            link.title = 'Click xem ảnh gốc';
-                            link.appendChild(img);
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
                             el.innerHTML = '';
-                            el.appendChild(link);
+                            el.appendChild(img);
                         }, 100);
                     })(_billCid, o.shipping_bill_link);
                 }
@@ -2045,4 +2041,48 @@ async function _shShowShippingDetailOnly(orderId) {
     } catch(err) {
         showToast('Lỗi khi lấy thông tin vận chuyển: ' + err.message, 'error');
     }
+}
+
+function showShippingBillLightbox(url) {
+    const existing = document.getElementById('shippingBillLightbox');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'shippingBillLightbox';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease';
+    overlay.onclick = function() { overlay.remove(); };
+
+    if (!document.getElementById('shippingLightboxStyles')) {
+        const style = document.createElement('style');
+        style.id = 'shippingLightboxStyles';
+        style.textContent = `
+            @keyframes sbFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain';
+    img.onclick = function(e) { e.stopPropagation(); };
+    overlay.appendChild(img);
+
+    const closeBtn = document.createElement('div');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;font-weight:700';
+    closeBtn.onclick = function() { overlay.remove(); };
+    overlay.appendChild(closeBtn);
+
+    document.body.appendChild(overlay);
+
+    const escHandler = function(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
 }
