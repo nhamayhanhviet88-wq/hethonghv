@@ -793,12 +793,12 @@ async function _prSendReport() {
 }
 
 // ========== DETAIL MODAL ==========
-function _prShowDetail(id) {
+async function _prShowDetail(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
     var up = _pr.userPerms || {};
     var srcLabels = {khach_hang:'Khách hàng',khach_hang_sll:'Khách hàng SLL',nha_van_chuyen:'Nhà vận chuyển'};
-    var typeLabels = {thanh_toan:'Thanh toán',dat_coc:'Đặt cọc',tt_sll:'TT Số Lượng Lớn',pending:'⏳ Chờ xử lý',tra_lai_coc:'Trả Lại Cọc'};
+    var typeLabels = {thanh_toan:'Thanh toán',dat_coc:'Đặt cọc',tt_sll:'TT Số Lượng Lớn',pending:'⏳ Chờ xử lý',tra_lai_coc:'Trả Lại Cọc',parent_sll:'📊 SLL (Mã Cha)',child_sll:'📊 SLL (Mã Con)'};
     var statusLabels = {thu_quy_nhan:'Thủ quỹ đã nhận',chua_bangiao:'Chưa bàn giao'};
     var payDate = r.payment_date ? r.payment_date.split('T')[0].split('-').reverse().join('/') : '';
     var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
@@ -806,28 +806,61 @@ function _prShowDetail(id) {
     var histSrc = r.source === 'email_auto' ? '📧 Mail đã thêm ghi nhận.' : (r.created_by_name ? '👤 '+r.created_by_name+' đã thêm.' : '');
     var icon = r.payment_method === 'TM' ? '💵' : '🏦';
 
-    // Action buttons (permission-based) — horizontal row
-    var btnsHTML = '';
     var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
     var deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name : '';
     var isKT = deptName.toLowerCase().indexOf('kế toán') !== -1 || deptName.toLowerCase().indexOf('ke toan') !== -1;
     var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
 
-    var canChangeSource = (up.pr_change_source || isKT || isTrinh || isGD) && !isClaimed;
+    var isParentSll = r.payment_type === 'parent_sll';
+
+    // Action buttons (permission-based) — horizontal row
+    var btnsHTML = '';
+    var canChangeSource = (up.pr_change_source || isKT || isTrinh || isGD) && (!isClaimed || (isParentSll && (isGD || isTrinh)));
     if (isKT && r.money_source === 'nha_van_chuyen') {
         canChangeSource = false;
     }
 
     if (canChangeSource) btnsHTML += '<div onclick="event.stopPropagation();_prChangeSource('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🔄</div><div style="font-size:10px;font-weight:700;color:#0c4a6e">Đổi nguồn tiền</div></div>';
     if (up.pr_delete) btnsHTML += '<div onclick="event.stopPropagation();_prDeleteRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🗑️</div><div style="font-size:10px;font-weight:700;color:#991b1b">Xóa</div></div>';
-    if (up.pr_edit && !isClaimed) btnsHTML += '<div onclick="event.stopPropagation();_prEditRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">✏️</div><div style="font-size:10px;font-weight:700;color:#065f46">Chỉnh sửa</div></div>';
+    
+    var canEdit = up.pr_edit && (!isClaimed || (isParentSll && (isGD || isTrinh)));
+    if (canEdit) btnsHTML += '<div onclick="event.stopPropagation();_prEditRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">✏️</div><div style="font-size:10px;font-weight:700;color:#065f46">Chỉnh sửa</div></div>';
+    
     var canUpdateCust = isKT ? (r.money_source === 'khach_hang' || r.money_source === 'khach_hang_sll') : !!up.pr_update_customer;
-    if (canUpdateCust && !isClaimed) btnsHTML += '<div onclick="event.stopPropagation();_prUpdateCustomer('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">💳</div><div style="font-size:10px;font-weight:700;color:#c2410c">Cập Nhật Tiền<br>Đơn Hàng</div></div>';
+    if (canUpdateCust && !isClaimed && !isParentSll) btnsHTML += '<div onclick="event.stopPropagation();_prUpdateCustomer('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fff7ed\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fed7aa;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">💳</div><div style="font-size:10px;font-weight:700;color:#c2410c">Cập Nhật Tiền<br>Đơn Hàng</div></div>';
 
     var actionsBar = btnsHTML ? '<div style="display:flex;gap:4px;background:#f8fafc;border-radius:12px;padding:12px 8px;border:1px solid #e2e8f0;margin-bottom:16px">'+btnsHTML+'</div>' : '';
 
     var row = function(label,val){ return '<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:130px">'+label+'</td><td style="padding:8px 12px;font-size:12.5px;font-weight:700;color:#1e293b">'+val+'</td></tr>'; };
+
+    var childrenHTML = '';
+    if (isParentSll) {
+        try {
+            var childRes = await apiCall('/api/payment-records/parent/' + id + '/children');
+            var children = childRes.children || [];
+            if (children.length > 0) {
+                var rowsHTML = children.map(function(c) {
+                    return '<tr style="border-bottom:1px solid #f1f5f9">'
+                        + '<td style="padding:6px 12px;font-weight:700;color:#475569">' + c.payment_code + '</td>'
+                        + '<td style="padding:6px 12px"><span style="background:#7c3aed;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700">' + (c.order_tt_coc || '—') + '</span></td>'
+                        + '<td style="padding:6px 12px;text-align:right;font-weight:700;color:#d32f2f">' + _prFmt(c.amount) + '</td>'
+                        + '</tr>';
+                }).join('');
+                childrenHTML = '<div style="margin-top:16px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden">'
+                    + '<div style="background:#f8fafc;padding:8px 12px;font-weight:700;font-size:12px;color:#1e293b;border-bottom:1px solid #cbd5e1">📊 Chi tiết phân bổ đơn hàng</div>'
+                    + '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'
+                    + '<thead><tr style="background:#f1f5f9;border-bottom:1px solid #cbd5e1">'
+                    + '<th style="padding:6px 12px;text-align:left">Mã Con</th>'
+                    + '<th style="padding:6px 12px;text-align:left">Mã Đơn</th>'
+                    + '<th style="padding:6px 12px;text-align:right">Số Tiền</th>'
+                    + '</tr></thead>'
+                    + '<tbody>' + rowsHTML + '</tbody>'
+                    + '</table>'
+                    + '</div>';
+            }
+        } catch(e) { console.error(e); }
+    }
 
     var infoTable = '<table style="width:100%;border-collapse:collapse">'
         +row('Ngày', payDate)
@@ -844,7 +877,8 @@ function _prShowDetail(id) {
         +row('Số tiền về TK', '<span style="font-size:14px;color:#d32f2f">💰 '+_prFmt(r.amount)+'</span>')
         +row('Trạng thái BG', statusLabels[r.handover_status]||r.handover_status||'')
         +row('Lịch sử CN', (updatedAt ? '🗓️ '+updatedAt+'<br>' : '')+(histSrc||''))
-        +'</table>';
+        +'</table>'
+        + childrenHTML;
 
     var bodyHTML = actionsBar + infoTable;
     var titleText = r.payment_code+'| '+_prFmt(r.amount)+'|'+(r.transfer_note||'').substring(0,50);
@@ -858,10 +892,20 @@ function _prChangeSource(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
 
-    var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
-    if (isClaimed) {
-        showToast('Mã tiền đã nhận tiền/liên kết đơn hàng, không thể đổi nguồn!', 'error');
-        return;
+    var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
+
+    if (r.payment_type === 'parent_sll') {
+        if (!isGD && !isTrinh) {
+            showToast('Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được sửa/hủy liên kết mã tiền SLL!', 'error');
+            return;
+        }
+    } else {
+        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+        if (isClaimed) {
+            showToast('Mã tiền đã nhận tiền/liên kết đơn hàng, không thể đổi nguồn!', 'error');
+            return;
+        }
     }
 
     var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
@@ -912,6 +956,15 @@ async function _prDeleteRecord(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
 
+    if (r.payment_type === 'parent_sll') {
+        var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+        var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
+        if (!isGD && !isTrinh) {
+            showToast('Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được xóa mã tiền SLL!', 'error');
+            return;
+        }
+    }
+
     var impacts = [];
     try {
         var impact = await apiCall('/api/payment-records/'+id+'/impact');
@@ -937,10 +990,20 @@ function _prEditRecord(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
 
-    var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
-    if (isClaimed) {
-        showToast('Mã tiền đã nhận tiền/liên kết đơn hàng, không thể chỉnh sửa!', 'error');
-        return;
+    var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
+
+    if (r.payment_type === 'parent_sll') {
+        if (!isGD && !isTrinh) {
+            showToast('Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được sửa/hủy liên kết mã tiền SLL!', 'error');
+            return;
+        }
+    } else {
+        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+        if (isClaimed) {
+            showToast('Mã tiền đã nhận tiền/liên kết đơn hàng, không thể chỉnh sửa!', 'error');
+            return;
+        }
     }
 
     closeModal();

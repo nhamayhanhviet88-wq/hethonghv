@@ -88,6 +88,7 @@ module.exports = async function(fastify) {
                 COALESCE(SUM(amount), 0)::numeric AS total
             FROM payment_records
             WHERE COALESCE(source, '') != 'cashflow_chi'
+              AND COALESCE(payment_type, '') != 'child_sll'
             GROUP BY year, month, day
             ORDER BY year DESC, month DESC, day DESC
         `);
@@ -118,6 +119,20 @@ module.exports = async function(fastify) {
         return { tree };
     });
 
+    fastify.get('/api/payment-records/parent/:id/children', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const { id } = request.params;
+        const rows = await db.all(
+            `SELECT * FROM payment_records WHERE payment_type = 'child_sll' AND source_ref_id = $1::text ORDER BY id ASC`,
+            [id]
+        );
+        return { children: rows };
+    });
+
     // ========== LIST: Lấy records theo filter ==========
     fastify.get('/api/payment-records', async (request, reply) => {
         const token = request.cookies?.token;
@@ -127,7 +142,7 @@ module.exports = async function(fastify) {
         try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
         const { year, month, day } = request.query;
-        let where = "WHERE COALESCE(pr.source, '') != 'cashflow_chi'";
+        let where = "WHERE COALESCE(pr.source, '') != 'cashflow_chi' AND COALESCE(pr.payment_type, '') != 'child_sll'";
         const params = [];
         let paramIdx = 1;
 
@@ -329,6 +344,26 @@ module.exports = async function(fastify) {
         const existing = await db.get('SELECT * FROM payment_records WHERE id = $1', [id]);
         if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
 
+        if (existing.payment_type === 'child_sll') {
+            return reply.code(403).send({ error: 'Không thể chỉnh sửa trực tiếp mã tiền con' });
+        }
+
+        const isGD = user.role === 'giam_doc';
+        const isTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+
+        if (existing.payment_type === 'parent_sll') {
+            if (!isGD && !isTrinh) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản lý cấp cao Trinh mới được sửa/hủy liên kết mã tiền SLL' });
+            }
+            // Hủy liên kết SLL: Xóa toàn bộ các mã con
+            await db.run("DELETE FROM payment_records WHERE payment_type = 'child_sll' AND source_ref_id = $1::text", [id]);
+            // Khôi phục mã cha về trạng thái chưa liên kết (pending) và xóa liên kết đơn
+            await db.run("UPDATE payment_records SET payment_type = 'pending', order_tt_coc = NULL, total_order_codes = NULL, updated_at = NOW() WHERE id = $1", [id]);
+            existing.payment_type = 'pending';
+            existing.order_tt_coc = null;
+            existing.total_order_codes = null;
+        }
+
         const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '');
         if (isAlreadyClaimed) {
             return reply.code(400).send({ error: 'Mã tiền đã nhận tiền/liên kết đơn hàng, không thể chỉnh sửa!' });
@@ -373,7 +408,7 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Tổng tiền phân bổ không được vượt quá số tiền của mã tiền' });
             }
 
-            // 1. Split excess
+            // 1. Split excess (created as pending with source = 'khach_hang')
             if (totalAllocated < pr.amount) {
                 const excessAmount = pr.amount - totalAllocated;
                 
@@ -415,7 +450,7 @@ module.exports = async function(fastify) {
                     pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
                     excessAmount, 'pending',
                     null, null,
-                    (pr.transfer_note || '') + ' (Tách từ ' + pr.payment_code + ')', 'khach_hang_sll', pr.bank_name || null,
+                    (pr.transfer_note || '') + ' (Tách từ ' + pr.payment_code + ')', 'khach_hang', pr.bank_name || null,
                     null, 0, 0,
                     autoHandover, pr.source, pr.payment_date, user.id
                 ]);
@@ -425,30 +460,26 @@ module.exports = async function(fastify) {
                 }
             }
 
-            // 2. Update first allocation
-            const firstAlloc = allocations[0];
-            const originalHandover = computeHandoverStatus('tt_sll');
+            // 2. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
+            const parentHandover = computeHandoverStatus('tt_sll');
             await db.run(`
                 UPDATE payment_records SET
-                    amount = $1,
-                    order_tt_coc = $2,
-                    customer_name = $3,
-                    customer_phone = $4,
-                    payment_type = 'tt_sll',
-                    handover_status = $5,
+                    payment_type = 'parent_sll',
+                    order_tt_coc = NULL,
+                    total_order_codes = NULL,
+                    transfer_note = $1,
+                    money_source = 'khach_hang_sll',
+                    handover_status = $2,
                     updated_at = NOW()
-                WHERE id = $6
+                WHERE id = $3
             `, [
-                firstAlloc.amount,
-                firstAlloc.order_code,
-                firstAlloc.customer_name || null,
-                firstAlloc.customer_phone || null,
-                originalHandover,
+                (pr.transfer_note || '') + ' (Gốc: Liên kết SLL các đơn: ' + allocations.map(a => a.order_code).join(', ') + ')',
+                parentHandover,
                 id
             ]);
 
             if (pr.payment_method === 'TM') {
-                await syncCashflowRecord(id, pr.payment_code, firstAlloc.amount, pr.payment_date, pr.transfer_note, 'TM', user.id);
+                await syncCashflowRecord(id, pr.payment_code, pr.amount, pr.payment_date, (pr.transfer_note || '') + ' (SLL: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
             }
 
             const autoCompletedOrders = [];
@@ -545,14 +576,12 @@ module.exports = async function(fastify) {
                 }
             };
 
-            await processAutoComplete(firstAlloc.order_code);
-
-            for (let i = 1; i < allocations.length; i++) {
+            // 3. Create child records for ALL allocations (from 0 to allocations.length - 1)
+            for (let i = 0; i < allocations.length; i++) {
                 const alloc = allocations[i];
-                const splitCode = `${pr.payment_code}-S${i}`;
-                const splitHandover = computeHandoverStatus('tt_sll');
+                const splitCode = `${pr.payment_code}-S${i + 1}`;
                 
-                const splitRecord = await db.get(`
+                await db.run(`
                     INSERT INTO payment_records (
                         payment_code, payment_method, daily_seq,
                         customer_name, customer_phone, cskh_user_id,
@@ -560,23 +589,22 @@ module.exports = async function(fastify) {
                         order_tt_coc, order_ao_mau,
                         transfer_note, money_source, bank_name,
                         total_order_codes, total_cod, shipping_fee,
-                        handover_status, source, payment_date, created_by
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-                    RETURNING id
+                        handover_status, handover_at, handover_by,
+                        source, source_ref_id, payment_date, created_by
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
                 `, [
                     splitCode, pr.payment_method, pr.daily_seq,
                     alloc.customer_name || null, alloc.customer_phone || null, pr.cskh_user_id || null,
-                    alloc.amount, 'tt_sll',
+                    alloc.amount, 'child_sll',
                     alloc.order_code, null,
-                    (pr.transfer_note || '') + ' (SLL: ' + allocations.map(a => a.order_code).join(', ') + ')',
+                    (pr.transfer_note || '') + ' (Phân bổ từ ' + pr.payment_code + ')',
                     'khach_hang_sll', pr.bank_name || null,
                     null, 0, 0,
-                    splitHandover, pr.source, pr.payment_date, user.id
+                    parentHandover,
+                    pr.handover_at || null,
+                    pr.handover_by || null,
+                    pr.source, id.toString(), pr.payment_date, user.id
                 ]);
-
-                if (pr.payment_method === 'TM') {
-                    await syncCashflowRecord(splitRecord.id, splitCode, alloc.amount, pr.payment_date, (pr.transfer_note || '') + ' (SLL: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
-                }
 
                 await processAutoComplete(alloc.order_code);
             }
@@ -752,14 +780,25 @@ module.exports = async function(fastify) {
         const { status } = request.body;
         const newStatus = status === 'thu_quy_nhan' ? 'thu_quy_nhan' : 'chua_bangiao';
 
-        await db.run(`
-            UPDATE payment_records SET
-                handover_status = $1,
-                handover_at = CASE WHEN $1 = 'thu_quy_nhan' THEN NOW() ELSE NULL END,
-                handover_by = CASE WHEN $1 = 'thu_quy_nhan' THEN $2::int ELSE NULL END,
-                updated_at = NOW()
-            WHERE id = $3
-        `, [newStatus, user.id, id]);
+        if (newStatus === 'thu_quy_nhan') {
+            await db.run(`
+                UPDATE payment_records SET
+                    handover_status = 'thu_quy_nhan',
+                    handover_at = NOW(),
+                    handover_by = $1::int,
+                    updated_at = NOW()
+                WHERE id = $2 OR (payment_type = 'child_sll' AND source_ref_id = $2::text)
+            `, [user.id, id]);
+        } else {
+            await db.run(`
+                UPDATE payment_records SET
+                    handover_status = 'chua_bangiao',
+                    handover_at = NULL,
+                    handover_by = NULL,
+                    updated_at = NOW()
+                WHERE id = $1 OR (payment_type = 'child_sll' AND source_ref_id = $1::text)
+            `, [id]);
+        }
 
         return { success: true };
     });
@@ -813,6 +852,13 @@ module.exports = async function(fastify) {
                 console.log(`[PR Delete] Cascade deleted cashflow_record linked to payment_record #${recId}`);
             }
         } catch (e) { console.error('[PR Delete] Cascade error:', e.message); }
+
+        // Xóa child records nếu có
+        try {
+            await db.run("DELETE FROM payment_records WHERE payment_type = 'child_sll' AND source_ref_id = $1::text", [recId]);
+        } catch (e) {
+            console.error('[PR Delete] Cascade children error:', e.message);
+        }
 
         await db.run('DELETE FROM payment_records WHERE id = $1', [recId]);
         return { success: true };
