@@ -487,7 +487,8 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
-        if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã được gửi rồi' });
+        // Allow reshipping: do not check if shipping_status is already 'shipped'
+        // if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã được gửi rồi' });
 
         const b = request.body || {};
 
@@ -596,9 +597,10 @@ module.exports = async function(fastify) {
             if (itemsToShip.length !== itemIds.length) {
                 return reply.code(404).send({ error: 'Không tìm thấy đầy đủ các phiếu/sản phẩm được chọn' });
             }
-            if (itemsToShip.some(it => it.shipping_status === 'shipped')) {
-                return reply.code(400).send({ error: 'Một số phiếu được chọn đã được gửi trước đó' });
-            }
+            // Allow reshipping: do not check if items are already shipped
+            // if (itemsToShip.some(it => it.shipping_status === 'shipped')) {
+            //     return reply.code(400).send({ error: 'Một số phiếu được chọn đã được gửi trước đó' });
+            // }
         }
 
         // Build update SET
@@ -616,6 +618,7 @@ module.exports = async function(fastify) {
         // ★ Clear reschedule data — no longer relevant after shipping
         sets.push(`rescheduled_ship_date = NULL`);
         sets.push(`reschedule_reason = NULL`);
+        sets.push(`ship_count = COALESCE(ship_count, 0) + 1`);
 
         // Tracking fields (conditional, from modal)
         if (b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
@@ -731,6 +734,7 @@ module.exports = async function(fastify) {
                 orderSets.push(`actual_carrier_id = $${orderIdx++}`); orderParams.push(Number(b.actual_carrier_id));
                 orderSets.push(`rescheduled_ship_date = NULL`);
                 orderSets.push(`reschedule_reason = NULL`);
+                orderSets.push(`ship_count = COALESCE(ship_count, 0) + 1`);
                 
                 if (b.tracking_code) { orderSets.push(`tracking_code = $${orderIdx++}`); orderParams.push(b.tracking_code); }
                 if (b.shipping_bill_link) { orderSets.push(`shipping_bill_link = $${orderIdx++}`); orderParams.push(b.shipping_bill_link); }

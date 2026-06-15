@@ -1345,9 +1345,13 @@ async function start() {
     });
 
     // Start
-    const PORT = process.env.PORT || 11000;
-    await fastify.listen({ port: PORT, host: '0.0.0.0' });
-    console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
+    if (process.env.TEST_MODE !== 'true') {
+        const PORT = process.env.PORT || 11000;
+        await fastify.listen({ port: PORT, host: '0.0.0.0' });
+        console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
+    } else {
+        console.log('🚀 Running in TEST_MODE - skipping port binding');
+    }
 
     // Start deadline checker cron (mỗi 15 phút)
     const { startDeadlineChecker } = require('./routes/deadline-checker');
@@ -1461,10 +1465,13 @@ async function start() {
     console.log('[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)');
 }
 
-start().catch(err => {
-    console.error('❌ Server error:', err);
-    process.exit(1);
-});
+if (require.main === module) {
+    start().catch(err => {
+        console.error('❌ Server error:', err);
+        process.exit(1);
+    });
+}
+module.exports = { fastify, start };
 // Trigger reload
 
 // Graceful shutdown to release port 11000 immediately on PM2 restart

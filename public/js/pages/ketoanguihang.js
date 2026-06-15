@@ -407,7 +407,10 @@ function _shBuildTable(orders) {
                 `;
             }
         } else {
-            orderLevelAction = `<button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;display:inline-flex;align-items:center;justify-content:center;transition:transform 0.1s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">✅</button>`;
+            orderLevelAction = `
+                <button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;display:inline-flex;align-items:center;justify-content:center;transition:transform 0.1s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">✅</button>
+                <button onclick="event.stopPropagation();_shShowReshipModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
+            `;
         }
 
         // Progress badge
@@ -558,7 +561,7 @@ function _shBuildItemsTable(order) {
         
         let actionHtml = '';
         if (item.shipping_status === 'shipped') {
-            actionHtml = `<span style="color:#64748b;font-size:11px;">—</span>`;
+            actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi lại phiếu này">🔁 Gửi lại</button>`;
         } else {
             if (item.all_done) {
                 actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
@@ -2144,3 +2147,115 @@ function showShippingBillLightbox(url) {
     };
     document.addEventListener('keydown', escHandler);
 }
+
+function _shShowReshipModal(orderId) {
+    const o = _shOrders.find(x => x.id === orderId);
+    if (!o) return;
+
+    const items = o.items || [];
+    
+    let html = `
+        <div style="margin-bottom:14px;font-size:13.5px;color:#334155;">
+            Đơn hàng <b style="color:#1e293b;">${o.order_code}</b> đã được gửi trước đó. Chọn các phiếu sản phẩm bạn muốn <b>gửi lại hoặc gửi thêm</b>:
+        </div>
+        <div style="margin-bottom:16px;background:white;border:1px solid #cbd5e1;border-radius:10px;padding:8px;overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:600px;">
+                <thead>
+                    <tr style="border-bottom:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;">
+                        <th style="padding:6px 8px;text-align:center;width:40px;">
+                            <input type="checkbox" id="shReshipSelectAll" style="cursor:pointer;" onchange="_shReshipToggleAll(this)">
+                        </th>
+                        <th style="padding:6px 8px;text-align:left;font-weight:700;">Phiếu sản phẩm</th>
+                        <th style="padding:6px 8px;text-align:center;font-weight:700;width:60px;">SL</th>
+                        <th style="padding:6px 8px;text-align:center;font-weight:700;width:110px;">Trạng thái cũ</th>
+                        <th style="padding:6px 8px;text-align:center;font-weight:700;width:100px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const statusBadge = item.shipping_status === 'shipped' 
+            ? `<span style="background:#ecfdf5;color:#047857;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">✅ Đã gửi</span>` 
+            : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`;
+
+        html += `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:6px 8px;text-align:center;">
+                    <input type="checkbox" class="sh-reship-item-check" data-item-id="${item.item_id}" style="cursor:pointer;" onchange="_shReshipUpdateSubmitBtn()">
+                </td>
+                <td style="padding:6px 8px;font-weight:600;color:#1e293b;">
+                    <div>🏷️ Phiếu ${i + 1}: ${item.product_name}</div>
+                    <div style="font-size:10px;color:#64748b;font-weight:normal;margin-top:2px;">${item.description || ''}</div>
+                </td>
+                <td style="padding:6px 8px;text-align:center;font-weight:700;color:#334155;">${item.quantity}</td>
+                <td style="padding:6px 8px;text-align:center;">${statusBadge}</td>
+                <td style="padding:6px 8px;text-align:center;">
+                    <button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" 
+                        style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">
+                        🔁 Gửi lại
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;background:#f8fafc;padding:12px;border-radius:8px;border:1.5px solid #e2e8f0;">
+            <div style="font-size:11.5px;color:#475569;line-height:1.4;">
+                💡 <b>Chọn nhiều phiếu:</b> Tích chọn các phiếu cần gửi và bấm nút <b>Gửi lại các phiếu đã chọn</b> để xác nhận gửi chung một đợt vận đơn mới.
+            </div>
+            <button id="shReshipSubmitBtn" disabled 
+                onclick="event.stopPropagation();_shSubmitReshipMultiple(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}')"
+                style="padding:8px 16px;border:none;border-radius:6px;background:#94a3b8;color:white;cursor:not-allowed;font-size:12px;font-weight:800;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.05);transition:all 0.2s;">
+                📤 Gửi lại các phiếu đã chọn
+            </button>
+        </div>
+    `;
+
+    _shShowAlert(`Gửi Lại / Gửi Thêm — ${o.order_code}`, html, '850px', '', 'background:linear-gradient(135deg,#4f46e5,#3730a3);', '🔁');
+}
+
+function _shReshipToggleAll(selectAllCheck) {
+    document.querySelectorAll('.sh-reship-item-check').forEach(chk => {
+        chk.checked = selectAllCheck.checked;
+    });
+    _shReshipUpdateSubmitBtn();
+}
+
+function _shReshipUpdateSubmitBtn() {
+    const checked = document.querySelectorAll('.sh-reship-item-check:checked');
+    const btn = document.getElementById('shReshipSubmitBtn');
+    if (!btn) return;
+    if (checked.length > 0) {
+        btn.disabled = false;
+        btn.style.background = '#4f46e5';
+        btn.style.color = 'white';
+        btn.style.cursor = 'pointer';
+        btn.style.boxShadow = '0 2px 4px rgba(79,70,229,0.15)';
+    } else {
+        btn.disabled = true;
+        btn.style.background = '#94a3b8';
+        btn.style.color = 'white';
+        btn.style.cursor = 'not-allowed';
+        btn.style.boxShadow = 'none';
+    }
+}
+
+function _shSubmitReshipMultiple(orderId, orderCode) {
+    const checked = document.querySelectorAll('.sh-reship-item-check:checked');
+    const ids = Array.from(checked).map(chk => Number(chk.dataset.itemId));
+    if (ids.length === 0) return;
+    document.getElementById('shAlertModal')?.remove();
+    _shShipOrder(orderId, orderCode, ids);
+}
+
+window._shShowReshipModal = _shShowReshipModal;
+window._shReshipToggleAll = _shReshipToggleAll;
+window._shReshipUpdateSubmitBtn = _shReshipUpdateSubmitBtn;
+window._shSubmitReshipMultiple = _shSubmitReshipMultiple;
+
