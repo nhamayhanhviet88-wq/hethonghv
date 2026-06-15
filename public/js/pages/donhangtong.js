@@ -558,7 +558,13 @@ async function _dhtLoadTree() {
     years.forEach(function(yr) {
         var yKey = 'y'+yr.year;
         var yOpen = !!_dhtOpen[yKey];
-        h += '<div class="dht-sb-year" onclick="_dhtToggleKey(\''+yKey+'\')"><span>'+(yOpen?'▼':'▶')+' Năm '+yr.year+'</span><span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(yr.total, yr.count)+'</span></div>';
+        h += '<div class="dht-sb-year" onclick="_dhtFilterOnly({year:'+yr.year+'})">'
+           + '<span>'
+           + '<span onclick="event.stopPropagation();_dhtToggleKeyOnly(\''+yKey+'\')" style="padding:4px 8px;margin-left:-8px;margin-right:4px;cursor:pointer;display:inline-block;transition:all 0.15s;" onmouseover="this.style.transform=\'scale(1.25)\'" onmouseout="this.style.transform=\'\'">'+(yOpen?'▼':'▶')+'</span>'
+           + 'Năm '+yr.year
+           + '</span>'
+           + '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(yr.total, yr.count)+'</span>'
+           + '</div>';
         h += '<div style="display:'+(yOpen?'block':'none')+'">';
         var cats = _dht.categories.map(function(cat) {
             var found = (yr.categories||[]).find(function(c){return c.id===cat.id;});
@@ -570,7 +576,13 @@ async function _dhtLoadTree() {
             var cKey = yKey+'c'+cat.id;
             var cOpen = !!_dhtOpen[cKey];
             var cActive = _dht.filter.year==yr.year&&_dht.filter.category_id==cat.id&&!_dht.filter.month;
-            h += '<div class="dht-sb-cat'+(cActive?' active':'')+'" onclick="_dhtToggleKey(\''+cKey+'\','+yr.year+','+cat.id+')"><span>'+(cOpen?'▼':'▶')+' 🏷️ '+cat.name+'</span><span style="color:#b8860b;font-weight:800">'+_sbVal(cat.total, cat.count)+'</span></div>';
+            h += '<div class="dht-sb-cat'+(cActive?' active':'')+'" onclick="_dhtFilterOnly({year:'+yr.year+',category_id:'+cat.id+'})">'
+               + '<span>'
+               + '<span onclick="event.stopPropagation();_dhtToggleKeyOnly(\''+cKey+'\')" style="padding:4px 8px;margin-left:-8px;margin-right:4px;cursor:pointer;display:inline-block;transition:all 0.15s;" onmouseover="this.style.transform=\'scale(1.25)\'" onmouseout="this.style.transform=\'\'">'+(cOpen?'▼':'▶')+'</span>'
+               + '🏷️ '+cat.name
+               + '</span>'
+               + '<span style="color:#b8860b;font-weight:800">'+_sbVal(cat.total, cat.count)+'</span>'
+               + '</div>';
             h += '<div style="display:'+(cOpen?'block':'none')+'">';
             for(var mi=12;mi>=1;mi--){
                 var mData=(cat.months||[]).find(function(m){return m.month===mi;});
@@ -600,13 +612,19 @@ function _dhtToggleKey(key, year, catId) {
     // If opening a category, also filter to it
     if (_dhtOpen[key] && year && catId) {
         _dht.filter = {year:year,category_id:catId};
+        _dhtSyncDateInputs();
         _dhtLoadOrders();
     }
+    _dhtLoadTree();
+}
+function _dhtToggleKeyOnly(key) {
+    _dhtOpen[key] = !_dhtOpen[key];
     _dhtLoadTree();
 }
 // Filter only (update filter + orders + sidebar highlights, no toggle change)
 function _dhtFilterOnly(filter) {
     _dht.filter = filter;
+    _dhtSyncDateInputs();
     _dhtLoadTree();
     _dhtLoadOrders();
 }
