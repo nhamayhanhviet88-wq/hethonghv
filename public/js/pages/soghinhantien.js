@@ -245,7 +245,7 @@ function _prRenderTable() {
         {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:140},
         {k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
         {k:'bank',l:'NH',w:65},{k:'cod',l:'Tổng COD',w:80},
-        {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100},{k:'date',l:'Ngày',w:65}
+        {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100}
     ];
     var totalW = cols.reduce(function(s,c){return s+c.w},0);
     var h = '<table class="pr-table" style="min-width:'+totalW+'px"><thead><tr>';
@@ -326,7 +326,6 @@ function _prRenderTable() {
         }
         h += '<td style="font-size:10px">' + historyDisplay + '</td>';
         h += '<td>'+statusBadge+'</td>';
-        h += '<td style="font-weight:600;font-size:10.5px">'+payDate+'</td>';
         h += '</tr>';
     });
     h += '</tbody></table>';
