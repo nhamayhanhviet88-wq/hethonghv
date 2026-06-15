@@ -1223,6 +1223,17 @@ module.exports = async function(fastify) {
                 done_order_at = finishRow ? finishRow.finishing_completed_at : null;
             }
 
+            const items = await db.all(`
+                SELECT i.*, 
+                       cr.name AS actual_carrier_name,
+                       cr.tracking_url_template AS actual_carrier_tracking_url,
+                       u.full_name AS shipped_by_name
+                FROM dht_order_items i
+                LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
+                LEFT JOIN users u ON i.shipped_by = u.id
+                WHERE i.dht_order_id = $1 ORDER BY i.id ASC
+            `, [orderId]);
+
             return {
                 step: 'gui',
                 order_code: order.order_code,
@@ -1249,7 +1260,8 @@ module.exports = async function(fastify) {
                 carrier_phone: order.carrier_phone,
                 shipping_fee: order.shipping_fee,
                 shipping_fee_payer: order.shipping_fee_payer,
-                done_order_at
+                done_order_at,
+                items
             };
         }
 
