@@ -18,6 +18,7 @@ async function _qlxWtLoadList(){
         if(_qlxWt.filter&&_qlxWt.filter!=='all')p.push('status='+_qlxWt.filter);
         if(_qlxWt.search)p.push('search='+encodeURIComponent(_qlxWt.search));
         p.push('page='+_qlxWt.page);
+        p.push('sort=created_at_desc');
         var r=await apiCall('/api/work-tickets'+(p.length?'?'+p.join('&'):''));
         _qlxWt.tickets=r.tickets||[];_qlxWt.total=r.total||0;
         _qlxWtRender();

@@ -472,7 +472,7 @@ async function routes(fastify) {
 
     // ========== GET /api/work-tickets — List tickets ==========
     fastify.get('/api/work-tickets', { preHandler: authenticate }, async (request) => {
-        const { status, user_id, creator_id, search, page = 1 } = request.query;
+        const { status, user_id, creator_id, search, page = 1, sort } = request.query;
         const userId = request.user.id;
         const role = request.user.role;
         const isAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(role);
@@ -527,6 +527,15 @@ async function routes(fastify) {
             `);
         } catch(e) {}
 
+        let orderByClause = `
+            CASE WHEN t.is_overdue = true AND t.status IN ('pending','in_progress') THEN 0 ELSE 1 END,
+            CASE t.priority_level WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
+            t.created_at DESC
+        `;
+        if (sort === 'created_at_desc') {
+            orderByClause = `t.created_at DESC`;
+        }
+
         const tickets = await db.all(`
             SELECT t.*,
                 uc.full_name AS created_by_name,
@@ -537,10 +546,7 @@ async function routes(fastify) {
             LEFT JOIN users uc ON uc.id = t.created_by
             LEFT JOIN users ua ON ua.id = t.assigned_to
             WHERE ${where}
-            ORDER BY
-                CASE WHEN t.is_overdue = true AND t.status IN ('pending','in_progress') THEN 0 ELSE 1 END,
-                CASE t.priority_level WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
-                t.created_at DESC
+            ORDER BY ${orderByClause}
             LIMIT ${perPage} OFFSET ${offset}
         `);
 
