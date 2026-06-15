@@ -610,6 +610,12 @@ module.exports = async function(fastify) {
             const moneySource = pr.money_source === 'nha_van_chuyen' ? 'nha_van_chuyen' : (allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang');
             const parentHandover = computeHandoverStatus('tt_sll');
 
+            let cleanNote = pr.transfer_note || '';
+            if (cleanNote.includes('(Gốc: Liên kết đơn:')) {
+                cleanNote = cleanNote.replace(/\s*\(Gốc:\s*Liên kết đơn:[^)]+\)/gi, '');
+            }
+            const finalNote = cleanNote + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')';
+
             // 1. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
             await db.run(`
                 UPDATE payment_records SET
@@ -625,7 +631,7 @@ module.exports = async function(fastify) {
                     updated_at = NOW()
                 WHERE id = $7
             `, [
-                (pr.transfer_note || '') + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')',
+                finalNote,
                 moneySource,
                 parentHandover,
                 b.total_cod !== undefined ? Number(b.total_cod) : null,

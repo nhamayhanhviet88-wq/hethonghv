@@ -1052,7 +1052,8 @@ async function _prShowDetail(id) {
     var excelHTML = '';
     if (r.money_source === 'nha_van_chuyen') {
         var canReconcile = _pr.userPerms.pr_excel_reconcile !== false;
-        if (canReconcile && r.payment_type !== 'parent_sll') {
+        var hasNoWaybills = !r.reconciled_waybills || r.reconciled_waybills.trim() === '' || r.reconciled_waybills.trim() === '{}';
+        if (canReconcile && (r.payment_type !== 'parent_sll' || hasNoWaybills)) {
             excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05)">'
                 + '<div style="background: linear-gradient(135deg, var(--navy), var(--navy-light)); padding: 12px 16px; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: space-between">'
                 + '<span>📊 ĐỐI SOÁT FILE EXCEL NHÀ VẬN CHUYỂN</span>'
