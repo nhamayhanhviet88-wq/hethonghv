@@ -1502,7 +1502,8 @@ function _tsRenderStepModal(step, d){
                         it.shipping_fee || '0',
                         it.shipping_fee_payer || '',
                         it.shipping_fee_method || '',
-                        it.shipping_payment_code || ''
+                        it.shipping_payment_code || '',
+                        it.shipping_payment_amount || ''
                     ].join('|');
                     
                     if (!shippedBatches[batchKey]) {
@@ -1612,6 +1613,7 @@ function _tsRenderStepModal(step, d){
                         <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
                         <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
+                        ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
                     </div>
                 </div>`;
@@ -1658,6 +1660,7 @@ function _tsRenderStepModal(step, d){
                 body+=row('💳 Người Trả', `<span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span>`);
                 if (d.shipping_payment_code) {
                     body+=row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${d.shipping_payment_code}</span>`);
+                    body+=row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(d.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);
                 }
                 if (d.shipping_bill_link) {
                     var billCid = '_tsBillImg_' + d.order_code + '_' + Math.random().toString(36).substr(2, 9);

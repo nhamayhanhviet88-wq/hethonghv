@@ -665,7 +665,8 @@ module.exports = async function(fastify) {
                 u_cskh.full_name AS cskh_name, u_created.full_name AS created_by_name,
                 u_shipped.full_name AS shipped_by_name,
                 cr2.name AS carrier_name, cr2.tracking_url_template AS carrier_tracking_url,
-                pr_ship.payment_code AS shipping_payment_code
+                pr_ship.payment_code AS shipping_payment_code,
+                pr_ship.amount AS shipping_payment_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -1230,7 +1231,8 @@ module.exports = async function(fastify) {
                        cr.name AS actual_carrier_name,
                        cr.tracking_url_template AS actual_carrier_tracking_url,
                        u.full_name AS shipped_by_name,
-                       pr.payment_code AS shipping_payment_code
+                       pr.payment_code AS shipping_payment_code,
+                       pr.amount AS shipping_payment_amount
                 FROM dht_order_items i
                 LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
                 LEFT JOIN users u ON i.shipped_by = u.id

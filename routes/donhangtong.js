@@ -1081,6 +1081,7 @@ module.exports = async function(fastify) {
                 cr2.tracking_url_template AS actual_carrier_tracking_url,
                 u_shipped.full_name AS shipped_by_name,
                 pr_ship.payment_code AS shipping_payment_code,
+                pr_ship.amount AS shipping_payment_amount,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
@@ -1126,7 +1127,8 @@ module.exports = async function(fastify) {
                    cr.name AS actual_carrier_name,
                    cr.tracking_url_template AS actual_carrier_tracking_url,
                    u.full_name AS shipped_by_name,
-                   pr_ship.payment_code AS shipping_payment_code
+                   pr_ship.payment_code AS shipping_payment_code,
+                   pr_ship.amount AS shipping_payment_amount
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
