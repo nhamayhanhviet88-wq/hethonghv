@@ -291,7 +291,7 @@ var _dhcttSortDefs = [
     { key: 'customer_phone',   label: 'Sđt',                    type: 'text' },
     { key: 'province',         label: 'Thành Phố',              type: 'text' },
     { key: 'cskh_name',        label: 'CSKH',                   type: 'text' },
-    { key: 'total_quantity',   label: 'Tổng SL',                type: 'num' },
+    { key: 'total_quantity',   label: 'Tổng SL',                type: 'num', align: 'center' },
     { key: null,               label: '',                       type: 'none' }
 ];
 
@@ -862,7 +862,7 @@ async function renderDonhangchuathutienPage(content) {
         +'<button onclick="_dhcttDateFilterClear()" style="background:none;border:1px solid #fed7aa;color:#c2410c;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div id="dhcttPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhcttTable"><thead><tr style="background:#1e293b;color:#fff"><th>Lĩnh Vực</th><th>Vận Chuyển</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>Sđt</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th></th></tr></thead><tbody id="dhcttTbody"><tr><td colspan="12" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhcttTable"><thead><tr style="background:#1e293b;color:#fff"><th>Lĩnh Vực</th><th>Vận Chuyển</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>Sđt</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th></th></tr></thead><tbody id="dhcttTbody"><tr><td colspan="12" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dhcttPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
 
