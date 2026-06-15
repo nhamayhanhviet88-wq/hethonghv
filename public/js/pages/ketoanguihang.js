@@ -16,7 +16,32 @@ let _shSelectedMonth = 'all';
 async function renderKetoanguihangPage(container) {
     _shFilter = 'today'; _shSearchVal = ''; _shCskhVal = ''; _shPage = 1;
     _shSelectedYear = 'all'; _shSelectedMonth = 'all';
-    container.innerHTML = `<div style="max-width:1600px;margin:0 auto;padding:16px;">
+    container.innerHTML = `<style>
+        @keyframes shimmerSparkle {
+            0% {
+                background-position: -200% center;
+                text-shadow: 0 0 4px rgba(16, 185, 129, 0.2);
+            }
+            50% {
+                text-shadow: 0 0 10px rgba(52, 211, 153, 0.5), 0 0 20px rgba(16, 185, 129, 0.2);
+            }
+            100% {
+                background-position: 200% center;
+                text-shadow: 0 0 4px rgba(16, 185, 129, 0.2);
+            }
+        }
+        .shimmer-sparkle {
+            font-weight: 900;
+            font-size: 12px;
+            background: linear-gradient(90deg, #047857 0%, #10b981 25%, #34d399 50%, #10b981 75%, #047857 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerSparkle 2.5s linear infinite;
+            display: inline-block;
+        }
+    </style>
+    <div style="max-width:1600px;margin:0 auto;padding:16px;">
         <h2 style="margin:0 0 16px;font-size:22px;color:#122546;font-weight:800;">📤 Đơn Hàng Kế Toán Gửi</h2>
         <div style="display:flex;gap:16px;align-items:flex-start;">
             <div id="shSidebar" style="width:220px;flex-shrink:0;"></div>
@@ -397,7 +422,17 @@ function _shBuildTable(orders) {
         // Col 3: Gửi Dự Kiến
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;">${fmt(o.expected_ship_date)}</td>`;
         // Col 4: 🚛 Ngày Gửi
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.shipped_at ? fmt(o.shipped_at) : '—'}</td>`;
+        const shipTimeFmt = o.shipped_at ? (() => {
+            const d = new Date(o.shipped_at);
+            const vnStr = d.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+            const vnDate = new Date(vnStr);
+            const hh = String(vnDate.getHours()).padStart(2, '0');
+            const mm = String(vnDate.getMinutes()).padStart(2, '0');
+            const dd = String(vnDate.getDate()).padStart(2, '0');
+            const mo = String(vnDate.getMonth() + 1).padStart(2, '0');
+            return `<span class="shimmer-sparkle">${hh}:${mm} ${dd}/${mo}</span>`;
+        })() : '—';
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;">${shipTimeFmt}</td>`;
         // Col 5: Hẹn Lại
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
