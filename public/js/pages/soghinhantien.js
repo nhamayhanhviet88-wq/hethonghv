@@ -2000,7 +2000,14 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
                 matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp COD</span>';
                 rowBg = 'background:#f0fdf4';
             } else {
-                matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">Lệch: Excel ' + _prFmt(wb.cod) + ' | CRM ' + _prFmt(remain) + '</span>';
+                var diffAmt = Math.abs(remain - wb.cod);
+                var diffText = '';
+                if (remain > wb.cod) {
+                    diffText = 'Đơn ' + _prFmt(remain) + ' - Excel ' + _prFmt(wb.cod) + ' = ' + _prFmt(diffAmt) + ' Chưa TT';
+                } else {
+                    diffText = 'Excel ' + _prFmt(wb.cod) + ' - Đơn ' + _prFmt(remain) + ' = ' + _prFmt(diffAmt) + ' Thừa';
+                }
+                matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">' + diffText + '</span>';
                 rowBg = 'background:#fdf2f2';
             }
             
