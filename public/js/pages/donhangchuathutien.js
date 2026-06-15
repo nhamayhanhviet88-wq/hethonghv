@@ -307,6 +307,38 @@ function _dhcttRenderTable() {
                 }
             });
         }
+    } else {
+        // Default sorting requested by the user
+        const carrierId = _dhctt.filter.carrier_id !== undefined ? Number(_dhctt.filter.carrier_id) : null;
+        if (carrierId === 0) {
+            // Chưa Gửi Đơn: sort by expected/rescheduled ship date ascending (oldest/more overdue first)
+            filtered.sort(function(a, b) {
+                const getEffectiveDate = (o) => {
+                    const dStr = o.rescheduled_ship_date || o.expected_ship_date || o.order_date;
+                    if (!dStr) return 0;
+                    const t = new Date(dStr).getTime();
+                    return isNaN(t) ? 0 : t;
+                };
+                return getEffectiveDate(a) - getEffectiveDate(b);
+            });
+        } else if (carrierId !== null) {
+            // Shipped carriers: sort by resolved ship date ascending (oldest shipped first)
+            filtered.sort(function(a, b) {
+                const getResolvedShipDate = (o, cid) => {
+                    let dStr = o.shipped_at;
+                    if (cid > 0) {
+                        const item = (o.items || []).find(it => 
+                            it.shipping_status === 'shipped' && Number(it.actual_carrier_id) === cid
+                        );
+                        if (item && item.shipping_date) dStr = item.shipping_date;
+                    }
+                    if (!dStr) return 0;
+                    const t = new Date(dStr).getTime();
+                    return isNaN(t) ? 0 : t;
+                };
+                return getResolvedShipDate(a, carrierId) - getResolvedShipDate(b, carrierId);
+            });
+        }
     }
 
     var totalFiltered = filtered.length;

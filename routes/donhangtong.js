@@ -493,12 +493,14 @@ module.exports = async function(fastify) {
         const { year, month, day, category_id, search, unpaid, carrier_id } = request.query;
 
         let where = 'WHERE 1=1';
+        let orderBy = 'o.order_date DESC, o.id DESC';
         const params = [];
         let idx = 1;
 
         if (unpaid === 'true' && carrier_id !== undefined) {
             const carrierId = Number(carrier_id);
             if (carrierId === 0) {
+                orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) ASC, o.id DESC';
                 where += ` AND (
                     (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND (COALESCE(o.shipping_status, 'pending') != 'shipped' OR o.actual_carrier_id IS NULL OR o.actual_carrier_id = 0))
                     OR
@@ -508,6 +510,7 @@ module.exports = async function(fastify) {
                 if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
                 if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
             } else if (carrierId === -2) {
+                orderBy = 'COALESCE(o.shipped_at, o.order_date) ASC, o.id DESC';
                 // Vận Chuyển 2 Lần: order must have been shipped >= 2 times
                 where += ` AND (o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2))`;
                 if (year) {
@@ -535,6 +538,7 @@ module.exports = async function(fastify) {
                     idx++;
                 }
             } else {
+                orderBy = 'COALESCE(o.shipped_at, o.order_date) ASC, o.id DESC';
                 const carrierParamIdx = idx++;
                 params.push(carrierId);
                 let carrierDateCond = '';
@@ -677,8 +681,8 @@ module.exports = async function(fastify) {
                 WHERE i.dht_order_id = o.id
             ) order_items ON true
             ${where}
-            ORDER BY o.order_date DESC, o.id DESC
-        `, params);
+            ORDER BY ${orderBy}
+        `,params);
 
         const processedOrders = orders.map(o => {
             const code = (o.order_code || '').toUpperCase();
