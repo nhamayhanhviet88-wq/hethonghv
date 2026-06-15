@@ -1138,7 +1138,7 @@ async function _dhtShowDetail(id) {
         const discount = Number(o.discount_amount) || 0;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
         const total = calcBase + calcVat + surchargeTotal - discount;
-        const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+        const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
         const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
@@ -2039,7 +2039,7 @@ async function _dhtSubmitEdit(id) {
         const discount = Number(document.getElementById('dhtEdDiscount')?.value) || 0;
         const deposit = Number(o.deposit_amount) || 0;
         const sfee = Number(o.shipping_fee) || 0;
-        const sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? sfee : 0;
+        const sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? sfee : 0;
         const remain = total - discount - deposit - sck;
         if (remain < 0) {
             showToast(`⛔ Số tiền Còn Lại không được phép âm! (Còn lại: ${remain.toLocaleString('vi-VN')}đ)`, 'error');
@@ -2591,7 +2591,7 @@ async function _dhtConfirmDiscount(orderId) {
         var total = Number(o.total_amount) || 0;
         var deposit = Number(o.deposit_amount) || 0;
         var sfee = Number(o.shipping_fee) || 0;
-        var sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? sfee : 0;
+        var sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? sfee : 0;
         var remain = total - amount - deposit - sck;
         if (remain < 0) {
             showToast('⛔ Số tiền Còn Lại không được phép âm! (Còn lại: ' + remain.toLocaleString('vi-VN') + 'đ)', 'error');

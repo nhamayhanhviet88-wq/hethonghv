@@ -1032,8 +1032,8 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         surHTML += `</div>`;
     }
 
-    const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
-    const finRemaining = calcBase + surchargeTotal + vat - discount - deposit;
+    const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
+    const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
