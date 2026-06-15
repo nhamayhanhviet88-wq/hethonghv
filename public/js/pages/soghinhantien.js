@@ -809,6 +809,9 @@ async function _prShowDetail(id) {
     var statusLabels = {thu_quy_nhan:'Thủ quỹ đã nhận',chua_bangiao:'Chưa bàn giao'};
     var payDate = r.payment_date ? r.payment_date.split('T')[0].split('-').reverse().join('/') : '';
     var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
+    if (r.payment_type === 'parent_sll' && r.sll_customer_names) {
+        custDisplay = r.sll_customer_names;
+    }
     var updatedAt = r.updated_at ? _prVnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
     var histSrc = r.source === 'email_auto' ? '📧 Mail đã thêm ghi nhận.' : (r.created_by_name ? '👤 '+r.created_by_name+' đã thêm.' : '');
     var icon = r.payment_method === 'TM' ? '💵' : '🏦';
@@ -869,6 +872,11 @@ async function _prShowDetail(id) {
         } catch(e) { console.error(e); }
     }
 
+    var sllOrdersVal = r.total_order_codes || '';
+    if (r.payment_type === 'parent_sll' && r.sll_order_codes) {
+        sllOrdersVal = r.sll_order_codes;
+    }
+
     var infoTable = '<table style="width:100%;border-collapse:collapse">'
         +row('Ngày', payDate)
         +row('Mã thanh toán', icon+' '+r.payment_code)
@@ -880,7 +888,7 @@ async function _prShowDetail(id) {
         +row('Ngân hàng', r.bank_name||'—')
         +row('Nội dung CK', '<span style="word-break:break-all">'+(r.transfer_note||'—')+'</span>')
         +row('Mã Đơn TT/Cọc', (r.order_tt_coc ? '<span style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.order_tt_coc + '</span>' : '—'))
-        +row('SLL Mã Đơn TT', (r.total_order_codes && r.total_order_codes.trim() ? '<span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.total_order_codes + '</span>' : '—'))
+        +row('SLL Mã Đơn TT', (sllOrdersVal && sllOrdersVal.trim() ? '<span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + sllOrdersVal + '</span>' : '—'))
         +row('Số tiền về TK', '<span style="font-size:14px;color:#d32f2f">💰 '+_prFmt(r.amount)+'</span>')
         +row('Trạng thái BG', statusLabels[r.handover_status]||r.handover_status||'')
         +row('Lịch sử CN', (updatedAt ? '🗓️ '+updatedAt+'<br>' : '')+(histSrc||''))
