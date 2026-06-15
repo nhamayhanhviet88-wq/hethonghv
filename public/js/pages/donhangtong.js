@@ -3311,21 +3311,26 @@ function _dhtTriggerExportVat(orderId, orderCode) {
             }
         };
 
-        const handlePaste = function(e) {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const blob = items[i].getAsFile();
-                    processFile(blob);
-                    e.preventDefault();
-                    break;
-                }
-            }
-        };
+        window._vatProcessFile = processFile;
 
-        const modalContainer = document.getElementById('globalModal');
-        if (modalContainer) {
-            modalContainer.addEventListener('paste', handlePaste);
+        if (!window._vatPasteRegistered) {
+            window._vatPasteRegistered = true;
+            document.addEventListener('paste', function(e) {
+                const activeDragArea = document.getElementById('vatDragArea');
+                if (!activeDragArea) return; // popup is closed
+
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const blob = items[i].getAsFile();
+                        if (window._vatProcessFile) {
+                            window._vatProcessFile(blob);
+                        }
+                        e.preventDefault();
+                        break;
+                    }
+                }
+            });
         }
     }, 100);
 }
