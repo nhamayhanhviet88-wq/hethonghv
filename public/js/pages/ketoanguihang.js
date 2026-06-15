@@ -1200,16 +1200,17 @@ async function _shHandleBillPaste(e) {
         if (items[i].type.indexOf('image') !== -1) {
             e.preventDefault();
             const blob = items[i].getAsFile();
-            const inp = e.target;
             
-            inp.value = 'Đang tải ảnh lên...';
-            inp.disabled = true;
+            const hint = document.getElementById('shBillPasteHint');
+            const preview = document.getElementById('shBillPastePreview');
+            const hiddenInput = document.getElementById('shBillLink');
             
-            const preview = document.getElementById('shBillPreview');
-            if (preview) {
-                preview.style.display = 'block';
-                preview.innerHTML = '<div style="color:#f59e0b;font-size:11px;font-weight:600;">⏳ Đang nén và upload ảnh...</div>';
+            if (hint) {
+                hint.textContent = '⏳ Đang nén và upload ảnh...';
+                hint.style.color = '#f59e0b';
+                hint.style.display = 'block';
             }
+            if (preview) preview.style.display = 'none';
             
             try {
                 const resizedBlob = await _shResizeImage(blob, 1000, 1000, 0.75);
@@ -1221,46 +1222,32 @@ async function _shHandleBillPaste(e) {
                 const data = await resp.json();
                 
                 if (data.success && data.url) {
-                    inp.value = window.location.origin + data.url;
-                    inp.disabled = false;
-                    _shUpdateBillPreview();
+                    const fullUrl = window.location.origin + data.url;
+                    if (hiddenInput) hiddenInput.value = fullUrl;
+                    if (hint) hint.style.display = 'none';
+                    if (preview) {
+                        preview.src = fullUrl;
+                        preview.style.display = 'block';
+                    }
                 } else {
                     alert(data.error || 'Lỗi upload ảnh');
-                    inp.value = '';
-                    inp.disabled = false;
-                    if (preview) preview.style.display = 'none';
+                    if (hint) {
+                        hint.textContent = '📋 Ctrl+V để dán ảnh';
+                        hint.style.color = '#94a3b8';
+                    }
                 }
             } catch (err) {
                 alert('Lỗi xử lý ảnh: ' + err.message);
-                inp.value = '';
-                inp.disabled = false;
-                if (preview) preview.style.display = 'none';
+                if (hint) {
+                    hint.textContent = '📋 Ctrl+V để dán ảnh';
+                    hint.style.color = '#94a3b8';
+                }
             }
             return;
         }
     }
 }
 window._shHandleBillPaste = _shHandleBillPaste;
-
-function _shUpdateBillPreview() {
-    const inp = document.getElementById('shBillLink'); if (!inp) return;
-    const preview = document.getElementById('shBillPreview'); if (!preview) return;
-    const val = inp.value.trim();
-    if (!val || val.startsWith('Đang')) {
-        preview.style.display = 'none';
-        preview.innerHTML = '';
-        return;
-    }
-    preview.style.display = 'block';
-    
-    const isImg = val.match(/\.(jpeg|jpg|gif|png|webp)/i) || val.includes('/uploads/');
-    if (isImg) {
-        preview.innerHTML = `<img src="${val}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #cbd5e1;margin-top:4px;cursor:pointer;" onclick="window.open('${val}','_blank')">`;
-    } else {
-        preview.innerHTML = `<a href="${val}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link bill →</a>`;
-    }
-}
-window._shUpdateBillPreview = _shUpdateBillPreview;
 
 function _shOnCarrierChange() {
     const sel = document.getElementById('shCarrierSel'); if (!sel) return;
@@ -1272,15 +1259,21 @@ function _shOnCarrierChange() {
     if (g === 'tracking_code') {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">Mã Vận Đơn <span style="color:#dc2626">*</span></label><input id="shTrackingCode" style="${fStyle}" placeholder="Nhập mã vận đơn...">`;
     } else if (g === 'bill_link') {
-        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span> <span style="font-size:10px;color:#3b82f6;font-weight:normal;">(Nhấn Ctrl+V vào ô dưới để dán ảnh)</span></label>
-             <input id="shBillLink" style="${fStyle}" placeholder="Nhập link hoặc dán ảnh...">
-             <div id="shBillPreview" style="margin-top:8px;display:none;"></div>`;
+        h = `<label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label>
+             <div id="shBillPasteZone" style="border:2px dashed #cbd5e1;border-radius:8px;min-height:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background:#fafafa;margin-top:4px;" tabindex="0">
+                 <span id="shBillPasteHint" style="color:#94a3b8;font-size:12px">📋 Ctrl+V để dán ảnh</span>
+                 <img id="shBillPastePreview" style="display:none;max-width:100%;max-height:150px;border-radius:6px">
+             </div>
+             <input type="hidden" id="shBillLink" value="">`;
     } else if (g === 'bill_and_phone') {
         h = `<label style="font-size:12px;font-weight:700;color:#374151;">SĐT Nhà Xe <span style="color:#dc2626">*</span></label><input id="shCarrierPhone" style="${fStyle}" placeholder="0909..." oninput="_shValidatePhoneInput(this)">
         <div style="margin-top:8px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span> <span style="font-size:10px;color:#3b82f6;font-weight:normal;">(Nhấn Ctrl+V vào ô dưới để dán ảnh)</span></label>
-            <input id="shBillLink" style="${fStyle}" placeholder="Nhập link hoặc dán ảnh...">
-            <div id="shBillPreview" style="margin-top:8px;display:none;"></div>
+            <label style="font-size:12px;font-weight:700;color:#374151;">Bill Gửi Hàng <span style="color:#dc2626">*</span></label>
+            <div id="shBillPasteZone" style="border:2px dashed #cbd5e1;border-radius:8px;min-height:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background:#fafafa;margin-top:4px;" tabindex="0">
+                <span id="shBillPasteHint" style="color:#94a3b8;font-size:12px">📋 Ctrl+V để dán ảnh</span>
+                <img id="shBillPastePreview" style="display:none;max-width:100%;max-height:150px;border-radius:6px">
+            </div>
+            <input type="hidden" id="shBillLink" value="">
         </div>`;
     } else if (g === 'receiver_name') {
         const isNVHV = name.toLowerCase().includes('nhân viên hv') || name.toLowerCase().includes('nhan vien hv');
@@ -1297,11 +1290,11 @@ function _shOnCarrierChange() {
     }
     el.innerHTML = h;
     
-    // Attach paste listener to Bill Link input if present
-    const billInp = document.getElementById('shBillLink');
-    if (billInp) {
-        billInp.addEventListener('paste', _shHandleBillPaste);
-        billInp.addEventListener('input', _shUpdateBillPreview);
+    // Attach paste listener to Bill Link paste zone if present
+    const pasteZone = document.getElementById('shBillPasteZone');
+    if (pasteZone) {
+        pasteZone.addEventListener('paste', _shHandleBillPaste);
+        pasteZone.addEventListener('click', function(){ pasteZone.focus(); });
     }
     // ★ Toggle fee section visibility based on carrier type
     const noFee = _shIsNoFeeCarrier(name);
@@ -1455,14 +1448,14 @@ async function _shDoShip(id) {
     const phone = document.getElementById('shCarrierPhone')?.value?.trim();
     const receiver = document.getElementById('shReceiverName')?.value?.trim();
     if (g === 'tracking_code' && !tracking) return alert('Vui lòng nhập Mã Vận Đơn');
-    if (g === 'bill_link' && !bill) return alert('Vui lòng nhập Bill Gửi Hàng');
+    if (g === 'bill_link' && !bill) return alert('Vui lòng dán Bill Gửi Hàng');
     if (g === 'bill_and_phone') {
         if (!phone) return alert('Vui lòng nhập SĐT Nhà Xe');
         var phoneDigits = phone.replace(/\D/g, '');
         if (phoneDigits.length !== 10 || phoneDigits[0] !== '0') {
             return alert('SĐT Nhà Xe phải bắt đầu bằng số 0 và đúng 10 số');
         }
-        if (!bill) return alert('Vui lòng nhập Bill Gửi Hàng');
+        if (!bill) return alert('Vui lòng dán Bill Gửi Hàng');
     }
     if (g === 'receiver_name') {
         if (!receiver) return alert('Vui lòng nhập Tên Người Nhận');
