@@ -494,6 +494,9 @@ module.exports = async function(fastify) {
 
         let where = 'WHERE 1=1';
         let orderBy = 'o.order_date DESC, o.id DESC';
+        if (unpaid === 'true') {
+            orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) ASC, o.id DESC';
+        }
         const params = [];
         let idx = 1;
 

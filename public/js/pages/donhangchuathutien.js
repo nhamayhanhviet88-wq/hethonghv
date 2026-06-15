@@ -310,7 +310,7 @@ function _dhcttRenderTable() {
     } else {
         // Default sorting requested by the user
         const carrierId = _dhctt.filter.carrier_id !== undefined ? Number(_dhctt.filter.carrier_id) : null;
-        if (carrierId === 0) {
+        if (carrierId === 0 || carrierId === null) {
             // Chưa Gửi Đơn: sort by expected/rescheduled ship date ascending (oldest/more overdue first)
             filtered.sort(function(a, b) {
                 const getEffectiveDate = (o) => {
@@ -794,7 +794,7 @@ async function renderDonhangchuathutienPage(content) {
     document.getElementById('dhcttSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhcttDoSearch(); } });
 
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    _dhctt.filter = { year: nowVN.getFullYear() };
+    _dhctt.filter = { carrier_id: 0, year: nowVN.getFullYear() };
     _dhcttSyncDateInputs();
 
     var ypEl = document.getElementById('dhcttYearPick');
