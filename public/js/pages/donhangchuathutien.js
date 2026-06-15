@@ -533,9 +533,9 @@ async function _dhcttLoadTree() {
     // Grand Total
     const gCount = data.grandCount || 0;
     if (isFull) {
-        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ <span style="font-size:11px;font-weight:normal;opacity:0.85;margin-left:3px;">(' + gCount + ' đơn)</span></span><span>'+_dhcttFmt(data.grandTotal||0)+'</span></div>';
+        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ <span style="font-size:11px;font-weight:bold;color:#fff;margin-left:3px;white-space:nowrap;">(' + gCount + ' đơn)</span></span><span>'+_dhcttFmt(data.grandTotal||0)+'</span></div>';
     } else {
-        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ <span style="font-size:11px;font-weight:normal;opacity:0.85;margin-left:3px;">(' + gCount + ' đơn)</span></span></div>';
+        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ <span style="font-size:11px;font-weight:bold;color:#fff;margin-left:3px;white-space:nowrap;">(' + gCount + ' đơn)</span></span></div>';
     }
 
     // Initialize open state for first render if not set
@@ -554,7 +554,7 @@ async function _dhcttLoadTree() {
         
         var valSpan = isFull ? '<span style="background:linear-gradient(135deg,#ffd700,#daa520);color:#fff;padding:2px 10px;border-radius:10px;font-size:10px">'+_sbVal(carrier.total, carrier.count)+'</span>' : '';
         h += '<div class="dhctt-sb-year'+(cActive?' active':'')+'" onclick="_dhcttSelectCarrier('+carrier.carrier_id+')">'
-            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 🚛 '+carrier.carrier_name+' <span style="font-size:10px;font-weight:normal;opacity:0.75;margin-left:2px;">('+carrier.count+' đơn)</span></span>'
+            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyCarrier(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 🚛 '+carrier.carrier_name+' <span style="font-size:10px;font-weight:bold;color:#1e3a8a;margin-left:3px;white-space:nowrap;">('+carrier.count+' đơn)</span></span>'
             + valSpan
             + '</div>';
         
@@ -567,7 +567,7 @@ async function _dhcttLoadTree() {
             var yrValSpan = isFull ? '<span style="color:#b8860b;font-weight:800">'+_sbVal(yr.total, yr.count)+'</span>' : '';
             
             h += '<div class="dhctt-sb-cat'+(yActive?' active':'')+'" onclick="event.stopPropagation(); _dhcttSelectYear('+carrier.carrier_id+','+yr.year+')">'
-                + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyYear(\''+yKey+'\')">'+(yOpen?'▼':'▶')+'</span> Năm '+yr.year+' <span style="font-size:9.5px;font-weight:normal;opacity:0.75;margin-left:2px;">('+yr.count+' đơn)</span></span>'
+                + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyYear(\''+yKey+'\')">'+(yOpen?'▼':'▶')+'</span> Năm '+yr.year+' <span style="font-size:9.5px;font-weight:bold;color:#374151;margin-left:3px;white-space:nowrap;">('+yr.count+' đơn)</span></span>'
                 + yrValSpan
                 + '</div>';
             
@@ -579,7 +579,7 @@ async function _dhcttLoadTree() {
                 var moValSpan = isFull ? '<span style="color:'+(mVal>0?'#b8860b':'#999')+';font-weight:'+(mVal>0?'800':'400')+'">'+_sbVal(mo.total, mo.count)+'</span>' : '';
                 
                 h += '<div class="dhctt-sb-month'+(mActive?' active':'')+'" onclick="event.stopPropagation();_dhcttFilterOnly({carrier_id:'+carrier.carrier_id+',year:'+yr.year+',month:'+mo.month+'})">'
-                    + '<span>▸ Tháng '+String(mo.month).padStart(2,'0')+' <span style="font-size:9.5px;font-weight:normal;opacity:0.75;margin-left:2px;">('+mo.count+' đơn)</span></span>'
+                    + '<span>▸ Tháng '+String(mo.month).padStart(2,'0')+' <span style="font-size:9.5px;font-weight:bold;color:#374151;margin-left:3px;white-space:nowrap;">('+mo.count+' đơn)</span></span>'
                     + moValSpan
                     + '</div>';
             });
