@@ -266,7 +266,7 @@ function _dhtPopulateCskhDropdown() {
 var _dhtSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'shipped_at',       label: '🚛Ngày Gửi',    type: 'date' },
+    { key: 'shipped_at',       label: 'Ngày Gửi',    type: 'date' },
     { key: null,               label: 'Tiến Độ',        type: 'none' },
     { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
     { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
@@ -498,7 +498,7 @@ async function renderDonhangtongPage(content) {
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>🚛Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
@@ -692,6 +692,33 @@ function _dhtRenderOrderRows(filtered) {
 
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
     const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; };
+    const fmtDateTimeHM = d => {
+        if (!d) return '—';
+        try {
+            const dt = new Date(d);
+            const formatter = new Intl.DateTimeFormat('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                hour: '2-digit',
+                minute: '2-digit',
+                day: 'numeric',
+                month: 'numeric',
+                hour12: false
+            });
+            const parts = formatter.formatToParts(dt);
+            let hour = '', minute = '', day = '', month = '';
+            for (const part of parts) {
+                if (part.type === 'hour') hour = part.value;
+                if (part.type === 'minute') minute = part.value;
+                if (part.type === 'day') day = part.value;
+                if (part.type === 'month') month = part.value;
+            }
+            hour = String(hour).padStart(2, '0');
+            minute = String(minute).padStart(2, '0');
+            return `${hour}:${minute} ${day}/${month}`;
+        } catch (e) {
+            return '—';
+        }
+    };
     const _todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _todayVN.setHours(0,0,0,0);
 
@@ -788,7 +815,7 @@ function _dhtRenderOrderRows(filtered) {
                 }
             }
         }
-        const shipDateFmt = o.shipped_at ? '🚛' + fmtD(o.shipped_at) : '—';
+        const shipDateFmt = fmtDateTimeHM(o.shipped_at);
 
             return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
