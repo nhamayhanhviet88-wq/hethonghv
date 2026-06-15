@@ -2048,12 +2048,17 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         } else if (match) {
             var remain = Number(match.remaining) || 0;
             isCodMatched = Math.abs(wb.cod - remain) < 1;
-            var isFullyPaid = remain <= 0;
+            var isFullyPaidBlocked = remain <= 0 && wb.cod > 0;
 
-            if (isFullyPaid) {
+            if (isFullyPaidBlocked) {
                 hasCriticalBlock = true;
                 matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4;display:inline-block">❌ Đơn đã thanh toán<br>(Còn lại 0đ)</span>';
                 rowBg = 'background:#fee2e2;opacity:0.95';
+            } else if (remain <= 0 && wb.cod === 0) {
+                totalMatched++;
+                isCodMatched = true;
+                matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp COD (Reship)</span>';
+                rowBg = 'background:#f0fdf4';
             } else {
                 totalMatched++;
                 if (isCodMatched) {
@@ -2089,8 +2094,14 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
                 + '<div style="margin-top:4px"><a href="javascript:void(0)" onclick="_prOpenChangeOrderModal(\'' + code + '\')" style="color:var(--primary);font-weight:bold;font-size:10.5px">➕ Liên kết đơn</a></div>';
         }
 
+        if (match && Number(match.shipment_count) > 1) {
+            crmInfoHTML += '<div style="color: #c2410c; font-size: 10.5px; font-weight: 700; margin-top: 6px; padding: 4px 8px; background: #fff7ed; border: 1px solid #ffedd5; border-radius: 4px; line-height: 1.3; text-align: left;">'
+                + '⚠️ Đơn này đã mất phí ship đến lần thứ 2, Bạn hãy chú ý xem lỗi ship lần 2 là do ai?'
+                + '</div>';
+        }
+
         var verifyActionHTML = '';
-        if (isAlreadyReconciled || isDuplicateOrder || (match && Number(match.remaining) <= 0)) {
+        if (isAlreadyReconciled || isDuplicateOrder || (match && Number(match.remaining) <= 0 && wb.cod > 0)) {
             verifyActionHTML = '<span style="color:#dc2626;font-weight:bold;font-size:11px">❌ Bị chặn</span>';
         } else if (isCodMatched) {
             var btnBg = isVerified ? '#16a34a' : '#94a3b8';

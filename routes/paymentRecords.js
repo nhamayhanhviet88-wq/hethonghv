@@ -134,6 +134,7 @@ module.exports = async function(fastify) {
                 o.shipping_status, o.total_amount, o.discount_amount,
                 o.matched_tracking_code AS tracking_code,
                 u.full_name AS cskh_name,
+                (SELECT COUNT(*) FROM dht_order_shipments WHERE dht_order_id = o.id) AS shipment_count,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_paid,
                 COALESCE(o.total_amount, 0)
                   - COALESCE(o.discount_amount, 0)
@@ -149,6 +150,11 @@ module.exports = async function(fastify) {
                 FROM dht_orders o
                 JOIN dht_order_items oi ON oi.dht_order_id = o.id
                 WHERE oi.tracking_code IN (${placeholders2})
+                UNION
+                SELECT o.*, os.tracking_code AS matched_tracking_code
+                FROM dht_orders o
+                JOIN dht_order_shipments os ON os.dht_order_id = o.id
+                WHERE os.tracking_code IN (${placeholders1})
             ) o
             LEFT JOIN users u ON o.cskh_user_id = u.id
             LEFT JOIN LATERAL (
@@ -1494,6 +1500,7 @@ module.exports = async function(fastify) {
                 o.customer_name,
                 o.customer_phone,
                 o.order_date,
+                (SELECT COUNT(*) FROM dht_order_shipments WHERE dht_order_id = o.id) AS shipment_count,
                 (COALESCE(o.total_amount, 0)
                  - COALESCE(o.discount_amount, 0)
                  - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
@@ -1512,7 +1519,11 @@ module.exports = async function(fastify) {
             dhtParams.push(`%${q}%`);
         }
         
-        dhtQuery = `SELECT * FROM (${dhtQuery}) sub WHERE remaining > 0 LIMIT 100`;
+        if (cod === 0) {
+            dhtQuery = `SELECT * FROM (${dhtQuery}) sub WHERE remaining >= 0 LIMIT 100`;
+        } else {
+            dhtQuery = `SELECT * FROM (${dhtQuery}) sub WHERE remaining > 0 LIMIT 100`;
+        }
         dhtOrders = await db.all(dhtQuery, dhtParams);
 
         // 2. Query don_gui_ao_mau
@@ -1524,6 +1535,7 @@ module.exports = async function(fastify) {
                 d.customer_name,
                 d.customer_phone,
                 d.order_date,
+                1 AS shipment_count,
                 (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
             FROM don_gui_ao_mau d
             LEFT JOIN LATERAL (
@@ -1539,7 +1551,11 @@ module.exports = async function(fastify) {
             sampleParams.push(`%${q}%`);
         }
 
-        sampleQuery = `SELECT * FROM (${sampleQuery}) sub WHERE remaining > 0 LIMIT 100`;
+        if (cod === 0) {
+            sampleQuery = `SELECT * FROM (${sampleQuery}) sub WHERE remaining >= 0 LIMIT 100`;
+        } else {
+            sampleQuery = `SELECT * FROM (${sampleQuery}) sub WHERE remaining > 0 LIMIT 100`;
+        }
         sampleOrders = await db.all(sampleQuery, sampleParams);
 
         // Combine
