@@ -946,6 +946,15 @@ async function _bphtSubmitComplete() {
                 return;
             }
             val = text.value.trim();
+
+            const cleanContent = _removeVietnameseTones(qContent.toLowerCase().replace(/\s+/g, ''));
+            if (cleanContent.includes('ailanguoidemsoluong')) {
+                if (!isMatchingStaff(val, _bphtState.staff)) {
+                    const selfName = window.currentUser ? (window.currentUser.full_name || window.currentUser.username) : val;
+                    val = selfName;
+                    text.value = selfName;
+                }
+            }
         }
 
         // Custom validation for "Số lượng đếm là bao nhiêu ?"
@@ -1331,4 +1340,26 @@ async function _bphtLoadHoanThienReminders(r) {
     } catch (err) {
         console.error('Error fetching reminders:', err);
     }
+}
+
+function isMatchingStaff(enteredVal, staffList) {
+    if (!enteredVal) return false;
+    const enteredNorm = _removeVietnameseTones(enteredVal.toLowerCase().trim());
+    if (!enteredNorm) return false;
+    const enteredNoSpace = enteredNorm.replace(/\s+/g, '');
+    for (const s of staffList) {
+        const sFullNameNorm = _removeVietnameseTones((s.full_name || '').toLowerCase().trim());
+        const sUsernameNorm = _removeVietnameseTones((s.username || '').toLowerCase().trim());
+        if (enteredNoSpace === sFullNameNorm.replace(/\s+/g, '') || enteredNoSpace === sUsernameNorm.replace(/\s+/g, '')) {
+            return true;
+        }
+    }
+    for (const s of staffList) {
+        const sFullNameNorm = _removeVietnameseTones((s.full_name || '').toLowerCase().trim());
+        const words = sFullNameNorm.split(/\s+/);
+        if (words.includes(enteredNorm)) {
+            return true;
+        }
+    }
+    return false;
 }
