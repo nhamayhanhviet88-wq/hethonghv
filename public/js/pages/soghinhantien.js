@@ -242,7 +242,7 @@ function _prRenderTable() {
 
     var cols = [
         {k:'code',l:'Mã TT',w:115},{k:'customer',l:'Khách Hàng',w:140},{k:'cskh',l:'CSKH',w:85},
-        {k:'amount',l:'Số Tiền',w:90},{k:'balance',l:'Tiền Dư',w:95},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:140},
+        {k:'amount',l:'Số Tiền',w:125},{k:'balance',l:'Tiền Dư',w:110},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:140},
         {k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
         {k:'bank',l:'NH',w:65},{k:'cod',l:'Tổng COD',w:80},
         {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100}
