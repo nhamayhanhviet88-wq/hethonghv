@@ -809,8 +809,7 @@ module.exports = async function(fastify) {
                     UPDATE dht_order_shipments 
                     SET shipping_fee = $1, 
                         shipping_fee_payer = 'hv', 
-                        shipping_fee_method = 'ck', 
-                        updated_at = NOW() 
+                        shipping_fee_method = 'ck'
                     WHERE tracking_code = $2
                 `, [shippingFee, trackingCode]);
 
@@ -819,7 +818,7 @@ module.exports = async function(fastify) {
                     SET shipping_fee = $1, 
                         shipping_fee_payer = 'hv', 
                         shipping_fee_method = 'ck', 
-                        updated_at = NOW() 
+                        last_updated_at = NOW() 
                     WHERE tracking_code = $2
                 `, [shippingFee, trackingCode]);
             }
