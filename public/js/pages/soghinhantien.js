@@ -242,7 +242,7 @@ function _prRenderTable() {
 
     var cols = [
         {k:'code',l:'Mã TT',w:115},{k:'customer',l:'Khách Hàng',w:140},{k:'cskh',l:'CSKH',w:85},
-        {k:'amount',l:'Số Tiền',w:90},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:140},
+        {k:'amount',l:'Số Tiền',w:90},{k:'balance',l:'Tiền Dư',w:95},{k:'type',l:'Loại',w:110},{k:'order',l:'Mã Đơn TT/Cọc',w:140},
         {k:'note',l:'Nội Dung',w:140},{k:'source',l:'Nguồn',w:70},
         {k:'bank',l:'NH',w:65},{k:'cod',l:'Tổng COD',w:80},
         {k:'ship',l:'Cước VC',w:75},{k:'history',l:'Lịch Sử CN',w:120},{k:'status',l:'Trạng Thái BG',w:100}
@@ -300,7 +300,22 @@ function _prRenderTable() {
         h += '<td style="font-weight:700">'+methodBadge+'</td>';
         h += '<td title="'+(custDisplay||'')+'" style="font-weight:600;color:var(--navy)">'+custDisplay+'</td>';
         h += '<td style="color:var(--info);font-weight:600">'+(r.cskh_name||'')+'</td>';
+        var tienDu = 0;
+        if (r.payment_type === 'parent_sll') {
+            tienDu = Number(r.amount) - Number(r.sll_children_sum || 0);
+        } else if (r.payment_type === 'pending') {
+            tienDu = Number(r.amount);
+        }
+        tienDu = Math.max(0, tienDu);
+        var tienDuDisplay = '';
+        if (tienDu > 0) {
+            tienDuDisplay = '<span style="font-weight:900;color:#ea580c;font-size:12.5px">' + _prFmt(tienDu) + '</span>';
+        } else {
+            tienDuDisplay = '<span style="color:#94a3b8;font-size:11.5px">0đ</span>';
+        }
+
         h += '<td style="font-weight:900;color:#d32f2f;text-align:right;font-size:12.5px">'+_prFmt(r.amount)+'</td>';
+        h += '<td style="text-align:right">'+tienDuDisplay+'</td>';
         h += '<td>'+typeBadge+'</td>';
         var displayOrder = r.order_tt_coc || '';
         if (r.payment_type === 'parent_sll' && r.sll_order_codes) {

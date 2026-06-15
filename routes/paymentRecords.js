@@ -168,7 +168,12 @@ module.exports = async function(fastify) {
                        SELECT string_agg(c.order_tt_coc, ', ')
                        FROM payment_records c
                        WHERE c.payment_type = 'child_sll' AND (c.parent_id = pr.id OR c.source_ref_id = pr.id::text)
-                   ) AS sll_order_codes
+                   ) AS sll_order_codes,
+                   (
+                       SELECT COALESCE(SUM(c.amount::numeric), 0)
+                       FROM payment_records c
+                       WHERE c.payment_type = 'child_sll' AND (c.parent_id = pr.id OR c.source_ref_id = pr.id::text)
+                   ) AS sll_children_sum
             FROM payment_records pr
             LEFT JOIN users u_cskh ON pr.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON pr.created_by = u_created.id
