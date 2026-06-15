@@ -108,6 +108,7 @@ async function _dhtShowCreateFree() {
         +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
         // Thiết kế
         +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
+        +'</div>'
         // Phiếu đơn hàng
         +'<div style="margin:12px 0;border-top:1px solid #e2e8f0;padding-top:12px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
@@ -567,6 +568,7 @@ async function _dhtGoStep2() {
         +'<div id="_co_srcFree" class="form-group" style="display:none"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
         // Row 6: Thiết kế (bắt buộc)
         +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
+        +'</div>'
         // Phiếu đơn hàng
         +'<div style="margin:12px 0;border-top:1px solid #e2e8f0;padding-top:12px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
