@@ -2266,8 +2266,16 @@ function _prOpenChangeOrderModal(waybillCode) {
         var inp = document.getElementById('prOrderSearchInput');
         if (inp) {
             inp.focus();
+            var searchTimeout = null;
+            inp.addEventListener('input', function() {
+                if (searchTimeout) clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    _prPerformOrderSearch(waybillCode, codAmount, inp.value);
+                }, 250);
+            });
             inp.addEventListener('keyup', function(e) {
                 if (e.key === 'Enter') {
+                    if (searchTimeout) clearTimeout(searchTimeout);
                     _prPerformOrderSearch(waybillCode, codAmount, inp.value);
                 }
             });

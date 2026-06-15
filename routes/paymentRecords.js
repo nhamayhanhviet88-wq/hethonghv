@@ -1546,7 +1546,46 @@ module.exports = async function(fastify) {
         let combined = [...dhtOrders, ...sampleOrders];
 
         // Sort
-        if (cod > 0) {
+        if (q) {
+            const qLower = q.toLowerCase();
+            combined.sort((a, b) => {
+                const aCode = String(a.order_code || '').toLowerCase();
+                const bCode = String(b.order_code || '').toLowerCase();
+
+                const aExact = aCode === qLower;
+                const bExact = bCode === qLower;
+                if (aExact && !bExact) return -1;
+                if (bExact && !aExact) return 1;
+
+                const aStarts = aCode.startsWith(qLower);
+                const bStarts = bCode.startsWith(qLower);
+                if (aStarts && !bStarts) return -1;
+                if (bStarts && !aStarts) return 1;
+
+                const aIndex = aCode.indexOf(qLower);
+                const bIndex = bCode.indexOf(qLower);
+                if (aIndex !== -1 && bIndex !== -1) {
+                    if (aIndex !== bIndex) {
+                        return aIndex - bIndex; // earlier match first
+                    }
+                } else if (aIndex !== -1) {
+                    return -1;
+                } else if (bIndex !== -1) {
+                    return 1;
+                }
+
+                // Fallback to COD difference
+                if (cod > 0) {
+                    const diffA = Math.abs(Number(a.remaining) - cod);
+                    const diffB = Math.abs(Number(b.remaining) - cod);
+                    if (Math.abs(diffA - diffB) < 1) {
+                        return new Date(b.order_date) - new Date(a.order_date);
+                    }
+                    return diffA - diffB;
+                }
+                return new Date(b.order_date) - new Date(a.order_date);
+            });
+        } else if (cod > 0) {
             combined.sort((a, b) => {
                 const diffA = Math.abs(Number(a.remaining) - cod);
                 const diffB = Math.abs(Number(b.remaining) - cod);
