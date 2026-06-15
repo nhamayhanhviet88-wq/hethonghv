@@ -266,8 +266,8 @@ function _prRenderTable() {
     });
     h += '</tr></thead><tbody>';
 
-    var typeLabels = {thanh_toan:'Thanh Toán',dat_coc:'Đặt Cọc',tt_sll:'SLL',pending:'⏳',tra_lai_coc:'Trả Lại Cọc'};
-    var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll',pending:'pr-pending',tra_lai_coc:'pr-tlc'};
+    var typeLabels = {thanh_toan:'Thanh Toán',dat_coc:'Đặt Cọc',tt_sll:'SLL',parent_sll:'SLL',pending:'⏳',tra_lai_coc:'Trả Lại Cọc'};
+    var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll',parent_sll:'pr-sll',pending:'pr-pending',tra_lai_coc:'pr-tlc'};
     var srcLabels = {khach_hang:'KH',khach_hang_sll:'KH SLL',nha_van_chuyen:'NVC'};
     var srcStyles = {
         khach_hang: 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd',
