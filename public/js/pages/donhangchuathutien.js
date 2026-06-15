@@ -755,7 +755,7 @@ function _dhcttRenderOrderRows(filtered) {
         }
 
         const shipDateVal = _dhcttGetOrderShipDate(o, _dhctt.filter.carrier_id);
-        const shipDateFmt = shipDateVal ? '🚛' + fmtD(shipDateVal) : '—';
+        const shipDateFmt = shipDateVal ? fmtD(shipDateVal) : '—';
 
         let tienDo = '';
         if (o.expected_ship_date) {
