@@ -2095,12 +2095,6 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
                 + '<div style="margin-top:4px"><a href="javascript:void(0)" onclick="_prOpenChangeOrderModal(\'' + code + '\')" style="color:var(--primary);font-weight:bold;font-size:10.5px">➕ Liên kết đơn</a></div>';
         }
 
-        if (match && Number(match.shipment_count) > 1) {
-            crmInfoHTML += '<div style="color: #c2410c; font-size: 10.5px; font-weight: 700; margin-top: 6px; padding: 4px 8px; background: #fff7ed; border: 1px solid #ffedd5; border-radius: 4px; line-height: 1.3; text-align: left;">'
-                + '⚠️ Đơn này đã mất phí ship đến lần thứ 2, Bạn hãy chú ý xem lỗi ship lần 2 là do ai?'
-                + '</div>';
-        }
-
         var verifyActionHTML = '';
         if (isAlreadyReconciled || isDuplicateOrder || (match && Number(match.remaining) <= 0 && wb.cod > 0)) {
             verifyActionHTML = '<span style="color:#dc2626;font-weight:bold;font-size:11px">❌ Bị chặn</span>';
@@ -2119,7 +2113,10 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
 
         var labelFileSuffix = wb.fileName ? '<br><span style="font-size:8.5px;color:#64748b;font-weight:normal;word-break:break-all">' + wb.fileName + '</span>' : '';
 
-        rowsHTML += '<tr style="border-bottom:1px solid #e2e8f0; ' + rowBg + '">'
+        var hasShipmentWarning = match && Number(match.shipment_count) > 1;
+        var borderBottomStyle = hasShipmentWarning ? '' : 'border-bottom:1px solid #e2e8f0;';
+
+        rowsHTML += '<tr style="' + borderBottomStyle + ' ' + rowBg + '">'
             + '<td style="padding:8px 10px;font-family:monospace;font-weight:700">' + wb.code + ' <div style="font-size:9px;color:#94a3b8;font-weight:normal">Dòng ' + wb.rowIndex + labelFileSuffix + '</div></td>'
             + '<td style="padding:8px 10px">' + crmInfoHTML + '</td>'
             + '<td style="padding:8px 10px;color:#475569;word-break:break-word;max-width:200px">' + (wb.goods || '—') + '</td>'
@@ -2127,6 +2124,14 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
             + '<td style="padding:8px 10px;text-align:left">' + matchStatusHTML + '</td>'
             + '<td style="padding:8px 10px;text-align:center">' + verifyActionHTML + '</td>'
             + '</tr>';
+
+        if (hasShipmentWarning) {
+            rowsHTML += '<tr style="background:#fff7ed;border-bottom:1px solid #ffedd5">'
+                + '<td colspan="6" style="padding:6px 12px;color:#c2410c;font-size:11px;font-weight:bold;text-align:left;border-top:1px dashed #fed7aa">'
+                + '⚠️ Đơn này đã mất phí ship đến lần thứ 2, Bạn hãy chú ý xem lỗi ship lần 2 là do ai?'
+                + '</td>'
+                + '</tr>';
+        }
     });
 
     var tableHTML = '<div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden">'
