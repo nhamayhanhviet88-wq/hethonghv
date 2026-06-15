@@ -599,8 +599,10 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
             } else {
                 const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
                 const isCountQuestion = cleanContent.includes('sốlượngđếmlàbaonhiêu') || cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
+                const isPersonQuestion = cleanContent.includes('ailàngườiđếm') || cleanContent.includes('ailanguoidem') || cleanContent.includes('ngườiđếmsốlượng');
+                const placeholderText = isPersonQuestion ? 'nhập k chính xác là tự nhận mình làm' : 'Nhập câu trả lời...';
                 checklistHtml += `
-                    <input type="text" class="bpht-qc-text" value="${val}" ${readOnly ? 'disabled' : ''} placeholder="Nhập câu trả lời..." style="background:${readOnly ? '#f1f5f9' : '#ffffff'}; border:1px solid #cbd5e1; color:${readOnly ? '#64748b' : '#1e293b'}; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box; cursor:${readOnly ? 'not-allowed' : 'text'};"
+                    <input type="text" class="bpht-qc-text" value="${val}" ${readOnly ? 'disabled' : ''} placeholder="${placeholderText}" style="background:${readOnly ? '#f1f5f9' : '#ffffff'}; border:1px solid #cbd5e1; color:${readOnly ? '#64748b' : '#1e293b'}; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box; cursor:${readOnly ? 'not-allowed' : 'text'};"
                         ${isCountQuestion && !readOnly ? `oninput="_bphtValidateCountInput(this, ${r.quantity || 0})"` : ''}>
                     ${isCountQuestion && !readOnly ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
