@@ -126,6 +126,17 @@ function _dhcttGetOrderShipDate(o, carrierId) {
             shipDateVal = o.shipped_at;
         }
     }
+    if (shipDateVal && o.shipped_at) {
+        const dStr = new Date(shipDateVal).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const sStr = new Date(o.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const dDate = new Date(dStr);
+        const sDate = new Date(sStr);
+        if (dDate.getFullYear() === sDate.getFullYear() &&
+            dDate.getMonth() === sDate.getMonth() &&
+            dDate.getDate() === sDate.getDate()) {
+            return o.shipped_at;
+        }
+    }
     return shipDateVal;
 }
 
