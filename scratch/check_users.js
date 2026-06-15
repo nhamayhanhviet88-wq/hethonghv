@@ -1,28 +1,22 @@
-const db = require('../db/pool');
+const { Client } = require('pg');
+require('dotenv').config();
 
-async function run() {
-    try {
-        await db.init();
-        
-        // Find users with 'quanlyxuong' in username (case-insensitive)
-        const qlxUsers = await db.all("SELECT id, username, full_name, role, status FROM users WHERE username ILIKE '%quanlyxuong%'");
-        console.log("=== Users containing 'quanlyxuong' ===");
-        console.log(qlxUsers);
-        
-        // Let's also check for any usernames that have uppercase letters or spaces
-        const upperOrSpacedUsers = await db.all("SELECT id, username, full_name, role, status FROM users WHERE username != LOWER(TRIM(username))");
-        console.log("\n=== Users with uppercase letters or leading/trailing spaces ===");
-        console.log(upperOrSpacedUsers);
-        
-        // Let's print the total count of users
-        const total = await db.get("SELECT count(*) as cnt FROM users");
-        console.log(`\nTotal users: ${total.cnt}`);
+async function check() {
+    const client = new Client({ connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/dongphuchv' });
+    await client.connect();
 
-    } catch (e) {
-        console.error("Error running script:", e);
-    } finally {
-        await db.close();
-    }
+    console.log('=== DISTINCT ROLES ===');
+    const roles = await client.query(`SELECT distinct role FROM users`);
+    console.log(roles.rows);
+
+    console.log('\n=== USERS NAMED TRINH OR SIMILAR ===');
+    const trinh = await client.query(`SELECT id, username, full_name, role, status FROM users WHERE username ILIKE '%trinh%' OR full_name ILIKE '%trinh%'`);
+    console.log(trinh.rows);
+
+    console.log('\n=== SOME SAMPLE USERS ===');
+    const sample = await client.query(`SELECT id, username, full_name, role, status FROM users LIMIT 20`);
+    console.log(sample.rows);
+
+    await client.end();
 }
-
-run();
+check();

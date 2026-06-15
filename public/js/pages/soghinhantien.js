@@ -736,7 +736,12 @@ function _prShowDetail(id) {
 
     // Action buttons (permission-based) — horizontal row
     var btnsHTML = '';
-    if (up.pr_change_source) btnsHTML += '<div onclick="event.stopPropagation();_prChangeSource('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🔄</div><div style="font-size:10px;font-weight:700;color:#0c4a6e">Đổi nguồn tiền</div></div>';
+    var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
+    var deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name : '';
+    var isKT = deptName.toLowerCase().indexOf('kế toán') !== -1 || deptName.toLowerCase().indexOf('ke toan') !== -1;
+    var canChangeSource = up.pr_change_source || isKT || isTrinh || isGD;
+    if (canChangeSource) btnsHTML += '<div onclick="event.stopPropagation();_prChangeSource('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🔄</div><div style="font-size:10px;font-weight:700;color:#0c4a6e">Đổi nguồn tiền</div></div>';
     if (up.pr_delete) btnsHTML += '<div onclick="event.stopPropagation();_prDeleteRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">🗑️</div><div style="font-size:10px;font-weight:700;color:#991b1b">Xóa</div></div>';
     if (up.pr_edit) btnsHTML += '<div onclick="event.stopPropagation();_prEditRecord('+id+')" style="text-align:center;cursor:pointer;padding:10px 12px;transition:background .15s;border-radius:10px;flex:1" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'"><div style="width:44px;height:44px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:20px">✏️</div><div style="font-size:10px;font-weight:700;color:#065f46">Chỉnh sửa</div></div>';
     var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
@@ -774,7 +779,24 @@ function _prShowDetail(id) {
 function _prChangeSource(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
-    var sources = [{k:'khach_hang',l:'Khách hàng'},{k:'nha_van_chuyen',l:'Nhà vận chuyển'},{k:'khach_hang_sll',l:'Khách hàng SLL'}];
+
+    var isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
+    var deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name : '';
+    var isKT = deptName.toLowerCase().indexOf('kế toán') !== -1 || deptName.toLowerCase().indexOf('ke toan') !== -1;
+
+    var sources = [];
+    // Khách hàng is allowed if they have general change source permission or is KT/Trinh/GD
+    sources.push({k:'khach_hang', l:'Khách hàng'});
+    // Nhà vận chuyển: only GĐ and Trinh
+    if (isGD || isTrinh) {
+        sources.push({k:'nha_van_chuyen', l:'Nhà vận chuyển'});
+    }
+    // Khách hàng SLL: GĐ, Trinh, and Kế toán
+    if (isGD || isTrinh || isKT) {
+        sources.push({k:'khach_hang_sll', l:'Khách hàng SLL'});
+    }
+
     var btns = sources.map(function(s){
         var isActive = r.money_source === s.k;
         var bg = isActive ? 'background:var(--navy);color:#fff' : 'background:#f1f5f9;color:#334155';
@@ -935,33 +957,62 @@ async function _prSavePermissions() {
 }
 
 // ========== UPDATE CUSTOMER — Link payment to unpaid order ==========
+// ========== UPDATE CUSTOMER — Link payment to unpaid order ==========
+var _prActiveRecordId = null;
 var _prSelectedOrder = null;
+var _prSelectedOrders = [];
 var _prPaymentAmount = 0;
 
 async function _prUpdateCustomer(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
+    _prActiveRecordId = id;
     _prSelectedOrder = null;
+    _prSelectedOrders = [];
     _prPaymentAmount = Number(r.amount) || 0;
     var icon = r.payment_method === 'TM' ? '💵' : '🏦';
+    var isSLL = r.money_source === 'khach_hang_sll';
 
     var bodyHTML = '<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:14px 16px;border-radius:12px;margin-bottom:16px;text-align:center">'
-        +'<div style="font-size:11px;opacity:.8">Mã thanh toán</div>'
-        +'<div style="font-size:18px;font-weight:900;letter-spacing:1px">'+icon+' '+r.payment_code+' — '+_prFmt(r.amount)+'</div></div>'
-        +'<div style="margin-bottom:12px">'
-        +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng</label>'
-        +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
-        +'</div>'
-        +'<div id="prOrderResults" style="max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
-        +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
-        +'</div>'
-        +'<div id="prSelectedOrderBox" style="display:none;margin-top:12px;padding:12px 16px;border-radius:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px solid #10b981"></div>';
+        +'<div style="font-size:11px;opacity:.8">Mã thanh toán' + (isSLL ? ' (Khách hàng SLL)' : '') + '</div>'
+        +'<div style="font-size:18px;font-weight:900;letter-spacing:1px">'+icon+' '+r.payment_code+' — '+_prFmt(r.amount)+'</div></div>';
 
-    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
-        +'<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrder('+id+')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💳 NHẬN THANH TOÁN ĐƠN HÀNG</button>';
-    openModal('💳 Cập Nhật Tiền Đơn Hàng', bodyHTML, footerHTML);
+    if (isSLL) {
+        bodyHTML += '<div style="margin-bottom:12px">'
+            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng SLL</label>'
+            +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
+            +'</div>'
+            +'<div style="display:flex;gap:8px;margin-bottom:12px">'
+            +'<button class="btn btn-sm btn-outline-primary" onclick="_prAutoAllocateSLL(' + r.amount + ')" style="padding:4px 10px;font-size:12px;font-weight:700">⚡ Tự động phân bổ</button>'
+            +'</div>'
+            +'<div id="prSelectedOrdersContainer" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;max-height:220px;overflow-y:auto"></div>'
+            +'<div id="prSLLSummaryBox" style="background:#fffbeb;border:1px dashed #d97706;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#92400e;display:none"></div>'
+            +'<div id="prOrderResults" style="max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
+            +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
+            +'</div>';
+    } else {
+        bodyHTML += '<div style="margin-bottom:12px">'
+            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;display:block">🔍 Tìm Mã Đơn Hàng</label>'
+            +'<input type="text" id="prSearchOrder" class="form-control" placeholder="Nhập mã đơn, tên KH, SĐT..." style="padding:10px 12px;font-size:13px" oninput="_prSearchUnpaidOrders()" autocomplete="off">'
+            +'</div>'
+            +'<div id="prOrderResults" style="max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">'
+            +'<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Nhập từ khóa để tìm đơn hàng chưa thanh toán...</div>'
+            +'</div>'
+            +'<div id="prSelectedOrderBox" style="display:none;margin-top:12px;padding:12px 16px;border-radius:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px solid #10b981"></div>';
+    }
+
+    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>';
+    if (isSLL) {
+        footerHTML += '<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrderSLL(' + id + ',' + r.amount + ')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💾 XÁC NHẬN SLL</button>';
+    } else {
+        footerHTML += '<button class="btn btn-primary" id="prBtnLinkOrder" onclick="_prSubmitLinkOrder(' + id + ')" style="width:auto;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-weight:800;font-size:13px;padding:10px 24px;border:none;border-radius:8px;letter-spacing:.3px;opacity:.5;pointer-events:none" disabled>💳 NHẬN THANH TOÁN ĐƠN HÀNG</button>';
+    }
+
+    openModal(isSLL ? '🔗 Liên Kết Đơn Hàng SLL' : '🔗 Liên Kết Đơn Hàng', bodyHTML, footerHTML);
     setTimeout(function(){ var mc = document.querySelector('.modal-content'); if(mc){ mc.style.maxWidth='680px'; mc.style.width='90vw'; } }, 30);
-    // Auto-load all unpaid orders on open
+    if (isSLL) {
+        _prRenderSelectedOrdersSLL(r.amount);
+    }
     _prSearchUnpaidOrders();
 }
 
@@ -978,13 +1029,18 @@ function _prSearchUnpaidOrders() {
                 box.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Không tìm thấy đơn hàng nào còn nợ</div>';
                 return;
             }
-            // Smart sort: closest remaining to payment amount first
+            var r = _pr.records.find(function(x){return x.id===_prActiveRecordId;});
+            var isSLL = r && r.money_source === 'khach_hang_sll';
+
+            // Smart sort: closest remaining to payment amount first (only for non-SLL)
             var orders = data.orders.slice();
-            orders.sort(function(a, b) {
-                var diffA = Math.abs((Number(a.remaining) || 0) - _prPaymentAmount);
-                var diffB = Math.abs((Number(b.remaining) || 0) - _prPaymentAmount);
-                return diffA - diffB;
-            });
+            if (!isSLL) {
+                orders.sort(function(a, b) {
+                    var diffA = Math.abs((Number(a.remaining) || 0) - _prPaymentAmount);
+                    var diffB = Math.abs((Number(b.remaining) || 0) - _prPaymentAmount);
+                    return diffA - diffB;
+                });
+            }
             var h = '';
             orders.forEach(function(o){
                 var discount = Number(o.discount_amount) || 0;
@@ -993,8 +1049,19 @@ function _prSearchUnpaidOrders() {
                 var paid = Number(o.deposit_paid) || 0;
                 var remain = Number(o.remaining) || 0;
                 var orderDate = o.order_date ? o.order_date.split('T')[0].split('-').reverse().join('/') : '';
-                var isSelected = _prSelectedOrder && _prSelectedOrder.order_code === o.order_code;
-                h += '<div onclick="_prSelectOrder('+JSON.stringify(o).replace(/"/g,'&quot;')+')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .15s;display:flex;align-items:center;gap:10px;'+(isSelected?'background:#dbeafe;border-left:4px solid #3b82f6;':'background:#fff;border-left:4px solid transparent;')+'" onmouseover="if(!'+isSelected+')this.style.background=\'#f0f9ff\'" onmouseout="if(!'+isSelected+')this.style.background=\'#fff\'">'
+                
+                var isSelected = false;
+                if (isSLL) {
+                    isSelected = _prSelectedOrders.some(function(x){return x.order_code === o.order_code;});
+                } else {
+                    isSelected = _prSelectedOrder && _prSelectedOrder.order_code === o.order_code;
+                }
+
+                var clickFn = isSLL 
+                    ? '_prSelectOrderSLL(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')'
+                    : '_prSelectOrder(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')';
+
+                h += '<div onclick="' + clickFn + '" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .15s;display:flex;align-items:center;gap:10px;'+(isSelected?'background:#dbeafe;border-left:4px solid #3b82f6;':'background:#fff;border-left:4px solid transparent;')+'" onmouseover="if(!'+isSelected+')this.style.background=\'#f0f9ff\'" onmouseout="if(!'+isSelected+')this.style.background=\'#fff\'">'
                     +'<div style="flex:1">'
                     +'<div style="font-weight:800;font-size:13px;color:#1a1a2e">'+o.order_code+'</div>'
                     +'<div style="font-size:11px;color:#64748b;margin-top:2px">'+(o.customer_name||'—')+' · '+(o.customer_phone||'')+' · '+orderDate+'</div>'
@@ -1023,11 +1090,107 @@ function _prSelectOrder(o) {
         +'<div style="font-size:11px;color:#047857">'+(o.customer_name||'')+' — Còn: <b>'+_prFmt(remain)+'</b></div>'
         +'</div>'
         +'</div>';
-    // Enable button
     var btn = document.getElementById('prBtnLinkOrder');
     if (btn) { btn.style.opacity='1'; btn.style.pointerEvents='auto'; btn.disabled=false; }
-    // Re-render list to show blue highlight on selected row
     _prSearchUnpaidOrders();
+}
+
+function _prSelectOrderSLL(o) {
+    var exists = _prSelectedOrders.find(function(x){return x.order_code === o.order_code;});
+    if (exists) {
+        _prSelectedOrders = _prSelectedOrders.filter(function(x){return x.order_code !== o.order_code;});
+    } else {
+        o.allocatedAmount = Math.min(Number(o.remaining) || 0, _prPaymentAmount);
+        _prSelectedOrders.push(o);
+    }
+    _prRenderSelectedOrdersSLL(_prPaymentAmount);
+    _prSearchUnpaidOrders();
+}
+
+function _prRenderSelectedOrdersSLL(recordAmount) {
+    var container = document.getElementById('prSelectedOrdersContainer');
+    var summaryBox = document.getElementById('prSLLSummaryBox');
+    var btn = document.getElementById('prBtnLinkOrder');
+    if (!container || !summaryBox) return;
+
+    if (_prSelectedOrders.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:10px">Chưa chọn đơn hàng nào</div>';
+        summaryBox.style.display = 'none';
+        if (btn) { btn.style.opacity='0.5'; btn.style.pointerEvents='none'; btn.disabled=true; }
+        return;
+    }
+
+    var h = '';
+    var totalAllocated = 0;
+    _prSelectedOrders.forEach(function(o) {
+        var remain = Number(o.remaining) || 0;
+        var allocated = Number(o.allocatedAmount) || 0;
+        totalAllocated += allocated;
+
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">'
+            +'<div style="flex:1">'
+            +'<div style="font-weight:800;font-size:13px;color:var(--navy)">' + o.order_code + ' <span style="font-size:10px;color:#dc2626;font-weight:600">(Còn thiếu: ' + _prFmt(remain) + ')</span></div>'
+            +'<div style="font-size:11px;color:#64748b">' + (o.customer_name||'') + '</div>'
+            +'</div>'
+            +'<div style="display:flex;align-items:center;gap:6px">'
+            +'<input type="number" class="form-control" data-code="' + o.order_code + '" value="' + allocated + '" style="width:110px;text-align:right;padding:4px 8px;font-size:12px;font-weight:700" oninput="_prOnSLLAllocatedInput(this, ' + recordAmount + ')">'
+            +'<button onclick="_prRemoveOrderSLL(\'' + o.order_code + '\',' + recordAmount + ')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px">🗑️</button>'
+            +'</div>'
+            +'</div>';
+    });
+    container.innerHTML = h;
+
+    var diff = recordAmount - totalAllocated;
+    var summaryText = 'Tổng phân bổ: ' + _prFmt(totalAllocated) + ' / ' + _prFmt(recordAmount);
+    if (diff > 0) {
+        summaryText += ' <span style="color:#2563eb">(Dư: ' + _prFmt(diff) + ' - Sẽ tách mã mới)</span>';
+    } else if (diff < 0) {
+        summaryText += ' <span style="color:#dc2626">(Vượt quá: ' + _prFmt(Math.abs(diff)) + ')</span>';
+    } else {
+        summaryText += ' <span style="color:#10b981">(Khớp 100%)</span>';
+    }
+    summaryBox.innerHTML = summaryText;
+    summaryBox.style.display = 'block';
+
+    var isValid = _prSelectedOrders.length >= 2 && totalAllocated <= recordAmount && totalAllocated > 0;
+    if (btn) {
+        if (isValid) {
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+            btn.disabled = false;
+        } else {
+            btn.style.opacity = '0.5';
+            btn.style.pointerEvents = 'none';
+            btn.disabled = true;
+        }
+    }
+}
+
+function _prOnSLLAllocatedInput(el, recordAmount) {
+    var code = el.getAttribute('data-code');
+    var val = Number(el.value) || 0;
+    var o = _prSelectedOrders.find(function(x){return x.order_code === code;});
+    if (o) {
+        o.allocatedAmount = val;
+    }
+    _prRenderSelectedOrdersSLL(recordAmount);
+}
+
+function _prRemoveOrderSLL(code, recordAmount) {
+    _prSelectedOrders = _prSelectedOrders.filter(function(x){return x.order_code !== code;});
+    _prRenderSelectedOrdersSLL(recordAmount);
+    _prSearchUnpaidOrders();
+}
+
+function _prAutoAllocateSLL(recordAmount) {
+    var remainingPayment = recordAmount;
+    _prSelectedOrders.forEach(function(o) {
+        var remainDebt = Number(o.remaining) || 0;
+        var allocated = Math.min(remainDebt, remainingPayment);
+        o.allocatedAmount = allocated;
+        remainingPayment -= allocated;
+    });
+    _prRenderSelectedOrdersSLL(recordAmount);
 }
 
 async function _prSubmitLinkOrder(prId) {
@@ -1051,6 +1214,48 @@ async function _prSubmitLinkOrder(prId) {
         closeModal();
         await _prLoadRecords();
     } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
+}
+
+async function _prSubmitLinkOrderSLL(prId, recordAmount) {
+    var totalAllocated = _prSelectedOrders.reduce(function(sum, o){return sum + (Number(o.allocatedAmount)||0);}, 0);
+    if (_prSelectedOrders.length < 2) {
+        return showToast('Yêu cầu phải nhập từ 2 đơn hàng trở lên mới cho xác nhận.','error');
+    }
+    if (totalAllocated > recordAmount) {
+        return showToast('Tổng số tiền phân bổ không được vượt quá số tiền của mã tiền','error');
+    }
+
+    var diff = recordAmount - totalAllocated;
+    if (diff > 0) {
+        var confirmMsg = 'Bạn đang thanh toán dư ' + _prFmt(diff) + '. Hệ thống sẽ tự động tách số dư này thành một mã tiền mới cùng ngày/phương thức. Xác nhận?';
+        if (!confirm(confirmMsg)) return;
+    }
+
+    var body = {
+        is_sll: true,
+        allocations: _prSelectedOrders.map(function(o) {
+            return {
+                order_code: o.order_code,
+                amount: o.allocatedAmount,
+                customer_name: o.customer_name || '',
+                customer_phone: o.customer_phone || ''
+            };
+        })
+    };
+
+    try {
+        var res = await apiCall('/api/payment-records/' + prId, 'PUT', body);
+        var msg = '✅ Đã hoàn thành phân bổ SLL';
+        if (res.auto_completed_orders && res.auto_completed_orders.length > 0) {
+            msg += '\n🏆 Đơn đã hoàn thành: ' + res.auto_completed_orders.join(', ');
+        }
+        showToast(msg);
+        _prSelectedOrders = [];
+        closeModal();
+        await _prLoadRecords();
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || 'Không có quyền'), 'error');
+    }
 }
 
 // ========== APPSHEET TOGGLE ==========

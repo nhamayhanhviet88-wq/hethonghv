@@ -28,6 +28,48 @@ function computeHandoverStatus(paymentType) {
     return 'thu_quy_nhan';
 }
 
+async function isKeToan(userId) {
+    if (!userId) return false;
+    try {
+        const row = await db.get(
+            `SELECT d.name FROM users u 
+             LEFT JOIN departments d ON u.department_id = d.id 
+             WHERE u.id = $1`, [userId]
+        );
+        if (!row || !row.name) return false;
+        const name = row.name.toLowerCase();
+        return name.includes('kế toán') || name.includes('ke toan');
+    } catch {
+        return false;
+    }
+}
+
+async function syncCashflowRecord(paymentRecordId, paymentCode, amount, date, note, method, userId) {
+    if (method !== 'TM') return;
+    try {
+        const linked = await db.get('SELECT id FROM cashflow_records WHERE source_record_id = $1', [paymentRecordId]);
+        if (linked) {
+            await db.run(
+                'UPDATE cashflow_records SET amount = $1, description = $2 WHERE source_record_id = $3',
+                [Number(amount), note || '', paymentRecordId]
+            );
+        } else {
+            const cfRow = await db.get(
+                `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1`,
+                [date]
+            );
+            const seq = Number(cfRow.max_seq) + 1;
+            await db.run(`
+                INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, source_record_id, created_by)
+                VALUES ($1, 'THU', $2, $3, $4, $5, $6, $7)
+            `, [paymentCode, seq, date, note || paymentCode, Number(amount), paymentRecordId, userId]);
+        }
+    } catch (e) {
+        console.error('[Cashflow Sync] Error:', e.message);
+    }
+}
+
+
 module.exports = async function(fastify) {
 
     // ========== TREE: Năm → Tháng → Ngày + tổng tiền ==========
@@ -273,6 +315,240 @@ module.exports = async function(fastify) {
 
         const { id } = request.params;
         const b = request.body;
+
+        if (b.is_sll) {
+            const isUserGD = user.role === 'giam_doc';
+            const isUserTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+            const isUserKT = await isKeToan(user.id);
+            if (!isUserGD && !isUserTrinh && !isUserKT) {
+                return reply.code(403).send({ error: 'Bạn không có quyền thực hiện chức năng này' });
+            }
+
+            const allocations = b.allocations || [];
+            if (allocations.length < 2) {
+                return reply.code(400).send({ error: 'Yêu cầu phải chọn từ 2 đơn hàng trở lên mới cho xác nhận.' });
+            }
+
+            const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [id]);
+            if (!pr) {
+                return reply.code(404).send({ error: 'Không tìm thấy giao dịch thanh toán' });
+            }
+
+            const totalAllocated = allocations.reduce((sum, item) => sum + Number(item.amount), 0);
+            if (totalAllocated > pr.amount) {
+                return reply.code(400).send({ error: 'Tổng tiền phân bổ không được vượt quá số tiền của mã tiền' });
+            }
+
+            // 1. Split excess
+            if (totalAllocated < pr.amount) {
+                const excessAmount = pr.amount - totalAllocated;
+                
+                const seqRow = await db.get(
+                    `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq
+                     FROM payment_records
+                     WHERE payment_method = $1 AND payment_date = $2`,
+                    [pr.payment_method, pr.payment_date]
+                );
+                let seq = Number(seqRow.max_seq) + 1;
+                if (pr.payment_method === 'TM') {
+                    const cfRow = await db.get(
+                        `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1`,
+                        [pr.payment_date]
+                    );
+                    seq = Math.max(seq, Number(cfRow.max_seq) + 1);
+                }
+
+                const d = new Date(pr.payment_date);
+                const dd = d.getDate();
+                const mm = d.getMonth() + 1;
+                const yy = d.getFullYear().toString().slice(-2);
+                const code = `${pr.payment_method}${seq}-${dd}-${mm}-Y${yy}`;
+
+                const autoHandover = computeHandoverStatus('pending');
+                const newRecord = await db.get(`
+                    INSERT INTO payment_records (
+                        payment_code, payment_method, daily_seq,
+                        customer_name, customer_phone, cskh_user_id,
+                        amount, payment_type,
+                        order_tt_coc, order_ao_mau,
+                        transfer_note, money_source, bank_name,
+                        total_order_codes, total_cod, shipping_fee,
+                        handover_status, source, payment_date, created_by
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                    RETURNING id, payment_code
+                `, [
+                    code, pr.payment_method, seq,
+                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                    excessAmount, 'pending',
+                    null, null,
+                    (pr.transfer_note || '') + ' (Tách từ ' + pr.payment_code + ')', 'khach_hang_sll', pr.bank_name || null,
+                    null, 0, 0,
+                    autoHandover, pr.source, pr.payment_date, user.id
+                ]);
+
+                if (pr.payment_method === 'TM') {
+                    await syncCashflowRecord(newRecord.id, code, excessAmount, pr.payment_date, (pr.transfer_note || '') + ' (Tách từ ' + pr.payment_code + ')', 'TM', user.id);
+                }
+            }
+
+            // 2. Update first allocation
+            const firstAlloc = allocations[0];
+            const originalHandover = computeHandoverStatus('tt_sll');
+            await db.run(`
+                UPDATE payment_records SET
+                    amount = $1,
+                    order_tt_coc = $2,
+                    customer_name = $3,
+                    customer_phone = $4,
+                    payment_type = 'tt_sll',
+                    handover_status = $5,
+                    updated_at = NOW()
+                WHERE id = $6
+            `, [
+                firstAlloc.amount,
+                firstAlloc.order_code,
+                firstAlloc.customer_name || null,
+                firstAlloc.customer_phone || null,
+                originalHandover,
+                id
+            ]);
+
+            if (pr.payment_method === 'TM') {
+                await syncCashflowRecord(id, pr.payment_code, firstAlloc.amount, pr.payment_date, pr.transfer_note, 'TM', user.id);
+            }
+
+            const autoCompletedOrders = [];
+            const processAutoComplete = async (orderCode) => {
+                try {
+                    const dhtOrder = await db.get(
+                        'SELECT id, order_code FROM dht_orders WHERE order_code = $1', [orderCode]
+                    );
+                    if (dhtOrder) {
+                        const remainRow = await db.get(`
+                            SELECT
+                                COALESCE(o.total_amount, 0)
+                                - COALESCE(o.discount_amount, 0)
+                                - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                                - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck'
+                                       THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                                AS remaining
+                            FROM dht_orders o
+                            LEFT JOIN LATERAL (
+                                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                                FROM payment_records
+                                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                                   OR order_tt_coc = o.order_code
+                            ) pr_dep ON true
+                            WHERE o.order_code = $1
+                        `, [orderCode]);
+
+                        if (remainRow && remainRow.remaining <= 0) {
+                            const oc = await db.get(
+                                `SELECT oc.*, c.referrer_id, c.id as cust_id
+                                 FROM order_codes oc
+                                 JOIN customers c ON c.id = oc.customer_id
+                                 WHERE oc.order_code = $1`,
+                                [orderCode]
+                            );
+                            if (oc && oc.status !== 'completed') {
+                                await db.run("UPDATE order_codes SET status = 'completed' WHERE id = $1", [oc.id]);
+                                autoCompletedOrders.push(orderCode);
+
+                                if (oc.referrer_id) {
+                                    const grandTotalRow = await db.get(`
+                                        SELECT COALESCE(
+                                            (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                                            (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                                            0
+                                        ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
+                                          - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) as t
+                                        FROM order_codes oc WHERE oc.id = $1
+                                    `, [oc.id]);
+                                    const grandTotal = grandTotalRow?.t || 0;
+
+                                    if (grandTotal > 0) {
+                                        const referrer = await db.get(
+                                            'SELECT u.*, ct.percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = $1',
+                                            [oc.referrer_id]
+                                        );
+                                        if (referrer?.percentage) {
+                                            let skipComm = false;
+                                            try {
+                                                const fooCfg = await db.get("SELECT value FROM app_config WHERE key = 'commission_first_order_cutoff'");
+                                                if (fooCfg?.value && new Date() >= new Date(fooCfg.value)) {
+                                                    const isSelfCust = referrer.source_customer_id && referrer.source_customer_id === oc.cust_id;
+                                                    if (!isSelfCust) {
+                                                        const orderCount = await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = $1 AND status != 'cancelled'", [oc.cust_id]);
+                                                        if (orderCount && orderCount.cnt > 1) skipComm = true;
+                                                    }
+                                                }
+                                            } catch(e) {}
+
+                                            if (!skipComm) {
+                                                const commAmount = Math.round(grandTotal * (referrer.percentage / 100));
+                                                if (commAmount > 0) {
+                                                    const nowVnStr = vnFormat(vnNow(), 'yyyy-MM-dd HH:mm:ss');
+                                                    await db.run(`
+                                                        INSERT INTO commissions (
+                                                            referrer_id, order_code_id, order_code,
+                                                            base_amount, percentage, commission_amount,
+                                                            status, created_at, updated_at
+                                                        ) VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$7)
+                                                        ON CONFLICT(order_code_id) DO UPDATE SET
+                                                            commission_amount = EXCLUDED.commission_amount,
+                                                            updated_at = NOW()
+                                                    `, [oc.referrer_id, oc.id, oc.order_code, grandTotal, referrer.percentage, commAmount, nowVnStr]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('[SLL AutoComplete] Error for order ' + orderCode + ':', err.message);
+                }
+            };
+
+            await processAutoComplete(firstAlloc.order_code);
+
+            for (let i = 1; i < allocations.length; i++) {
+                const alloc = allocations[i];
+                const splitCode = `${pr.payment_code}-S${i}`;
+                const splitHandover = computeHandoverStatus('tt_sll');
+                
+                const splitRecord = await db.get(`
+                    INSERT INTO payment_records (
+                        payment_code, payment_method, daily_seq,
+                        customer_name, customer_phone, cskh_user_id,
+                        amount, payment_type,
+                        order_tt_coc, order_ao_mau,
+                        transfer_note, money_source, bank_name,
+                        total_order_codes, total_cod, shipping_fee,
+                        handover_status, source, payment_date, created_by
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                    RETURNING id
+                `, [
+                    splitCode, pr.payment_method, pr.daily_seq,
+                    alloc.customer_name || null, alloc.customer_phone || null, pr.cskh_user_id || null,
+                    alloc.amount, 'tt_sll',
+                    alloc.order_code, null,
+                    (pr.transfer_note || '') + ' (SLL: ' + allocations.map(a => a.order_code).join(', ') + ')',
+                    'khach_hang_sll', pr.bank_name || null,
+                    null, 0, 0,
+                    splitHandover, pr.source, pr.payment_date, user.id
+                ]);
+
+                if (pr.payment_method === 'TM') {
+                    await syncCashflowRecord(splitRecord.id, splitCode, alloc.amount, pr.payment_date, (pr.transfer_note || '') + ' (SLL: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
+                }
+
+                await processAutoComplete(alloc.order_code);
+            }
+
+            return { success: true, auto_completed_orders: autoCompletedOrders };
+        }
 
         // Auto handover logic: chỉ thanh_toan/tt_sll → chua_bangiao, còn lại → thu_quy_nhan
         let handoverUpdate = '';
@@ -930,13 +1206,28 @@ module.exports = async function(fastify) {
         let user;
         try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
-        if (!(await _checkPrPerm(user.role, 'pr_change_source'))) {
+        const isUserGD = user.role === 'giam_doc';
+        const isUserTrinh = user.role === 'quan_ly_cap_cao' && user.username === 'trinh';
+        const isUserKT = await isKeToan(user.id);
+        const hasGeneralPerm = await _checkPrPerm(user.role, 'pr_change_source');
+
+        if (!isUserGD && !isUserTrinh && !isUserKT && !hasGeneralPerm) {
             return reply.code(403).send({ error: 'Bạn không có quyền đổi nguồn tiền' });
         }
 
         const { money_source } = request.body || {};
         const validSources = ['khach_hang', 'nha_van_chuyen', 'khach_hang_sll'];
         if (!validSources.includes(money_source)) return reply.code(400).send({ error: 'Nguồn tiền không hợp lệ' });
+
+        if (money_source === 'khach_hang_sll') {
+            if (!isUserGD && !isUserTrinh && !isUserKT) {
+                return reply.code(403).send({ error: 'Bạn không có quyền đổi nguồn tiền thành Khách Hàng SLL' });
+            }
+        } else if (money_source === 'nha_van_chuyen') {
+            if (!isUserGD && !isUserTrinh) {
+                return reply.code(403).send({ error: 'Bạn không có quyền đổi nguồn tiền thành Nhà Vận Chuyển' });
+            }
+        }
 
         await db.run('UPDATE payment_records SET money_source = $1, updated_at = NOW() WHERE id = $2', [money_source, request.params.id]);
         return { success: true };
