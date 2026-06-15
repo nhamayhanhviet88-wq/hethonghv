@@ -287,6 +287,9 @@ function _prRenderTable() {
     pageRecords.forEach(function(r) {
         var methodBadge = r.payment_method === 'TM' ? '<span class="pr-badge pr-tm">💵'+r.payment_code+'</span>' : '<span class="pr-badge pr-ck">🏦'+r.payment_code+'</span>';
         var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
+        if (r.payment_type === 'parent_sll' && r.sll_customer_names) {
+            custDisplay = r.sll_customer_names;
+        }
         var typeBadge = '<span class="pr-badge '+(typeClass[r.payment_type]||'pr-tt')+'">'+(typeLabels[r.payment_type]||'TT')+'</span>';
         var statusBadge = r.handover_status === 'thu_quy_nhan' ? '<span class="pr-badge pr-nhan" style="cursor:pointer" onclick="_prToggleHandover('+r.id+',\'chua_bangiao\')">✅ TQ Nhận</span>' : '<span class="pr-badge pr-chua" style="cursor:pointer" onclick="_prToggleHandover('+r.id+',\'thu_quy_nhan\')">⏳ Chưa BG</span>';
         var updatedAt = r.updated_at ? _prVnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
@@ -305,7 +308,11 @@ function _prRenderTable() {
         var srcStyle = srcStyles[r.money_source] || 'background:#f3f4f6;color:#374151;border:1px solid #e5e7eb';
         h += '<td><span class="pr-badge" style="'+srcStyle+'">'+(srcLabels[r.money_source]||r.money_source||'')+'</span></td>';
         h += '<td style="font-weight:600">'+(r.bank_name||'')+'</td>';
-        h += '<td title="'+(r.total_order_codes||'')+'">'+(r.total_order_codes||'')+'</td>';
+        var orderCodesDisplay = r.total_order_codes || '';
+        if (r.payment_type === 'parent_sll' && r.sll_order_codes) {
+            orderCodesDisplay = r.sll_order_codes;
+        }
+        h += '<td title="'+(orderCodesDisplay||'')+'">'+(orderCodesDisplay||'')+'</td>';
         h += '<td style="text-align:right">'+(Number(r.total_cod)?_prFmt(r.total_cod):'')+'</td>';
         h += '<td style="text-align:right">'+(Number(r.shipping_fee)?_prFmt(r.shipping_fee):'')+'</td>';
         

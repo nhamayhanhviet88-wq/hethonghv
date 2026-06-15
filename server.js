@@ -243,6 +243,11 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_source_ref ON payment_records(source, source_ref_id)`);
     } catch(e) { /* already text or exists */ }
 
+    // Migration: add parent_id to payment_records
+    try {
+        await db.exec(`ALTER TABLE payment_records ADD COLUMN parent_id INTEGER REFERENCES payment_records(id)`);
+    } catch(e) { /* already exists */ }
+
     // Migration: Email Import Config + Bank Parsers
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS email_import_config (
