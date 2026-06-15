@@ -496,9 +496,20 @@ module.exports = async function(fastify) {
         let orderBy = 'o.order_date DESC, o.id DESC';
         if (unpaid === 'true') {
             orderBy = `
-                (CASE WHEN o.shipped_at IS NULL THEN 0 ELSE 1 END) ASC,
-                (CASE WHEN o.shipped_at IS NULL THEN COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) END) ASC,
-                (CASE WHEN o.shipped_at IS NOT NULL THEN o.shipped_at END) ASC,
+                (CASE 
+                    WHEN EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
+                        THEN (CASE WHEN EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped') THEN 1 ELSE 0 END)
+                    ELSE (CASE WHEN o.shipped_at IS NOT NULL THEN 1 ELSE 0 END)
+                END) ASC,
+                (CASE 
+                    WHEN (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND o.shipped_at IS NULL)
+                         OR (EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped'))
+                        THEN COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) 
+                END) ASC,
+                (CASE 
+                    WHEN EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped') OR o.shipped_at IS NOT NULL
+                        THEN COALESCE((SELECT MAX(shipping_date) FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped'), o.shipped_at)
+                END) ASC,
                 o.id DESC
             `;
         }
@@ -509,9 +520,20 @@ module.exports = async function(fastify) {
             const carrierId = Number(carrier_id);
             if (carrierId === 0) {
                 orderBy = `
-                    (CASE WHEN o.shipped_at IS NULL THEN 0 ELSE 1 END) ASC,
-                    (CASE WHEN o.shipped_at IS NULL THEN COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) END) ASC,
-                    (CASE WHEN o.shipped_at IS NOT NULL THEN o.shipped_at END) ASC,
+                    (CASE 
+                        WHEN EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
+                            THEN (CASE WHEN EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped') THEN 1 ELSE 0 END)
+                        ELSE (CASE WHEN o.shipped_at IS NOT NULL THEN 1 ELSE 0 END)
+                    END) ASC,
+                    (CASE 
+                        WHEN (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND o.shipped_at IS NULL)
+                             OR (EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped'))
+                            THEN COALESCE(o.rescheduled_ship_date, o.expected_ship_date, o.order_date) 
+                    END) ASC,
+                    (CASE 
+                        WHEN EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped') OR o.shipped_at IS NOT NULL
+                            THEN COALESCE((SELECT MAX(shipping_date) FROM dht_order_items WHERE dht_order_id = o.id AND shipping_status = 'shipped'), o.shipped_at)
+                    END) ASC,
                     o.id DESC
                 `;
                 where += ` AND (

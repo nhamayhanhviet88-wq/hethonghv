@@ -95,6 +95,40 @@ var _dhcttFormatDetailedQuantity = function(items, totalQuantity, orderCode) {
 };
 var _dhcttFormatCurrentStep = window.formatCurrentStep || function(stepName, doneCount, totalCount, orderCode, categoryName, isShipped) { return stepName || 'Chờ SX'; };
 
+function _dhcttGetOrderShipDate(o, carrierId) {
+    let shipDateVal = null;
+    const cid = carrierId !== undefined && carrierId !== null ? Number(carrierId) : null;
+    
+    if (o.items && o.items.length > 0) {
+        const shippedItems = o.items.filter(item => item.shipping_status === 'shipped');
+        if (shippedItems.length > 0) {
+            if (cid !== null && cid > 0) {
+                const matchingItem = shippedItems.find(item => 
+                    Number(item.actual_carrier_id) === cid
+                );
+                if (matchingItem && matchingItem.shipping_date) {
+                    shipDateVal = matchingItem.shipping_date;
+                }
+            } else {
+                const dates = shippedItems.map(item => item.shipping_date).filter(Boolean);
+                if (dates.length > 0) {
+                    // Sort descending to get the latest shipping date
+                    shipDateVal = dates.slice().sort((a, b) => new Date(b) - new Date(a))[0];
+                } else {
+                    shipDateVal = o.shipped_at;
+                }
+            }
+        } else {
+            shipDateVal = null;
+        }
+    } else {
+        if (o.shipping_status === 'shipped') {
+            shipDateVal = o.shipped_at;
+        }
+    }
+    return shipDateVal;
+}
+
 function _dhcttGetOrderCarriers(o) {
     var carriers = [];
     if (o.items && o.items.length > 0) {
@@ -316,7 +350,7 @@ function _dhcttRenderTable() {
             // 2. Shipped orders (has shipping date) at the bottom, sorted by shipping date ascending (oldest shipped first)
             filtered.sort(function(a, b) {
                 const getShipDateVal = (o) => {
-                    let dStr = o.shipped_at;
+                    const dStr = _dhcttGetOrderShipDate(o, carrierId);
                     return dStr ? new Date(dStr).getTime() : 0;
                 };
 
@@ -345,13 +379,7 @@ function _dhcttRenderTable() {
             // Shipped carriers: sort by resolved ship date ascending (oldest shipped first)
             filtered.sort(function(a, b) {
                 const getResolvedShipDate = (o, cid) => {
-                    let dStr = o.shipped_at;
-                    if (cid > 0) {
-                        const item = (o.items || []).find(it => 
-                            it.shipping_status === 'shipped' && Number(it.actual_carrier_id) === cid
-                        );
-                        if (item && item.shipping_date) dStr = item.shipping_date;
-                    }
+                    const dStr = _dhcttGetOrderShipDate(o, cid);
                     if (!dStr) return 0;
                     const t = new Date(dStr).getTime();
                     return isNaN(t) ? 0 : t;
@@ -691,12 +719,15 @@ function _dhcttRenderOrderRows(filtered) {
             _catBg = '#ede9fe';
         }
 
+        const shipDateVal = _dhcttGetOrderShipDate(o, _dhctt.filter.carrier_id);
+        const shipDateFmt = shipDateVal ? '🚛' + fmtD(shipDateVal) : '—';
+
         let tienDo = '';
         if (o.expected_ship_date) {
             const shipExpected = new Date(o.expected_ship_date); shipExpected.setHours(0,0,0,0);
             const diffDays = Math.round((_todayVN.getTime() - shipExpected.getTime()) / 86400000);
-            if (o.shipped_at || o.shipping_status === 'shipped') {
-                const shipActual = o.shipped_at ? new Date(new Date(o.shipped_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })) : _todayVN;
+            if (shipDateVal) {
+                const shipActual = new Date(new Date(shipDateVal).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
                 shipActual.setHours(0,0,0,0);
                 const shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
                 if (shipDiff > 0) {
@@ -716,16 +747,6 @@ function _dhcttRenderOrderRows(filtered) {
                 }
             }
         }
-        let shipDateVal = o.shipped_at;
-        if (_dhctt.filter.carrier_id !== undefined && _dhctt.filter.carrier_id > 0) {
-            const matchingItem = (o.items || []).find(item => 
-                item.shipping_status === 'shipped' && Number(item.actual_carrier_id) === Number(_dhctt.filter.carrier_id)
-            );
-            if (matchingItem && matchingItem.shipping_date) {
-                shipDateVal = matchingItem.shipping_date;
-            }
-        }
-        const shipDateFmt = shipDateVal ? '🚛' + fmtD(shipDateVal) : '—';
         const priStyle = (o.shipping_priority === 'GẤP' ? 'background:#dc2626;color:#fff;' : (o.shipping_priority === 'GỬI' ? 'background:#2563eb;color:#fff;' : 'background:#7c3aed;color:#fff;'));
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
