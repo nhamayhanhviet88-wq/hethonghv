@@ -1573,9 +1573,12 @@ function _tsRenderStepModal(step, d){
             }
             
             // Render Shipped Batches
+            let batchIdx = 0;
             for (const batchKey in shippedBatches) {
                 const batch = shippedBatches[batchKey];
                 const it = batch.details;
+                const isReship = batchIdx > 0;
+                batchIdx++;
                 
                 const carrierName = it.actual_carrier_name || '—';
                 let trackingDisplay = it.tracking_code || '—';
@@ -1639,21 +1642,42 @@ function _tsRenderStepModal(step, d){
                 let headerHtml = '';
                 if (batch.labels.length === 1) {
                     const l = batch.labels[0];
-                    headerHtml = `📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                    if (isReship) {
+                        headerHtml = `📦 GỬI LẠI/THÊM: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                    } else {
+                        headerHtml = `📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                    }
                 } else {
-                    const itemsHeader = batch.labels.map(l => `
-                        <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
-                            ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
-                        </span>
-                    `).join(' ');
-                    headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI CHUNG: ${itemsHeader}</span>`;
+                    if (isReship) {
+                        const itemsHeader = batch.labels.map(l => `
+                            <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
+                                ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
+                            </span>
+                        `).join(' ');
+                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI LẠI/THÊM: ${itemsHeader}</span>`;
+                    } else {
+                        const itemsHeader = batch.labels.map(l => `
+                            <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
+                                ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
+                            </span>
+                        `).join(' ');
+                        headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI CHUNG: ${itemsHeader}</span>`;
+                    }
                 }
                 
+                const boxBg = isReship ? '#fff7ed' : '#f0fdf4';
+                const boxBorder = isReship ? '1.5px solid #fed7aa' : '1.5px solid #bbf7d0';
+                const boxHeaderBorder = isReship ? '1.5px solid #ffedd5' : '1.5px solid #dcfce7';
+                const boxShadow = isReship ? '0 2px 4px rgba(234,88,12,0.03)' : '0 2px 4px rgba(22,163,74,0.03)';
+                const badgeHtml = isReship 
+                    ? `<span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟠 GỬI LẠI/THÊM</span>`
+                    : `<span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>`;
+                
                 body += `
-                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 4px rgba(22,163,74,0.03)">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                <div style="background:${boxBg};border:${boxBorder};border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:${boxShadow}">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:${boxHeaderBorder};padding-bottom:8px;flex-wrap:wrap;gap:6px;">
                         ${headerHtml}
-                        <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>
+                        ${badgeHtml}
                     </div>
                     <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
                         <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${it.shipped_by_name || '—'}</span>
