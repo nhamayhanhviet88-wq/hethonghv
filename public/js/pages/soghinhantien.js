@@ -899,19 +899,13 @@ async function _prShowDetail(id) {
                 children.forEach(function(c) {
                     var remDebt = Number(c.order_remaining) || 0;
                     if (remDebt > 0) {
-                        unpaidMsgs.push('⚠️ Đơn <strong>' + (c.order_tt_coc || '—') + '</strong> còn <strong>' + _prFmt(remDebt) + '</strong> chưa thanh toán do mã tiền <strong>' + r.payment_code + ' (' + _prFmt(r.amount) + ')</strong> không đủ');
+                        unpaidMsgs.push('⚠️ Đơn <strong>' + (c.order_tt_coc || '—') + '</strong> còn <strong>' + _prFmt(remDebt) + '</strong> chưa được thanh toán<br>Do mã tiền <strong>' + r.payment_code + ' (' + _prFmt(r.amount) + ')</strong> không đủ');
                     }
                 });
                 var warningHTML = '';
                 if (unpaidMsgs.length > 0) {
-                    if (!document.getElementById('_prSllBlinkStyles')) {
-                        var st = document.createElement('style');
-                        st.id = '_prSllBlinkStyles';
-                        st.textContent = '@keyframes prSllBlink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } } .pr-sll-blink { animation: prSllBlink 1.2s infinite; }';
-                        document.head.appendChild(st);
-                    }
-                    warningHTML = '<div class="pr-sll-blink" style="margin-top:12px;padding:12px;background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;font-weight:800;color:#991b1b;text-align:center;box-shadow:0 2px 8px rgba(239,68,68,0.08)">'
-                        + unpaidMsgs.join('<br>')
+                    warningHTML = '<div style="margin-top:12px;padding:12px;background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;font-weight:800;color:#991b1b;text-align:center;box-shadow:0 2px 8px rgba(239,68,68,0.08);line-height:1.5">'
+                        + unpaidMsgs.join('<div style="margin-top:10px"></div>')
                         + '</div>';
                 }
 
