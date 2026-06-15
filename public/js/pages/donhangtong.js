@@ -114,7 +114,8 @@ function formatCurrentStep(stepName, doneCount, totalCount, orderCode, categoryN
 
 // ========== FILTER CHIPS ==========
 var _dhtFilterDefs = [
-    { key: 'vat',  label: 'VAT',         bg: '#fef3c7', color: '#92400e', activeBg: '#f59e0b', activeColor: '#fff' },
+    { key: 'vat_done',    label: 'Đã Xuất VAT', bg: '#d1fae5', color: '#065f46', activeBg: '#059669', activeColor: '#fff' },
+    { key: 'vat_pending', label: 'Chưa Xuất VAT', bg: '#fee2e2', color: '#991b1b', activeBg: '#dc2626', activeColor: '#fff' },
     { key: 'gg',   label: 'Giảm Giá',    bg: '#d1fae5', color: '#065f46', activeBg: '#059669', activeColor: '#fff' },
     { key: 'za',   label: 'Đã Zalo',     bg: '#dbeafe', color: '#1e40af', activeBg: '#2563eb', activeColor: '#fff' },
     { key: 'noza', label: 'Chưa Zalo',   bg: '#f1f5f9', color: '#64748b', activeBg: '#475569', activeColor: '#fff' },
@@ -147,6 +148,10 @@ function _dhtToggleFilter(key) {
     // Mutually exclusive: za & noza
     if (key === 'za' && _dht.activeFilters.noza) _dht.activeFilters.noza = false;
     if (key === 'noza' && _dht.activeFilters.za) _dht.activeFilters.za = false;
+    // Mutually exclusive: vat_done & vat_pending
+    if (key === 'vat_done' && _dht.activeFilters.vat_pending) _dht.activeFilters.vat_pending = false;
+    if (key === 'vat_pending' && _dht.activeFilters.vat_done) _dht.activeFilters.vat_done = false;
+    
     _dht.activeFilters[key] = !_dht.activeFilters[key];
     // Show discount popup when activating 'gg'
     if (key === 'gg' && _dht.activeFilters.gg) _dhtShowDiscountPopup();
@@ -262,7 +267,6 @@ function _dhtPopulateCskhDropdown() {
     if (curVal) sel.value = curVal;
 }
 
-// ========== SORT DEFINITIONS ==========
 var _dhtSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
     { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
@@ -274,11 +278,10 @@ var _dhtSortDefs = [
     { key: 'customer_phone',   label: 'SĐT',            type: 'text' },
     { key: 'province',         label: 'Thành Phố',      type: 'text' },
     { key: 'cskh_name',        label: 'CSKH',           type: 'text' },
-    { key: 'source',           label: 'Nguồn',          type: 'text' },
     { key: 'total_quantity',   label: 'Tổng SL',        type: 'num' },
-    { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
     { key: 'deposit_amount',   label: 'Đặt Cọc',       type: 'num' },
-    { key: 'shipping_priority',label: 'TC Gửi',         type: 'text' },
+    { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
+    { key: 'source',           label: 'Nguồn',          type: 'text' },
     { key: 'last_updated_at',  label: 'Lịch Sử CN',    type: 'date' },
     { key: null,               label: '',                type: 'none' }
 ];
@@ -300,7 +303,8 @@ function _dhtRenderTable() {
     _dhtRenderFilterChips();
     var filtered = _dht.orders.slice();
     var af = _dht.activeFilters || {};
-    if (af.vat) filtered = filtered.filter(function(o){ return o.has_vat; });
+    if (af.vat_done) filtered = filtered.filter(function(o){ return o.has_vat && o.vat_exported; });
+    if (af.vat_pending) filtered = filtered.filter(function(o){ return o.has_vat && !o.vat_exported; });
     if (af.gg) filtered = filtered.filter(function(o){ return Number(o.discount_amount) > 0; });
     if (af.za) filtered = filtered.filter(function(o){ return o.zalo_oa_sent; });
     if (af.noza) filtered = filtered.filter(function(o){ return !o.zalo_oa_sent; });
@@ -498,7 +502,7 @@ async function renderDonhangtongPage(content) {
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Nguồn</th><th>Tổng SL</th><th>Ưu Đãi</th><th>Đặt Cọc</th><th>TC Gửi</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
@@ -686,7 +690,7 @@ function _dhtRenderOrderRows(filtered) {
     if (!tbody) return;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="17"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
         _dhtUpdateInfo(0, []); return;
     }
 
@@ -761,7 +765,13 @@ function _dhtRenderOrderRows(filtered) {
         // Mini status badges
         let badges = '';
         const bStyle = 'display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:0.3px;line-height:14px;';
-        if (o.has_vat) badges += `<span style="${bStyle}background:#fef3c7;color:#92400e;">VAT</span> `;
+        if (o.has_vat) {
+            if (o.vat_exported) {
+                badges += `<span style="${bStyle}background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;" title="Đã xuất VAT">Đã Xuất VAT</span> `;
+            } else {
+                badges += `<span style="${bStyle}background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;" title="Chưa xuất VAT">Chưa Xuất VAT</span> `;
+            }
+        }
         if (Number(o.discount_amount) > 0) badges += `<span style="${bStyle}background:#d1fae5;color:#065f46;">GG</span> `;
         if (o.zalo_oa_sent) badges += `<span style="${bStyle}background:#dbeafe;color:#1e40af;">ZA</span> `;
         if (o.has_error) badges += `<span style="${bStyle}background:#fee2e2;color:#dc2626;">LỖI</span> `;
@@ -817,7 +827,26 @@ function _dhtRenderOrderRows(filtered) {
         }
         const shipDateFmt = fmtDateTimeHM(o.shipped_at);
 
-            return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
+        let vatBtnHtml = '';
+        if (o.has_vat) {
+            const deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name.toLowerCase() : '';
+            const isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
+            const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+            const isQLCC = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao';
+            const canExportVat = isGD || isQLCC || isKeToan;
+
+            if (o.vat_exported) {
+                vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtViewVat('${o.vat_proof_image}')" title="Xem hóa đơn VAT" style="background:#d1fae5;color:#065f46;border:1.5px solid #a7f3d0;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xem VAT</button>`;
+            } else {
+                if (canExportVat) {
+                    vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtTriggerExportVat(${o.id}, '${o.order_code}')" title="Xuất hóa đơn VAT" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xuất VAT</button>`;
+                } else {
+                    vatBtnHtml = `<button class="btn btn-sm" disabled title="🔒 Chỉ Kế toán/GĐ/QLCC mới được xuất VAT" style="background:#f1f5f9;color:#94a3b8;border:1px solid #cbd5e1;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;opacity:0.6;cursor:not-allowed;">🧾 Chưa VAT</button>`;
+                }
+            }
+        }
+
+        return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${fmtD(o.order_date)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
@@ -828,13 +857,13 @@ function _dhtRenderOrderRows(filtered) {
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
             <td>${o.cskh_name || '—'}</td>
-            <td>${o.source || '—'}</td>
             <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
-            <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
             <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
-            <td><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;${priStyle}">${o.shipping_priority || 'CHUẨN'}</span></td>
+            <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
+            <td>${o.source || '—'}</td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
+                ${vatBtnHtml}
                 ${canDo('dht_sua_don', 'view') ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>`) : ''}
                 ${canDo('dht_xoa_don', 'view') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>` : ''}
             </td>
@@ -1102,6 +1131,36 @@ async function _dhtShowDetail(id) {
             { icon: '🔧', label: 'Lên Đơn Sửa', color: (o.has_error && o.all_errors_handed_over) ? '#b45309' : '#cbd5e1', bg: (o.has_error && o.all_errors_handed_over) ? '#fef3c7' : '#f1f5f9', fn: `_dhtCreateRepairOrder(${id})`, disabled: !(o.has_error && o.all_errors_handed_over), perm: canDo('dht_don_sua', 'view'), disabledTitle: !o.has_error ? 'Cần báo đơn lỗi trước' : 'Cần bàn giao Hàng Lỗi Về cho QLX trước', extraClass: (o.has_error && o.all_errors_handed_over) ? 'dht-don-sua-glow' : '' },
             { icon: '📦', label: 'Hàng Lỗi Về', color: o.has_error ? (o.all_errors_handed_over ? '#059669' : '#0369a1') : '#cbd5e1', bg: o.has_error ? (o.all_errors_handed_over ? '#d1fae5' : '#e0f2fe') : '#f1f5f9', fn: `_dhtErrorReturnHandover(${id})`, disabled: !o.has_error, perm: canDo('dht_bao_loi', 'view'), disabledTitle: 'Cần báo đơn lỗi trước', extraClass: o.has_error ? 'dht-hang-loi-ve-glow' : '' },
             { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
+            ...(o.has_vat ? [
+                (() => {
+                    const deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name.toLowerCase() : '';
+                    const isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
+                    const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+                    const isQLCC = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao';
+                    const canExportVat = isGD || isQLCC || isKeToan;
+
+                    if (o.vat_exported) {
+                        return {
+                            icon: '✅',
+                            label: 'Đã Xuất VAT',
+                            color: '#059669',
+                            bg: '#d1fae5',
+                            fn: `_dhtViewVat('${o.vat_proof_image}')`,
+                            perm: true
+                        };
+                    } else {
+                        return {
+                            icon: '🧾',
+                            label: 'Xuất VAT',
+                            color: '#dc2626',
+                            bg: '#fee2e2',
+                            fn: `_dhtTriggerExportVat(${id}, '${o.order_code}')`,
+                            perm: canExportVat,
+                            disabledTitle: '🔒 Chỉ Kế toán/GĐ/QLCC mới được xuất VAT'
+                        };
+                    }
+                })()
+            ] : [])
         ];
         for (const a of actionBtns) {
             const noPerm = a.perm === false;
@@ -3045,4 +3104,112 @@ function showShippingBillLightbox(url) {
         }
     };
     document.addEventListener('keydown', escHandler);
+}
+
+function _dhtViewVat(imgUrl) {
+    if (!imgUrl) {
+        showToast('Không tìm thấy ảnh phiếu VAT', 'error');
+        return;
+    }
+    showShippingBillLightbox(imgUrl);
+}
+
+function _dhtTriggerExportVat(orderId, orderCode) {
+    const body = `
+        <div style="padding:10px 0;">
+            <p style="margin-bottom:16px;font-size:13px;color:#475569;line-height:1.5;">Vui lòng tải lên hình ảnh hóa đơn/phiếu xuất VAT cho đơn hàng <strong>${orderCode}</strong> để xác nhận xuất VAT.</p>
+            <div style="border:2.5px dashed #cbd5e1;border-radius:12px;padding:30px;text-align:center;background:#f8fafc;position:relative;cursor:pointer;transition:border-color 0.2s;" id="vatDragArea" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#cbd5e1'">
+                <div style="font-size:40px;margin-bottom:12px;">📷</div>
+                <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:4px;">Kéo thả ảnh hoặc click để chọn</div>
+                <div style="font-size:11px;color:#64748b;">Hỗ trợ định dạng PNG, JPG, JPEG, WEBP</div>
+                <input type="file" id="vatFileInput" accept="image/*" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+            </div>
+            <div id="vatImagePreviewWrap" style="margin-top:16px;display:none;text-align:center;">
+                <div style="position:relative;display:inline-block;max-width:100%;">
+                    <img id="vatImagePreview" style="max-height:240px;max-width:100%;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.1);object-fit:contain;">
+                    <button onclick="document.getElementById('vatFileInput').value='';document.getElementById('vatImagePreviewWrap').style.display='none';document.getElementById('vatDragArea').style.display='block';document.getElementById('vatSubmitBtn').setAttribute('disabled', 'true');" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const footer = `
+        <button class="btn btn-secondary" onclick="closeModal();" style="padding:8px 20px;">Hủy</button>
+        <button class="btn" id="vatSubmitBtn" onclick="_dhtSubmitVat(${orderId})" style="padding:8px 24px;background:#059669;color:white;font-weight:700;border:none;border-radius:8px;cursor:pointer;box-shadow:0 2px 6px rgba(5,150,105,0.2);" disabled>Xác Nhận</button>
+    `;
+    openModal(`🧾 Xuất Hóa Đơn VAT — ${orderCode}`, body, footer);
+
+    // Setup events
+    setTimeout(() => {
+        const fileInput = document.getElementById('vatFileInput');
+        const previewWrap = document.getElementById('vatImagePreviewWrap');
+        const previewImg = document.getElementById('vatImagePreview');
+        const dragArea = document.getElementById('vatDragArea');
+        const submitBtn = document.getElementById('vatSubmitBtn');
+
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        previewImg.src = evt.target.result;
+                        previewWrap.style.display = 'block';
+                        dragArea.style.display = 'none';
+                        submitBtn.removeAttribute('disabled');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    }, 100);
+}
+
+async function _dhtSubmitVat(orderId) {
+    const fileInput = document.getElementById('vatFileInput');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast('Vui lòng chọn hình ảnh phiếu VAT', 'error');
+        return;
+    }
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const submitBtn = document.getElementById('vatSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⌛ Đang tải lên...';
+    }
+
+    try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/dht/orders/${orderId}/export-vat`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Lỗi tải ảnh lên', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Xác Nhận';
+            }
+            return;
+        }
+        showToast('Xuất hóa đơn VAT thành công!', 'success');
+        closeModal();
+        await _dhtLoadOrders();
+        if (window._dhtCurrentOrder && window._dhtCurrentOrder.id === orderId) {
+            _dhtShowDetail(orderId);
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Có lỗi xảy ra', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Xác Nhận';
+        }
+    }
 }
