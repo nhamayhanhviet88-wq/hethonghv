@@ -919,7 +919,7 @@ async function _dhcttShowShippingDetail(orderId) {
         
         let shipHTML = `<div style="background:#fff;border-radius:12px;padding:4px;font-family:sans-serif;">`;
         
-        if (totalItemsCount > 0 && (shippedItems.length > 0 || totalItemsCount > 1)) {
+        if (totalItemsCount > 0) {
             // Header summary
             let summaryText = '';
             let summaryBg = '#f1f5f9';

@@ -2249,7 +2249,7 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
             + '<tr style="background:#f8fafc;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1">'
             + '<th style="padding:8px 10px;text-align:left;width:180px">Mã Vận Đơn</th>'
             + '<th style="padding:8px 10px;text-align:left;width:250px">Đơn Hàng CRM</th>'
-            + '<th style="padding:8px 10px;text-align:left;width:150px">Cước Phát Nhanh</th>'
+            + '<th style="padding:8px 10px;text-align:left;width:150px">Cước Chuyển Phát</th>'
             + '<th style="padding:8px 10px;text-align:left;width:120px">Trạng Thái</th>'
             + '</tr>'
             + '</thead>'

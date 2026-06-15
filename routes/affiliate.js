@@ -1111,8 +1111,7 @@ async function affiliateRoutes(fastify) {
                 const _dhtRows = await db.all(`
                     SELECT o.order_code,
                         COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0)
-                        - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                        - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount
+                        - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total

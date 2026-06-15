@@ -2534,10 +2534,10 @@ async function _dhtSubmitEditV2() {
     var shipFee = Number(_dhtCreate.editData?.order?.shipping_fee) || 0;
     var shipPayer = _dhtCreate.editData?.order?.shipping_fee_payer || '';
     var shipMethod = _dhtCreate.editData?.order?.shipping_fee_method || '';
-    var shipCK = (shipPayer === 'hv' && shipMethod === 'ck') ? shipFee : 0;
-    var remain = (totalAmt + totalVatAmt + surTotal) - discountAmt - depAmt - shipCK;
+    var shipCK = 0;
+    var remain = (totalAmt + totalVatAmt + surTotal) - discountAmt - depAmt;
     if (remain < 0) {
-        showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn mới (' + (totalAmt + totalVatAmt + surTotal).toLocaleString('vi-VN') + 'đ) nhỏ hơn cọc (' + depAmt.toLocaleString('vi-VN') + 'đ) và chiết khấu/phí ship (' + (discountAmt + shipCK).toLocaleString('vi-VN') + 'đ)', 'error');
+        showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn mới (' + (totalAmt + totalVatAmt + surTotal).toLocaleString('vi-VN') + 'đ) nhỏ hơn cọc (' + depAmt.toLocaleString('vi-VN') + 'đ) và chiết khấu (' + discountAmt.toLocaleString('vi-VN') + 'đ)', 'error');
         return;
     }
 

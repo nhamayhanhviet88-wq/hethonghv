@@ -1033,7 +1033,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     }
 
     const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
-    const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
+    const finRemaining = calcBase + surchargeTotal + vat - discount - deposit;
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -1051,7 +1051,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
     );
     if (shipCK > 0) {
-        finRows.push(['🚚 Ship HV Trả CK', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
+        finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
     }
     finRows.push(
         ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true],
@@ -1900,7 +1900,7 @@ async function _shShowShippingDetailOnly(orderId) {
         
         let shipHTML = `<div style="background:#fff;border-radius:12px;padding:4px;font-family:sans-serif;">`;
         
-        if (totalItemsCount > 0 && (shippedItems.length > 0 || totalItemsCount > 1)) {
+        if (totalItemsCount > 0) {
             // Header summary
             let summaryText = '';
             let summaryBg = '#f1f5f9';

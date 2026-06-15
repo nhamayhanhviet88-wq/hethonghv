@@ -1465,7 +1465,7 @@ function _tsRenderStepModal(step, d){
         body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">🚚 THÔNG TIN VẬN CHUYỂN</span></div>`;
         body+=`<div style="padding:14px 16px">`;
 
-        if (totalItemsCount > 0 && (shippedItems.length > 0 || totalItemsCount > 1)) {
+        if (totalItemsCount > 0) {
             // Header summary
             let summaryText = '';
             let summaryBg = '#f1f5f9';

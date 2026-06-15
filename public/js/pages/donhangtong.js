@@ -1137,9 +1137,8 @@ async function _dhtShowDetail(id) {
         const vat = calcVat;
         const discount = Number(o.discount_amount) || 0;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
-        const total = calcBase + calcVat + surchargeTotal - discount;
         const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
-        const remaining = total - deposit - shipCK;
+        const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
         const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
@@ -1319,7 +1318,7 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 5: Tổng kết tài chính ──
-        const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
+        const finRemaining = calcBase + surchargeTotal + vat - discount - deposit;
         const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -1337,7 +1336,7 @@ async function _dhtShowDetail(id) {
             ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
         );
         if (shipCK > 0) {
-            finRows.push(['🚚 Ship HV Trả CK', fmt(shipCK) + 'đ', '#7c3aed', true]);
+            finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmt(shipCK) + 'đ', '#7c3aed', true]);
         }
         finRows.push(
             ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
@@ -1466,7 +1465,7 @@ async function _dhtShowDetail(id) {
         const shippedItems = items.filter(it => it.shipping_status === 'shipped');
         const totalItemsCount = items.length;
         
-        if (totalItemsCount > 0 && (shippedItems.length > 0 || totalItemsCount > 1)) {
+        if (totalItemsCount > 0) {
             // Header summary
             let summaryText = '';
             let summaryBg = '#f1f5f9';

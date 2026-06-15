@@ -139,7 +139,6 @@ module.exports = async function(fastify) {
                 COALESCE(o.total_amount, 0)
                   - COALESCE(o.discount_amount, 0)
                   - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                  - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                   AS remaining
             FROM (
                 SELECT o.*, o.tracking_code AS matched_tracking_code
@@ -237,7 +236,6 @@ module.exports = async function(fastify) {
                     COALESCE(o.total_amount, 0)
                       - COALESCE(o.discount_amount, 0)
                       - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                      - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                       AS order_remaining
              FROM payment_records pr
              LEFT JOIN dht_orders o ON pr.order_tt_coc = o.order_code
@@ -258,7 +256,6 @@ module.exports = async function(fastify) {
                         COALESCE(o.total_amount, 0)
                           - COALESCE(o.discount_amount, 0)
                           - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                          - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                           AS order_remaining
                  FROM payment_records pr
                  LEFT JOIN dht_orders o ON pr.order_tt_coc = o.order_code
@@ -648,8 +645,6 @@ module.exports = async function(fastify) {
                                 COALESCE(o.total_amount, 0)
                                 - COALESCE(o.discount_amount, 0)
                                 - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                                - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck'
-                                       THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                                 AS remaining
                             FROM dht_orders o
                             LEFT JOIN LATERAL (
@@ -890,8 +885,6 @@ module.exports = async function(fastify) {
                             COALESCE(o.total_amount, 0)
                             - COALESCE(o.discount_amount, 0)
                             - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                            - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck'
-                                   THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                             AS remaining
                         FROM dht_orders o
                         LEFT JOIN LATERAL (
@@ -1528,8 +1521,7 @@ module.exports = async function(fastify) {
                 (SELECT COUNT(*) FROM dht_order_shipments WHERE dht_order_id = o.id) AS shipment_count,
                 (COALESCE(o.total_amount, 0)
                  - COALESCE(o.discount_amount, 0)
-                 - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                 - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining
+                 - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))) AS remaining
             FROM dht_orders o
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -1713,7 +1705,7 @@ module.exports = async function(fastify) {
                    COALESCE(o.total_amount, 0)
                      - COALESCE(o.discount_amount, 0)
                      - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                     - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+
                      AS remaining
             FROM dht_orders o
             LEFT JOIN users u ON o.cskh_user_id = u.id
@@ -1726,7 +1718,6 @@ module.exports = async function(fastify) {
             WHERE COALESCE(o.total_amount, 0)
                     - COALESCE(o.discount_amount, 0)
                     - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                    - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                     > 0
             ${searchWhere}
             ORDER BY o.order_date DESC, o.id DESC

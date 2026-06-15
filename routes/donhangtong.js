@@ -251,7 +251,7 @@ module.exports = async function(fastify) {
                 queryParams.push(request.user.id);
             }
             whereClause += ` AND (
-                (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0
+                (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0))) > 0
                 OR
                 o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
             )`;
@@ -259,7 +259,7 @@ module.exports = async function(fastify) {
             const unpaidTreeRows = await db.all(`
                 WITH unpaid_orders AS (
                     SELECT o.id, o.order_code, o.order_date, o.shipping_status, o.actual_carrier_id, o.shipped_at,
-                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))) AS remaining_amount
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -407,7 +407,7 @@ module.exports = async function(fastify) {
                     COUNT(*)::int AS count
                 FROM (
                     SELECT 
-                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))) AS remaining_amount
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -654,7 +654,7 @@ module.exports = async function(fastify) {
 
         if (category_id) { where += ` AND o.category_id = $${idx++}`; params.push(Number(category_id)); }
         if (unpaid === 'true' && Number(carrier_id) !== -2) {
-            where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0`;
+            where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0))) > 0`;
         }
         if (search) {
             where += ` AND (o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR o.customer_phone ILIKE $${idx})`;
@@ -685,7 +685,7 @@ module.exports = async function(fastify) {
                 u_updated.full_name AS last_updated_by_name,
                 u_vat.full_name AS vat_exported_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount,
                 COALESCE(prod_progress.done_steps, 0) AS prod_done,
                 COALESCE(prod_progress.total_steps, 0) AS prod_total,
                 prod_progress.current_step_short AS prod_current,
@@ -787,8 +787,8 @@ module.exports = async function(fastify) {
         const discountAmt = Number(b.discount_amount) || 0;
         const depositAmt = Number(b.deposit_amount) || 0;
         const shipFee = Number(b.shipping_fee) || 0;
-        const shipCK = (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck') ? shipFee : 0;
-        const remaining = totalAmt - discountAmt - depositAmt - shipCK;
+        const shipCK = 0;
+        const remaining = totalAmt - discountAmt - depositAmt;
         if (remaining < 0) {
             return reply.code(400).send({ error: `Số tiền Còn Lại không được phép âm! (Còn lại: ${remaining.toLocaleString('vi-VN')}đ)` });
         }
@@ -1180,7 +1180,7 @@ module.exports = async function(fastify) {
                 pr_ship.payment_code AS shipping_payment_code,
                 pr_ship.amount AS shipping_payment_amount,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS remaining_amount,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 CASE WHEN COALESCE(err_check.error_count, 0) > 0
                      THEN COALESCE(err_check.error_count, 0) = COALESCE(err_handover.handed_count, 0)
@@ -1271,8 +1271,8 @@ module.exports = async function(fastify) {
                 payments = [depRecord];
                 // Also fix deposit_amount
                 order.deposit_amount = Number(depRecord.amount) || 0;
-                var _shipCkDeduct = (order.shipping_fee_payer === 'hv' && order.shipping_fee_method === 'ck') ? (Number(order.shipping_fee) || 0) : 0;
-                order.remaining_amount = (Number(order.total_amount) || 0) - (Number(order.discount_amount) || 0) - order.deposit_amount - _shipCkDeduct;
+                var _shipCkDeduct = 0;
+                order.remaining_amount = (Number(order.total_amount) || 0) - (Number(order.discount_amount) || 0) - order.deposit_amount;
             }
         }
 
@@ -1303,7 +1303,7 @@ module.exports = async function(fastify) {
         // Calculate running total for remaining balance display
         const totalOrderAmount = Number(order.total_amount) || 0;
         const discountAmount = Number(order.discount_amount) || 0;
-        const shipCkDeduct = (order.shipping_fee_payer === 'hv' && order.shipping_fee_method === 'ck') ? (Number(order.shipping_fee) || 0) : 0;
+        const shipCkDeduct = 0;
         const netTotal = totalOrderAmount - discountAmount;
         // Surcharges
         let surTotal = 0;
@@ -1755,8 +1755,8 @@ module.exports = async function(fastify) {
             const dep = Number(currentObj.deposit_amount) || 0;
             const tot = Number(currentObj.total_amount) || 0;
             const disc = Number(currentObj.discount_amount) || 0;
-            const shipCK = (currentObj.shipping_fee_payer === 'hv' && currentObj.shipping_fee_method === 'ck') ? (Number(currentObj.shipping_fee) || 0) : 0;
-            const rem = tot - disc - dep - shipCK;
+            const shipCK = 0;
+            const rem = tot - disc - dep;
 
             // Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details
             if (request.user.role !== 'giam_doc' && rem <= 0) {
@@ -1771,8 +1771,8 @@ module.exports = async function(fastify) {
             const newShipPayer = b.shipping_fee_payer !== undefined ? b.shipping_fee_payer : currentObj.shipping_fee_payer;
             const newShipMethod = b.shipping_fee_method !== undefined ? b.shipping_fee_method : currentObj.shipping_fee_method;
 
-            const newShipCK = (newShipPayer === 'hv' && newShipMethod === 'ck') ? newShipFee : 0;
-            const newRemain = newTotal - newDiscount - newDeposit - newShipCK;
+            const newShipCK = 0;
+            const newRemain = newTotal - newDiscount - newDeposit;
             if (newRemain < 0) {
                 return reply.code(400).send({ error: `⛔ Số tiền Còn Lại không được phép âm! (Mới tính: ${newRemain.toLocaleString('vi-VN')}đ)` });
             }
@@ -2184,7 +2184,7 @@ module.exports = async function(fastify) {
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
+                COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) AS remaining_amount,
                 order_items.items AS items
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id

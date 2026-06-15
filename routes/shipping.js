@@ -556,68 +556,7 @@ module.exports = async function(fastify) {
             }
         }
 
-        // ★ Block HV+CK when remaining_amount <= 0 (nothing to deduct from)
-        if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck') {
-            const depRow = await db.get(
-                `SELECT COALESCE(SUM(amount), 0) AS deposit_total
-                 FROM payment_records
-                 WHERE total_order_codes ILIKE '%' || $1 || '%'
-                    OR order_tt_coc = $1`,
-                [order.order_code]
-            );
-            const depositTotal = Number(depRow?.deposit_total) || 0;
-            const remaining = (Number(order.total_amount) || 0)
-                - (Number(order.discount_amount) || 0)
-                - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0);
-            if (remaining <= 0) {
-                return reply.code(400).send({
-                    error: '⚠️ Tiền đơn còn lại = 0đ — Không thể chọn HV trả CK. Vui lòng chọn TM.'
-                });
-            }
 
-            // Enforce selecting a non-deficit transaction when HV+CK is selected (except for pay-later carriers)
-            const carrier = await db.get('SELECT name FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
-            const carrierName = carrier?.name || '';
-            const PAY_LATER_CARRIERS = ['Vận Chuyển J&T', 'Viettel Post', 'Hoả Tốc Máy Bay Nasco', 'Hoả Tốc Máy Bay ViettelPost'];
-            const isPayLaterCarrier = PAY_LATER_CARRIERS.some(n => carrierName.toLowerCase().includes(n.toLowerCase()));
-
-            if (!isPayLaterCarrier) {
-                const target = remaining - shipFee;
-                if (target > 0) {
-                    if (!b.selected_payment_id) {
-                        return reply.code(400).send({
-                            error: '⚠️ Bắt buộc phải chọn mã giao dịch thanh toán trong mục "Thanh Toán Đơn Hàng" khi chọn HV trả bằng CK.'
-                        });
-                    }
-                    const payment = await db.get(`
-                        SELECT pr.id, pr.payment_code, 
-                               (pr.amount - COALESCE(pr_child.child_sum, 0)) AS remaining_balance
-                        FROM payment_records pr
-                        LEFT JOIN LATERAL (
-                            SELECT COALESCE(SUM(amount), 0) AS child_sum
-                            FROM payment_records
-                            WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
-                        ) pr_child ON true
-                        WHERE pr.id = $1
-                    `, [Number(b.selected_payment_id)]);
-                    if (!payment) {
-                        return reply.code(400).send({
-                            error: '⚠️ Không tìm thấy giao dịch thanh toán đã chọn.'
-                        });
-                    }
-                    if (Number(payment.remaining_balance) <= 0) {
-                        return reply.code(400).send({
-                            error: '⚠️ Giao dịch này đã được sử dụng hết số dư. Vui lòng chọn giao dịch khác.'
-                        });
-                    }
-                    if (Number(payment.remaining_balance) < target) {
-                        return reply.code(400).send({
-                            error: `⚠️ Số tiền giao dịch được chọn (${Number(payment.remaining_balance).toLocaleString('vi-VN')}đ) nhỏ hơn số tiền tối thiểu cần thanh toán (${target.toLocaleString('vi-VN')}đ).`
-                        });
-                    }
-                }
-            }
-        }
 
         const now = vnNow();
         const todayStr = vnDateStr(now);
@@ -910,9 +849,8 @@ module.exports = async function(fastify) {
                         - (Number(order.discount_amount) || 0)
                         - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0);
 
-                    const target = remainingDebt - shipFee;
                     const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
-                    const allocAmount = Math.min(remainingBalance, target > 0 ? target : remainingDebt);
+                    const allocAmount = Math.min(remainingBalance, remainingDebt);
 
                     if (allocAmount > 0) {
                         const childCountRow = await db.get(`
@@ -988,21 +926,20 @@ module.exports = async function(fastify) {
         try {
             const carrierRow = await db.get('SELECT name FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
             const carrierName = carrierRow?.name || b.actual_carrier_id;
-            const payerLabel = b.shipping_fee_payer === 'hv' ? 'HV trả' : 'Khách trả';
-            const methodLabel = b.shipping_fee_method === 'ck' ? 'CK' : 'TM';
+            const payerLabel = b.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : 'Khách trả';
             const changes = [
                 { field: 'actual_carrier', label: 'Nhà vận chuyển', old: null, new: carrierName },
                 { field: 'shipping_fee', label: 'Phí gửi hàng', old: null, new: String(shipFee) },
-                { field: 'fee_payer', label: 'Người trả', old: null, new: payerLabel + ' — ' + methodLabel }
+                { field: 'fee_payer', label: 'Người trả', old: null, new: payerLabel }
             ];
             if (b.tracking_code) changes.push({ field: 'tracking_code', label: 'Mã vận đơn', old: null, new: b.tracking_code });
             if (b.carrier_phone) changes.push({ field: 'carrier_phone', label: 'SĐT Nhà Xe', old: null, new: b.carrier_phone });
             if (b.receiver_name) changes.push({ field: 'receiver_name', label: 'Người nhận', old: null, new: b.receiver_name });
             
-            let summary = `Đã gửi hàng qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+            let summary = `Đã gửi hàng qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ — ${payerLabel}`;
             if (itemsToShip.length > 0) {
                 const names = itemsToShip.map(it => it.product_name).join(', ');
-                summary = `Đã gửi phiếu (${names}) qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ ${payerLabel} ${methodLabel}`;
+                summary = `Đã gửi phiếu (${names}) qua ${carrierName} — Phí ${Number(shipFee).toLocaleString('vi-VN')}đ — ${payerLabel}`;
             }
             await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
                 orderId, 'ship', summary, JSON.stringify(changes), request.user.id
@@ -1037,9 +974,8 @@ module.exports = async function(fastify) {
                 );
                 const depTotal2 = Number(depRow2?.dep) || 0;
                 const totalAmt = Number(order.total_amount) || 0;
-                const discAmt = Number(order.discount_amount) || 0;
-                const shipCk2 = (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck') ? shipFee : 0;
-                const rem2 = totalAmt - discAmt - Math.max(depTotal2, Number(order.deposit_amount_cache) || 0) - shipCk2;
+                const shipCk2 = 0;
+                const rem2 = totalAmt - discAmt - Math.max(depTotal2, Number(order.deposit_amount_cache) || 0);
                 prChanges.push({ field: 'remaining', label: 'Còn lại sau GD', old: null, new: String(rem2) });
                 const prSummary = `💰 Thanh toán khi gửi hàng: ${prAmt.toLocaleString('vi-VN')}đ — Mã tiền: ${paymentLinkResult.payment_code}`;
                 await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`, [
