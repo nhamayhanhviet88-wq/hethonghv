@@ -8,7 +8,8 @@ const DEFAULT_PR_PERMS = {
     pr_change_source: ['giam_doc', 'quan_ly_cap_cao'],
     pr_delete: ['giam_doc'],
     pr_edit: ['giam_doc', 'quan_ly_cap_cao'],
-    pr_update_customer: ['giam_doc', 'quan_ly_cap_cao']
+    pr_update_customer: ['giam_doc', 'quan_ly_cap_cao'],
+    pr_excel_reconcile: ['giam_doc', 'quan_ly_cap_cao', 'nhan_vien']
 };
 async function _checkPrPerm(userRole, action) {
     try {
@@ -77,7 +78,11 @@ module.exports = async function(fastify) {
         const token = request.cookies?.token;
         if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
         const jwt = require('jsonwebtoken');
-        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const hasPerm = await _checkPrPerm(user.role, 'pr_excel_reconcile');
+        if (!hasPerm) return reply.code(403).send({ error: 'Bạn không có quyền đối soát file excel nhà vận chuyển' });
 
         const { waybills } = request.body || {};
         if (!waybills || !Array.isArray(waybills) || waybills.length === 0) {

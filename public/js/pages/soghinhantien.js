@@ -969,23 +969,32 @@ async function _prShowDetail(id) {
 
     var excelHTML = '';
     if (r.money_source === 'nha_van_chuyen') {
-        excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05)">'
-            + '<div style="background: linear-gradient(135deg, var(--navy), var(--navy-light)); padding: 12px 16px; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: space-between">'
-            + '<span>📊 ĐỐI SOÁT FILE EXCEL NHÀ VẬN CHUYỂN</span>'
-            + '<span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 700">Xử lý tại trình duyệt</span>'
-            + '</div>'
-            + '<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">'
-            + '<div style="display: flex; align-items: center; gap: 12px">'
-            + '<label for="prExcelFile" style="flex: 1; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc" onmouseover="this.style.borderColor=\'var(--navy)\'; this.style.background=\'#f0fdf4\'" onmouseout="this.style.borderColor=\'#cbd5e1\'; this.style.background=\'#f8fafc\'">'
-            + '<div style="font-size: 24px; margin-bottom: 6px">📁</div>'
-            + '<div style="font-size: 12px; font-weight: 700; color: #334155" id="prExcelFileName">Chọn file Excel đối soát (Tối đa 25MB)</div>'
-            + '<div style="font-size: 10px; color: #64748b; margin-top: 2px">Đọc nội dung và đối soát trực tiếp, không upload file lên server</div>'
-            + '</label>'
-            + '<input type="file" id="prExcelFile" accept=".xlsx, .xls" style="display: none" multiple onchange="_prProcessExcel(this, ' + r.amount + ')">'
-            + '</div>'
-            + '<div id="prExcelResult" style="display: none; flex-direction: column; gap: 12px"></div>'
-            + '</div>'
-            + '</div>';
+        var canReconcile = _pr.userPerms.pr_excel_reconcile !== false;
+        if (canReconcile) {
+            excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05)">'
+                + '<div style="background: linear-gradient(135deg, var(--navy), var(--navy-light)); padding: 12px 16px; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: space-between">'
+                + '<span>📊 ĐỐI SOÁT FILE EXCEL NHÀ VẬN CHUYỂN</span>'
+                + '<span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 700">Xử lý tại trình duyệt</span>'
+                + '</div>'
+                + '<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">'
+                + '<div style="display: flex; align-items: center; gap: 12px">'
+                + '<label for="prExcelFile" style="flex: 1; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc" onmouseover="this.style.borderColor=\'var(--navy)\'; this.style.background=\'#f0fdf4\'" onmouseout="this.style.borderColor=\'#cbd5e1\'; this.style.background=\'#f8fafc\'">'
+                + '<div style="font-size: 24px; margin-bottom: 6px">📁</div>'
+                + '<div style="font-size: 12px; font-weight: 700; color: #334155" id="prExcelFileName">Chọn file Excel đối soát (Tối đa 25MB)</div>'
+                + '<div style="font-size: 10px; color: #64748b; margin-top: 2px">Đọc nội dung và đối soát trực tiếp, không upload file lên server</div>'
+                + '</label>'
+                + '<input type="file" id="prExcelFile" accept=".xlsx, .xls" style="display: none" multiple onchange="_prProcessExcel(this, ' + r.amount + ')">'
+                + '</div>'
+                + '<div id="prExcelResult" style="display: none; flex-direction: column; gap: 12px"></div>'
+                + '</div>'
+                + '</div>';
+        } else {
+            excelHTML = '<div class="pr-excel-compare-box" style="margin-top: 16px; border: 1px dashed #fca5a5; border-radius: 12px; overflow: hidden; background: #fef2f2; padding: 16px; text-align: center; color: #991b1b">'
+                + '<div style="font-size: 24px; margin-bottom: 6px">⚠️</div>'
+                + '<div style="font-size: 12.5px; font-weight: 700">Không có quyền đối soát</div>'
+                + '<div style="font-size: 11px; color: #b91c1c; margin-top: 4px">Chức năng đối soát file Excel nhà vận chuyển đã bị giới hạn. Vui lòng liên hệ Giám Đốc để phân quyền.</div>'
+                + '</div>';
+        }
     }
 
     var bodyHTML = actionsBar + infoTable + excelHTML;
@@ -1197,7 +1206,8 @@ async function _prShowPermissions() {
             {k:'pr_change_source', l:'🔄 Đổi Nguồn Tiền', desc:'Đổi nguồn tiền KH/NVC/SLL'},
             {k:'pr_delete', l:'🗑️ Xóa', desc:'Xóa mã tiền'},
             {k:'pr_edit', l:'✏️ Chỉnh Sửa', desc:'Sửa toàn bộ nội dung'},
-            {k:'pr_update_customer', l:'💳 Cập Nhật Tiền Đơn Hàng', desc:'Cập nhật thông tin khách hàng cho mã tiền'}
+            {k:'pr_update_customer', l:'💳 Cập Nhật Tiền Đơn Hàng', desc:'Cập nhật thông tin khách hàng cho mã tiền'},
+            {k:'pr_excel_reconcile', l:'📊 Đối Soát File Excel NVC', desc:'Tải lên & đối soát file excel nhà vận chuyển'}
         ];
         var roles = [
             {k:'giam_doc',l:'GĐ'},{k:'quan_ly_cap_cao',l:'QLCC'},{k:'quan_ly',l:'QL'},{k:'truong_phong',l:'TP'},{k:'nhan_vien',l:'NV'}
