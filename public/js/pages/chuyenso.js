@@ -218,7 +218,7 @@ async function renderChuyenSoPage(container) {
                         </div>
                         <div class="form-group">
                             <label>Số Điện Thoại <span id="csoPhoneStar" style="color:var(--danger)">*</span></label>
-                            <input type="text" id="csoPhone" class="form-control" placeholder="Nhập SĐT" oninput="_csoToggleRequired()" autocomplete="one-time-code">
+                            <input type="text" id="csoPhone" class="form-control" placeholder="Nhập SĐT" oninput="_csoNormalizePhoneField(this); _csoToggleRequired()" autocomplete="one-time-code">
                         </div>
                     </div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -300,10 +300,16 @@ async function renderChuyenSoPage(container) {
     document.getElementById('chuyenSoForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         console.log('[CSO] Form submit fired!');
+
+        const phoneInput = document.getElementById('csoPhone');
+        if (phoneInput && phoneInput.value) {
+            _csoNormalizePhoneField(phoneInput, true);
+        }
+
         const body = {
             crm_type: document.getElementById('csoCrm').value,
             customer_name: document.getElementById('csoName').value,
-            phone: document.getElementById('csoPhone').value,
+            phone: phoneInput ? phoneInput.value.trim() : '',
             source_id: document.getElementById('csoSourceAffiliate')?.value || document.getElementById('csoSource')?.value || null,
             source_name: document.getElementById('csoSourceDisplay')?.value || null,
             promotion_id: document.getElementById('csoPromotion')?.value || null,
@@ -328,6 +334,10 @@ async function renderChuyenSoPage(container) {
         }
         if (!body.phone && !body.facebook_link) {
             showToast('Vui lòng nhập Số Điện Thoại hoặc Link Khách Hàng', 'error');
+            return;
+        }
+        if (body.phone && (body.phone.length !== 10 || !body.phone.startsWith('0'))) {
+            showToast('Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0', 'error');
             return;
         }
 
@@ -486,7 +496,13 @@ async function renderChuyenSoPage(container) {
     }
     const _csoPhoneEl = document.getElementById('csoPhone');
     const _csoFbEl = document.getElementById('csoFacebook');
-    if (_csoPhoneEl) _csoPhoneEl.addEventListener('input', _csoAutoCheckPO);
+    if (_csoPhoneEl) {
+        _csoPhoneEl.addEventListener('input', _csoAutoCheckPO);
+        _csoPhoneEl.addEventListener('blur', () => {
+            _csoNormalizePhoneField(_csoPhoneEl, true);
+            _csoToggleRequired();
+        });
+    }
     if (_csoFbEl) _csoFbEl.addEventListener('input', _csoAutoCheckPO);
 }
 
@@ -587,6 +603,27 @@ async function csoSaveSettings() {
 }
 
 // Toggle required stars: if phone filled -> fb not required, if fb filled -> phone not required
+function _csoNormalizePhoneField(el, isBlur = false) {
+    if (!el) return;
+    let val = el.value;
+    if (!isBlur && (val === '+' || val === '+8' || val === '+84')) {
+        return;
+    }
+    let cleaned = val.replace(/[^0-9+]/g, '');
+    if (cleaned.startsWith('+84')) {
+        cleaned = '0' + cleaned.slice(3);
+    } else if (cleaned.startsWith('84') && cleaned.replace(/\D/g, '').length >= 11) {
+        cleaned = '0' + cleaned.slice(2);
+    }
+    cleaned = cleaned.replace(/\D/g, '');
+    if (cleaned.length > 10) {
+        cleaned = cleaned.slice(0, 10);
+    }
+    if (el.value !== cleaned) {
+        el.value = cleaned;
+    }
+}
+
 function _csoToggleRequired() {
     const phone = document.getElementById('csoPhone')?.value?.trim();
     const fb = document.getElementById('csoFacebook')?.value?.trim();

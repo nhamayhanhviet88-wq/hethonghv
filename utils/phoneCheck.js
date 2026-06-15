@@ -1,6 +1,24 @@
 const db = require('../db/pool');
 
 /**
+ * Normalize a phone number to standard 10 digits starting with 0.
+ * Handles +84, 84 (if 11 digits), spaces, dots, dashes, and other symbols.
+ * @param {string} phone 
+ * @returns {string} normalized phone number
+ */
+function normalizePhone(phone) {
+    if (!phone) return '';
+    let cleaned = phone.toString().replace(/[^0-9+]/g, '');
+    if (cleaned.startsWith('+84')) {
+        cleaned = '0' + cleaned.slice(3);
+    } else if (cleaned.startsWith('84') && cleaned.length === 11) {
+        cleaned = '0' + cleaned.slice(2);
+    }
+    return cleaned.replace(/\D/g, '');
+}
+
+
+/**
  * Get short name (last word) from full name.
  * E.g., "Lê Việt Trinh" → "Trinh"
  */
@@ -18,7 +36,9 @@ function shortName(fullName) {
  * @returns {null} if phone is available, or {string} error message if duplicate found
  */
 async function checkPhoneUser(phone, exclude = {}) {
+    phone = normalizePhone(phone);
     if (!phone) return null;
+
 
     // Chỉ hard-block NV nội bộ. Đối tác (hoa_hong, tkaffiliate, ctv) KHÔNG block
     // vì SĐT CTV/Affiliate thường trùng với KH (đó chính là khách hàng)
@@ -49,7 +69,9 @@ async function checkPhoneUser(phone, exclude = {}) {
  * @returns {null} if no duplicate, or { warning, customer } with duplicate info
  */
 async function checkPhoneCustomerWarning(phone, exclude = {}) {
+    phone = normalizePhone(phone);
     if (!phone) return null;
+
 
     let custQuery = `SELECT c.id, c.customer_uid, c.customer_name, c.phone, c.crm_type, c.order_status,
         c.daily_order_number, c.effective_date, c.assigned_to_id, c.updated_at,
@@ -131,4 +153,4 @@ async function checkPhoneDuplicate(phone, exclude = {}, options = {}) {
     return null;
 }
 
-module.exports = { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning };
+module.exports = { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning, normalizePhone };

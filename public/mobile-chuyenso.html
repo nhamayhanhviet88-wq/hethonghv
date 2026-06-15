@@ -272,7 +272,7 @@
 
                     <div class="m-form-group">
                         <label>Số Điện Thoại <span class="req" id="mPhoneStar">*</span></label>
-                        <input type="tel" id="mPhone" class="m-input" placeholder="Nhập SĐT" inputmode="tel" oninput="_mToggleReq()">
+                        <input type="tel" id="mPhone" class="m-input" placeholder="Nhập SĐT" inputmode="tel" oninput="_mNormalizePhone(this); _mToggleReq()">
                     </div>
 
                     <div class="m-form-group">
@@ -330,10 +330,15 @@
             const btn = document.getElementById('mSubmitBtn');
             btn.disabled = true; btn.textContent = '⏳ Đang xử lý...';
 
+            const phoneInput = document.getElementById('mPhone');
+            if (phoneInput && phoneInput.value) {
+                _mNormalizePhone(phoneInput, true);
+            }
+
             const body = {
                 crm_type: document.getElementById('mCrm').value,
                 customer_name: document.getElementById('mName').value,
-                phone: document.getElementById('mPhone').value,
+                phone: phoneInput ? phoneInput.value.trim() : '',
                 source_id: document.getElementById('mSource')?.value || null,
                 promotion_id: document.getElementById('mPromotion')?.value || null,
                 industry_id: document.getElementById('mIndustry')?.value || null,
@@ -353,6 +358,10 @@
             }
             if (!body.phone && !body.facebook_link) {
                 mToast('Nhập SĐT hoặc Link KH', 'error');
+                btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ'; return;
+            }
+            if (body.phone && (body.phone.length !== 10 || !body.phone.startsWith('0'))) {
+                mToast('Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0', 'error');
                 btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ'; return;
             }
 
@@ -448,6 +457,38 @@
             if (btn) { btn.disabled = false; btn.textContent = '✅ Gửi Lại'; }
         }
     }
+
+    function _mNormalizePhone(el, isBlur = false) {
+        if (!el) return;
+        let val = el.value;
+        if (!isBlur && (val === '+' || val === '+8' || val === '+84')) {
+            return;
+        }
+        let cleaned = val.replace(/[^0-9+]/g, '');
+        if (cleaned.startsWith('+84')) {
+            cleaned = '0' + cleaned.slice(3);
+        } else if (cleaned.startsWith('84') && cleaned.replace(/\D/g, '').length >= 11) {
+            cleaned = '0' + cleaned.slice(2);
+        }
+        cleaned = cleaned.replace(/\D/g, '');
+        if (cleaned.length > 10) {
+            cleaned = cleaned.slice(0, 10);
+        }
+        if (el.value !== cleaned) {
+            el.value = cleaned;
+        }
+    }
+
+    // Attach blur event to #mPhone after form render
+    setTimeout(() => {
+        const mPhoneEl = document.getElementById('mPhone');
+        if (mPhoneEl) {
+            mPhoneEl.addEventListener('blur', () => {
+                _mNormalizePhone(mPhoneEl, true);
+                _mToggleReq();
+            });
+        }
+    }, 100);
 
     function _mToggleReq() {
         const phone = document.getElementById('mPhone')?.value?.trim();

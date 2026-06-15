@@ -1,7 +1,7 @@
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
-const { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning } = require('../utils/phoneCheck');
+const { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning, normalizePhone } = require('../utils/phoneCheck');
 const { maskCustomerData } = require('../utils/dataMasking');
 const { getVNToday } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
@@ -61,7 +61,12 @@ async function customersRoutes(fastify, options) {
                 receiver_id, notes, affiliate_user_id, job, facebook_link, cong_viec, force_create } = request.body || {};
         if (!crm_type) return reply.code(400).send({ error: 'Vui lòng chọn CRM' });
         if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
-        if (phone && !/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
+
+        const normalizedPhone = phone ? normalizePhone(phone) : null;
+        if (phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
+            return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0' });
+        }
+
 
         // ★ Xác định NV nhận số TRƯỚC khi check phone (cần biết assigned_to_id để check trùng)
         let actualReceiverId = receiver_id ? Number(receiver_id) : null;
@@ -77,9 +82,9 @@ async function customersRoutes(fastify, options) {
         }
 
         // Check phone: phân quyền theo role
-        if (phone) {
+        if (normalizedPhone) {
             // Hard block: SĐT trùng NV nội bộ (tất cả role đều bị block)
-            const userError = await checkPhoneUser(phone);
+            const userError = await checkPhoneUser(normalizedPhone);
             if (userError) return reply.code(400).send({ error: userError });
 
             // ★ Phân quyền SĐT trùng KH:
@@ -88,7 +93,7 @@ async function customersRoutes(fastify, options) {
             if (isExecutive) {
                 // Giám Đốc / QL Cấp Cao: hiện popup cho TẤT CẢ SĐT trùng (trừ force_create)
                 if (!force_create) {
-                    const custWarning = await checkPhoneCustomerWarning(phone);
+                    const custWarning = await checkPhoneCustomerWarning(normalizedPhone);
                     if (custWarning) {
                         return reply.code(409).send({
                             error: 'duplicate_customer_warning',
@@ -105,11 +110,11 @@ async function customersRoutes(fastify, options) {
                         `SELECT c.id, c.customer_name, c.phone, u.full_name as assigned_to_name
                          FROM customers c LEFT JOIN users u ON u.id = c.assigned_to_id
                          WHERE c.phone = $1 AND c.assigned_to_id = $2 LIMIT 1`,
-                        [phone, actualReceiverId]
+                        [normalizedPhone, actualReceiverId]
                     );
                     if (selfDup) {
                         return reply.code(400).send({
-                            error: `SĐT ${phone} đã có trong danh sách KH của "${selfDup.assigned_to_name || 'NV'}" — KH "${selfDup.customer_name}". Không thể gửi trùng.`
+                            error: `SĐT ${normalizedPhone} đã có trong danh sách KH của "${selfDup.assigned_to_name || 'NV'}" — KH "${selfDup.customer_name}". Không thể gửi trùng.`
                         });
                     }
                 }
@@ -190,7 +195,7 @@ async function customersRoutes(fastify, options) {
             `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, phone2, source_id, promotion_id,
              industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date, appointment_date)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [customerUid, crm_type, customer_name || null, phone || null, phone2 || null,
+            [customerUid, crm_type, customer_name || null, normalizedPhone || null, phone2 || null,
              resolvedSourceId, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,
@@ -204,7 +209,7 @@ async function customersRoutes(fastify, options) {
         const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;
         const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
 
-        const tgParts = [`📱 <b>${code}</b> : <code>${customer_name}</code> - ${phone} - ${crmLabels[crm_type] || crm_type}`];
+        const tgParts = [`📱 <b>${code}</b> : <code>${customer_name}</code> - ${normalizedPhone || 'N/A'} - ${crmLabels[crm_type] || crm_type}`];
         if (sourceName) tgParts.push(sourceName);
         if (receiverUser?.full_name) tgParts.push(receiverUser.full_name);
         if (promoName) tgParts.push(promoName);
@@ -214,8 +219,8 @@ async function customersRoutes(fastify, options) {
 
         // Auto-update partner_outreach_entries: mark as transferred
         try {
-            if (phone && phone.trim()) {
-                await db.run(`UPDATE partner_outreach_entries SET transferred_to_crm = TRUE, transferred_at = NOW(), crm_data_id = $1 WHERE REPLACE(phone, ' ', '') LIKE $2 AND transferred_to_crm = FALSE`, [result.lastInsertRowid, `%${phone.trim()}%`]);
+            if (normalizedPhone) {
+                await db.run(`UPDATE partner_outreach_entries SET transferred_to_crm = TRUE, transferred_at = NOW(), crm_data_id = $1 WHERE REPLACE(phone, ' ', '') LIKE $2 AND transferred_to_crm = FALSE`, [result.lastInsertRowid, `%${normalizedPhone}%`]);
             }
             if (facebook_link && facebook_link.trim()) {
                 await db.run(`UPDATE partner_outreach_entries SET transferred_to_crm = TRUE, transferred_at = NOW(), crm_data_id = $1 WHERE LOWER(fb_link) = $2 AND transferred_to_crm = FALSE`, [result.lastInsertRowid, facebook_link.trim().toLowerCase()]);
@@ -545,9 +550,12 @@ async function customersRoutes(fastify, options) {
         const { crm_type, customer_name, phone, source_id, promotion_id, industry_id,
                 receiver_id, order_status, notes } = request.body || {};
 
-        // Check phone: only block if matches internal user
-        if (phone) {
-            const userError = await checkPhoneUser(phone, { userId: null });
+        let normalizedPhone = phone ? normalizePhone(phone) : null;
+        if (phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
+            return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0' });
+        }
+        if (normalizedPhone) {
+            const userError = await checkPhoneUser(normalizedPhone, { userId: null });
             if (userError) return reply.code(400).send({ error: userError });
         }
         await db.run(
@@ -557,7 +565,7 @@ async function customersRoutes(fastify, options) {
              receiver_id = ?, order_status = COALESCE(?, order_status),
              notes = COALESCE(?, notes), updated_at = NOW()
              WHERE id = ?`,
-            [crm_type || null, customer_name || null, phone || null,
+            [crm_type || null, customer_name || null, normalizedPhone || null,
              source_id ? Number(source_id) : null, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              receiver_id ? Number(receiver_id) : null, order_status || null, notes || null,
@@ -664,13 +672,16 @@ async function customersRoutes(fastify, options) {
         const params = [];
         if (customer_name !== undefined) { updates.push('customer_name = ?'); params.push(customer_name); }
         if (phone !== undefined) {
-            if (phone && !/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
+            const normalizedPhone = phone ? normalizePhone(phone) : null;
+            if (phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
+                return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0' });
+            }
             // Check phone: only block if matches internal user (UID system allows duplicate customer phones)
-            if (phone) {
-                const userError = await checkPhoneUser(phone);
+            if (normalizedPhone) {
+                const userError = await checkPhoneUser(normalizedPhone);
                 if (userError) return reply.code(400).send({ error: userError });
             }
-            updates.push('phone = ?'); params.push(phone);
+            updates.push('phone = ?'); params.push(normalizedPhone);
         }
         if (address !== undefined) { updates.push('address = ?'); params.push(address); }
         if (province !== undefined) { updates.push('province = ?'); params.push(province); }
