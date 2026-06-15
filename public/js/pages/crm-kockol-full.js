@@ -1813,22 +1813,13 @@ async function _kockolSubmitConsultLog(customerId) {
         }
 
         try {
-            // Generate order code FIRST
-            const orderCodeEl = document.getElementById('consultOrderCode');
-            if (orderCodeEl && orderCodeEl.value) {
-                await apiCall('/api/order-codes', 'POST', { customer_id: customerId });
-            }
-
-            // Sync phone + address + province
-            const syncBody = { address, province: city };
-            if (phone) syncBody.phone = phone;
-            await apiCall(`/api/customers/${customerId}/info`, 'PUT', syncBody);
-
-            // Submit consultation log with chot_don type
+            // Submit consultation log with chot_don type, including address, province, phone to sync in one request!
             const formData = new FormData();
             formData.append('log_type', 'chot_don');
             formData.append('content', `Chốt đơn — ${address}, ${city}`);
             formData.append('address', address);
+            formData.append('province', city);
+            if (phone) formData.append('phone', phone);
             formData.append('appointment_date', sbhDate);
             const chotDonNextType = document.getElementById('consultChotDonNextType')?.value;
             if (chotDonNextType) formData.append('next_consult_type', chotDonNextType);

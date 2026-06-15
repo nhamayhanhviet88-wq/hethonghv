@@ -858,9 +858,129 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
 
+        // Update customer details if sent in FormData (unified request optimization)
+        const updates = [];
+        const params = [];
+        
+        if (fields.customer_name !== undefined) {
+            updates.push('customer_name = ?');
+            params.push(fields.customer_name);
+            customer.customer_name = fields.customer_name;
+        }
+        
+        if (fields.phone !== undefined) {
+            const { normalizePhone, checkPhoneUser } = require('../utils/phoneCheck');
+            const normalizedPhone = fields.phone ? normalizePhone(fields.phone) : null;
+            if (fields.phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
+                return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0' });
+            }
+            if (normalizedPhone) {
+                const userError = await checkPhoneUser(normalizedPhone);
+                if (userError) return reply.code(400).send({ error: userError });
+            }
+            updates.push('phone = ?');
+            params.push(normalizedPhone);
+            customer.phone = normalizedPhone;
+        }
+        
+        if (fields.address !== undefined) {
+            updates.push('address = ?');
+            params.push(fields.address);
+            customer.address = fields.address;
+        }
+        
+        if (fields.province !== undefined) {
+            updates.push('province = ?');
+            params.push(fields.province);
+            customer.province = fields.province;
+        }
+        
+        if (fields.job !== undefined) {
+            updates.push('job = ?');
+            params.push(fields.job);
+            customer.job = fields.job;
+        }
+        
+        if (fields.birthday !== undefined) {
+            updates.push('birthday = ?');
+            params.push(fields.birthday || null);
+            customer.birthday = fields.birthday || null;
+        }
+        
+        if (updates.length > 0) {
+            updates.push("updated_at = NOW()");
+            params.push(customerId);
+            await db.run(`UPDATE customers SET ${updates.join(', ')} WHERE id = ?`, params);
+        }
+
         const logTypes = await db.all('SELECT DISTINCT log_type FROM consultation_logs WHERE customer_id = ?', [customerId]);
         const doneTypes = logTypes.map(l => l.log_type);
         if (log_type === 'chot_don' && !doneTypes.includes('dat_coc')) return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+
+        // Generate Order Code automatically if chot_don (unified request optimization)
+        if (log_type === 'chot_don') {
+            const userId = request.user.id;
+            const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
+            const prefix = userRow?.order_code_prefix;
+            if (!prefix) return reply.code(400).send({ error: 'Chưa cài đặt mã đơn cho nhân viên này. Vui lòng liên hệ Admin để cài đặt prefix.' });
+
+            // Check if active order code already exists
+            const activeOrder = await db.get("SELECT order_code FROM order_codes WHERE customer_id = ? AND status = 'active' LIMIT 1", [customerId]);
+            if (!activeOrder) {
+                // Generate next order number
+                const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
+                let nextNum = 1;
+                if (lastCode) {
+                    const match = lastCode.order_code.match(/(\d{4})$/);
+                    if (match) nextNum = parseInt(match[1]) + 1;
+                }
+
+                // Determine CRM prefix
+                const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
+                let crmPrefix = '';
+                if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
+                    crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
+                } else if (customer.referrer_customer_id) {
+                    const refCustomer = await db.get('SELECT crm_type FROM customers WHERE id = ?', [customer.referrer_customer_id]);
+                    if (refCustomer && refCustomer.crm_type && refCustomer.crm_type !== 'nhu_cau') {
+                        crmPrefix = CRM_ORDER_PREFIX[refCustomer.crm_type] || '';
+                    }
+                } else if (customer.referrer_id) {
+                    const referrer = await db.get('SELECT source_customer_id, role, source_crm_type FROM users WHERE id = ?', [customer.referrer_id]);
+                    if (referrer) {
+                        if (referrer.source_customer_id) {
+                            const srcCust = await db.get('SELECT crm_type FROM customers WHERE id = ?', [referrer.source_customer_id]);
+                            if (srcCust && srcCust.crm_type && srcCust.crm_type !== 'nhu_cau') {
+                                crmPrefix = CRM_ORDER_PREFIX[srcCust.crm_type] || '';
+                            }
+                        } else {
+                            const ROLE_TO_CRM = { hoa_hong: 'ctv_hoa_hong', ctv: 'ctv', tkaffiliate: 'ctv_hoa_hong' };
+                            const mappedCrm = ROLE_TO_CRM[referrer.role];
+                            if (mappedCrm) {
+                                crmPrefix = CRM_ORDER_PREFIX[mappedCrm] || '';
+                            } else if (referrer.source_crm_type) {
+                                crmPrefix = CRM_ORDER_PREFIX[referrer.source_crm_type] || '';
+                            }
+                        }
+                    }
+                }
+
+                const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+                await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [customerId, userId, orderCode]);
+
+                // Backfill order_tt_coc on deposit records
+                if (customer.phone) {
+                    await db.run(`
+                        UPDATE payment_records SET
+                            order_tt_coc = $1,
+                            updated_at = NOW()
+                        WHERE customer_phone = $2
+                          AND payment_type = 'dat_coc'
+                          AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                    `, [orderCode, customer.phone]);
+                }
+            }
+        }
 
         // NOTE: Items validation removed — products are now entered in DHT, not CRM
 
@@ -945,9 +1065,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 }
             } catch (e) { console.error('[ĐÃ XỬ LÝ SỐ]', e.message); }
         }
-
-        if (fields.birthday) await db.run('UPDATE customers SET birthday = ? WHERE id = ?', [fields.birthday, customerId]);
-        if (fields.address) await db.run('UPDATE customers SET address = ? WHERE id = ?', [fields.address, customerId]);
 
         // Pinned customers: always set appointment to next working day (ignore user input)
         if (customer.is_pinned) {
