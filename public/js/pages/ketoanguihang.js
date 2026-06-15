@@ -1009,7 +1009,14 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
             payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmtMoney(p.amount)}đ</td>`;
             payHTML += `<td style="padding:8px 10px;text-align:center">${fmtDt(p.payment_date)}</td>`;
-            payHTML += `<td style="padding:8px 10px;text-align:center"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${typeLabels[p.payment_type] || p.payment_type || '—'}</span></td>`;
+            
+            let badgeStyle = 'background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+            let typeText = typeLabels[p.payment_type] || p.payment_type || '—';
+            if (p.payment_type === 'child_sll') {
+                badgeStyle = 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                typeText = 'NVC';
+            }
+            payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
             payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
             payHTML += `</tr>`;
         }
