@@ -293,7 +293,7 @@ function _dhcttPopulateCskhDropdown() {
 // ========== SORT DEFINITIONS ==========
 var _dhcttSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',              type: 'text' },
-    { key: null,               label: 'Phiếu',                  type: 'none' },
+    { key: null,               label: 'Phiếu',                  type: 'none', align: 'center' },
     { key: null,               label: 'Vận Chuyển',             type: 'none' },
     { key: 'shipped_at',       label: 'Ngày Gửi',              type: 'date' },
     { key: null,               label: 'Tiến Độ',                type: 'none' },
@@ -419,7 +419,11 @@ function _dhcttRenderSortHeaders() {
     var ths = '';
     for (var i = 0; i < _dhcttSortDefs.length; i++) {
         var d = _dhcttSortDefs[i];
-        if (d.type === 'none') { ths += '<th style="color:#fff">' + (d.label || '') + '</th>'; continue; }
+        if (d.type === 'none') {
+            var align = d.align ? ';text-align:' + d.align : '';
+            ths += '<th style="color:#fff' + align + '">' + (d.label || '') + '</th>';
+            continue;
+        }
         var isActive = _dhctt.sortCol === d.key;
         var arrow = '';
         if (isActive && _dhctt.sortDir === 'asc') arrow = ' ▲';
