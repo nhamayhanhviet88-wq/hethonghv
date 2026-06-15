@@ -1922,7 +1922,8 @@ async function _prProcessExcel(input, recordAmount) {
                     remaining: Number(matchedOrder.remaining) || 0,
                     allocatedAmount: wb.cod,
                     already_reconciled: matchedOrder.already_reconciled || false,
-                    reconciled_payment_code: matchedOrder.reconciled_payment_code || ''
+                    reconciled_payment_code: matchedOrder.reconciled_payment_code || '',
+                    shipment_count: Number(matchedOrder.shipment_count) || 0
                 };
             } else {
                 _pr.reconcileState.matchedMap[code] = null;
@@ -2405,7 +2406,8 @@ function _prSelectOrderForReconcile(waybillCode, orderObj) {
         customer_name: orderObj.customer_name,
         customer_phone: orderObj.customer_phone,
         remaining: Number(orderObj.remaining) || 0,
-        allocatedAmount: wb.cod
+        allocatedAmount: wb.cod,
+        shipment_count: Number(orderObj.shipment_count) || 0
     };
 
     var remain = Number(orderObj.remaining) || 0;
