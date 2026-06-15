@@ -708,7 +708,7 @@ function _dhcttRenderOrderRows(filtered) {
     }
 
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
-    const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; };
+    const fmtD = d => { if (!d) return '—'; const dt = new Date(new Date(d).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })); const hh = String(dt.getHours()).padStart(2, '0'); const mm = String(dt.getMinutes()).padStart(2, '0'); return `${hh}:${mm} ${dt.getDate()}/${dt.getMonth()+1}`; };
     const _todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _todayVN.setHours(0,0,0,0);
 
