@@ -293,6 +293,7 @@ function _dhcttPopulateCskhDropdown() {
 // ========== SORT DEFINITIONS ==========
 var _dhcttSortDefs = [
     { key: 'category_name',    label: 'Lĩnh Vực',              type: 'text' },
+    { key: null,               label: 'Phiếu',                  type: 'none' },
     { key: null,               label: 'Vận Chuyển',             type: 'none' },
     { key: 'shipped_at',       label: 'Ngày Gửi',              type: 'date' },
     { key: null,               label: 'Tiến Độ',                type: 'none' },
