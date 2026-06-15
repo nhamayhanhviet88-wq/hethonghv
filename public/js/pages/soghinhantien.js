@@ -1229,6 +1229,13 @@ async function _prShowPermissions() {
         h += '</tbody></table>';
         h += '<div style="margin-top:12px;font-size:10px;color:#94a3b8;text-align:center">⚠️ Giám Đốc luôn có quyền — không thể tắt</div>';
 
+        var limitVal = perms.pr_excel_reconcile_limit !== undefined ? perms.pr_excel_reconcile_limit : 50000;
+        h += '<div style="margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px;display:flex;align-items:center;justify-content:space-between">'
+            + '<span style="font-weight:700;font-size:12.5px;color:var(--navy)">💵 Giới hạn lệch tiền cho phép khi đối soát Excel (đ):</span>'
+            + '<input type="number" id="prExcelReconcileLimit" class="form-control" value="' + limitVal + '" style="width:140px;padding:6px 10px;font-size:13px;text-align:right;font-weight:bold">'
+            + '</div>'
+            + '<div style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:right">Nhập 0 hoặc để trống để chỉ cho phép lưu khi khớp 100%.</div>';
+
         var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button><button class="btn btn-primary" onclick="_prSavePermissions()" style="width:auto">💾 Lưu Phân Quyền</button>';
         openModal('🔐 Phân Quyền — Sổ Ghi Nhận Tiền', h, footerHTML);
     } catch(e) { showToast('Lỗi: '+e.message,'error'); }
@@ -1243,6 +1250,12 @@ async function _prSavePermissions() {
         if (!perms[action]) perms[action] = ['giam_doc']; // GĐ always
         if (cb.checked && !perms[action].includes(role)) perms[action].push(role);
     });
+
+    var limitInput = document.getElementById('prExcelReconcileLimit');
+    if (limitInput) {
+        perms.pr_excel_reconcile_limit = Number(limitInput.value) || 0;
+    }
+
     try {
         await apiCall('/api/payment-records/permissions','PUT',{permissions:perms});
         showToast('✅ Đã lưu phân quyền');
@@ -1913,11 +1926,23 @@ function _prRenderExcelComparison(waybills, matchedOrders, totalCod, totalFee, t
     if (!resultBox) return;
 
     var diff = totalNet - recordAmount;
-    var isAmountMatched = Math.abs(diff) < 1;
-    
-    var matchBadge = isAmountMatched 
-        ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #34d399">✅ KHỚP SỐ TIỀN 100%</span>'
-        : '<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #f87171">❌ LỆCH: ' + _prFmt(diff) + '</span>';
+    var absDiff = Math.abs(diff);
+    var isAmountMatched = absDiff < 1;
+
+    var limit = _pr.allPerms && _pr.allPerms.pr_excel_reconcile_limit !== undefined 
+        ? Number(_pr.allPerms.pr_excel_reconcile_limit) 
+        : 50000;
+
+    var isWithinLimit = isAmountMatched || (limit > 0 && absDiff <= limit);
+
+    var matchBadge = '';
+    if (isAmountMatched) {
+        matchBadge = '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #34d399">✅ KHỚP SỐ TIỀN 100%</span>';
+    } else if (isWithinLimit) {
+        matchBadge = '<span style="background:#fff7ed;color:#c2410c;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #fdba74">⚠️ LỆCH: ' + _prFmt(diff) + ' (Trong giới hạn ' + _prFmt(limit) + ')</span>';
+    } else {
+        matchBadge = '<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #f87171">❌ LỆCH: ' + _prFmt(diff) + ' (Vượt giới hạn ' + _prFmt(limit) + ')</span>';
+    }
 
     var summaryHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-bottom:12px">'
         + '<div>'
@@ -2002,11 +2027,20 @@ function _prRenderExcelComparison(waybills, matchedOrders, totalCod, totalFee, t
 
     var actionBtnHTML = '';
     if (totalMatched > 0) {
-        actionBtnHTML = '<div style="margin-top:12px;display:flex;justify-content:flex-end">'
-            + '<button onclick="_prAutoAllocateExcel()" class="btn" style="background:linear-gradient(135deg,var(--success),#059669);color:#fff;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;box-shadow:0 4px 12px rgba(16,185,129,0.3);cursor:pointer;transition:all 0.2s">'
-            + '✅ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG (' + totalMatched + ' ĐƠN KHỚP)'
-            + '</button>'
-            + '</div>';
+        if (isWithinLimit) {
+            actionBtnHTML = '<div style="margin-top:12px;display:flex;justify-content:flex-end">'
+                + '<button onclick="_prAutoAllocateExcel()" class="btn" style="background:linear-gradient(135deg,var(--success),#059669);color:#fff;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;box-shadow:0 4px 12px rgba(16,185,129,0.3);cursor:pointer;transition:all 0.2s">'
+                + '✅ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG (' + totalMatched + ' ĐƠN KHỚP)'
+                + '</button>'
+                + '</div>';
+        } else {
+            actionBtnHTML = '<div style="margin-top:12px;display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
+                + '<button class="btn" style="background:#cbd5e1;color:#94a3b8;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;cursor:not-allowed;" disabled>'
+                + '❌ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG (' + totalMatched + ' ĐƠN KHỚP)'
+                + '</button>'
+                + '<div style="font-size:11.5px;color:#dc2626;font-weight:bold">⚠️ Không thể lưu vì chênh lệch tiền (' + _prFmt(absDiff) + ') vượt quá giới hạn cho phép (' + _prFmt(limit) + ')</div>'
+                + '</div>';
+        }
     }
 
     resultBox.innerHTML = summaryHTML + tableHTML + actionBtnHTML;

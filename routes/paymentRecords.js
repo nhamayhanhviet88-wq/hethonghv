@@ -15,8 +15,12 @@ async function _checkPrPerm(userRole, action) {
     try {
         const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_action_permissions'");
         const perms = row?.value ? JSON.parse(row.value) : DEFAULT_PR_PERMS;
-        return (perms[action] || []).includes(userRole);
-    } catch { return (DEFAULT_PR_PERMS[action] || []).includes(userRole); }
+        const roles = perms[action];
+        return Array.isArray(roles) && roles.includes(userRole);
+    } catch {
+        const roles = DEFAULT_PR_PERMS[action];
+        return Array.isArray(roles) && roles.includes(userRole);
+    }
 }
 
 // ========== CENTRALIZED HANDOVER STATUS LOGIC ==========
@@ -535,6 +539,23 @@ module.exports = async function(fastify) {
             const maxAllowedAmount = pr.money_source === 'nha_van_chuyen' ? (Number(pr.amount) + Number(b.shipping_fee || pr.shipping_fee || 0)) : Number(pr.amount);
             if (totalAllocated > maxAllowedAmount) {
                 return reply.code(400).send({ error: `Tổng tiền phân bổ (${totalAllocated.toLocaleString('vi-VN')}đ) vượt quá giới hạn tối đa cho phép (${maxAllowedAmount.toLocaleString('vi-VN')}đ)` });
+            }
+
+            if (pr.money_source === 'nha_van_chuyen' && b.total_cod !== undefined && b.shipping_fee !== undefined) {
+                const limitRow = await db.get("SELECT value FROM app_config WHERE key = 'pr_action_permissions'");
+                const perms = limitRow?.value ? JSON.parse(limitRow.value) : DEFAULT_PR_PERMS;
+                const limit = perms.pr_excel_reconcile_limit !== undefined ? Number(perms.pr_excel_reconcile_limit) : 50000;
+                
+                const totalNet = Number(b.total_cod) - Number(b.shipping_fee);
+                const absDiff = Math.abs(totalNet - Number(pr.amount));
+                
+                if (limit === 0) {
+                    if (absDiff >= 1) {
+                        return reply.code(400).send({ error: `Số tiền chênh lệch (${absDiff.toLocaleString('vi-VN')}đ) vượt quá giới hạn cho phép (Chỉ cho phép khớp 100%)` });
+                    }
+                } else if (absDiff > limit) {
+                    return reply.code(400).send({ error: `Số tiền chênh lệch (${absDiff.toLocaleString('vi-VN')}đ) vượt quá giới hạn lệch tối đa cho phép (${limit.toLocaleString('vi-VN')}đ)` });
+                }
             }
 
             const moneySource = pr.money_source === 'nha_van_chuyen' ? 'nha_van_chuyen' : (allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang');
@@ -1348,7 +1369,9 @@ module.exports = async function(fastify) {
         // Return user's allowed actions
         const userPerms = {};
         for (const [action, roles] of Object.entries(perms)) {
-            userPerms[action] = roles.includes(user.role);
+            if (Array.isArray(roles)) {
+                userPerms[action] = roles.includes(user.role);
+            }
         }
         return { permissions: perms, user_permissions: userPerms };
     });
