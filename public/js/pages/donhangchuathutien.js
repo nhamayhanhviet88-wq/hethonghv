@@ -714,7 +714,7 @@ function _dhcttRenderOrderRows(filtered) {
     if (!tbody) return;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="icon">📭</div><h3>Không có đơn hàng chưa thu tiền</h3></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13"><div class="empty-state"><div class="icon">📭</div><h3>Không có đơn hàng chưa thu tiền</h3></div></td></tr>';
         _dhcttUpdateInfo(0, []); return;
     }
 
@@ -800,8 +800,14 @@ function _dhcttRenderOrderRows(filtered) {
         // Delegate row click to existing _dhtShowDetail if it exists globally
         const clickHandler = window._dhtShowDetail ? `_dhtShowDetail(${o.id})` : '';
 
+        const hasShippedItems = o.shipping_status === 'shipped' || !!o.shipped_at || (o.items && o.items.some(item => item.shipping_status === 'shipped'));
+        const phieuCell = hasShippedItems 
+            ? `<div onclick="event.stopPropagation(); _dhcttShowShippingDetail(${o.id})" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Xem phiếu ship">📄</div>`
+            : '—';
+
         return `<tr data-id="${o.id}" onclick="${clickHandler}" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
+            <td style="text-align:center;">${phieuCell}</td>
             <td style="font-weight:600;">${_dhcttGetOrderCarriers(o)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td>${tienDo}</td>
@@ -873,7 +879,7 @@ async function renderDonhangchuathutienPage(content) {
         +'<button onclick="_dhcttDateFilterClear()" style="background:none;border:1px solid #fed7aa;color:#c2410c;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div id="dhcttPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhcttTable"><thead><tr style="background:#1e293b;color:#fff"><th>Lĩnh Vực</th><th>Vận Chuyển</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>Sđt</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th></th></tr></thead><tbody id="dhcttTbody"><tr><td colspan="12" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhcttTable"><thead><tr style="background:#1e293b;color:#fff"><th>Lĩnh Vực</th><th>Phiếu</th><th>Vận Chuyển</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>Sđt</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th></th></tr></thead><tbody id="dhcttTbody"><tr><td colspan="13" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dhcttPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
 
@@ -889,4 +895,317 @@ async function renderDonhangchuathutienPage(content) {
 
     await _dhcttLoadTree();
     await _dhcttLoadOrders();
+}
+
+
+// ========== SHIPPING DETAIL POPUP ==========
+async function _dhcttShowShippingDetail(orderId) {
+    try {
+        const data = await apiCall(`/api/dht/orders/${orderId}/detail`);
+        if (!data || !data.order) {
+            showToast('Không tìm thấy thông tin đơn hàng', 'error');
+            return;
+        }
+        const o = data.order;
+        const items = data.items || [];
+        
+        const shippedItems = items.filter(it => it.shipping_status === 'shipped');
+        const totalItemsCount = items.length;
+        
+        let shipHTML = `<div style="background:#fff;border-radius:12px;padding:4px;font-family:sans-serif;">`;
+        
+        if (totalItemsCount > 0 && (shippedItems.length > 0 || totalItemsCount > 1)) {
+            // Header summary
+            let summaryText = '';
+            let summaryBg = '#f1f5f9';
+            let summaryColor = '#475569';
+            if (shippedItems.length === 0) {
+                summaryText = `📭 Chưa gửi phiếu nào (0/${totalItemsCount} phiếu)`;
+            } else if (shippedItems.length < totalItemsCount) {
+                summaryText = `🚚 Đang giao hàng (Đã gửi ${shippedItems.length}/${totalItemsCount} phiếu)`;
+                summaryBg = '#fff7ed';
+                summaryColor = '#c2410c';
+            } else {
+                summaryText = `✅ Đã giao hàng thành công (${totalItemsCount}/${totalItemsCount} phiếu)`;
+                summaryBg = '#f0fdf4';
+                summaryColor = '#15803d';
+            }
+            
+            shipHTML += `<div style="background:${summaryBg};color:${summaryColor};padding:10px 14px;border-radius:8px;font-weight:800;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <span>${summaryText}</span>
+            </div>`;
+            
+            // Group shipped items by batch key
+            const shippedBatches = {};
+            const pendingItems = [];
+            
+            for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                const phieuLabel = `Phiếu ${i + 1}`;
+                if (it.shipping_status === 'shipped') {
+                    const batchKey = [
+                        it.shipped_at || '',
+                        it.actual_carrier_id || '',
+                        it.tracking_code || '',
+                        it.shipping_bill_link || '',
+                        it.shipping_fee || '0',
+                        it.shipping_fee_payer || '',
+                        it.shipping_fee_method || '',
+                        it.shipping_payment_code || '',
+                        it.shipping_payment_amount || ''
+                    ].join('|');
+                    
+                    if (!shippedBatches[batchKey]) {
+                        shippedBatches[batchKey] = {
+                            details: it,
+                            labels: []
+                        };
+                    }
+                    shippedBatches[batchKey].labels.push({
+                        label: phieuLabel,
+                        name: it.product_name || it.description || 'Sản phẩm',
+                        qty: it.quantity || 0
+                    });
+                } else {
+                    pendingItems.push({
+                        label: phieuLabel,
+                        name: it.product_name || it.description || 'Sản phẩm',
+                        qty: it.quantity || 0
+                    });
+                }
+            }
+            
+            // Render Shipped Batches
+            for (const batchKey in shippedBatches) {
+                const batch = shippedBatches[batchKey];
+                const it = batch.details;
+                
+                const carrierName = it.actual_carrier_name || '—';
+                let trackingDisplay = it.tracking_code || '—';
+                if (it.tracking_code && it.actual_carrier_tracking_url) {
+                    const trackingUrl = it.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(it.tracking_code));
+                    trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
+                }
+                
+                const payerLabel = it.shipping_fee_payer === 'hv' ? 'HV trả' : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
+                const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+                const feeAmt = Number(it.shipping_fee || 0);
+                
+                let billHtml = '—';
+                if (it.shipping_bill_link) {
+                    const itBillCid = `_itBillImgModal_${o.id}_${it.id}`;
+                    billHtml = `<span id="${itBillCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                    
+                    (function(_cid, _origUrl) {
+                        setTimeout(async function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            try {
+                                if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                    const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                    if (r && r.direct_url) imgSrc = r.direct_url;
+                                } else {
+                                    const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                    if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                    const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                    if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                                }
+                            } catch(e) { console.warn('[BillResolve]', e); }
+                            
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            let linkHref = _origUrl;
+                            if (linkHref && linkHref.includes('/uploads/')) {
+                                linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                            }
+                            
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                            };
+                            img.onclick = function() {
+                                _dhcttShowShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(itBillCid, it.shipping_bill_link);
+                }
+                
+                const timeValue = it.actual_ship_datetime ? vnFormat(it.actual_ship_datetime) : (it.shipped_at ? vnFormat(it.shipped_at) : '—');
+                
+                let headerHtml = '';
+                if (batch.labels.length === 1) {
+                    const l = batch.labels[0];
+                    headerHtml = `📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                } else {
+                    const itemsHeader = batch.labels.map(l => `
+                        <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
+                            ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
+                        </span>
+                    `).join(' ');
+                    headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI CHUNG: ${itemsHeader}</span>`;
+                }
+                
+                shipHTML += `
+                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 4px rgba(22,163,74,0.03)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        ${headerHtml}
+                        <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>
+                    </div>
+                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${it.shipped_by_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValue}</span>
+                        <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierName}</span>
+                        ${it.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
+                        ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
+                        ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
+                        <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
+                        <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
+                        ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
+                        ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
+                        ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                    </div>
+                </div>`;
+            }
+            
+            // Render Pending Items
+            for (let i = 0; i < pendingItems.length; i++) {
+                const pit = pendingItems[i];
+                shipHTML += `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px;opacity:0.85;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;color:#475569;font-size:12.5px;display:flex;align-items:center;gap:6px;">
+                        📦 ${pit.label.toUpperCase()} — ${pit.name.toUpperCase()} <span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">SL: ${pit.qty}</span>
+                    </span>
+                    <span style="background:#e2e8f0;color:#475569;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">⏳ CHỜ GỬI</span>
+                </div>`;
+            }
+        } else {
+            // Fallback to order-level shipping details
+            if (o.shipping_status === 'shipped' || o.shipped_at) {
+                const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
+                shipHTML += `<table style="width:100%;border-collapse:collapse">`;
+                shipHTML += row('👤 Người Gửi', o.shipped_by_name ? `<span style="color:#2563eb;font-weight:800">${o.shipped_by_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
+                shipHTML += row('📅 Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">—</span>');
+                shipHTML += row('🚛 Vận Chuyển Thực Tế', o.actual_carrier_name ? `<span style="font-weight:800;color:#1e293b">${o.actual_carrier_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
+                if (o.tracking_code) {
+                    let _trackingDisplay = `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`;
+                    if (o.actual_carrier_tracking_url) {
+                        const _trackingUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+                        _trackingDisplay = `<a href="${_trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;letter-spacing:0.5px;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
+                    }
+                    shipHTML += row('📦 Mã vận đơn', _trackingDisplay);
+                }
+                
+                let billHtml = '—';
+                if (o.shipping_bill_link) {
+                    const _billCid = `_billImgModal_${o.id}`;
+                    billHtml = `<span id="${_billCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                    
+                    (function(_cid, _origUrl) {
+                        setTimeout(async function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            try {
+                                if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                    const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                    if (r && r.direct_url) imgSrc = r.direct_url;
+                                } else {
+                                    const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                    if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                    const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                    if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                                }
+                            } catch(e) { console.warn('[BillResolve]', e); }
+                            
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            let linkHref = _origUrl;
+                            if (linkHref && linkHref.includes('/uploads/')) {
+                                linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                            }
+                            
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                            };
+                            img.onclick = function() {
+                                _dhcttShowShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(_billCid, o.shipping_bill_link);
+                }
+                shipHTML += row('📷 Bill gửi hàng', billHtml);
+                if (o.shipping_payment_code) {
+                    shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
+                    shipHTML += row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(o.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);
+                }
+                shipHTML += `</table>`;
+            } else {
+                shipHTML += `<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;font-weight:600;">📭 Đơn hàng chưa có thông tin vận chuyển.</div>`;
+            }
+        }
+        
+        shipHTML += `</div>`;
+        
+        const footer = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px;font-weight:bold;">Đóng</button>`;
+        openModal(`🚚 Thông tin vận chuyển — ${o.order_code}`, shipHTML, footer);
+    } catch(err) {
+        showToast('Lỗi khi lấy thông tin vận chuyển: ' + err.message, 'error');
+    }
+}
+
+function _dhcttShowShippingBillLightbox(url) {
+    const existing = document.getElementById('shippingBillLightbox');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'shippingBillLightbox';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease';
+    overlay.onclick = function() { overlay.remove(); };
+
+    if (!document.getElementById('shippingLightboxStyles')) {
+        const style = document.createElement('style');
+        style.id = 'shippingLightboxStyles';
+        style.textContent = `
+            @keyframes sbFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain';
+    img.onclick = function(e) { e.stopPropagation(); };
+    overlay.appendChild(img);
+
+    const closeBtn = document.createElement('div');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;font-weight:700';
+    closeBtn.onclick = function() { overlay.remove(); };
+    overlay.appendChild(closeBtn);
+
+    document.body.appendChild(overlay);
+
+    const escHandler = function(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
 }
