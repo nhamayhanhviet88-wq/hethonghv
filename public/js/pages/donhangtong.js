@@ -1449,14 +1449,22 @@ async function _dhtShowDetail(id) {
                                 }
                             } catch(e) { console.warn('[BillResolve]', e); }
                             
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            let linkHref = _origUrl;
+                            if (linkHref && linkHref.includes('/uploads/')) {
+                                linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                            }
+                            
                             const img = document.createElement('img');
                             img.src = imgSrc;
                             img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
                             img.onerror = function() {
-                                el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                                el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
                             };
                             const link = document.createElement('a');
-                            link.href = _origUrl;
+                            link.href = linkHref;
                             link.target = '_blank';
                             link.title = 'Click xem ảnh gốc';
                             link.appendChild(img);
@@ -1494,8 +1502,8 @@ async function _dhtShowDetail(id) {
                         ${it.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
                         ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
                         ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
-                        <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
                         <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span> — <span style="font-weight:700;color:#334155">${methodLabel}</span></span>
+                        <span style="color:#64748b;font-weight:600;">💰 Phí gửi hàng:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
@@ -1549,14 +1557,23 @@ async function _dhtShowDetail(id) {
                                     if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
                                 }
                             } catch(e) { console.warn('[BillResolve]', e); }
+                            
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            var linkHref = _origUrl;
+                            if (linkHref && linkHref.includes('/uploads/')) {
+                                linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                            }
+                            
                             var img = document.createElement('img');
                             img.src = imgSrc;
                             img.style.cssText = 'max-width:240px;max-height:200px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.1)';
                             img.onerror = function() {
-                                el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                                el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
                             };
                             var link = document.createElement('a');
-                            link.href = _origUrl;
+                            link.href = linkHref;
                             link.target = '_blank';
                             link.title = 'Click xem ảnh gốc';
                             link.appendChild(img);
@@ -1572,12 +1589,12 @@ async function _dhtShowDetail(id) {
                     var _rnLabel = _acn.includes('nhân viên hv') || _acn.includes('nhan vien hv') ? '👷 Tên Nhân Viên Gửi Hàng' : '🤝 Tên Người Nhận Hàng';
                     shipHTML += row(_rnLabel, `<span style="font-weight:800;color:#1e293b">${o.receiver_name}</span>`);
                 }
-                var _sfee = Number(o.shipping_fee) || 0;
-                shipHTML += row('💰 Phí Gửi Hàng', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
                 var _payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 var _methodLabel = o.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : o.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 var _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span> — <span style="font-weight:700;color:#334155">${_methodLabel}</span>`);
+                var _sfee = Number(o.shipping_fee) || 0;
+                shipHTML += row('💰 Phí Gửi Hàng', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
                 if (o.shipping_payment_code) {
                     shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
                     shipHTML += row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(o.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);
