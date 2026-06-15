@@ -1047,7 +1047,7 @@ async function mOpenCompleteModal(recordId, readOnly = false) {
                 const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
                 const isCountQuestion = cleanContent.includes('sốlượngđếmlàbaonhiêu') || cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
                 const isPersonQuestion = cleanContent.includes('ailàngườiđếm') || cleanContent.includes('ailanguoidem') || cleanContent.includes('ngườiđếmsốlượng');
-                const placeholderText = isPersonQuestion ? 'nhập k chính xác là tự nhận mình làm' : 'Nhập câu trả lời...';
+                const placeholderText = isPersonQuestion ? 'Nhập không chính xác là tự chịu trách nhiệm !' : 'Nhập câu trả lời...';
                 checklistHtml += `
                     <input type="text" class="m-cl-text" value="${val}" ${readOnly ? 'disabled' : ''} placeholder="${placeholderText}" style="background:${readOnly ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${readOnly ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)'}; color:${readOnly ? '#9ca3af' : '#e2e8f0'}; font-size:13px; border-radius:10px; padding:10px 12px; width:100%; outline:none; box-sizing:border-box; cursor:${readOnly ? 'not-allowed' : 'text'};"
                         ${isCountQuestion && !readOnly ? `oninput="mValidateCountInput(this, ${r.quantity || 0})"` : ''}>

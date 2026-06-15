@@ -600,7 +600,7 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
                 const cleanContent = q.content.toLowerCase().replace(/\s+/g, '');
                 const isCountQuestion = cleanContent.includes('sốlượngđếmlàbaonhiêu') || cleanContent.includes('sơlượngđếmlàbaonhiêu') || cleanContent.includes('soluongdemlabaonhieu');
                 const isPersonQuestion = cleanContent.includes('ailàngườiđếm') || cleanContent.includes('ailanguoidem') || cleanContent.includes('ngườiđếmsốlượng');
-                const placeholderText = isPersonQuestion ? 'nhập k chính xác là tự nhận mình làm' : 'Nhập câu trả lời...';
+                const placeholderText = isPersonQuestion ? 'Nhập không chính xác là tự chịu trách nhiệm !' : 'Nhập câu trả lời...';
                 checklistHtml += `
                     <input type="text" class="bpht-qc-text" value="${val}" ${readOnly ? 'disabled' : ''} placeholder="${placeholderText}" style="background:${readOnly ? '#f1f5f9' : '#ffffff'}; border:1px solid #cbd5e1; color:${readOnly ? '#64748b' : '#1e293b'}; font-size:13px; border-radius:8px; padding:8px 12px; width:100%; outline:none; box-sizing:border-box; cursor:${readOnly ? 'not-allowed' : 'text'};"
                         ${isCountQuestion && !readOnly ? `oninput="_bphtValidateCountInput(this, ${r.quantity || 0})"` : ''}>
