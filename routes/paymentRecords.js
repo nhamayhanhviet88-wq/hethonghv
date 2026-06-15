@@ -326,6 +326,14 @@ module.exports = async function(fastify) {
         const { id } = request.params;
         const b = request.body;
 
+        const existing = await db.get('SELECT * FROM payment_records WHERE id = $1', [id]);
+        if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '');
+        if (isAlreadyClaimed) {
+            return reply.code(400).send({ error: 'Mã tiền đã nhận tiền/liên kết đơn hàng, không thể chỉnh sửa!' });
+        }
+
         let moneySource = b.money_source;
         if (b.bank_name === 'Nhà Vận Chuyển') {
             const isGD = user.role === 'giam_doc';
@@ -1247,6 +1255,18 @@ module.exports = async function(fastify) {
 
         if (!isUserGD && !isUserTrinh && !isUserKT && !hasGeneralPerm) {
             return reply.code(403).send({ error: 'Bạn không có quyền đổi nguồn tiền' });
+        }
+
+        const existing = await db.get('SELECT * FROM payment_records WHERE id = $1', [request.params.id]);
+        if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '');
+        if (isAlreadyClaimed) {
+            return reply.code(400).send({ error: 'Mã tiền đã nhận tiền/liên kết đơn hàng, không thể đổi nguồn tiền!' });
+        }
+
+        if (existing.money_source === 'nha_van_chuyen' && isUserKT) {
+            return reply.code(403).send({ error: 'Kế toán không được phép đổi nguồn tiền của Nhà Vận Chuyển' });
         }
 
         const { money_source } = request.body || {};
