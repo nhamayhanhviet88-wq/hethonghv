@@ -141,7 +141,11 @@ function _cfRenderTable() {
         var imgCell = '—';
         if (r.image_url) {
             var _uid = 'cfImg_' + r.id;
-            imgCell = '<img id="'+_uid+'" src="'+r.image_url+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0" onclick="event.stopPropagation();_cfLightbox(\''+r.image_url+'\')" title="Ấn để xem ảnh" onerror="_cfResolveImg(this,\''+r.image_url+'\')">';
+            var displayUrl = r.image_url;
+            if (displayUrl.includes('/uploads/')) {
+                displayUrl = displayUrl.substring(displayUrl.indexOf('/uploads/'));
+            }
+            imgCell = '<img id="'+_uid+'" src="'+displayUrl+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0" onclick="event.stopPropagation();_cfLightbox(\''+displayUrl+'\')" title="Ấn để xem ảnh" onerror="_cfResolveImg(this,\''+r.image_url+'\')">';
         }
 
         h += '<tr'+(isThu?' class="cf-row-thu"':'')+' style="cursor:pointer" onclick="_cfShowDetail('+r.id+')">';
@@ -185,12 +189,21 @@ async function _cfResolveImg(imgEl, origUrl) {
     if (origUrl.includes('prnt.sc') || origUrl.includes('prntscr.com')) {
         try {
             var r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(origUrl));
-            if (r && r.direct_url) { _cfResolvedCache[origUrl] = r.direct_url; imgEl.onerror = null; imgEl.src = r.direct_url; return; }
+            if (r && r.direct_url) {
+                var durl = r.direct_url;
+                if (durl.includes('/uploads/')) durl = durl.substring(durl.indexOf('/uploads/'));
+                _cfResolvedCache[origUrl] = durl;
+                imgEl.onerror = null;
+                imgEl.src = durl;
+                return;
+            }
         } catch(e) {}
     }
     imgEl.onerror = null;
     imgEl.style.display = 'none';
-    imgEl.parentElement.innerHTML = '<a href="'+origUrl+'" target="_blank" style="color:#3b82f6;font-size:10px" onclick="event.stopPropagation()">🔗</a>';
+    var linkUrl = origUrl;
+    if (linkUrl.includes('/uploads/')) linkUrl = linkUrl.substring(linkUrl.indexOf('/uploads/'));
+    imgEl.parentElement.innerHTML = '<a href="'+linkUrl+'" target="_blank" style="color:#3b82f6;font-size:10px" onclick="event.stopPropagation()">🔗</a>';
 }
 async function _cfResolveDetailImg(containerId, origUrl) {
     var el = document.getElementById(containerId); if (!el) return;
@@ -202,7 +215,10 @@ async function _cfResolveDetailImg(containerId, origUrl) {
             if (r && r.direct_url) { imgSrc = r.direct_url; _cfResolvedCache[origUrl] = imgSrc; }
         } catch(e) {}
     }
-    el.innerHTML = '<img src="'+imgSrc+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+origUrl+'\')">';
+    if (imgSrc && imgSrc.includes('/uploads/')) {
+        imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+    }
+    el.innerHTML = '<img src="'+imgSrc+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+imgSrc+'\')">';
 }
 
 // ========== LIGHTBOX ==========
@@ -219,6 +235,9 @@ async function _cfLightbox(url) {
             var r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(url));
             if (r && r.direct_url) { imgSrc = r.direct_url; _cfResolvedCache[url] = imgSrc; }
         } catch(e) {}
+    }
+    if (imgSrc && imgSrc.includes('/uploads/')) {
+        imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
     }
     var img = document.createElement('img');
     img.src = imgSrc;
@@ -267,7 +286,11 @@ function _cfShowDetail(id) {
 
     if (r.image_url) {
         var _dImgId = '_cfDImg_' + r.id;
-        body += '<div style="margin-top:14px;text-align:center"><div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px">📸 Hình ảnh</div><div id="'+_dImgId+'"><img src="'+r.image_url+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+r.image_url+'\')" onerror="_cfResolveDetailImg(\''+_dImgId+'\',\''+r.image_url+'\')"></div></div>';
+        var displayUrl = r.image_url;
+        if (displayUrl.includes('/uploads/')) {
+            displayUrl = displayUrl.substring(displayUrl.indexOf('/uploads/'));
+        }
+        body += '<div style="margin-top:14px;text-align:center"><div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px">📸 Hình ảnh</div><div id="'+_dImgId+'"><img src="'+displayUrl+'" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0" onclick="_cfLightbox(\''+displayUrl+'\')" onerror="_cfResolveDetailImg(\''+_dImgId+'\',\''+r.image_url+'\')"></div></div>';
     }
 
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
