@@ -272,10 +272,7 @@ module.exports = async function(fastify) {
                 order_carriers AS (
                     SELECT DISTINCT
                         o.id AS order_id,
-                        CASE 
-                            WHEN (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = o.id AND action = 'ship') >= 2 THEN -2
-                            ELSE COALESCE(oi.actual_carrier_id, 0)
-                        END AS carrier_id,
+                        COALESCE(oi.actual_carrier_id, 0) AS carrier_id,
                         CASE 
                             WHEN oi.shipping_status = 'shipped' AND oi.actual_carrier_id IS NOT NULL 
                             THEN COALESCE(oi.shipping_date, o.order_date)
@@ -290,13 +287,9 @@ module.exports = async function(fastify) {
                     SELECT
                         o.id AS order_id,
                         CASE 
-                            WHEN (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = o.id AND action = 'ship') >= 2 THEN -2
-                            ELSE 
-                                CASE 
-                                    WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                                    THEN o.actual_carrier_id 
-                                    ELSE 0 
-                                END
+                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
+                            THEN o.actual_carrier_id 
+                            ELSE 0 
                         END AS carrier_id,
                         CASE 
                             WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
@@ -306,6 +299,16 @@ module.exports = async function(fastify) {
                         o.remaining_amount
                     FROM unpaid_orders o
                     WHERE NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id)
+
+                    UNION
+                    
+                    SELECT DISTINCT
+                        o.id AS order_id,
+                        -2 AS carrier_id,
+                        COALESCE(o.shipped_at, o.order_date) AS assoc_date,
+                        o.remaining_amount
+                    FROM unpaid_orders o
+                    WHERE (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = o.id AND action = 'ship') >= 2
                 )
                 SELECT 
                     oc.carrier_id,
