@@ -1985,6 +1985,16 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
     var allChecked = true;
     var hasCriticalBlock = false;
 
+    // Count how many times each CRM order code is selected/matched in this batch
+    var orderCodeCountMap = {};
+    for (var waybillCode in _pr.reconcileState.matchedMap) {
+        var match = _pr.reconcileState.matchedMap[waybillCode];
+        if (match && match.order_code) {
+            var oCode = String(match.order_code).trim().toUpperCase();
+            orderCodeCountMap[oCode] = (orderCodeCountMap[oCode] || 0) + 1;
+        }
+    }
+
     _pr.reconcileState.waybills.forEach(function(wb) {
         var code = String(wb.code || '').trim();
         var match = _pr.reconcileState.matchedMap[code];
@@ -1998,6 +2008,15 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         // Check for duplicate waybill
         var isAlreadyReconciled = _pr.reconcileState.alreadyReconciledMap && !!_pr.reconcileState.alreadyReconciledMap[code];
         var reconciledPaymentCode = isAlreadyReconciled ? (_pr.reconcileState.alreadyReconciledMap[code].payment_code || '') : '';
+
+        // Check for duplicate order selection in current batch
+        var isDuplicateOrder = false;
+        if (match && match.order_code) {
+            var oCode = String(match.order_code).trim().toUpperCase();
+            if (orderCodeCountMap[oCode] > 1) {
+                isDuplicateOrder = true;
+            }
+        }
 
         if (isAlreadyReconciled) {
             hasCriticalBlock = true;
@@ -2014,6 +2033,18 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
             } else {
                 crmInfoHTML = '<div style="color:#94a3b8;font-style:italic">Không tìm thấy đơn</div>';
             }
+        } else if (isDuplicateOrder) {
+            hasCriticalBlock = true;
+            matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4;display:inline-block">❌ Trùng mã đơn<br>(' + match.order_code + ')</span>';
+            rowBg = 'background:#fee2e2;opacity:0.95';
+
+            var typeTag = match.order_type === 'ao_mau' 
+                ? '<span style="background:#ede9fe;color:#6d28d9;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Áo mẫu</span>'
+                : '<span style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Đơn tổng</span>';
+
+            crmInfoHTML = '<div style="display:flex;align-items:center;gap:4px"><strong style="color:var(--navy);font-size:12px">' + match.order_code + '</strong>' + typeTag + '</div>'
+                + '<div style="font-size:10px;color:#64748b;margin-top:2px">' + (match.customer_name || '—') + ' · SĐT: ' + (match.customer_phone || '—') + '</div>'
+                + '<div style="margin-top:4px"><a href="javascript:void(0)" onclick="_prOpenChangeOrderModal(\'' + code + '\')" style="color:var(--info);font-weight:bold;font-size:10.5px">✏️ Thay đổi đơn</a></div>';
         } else if (match) {
             var remain = Number(match.remaining) || 0;
             isCodMatched = Math.abs(wb.cod - remain) < 1;
@@ -2059,7 +2090,7 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         }
 
         var verifyActionHTML = '';
-        if (isAlreadyReconciled || (match && Number(match.remaining) <= 0)) {
+        if (isAlreadyReconciled || isDuplicateOrder || (match && Number(match.remaining) <= 0)) {
             verifyActionHTML = '<span style="color:#dc2626;font-weight:bold;font-size:11px">❌ Bị chặn</span>';
         } else if (isCodMatched) {
             var btnBg = isVerified ? '#16a34a' : '#94a3b8';
@@ -2124,7 +2155,7 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
                 + '<button class="btn" style="background:#cbd5e1;color:#94a3b8;font-weight:800;font-size:13px;padding:10px 20px;border:none;border-radius:8px;cursor:not-allowed;" disabled>'
                 + '❌ LIÊN KẾT & PHÂN BỔ TỰ ĐỘNG'
                 + '</button>'
-                + '<div style="font-size:11.5px;color:#dc2626;font-weight:bold">❌ Không thể lưu vì có vận đơn đã đối soát trùng hoặc đơn đã thanh toán đủ.</div>'
+                + '<div style="font-size:11.5px;color:#dc2626;font-weight:bold">❌ Không thể lưu vì có vận đơn đã đối soát trùng, trùng mã đơn trong lô hoặc đơn đã thanh toán đủ.</div>'
                 + '</div>';
         } else if (isWithinLimit && allChecked) {
             actionBtnHTML = '<div style="margin-top:12px;display:flex;justify-content:flex-end">'
@@ -2268,6 +2299,20 @@ async function _prPerformOrderSearch(waybillCode, codAmount, query) {
         }
 
         var h = '';
+        
+        // Build a map of order codes currently matched to other waybills in the batch
+        var currentlyMatchedCodes = {};
+        if (_pr.reconcileState && _pr.reconcileState.matchedMap) {
+            for (var wbCode in _pr.reconcileState.matchedMap) {
+                if (wbCode !== waybillCode) {
+                    var m = _pr.reconcileState.matchedMap[wbCode];
+                    if (m && m.order_code) {
+                        currentlyMatchedCodes[String(m.order_code).trim().toUpperCase()] = wbCode;
+                    }
+                }
+            }
+        }
+
         orders.forEach(function(o) {
             var diff = Math.abs(Number(o.remaining) - codAmount);
             var isPerfectMatch = diff < 1;
@@ -2286,10 +2331,26 @@ async function _prPerformOrderSearch(waybillCode, codAmount, query) {
                 ? '<span style="background:#ede9fe;color:#6d28d9;padding:1px 4px;border-radius:4px;font-size:9px;font-weight:bold">Áo mẫu</span>'
                 : '<span style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:4px;font-size:9px;font-weight:bold">Đơn tổng</span>';
 
-            h += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:all 0.15s;margin-bottom:6px" '
-                + 'onmouseover="this.style.borderColor=\'var(--primary)\';this.style.background=\'#f0f9ff\'" '
-                + 'onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.background=\'#fff\'" '
-                + 'onclick="_prSelectOrderForReconcile(\'' + waybillCode + '\',' + JSON.stringify(o).replace(/"/g, '&quot;') + ')">'
+            var oCodeUpper = String(o.order_code).trim().toUpperCase();
+            var alreadyMatchedWb = currentlyMatchedCodes[oCodeUpper];
+
+            var clickHandler = '';
+            var hoverHandlers = '';
+            var itemStyle = 'background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;';
+            var duplicateBadge = '';
+
+            if (alreadyMatchedWb) {
+                itemStyle += 'opacity:0.65;cursor:not-allowed;background:#f8fafc;';
+                duplicateBadge = '<div style="display:inline-block;font-size:9.5px;font-weight:bold;padding:1px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;margin-top:4px;">⚠️ Đã chọn ở dòng khác (MVĐ: ' + alreadyMatchedWb + ')</div>';
+            } else {
+                itemStyle += 'cursor:pointer;transition:all 0.15s;';
+                hoverHandlers = 'onmouseover="this.style.borderColor=\'var(--primary)\';this.style.background=\'#f0f9ff\'" '
+                    + 'onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.background=\'#fff\'" ';
+                clickHandler = 'onclick="_prSelectOrderForReconcile(\'' + waybillCode + '\',' + JSON.stringify(o).replace(/"/g, '&quot;') + ')"';
+                duplicateBadge = '<div style="display:inline-block;font-size:9.5px;font-weight:bold;padding:1px 6px;border-radius:4px;border:1.5px solid;margin-top:4px;' + matchStyle + '">' + matchText + '</div>';
+            }
+
+            h += '<div style="' + itemStyle + '" ' + hoverHandlers + clickHandler + '>'
                 + '<div>'
                 + '<div style="display:flex;align-items:center;gap:6px">'
                 + '<strong style="color:var(--navy);font-size:12.5px">' + o.order_code + '</strong>'
@@ -2301,7 +2362,7 @@ async function _prPerformOrderSearch(waybillCode, codAmount, query) {
                 + '<div style="text-align:right">'
                 + '<div style="font-size:10px;color:#64748b">Số tiền còn lại</div>'
                 + '<div style="font-size:13px;font-weight:900;color:#1e293b">' + _prFmt(o.remaining) + 'đ</div>'
-                + '<div style="display:inline-block;font-size:9.5px;font-weight:bold;padding:1px 6px;border-radius:4px;border:1.5px solid;margin-top:4px;' + matchStyle + '">' + matchText + '</div>'
+                + duplicateBadge
                 + '</div>'
                 + '</div>';
         });
