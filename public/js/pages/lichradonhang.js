@@ -850,35 +850,35 @@
             <div class="cal-stat-card">
                 <div class="cal-stat-icon">✂️</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #fdba74">${deptTotals.cut.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-num" style="color: #c2410c">${deptTotals.cut.toLocaleString('vi-VN')}</span>
                     <span class="cal-stat-lbl">Cắt trong tháng</span>
                 </div>
             </div>
             <div class="cal-stat-card">
                 <div class="cal-stat-icon">🖨️</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #93c5fd">${deptTotals.in.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-num" style="color: #1d4ed8">${deptTotals.in.toLocaleString('vi-VN')}</span>
                     <span class="cal-stat-lbl">In trong tháng</span>
                 </div>
             </div>
             <div class="cal-stat-card">
                 <div class="cal-stat-icon">🔥</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #d8b4fe">${deptTotals.ep.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-num" style="color: #7e22ce">${deptTotals.ep.toLocaleString('vi-VN')}</span>
                     <span class="cal-stat-lbl">Ép trong tháng</span>
                 </div>
             </div>
             <div class="cal-stat-card">
                 <div class="cal-stat-icon">🧵</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #86efac">${deptTotals.may.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-num" style="color: #15803d">${deptTotals.may.toLocaleString('vi-VN')}</span>
                     <span class="cal-stat-lbl">May trong tháng</span>
                 </div>
             </div>
             <div class="cal-stat-card">
                 <div class="cal-stat-icon">📦</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #cbd5e1">${deptTotals.gui.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-num" style="color: #475569">${deptTotals.gui.toLocaleString('vi-VN')}</span>
                     <span class="cal-stat-lbl">Gửi trong tháng</span>
                 </div>
             </div>
