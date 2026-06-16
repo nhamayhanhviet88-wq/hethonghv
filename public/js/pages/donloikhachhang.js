@@ -138,9 +138,9 @@ function _ceoRenderTable() {
 
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">';
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
-    var cols = ['Ngày','Người Báo Lỗi','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
+    var cols = ['Ngày','Người Báo Lỗi','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','Lĩnh Vực','Tên Khách Hàng','CSKH','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
         'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Đã Phạt'];
-    var colW={'Ngày':'40px','Người Báo Lỗi':'95px','Đơn Lỗi':'55px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
+    var colW={'Ngày':'40px','Người Báo Lỗi':'95px','Đơn Lỗi':'55px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','Lĩnh Vực':'65px','Tên Khách Hàng':'85px','CSKH':'65px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
@@ -151,7 +151,7 @@ function _ceoRenderTable() {
     h += '</tr></thead><tbody>';
 
     if (items.length === 0) {
-        h += '<tr><td colspan="16" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
+        h += '<tr><td colspan="19" style="padding:40px;text-align:center;color:#9ca3af">Chưa có đơn lỗi nào</td></tr>';
     } else {
         items.forEach(function(item) {
             var imgs = [];
@@ -188,12 +188,17 @@ function _ceoRenderTable() {
                 reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
             } else {
                 reporter = item.created_by_name || '—';
-                if (reporter === 'Giám Đốc' && item.error_type === 'Nội Bộ') {
+                if (reporter === 'Giám Đốc') {
                     reporter = 'Giám Đốc - BP Kiểm Tra QC';
                 } else if (item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
                     reporter = reporter + ' - BP Kiểm Tra QC';
                 }
             }
+            if (reporter.trim() === 'Giám Đốc') {
+                reporter = 'Giám Đốc - BP Kiểm Tra QC';
+            }
+
+            var cleanCskh = item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ') ? '—' : (item.cskh_name || '—');
 
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'" onclick="_ceoViewDetail(' + item.id + ')">';
             h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc;font-size:11px">' + rd + '</td>';
@@ -201,6 +206,9 @@ function _ceoRenderTable() {
             h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;color:' + etColor + ';background:' + etBg + '">' + errorType + '</span></td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:4px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc;font-size:10px">' + (item.order_code || '—') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (item.linh_vuc || '').replace(/"/g, '&quot;') + '">' + (item.linh_vuc || '—') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (item.customer_name || '').replace(/"/g, '&quot;') + '">' + (item.customer_name || '—') + '</td>';
+            h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + cleanCskh.replace(/"/g, '&quot;') + '">' + cleanCskh + '</td>';
             h += '<td style="padding:4px;text-align:center;font-weight:700;border-right:1px solid #f8fafc;font-size:11px">' + (Number(item.production_quantity)||'') + '</td>';
             h += '<td style="padding:4px;text-align:center;font-weight:700;color:#dc2626;border-right:1px solid #f8fafc;font-size:11px">' + (Number(item.error_quantity)||'') + '</td>';
             h += '<td style="padding:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid #f8fafc;font-size:11px" title="' + (item.error_content||'').replace(/"/g,'&quot;') + '">' + (item.error_content || '') + '</td>';
@@ -271,11 +279,14 @@ async function _ceoViewDetail(id) {
         reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
     } else {
         reporter = item.created_by_name || '—';
-        if (reporter === 'Giám Đốc' && item.error_type === 'Nội Bộ') {
+        if (reporter === 'Giám Đốc') {
             reporter = 'Giám Đốc - BP Kiểm Tra QC';
         } else if (item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
             reporter = reporter + ' - BP Kiểm Tra QC';
         }
+    }
+    if (reporter.trim() === 'Giám Đốc') {
+        reporter = 'Giám Đốc - BP Kiểm Tra QC';
     }
     var cleanCskh = item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ') ? '—' : (item.cskh_name || '—');
 

@@ -42,11 +42,25 @@ async function routes(fastify) {
         }
 
         const rows = await db.all(`
-            SELECT ceo.*,
+            SELECT ceo.id, ceo.order_code, ceo.report_date,
+                   ceo.error_quantity, ceo.error_content, ceo.error_images,
+                   ceo.sale_resolution, ceo.violator_name, ceo.production_cost,
+                   ceo.shipping_cost, ceo.violation_month, ceo.penalty_month,
+                   ceo.violator_commitment, ceo.fix_plan, ceo.created_by,
+                   ceo.created_at, ceo.updated_at, ceo.common_error_type,
+                   ceo.dht_order_id, ceo.production_quantity, ceo.error_video,
+                   ceo.error_department, ceo.resolution_status, ceo.resolved_at,
+                   ceo.resolved_by, ceo.qlx_updated_at, ceo.qlx_updated_by, ceo.error_type,
+                   COALESCE(u_cskh.full_name, ceo.cskh_name) AS cskh_name,
+                   COALESCE(o.customer_name, ceo.customer_name) AS customer_name,
+                   COALESCE(cat.name, ceo.linh_vuc) AS linh_vuc,
                    u.full_name AS created_by_name,
                    d.name AS created_by_dept_name,
                    u_qlx.full_name AS qlx_updated_by_name
             FROM customer_error_orders ceo
+            LEFT JOIN dht_orders o ON (o.id = ceo.dht_order_id OR (ceo.dht_order_id IS NULL AND o.order_code = ceo.order_code))
+            LEFT JOIN dht_categories cat ON o.category_id = cat.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u ON u.id = ceo.created_by
             LEFT JOIN departments d ON d.id = u.department_id
             LEFT JOIN users u_qlx ON u_qlx.id = ceo.qlx_updated_by
@@ -113,11 +127,25 @@ async function routes(fastify) {
     // ========== GET /api/customer-errors/:id — Detail ==========
     fastify.get('/api/customer-errors/:id', { preHandler: authenticate }, async (request) => {
         const row = await db.get(`
-            SELECT ceo.*,
+            SELECT ceo.id, ceo.order_code, ceo.report_date,
+                   ceo.error_quantity, ceo.error_content, ceo.error_images,
+                   ceo.sale_resolution, ceo.violator_name, ceo.production_cost,
+                   ceo.shipping_cost, ceo.violation_month, ceo.penalty_month,
+                   ceo.violator_commitment, ceo.fix_plan, ceo.created_by,
+                   ceo.created_at, ceo.updated_at, ceo.common_error_type,
+                   ceo.dht_order_id, ceo.production_quantity, ceo.error_video,
+                   ceo.error_department, ceo.resolution_status, ceo.resolved_at,
+                   ceo.resolved_by, ceo.qlx_updated_at, ceo.qlx_updated_by, ceo.error_type,
+                   COALESCE(u_cskh.full_name, ceo.cskh_name) AS cskh_name,
+                   COALESCE(o.customer_name, ceo.customer_name) AS customer_name,
+                   COALESCE(cat.name, ceo.linh_vuc) AS linh_vuc,
                    u.full_name AS created_by_name,
                    d.name AS created_by_dept_name,
                    u_qlx.full_name AS qlx_updated_by_name
             FROM customer_error_orders ceo
+            LEFT JOIN dht_orders o ON (o.id = ceo.dht_order_id OR (ceo.dht_order_id IS NULL AND o.order_code = ceo.order_code))
+            LEFT JOIN dht_categories cat ON o.category_id = cat.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u ON u.id = ceo.created_by
             LEFT JOIN departments d ON d.id = u.department_id
             LEFT JOIN users u_qlx ON u_qlx.id = ceo.qlx_updated_by
@@ -134,6 +162,30 @@ async function routes(fastify) {
 
         if (!b.report_date) return { error: 'Ngày báo cáo lỗi là bắt buộc' };
 
+        let orderCode = b.order_code || null;
+        let dhtOrderId = b.dht_order_id ? Number(b.dht_order_id) : null;
+        let cskhName = b.cskh_name || null;
+        let customerName = b.customer_name || null;
+        let linhVuc = b.linh_vuc || null;
+
+        // Auto-fetch if dht_order_id or order_code is provided
+        if (dhtOrderId || orderCode) {
+            const dhtOrder = await db.get(`
+                SELECT o.customer_name, u_cskh.full_name AS cskh_name, cat.name AS category_name
+                FROM dht_orders o
+                LEFT JOIN dht_categories cat ON o.category_id = cat.id
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                WHERE (o.id = $1 OR (o.order_code = $2 AND $1 IS NULL))
+                LIMIT 1
+            `, [dhtOrderId, orderCode]);
+
+            if (dhtOrder) {
+                if (dhtOrder.cskh_name) cskhName = dhtOrder.cskh_name;
+                if (dhtOrder.customer_name) customerName = dhtOrder.customer_name;
+                if (dhtOrder.category_name) linhVuc = dhtOrder.category_name;
+            }
+        }
+
         const result = await db.get(`
             INSERT INTO customer_error_orders (
                 order_code, report_date, cskh_name, error_quantity,
@@ -145,9 +197,9 @@ async function routes(fastify) {
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING id
         `, [
-            b.order_code || null,
+            orderCode,
             b.report_date,
-            b.cskh_name || null,
+            cskhName,
             Number(b.error_quantity) || 0,
             b.error_content || null,
             JSON.stringify(b.error_images || []),
@@ -160,10 +212,10 @@ async function routes(fastify) {
             b.violator_commitment || null,
             b.fix_plan || null,
             b.common_error_type || null,
-            b.dht_order_id ? Number(b.dht_order_id) : null,
-            b.customer_name || null,
+            dhtOrderId,
+            customerName,
             Number(b.production_quantity) || 0,
-            b.linh_vuc || null,
+            linhVuc,
             userId,
             b.error_department || null,
             b.error_type || 'Khách Hàng'
@@ -400,6 +452,30 @@ async function routes(fastify) {
         const existing = await db.get('SELECT id FROM customer_error_orders WHERE id = $1', [id]);
         if (!existing) return { error: 'Không tìm thấy đơn lỗi' };
 
+        let orderCode = b.order_code || null;
+        let dhtOrderId = b.dht_order_id ? Number(b.dht_order_id) : null;
+        let cskhName = b.cskh_name || null;
+        let customerName = b.customer_name || null;
+        let linhVuc = b.linh_vuc || null;
+
+        // Auto-fetch if dht_order_id or order_code is provided
+        if (dhtOrderId || orderCode) {
+            const dhtOrder = await db.get(`
+                SELECT o.customer_name, u_cskh.full_name AS cskh_name, cat.name AS category_name
+                FROM dht_orders o
+                LEFT JOIN dht_categories cat ON o.category_id = cat.id
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                WHERE (o.id = $1 OR (o.order_code = $2 AND $1 IS NULL))
+                LIMIT 1
+            `, [dhtOrderId, orderCode]);
+
+            if (dhtOrder) {
+                if (dhtOrder.cskh_name) cskhName = dhtOrder.cskh_name;
+                if (dhtOrder.customer_name) customerName = dhtOrder.customer_name;
+                if (dhtOrder.category_name) linhVuc = dhtOrder.category_name;
+            }
+        }
+
         await db.run(`
             UPDATE customer_error_orders SET
                 order_code = $1, report_date = $2, cskh_name = $3,
@@ -413,9 +489,9 @@ async function routes(fastify) {
                 linh_vuc = $19, error_department = $20, updated_at = NOW()
             WHERE id = $21
         `, [
-            b.order_code || null,
+            orderCode,
             b.report_date,
-            b.cskh_name || null,
+            cskhName,
             Number(b.error_quantity) || 0,
             b.error_content || null,
             JSON.stringify(b.error_images || []),
@@ -428,10 +504,10 @@ async function routes(fastify) {
             b.violator_commitment || null,
             b.fix_plan || null,
             b.common_error_type || null,
-            b.dht_order_id ? Number(b.dht_order_id) : null,
-            b.customer_name || null,
+            dhtOrderId,
+            customerName,
             Number(b.production_quantity) || 0,
-            b.linh_vuc || null,
+            linhVuc,
             b.error_department || null,
             id
         ]);
