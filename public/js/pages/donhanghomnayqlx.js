@@ -630,12 +630,13 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
 
     const m = document.createElement('div');
     m.id = 'dhnqlxActionModal';
+    m.setAttribute('data-no-debounce', 'true');
     m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:dhnqlxModalFadeIn 0.2s ease-out;';
     
     m.innerHTML = `
     <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden;animation:dhnqlxModalSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);transition:all 0.2s ease;">
-        <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;">
-            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⚙️ ${title}</div>
+        <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;" data-no-debounce="true">
+            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;" data-no-debounce="true">⚙️ ${title}</div>
             <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
         </div>
         <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;">
