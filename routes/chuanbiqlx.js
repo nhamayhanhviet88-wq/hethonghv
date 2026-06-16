@@ -2107,9 +2107,10 @@ module.exports = async function(fastify) {
         const myLinkedIds = myLinked.map(r => r.linked_call_id);
 
         await ensureItemPrepRow(orderId, itemId);
-        const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        const prep = await db.get(`SELECT cut_schedules, cut_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
         let cutSchedule = null;
         let primaryIndex = null;
+        let cutRemindChoice = prep ? (prep.cut_remind_choice || null) : null;
         if (prep && prep.cut_schedules) {
             let schedules = {};
             try {
@@ -2127,7 +2128,9 @@ module.exports = async function(fastify) {
         }
 
         const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2 ORDER BY id", [itemId, lookupRemindersIndex]);
-        const cutRemindChoice = cutReminders.length > 0 ? 'yes' : 'none';
+        if (!cutRemindChoice && cutReminders.length > 0) {
+            cutRemindChoice = 'yes';
+        }
 
         const reminderIds = cutReminders.map(r => r.id);
         let viewedIds = [];
