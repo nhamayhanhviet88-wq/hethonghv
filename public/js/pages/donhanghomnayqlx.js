@@ -1184,7 +1184,7 @@ function _qlxClearStepImage() {
     const preview = document.getElementById('qlxStepImagePreview');
     if (preview) preview.style.display = 'none';
     const zone = document.getElementById('qlxStepPasteZone');
-    if (zone) zone.innerText = 'Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)';
+    if (zone) zone.innerText = 'Nhấn Ctrl+V để dán hình ảnh báo cáo vào đây (Bắt buộc)';
 }
 
 async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports, isDone, blockedBy) {
@@ -1315,10 +1315,9 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                     
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo thực tế (Bắt buộc):</label>
-                        <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:pointer;color:#64748b;font-weight:700;font-size:12px;" onclick="document.getElementById('qlxStepFileInput').click()">
-                            Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)
+                        <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:default;color:#64748b;font-weight:700;font-size:12px;">
+                            Nhấn Ctrl+V để dán hình ảnh báo cáo vào đây (Bắt buộc)
                         </div>
-                        <input type="file" id="qlxStepFileInput" accept="image/*" style="display:none;" onchange="_qlxHandleStepFileSelect(this)">
                         
                         <div id="qlxStepImagePreview" style="margin-top:10px;text-align:center;display:none;">
                             <img id="qlxStepPreviewImg" style="max-height:150px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><br/>
