@@ -612,8 +612,8 @@ module.exports = async function(fastify) {
                 EXTRACT(MONTH FROM COALESCE(o.shipping_date, o.order_date))::int AS month,
                 COUNT(*)::int AS order_count
             FROM dht_orders o
-            JOIN qlx_preparation p ON p.dht_order_id = o.id
-            WHERE p.is_completed = true
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            WHERE COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') = 'shipped'
             GROUP BY year, month
             ORDER BY year DESC, month DESC
         `);
@@ -657,11 +657,11 @@ module.exports = async function(fastify) {
 
         // Status filter
         if (status === 'complete') {
-            where += ` AND COALESCE(p.is_completed, false) = true`;
+            where += ` AND (COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') = 'shipped')`;
         } else if (status === 'incomplete' || !status) {
             where += ` AND COALESCE(p.is_completed, false) = false AND COALESCE(o.shipping_status, '') != 'shipped'`;
         } else if (status === 'all') {
-            where += ` AND (COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') != 'shipped')`;
+            // No filter for 'all', show all matching orders (both shipped/completed and incomplete)
         }
 
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(o.shipping_date, o.order_date)) = $${idx++}`; params.push(Number(year)); }
