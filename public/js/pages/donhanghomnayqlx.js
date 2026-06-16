@@ -1036,7 +1036,7 @@ function _qlxRenderTimeline(res) {
                 if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
                 
                 html += `
-                    <div class="ts-step-icon ${cls}" onclick="event.stopPropagation(); _qlxShowStepReportModal(${o.id}, ${item.id}, '${o.order_code}', '${s.name}', '${stepKey}', '${workerEsc}', '${extraEsc}', '${progressEsc}', '${scheduleAtVal}', '${timeVal}', '${rawReports}', ${s.done ? 1 : 0}, '${blockedByStepName}')" style="cursor:pointer" title="Chi tiết chặng ${s.name}">${icon}</div>
+                    <div class="ts-step-icon ${cls}" onclick="event.stopPropagation(); _qlxShowStepReportModal(${o.id}, ${item.id}, '${o.order_code}', '${s.name}', '${stepKey}', '${workerEsc}', '${extraEsc}', '${progressEsc}', '${scheduleAtVal}', '${timeVal}', '${rawReports}', ${s.done ? 1 : 0}, '${blockedByStepName}', '${encodeURIComponent(JSON.stringify(item.qlx_schedule || {}))}')" style="cursor:pointer" title="Chi tiết chặng ${s.name}">${icon}</div>
                     <div class="ts-step-name" style="font-weight:800;">${s.short || s.name}</div>
                     ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
                     
@@ -1187,9 +1187,48 @@ function _qlxClearStepImage() {
     if (zone) zone.innerText = 'Nhấn Ctrl+V để dán hình ảnh báo cáo vào đây (Bắt buộc)';
 }
 
-async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports, isDone, blockedBy) {
+async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports, isDone, blockedBy, rawSchedule) {
     _qlxUploadedImageUrl = null;
     const isUnscheduled = !scheduleAt || scheduleAt === 'null' || scheduleAt === 'undefined' || scheduleAt === '';
+    const schedule = JSON.parse(decodeURIComponent(rawSchedule || '{}'));
+
+    const getMinForStep = () => {
+        let minTime = new Date(); // default to now
+        const tzOffset = 7 * 60; // UTC+7
+        
+        const parseDate = (dStr) => {
+            if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
+            return new Date(dStr);
+        };
+
+        if (schedule) {
+            let depTime = null;
+            if (stepKey === 'in') {
+                const cut = parseDate(schedule.cut_expected_at);
+                if (cut) depTime = new Date(cut.getTime() + 3 * 3600 * 1000);
+            } else if (stepKey === 'ep') {
+                const cut = parseDate(schedule.cut_expected_at);
+                const inn = parseDate(schedule.in_expected_at);
+                const times = [];
+                if (cut) times.push(cut.getTime() + 3 * 3600 * 1000);
+                if (inn) times.push(inn.getTime() + 3 * 3600 * 1000);
+                if (times.length > 0) depTime = new Date(Math.max(...times));
+            } else if (stepKey === 'may' || stepKey === 'qc' || stepKey === 'ht') {
+                const ep = parseDate(schedule.ep_expected_at);
+                if (ep) depTime = new Date(ep.getTime() + 3 * 3600 * 1000);
+            } else if (stepKey === 'gui') {
+                const may = parseDate(schedule.may_qc_ht_expected_at);
+                if (may) depTime = new Date(may.getTime() + 3 * 3600 * 1000);
+            }
+
+            if (depTime && depTime > minTime) {
+                minTime = depTime;
+            }
+        }
+
+        const localTime = new Date(minTime.getTime() + tzOffset * 60 * 1000);
+        return localTime.toISOString().slice(0, 16);
+    };
 
     // Show initial loading modal
     _dhnqlxCreateModal(`Chi tiết Chặng ${stepName} — ${orderCode}`, `
@@ -1305,7 +1344,7 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                 <div id="qlxDelayInputs" style="display:${isUnscheduled ? 'flex' : 'none'};flex-direction:column;gap:12px;">
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Giờ dự kiến hoàn thành (Bắt buộc):' : 'Giờ dự kiến hoàn thành mới (Bắt buộc):'}</label>
-                        <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" min="${_qlxGetMinDateTimeStr()}">
+                        <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" min="${getMinForStep()}">
                     </div>
                     
                     <div>
