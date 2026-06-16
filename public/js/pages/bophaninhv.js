@@ -2128,7 +2128,7 @@ async function _bpiSubmitError(recordId) {
             customer_name: r.customer_name,
             production_quantity: r.order_quantity,
             linh_vuc: r.print_field,
-            error_department: 'In',
+            error_department: null,
             error_type: 'Nội Bộ'
         };
 

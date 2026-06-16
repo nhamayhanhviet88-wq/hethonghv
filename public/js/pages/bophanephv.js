@@ -1134,7 +1134,7 @@ async function _bpeSubmitError(recordId) {
             dht_order_id: r.dht_order_id,
             customer_name: r.customer_name,
             production_quantity: r.order_quantity,
-            error_department: 'Ép',
+            error_department: null,
             error_type: 'Nội Bộ'
         };
 

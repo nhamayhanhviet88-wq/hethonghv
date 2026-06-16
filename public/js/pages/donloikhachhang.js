@@ -172,10 +172,20 @@ function _ceoRenderTable() {
 
             // Calculate reporter name
             var reporter = '—';
-            if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
+            if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: Bộ Phận ')) {
+                var raw = item.cskh_name.substring('Người Báo Lỗi: Bộ Phận '.length);
+                var idx = raw.lastIndexOf(' - ');
+                if (idx !== -1) {
+                    var dept = raw.substring(0, idx).trim();
+                    var name = raw.substring(idx + 3).trim();
+                    reporter = name + ' - BP ' + dept;
+                } else {
+                    reporter = raw;
+                }
+            } else if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
                 var raw = item.cskh_name.substring('Người Báo Lỗi: '.length);
                 var idx = raw.lastIndexOf(' - ');
-                reporter = idx !== -1 ? raw.substring(idx + 3) : raw;
+                reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
             } else {
                 reporter = item.created_by_name || '—';
             }
@@ -240,10 +250,20 @@ async function _ceoViewDetail(id) {
     h+='<div style="padding:20px">';
     // Calculate reporter name
     var reporter = '—';
-    if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
+    if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: Bộ Phận ')) {
+        var raw = item.cskh_name.substring('Người Báo Lỗi: Bộ Phận '.length);
+        var idx = raw.lastIndexOf(' - ');
+        if (idx !== -1) {
+            var dept = raw.substring(0, idx).trim();
+            var name = raw.substring(idx + 3).trim();
+            reporter = name + ' - BP ' + dept;
+        } else {
+            reporter = raw;
+        }
+    } else if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
         var raw = item.cskh_name.substring('Người Báo Lỗi: '.length);
         var idx = raw.lastIndexOf(' - ');
-        reporter = idx !== -1 ? raw.substring(idx + 3) : raw;
+        reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
     } else {
         reporter = item.created_by_name || '—';
     }

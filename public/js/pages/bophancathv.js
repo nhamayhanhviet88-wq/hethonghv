@@ -1170,7 +1170,7 @@ async function _bpcSubmitError(recordId) {
             dht_order_id: r.dht_order_id,
             customer_name: r.customer_name,
             production_quantity: r.order_quantity,
-            error_department: 'Cắt',
+            error_department: null,
             error_type: 'Nội Bộ'
         };
 
