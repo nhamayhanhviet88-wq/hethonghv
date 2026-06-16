@@ -399,18 +399,21 @@ function _shBuildTable(orders) {
                 orderLevelAction = `
                     <button onclick="event.stopPropagation();_shShowOrderSlipsModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
                     <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    <button onclick="event.stopPropagation();_shOpenErrorModal(${o.id})" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             } else {
                 // Not all pending items are done -> Show Không gửi được
                 orderLevelAction = `
                     <button onclick="event.stopPropagation();_shShowOrderSlipsModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
                     <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    <button onclick="event.stopPropagation();_shOpenErrorModal(${o.id})" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             }
         } else {
             orderLevelAction = `
                 <button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
                 <button onclick="event.stopPropagation();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
+                <button onclick="event.stopPropagation();_shOpenErrorModal(${o.id})" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
             `;
         }
 
@@ -2390,4 +2393,271 @@ window._shShowReshipModal = _shShowReshipModal;
 window._shReshipToggleAll = _shReshipToggleAll;
 window._shReshipUpdateSubmitBtn = _shReshipUpdateSubmitBtn;
 window._shSubmitReshipMultiple = _shSubmitReshipMultiple;
+
+// ========== BAO LOI MODAL (Kế Toán Gửi Hàng) ==========
+window._shErrorImages = [];
+window._shErrorVideo = null;
+window._shSubmitBusy = false;
+window._shBusy = false;
+window._shPasteHandler = null;
+
+function _shDataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
+async function _shOpenErrorModal(orderId) {
+    if (window._shBusy) return;
+    window._shBusy = true;
+
+    try {
+        var o = _shOrders.find(function(x) { return x.id === orderId; });
+        if (!o) { showToast('Không tìm thấy đơn hàng', 'error'); window._shBusy = false; return; }
+
+        var commonErrors = [];
+        try {
+            var ce = await apiCall('/api/common-errors-tpl');
+            commonErrors = ce.items || [];
+        } catch(e) { console.error(e); }
+
+        var old = document.getElementById('_shErrorModal'); if (old) old.remove();
+
+        var reporterName = 'Người Báo Lỗi: Bộ Phận Gửi Hàng - ' + (window.currentUser ? window.currentUser.full_name : 'Kế toán gửi hàng');
+        var saleName = o.cskh_name || '—';
+        var prodQty = o.items ? o.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) : 0;
+
+        window._shErrorImages = [];
+        window._shErrorVideo = null;
+
+        var h = '<div class="bpc-modal-overlay show" id="_shErrorModal" onclick="if(event.target===this)_shCloseErrorModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;overflow-y:auto">';
+        h += '<div class="bpc-modal" style="width:520px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;margin-bottom:40px;">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px;"><div class="m-icon" style="font-size:24px">🚨</div><div><div class="m-title" style="font-weight:800;font-size:16px;line-height:1.2">BÁO ĐƠN LỖI</div><div class="m-sub" style="font-size:12px;opacity:0.9;margin-top:2px">' + (o.order_code || '') + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:20px;display:flex;flex-direction:column;gap:14px;color:#334155">';
+
+        h += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">📋 Mã Đơn</span><span style="font-weight:700;color:#1e3a8a">' + (o.order_code || '—') + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">👤 Khách Hàng</span><span style="font-weight:700;color:#1e293b">' + (o.customer_name || '—') + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">💼 CSKH</span><span style="font-weight:700;color:#1e293b">' + saleName + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">📦 SL Sản Xuất</span><span style="font-weight:700;color:#059669">' + prodQty + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:4px;"><span style="color:#64748b;font-weight:600;">✍️ Người Báo Lỗi</span><span style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp (Nếu có)</label>';
+        h += '<select id="shE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;outline:none;">';
+        h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
+        commonErrors.forEach(function(ce){
+            h += '<option value="' + ce.error_name + '">' + ce.error_name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
+        h += '<input type="number" id="shE_qty" min="1" max="' + (prodQty || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626;outline:none;" placeholder="Nhập số lượng lỗi...">';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
+        h += '<textarea id="shE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit;outline:none;" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div style="border:1.5px dashed #7c3aed;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(124,58,237,0.03);color:#7c3aed;font-size:13px;font-weight:700;">';
+        h += '    Bấm <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> tại bất kỳ đâu trên trang này để dán ảnh';
+        h += '</div>';
+        h += '<div id="shE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="shE_video" accept="video/*" style="font-size:11px;width:100%" onchange="_shUploadErrorVideo(event)">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="bpc-modal-actions" style="margin-top:0;padding:16px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;border-radius:0 0 16px 16px;">';
+        h += '<button class="bpc-modal-btn cancel" onclick="_shCloseErrorModal()" style="padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Hủy</button>';
+        h += '<button class="bpc-modal-btn confirm" id="_shErrorSubmitBtn" style="padding:10px 24px;border:none;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" onclick="_shSubmitError(' + orderId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+
+        _shSetupPasteListener();
+        window._shBusy = false;
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        window._shBusy = false;
+    }
+}
+
+function _shCloseErrorModal() {
+    var m = document.getElementById('_shErrorModal');
+    if (m) { m.remove(); }
+    if (window._shPasteHandler) {
+        window.removeEventListener('paste', window._shPasteHandler);
+        window._shPasteHandler = null;
+    }
+}
+
+function _shCompressImage(file, callback) {
+    if (!file.type.startsWith('image/')) {
+        callback(null);
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxW = 800, maxH = 800;
+            var w = img.width, h = img.height;
+            if (w > h) {
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+            } else {
+                if (h > maxH) { w = Math.round((w * maxH) / h); h = maxH; }
+            }
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            callback(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function _shAddErrorImage(file) {
+    _shCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._shErrorImages.push(compressed);
+        _shRenderErrorImagePreviews();
+    });
+}
+
+function _shRenderErrorImagePreviews() {
+    var area = document.getElementById('shE_previews');
+    if (!area) return;
+    var h = '';
+    window._shErrorImages.forEach(function(imgData, index) {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1">';
+        h += '<span onclick="_shRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function _shRemoveErrorImage(index) {
+    window._shErrorImages.splice(index, 1);
+    _shRenderErrorImagePreviews();
+}
+
+function _shSetupPasteListener() {
+    if (window._shPasteHandler) {
+        window.removeEventListener('paste', window._shPasteHandler);
+    }
+    window._shPasteHandler = function(e) {
+        if (!document.getElementById('_shErrorModal')) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                var blob = items[i].getAsFile();
+                _shAddErrorImage(blob);
+            }
+        }
+    };
+    window.addEventListener('paste', window._shPasteHandler);
+}
+
+function _shUploadErrorVideo(event) {
+    const file = event.target.files[0];
+    if (file) {
+        window._shErrorVideo = file;
+    } else {
+        window._shErrorVideo = null;
+    }
+}
+
+async function _shSubmitError(orderId) {
+    if (window._shSubmitBusy) return;
+
+    var qtyEl = document.getElementById('shE_qty');
+    var qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { showToast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    var contentEl = document.getElementById('shE_content');
+    var content = contentEl.value.trim();
+    if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._shErrorImages || window._shErrorImages.length === 0) {
+        showToast('Vui lòng dán hoặc chọn ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
+
+    window._shSubmitBusy = true;
+    var btn = document.getElementById('_shErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        var o = _shOrders.find(function(x) { return x.id === orderId; });
+        if (!o) { throw new Error('Không tìm thấy đơn hàng'); }
+
+        var prodQty = o.items ? o.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) : 0;
+
+        var today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            var n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+        }
+
+        var body = {
+            report_date: today,
+            common_error_type: document.getElementById('shE_common') ? document.getElementById('shE_common').value : '',
+            order_code: o.order_code,
+            cskh_name: o.cskh_name || '',
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: o.id,
+            customer_name: o.customer_name,
+            production_quantity: prodQty,
+            error_department: null,
+            error_type: 'Nội Bộ'
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { throw new Error(result.error); }
+
+        if (window._shErrorImages && window._shErrorImages.length > 0 && result.id) {
+            var fd = new FormData();
+            window._shErrorImages.forEach(function(imgData, index) {
+                var blob = _shDataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        if (window._shErrorVideo && result.id) {
+            var fdv = new FormData();
+            fdv.append('video', window._shErrorVideo);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
+        }
+
+        showToast('✅ Đã báo đơn lỗi thành công!');
+        _shCloseErrorModal();
+        await _shLoadOrders();
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._shSubmitBusy = false;
+    }
+}
+
+window._shOpenErrorModal = _shOpenErrorModal;
+window._shCloseErrorModal = _shCloseErrorModal;
+window._shUploadErrorVideo = _shUploadErrorVideo;
+window._shSubmitError = _shSubmitError;
+window._shRemoveErrorImage = _shRemoveErrorImage;
+
 
