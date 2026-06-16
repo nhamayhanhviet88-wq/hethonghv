@@ -1120,6 +1120,7 @@ function _qlxClearStepImage() {
 
 async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports, isDone) {
     _qlxUploadedImageUrl = null;
+    const isUnscheduled = !scheduleAt || scheduleAt === 'null' || scheduleAt === 'undefined' || scheduleAt === '';
 
     // Show initial loading modal
     _dhnqlxCreateModal(`Chi tiết Chặng ${stepName} — ${orderCode}`, `
@@ -1227,20 +1228,20 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                 <div>
                     <label style="display:block;font-weight:700;margin-bottom:4px;">Trạng thái tiến độ:</label>
                     <select id="qlxStepStatus" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" onchange="_qlxOnStepStatusChange()">
-                        <option value="on_track">🟢 Đúng tiến độ (Không bị trễ)</option>
-                        <option value="delayed">🔴 Chậm tiến độ (Cần hẹn lại giờ xong)</option>
+                        ${isUnscheduled ? '' : '<option value="on_track">🟢 Đúng tiến độ (Không bị trễ)</option>'}
+                        <option value="delayed">${isUnscheduled ? '📅 Hẹn giờ dự kiến hoàn thành (Bắt buộc)' : '🔴 Chậm tiến độ (Cần hẹn lại giờ xong)'}</option>
                     </select>
                 </div>
                 
-                <div id="qlxDelayInputs" style="display:none;flex-direction:column;gap:12px;">
+                <div id="qlxDelayInputs" style="display:${isUnscheduled ? 'flex' : 'none'};flex-direction:column;gap:12px;">
                     <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;">Giờ dự kiến hoàn thành mới (Bắt buộc):</label>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Giờ dự kiến hoàn thành (Bắt buộc):' : 'Giờ dự kiến hoàn thành mới (Bắt buộc):'}</label>
                         <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;">
                     </div>
                     
                     <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;">Lý do chậm trễ (Bắt buộc):</label>
-                        <textarea id="qlxStepNotes" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;height:60px;" placeholder="Nhập lý do chi tiết..."></textarea>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Nội dung/Lý do hẹn lịch (Bắt buộc):' : 'Lý do chậm trễ (Bắt buộc):'}</label>
+                        <textarea id="qlxStepNotes" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;height:60px;" placeholder="${isUnscheduled ? 'Nhập lý do hẹn lịch...' : 'Nhập lý do chậm trễ chi tiết...'}"></textarea>
                     </div>
                     
                     <div>
@@ -1289,10 +1290,6 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
 }
 
 function _qlxSwitchToReportForm(scheduleState) {
-    if (scheduleState === 'unscheduled') {
-        showToast('Chặng này chưa được thiết lập thời gian dự kiến hoàn thành. Vui lòng bấm Setup Lịch Trình trước.', 'error');
-        return;
-    }
     const detailView = document.getElementById('qlxStepDetailView');
     const reportView = document.getElementById('qlxStepReportFormView');
     
