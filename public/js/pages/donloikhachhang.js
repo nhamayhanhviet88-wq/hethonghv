@@ -4,6 +4,46 @@ var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: nul
 function _ceoGetErrorTypeDisplay(item) {
     var errorType = item.error_type || (item.dht_order_id ? 'Khách Hàng' : 'Nội Bộ');
     if (errorType !== 'Nội Bộ') return errorType;
+
+    var reporterDept = '';
+    if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: Bộ Phận ')) {
+        var raw = item.cskh_name.substring('Người Báo Lỗi: Bộ Phận '.length);
+        var idx = raw.lastIndexOf(' - ');
+        reporterDept = idx !== -1 ? raw.substring(0, idx).trim() : raw;
+    } else if (item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ')) {
+        var raw = item.cskh_name.substring('Người Báo Lỗi: '.length);
+        var idx = raw.lastIndexOf(' - ');
+        reporterDept = idx !== -1 ? raw.substring(0, idx).trim() : raw;
+    } else {
+        reporterDept = item.created_by_dept_name || '';
+    }
+
+    if (reporterDept) {
+        // Clear prefixes like "Bộ Phận", "Phòng", "BP"
+        reporterDept = reporterDept.replace(/^(Bộ Phận|Phòng|BP)\s+/i, '').trim();
+        if (reporterDept) {
+            reporterDept = reporterDept.charAt(0).toUpperCase() + reporterDept.slice(1).toLowerCase();
+        }
+        
+        // Standardize common departments
+        if (reporterDept === 'Giám đốc' || reporterDept.includes('Kiểm tra') || reporterDept.includes('Qc') || reporterDept.includes('Kcs')) {
+            reporterDept = 'Kiểm Tra QC';
+        } else if (reporterDept === 'Kế toán') {
+            reporterDept = 'Kế Toán';
+        } else if (reporterDept === 'Hoàn thiện') {
+            reporterDept = 'Hoàn Thiện';
+        } else if (reporterDept === 'Ép') {
+            reporterDept = 'Ép';
+        } else if (reporterDept === 'Cắt') {
+            reporterDept = 'Cắt';
+        } else if (reporterDept === 'In') {
+            reporterDept = 'In';
+        } else if (reporterDept === 'May') {
+            reporterDept = 'May';
+        }
+        
+        return 'Nội Bộ - ' + reporterDept;
+    }
     return 'Nội Bộ';
 }
 
