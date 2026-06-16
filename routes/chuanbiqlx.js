@@ -3395,6 +3395,7 @@ module.exports = async function(fastify) {
                     o.customer_name,
                     o.expected_ship_date,
                     o.shipping_priority,
+                    o.created_at AS order_created_at,
                     oi.id AS item_id,
                     oi.product_name,
                     oi.description AS item_desc,
@@ -3405,7 +3406,11 @@ module.exports = async function(fastify) {
                     sch.ep_expected_at,
                     sch.may_qc_ht_expected_at,
                     sch.gui_expected_at,
-                    u_cskh.full_name AS cskh_name
+                    u_cskh.full_name AS cskh_name,
+                    prep.fabric_called,
+                    prep.fabric_arrived,
+                    prep.fabric_called_at,
+                    prep.fabric_arrived_at
                 FROM dht_orders o
                 LEFT JOIN dht_categories c ON o.category_id = c.id
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -3422,6 +3427,16 @@ module.exports = async function(fastify) {
                         )
                     )
                 )
+                LEFT JOIN qlx_preparation prep ON prep.dht_order_id = o.id AND (
+                    prep.item_id = oi.id
+                    OR (
+                        prep.item_id IS NULL 
+                        AND NOT EXISTS (
+                            SELECT 1 FROM qlx_preparation sub_prep
+                            WHERE sub_prep.dht_order_id = o.id AND sub_prep.item_id = oi.id
+                        )
+                    )
+                )
                 WHERE (
                     (o.expected_ship_date >= $1::date AND o.expected_ship_date <= $2::date)
                     OR
@@ -3434,6 +3449,8 @@ module.exports = async function(fastify) {
                     (timezone('Asia/Ho_Chi_Minh', sch.may_qc_ht_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.may_qc_ht_expected_at)::date <= $2::date)
                     OR
                     (timezone('Asia/Ho_Chi_Minh', sch.gui_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.gui_expected_at)::date <= $2::date)
+                    OR
+                    (o.created_at::date >= ($1::date - INTERVAL '7 days') AND o.created_at::date <= $2::date)
                 )
                 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM') 
                 AND o.order_code NOT ILIKE '%TEM%' 

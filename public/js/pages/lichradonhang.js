@@ -6,6 +6,9 @@
     let selectedMonth = vnNow().getMonth() + 1;
     let searchQuery = '';
     let debounceTimer = null;
+    let activeView = 'all';
+    let cachedRows = [];
+    let cachedHolidaysList = [];
 
     // Standard Vietnamese month name options
     const MONTH_LABELS = {
@@ -16,11 +19,12 @@
 
     // Department configs
     const DEPARTMENTS = [
+        { key: 'fabric', label: 'Chuẩn bị vải', emoji: '🧵', cls: 'dept-fabric' },
         { key: 'cut', label: 'Cắt', emoji: '✂️', cls: 'dept-cut' },
         { key: 'in', label: 'In', emoji: '🖨️', cls: 'dept-in' },
         { key: 'ep', label: 'Ép', emoji: '🔥', cls: 'dept-ep' },
-        { key: 'may', label: 'May', emoji: '🧵', cls: 'dept-may' },
-        { key: 'gui', label: 'Gửi', emoji: '📦', cls: 'dept-gui' }
+        { key: 'may', label: 'May/QC/HT', emoji: '🪡', cls: 'dept-may' },
+        { key: 'gui', label: 'Giao hàng', emoji: '🚚', cls: 'dept-gui' }
     ];
 
     // Priority colors for card indicators
@@ -144,19 +148,27 @@
                     /* Stats Bar */
                     .cal-stats-bar {
                         display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
                         gap: 12px;
                         margin-bottom: 20px;
                     }
                     .cal-stat-card {
                         background: #ffffff;
-                        border: 1px solid #e2e8f0;
+                        border: 1.5px solid #e2e8f0;
                         border-radius: 14px;
                         padding: 12px 18px;
                         display: flex;
                         align-items: center;
                         gap: 12px;
                         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        user-select: none;
+                    }
+                    .cal-stat-card:hover {
+                        border-color: #cbd5e1;
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
                     }
                     .cal-stat-icon {
                         font-size: 24px;
@@ -182,6 +194,48 @@
                         font-weight: 700;
                         color: #475569;
                         margin-top: 2px;
+                    }
+                    
+                    /* Active states for each card */
+                    .cal-stat-card.active.active-all {
+                        border-color: #3b82f6;
+                        background: #f0f9ff;
+                        box-shadow: 0 4px 6px rgba(59, 130, 246, 0.08);
+                    }
+                    .cal-stat-card.active.active-sale {
+                        border-color: #6366f1;
+                        background: #eef2ff;
+                        box-shadow: 0 4px 6px rgba(99, 102, 241, 0.08);
+                    }
+                    .cal-stat-card.active.active-fabric {
+                        border-color: #d97706;
+                        background: #fffbeb;
+                        box-shadow: 0 4px 6px rgba(217, 119, 6, 0.08);
+                    }
+                    .cal-stat-card.active.active-cut {
+                        border-color: #ea580c;
+                        background: #fff7ed;
+                        box-shadow: 0 4px 6px rgba(234, 88, 12, 0.08);
+                    }
+                    .cal-stat-card.active.active-in {
+                        border-color: #2563eb;
+                        background: #eff6ff;
+                        box-shadow: 0 4px 6px rgba(37, 99, 235, 0.08);
+                    }
+                    .cal-stat-card.active.active-ep {
+                        border-color: #9333ea;
+                        background: #faf5ff;
+                        box-shadow: 0 4px 6px rgba(147, 51, 234, 0.08);
+                    }
+                    .cal-stat-card.active.active-may {
+                        border-color: #16a34a;
+                        background: #f0fdf4;
+                        box-shadow: 0 4px 6px rgba(22, 163, 74, 0.08);
+                    }
+                    .cal-stat-card.active.active-gui {
+                        border-color: #475569;
+                        background: #f8fafc;
+                        box-shadow: 0 4px 6px rgba(71, 85, 105, 0.08);
                     }
 
                     /* Calendar Layout */
@@ -309,11 +363,13 @@
                         white-space: nowrap;
                     }
                     /* Colors for departments */
+                    .cal-dept-pill.dept-fabric { background: rgba(217, 119, 6, 0.08); color: #b45309; }
                     .cal-dept-pill.dept-cut { background: rgba(249, 115, 22, 0.08); color: #c2410c; }
                     .cal-dept-pill.dept-in { background: rgba(59, 130, 246, 0.08); color: #1d4ed8; }
                     .cal-dept-pill.dept-ep { background: rgba(168, 85, 247, 0.08); color: #7e22ce; }
                     .cal-dept-pill.dept-may { background: rgba(34, 197, 94, 0.08); color: #15803d; }
                     .cal-dept-pill.dept-gui { background: rgba(148, 163, 184, 0.1); color: #475569; }
+                    .cal-dept-pill.dept-sale { background: rgba(99, 102, 241, 0.08); color: #4f46e5; }
 
                     /* Cell Order Cards container */
                     .cal-cell-orders {
@@ -637,91 +693,57 @@
                 throw new Error(res.error || 'Server error');
             }
 
-            renderCalendar(res.orders || [], res.holidays || []);
+            cachedRows = res.orders || [];
+            cachedHolidaysList = res.holidays || [];
+            renderCalendar(cachedRows, cachedHolidaysList);
         } catch (e) {
             console.error('Calendar load error:', e);
             gridBody.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 60px; color: #ef4444; font-size: 14px; font-weight: 700;">❌ Không thể tải dữ liệu lịch ra đơn. Vui lòng thử lại.</div>`;
         }
     }
 
-    function renderCalendar(rows, holidaysList) {
-        const gridBody = document.getElementById('calGridBody');
-        if (!gridBody) return;
-        gridBody.innerHTML = '';
+    function getFabricPrepDateStr(createdTimeStr, holidaysMap) {
+        if (!createdTimeStr) return null;
+        const createdDate = new Date(createdTimeStr);
+        if (isNaN(createdDate.getTime())) return null;
 
-        // Generate map of holidays for O(1) checks
-        const holidaysMap = {};
-        holidaysList.forEach(h => {
-            if (h.holiday_date) {
-                const dateStr = h.holiday_date.split('T')[0];
-                holidaysMap[dateStr] = h.name;
-            }
-        });
+        let localYear = createdDate.getFullYear();
+        let localMonth = createdDate.getMonth() + 1;
+        let localDay = createdDate.getDate();
 
-        // 1. Calculate calendar bounds (Monday to Sunday grid)
-        // First day of current selected month
-        const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
-        const startDayIndex = firstDay.getDay(); // 0 = Sunday, 1-6 = Mon-Sat
-        // Padding cells at the beginning
-        const paddingDays = startDayIndex === 0 ? 6 : startDayIndex - 1;
+        try {
+            const vnStr = createdDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            const parts = vnStr.split('-').map(Number);
+            localYear = parts[0];
+            localMonth = parts[1];
+            localDay = parts[2];
+        } catch(e) {}
 
-        // Total cells needed: first complete week before 1st, then month days, then complete week after
-        const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-        const totalCells = Math.ceil((paddingDays + totalDaysInMonth) / 7) * 7;
+        const date = new Date(localYear, localMonth - 1, localDay);
+        date.setDate(date.getDate() + 1);
 
-        // Construct 42-cell array representing the days of the calendar grid
-        const cells = [];
-        const todayStr = vnDateStr(vnNow());
+        const checkSundayOrHoliday = (dt) => {
+            if (dt.getDay() === 0) return true;
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const d = String(dt.getDate()).padStart(2, '0');
+            const ds = `${y}-${m}-${d}`;
+            return !!holidaysMap[ds];
+        };
 
-        // Previous month days to fill starting padding
-        const prevMonthLastDate = new Date(selectedYear, selectedMonth - 1, 0).getDate();
-        for (let i = paddingDays - 1; i >= 0; i--) {
-            const d = new Date(selectedYear, selectedMonth - 2, prevMonthLastDate - i);
-            cells.push({
-                date: d,
-                dateStr: d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
-                isCurrentMonth: false
-            });
+        let safety = 0;
+        while (checkSundayOrHoliday(date) && safety < 30) {
+            date.setDate(date.getDate() + 1);
+            safety++;
         }
 
-        // Current month days
-        for (let i = 1; i <= totalDaysInMonth; i++) {
-            const d = new Date(selectedYear, selectedMonth - 1, i);
-            cells.push({
-                date: d,
-                dateStr: d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
-                isCurrentMonth: true
-            });
-        }
+        const resY = date.getFullYear();
+        const resM = String(date.getMonth() + 1).padStart(2, '0');
+        const resD = String(date.getDate()).padStart(2, '0');
+        return `${resY}-${resM}-${resD}`;
+    }
 
-        // Next month days to fill ending padding
-        const remainingCells = totalCells - cells.length;
-        for (let i = 1; i <= remainingCells; i++) {
-            const d = new Date(selectedYear, selectedMonth, i);
-            cells.push({
-                date: d,
-                dateStr: d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
-                isCurrentMonth: false
-            });
-        }
-
-        // Initialize cells Map for fast data sorting
-        const cellsMap = {};
-        cells.forEach(cell => {
-            cellsMap[cell.dateStr] = {
-                ...cell,
-                orders: [],
-                deptTotals: {
-                    cut: {},
-                    in: {},
-                    ep: {},
-                    may: {},
-                    gui: {}
-                }
-            };
-        });
-
-        // 2. Parse and sort orders/items/schedules
+    function buildOrdersMap(rows) {
         const ordersMap = {};
         rows.forEach(row => {
             if (!ordersMap[row.order_id]) {
@@ -732,6 +754,7 @@
                     expected_ship_date: row.expected_ship_date,
                     shipping_priority: row.shipping_priority,
                     cskh_name: row.cskh_name,
+                    order_created_at: row.order_created_at,
                     items: []
                 };
             }
@@ -750,36 +773,30 @@
                 });
             }
         });
+        return ordersMap;
+    }
 
-        // Match order cards to cell dates
-        Object.values(ordersMap).forEach(order => {
-            if (order.expected_ship_date) {
-                const dateStr = order.expected_ship_date.split('T')[0];
-                if (cellsMap[dateStr]) {
-                    cellsMap[dateStr].orders.push(order);
-                }
+    function renderCalendar(rows, holidaysList) {
+        const holidaysMap = {};
+        holidaysList.forEach(h => {
+            if (h.holiday_date) {
+                const dateStr = h.holiday_date.split('T')[0];
+                holidaysMap[dateStr] = h.name;
             }
         });
 
-        // Aggregate daily production stats (by department scheduled date)
+        const ordersMap = buildOrdersMap(rows);
+
         let totalMonthlyQty = 0;
-        const monthlyDeptTotals = { cut: 0, in: 0, ep: 0, may: 0, gui: 0 };
+        const monthlyDeptTotals = { fabric: 0, cut: 0, in: 0, ep: 0, may: 0, gui: 0 };
 
         rows.forEach(row => {
             if (!row.item_id) return;
             const qty = Number(row.item_quantity) || 0;
-            const cat = row.cutting_category_name || 'Áo';
-
             totalMonthlyQty += qty;
 
-            const addTotal = (dateField, deptKey) => {
+            const addMonthlyTotal = (dateField, deptKey) => {
                 if (row[dateField]) {
-                    const dateStr = row[dateField].split('T')[0];
-                    if (cellsMap[dateStr]) {
-                        const deptMap = cellsMap[dateStr].deptTotals[deptKey];
-                        deptMap[cat] = (deptMap[cat] || 0) + qty;
-                    }
-                    // Count only if scheduled in current month
                     const schedDate = new Date(row[dateField]);
                     if (schedDate.getFullYear() === selectedYear && (schedDate.getMonth() + 1) === selectedMonth) {
                         monthlyDeptTotals[deptKey] += qty;
@@ -787,17 +804,215 @@
                 }
             };
 
-            addTotal('cut_expected_at', 'cut');
-            addTotal('in_expected_at', 'in');
-            addTotal('ep_expected_at', 'ep');
-            addTotal('may_qc_ht_expected_at', 'may');
-            addTotal('gui_expected_at', 'gui');
+            addMonthlyTotal('cut_expected_at', 'cut');
+            addMonthlyTotal('in_expected_at', 'in');
+            addMonthlyTotal('ep_expected_at', 'ep');
+            addMonthlyTotal('may_qc_ht_expected_at', 'may');
+            addMonthlyTotal('gui_expected_at', 'gui');
         });
 
-        // 3. Render stats row
-        renderStatsBar(Object.keys(ordersMap).length, totalMonthlyQty, monthlyDeptTotals);
+        Object.values(ordersMap).forEach(order => {
+            const prepDateStr = getFabricPrepDateStr(order.order_created_at, holidaysMap);
+            if (prepDateStr) {
+                const [y, m, d] = prepDateStr.split('-').map(Number);
+                if (y === selectedYear && m === selectedMonth) {
+                    order.items.forEach(item => {
+                        monthlyDeptTotals.fabric += (Number(item.quantity) || 0);
+                    });
+                }
+            }
+        });
 
-        // 4. Render cells
+        renderStatsBar(Object.keys(ordersMap).length, totalMonthlyQty, monthlyDeptTotals);
+        renderCalendarGridOnly(ordersMap, holidaysMap, holidaysList);
+    }
+
+    function renderCalendarGridOnly(ordersMap, holidaysMap, holidaysList) {
+        const gridBody = document.getElementById('calGridBody');
+        if (!gridBody) return;
+        gridBody.innerHTML = '';
+
+        const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
+        const startDayIndex = firstDay.getDay();
+        const paddingDays = startDayIndex === 0 ? 6 : startDayIndex - 1;
+
+        const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+        const totalCells = Math.ceil((paddingDays + totalDaysInMonth) / 7) * 7;
+
+        const cells = [];
+        const todayStr = vnDateStr(vnNow());
+
+        const prevMonthLastDate = new Date(selectedYear, selectedMonth - 1, 0).getDate();
+        for (let i = paddingDays - 1; i >= 0; i--) {
+            const d = new Date(selectedYear, selectedMonth - 2, prevMonthLastDate - i);
+            cells.push({
+                date: d,
+                dateStr: d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                isCurrentMonth: false
+            });
+        }
+
+        for (let i = 1; i <= totalDaysInMonth; i++) {
+            const d = new Date(selectedYear, selectedMonth - 1, i);
+            cells.push({
+                date: d,
+                dateStr: d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                isCurrentMonth: true
+            });
+        }
+
+        const remainingCells = totalCells - cells.length;
+        for (let i = 1; i <= remainingCells; i++) {
+            const d = new Date(selectedYear, selectedMonth, i);
+            cells.push({
+                date: d,
+                dateStr: d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                isCurrentMonth: false
+            });
+        }
+
+        const cellsMap = {};
+        cells.forEach(cell => {
+            cellsMap[cell.dateStr] = {
+                ...cell,
+                orders: [],
+                deptTotals: {
+                    fabric: {},
+                    cut: {},
+                    in: {},
+                    ep: {},
+                    may: {},
+                    gui: {},
+                    sale: {}
+                }
+            };
+        });
+
+        Object.values(ordersMap).forEach(order => {
+            if (activeView === 'all' || activeView === 'sale') {
+                if (order.expected_ship_date) {
+                    const dateStr = order.expected_ship_date.split('T')[0];
+                    if (cellsMap[dateStr]) {
+                        cellsMap[dateStr].orders.push({
+                            ...order,
+                            customQtyText: null
+                        });
+                    }
+                }
+            } else if (activeView === 'fabric') {
+                const prepDateStr = getFabricPrepDateStr(order.order_created_at, holidaysMap);
+                if (prepDateStr && cellsMap[prepDateStr]) {
+                    const qtyMap = {};
+                    order.items.forEach(item => {
+                        const cat = item.cutting_category_name || 'Áo';
+                        qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+                    });
+                    const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+                    cellsMap[prepDateStr].orders.push({
+                        ...order,
+                        customQtyText: qtyParts.join(', ')
+                    });
+                }
+            } else {
+                const deptDateKeyMap = {
+                    cut: 'cut_expected_at',
+                    in: 'in_expected_at',
+                    ep: 'ep_expected_at',
+                    may: 'may_qc_ht_expected_at',
+                    gui: 'gui_expected_at'
+                };
+                const dateKey = deptDateKeyMap[activeView];
+                if (!dateKey) return;
+
+                const datesSet = new Set();
+                order.items.forEach(item => {
+                    if (item[dateKey]) {
+                        datesSet.add(item[dateKey].split('T')[0]);
+                    }
+                });
+
+                datesSet.forEach(dateStr => {
+                    if (cellsMap[dateStr]) {
+                        const qtyMap = {};
+                        order.items.forEach(item => {
+                            if (item[dateKey] && item[dateKey].split('T')[0] === dateStr) {
+                                const cat = item.cutting_category_name || 'Áo';
+                                qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+                            }
+                        });
+                        const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+                        cellsMap[dateStr].orders.push({
+                            ...order,
+                            customQtyText: qtyParts.join(', ')
+                        });
+                    }
+                });
+            }
+        });
+
+        cells.forEach(cell => {
+            const dataCell = cellsMap[cell.dateStr];
+            dataCell.orders.forEach(order => {
+                if (activeView === 'all') {
+                    order.items.forEach(item => {
+                        const qty = Number(item.quantity) || 0;
+                        const cat = item.cutting_category_name || 'Áo';
+                        if (item.cut_expected_at && item.cut_expected_at.split('T')[0] === cell.dateStr) {
+                            dataCell.deptTotals.cut[cat] = (dataCell.deptTotals.cut[cat] || 0) + qty;
+                        }
+                        if (item.in_expected_at && item.in_expected_at.split('T')[0] === cell.dateStr) {
+                            dataCell.deptTotals.in[cat] = (dataCell.deptTotals.in[cat] || 0) + qty;
+                        }
+                        if (item.ep_expected_at && item.ep_expected_at.split('T')[0] === cell.dateStr) {
+                            dataCell.deptTotals.ep[cat] = (dataCell.deptTotals.ep[cat] || 0) + qty;
+                        }
+                        if (item.may_qc_ht_expected_at && item.may_qc_ht_expected_at.split('T')[0] === cell.dateStr) {
+                            dataCell.deptTotals.may[cat] = (dataCell.deptTotals.may[cat] || 0) + qty;
+                        }
+                        if (item.gui_expected_at && item.gui_expected_at.split('T')[0] === cell.dateStr) {
+                            dataCell.deptTotals.gui[cat] = (dataCell.deptTotals.gui[cat] || 0) + qty;
+                        }
+                    });
+                    const prepDateStr = getFabricPrepDateStr(order.order_created_at, holidaysMap);
+                    if (prepDateStr === cell.dateStr) {
+                        order.items.forEach(item => {
+                            const qty = Number(item.quantity) || 0;
+                            const cat = item.cutting_category_name || 'Áo';
+                            dataCell.deptTotals.fabric[cat] = (dataCell.deptTotals.fabric[cat] || 0) + qty;
+                        });
+                    }
+                } else if (activeView === 'sale') {
+                    order.items.forEach(item => {
+                        const qty = Number(item.quantity) || 0;
+                        const cat = item.cutting_category_name || 'Áo';
+                        dataCell.deptTotals.sale[cat] = (dataCell.deptTotals.sale[cat] || 0) + qty;
+                    });
+                } else if (activeView === 'fabric') {
+                    order.items.forEach(item => {
+                        const qty = Number(item.quantity) || 0;
+                        const cat = item.cutting_category_name || 'Áo';
+                        dataCell.deptTotals.fabric[cat] = (dataCell.deptTotals.fabric[cat] || 0) + qty;
+                    });
+                } else {
+                    const deptDateKeyMap = {
+                        cut: 'cut_expected_at',
+                        in: 'in_expected_at',
+                        ep: 'ep_expected_at',
+                        may: 'may_qc_ht_expected_at',
+                        gui: 'gui_expected_at'
+                    };
+                    const dateKey = deptDateKeyMap[activeView];
+                    order.items.forEach(item => {
+                        if (item[dateKey] && item[dateKey].split('T')[0] === cell.dateStr) {
+                            const qty = Number(item.quantity) || 0;
+                            const cat = item.cutting_category_name || 'Áo';
+                            dataCell.deptTotals[activeView][cat] = (dataCell.deptTotals[activeView][cat] || 0) + qty;
+                        }
+                    });
+                }
+            });
+        });
+
         cells.forEach(cell => {
             const dataCell = cellsMap[cell.dateStr];
             const isToday = cell.dateStr === todayStr;
@@ -833,62 +1048,99 @@
         if (!container) return;
 
         container.innerHTML = `
-            <div class="cal-stat-card">
-                <div class="cal-stat-icon">📦</div>
-                <div class="cal-stat-info">
-                    <span class="cal-stat-num">${ordersCount}</span>
-                    <span class="cal-stat-lbl">Đơn Hàng Giao</span>
-                </div>
-            </div>
-            <div class="cal-stat-card">
+            <div class="cal-stat-card ${activeView === 'all' ? 'active active-all' : ''}" data-view="all">
                 <div class="cal-stat-icon">📊</div>
                 <div class="cal-stat-info">
                     <span class="cal-stat-num">${totalQty.toLocaleString('vi-VN')}</span>
                     <span class="cal-stat-lbl">Tổng Sản Phẩm</span>
                 </div>
             </div>
-            <div class="cal-stat-card">
-                <div class="cal-stat-icon">✂️</div>
+            <div class="cal-stat-card ${activeView === 'sale' ? 'active active-sale' : ''}" data-view="sale">
+                <div class="cal-stat-icon">📅</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #c2410c">${deptTotals.cut.toLocaleString('vi-VN')}</span>
-                    <span class="cal-stat-lbl">Cắt trong tháng</span>
+                    <span class="cal-stat-num">${ordersCount}</span>
+                    <span class="cal-stat-lbl">Đơn ra dự kiến (Sale)</span>
                 </div>
             </div>
-            <div class="cal-stat-card">
-                <div class="cal-stat-icon">🖨️</div>
-                <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #1d4ed8">${deptTotals.in.toLocaleString('vi-VN')}</span>
-                    <span class="cal-stat-lbl">In trong tháng</span>
-                </div>
-            </div>
-            <div class="cal-stat-card">
-                <div class="cal-stat-icon">🔥</div>
-                <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #7e22ce">${deptTotals.ep.toLocaleString('vi-VN')}</span>
-                    <span class="cal-stat-lbl">Ép trong tháng</span>
-                </div>
-            </div>
-            <div class="cal-stat-card">
+            <div class="cal-stat-card ${activeView === 'fabric' ? 'active active-fabric' : ''}" data-view="fabric">
                 <div class="cal-stat-icon">🧵</div>
                 <div class="cal-stat-info">
-                    <span class="cal-stat-num" style="color: #15803d">${deptTotals.may.toLocaleString('vi-VN')}</span>
-                    <span class="cal-stat-lbl">May trong tháng</span>
+                    <span class="cal-stat-num" style="color: #b45309">${deptTotals.fabric.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-lbl">Chuẩn bị vải</span>
                 </div>
             </div>
-            <div class="cal-stat-card">
-                <div class="cal-stat-icon">📦</div>
+            <div class="cal-stat-card ${activeView === 'cut' ? 'active active-cut' : ''}" data-view="cut">
+                <div class="cal-stat-icon">✂️</div>
+                <div class="cal-stat-info">
+                    <span class="cal-stat-num" style="color: #ea580c">${deptTotals.cut.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-lbl">Cắt</span>
+                </div>
+            </div>
+            <div class="cal-stat-card ${activeView === 'in' ? 'active active-in' : ''}" data-view="in">
+                <div class="cal-stat-icon">🖨️</div>
+                <div class="cal-stat-info">
+                    <span class="cal-stat-num" style="color: #2563eb">${deptTotals.in.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-lbl">In</span>
+                </div>
+            </div>
+            <div class="cal-stat-card ${activeView === 'ep' ? 'active active-ep' : ''}" data-view="ep">
+                <div class="cal-stat-icon">🔥</div>
+                <div class="cal-stat-info">
+                    <span class="cal-stat-num" style="color: #9333ea">${deptTotals.ep.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-lbl">Ép</span>
+                </div>
+            </div>
+            <div class="cal-stat-card ${activeView === 'may' ? 'active active-may' : ''}" data-view="may">
+                <div class="cal-stat-icon">🪡</div>
+                <div class="cal-stat-info">
+                    <span class="cal-stat-num" style="color: #16a34a">${deptTotals.may.toLocaleString('vi-VN')}</span>
+                    <span class="cal-stat-lbl">May/QC/HT</span>
+                </div>
+            </div>
+            <div class="cal-stat-card ${activeView === 'gui' ? 'active active-gui' : ''}" data-view="gui">
+                <div class="cal-stat-icon">🚚</div>
                 <div class="cal-stat-info">
                     <span class="cal-stat-num" style="color: #475569">${deptTotals.gui.toLocaleString('vi-VN')}</span>
-                    <span class="cal-stat-lbl">Gửi trong tháng</span>
+                    <span class="cal-stat-lbl">Giao hàng</span>
                 </div>
             </div>
         `;
+
+        container.querySelectorAll('.cal-stat-card').forEach(card => {
+            card.onclick = function() {
+                const view = this.getAttribute('data-view');
+                if (view && view !== activeView) {
+                    activeView = view;
+                    renderStatsBar(ordersCount, totalQty, deptTotals);
+                    const ordersMap = buildOrdersMap(cachedRows);
+                    const holidaysMap = {};
+                    cachedHolidaysList.forEach(h => {
+                        if (h.holiday_date) {
+                            holidaysMap[h.holiday_date.split('T')[0]] = h.name;
+                        }
+                    });
+                    renderCalendarGridOnly(ordersMap, holidaysMap, cachedHolidaysList);
+                }
+            };
+        });
     }
 
     function renderCellDepts(deptTotals) {
         let html = '';
-        DEPARTMENTS.forEach(d => {
-            const catMap = deptTotals[d.key];
+        let deptsToRender = [];
+        if (activeView === 'all') {
+            deptsToRender = DEPARTMENTS;
+        } else {
+            const d = DEPARTMENTS.find(dept => dept.key === activeView);
+            if (d) {
+                deptsToRender = [d];
+            } else if (activeView === 'sale') {
+                deptsToRender = [{ key: 'sale', label: 'Đơn giao', emoji: '📅', cls: 'dept-sale' }];
+            }
+        }
+
+        deptsToRender.forEach(d => {
+            const catMap = deptTotals[d.key] || {};
             const parts = [];
             Object.entries(catMap).forEach(([cat, qty]) => {
                 if (qty > 0) {
@@ -896,8 +1148,12 @@
                 }
             });
             if (parts.length > 0) {
+                let pillClass = `cal-dept-pill ${d.cls || ''}`;
+                if (d.key === 'sale') {
+                    pillClass += ' dept-sale';
+                }
                 html += `
-                    <div class="cal-dept-pill ${d.cls}" title="${d.label}: ${parts.join(', ')}">
+                    <div class="${pillClass}" title="${d.label}: ${parts.join(', ')}">
                         <span class="dept-emoji">${d.emoji}</span>
                         <span class="dept-text">${parts.join(', ')}</span>
                     </div>
@@ -912,16 +1168,19 @@
         let html = '';
 
         orders.forEach(o => {
-            // Sort items quantity grouped by category type
-            const qtyMap = {};
-            o.items.forEach(item => {
-                const cat = item.cutting_category_name || 'Áo';
-                qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
-            });
-            const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
-            const qtyText = qtyParts.join(', ');
+            let qtyText = '';
+            if (o.customQtyText !== undefined && o.customQtyText !== null) {
+                qtyText = o.customQtyText;
+            } else {
+                const qtyMap = {};
+                o.items.forEach(item => {
+                    const cat = item.cutting_category_name || 'Áo';
+                    qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+                });
+                const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+                qtyText = qtyParts.join(', ');
+            }
 
-            // Calculate card border and styling based on priority
             const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
             const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
 
@@ -944,7 +1203,6 @@
     }
 
     function renderOrderStepsHtml(order) {
-        // We use first item details to map specific schedules (most orders share timeline steps)
         const firstItem = order.items[0] || {};
         
         const steps = [
