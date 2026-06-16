@@ -221,7 +221,8 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS cut_remind_choice VARCHAR(20)`);
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS may_remind_choice VARCHAR(20)`);
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS hoanthien_remind_choice VARCHAR(20)`);
-    } catch(e) { console.error('[QLX] print/press/cut/may/hoanthien choice columns:', e.message); }
+        await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS cut_schedules JSONB DEFAULT '{}'::jsonb`);
+    } catch(e) { console.error('[QLX] print/press/cut/may/hoanthien choice columns and cut_schedules:', e.message); }
 
     // ========== HELPERS FOR PREPARATION ROWS ==========
     async function ensureOrderPrepRow(orderId) {
@@ -1130,10 +1131,26 @@ module.exports = async function(fastify) {
             }
         }
         
+        let cutSchedule = null;
+        if (dept === 'cat' && item_id) {
+            const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [Number(item_id)]);
+            if (prep && prep.cut_schedules) {
+                let schedules = {};
+                try {
+                    schedules = typeof prep.cut_schedules === 'string' ? JSON.parse(prep.cut_schedules) : prep.cut_schedules;
+                } catch(e) {
+                    console.error('Error parsing cut_schedules in GET reminders:', e);
+                }
+                const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
+                cutSchedule = schedules[pi] || null;
+            }
+        }
+        
         return {
             reminders: reminders.map(r => r.content),
             reminder_ids: reminders.map(r => r.id),
-            viewed_ids: viewedIds
+            viewed_ids: viewedIds,
+            cut_schedule: cutSchedule
         };
     });
 
@@ -2142,6 +2159,18 @@ module.exports = async function(fastify) {
         }
         const isPhoiProdDone = isPhoiCutDone && isPrintDone;
 
+        const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        let cutSchedule = null;
+        if (prep && prep.cut_schedules) {
+            let schedules = {};
+            try {
+                schedules = typeof prep.cut_schedules === 'string' ? JSON.parse(prep.cut_schedules) : prep.cut_schedules;
+            } catch(e) {
+                console.error('Error parsing cut_schedules in lookup:', e);
+            }
+            cutSchedule = schedules[pi] || null;
+        }
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity },
@@ -2157,6 +2186,7 @@ module.exports = async function(fastify) {
                 content: r.content,
                 is_viewed: viewedIds.includes(r.id)
             })),
+            cut_schedule: cutSchedule,
             is_production_done: isPhoiProdDone,
             is_cut_done: isPhoiCutDone
         };
@@ -2170,7 +2200,7 @@ module.exports = async function(fastify) {
         const { dht_order_id, item_id, phoi_index, material_name, color_name, unit,
                 reservation_type, roll_id, roll_code, kg_reserved, roll_note,
                 call_trees, call_amount, call_note, call_date, call_content,
-                cut_remind_choice, cut_reminders } = request.body || {};
+                cut_remind_choice, cut_reminders, cut_schedule } = request.body || {};
 
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
@@ -2223,6 +2253,14 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể thay đổi dữ liệu vải!' : 'Phối này đã hoàn thành cắt, không thể thay đổi dữ liệu vải!' });
         }
 
+        if (!cut_schedule) {
+            return reply.code(400).send({ error: 'Lịch cắt là bắt buộc!' });
+        }
+        const parseDt = new Date(cut_schedule);
+        if (isNaN(parseDt.getTime())) {
+            return reply.code(400).send({ error: 'Lịch cắt không hợp lệ!' });
+        }
+
         // Validate cutting reminders choice and content (required for reservation POST)
         if (!cut_remind_choice) {
             return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
@@ -2242,13 +2280,25 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Persist cutting reminders choice
+        // Persist cutting reminders choice and schedule
         await ensureItemPrepRow(dht_order_id, item_id);
+
+        const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [item_id]);
+        let schedules = {};
+        if (prep && prep.cut_schedules) {
+            try {
+                schedules = typeof prep.cut_schedules === 'string' ? JSON.parse(prep.cut_schedules) : prep.cut_schedules;
+            } catch(e) {
+                schedules = {};
+            }
+        }
+        schedules[pi] = cut_schedule;
+
         await db.run(`
             UPDATE qlx_preparation
-            SET cut_remind_choice = $1, updated_at = $2
-            WHERE item_id = $3
-        `, [cut_remind_choice, now, item_id]);
+            SET cut_remind_choice = $1, cut_schedules = $2, updated_at = $3
+            WHERE item_id = $4
+        `, [cut_remind_choice, JSON.stringify(schedules), now, item_id]);
 
         // Delete existing cutting reminders for this item and phoi
         await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2`, [item_id, pi]);
@@ -2366,7 +2416,7 @@ module.exports = async function(fastify) {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
-        const { dht_order_id, item_id, phoi_index, cut_remind_choice, cut_reminders } = request.body || {};
+        const { dht_order_id, item_id, phoi_index, cut_remind_choice, cut_reminders, cut_schedule } = request.body || {};
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
         const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
@@ -2420,6 +2470,14 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận cắt!' : 'Phối này đã hoàn thành cắt, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
         }
 
+        if (!cut_schedule) {
+            return reply.code(400).send({ error: 'Lịch cắt là bắt buộc!' });
+        }
+        const parseDt = new Date(cut_schedule);
+        if (isNaN(parseDt.getTime())) {
+            return reply.code(400).send({ error: 'Lịch cắt không hợp lệ!' });
+        }
+
         if (!cut_remind_choice) {
             return reply.code(400).send({ error: 'Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Cắt!' });
         }
@@ -2442,11 +2500,23 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         await ensureItemPrepRow(dht_order_id, item_id);
+
+        const prep2 = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [item_id]);
+        let schedules2 = {};
+        if (prep2 && prep2.cut_schedules) {
+            try {
+                schedules2 = typeof prep2.cut_schedules === 'string' ? JSON.parse(prep2.cut_schedules) : prep2.cut_schedules;
+            } catch(e) {
+                schedules2 = {};
+            }
+        }
+        schedules2[pi] = cut_schedule;
+
         await db.run(`
             UPDATE qlx_preparation
-            SET cut_remind_choice = $1, updated_at = $2
-            WHERE item_id = $3
-        `, [cut_remind_choice, now, item_id]);
+            SET cut_remind_choice = $1, cut_schedules = $2, updated_at = $3
+            WHERE item_id = $4
+        `, [cut_remind_choice, JSON.stringify(schedules2), now, item_id]);
 
         // Delete existing cutting reminders for this item and phoi
         await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2`, [item_id, pi]);

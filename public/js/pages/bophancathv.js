@@ -1403,6 +1403,24 @@ async function _bpcOpenCutModal(recordId) {
         bh += '<span id="_bpcKgDisplay" style="font-size:20px;font-weight:900;color:#dc2626">0.00 kg</span>';
         bh += '</div>';
 
+        var cutSchedule = results[1].cut_schedule;
+        if (cutSchedule) {
+            var sDt = new Date(cutSchedule);
+            if (!isNaN(sDt.getTime())) {
+                var vnDt = new Date(sDt.getTime() + 7 * 3600000);
+                var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
+                var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
+                var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
+                var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
+                var fYear = vnDt.getUTCFullYear();
+                var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+                bh += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #f59e0b;padding:12px 14px;border-radius:12px;display:flex;align-items:center;gap:6px">'
+                    + '<span style="font-size:16px">⏰</span>'
+                    + '<div style="font-size:12px;font-weight:800;color:#b45309">Lịch Cắt Yêu Cầu: ' + schedStr + '</div>'
+                    + '</div>';
+            }
+        }
+
         // Reminders block
         if (cutReminders.length > 0) {
             bh += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
@@ -1689,6 +1707,26 @@ async function _bpcOpenDetail(recordId) {
         // Warning + shared
         if (r.cut_warning) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Cảnh Báo</span><span class="bpc-modal-val" style="color:#dc2626">' + r.cut_warning + '</span></div>';
         if (r.cut_shared) h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1;white-space:pre-line;line-height:1.5;font-size:10px">' + r.cut_shared + '</span></div>';
+
+        var cutSchedule = remRes ? remRes.cut_schedule : null;
+        if (cutSchedule) {
+            var sDt = new Date(cutSchedule);
+            if (!isNaN(sDt.getTime())) {
+                var vnDt = new Date(sDt.getTime() + 7 * 3600000);
+                var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
+                var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
+                var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
+                var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
+                var fYear = vnDt.getUTCFullYear();
+                var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+                h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">'
+                    + '  <div style="background:#fffbeb;border:1.5px solid #f59e0b;padding:12px 14px;border-radius:12px;display:flex;align-items:center;gap:6px">'
+                    + '    <span style="font-size:16px">⏰</span>'
+                    + '    <div style="font-size:12px;font-weight:800;color:#b45309">Lịch Cắt Yêu Cầu: ' + schedStr + '</div>'
+                    + '  </div>'
+                    + '</div>';
+            }
+        }
 
         // Reminders block
         if (cutReminders.length > 0) {
@@ -2761,11 +2799,24 @@ function _mcRenderStep() {
         // Multi-cut Reminders block (Desktop)
         if (_mcData.orderReminders && _mcData.orderReminders.length > 0) {
             h += '<div style="margin-top:12px;background:#fef2f2;border:2px solid #fee2e2;padding:12px 14px;border-radius:12px;text-align:left;">';
-            h += '  <div style="font-weight:800;color:#b91c1c;font-size:11px;margin-bottom:8px;text-transform:uppercase;">🔔 QLX NHẮC NHỞ CÁC ĐƠN GỘP:</div>';
+            h += '  <div style="font-weight:800;color:#b91c1c;font-size:11px;margin-bottom:8px;text-transform:uppercase;">🔔 QLX LỊCH CẮT & NHẮC NHỞ CÁC ĐƠN GỘP:</div>';
             h += '  <div style="display:flex;flex-direction:column;gap:12px">';
             _mcData.orderReminders.forEach(function(or) {
                 h += '    <div style="border-top:1.5px dashed #fee2e2;padding-top:8px;margin-top:4px">';
                 h += '       <div style="font-size:11px;font-weight:800;color:#3b82f6;margin-bottom:6px">📋 ' + or.order_code + (or.description ? ' — ' + or.description : '') + ':</div>';
+                if (or.cut_schedule) {
+                    var sDt = new Date(or.cut_schedule);
+                    if (!isNaN(sDt.getTime())) {
+                        var vnDt = new Date(sDt.getTime() + 7 * 3600000);
+                        var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
+                        var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
+                        var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
+                        var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
+                        var fYear = vnDt.getUTCFullYear();
+                        var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+                        h += '       <div style="background:#fffbeb;border:1.5px solid #f59e0b;padding:6px 10px;border-radius:8px;font-size:11.5px;font-weight:800;color:#b45309;margin-bottom:6px;display:flex;align-items:center;gap:4px">⏰ Lịch Cắt: ' + schedStr + '</div>';
+                    }
+                }
                 or.reminders.forEach(function(rem, remIdx) {
                     var remId = or.reminder_ids[remIdx] || 0;
                     var isViewed = or.viewed_ids.indexOf(remId) >= 0;
@@ -2895,13 +2946,14 @@ async function _mcNext() {
                         order_item_id: itemId,
                         reminders: res.reminders || [],
                         reminder_ids: res.reminder_ids || [],
-                        viewed_ids: res.viewed_ids || []
+                        viewed_ids: res.viewed_ids || [],
+                        cut_schedule: res.cut_schedule || null
                     };
                 });
             }).filter(Boolean);
             
             var remResults = await Promise.all(remPromises);
-            _mcData.orderReminders = remResults.filter(function(r) { return r.reminders.length > 0; });
+            _mcData.orderReminders = remResults.filter(function(r) { return r.reminders.length > 0 || !!r.cut_schedule; });
             _mcData.step = 4;
             _mcRenderStep();
         } catch(e) {

@@ -897,7 +897,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule);
             html += '</div>';
         }
 
@@ -928,7 +928,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         window._qlxCutReminderState = {
             originalChoice: cutChoice,
             originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
-            isSaved: (cutChoice === 'yes' || cutChoice === 'none'),
+            originalSchedule: data.cut_schedule || null,
+            isSaved: (cutChoice === 'yes' || cutChoice === 'none') && !!data.cut_schedule,
             isProductionDone: data.is_production_done || data.is_cut_done
         };
 
@@ -948,7 +949,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule) {
     cutChoice = cutChoice || '';
     var isLocked = isProductionDone || isCutDone;
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
@@ -968,6 +969,64 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
 
     // Nhắc Nhở Bộ Phận Cắt
     html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
+    
+    // Cutting Schedule
+    if (isLocked) {
+        if (cutSchedule) {
+            var sDt = new Date(cutSchedule);
+            if (!isNaN(sDt.getTime())) {
+                var vnDt = new Date(sDt.getTime() + 7 * 3600000);
+                var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
+                var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
+                var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
+                var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
+                var fYear = vnDt.getUTCFullYear();
+                var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+                html += '  <div style="background:#fffbeb; border:1.5px solid #fef3c7; border-radius:10px; padding:10px 12px; font-size:12px; font-weight:700; color:#b45309; margin-bottom:10px;">⏰ Lịch cắt yêu cầu: ' + schedStr + '</div>';
+            }
+        }
+    } else {
+        html += '  <div style="font-weight:700; font-size:12px; color:#1e293b; margin-bottom:8px;">📅 Lịch Cắt Phối <span style="color:#dc2626">*</span></div>';
+        var schedDate = '';
+        var schedHour = '08';
+        var schedMin = '00';
+        if (cutSchedule) {
+            var sDt = new Date(cutSchedule);
+            if (!isNaN(sDt.getTime())) {
+                var vnDt = new Date(sDt.getTime() + 7 * 3600000);
+                schedDate = vnDt.toISOString().slice(0, 10);
+                schedHour = ('0' + vnDt.getUTCHours()).slice(-2);
+                var rawMin = vnDt.getUTCMinutes();
+                if (rawMin < 8) schedMin = '00';
+                else if (rawMin < 23) schedMin = '15';
+                else if (rawMin < 38) schedMin = '30';
+                else if (rawMin < 53) schedMin = '45';
+                else schedMin = '00';
+            }
+        }
+        html += '  <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">';
+        html += '    <div>';
+        html += '      <input type="date" id="qlx_cut_schedule_date" value="' + schedDate + '" onchange="_qlxCutReminderChanged()" style="padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px;">';
+        html += '    </div>';
+        html += '    <div style="display:flex; align-items:center; gap:4px;">';
+        html += '      <select id="qlx_cut_schedule_hour" onchange="_qlxCutReminderChanged()" style="padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:700; color:#1e293b;">';
+        for (var h = 0; h < 24; h++) {
+            var hs = ('0' + h).slice(-2);
+            var selected = (hs === schedHour) ? 'selected' : '';
+            html += '        <option value="' + hs + '" ' + selected + '>' + hs + '</option>';
+        }
+        html += '      </select>';
+        html += '      <span style="font-size:12px; font-weight:800; color:#475569">:</span>';
+        html += '      <select id="qlx_cut_schedule_minute" onchange="_qlxCutReminderChanged()" style="padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:700; color:#1e293b;">';
+        ['00', '15', '30', '45'].forEach(function(m) {
+            var selected = (m === schedMin) ? 'selected' : '';
+            html += '        <option value="' + m + '" ' + selected + '>' + m + '</option>';
+        });
+        html += '      </select>';
+        html += '    </div>';
+        html += '  </div>';
+    }
+
     if (isLocked) {
         var headerText = isProductionDone ? '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã hoàn thành sản xuất)' : '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã cắt xong)';
         var subText = isProductionDone ? '🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.' : '🔒 Phiếu đã cắt xong, không thể chỉnh sửa nhắc nhở.';
@@ -1008,7 +1067,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         html += '    <button type="button" onclick="_qlxAddReminderInput(\'cat\')" style="padding:6px 12px; background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">➕ Thêm nhắc nhở</button>';
         html += '  </div>';
         html += '  <div style="border-top:1px solid #f1f5f9; padding-top:8px; display:flex; justify-content:flex-end;">';
-        html += '    <button type="button" onclick="_qlxFabSaveRemindersOnly(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:6px 12px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">💾 Lưu nhắc nhở cắt</button>';
+        html += '    <button type="button" onclick="_qlxFabSaveRemindersOnly(' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:6px 12px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:opacity .15s" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">💾 Lưu lịch cắt & nhắc nhở</button>';
         html += '  </div>';
     }
     html += '</div>';
@@ -1043,12 +1102,32 @@ function _qlxFabPreview(mat, color, unit) {
         + '</div>';
 }
 
+function _qlxGetCurrentCutSchedule() {
+    var dateEl = document.getElementById('qlx_cut_schedule_date');
+    if (!dateEl || !dateEl.value) return null;
+    var hourEl = document.getElementById('qlx_cut_schedule_hour');
+    var minEl = document.getElementById('qlx_cut_schedule_minute');
+    return dateEl.value + 'T' + hourEl.value + ':' + minEl.value + ':00+07:00';
+}
+
+function _qlxCutReminderChanged() {
+    // Dynamically checked
+}
+
 function _qlxValidateAndGetCutReminders() {
     if (window._qlxCutReminderState && window._qlxCutReminderState.isProductionDone) {
         return {
             choice: window._qlxCutReminderState.originalChoice || 'none',
-            reminders: window._qlxCutReminderState.originalReminders || []
+            reminders: window._qlxCutReminderState.originalReminders || [],
+            schedule: window._qlxCutReminderState.originalSchedule || null
         };
+    }
+    var schedVal = _qlxGetCurrentCutSchedule();
+    if (!schedVal) {
+        showToast('Vui lòng chọn đầy đủ ngày trong Lịch Cắt!', 'error');
+        var dateEl = document.getElementById('qlx_cut_schedule_date');
+        if (dateEl) dateEl.focus();
+        return null;
     }
     var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
     if (!choiceEl) {
@@ -1073,17 +1152,24 @@ function _qlxValidateAndGetCutReminders() {
             cutReminders.push(val);
         }
     }
-    return { choice: cutChoice, reminders: cutReminders };
+    return { choice: cutChoice, reminders: cutReminders, schedule: schedVal };
 }
 
 function _qlxCheckCutRemindersSaved() {
     if (window._qlxCutReminderState && window._qlxCutReminderState.isProductionDone) {
         return true;
     }
+
+    var currentSched = _qlxGetCurrentCutSchedule();
+    var origSched = window._qlxCutReminderState ? window._qlxCutReminderState.originalSchedule : null;
+    if (currentSched !== origSched) {
+        return false;
+    }
+
     var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
     var currentChoice = choiceEl ? choiceEl.value : '';
-    if (currentChoice === 'none') {
-        return true;
+    if (!currentChoice) {
+        return false;
     }
 
     if (!window._qlxCutReminderState) {
@@ -1132,13 +1218,14 @@ async function _qlxFabSaveRemindersOnly(orderId, itemId, pairIndex) {
             item_id: itemId,
             phoi_index: pairIndex,
             cut_remind_choice: reminderData.choice,
-            cut_reminders: reminderData.reminders
+            cut_reminders: reminderData.reminders,
+            cut_schedule: reminderData.schedule
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
             return;
         }
-        showToast('✅ Đã lưu nhắc nhở bộ phận cắt!');
+        showToast('✅ Đã lưu lịch cắt & nhắc nhở bộ phận cắt!');
         _qlxFabricPopup(orderId, itemId, pairIndex);
     } catch(e) {
         showToast('Lỗi: ' + e.message, 'error');
@@ -1178,7 +1265,8 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
             material_name: mat, color_name: color, unit: unit,
             reservation_type: 'new_call', call_trees: trees, call_amount: amount,
             call_note: note, call_date: callDate || null, call_content: content,
-            cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders
+            cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders,
+            cut_schedule: reminderData.schedule
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
@@ -1255,7 +1343,8 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
             reservation_type: 'from_stock', roll_id: rollId, roll_code: rollCode, kg_reserved: kg,
-            cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders
+            cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders,
+            cut_schedule: reminderData.schedule
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
@@ -1353,7 +1442,8 @@ async function _qlxFabLink(callId, orderId, itemId, pairIndex) {
             material_name: ph.material_name || '', color_name: ph.color_name || '', unit: ph.unit || 'kg',
             reservation_type: 'linked_call', linked_call_id: callId,
             cut_remind_choice: reminderData.choice,
-            cut_reminders: reminderData.reminders
+            cut_reminders: reminderData.reminders,
+            cut_schedule: reminderData.schedule
         });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
