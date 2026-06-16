@@ -1188,6 +1188,580 @@ function _qlxUploadAndResizeMulti(file, stepKey) {
     reader.readAsDataURL(file);
 }
 
+function _qlxFormatDateTimeToShow(valStr) {
+    if (!valStr) return '';
+    const dt = new Date(valStr);
+    if (isNaN(dt.getTime())) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
+    // Remove existing picker if any
+    const existing = document.getElementById('qlxCustomDateTimePicker');
+    if (existing) {
+        existing.remove();
+    }
+
+    const hiddenInput = document.getElementById(hiddenInputId);
+    const displayInput = document.getElementById(hiddenInputId + '_display');
+    if (!hiddenInput || !displayInput) return;
+
+    // Inject custom style if not present
+    if (!document.getElementById('_qlxDateTimePickerStyles')) {
+        const style = document.createElement('style');
+        style.id = '_qlxDateTimePickerStyles';
+        style.textContent = `
+            @keyframes qlxPickerFadeIn {
+                from { opacity: 0; transform: translateY(4px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .qlx-picker-calendar {
+                width: 250px;
+                padding: 12px 14px;
+                border-right: 1px solid #e2e8f0;
+                background: #ffffff;
+            }
+            .qlx-picker-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
+            }
+            .qlx-picker-month-title {
+                font-size: 13px;
+                font-weight: 800;
+                color: #1e293b;
+            }
+            .qlx-picker-nav-btn {
+                width: 24px;
+                height: 24px;
+                border-radius: 6px;
+                border: 1px solid #e2e8f0;
+                background: #ffffff;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                color: #475569;
+                transition: all 0.15s;
+            }
+            .qlx-picker-nav-btn:hover {
+                background: #f1f5f9;
+                border-color: #cbd5e1;
+                color: #1e293b;
+            }
+            .qlx-picker-weekdays {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 2px;
+                margin-bottom: 6px;
+            }
+            .qlx-picker-weekday {
+                text-align: center;
+                font-size: 10px;
+                font-weight: 800;
+                color: #475569;
+                padding: 4px 0;
+            }
+            .qlx-picker-weekday.sunday {
+                color: #ef4444;
+            }
+            .qlx-picker-days {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 2px;
+            }
+            .qlx-picker-day {
+                aspect-ratio: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-weight: 600;
+                color: #1e293b;
+                border-radius: 6px;
+                cursor: pointer;
+                border: 1px solid transparent;
+                background: transparent;
+                transition: all 0.15s;
+            }
+            .qlx-picker-day:hover:not(.disabled) {
+                background: #eff6ff;
+                color: #2563eb;
+            }
+            .qlx-picker-day.other-month {
+                color: #94a3b8;
+                opacity: 0.5;
+            }
+            .qlx-picker-day.selected {
+                background: #f0f7ff;
+                border: 1.5px solid #3b82f6;
+                color: #1d4ed8;
+                font-weight: 800;
+            }
+            .qlx-picker-day.disabled {
+                color: #cbd5e1;
+                cursor: not-allowed;
+                opacity: 0.4;
+                background: #f8fafc;
+            }
+            .qlx-picker-day.today:not(.selected) {
+                border: 1.5px dashed #94a3b8;
+            }
+            .qlx-picker-time {
+                width: 190px;
+                padding: 12px 14px;
+                background: #f8fafc;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .qlx-picker-time-title {
+                font-size: 11px;
+                font-weight: 800;
+                color: #475569;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .qlx-picker-quick-times {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+            .qlx-picker-quick-btn {
+                padding: 5px 8px;
+                font-size: 10.5px;
+                font-weight: 700;
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                cursor: pointer;
+                text-align: center;
+                color: #334155;
+                transition: all 0.15s;
+            }
+            .qlx-picker-quick-btn:hover {
+                background: #eff6ff;
+                border-color: #bfdbfe;
+                color: #2563eb;
+            }
+            .qlx-picker-quick-btn.active {
+                background: #3b82f6;
+                color: #ffffff;
+                border-color: #3b82f6;
+            }
+            .qlx-picker-manual-time {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 6px;
+                margin-top: 4px;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 10px;
+            }
+            .qlx-picker-time-col {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                flex: 1;
+            }
+            .qlx-picker-time-label {
+                font-size: 9px;
+                font-weight: 700;
+                color: #64748b;
+            }
+            .qlx-picker-time-select {
+                width: 100%;
+                padding: 5px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 700;
+                color: #1e293b;
+                background: #ffffff;
+                text-align: center;
+                cursor: pointer;
+            }
+            .qlx-picker-footer {
+                display: flex;
+                justify-content: flex-end;
+                gap: 6px;
+                margin-top: auto;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 8px;
+            }
+            .qlx-picker-btn {
+                padding: 5px 12px;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 6px;
+                cursor: pointer;
+                border: none;
+            }
+            .qlx-picker-btn-cancel {
+                background: #e2e8f0;
+                color: #475569;
+            }
+            .qlx-picker-btn-confirm {
+                background: #3b82f6;
+                color: #ffffff;
+            }
+            .qlx-picker-btn-confirm:hover {
+                background: #2563eb;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Initialize date/time values
+    const minDate = minValStr ? new Date(minValStr) : null;
+    let currentVal = hiddenInput.value;
+    let activeDate = currentVal ? new Date(currentVal) : new Date();
+    if (isNaN(activeDate.getTime())) {
+        activeDate = new Date();
+    }
+    if (minDate && activeDate < minDate) {
+        activeDate = new Date(minDate.getTime());
+    }
+
+    let selectYear = activeDate.getFullYear();
+    let selectMonth = activeDate.getMonth();
+    let selectDay = activeDate.getDate();
+    let selectHour = activeDate.getHours();
+    let selectMin = activeDate.getMinutes();
+
+    if (!currentVal) {
+        selectMin = Math.round(selectMin / 5) * 5;
+        if (selectMin >= 60) {
+            selectMin = 0;
+            selectHour = (selectHour + 1) % 24;
+        }
+    }
+
+    // Calculate position relative to container or body
+    const rect = displayInput.getBoundingClientRect();
+    const pickerWidth = 440;
+    const pickerHeight = 310;
+    let top = rect.bottom + window.scrollY + 6;
+    let left = rect.left + window.scrollX;
+
+    if (rect.bottom + pickerHeight > window.innerHeight && rect.top - pickerHeight > 0) {
+        top = rect.top + window.scrollY - pickerHeight - 6;
+    }
+    if (rect.left + pickerWidth > window.innerWidth) {
+        left = window.innerWidth - pickerWidth - 16;
+    }
+    if (left < 10) left = 10;
+
+    const picker = document.createElement('div');
+    picker.id = 'qlxCustomDateTimePicker';
+    picker.style.cssText = `
+        position: absolute;
+        top: ${top}px;
+        left: ${left}px;
+        z-index: 100005;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+        display: flex;
+        font-family: 'Inter', sans-serif;
+        user-select: none;
+        overflow: hidden;
+        width: ${pickerWidth}px;
+        height: ${pickerHeight}px;
+        animation: qlxPickerFadeIn 0.15s ease-out;
+    `;
+
+    picker.innerHTML = `
+        <div class="qlx-picker-calendar">
+            <div class="qlx-picker-header">
+                <button type="button" class="qlx-picker-nav-btn" id="qlxPrevMonth">◀</button>
+                <div class="qlx-picker-month-title" id="qlxMonthTitle">Tháng 6 2026</div>
+                <button type="button" class="qlx-picker-nav-btn" id="qlxNextMonth">▶</button>
+            </div>
+            <div class="qlx-picker-weekdays">
+                <div class="qlx-picker-weekday">H</div>
+                <div class="qlx-picker-weekday">B</div>
+                <div class="qlx-picker-weekday">T</div>
+                <div class="qlx-picker-weekday">N</div>
+                <div class="qlx-picker-weekday">S</div>
+                <div class="qlx-picker-weekday">B</div>
+                <div class="qlx-picker-weekday sunday">C</div>
+            </div>
+            <div class="qlx-picker-days" id="qlxCalendarDays"></div>
+        </div>
+        <div class="qlx-picker-time">
+            <div class="qlx-picker-time-title">Chọn Giờ Dự Kiến</div>
+            <div class="qlx-picker-quick-times">
+                <button type="button" class="qlx-picker-quick-btn" data-time="08:00">08:00 🌅</button>
+                <button type="button" class="qlx-picker-quick-btn" data-time="11:00">11:00 ☀️</button>
+                <button type="button" class="qlx-picker-quick-btn" data-time="13:30">13:30 🌤️</button>
+                <button type="button" class="qlx-picker-quick-btn" data-time="17:00">17:00 🌇</button>
+                <button type="button" class="qlx-picker-quick-btn" data-time="19:00">19:00 🌌</button>
+                <button type="button" class="qlx-picker-quick-btn" data-time="21:00">21:00 🌃</button>
+            </div>
+            <div class="qlx-picker-manual-time">
+                <div class="qlx-picker-time-col">
+                    <span class="qlx-picker-time-label">Giờ</span>
+                    <select id="qlxTimeHour" class="qlx-picker-time-select"></select>
+                </div>
+                <div class="qlx-picker-time-col">
+                    <span class="qlx-picker-time-label">Phút</span>
+                    <select id="qlxTimeMin" class="qlx-picker-time-select"></select>
+                </div>
+            </div>
+            <div class="qlx-picker-footer">
+                <button type="button" class="qlx-picker-btn qlx-picker-btn-cancel" id="qlxPickerCancel">Hủy</button>
+                <button type="button" class="qlx-picker-btn qlx-picker-btn-confirm" id="qlxPickerConfirm">Xác nhận</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(picker);
+
+    const hourSelect = picker.querySelector('#qlxTimeHour');
+    const minSelect = picker.querySelector('#qlxTimeMin');
+
+    for (let h = 0; h < 24; h++) {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = String(h).padStart(2, '0');
+        hourSelect.appendChild(opt);
+    }
+    hourSelect.value = selectHour;
+
+    for (let m = 0; m < 60; m++) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = String(m).padStart(2, '0');
+        minSelect.appendChild(opt);
+    }
+    minSelect.value = selectMin;
+
+    function updateQuickTimeHighlight() {
+        const quickBtns = picker.querySelectorAll('.qlx-picker-quick-btn');
+        quickBtns.forEach(btn => {
+            const [qh, qm] = btn.getAttribute('data-time').split(':').map(Number);
+            if (qh === selectHour && qm === selectMin) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    updateQuickTimeHighlight();
+
+    let viewYear = selectYear;
+    let viewMonth = selectMonth;
+
+    function renderCalendar() {
+        const monthTitle = picker.querySelector('#qlxMonthTitle');
+        const daysContainer = picker.querySelector('#qlxCalendarDays');
+        
+        monthTitle.textContent = `Tháng ${viewMonth + 1} ${viewYear}`;
+        daysContainer.innerHTML = '';
+
+        const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
+        const startPadding = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const pad2 = n => String(n).padStart(2, '0');
+        const minDateOnly = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : null;
+
+        // Render padding days of prev month
+        for (let i = startPadding - 1; i >= 0; i--) {
+            const d = daysInPrevMonth - i;
+            const pmYear = viewMonth === 0 ? viewYear - 1 : viewYear;
+            const pmMonth = viewMonth === 0 ? 11 : viewMonth - 1;
+            const cellDate = new Date(pmYear, pmMonth, d);
+            const isDisabled = minDateOnly && cellDate < minDateOnly;
+            const isSelected = selectYear === pmYear && selectMonth === pmMonth && selectDay === d;
+            
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `qlx-picker-day other-month ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
+            btn.disabled = isDisabled;
+            btn.textContent = d;
+
+            const isSunday = cellDate.getDay() === 0;
+            if (isSunday) btn.style.color = '#ef4444';
+
+            const cellDateStr = `${pmYear}-${pad2(pmMonth + 1)}-${pad2(d)}`;
+            if (_qlxHolidaysSet.has(cellDateStr)) {
+                btn.style.color = '#ef4444';
+                btn.style.fontWeight = '800';
+                btn.title = 'Ngày lễ';
+            }
+
+            if (!isDisabled) {
+                btn.onclick = () => selectDate(pmYear, pmMonth, d);
+            }
+            daysContainer.appendChild(btn);
+        }
+
+        // Render current month days
+        const today = new Date();
+        for (let d = 1; d <= daysInMonth; d++) {
+            const cellDate = new Date(viewYear, viewMonth, d);
+            const isDisabled = minDateOnly && cellDate < minDateOnly;
+            const isSelected = selectYear === viewYear && selectMonth === viewMonth && selectDay === d;
+            const isToday = today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === d;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `qlx-picker-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isDisabled ? 'disabled' : ''}`;
+            btn.disabled = isDisabled;
+            btn.textContent = d;
+
+            const isSunday = cellDate.getDay() === 0;
+            if (isSunday) btn.style.color = '#ef4444';
+
+            const cellDateStr = `${viewYear}-${pad2(viewMonth + 1)}-${pad2(d)}`;
+            if (_qlxHolidaysSet.has(cellDateStr)) {
+                btn.style.color = '#ef4444';
+                btn.style.fontWeight = '800';
+                btn.title = 'Ngày lễ';
+            }
+
+            if (!isDisabled) {
+                btn.onclick = () => selectDate(viewYear, viewMonth, d);
+            }
+            daysContainer.appendChild(btn);
+        }
+
+        // Render padding days of next month
+        const totalRendered = startPadding + daysInMonth;
+        const totalCells = totalRendered > 35 ? 42 : 35;
+        const nextPadding = totalCells - totalRendered;
+        for (let d = 1; d <= nextPadding; d++) {
+            const nmYear = viewMonth === 11 ? viewYear + 1 : viewYear;
+            const nmMonth = viewMonth === 11 ? 0 : viewMonth + 1;
+            const cellDate = new Date(nmYear, nmMonth, d);
+            const isDisabled = minDateOnly && cellDate < minDateOnly;
+            const isSelected = selectYear === nmYear && selectMonth === nmMonth && selectDay === d;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `qlx-picker-day other-month ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
+            btn.disabled = isDisabled;
+            btn.textContent = d;
+
+            const isSunday = cellDate.getDay() === 0;
+            if (isSunday) btn.style.color = '#ef4444';
+
+            const cellDateStr = `${nmYear}-${pad2(nmMonth + 1)}-${pad2(d)}`;
+            if (_qlxHolidaysSet.has(cellDateStr)) {
+                btn.style.color = '#ef4444';
+                btn.style.fontWeight = '800';
+                btn.title = 'Ngày lễ';
+            }
+
+            if (!isDisabled) {
+                btn.onclick = () => selectDate(nmYear, nmMonth, d);
+            }
+            daysContainer.appendChild(btn);
+        }
+    }
+
+    function selectDate(year, month, day) {
+        selectYear = year;
+        selectMonth = month;
+        selectDay = day;
+        renderCalendar();
+    }
+
+    picker.querySelector('#qlxPrevMonth').onclick = () => {
+        if (viewMonth === 0) {
+            viewMonth = 11;
+            viewYear--;
+        } else {
+            viewMonth--;
+        }
+        renderCalendar();
+    };
+
+    picker.querySelector('#qlxNextMonth').onclick = () => {
+        if (viewMonth === 11) {
+            viewMonth = 0;
+            viewYear++;
+        } else {
+            viewMonth++;
+        }
+        renderCalendar();
+    };
+
+    hourSelect.onchange = (e) => {
+        selectHour = parseInt(e.target.value);
+        updateQuickTimeHighlight();
+    };
+
+    minSelect.onchange = (e) => {
+        selectMin = parseInt(e.target.value);
+        updateQuickTimeHighlight();
+    };
+
+    const quickBtns = picker.querySelectorAll('.qlx-picker-quick-btn');
+    quickBtns.forEach(btn => {
+        btn.onclick = () => {
+            const [qh, qm] = btn.getAttribute('data-time').split(':').map(Number);
+            selectHour = qh;
+            selectMin = qm;
+            hourSelect.value = qh;
+            minSelect.value = qm;
+            updateQuickTimeHighlight();
+        };
+    });
+
+    const removePicker = () => {
+        picker.remove();
+        document.removeEventListener('mousedown', outsideClick);
+        document.removeEventListener('scroll', closeOnScroll, true);
+    };
+
+    picker.querySelector('#qlxPickerCancel').onclick = removePicker;
+
+    picker.querySelector('#qlxPickerConfirm').onclick = () => {
+        const selectedDateObj = new Date(selectYear, selectMonth, selectDay, selectHour, selectMin);
+        if (minDate && selectedDateObj < minDate) {
+            showToast('Thời gian chọn không được trước thời gian tối thiểu cho phép', 'error');
+            return;
+        }
+        
+        const pad = n => String(n).padStart(2, '0');
+        const formattedVal = `${selectYear}-${pad(selectMonth + 1)}-${pad(selectDay)}T${pad(selectHour)}:${pad(selectMin)}`;
+        
+        hiddenInput.value = formattedVal;
+        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+        displayInput.value = _qlxFormatDateTimeToShow(formattedVal);
+        
+        removePicker();
+    };
+
+    const outsideClick = (e) => {
+        if (!picker.contains(e.target) && e.target !== displayInput && !displayInput.contains(e.target)) {
+            removePicker();
+        }
+    };
+
+    const closeOnScroll = (e) => {
+        if (!picker.contains(e.target)) {
+            removePicker();
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('mousedown', outsideClick);
+        document.addEventListener('scroll', closeOnScroll, true);
+    }, 50);
+
+    renderCalendar();
+}
+
 function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, rawTimeline) {
     const schedule = JSON.parse(decodeURIComponent(rawSchedule) || '{}');
     window._qlxCurrentSchedule = schedule;
@@ -1282,6 +1856,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
         }
 
         const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
+        const valISO = toInputVal(scheduleVal);
         
         return `
             <div id="card_${stepKey}" class="qlx-step-card" onclick="_qlxActivatePasteCard('${stepKey}')" onfocusin="_qlxActivatePasteCard('${stepKey}')" data-no-debounce="true" style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#f8fafc;margin-bottom:12px;cursor:pointer;transition:all 0.2s ease;">
@@ -1292,7 +1867,11 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
                 <div style="display:flex;flex-direction:column;gap:8px;" onclick="event.stopPropagation();" data-no-debounce="true">
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Thời gian dự kiến xong:</label>
-                        <input type="datetime-local" id="setup${capStep}" class="modal-input" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;font-size:12px;" value="${toInputVal(scheduleVal)}" min="${minVal}">
+                        <div class="qlx-datetime-picker-wrap" style="position:relative;">
+                            <input type="hidden" id="setup${capStep}" value="${valISO}">
+                            <input type="text" id="setup${capStep}_display" class="modal-input qlx-custom-datetime-input" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-weight:600;" readonly value="${_qlxFormatDateTimeToShow(valISO)}" onclick="_qlxOpenDateTimePicker('setup${capStep}', '${minVal}')">
+                            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;font-size:12px;">📅</span>
+                        </div>
                     </div>
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Nội dung báo cáo:</label>
@@ -1624,7 +2203,11 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                 <div id="qlxDelayInputs" style="display:${isUnscheduled ? 'flex' : 'none'};flex-direction:column;gap:12px;">
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Giờ dự kiến hoàn thành (Bắt buộc):' : 'Giờ dự kiến hoàn thành mới (Bắt buộc):'}</label>
-                        <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" min="${getMinForStep()}">
+                        <div class="qlx-datetime-picker-wrap" style="position:relative;">
+                            <input type="hidden" id="qlxStepExpectedAt" value="">
+                            <input type="text" id="qlxStepExpectedAt_display" class="modal-input qlx-custom-datetime-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-weight:600;" readonly value="" placeholder="Chọn giờ dự kiến hoàn thành..." onclick="_qlxOpenDateTimePicker('qlxStepExpectedAt', '${getMinForStep()}')">
+                            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;font-size:14px;">📅</span>
+                        </div>
                     </div>
                     
                     <div>
