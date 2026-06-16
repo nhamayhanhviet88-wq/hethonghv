@@ -1408,11 +1408,41 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
     let selectHour = activeDate.getHours();
     let selectMin = activeDate.getMinutes();
 
-    if (!currentVal) {
-        selectMin = Math.round(selectMin / 5) * 5;
-        if (selectMin >= 60) {
-            selectMin = 0;
-            selectHour = (selectHour + 1) % 24;
+    // Snap selectMin to nearest 15 mins (0, 15, 30, 45)
+    let snappedMin = Math.round(selectMin / 15) * 15;
+    if (snappedMin >= 60) {
+        snappedMin = 0;
+        selectHour = selectHour + 1;
+        if (selectHour >= 24) {
+            selectHour = 0;
+            const d = new Date(selectYear, selectMonth, selectDay + 1);
+            selectYear = d.getFullYear();
+            selectMonth = d.getMonth();
+            selectDay = d.getDate();
+        }
+    }
+    selectMin = snappedMin;
+
+    if (minDate) {
+        let checkDate = new Date(selectYear, selectMonth, selectDay, selectHour, selectMin);
+        if (checkDate < minDate) {
+            while (checkDate < minDate) {
+                selectMin += 15;
+                if (selectMin >= 60) {
+                    selectMin = 0;
+                    selectHour += 1;
+                    if (selectHour >= 24) {
+                        selectHour = 0;
+                        selectDay += 1;
+                    }
+                }
+                checkDate = new Date(selectYear, selectMonth, selectDay, selectHour, selectMin);
+            }
+            selectYear = checkDate.getFullYear();
+            selectMonth = checkDate.getMonth();
+            selectDay = checkDate.getDate();
+            selectHour = checkDate.getHours();
+            selectMin = checkDate.getMinutes();
         }
     }
 
@@ -1501,7 +1531,8 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
     }
     hourSelect.value = selectHour;
 
-    for (let m = 0; m < 60; m++) {
+    const allowedMins = [0, 15, 30, 45];
+    for (const m of allowedMins) {
         const opt = document.createElement('option');
         opt.value = m;
         opt.textContent = String(m).padStart(2, '0');
