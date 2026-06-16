@@ -32,6 +32,14 @@ async function _qlxLoadHolidays() {
     }
 }
 
+function _qlxGetMinDateTimeStr() {
+    const date = new Date();
+    const tzOffset = 7 * 60; // Vietnam timezone (UTC+7)
+    const localTime = new Date(date.getTime() + tzOffset * 60 * 1000);
+    return localTime.toISOString().slice(0, 16);
+}
+
+
 async function renderDonhanghomnayqlxPage(container) {
     _dhnqlxFilter = 'xu_ly';
     _dhnqlxSearchVal = '';
@@ -1079,23 +1087,23 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule) {
             </div>
             <div>
                 <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupCut" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.cut_expected_at)}">
+                <input type="datetime-local" id="setupCut" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.cut_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
             </div>
             <div>
                 <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupIn" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.in_expected_at)}">
+                <input type="datetime-local" id="setupIn" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.in_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
             </div>
             <div>
                 <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupEp" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.ep_expected_at)}">
+                <input type="datetime-local" id="setupEp" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.ep_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
             </div>
             <div>
                 <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupMayQcHt" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.may_qc_ht_expected_at)}">
+                <input type="datetime-local" id="setupMayQcHt" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.may_qc_ht_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
             </div>
             <div>
                 <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupGui" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.gui_expected_at)}">
+                <input type="datetime-local" id="setupGui" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.gui_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
             </div>
         </div>
     `;
@@ -1297,7 +1305,7 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                 <div id="qlxDelayInputs" style="display:${isUnscheduled ? 'flex' : 'none'};flex-direction:column;gap:12px;">
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Giờ dự kiến hoàn thành (Bắt buộc):' : 'Giờ dự kiến hoàn thành mới (Bắt buộc):'}</label>
-                        <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;">
+                        <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" min="${_qlxGetMinDateTimeStr()}">
                     </div>
                     
                     <div>
