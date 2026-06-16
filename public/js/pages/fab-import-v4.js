@@ -75,7 +75,7 @@ function _bnhFabRenderBody() {
             if (it.reservations && it.reservations.length) {
                 it.reservations.forEach(function(r) {
                     h += '<div style="background:#fff7ed;border:1.5px solid #ffedd5;padding:6px 12px;border-radius:8px;margin:4px 4px 4px 12px;font-size:13px;color:#c2410c;font-weight:800;display:inline-block;box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
-                        + '📦 ' + (r.order_code||'') + ' Phối ' + ((r.phoi_index||0)+1) + ': ' 
+                        + '📦 ' + (r.order_code||'') + ' — Phiếu ' + (r.item_index||1) + ' — P' + ((r.phoi_index||0)+1) + ': ' 
                         + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_trees||0) + ' cây</span>, ' 
                         + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_amount||0) + ' ' + (it.unit || 'kg') + '</span>'
                         + '</div>';
@@ -273,7 +273,7 @@ function _bnhFabAddItem() {
                 + '<div style="font-size:12px;font-weight:700;color:#1e293b">🧵 '+g.material_name+' - '+g.color_name+'</div>';
             (g.reservations||[]).forEach(function(r) {
                 html += '<div style="background:#fff7ed;border:1.5px solid #ffedd5;padding:6px 12px;border-radius:8px;margin:4px 4px 4px 12px;font-size:13px;color:#c2410c;font-weight:800;display:inline-block;box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
-                    + '📦 ' + (r.order_code||'') + ' Phối ' + ((r.phoi_index||0)+1) + ': ' 
+                    + '📦 ' + (r.order_code||'') + ' — Phiếu ' + (r.item_index||1) + ' — P' + ((r.phoi_index||0)+1) + ': ' 
                     + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_trees||0) + ' cây</span>, ' 
                     + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_amount||0) + ' ' + (g.unit || 'kg') + '</span>'
                     + '</div>';

@@ -863,7 +863,12 @@ module.exports = async function(fastify) {
                    res.material_name, res.color_name, res.unit,
                    res.call_trees, res.call_amount, res.call_note, res.call_date,
                    o.order_code, it.description AS item_description,
-                   u.full_name AS called_by_name
+                   u.full_name AS called_by_name,
+                   (
+                       SELECT COUNT(*)::int 
+                       FROM dht_order_items doi2 
+                       WHERE doi2.dht_order_id = res.dht_order_id AND doi2.id <= res.item_id
+                   ) AS item_index
             FROM qlx_fabric_reservations res
             LEFT JOIN dht_orders o ON o.id = res.dht_order_id
             LEFT JOIN dht_order_items it ON it.id = res.item_id
@@ -900,7 +905,8 @@ module.exports = async function(fastify) {
                 item_id: c.item_id, phoi_index: c.phoi_index,
                 item_description: c.item_description,
                 call_trees: ct, call_amount: ca, call_note: c.call_note,
-                called_by_name: c.called_by_name
+                called_by_name: c.called_by_name,
+                item_index: Number(c.item_index) || 1
             });
         }
 
