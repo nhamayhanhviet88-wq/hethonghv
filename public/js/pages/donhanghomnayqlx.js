@@ -995,7 +995,7 @@ function _qlxRenderTimeline(res) {
                 <span>🏷️ Phiếu ${itemIdx + 1}: ${item.product_name || 'Sản phẩm'} ${item.description ? `(${item.description})` : ''}</span>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;">SL: ${item.quantity || 0}</span>
-                    <button type="button" onclick="event.stopPropagation(); _qlxShowSetupScheduleModal(${o.id}, ${item.id}, '${o.order_code}', '${encodeURIComponent(JSON.stringify(item.qlx_schedule || {}))}')" style="background:#4f46e5;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(79,70,229,0.2);">⚙️ Setup Lịch Trình</button>
+                    <button type="button" onclick="event.stopPropagation(); _qlxShowSetupScheduleModal(${o.id}, ${item.id}, '${o.order_code}', '${encodeURIComponent(JSON.stringify(item.qlx_schedule || {}))}', '${encodeURIComponent(JSON.stringify(item.timeline || []))}')" style="background:#4f46e5;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>
                 </div>
             </div>`;
             
@@ -1069,8 +1069,21 @@ function _qlxRenderTimeline(res) {
     return html;
 }
 
-function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule) {
+function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, rawTimeline) {
     const schedule = JSON.parse(decodeURIComponent(rawSchedule) || '{}');
+    window._qlxCurrentSchedule = schedule;
+
+    const timeline = JSON.parse(decodeURIComponent(rawTimeline || '') || '[]');
+    const isCutDone = timeline.some(s => s.name === 'Cắt' && s.done);
+    const isInDone = timeline.some(s => s.name === 'In' && s.done);
+    const isEpDone = timeline.some(s => s.name === 'Ép' && s.done);
+    
+    const isMayDone = timeline.some(s => s.name === 'May' && s.done);
+    const isQcDone = timeline.some(s => s.name === 'Kiểm Tra CL' && s.done);
+    const isHtDone = timeline.some(s => s.name === 'Hoàn Thiện' && s.done);
+    const isMayQcHtDone = isMayDone && isQcDone && isHtDone;
+    
+    const isGuiDone = timeline.some(s => s.name === 'Gửi Hàng' && s.done);
     
     const toInputVal = d => {
         if (!d) return '';
@@ -1080,31 +1093,155 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule) {
         return localTime.toISOString().slice(0, 16);
     };
 
+    const getMinForStep = (stepKey) => {
+        let minTime = new Date(); // default to now
+        const tzOffset = 7 * 60; // UTC+7
+        
+        const parseDate = (dStr) => {
+            if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
+            return new Date(dStr);
+        };
+
+        const getActualOrScheduled = (stepName, scheduleField) => {
+            const step = timeline.find(s => s.name === stepName);
+            if (step && step.done && step.time) return parseDate(step.time);
+            return parseDate(schedule[scheduleField]);
+        };
+
+        let depTime = null;
+        if (stepKey === 'in') {
+            const cut = getActualOrScheduled('Cắt', 'cut_expected_at');
+            if (cut) depTime = new Date(cut.getTime() + 3 * 3600 * 1000);
+        } else if (stepKey === 'ep') {
+            const cut = getActualOrScheduled('Cắt', 'cut_expected_at');
+            const inn = getActualOrScheduled('In', 'in_expected_at');
+            const times = [];
+            if (cut) times.push(cut.getTime() + 3 * 3600 * 1000);
+            if (inn) times.push(inn.getTime() + 3 * 3600 * 1000);
+            if (times.length > 0) depTime = new Date(Math.max(...times));
+        } else if (stepKey === 'may_qc_ht') {
+            const ep = getActualOrScheduled('Ép', 'ep_expected_at');
+            if (ep) depTime = new Date(ep.getTime() + 3 * 3600 * 1000);
+        } else if (stepKey === 'gui') {
+            const m = getActualOrScheduled('May', 'may_qc_ht_expected_at');
+            const q = getActualOrScheduled('Kiểm Tra CL', 'may_qc_ht_expected_at');
+            const h = getActualOrScheduled('Hoàn Thiện', 'may_qc_ht_expected_at');
+            const times = [];
+            if (m) times.push(m.getTime());
+            if (q) times.push(q.getTime());
+            if (h) times.push(h.getTime());
+            
+            if (times.length > 0) {
+                depTime = new Date(Math.max(...times) + 3 * 3600 * 1000);
+            } else {
+                const mayQcHt = parseDate(schedule.may_qc_ht_expected_at);
+                if (mayQcHt) depTime = new Date(mayQcHt.getTime() + 3 * 3600 * 1000);
+            }
+        }
+
+        if (depTime && depTime > minTime) {
+            minTime = depTime;
+        }
+
+        const localTime = new Date(minTime.getTime() + tzOffset * 60 * 1000);
+        return localTime.toISOString().slice(0, 16);
+    };
+
+    let cutHtml = '';
+    if (isCutDone) {
+        cutHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt:</label>
+                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
+                    🟢 Đã hoàn thành
+                </div>
+            </div>`;
+    } else {
+        cutHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupCut" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.cut_expected_at)}" min="${getMinForStep('cut')}">
+            </div>`;
+    }
+
+    let inHtml = '';
+    if (isInDone) {
+        inHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In:</label>
+                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
+                    🟢 Đã hoàn thành
+                </div>
+            </div>`;
+    } else {
+        inHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupIn" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.in_expected_at)}" min="${getMinForStep('in')}">
+            </div>`;
+    }
+
+    let epHtml = '';
+    if (isEpDone) {
+        epHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép:</label>
+                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
+                    🟢 Đã hoàn thành
+                </div>
+            </div>`;
+    } else {
+        epHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupEp" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.ep_expected_at)}" min="${getMinForStep('ep')}">
+            </div>`;
+    }
+
+    let mayQcHtHtml = '';
+    if (isMayQcHtDone) {
+        mayQcHtHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT:</label>
+                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
+                    🟢 Đã hoàn thành
+                </div>
+            </div>`;
+    } else {
+        mayQcHtHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupMayQcHt" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.may_qc_ht_expected_at)}" min="${getMinForStep('may_qc_ht')}">
+            </div>`;
+    }
+
+    let guiHtml = '';
+    if (isGuiDone) {
+        guiHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi:</label>
+                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
+                    🟢 Đã hoàn thành
+                </div>
+            </div>`;
+    } else {
+        guiHtml = `
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupGui" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.gui_expected_at)}" min="${getMinForStep('gui')}">
+            </div>`;
+    }
+
     const contentHtml = `
         <div style="display:flex;flex-direction:column;gap:12px;">
             <div style="font-size:12px;color:#475569;margin-bottom:8px;background:#f1f5f9;padding:8px;border-radius:6px;">
                 💡 <b>Nguyên tắc:</b> Chặng sau tự động cách chặng trước ít nhất <b>3 tiếng</b>. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
             </div>
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupCut" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.cut_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
-            </div>
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupIn" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.in_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
-            </div>
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupEp" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.ep_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
-            </div>
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupMayQcHt" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.may_qc_ht_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
-            </div>
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupGui" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.gui_expected_at)}" min="${_qlxGetMinDateTimeStr()}">
-            </div>
+            ${cutHtml}
+            ${inHtml}
+            ${epHtml}
+            ${mayQcHtHtml}
+            ${guiHtml}
         </div>
     `;
 
@@ -1113,12 +1250,14 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule) {
         <button onclick="_qlxSubmitSetupSchedule(${orderId}, ${itemId})" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">Lưu lịch trình</button>
     `;
 
-    _dhnqlxCreateModal(`Setup Lịch Trình — ${orderCode}`, contentHtml, footerHtml, '450px');
+    _dhnqlxCreateModal(`Báo cáo tiến trình đơn hàng — ${orderCode}`, contentHtml, footerHtml, '450px');
 }
 
 async function _qlxSubmitSetupSchedule(orderId, itemId) {
     const validateField = (id, label) => {
-        const val = document.getElementById(id).value;
+        const el = document.getElementById(id);
+        if (!el) return true;
+        const val = el.value;
         if (!val) return true;
         const expDate = new Date(val);
         if (isNaN(expDate.getTime())) {
@@ -1143,19 +1282,23 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
     if (!validateField('setupMayQcHt', 'May/QC/HT')) return;
     if (!validateField('setupGui', 'Gửi')) return;
 
-    const getISOVal = id => {
-        const val = document.getElementById(id).value;
+    const getISOVal = (id, fieldName) => {
+        const el = document.getElementById(id);
+        if (!el) {
+            return window._qlxCurrentSchedule ? window._qlxCurrentSchedule[fieldName] : null;
+        }
+        const val = el.value;
         return val ? new Date(val).toISOString() : null;
     };
 
     const payload = {
         dht_order_id: orderId,
         order_item_id: itemId,
-        cut_expected_at: getISOVal('setupCut'),
-        in_expected_at: getISOVal('setupIn'),
-        ep_expected_at: getISOVal('setupEp'),
-        may_qc_ht_expected_at: getISOVal('setupMayQcHt'),
-        gui_expected_at: getISOVal('setupGui')
+        cut_expected_at: getISOVal('setupCut', 'cut_expected_at'),
+        in_expected_at: getISOVal('setupIn', 'in_expected_at'),
+        ep_expected_at: getISOVal('setupEp', 'ep_expected_at'),
+        may_qc_ht_expected_at: getISOVal('setupMayQcHt', 'may_qc_ht_expected_at'),
+        gui_expected_at: getISOVal('setupGui', 'gui_expected_at')
     };
 
 
