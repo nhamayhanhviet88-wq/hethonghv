@@ -3369,4 +3369,91 @@ module.exports = async function(fastify) {
 
         return { success: true };
     });
+
+    fastify.get('/api/qlx/order-calendar', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { year, month, search } = request.query || {};
+            
+            const yearVal = Number(year) || vnNow().getFullYear();
+            const monthVal = Number(month) || (vnNow().getMonth() + 1);
+
+            const startDateStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-01`;
+            const endDateStr = new Date(yearVal, monthVal, 0).toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+            // 1. Fetch holidays
+            const holidays = await db.all(`
+                SELECT holiday_date, name 
+                FROM holidays 
+                WHERE holiday_date >= $1 AND holiday_date <= $2
+            `, [startDateStr, endDateStr]);
+
+            // 2. Fetch orders, items and schedules
+            let queryStr = `
+                SELECT 
+                    o.id AS order_id,
+                    o.order_code,
+                    o.customer_name,
+                    o.expected_ship_date,
+                    o.shipping_priority,
+                    oi.id AS item_id,
+                    oi.product_name,
+                    oi.description AS item_desc,
+                    oi.quantity AS item_quantity,
+                    cc.name AS cutting_category_name,
+                    sch.cut_expected_at,
+                    sch.in_expected_at,
+                    sch.ep_expected_at,
+                    sch.may_qc_ht_expected_at,
+                    sch.gui_expected_at,
+                    u_cskh.full_name AS cskh_name
+                FROM dht_orders o
+                LEFT JOIN dht_categories c ON o.category_id = c.id
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                LEFT JOIN dht_order_items oi ON oi.dht_order_id = o.id
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+                LEFT JOIN qlx_item_schedules sch ON sch.dht_order_id = o.id AND (
+                    sch.order_item_id = oi.id
+                    OR (
+                        sch.order_item_id IS NULL 
+                        AND NOT EXISTS (
+                            SELECT 1 FROM qlx_item_schedules sub 
+                            WHERE sub.dht_order_id = o.id AND sub.order_item_id = oi.id
+                        )
+                    )
+                )
+                WHERE (
+                    (o.expected_ship_date >= $1::date AND o.expected_ship_date <= $2::date)
+                    OR
+                    (timezone('Asia/Ho_Chi_Minh', sch.cut_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.cut_expected_at)::date <= $2::date)
+                    OR
+                    (timezone('Asia/Ho_Chi_Minh', sch.in_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.in_expected_at)::date <= $2::date)
+                    OR
+                    (timezone('Asia/Ho_Chi_Minh', sch.ep_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.ep_expected_at)::date <= $2::date)
+                    OR
+                    (timezone('Asia/Ho_Chi_Minh', sch.may_qc_ht_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.may_qc_ht_expected_at)::date <= $2::date)
+                    OR
+                    (timezone('Asia/Ho_Chi_Minh', sch.gui_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.gui_expected_at)::date <= $2::date)
+                )
+                AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM') 
+                AND o.order_code NOT ILIKE '%TEM%' 
+                AND o.order_code NOT ILIKE '%PET%'
+            `;
+
+            let params = [startDateStr, endDateStr];
+
+            if (search) {
+                queryStr += ` AND (o.order_code ILIKE $3 OR o.customer_name ILIKE $3 OR oi.product_name ILIKE $3)`;
+                params.push(`%${search.trim()}%`);
+            }
+
+            queryStr += ` ORDER BY o.expected_ship_date ASC, o.order_code ASC`;
+
+            const rows = await db.all(queryStr, params);
+
+            return { success: true, holidays, orders: rows };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
 };
