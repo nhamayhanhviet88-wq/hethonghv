@@ -219,6 +219,10 @@ async function _getShippingItemsProgress(orderIds) {
         FROM dht_order_items oi
         LEFT JOIN dht_carriers cr ON oi.actual_carrier_id = cr.id
         WHERE oi.dht_order_id = ANY($1::int[])
+          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
         ORDER BY oi.dht_order_id, oi.id
     `, [orderIds]);
 
@@ -711,7 +715,15 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE id = ANY($${itemIdx}::int[])`, itemParams);
 
             // Check if all items in order are now shipped
-            const unshipped = await db.get('SELECT COUNT(*) AS cnt FROM dht_order_items WHERE dht_order_id = $1 AND shipping_status = \'pending\'', [orderId]);
+            const unshipped = await db.get(`
+                SELECT COUNT(*) AS cnt FROM dht_order_items 
+                WHERE dht_order_id = $1 
+                  AND shipping_status = 'pending'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+            `, [orderId]);
             if (Number(unshipped?.cnt || 0) === 0) {
                 // All items are shipped! Update order status to shipped.
                 const orderSets = [];
@@ -783,7 +795,15 @@ module.exports = async function(fastify) {
 
         // Record shipment in dht_order_shipments
         try {
-            const allOrderItems = await db.all(`SELECT id, product_name, quantity, description FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC`, [orderId]);
+            const allOrderItems = await db.all(`
+                SELECT id, product_name, quantity, description FROM dht_order_items 
+                WHERE dht_order_id = $1 
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+                ORDER BY id ASC
+            `, [orderId]);
             let shippedItemIds = [];
             let shippedItemsList = [];
             if (itemIds.length > 0) {

@@ -217,6 +217,10 @@ module.exports = async function(fastify) {
                 JOIN dht_products p ON (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
                 JOIN dht_product_process pp ON pp.product_id = p.id
                 WHERE pp.is_active = true
+                  AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
                 GROUP BY oi.dht_order_id
             ) req ON o.id = req.dht_order_id
             ${where}
@@ -362,6 +366,10 @@ module.exports = async function(fastify) {
                 ) AS has_any_printing
             FROM dht_order_items oi
             WHERE oi.dht_order_id = $1
+              AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+              AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+              AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+              AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
             ORDER BY oi.id
         `, [orderId]);
 
@@ -628,6 +636,10 @@ module.exports = async function(fastify) {
                 JOIN dht_products p ON (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
                 JOIN dht_product_process pp ON pp.product_id = p.id
                 WHERE pp.is_active = true
+                  AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
                 GROUP BY oi.dht_order_id
             ) req ON o.id = req.dht_order_id
             WHERE o.expected_ship_date IS NOT NULL
@@ -705,7 +717,7 @@ module.exports = async function(fastify) {
                       OR cr.order_item_id = $2 
                       OR (
                           cr.order_item_id IS NULL 
-                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
                           AND NOT EXISTS (SELECT 1 FROM cutting_records cr2 WHERE cr2.dht_order_id = $1 AND cr2.order_item_id IS NOT NULL)
                       )
                   )
@@ -723,7 +735,13 @@ module.exports = async function(fastify) {
 
             // Get preparation and assignment status for all items in the order
             const items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+                SELECT id, description, quantity FROM dht_order_items 
+                WHERE dht_order_id = $1 
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+                ORDER BY id
             `, [orderId]);
 
             const itemsStatus = [];
@@ -813,7 +831,7 @@ module.exports = async function(fastify) {
                       OR pr.order_item_id = $2 
                       OR (
                           pr.order_item_id IS NULL 
-                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
                           AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.dht_order_id = $1 AND pr2.order_item_id IS NOT NULL)
                       )
                   )
@@ -835,7 +853,7 @@ module.exports = async function(fastify) {
                       OR pr.order_item_id = $2 
                       OR (
                           pr.order_item_id IS NULL 
-                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
                           AND NOT EXISTS (SELECT 1 FROM pressing_records pr2 WHERE pr2.dht_order_id = $1 AND pr2.order_item_id IS NOT NULL)
                       )
                   )
@@ -843,7 +861,13 @@ module.exports = async function(fastify) {
             `, [orderId, itemId]);
 
             let items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+                SELECT id, description, quantity FROM dht_order_items 
+                WHERE dht_order_id = $1 
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+                ORDER BY id
             `, [orderId]);
             if (itemId) {
                 items = items.filter(item => item.id === itemId);
@@ -952,7 +976,7 @@ module.exports = async function(fastify) {
                       OR sr.order_item_id = $2 
                       OR (
                           sr.order_item_id IS NULL 
-                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
                           AND NOT EXISTS (SELECT 1 FROM sewing_records sr2 WHERE sr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
                       )
                   )
@@ -1025,7 +1049,7 @@ module.exports = async function(fastify) {
                       OR sr.order_item_id = $2 
                       OR (
                           sr.order_item_id IS NULL 
-                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
                           AND NOT EXISTS (SELECT 1 FROM sewing_records sr2 WHERE sr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
                       )
                   )
@@ -1043,7 +1067,13 @@ module.exports = async function(fastify) {
             }
 
             let items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+                SELECT id, description, quantity FROM dht_order_items 
+                WHERE dht_order_id = $1 
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+                ORDER BY id
             `, [orderId]);
             if (itemId) {
                 items = items.filter(item => item.id === itemId);
@@ -1119,7 +1149,7 @@ module.exports = async function(fastify) {
                       OR sr.order_item_id = $2 
                       OR (
                           sr.order_item_id IS NULL 
-                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)
+                          AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
                           AND NOT EXISTS (SELECT 1 FROM finishing_records fr2 JOIN sewing_records sr2 ON fr2.sewing_record_id = sr2.id WHERE fr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
                       )
                   )
@@ -1137,7 +1167,13 @@ module.exports = async function(fastify) {
             }
 
             let items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id
+                SELECT id, description, quantity FROM dht_order_items 
+                WHERE dht_order_id = $1 
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+                ORDER BY id
             `, [orderId]);
             if (itemId) {
                 items = items.filter(item => item.id === itemId);
@@ -1252,7 +1288,12 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
                 LEFT JOIN users u ON i.shipped_by = u.id
                 LEFT JOIN payment_records pr ON i.shipping_payment_id = pr.id
-                WHERE i.dht_order_id = $1 ORDER BY i.id ASC
+                WHERE i.dht_order_id = $1 
+                  AND LOWER(COALESCE(i.product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(i.product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(i.description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(i.description, '')) NOT LIKE '%thiet ke%'
+                ORDER BY i.id ASC
             `, [orderId]);
 
             const shipments = await db.all(`
@@ -1639,6 +1680,10 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             ) AS finish_done
         FROM dht_order_items oi
         WHERE oi.dht_order_id = ANY($1::int[])
+          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
     `, [orderIds]);
 
     const itemsByOrderId = {};

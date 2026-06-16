@@ -282,6 +282,10 @@ module.exports = async function(fastify) {
                     FROM unpaid_orders o
                     JOIN dht_order_items oi ON oi.dht_order_id = o.id
                     WHERE o.remaining_amount > 0
+                      AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                      AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                      AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                      AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
                     
                     UNION
                     
@@ -299,7 +303,14 @@ module.exports = async function(fastify) {
                         END AS assoc_date,
                         o.remaining_amount
                     FROM unpaid_orders o
-                    WHERE NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id)
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM dht_order_items 
+                        WHERE dht_order_id = o.id
+                          AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+                          AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+                          AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+                          AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+                    )
                       AND o.remaining_amount > 0
 
                     UNION
