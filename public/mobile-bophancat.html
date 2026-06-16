@@ -694,7 +694,15 @@ function mRenderUncut(items = null, showSectionBadge = false){
             h+='</div>';
             if(itemQty) h+='<div style="font-size:11px;font-weight:800;color:#60a5fa;margin-top:4px">SL: '+qtyLabel+'</div>';
             h+='<div style="margin-top:6px;font-size:11px">';
-            h+='<span class="m-badge '+(p.fabric_arrived?'m-badge-ok':'m-badge-no')+'">'+(p.fabric_arrived?'✅ Vải về':'❌ Chưa vải')+'</span>';
+            let fabText = '❌ Chưa vải';
+            if (p.fabric_arrived) {
+                fabText = '✅ Vải về';
+            } else if (p.fabric_status === 'chua_goi') {
+                fabText = '❌ Chưa gọi vải';
+            } else if (p.fabric_status === 'chua_ve') {
+                fabText = '❌ Chưa về vải';
+            }
+            h+='<span class="m-badge '+(p.fabric_arrived?'m-badge-ok':'m-badge-no')+'">'+fabText+'</span>';
             h+='<span class="m-badge '+(o.has_pc_in?'m-badge-ok':'m-badge-no')+'" style="margin-left:4px">'+(o.has_pc_in?'✅ Đã PC In':'❌ Chưa In')+'</span>';
             h+='</div>';
             h+='</div>';
@@ -705,7 +713,14 @@ function mRenderUncut(items = null, showSectionBadge = false){
                 const btnBg = p.cut_warning ? 'background:linear-gradient(135deg,#f97316,#ea580c)' : 'background:linear-gradient(135deg,#10b981,#059669)';
                 h+='<button style="border:none;border-radius:8px;color:#fff;font-weight:700;padding:6px 12px;font-size:11px;cursor:pointer;'+btnBg+'" onclick="mClaim('+o.id+','+(o.item_id||'null')+', '+p.phoi_pair_index+', \''+o.order_code+'\')">'+btnText+'</button>';
             } else {
-                h+='<button style="border:none;border-radius:8px;color:#94a3b8;background:#334155;font-weight:600;padding:6px 12px;font-size:11px;cursor:not-allowed" disabled>🔒 Chờ</button>';
+                let waitText = '🔒 Chờ';
+                if (!p.fabric_arrived) {
+                    if (p.fabric_status === 'chua_goi') waitText = '🔒 Chưa gọi';
+                    else if (p.fabric_status === 'chua_ve') waitText = '🔒 Chưa về';
+                } else if (!o.has_pc_in) {
+                    waitText = '🔒 Chờ In';
+                }
+                h+='<button style="border:none;border-radius:8px;color:#94a3b8;background:#334155;font-weight:600;padding:6px 12px;font-size:11px;cursor:not-allowed" disabled>'+waitText+'</button>';
             }
             if (p.cut_warning && p.cut_warning.indexOf('Cắt bù') >= 0 && p.cutting_record_id) {
                 h+='<button style="border:1px solid #fca5a5;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626;padding:2px 6px;margin-top:4px" onclick="mToggle('+p.cutting_record_id+',\'cancel_compensation\')">❌ Hủy</button>';

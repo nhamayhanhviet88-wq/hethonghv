@@ -1398,6 +1398,7 @@ async function start() {
         console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
     } else {
         console.log('🚀 Running in TEST_MODE - skipping port binding');
+        await fastify.ready();
     }
 
     // Start deadline checker cron (mỗi 15 phút)

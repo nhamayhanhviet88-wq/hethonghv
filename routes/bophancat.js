@@ -164,6 +164,32 @@ module.exports = async function(fastify) {
         }
     } catch(e) { console.log('[BPC] backfill phoi_index:', e.message); }
 
+    // Cleanup invalid claimed records where fabric hasn't arrived/fulfilled
+    try {
+        const records = await db.all(`
+            SELECT cr.id, cr.order_item_id, cr.phoi_index, cr.product_name
+            FROM cutting_records cr
+            WHERE cr.is_cutting = false AND cr.is_cut_done = false AND cr.cutter_id IS NOT NULL
+        `);
+        let releasedCount = 0;
+        for (const r of records) {
+            const reservations = await db.all(`
+                SELECT status FROM qlx_fabric_reservations
+                WHERE item_id = $1 AND phoi_index = $2 AND status != 'released'
+            `, [r.order_item_id, r.phoi_index]);
+            const hasRes = reservations.length > 0;
+            const allArrived = hasRes && reservations.every(res => res.status === 'arrived' || res.status === 'fulfilled');
+            if (!allArrived) {
+                console.log(`[BPC Startup Cleanup] Releasing invalid claim: ${r.product_name} (ID: ${r.id})`);
+                await db.run(`DELETE FROM cutting_records WHERE id = $1`, [r.id]);
+                releasedCount++;
+            }
+        }
+        if (releasedCount > 0) {
+            console.log(`[BPC Startup Cleanup] Released ${releasedCount} invalid claimed cutting records.`);
+        }
+    } catch(e) { console.error('[BPC Startup Cleanup] Error:', e.message); }
+
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS cutting_history (
             id              SERIAL PRIMARY KEY,
@@ -1647,6 +1673,7 @@ module.exports = async function(fastify) {
                             // Calculate coordinate-level fabric_arrived
                             const phoiRes = reservations.filter(r => r.item_id === it.id && r.phoi_index === pi);
                             const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+                            const fabric_status = phoiRes.length === 0 ? 'chua_goi' : (isPhoiFabricArrived ? 'arrived' : 'chua_ve');
 
                             rows.push({
                                 ...o, item_id: it.id, item_desc: it.description,
@@ -1661,7 +1688,8 @@ module.exports = async function(fastify) {
                                 cutting_record_id: matchingUnclaimed ? matchingUnclaimed.id : null,
                                 original_cutter_id: originalCutterId,
                                 has_pc_in: it.has_pc_in,
-                                fabric_arrived: isPhoiFabricArrived
+                                fabric_arrived: isPhoiFabricArrived,
+                                fabric_status: fabric_status
                             });
                         }
                     }
@@ -1681,6 +1709,7 @@ module.exports = async function(fastify) {
                         // Calculate coordinate-level fabric_arrived for phoi_index = 0
                         const phoiRes = reservations.filter(r => r.item_id === it.id && r.phoi_index === 0);
                         const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+                        const fabric_status = phoiRes.length === 0 ? 'chua_goi' : (isPhoiFabricArrived ? 'arrived' : 'chua_ve');
 
                         rows.push({
                             ...o, item_id: it.id, item_desc: it.description,
@@ -1694,7 +1723,8 @@ module.exports = async function(fastify) {
                             cutting_record_id: unclaimedRec ? unclaimedRec.id : null,
                             original_cutter_id: originalCutterId,
                             has_pc_in: it.has_pc_in,
-                            fabric_arrived: isPhoiFabricArrived
+                            fabric_arrived: isPhoiFabricArrived,
+                            fabric_status: fabric_status
                         });
                     }
                 }

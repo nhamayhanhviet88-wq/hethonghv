@@ -148,10 +148,13 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS arrived_by INTEGER`);
     } catch(e) { console.error('[QLX] fabric arrival columns:', e.message); }
 
-    // Linked call support
     try {
         await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS linked_call_id INTEGER REFERENCES qlx_fabric_reservations(id)`);
     } catch(e) { /* column likely exists */ }
+
+    try {
+        await db.exec(`ALTER TABLE qlx_fabric_reservations ADD COLUMN IF NOT EXISTS phoi_index INTEGER DEFAULT 0`);
+    } catch(e) { console.error('[QLX] phoi_index column:', e.message); }
 
     // Ticket-level (phiếu) migration updates
     try {

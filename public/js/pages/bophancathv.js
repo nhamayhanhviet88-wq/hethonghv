@@ -1168,7 +1168,11 @@ function _bpcBuildUnassignedTableHtml(all) {
                 }
             } else {
                 var missing = [];
-                if (!r.fabric_arrived) missing.push('Vải');
+                if (!r.fabric_arrived) {
+                    if (r.fabric_status === 'chua_goi') missing.push('Chưa gọi vải');
+                    else if (r.fabric_status === 'chua_ve') missing.push('Chưa về vải');
+                    else missing.push('Vải');
+                }
                 if (!r.has_pc_in) missing.push('PC In');
                 claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
             }
