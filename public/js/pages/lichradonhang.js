@@ -1648,13 +1648,19 @@
             const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
 
             return `
-                <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px;" onclick="navigateToOrderTrace('${o.order_code}')">
+                <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px; cursor: default;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
                             <span class="cal-order-code" style="font-size: 13px;">${o.displayCode || o.order_code}</span>
                             <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 10px;">${o.customer_name || 'Không tên KH'}</span>
                         </div>
-                        <span style="font-size: 11px; font-weight: 800; background: ${pStyle.border}22; color: ${pStyle.border}; padding: 2px 6px; border-radius: 4px;">${priority}</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="cal-trace-icon" 
+                                  style="cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;" 
+                                  onclick="event.stopPropagation(); navigateToOrderTrace('${o.order_code}')"
+                                  title="Nhấp để tra soát đơn hàng ${o.order_code}">🔍</span>
+                            <span style="font-size: 11px; font-weight: 800; background: ${pStyle.border}22; color: ${pStyle.border}; padding: 2px 6px; border-radius: 4px;">${priority}</span>
+                        </div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                         <span class="cal-order-qty" style="font-size: 11px; font-weight: 800;">${qtyText}</span>
