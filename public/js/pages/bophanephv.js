@@ -635,7 +635,7 @@ function _bpeRenderRows(paged) {
  
         return '<tr><td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">' + (globalIndex + 1) + '</td>'
             + '<td class="bpe-col-act"><button class="bpe-ib' + rC + '"' + btnStyle + ' onclick="_bpeTog(' + r.id + ',\'' + rA + '\')" title="' + btnTitle + '">' + rI + '</button></td>'
-            + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '" onclick="_bpeErr()" title="Báo lỗi">' + eI + '</button></td>'
+            + '<td class="bpe-col-act"><button class="bpe-ib' + eC + '"' + (r.error_reported ? ' style="cursor:default;opacity:0.85"' : ' onclick="_bpeReportError(' + r.id + ')"') + ' title="Báo lỗi">' + eI + '</button></td>'
             + '<td style="font-size:10px">' + (r.is_reported && r.reported_at ? _bpeFmtTimeDateNoYear(r.reported_at) : '—') + '</td>'
             + '<td style="font-size:10px;color:#ea580c;font-weight:600">' + presserHtml + '</td>'
             + '<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(' + r.id + ',' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">' + priBadge + _bpeDisplayProdName(r) + '</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
@@ -958,6 +958,215 @@ function _bpeErr() {
     if (typeof navigate === 'function') {
         navigate('don-loi-khach-hang');
         showToast('📋 Chuyển sang Đơn Lỗi');
+    }
+}
+
+async function _bpeReportError(recordId) {
+    if (window._bpeBusy) return;
+    window._bpeBusy = true;
+
+    try {
+        var res = await apiCall('/api/pressing/records/' + recordId);
+        var r = res.record;
+        if (!r) { showToast('Không tìm thấy đơn ép', 'error'); window._bpeBusy = false; return; }
+
+        var ce = await apiCall('/api/common-errors-tpl');
+        var commonErrors = ce.items || [];
+
+        var old = document.getElementById('_bpeErrorModal'); if (old) old.remove();
+
+        var presserName = window._currentUser ? window._currentUser.full_name : 'Thợ ép';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận Ép - ' + presserName;
+        var saleName = r.cskh_name || r.created_by_name || '—';
+
+        window._bpeErrorImages = [];
+
+        var h = '<div class="bpc-modal-overlay" id="_bpeErrorModal" onclick="if(event.target===this)_bpeCloseErrorModal()">';
+        h += '<div class="bpc-modal" style="width:520px;max-height:95vh;overflow-y:auto;display:flex;flex-direction:column">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea)"><div class="m-icon">🚨</div><div><div class="m-title">BÁO ĐƠN LỖI (BỘ PHẬN ÉP)</div><div class="m-sub">' + (r.order_code || '') + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:16px 20px">';
+
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Mã Đơn</span><span class="bpc-modal-val" style="font-weight:700">' + (r.order_code || '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Khách Hàng</span><span class="bpc-modal-val" style="font-weight:700">' + (r.customer_name || '—') + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">💼 CSKH</span><span class="bpc-modal-val" style="font-weight:700">' + saleName + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Sản Xuất</span><span class="bpc-modal-val" style="font-weight:700;color:#059669">' + _bpeFormatOrderQty(r.order_quantity, r.category_name, r.product_name) + '</span></div>';
+        h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">✍️ Người Báo Lỗi</span><span class="bpc-modal-val" style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
+
+        h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+        h += '<select id="bpeE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc">';
+        h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
+        commonErrors.forEach(function(ce){
+            h += '<option value="' + ce.error_name + '">' + ce.error_name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
+        h += '<input type="number" id="bpeE_qty" min="1" max="' + (r.order_quantity || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626" placeholder="Nhập số lượng lỗi...">';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
+        h += '<textarea id="bpeE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div style="border:1.5px dashed #7c3aed;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(124,58,237,0.03);color:#7c3aed;font-size:13px;font-weight:700;">';
+        h += '    Bấm <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> tại bất kỳ đâu trên trang này để dán ảnh';
+        h += '</div>';
+        h += '<div id="bpeE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="bpeE_video" accept="video/*" style="font-size:11px;width:100%">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="bpc-modal-actions" style="margin-top:0">';
+        h += '<button class="bpc-modal-btn cancel" onclick="_bpeCloseErrorModal()">Hủy</button>';
+        h += '<button class="bpc-modal-btn confirm" id="_bpeErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="_bpeSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+        requestAnimationFrame(function() { document.getElementById('_bpeErrorModal').classList.add('show'); });
+
+        _bpeSetupErrorPasteListener();
+        window._bpeBusy = false;
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        window._bpeBusy = false;
+    }
+}
+
+function _bpeCloseErrorModal() {
+    var m = document.getElementById('_bpeErrorModal');
+    if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
+    if (window._bpeErrorPasteHandler) {
+        window.removeEventListener('paste', window._bpeErrorPasteHandler);
+        window._bpeErrorPasteHandler = null;
+    }
+}
+
+function _bpeAddErrorImage(file) {
+    _bpeCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._bpeErrorImages.push(compressed);
+        _bpeRenderErrorImagePreviews();
+    });
+}
+
+function _bpeRenderErrorImagePreviews() {
+    var area = document.getElementById('bpeE_previews');
+    if (!area) return;
+    var h = '';
+    window._bpeErrorImages.forEach(function(imgData, index) {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1">';
+        h += '<span onclick="_bpeRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function _bpeRemoveErrorImage(index) {
+    window._bpeErrorImages.splice(index, 1);
+    _bpeRenderErrorImagePreviews();
+}
+
+function _bpeSetupErrorPasteListener() {
+    if (window._bpeErrorPasteHandler) {
+        window.removeEventListener('paste', window._bpeErrorPasteHandler);
+    }
+    window._bpeErrorPasteHandler = function(e) {
+        if (!document.getElementById('_bpeErrorModal')) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                var blob = items[i].getAsFile();
+                _bpeAddErrorImage(blob);
+            }
+        }
+    };
+    window.addEventListener('paste', window._bpeErrorPasteHandler);
+}
+
+async function _bpeSubmitError(recordId) {
+    if (window._bpeSubmitBusy) return;
+
+    var qtyEl = document.getElementById('bpeE_qty');
+    var qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { showToast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    var contentEl = document.getElementById('bpeE_content');
+    var content = contentEl.value.trim();
+    if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._bpeErrorImages || window._bpeErrorImages.length === 0) {
+        showToast('Vui lòng dán hoặc chọn ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
+
+    window._bpeSubmitBusy = true;
+    var btn = document.getElementById('_bpeErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        var res = await apiCall('/api/pressing/records/' + recordId);
+        var r = res.record;
+        if (!r) { throw new Error('Không tìm thấy record gốc'); }
+
+        var today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            var n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+        }
+
+        var presserName = window._currentUser ? window._currentUser.full_name : 'Thợ ép';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận Ép - ' + presserName;
+
+        var body = {
+            report_date: today,
+            common_error_type: document.getElementById('bpeE_common') ? document.getElementById('bpeE_common').value : '',
+            order_code: r.order_code,
+            cskh_name: reporterName,
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: r.dht_order_id,
+            customer_name: r.customer_name,
+            production_quantity: r.order_quantity,
+            error_department: 'Ép',
+            error_type: 'Nội Bộ'
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { throw new Error(result.error); }
+
+        if (window._bpeErrorImages && window._bpeErrorImages.length > 0 && result.id) {
+            var fd = new FormData();
+            window._bpeErrorImages.forEach(function(imgData, index) {
+                var blob = dataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        var videoInput = document.getElementById('bpeE_video');
+        if (videoInput && videoInput.files.length > 0 && result.id) {
+            var fdv = new FormData();
+            fdv.append('video', videoInput.files[0]);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
+        }
+
+        await apiCall('/api/pressing/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+        showToast('✅ Đã báo đơn lỗi thành công!');
+        _bpeCloseErrorModal();
+        await _bpeLoadAll();
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._bpeSubmitBusy = false;
     }
 }
 

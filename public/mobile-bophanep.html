@@ -312,6 +312,88 @@
         </div>
     </div>
 
+    <!-- Bottom sheet: Report Error -->
+    <div class="mm-overlay" id="_mmErrorModal" onclick="if(event.target===this)mCloseErrorModal()">
+        <div class="mm-sheet" style="max-height: 90vh">
+            <div class="mm-header" style="background: linear-gradient(135deg, #ef4444, #dc2626)">
+                <div class="mm-icon">🚨</div>
+                <div>
+                    <div class="mm-title">Báo Đơn Lỗi</div>
+                    <div class="mm-sub" id="mmE_title_sub">Mã đơn</div>
+                </div>
+            </div>
+            <div class="mm-body" style="max-height: 65vh; overflow-y: auto; color: #fff">
+                <input type="hidden" id="mmE_recId">
+                
+                <!-- Order Details Section -->
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">📋 Mã đơn:</span>
+                        <span id="mmE_order_code" style="color: #fdba74; font-weight: 800"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">👕 Tên sản phẩm:</span>
+                        <span id="mmE_product_name" style="color: #e2e8f0; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">👤 Khách hàng:</span>
+                        <span id="mmE_customer_name" style="color: #60a5fa; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">💼 CSKH:</span>
+                        <span id="mmE_cskh_name" style="color: #22d3ee; font-weight: 700"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
+                        <span style="color: #94a3b8; font-weight: 600">📦 SL Sản Xuất:</span>
+                        <span id="mmE_production_qty" style="color: #10b981; font-weight: 800"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0">
+                        <span style="color: #94a3b8; font-weight: 600">✍️ Người Báo Lỗi:</span>
+                        <span id="mmE_reporter_name" style="color: #c084fc; font-weight: 700"></span>
+                    </div>
+                </div>
+
+                <div style="display:none" class="mr-form-group">
+                    <label>Lỗi Thường Gặp</label>
+                    <select id="mmE_common" style="width:100%;padding:10px;border:1.5px solid rgba(255, 255, 255, 0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit;outline:none;">
+                        <option value="" style="color:#000">-- Chọn loại lỗi (nếu có) --</option>
+                    </select>
+                </div>
+
+                <div class="mr-form-group" style="margin-top:12px">
+                    <label>Số Lượng Lỗi <span style="color:#f87171">*</span></label>
+                    <input type="number" id="mmE_qty" min="1" value="" style="width:100%;padding:10px;border:1.5px solid rgba(255, 255, 255, 0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b" placeholder="Nhập số lượng...">
+                </div>
+
+                <div class="mr-form-group" style="margin-top:12px">
+                    <label>Nội Dung Chi Tiết <span style="color:#f87171">*</span></label>
+                    <textarea id="mmE_content" rows="3" style="width:100%;padding:10px;border:1.5px solid rgba(255, 255, 255, 0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>
+                </div>
+
+                <div class="mr-form-group" style="margin-top:12px">
+                    <label style="display: flex; align-items: center; gap: 4px; font-weight: 700">📷 Hình Ảnh Minh Họa <span style="color:#f87171">*</span></label>
+                    <div style="margin-top:6px">
+                        <label id="mmE_paste_zone" style="display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1.5px dashed rgba(255, 255, 255, 0.15); border-radius: 10px; cursor: pointer; justify-content: center">
+                            <span style="font-size: 20px">📸</span>
+                            <span style="font-size: 12px; color: #e2e8f0; font-weight: 600">Chụp hình từ camera</span>
+                            <input type="file" id="mmE_images" accept="image/*" capture="environment" style="display:none" onchange="mmOnErrorImagesChange(event)">
+                        </label>
+                        <div id="mmE_previews" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px"></div>
+                    </div>
+                </div>
+
+                <div class="mr-form-group" style="margin-top:12px">
+                    <label>🎥 Video Minh Họa (Không bắt buộc)</label>
+                    <input type="file" id="mmE_video" accept="video/*" style="font-size:12px;width:100%;color:#e2e8f0">
+                </div>
+            </div>
+            <div class="mm-actions">
+                <button class="mm-btn mm-btn-no" onclick="mCloseErrorModal()">Hủy</button>
+                <button class="mm-btn mm-btn-ok" id="_mmErrorSubmitBtn" style="background: linear-gradient(135deg, #ef4444, #dc2626)" onclick="mSubmitError()">🚨 BÁO LỖI</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom sheet: History Detail -->
     <div class="mm-overlay" id="mHistoryDetailOverlay" onclick="if(event.target===this)mCloseHistoryDetail()">
         <div class="mm-sheet" style="max-height: 90vh">
@@ -959,10 +1041,16 @@
                                 <span class="m-act-i">✅</span>
                                 <span class="m-act-l" style="color:#4ade80">BÁO CÁO</span>
                             </button>
-                            <button class="m-act" style="border-color:#e2e8f0" onclick="mErr()">
-                                <span class="m-act-i">⚠️</span>
-                                <span class="m-act-l">BÁO LỖI</span>
-                            </button>
+                            ${r.error_reported 
+                                ? `<button class="m-act" style="border-color:#ef4444; background:rgba(239,68,68,0.05)" disabled>
+                                       <span class="m-act-i">🚨</span>
+                                       <span class="m-act-l" style="color:#f87171">ĐÃ BÁO LỖI</span>
+                                   </button>`
+                                : `<button class="m-act" style="border-color:#e2e8f0" onclick="mOpenErrorModal(${r.id})">
+                                       <span class="m-act-i">⚠️</span>
+                                       <span class="m-act-l">BÁO LỖI</span>
+                                   </button>`
+                            }
                         </div>
                     </div>
                 `;
@@ -1542,8 +1630,186 @@
             }
         }
 
-        function mErr() {
-            location.href = '/donloikhachhang';
+        async function mOpenErrorModal(recordId) {
+            if (window._mBusy) return;
+            window._mBusy = true;
+            let rec = pressingRecords.find(r => r.id === recordId);
+            if (!rec) { showToast('Không tìm thấy record', 'error'); window._mBusy = false; return; }
+
+            try {
+                const updated = await apiCall('/api/pressing/records/' + recordId);
+                if (updated && updated.record) {
+                    rec = updated.record;
+                    let idx = pressingRecords.findIndex(r => r.id === recordId);
+                    if (idx >= 0) pressingRecords[idx] = updated.record;
+                }
+            } catch(e) {
+                console.error('Error fetching record detail:', e);
+            }
+
+            try {
+                const ce = await apiCall('/api/common-errors-tpl');
+                const commonErrors = ce.items || [];
+
+                const old = document.getElementById('_mmErrorModal'); if (old) old.remove();
+
+                const presserName = currentUser ? currentUser.full_name : 'Thợ ép';
+                const reporterName = 'Người Báo Lỗi: Bộ Phận Ép - ' + presserName;
+                const saleName = rec.cskh_name || rec.created_by_name || '—';
+
+                window._mmErrorImages = [];
+
+                document.getElementById('mmE_recId').value = recordId;
+                document.getElementById('mmE_title_sub').textContent = rec.order_code || '';
+                document.getElementById('mmE_order_code').textContent = rec.order_code || '—';
+                document.getElementById('mmE_product_name').textContent = rec.product_name || '—';
+                document.getElementById('mmE_customer_name').textContent = rec.customer_name || '—';
+                document.getElementById('mmE_cskh_name').textContent = saleName;
+                document.getElementById('mmE_production_qty').textContent = rec.order_quantity || 0;
+                document.getElementById('mmE_reporter_name').textContent = reporterName;
+
+                const commonSel = document.getElementById('mmE_common');
+                if (commonSel) {
+                    commonSel.innerHTML = '<option value="" style="color:#000">-- Chọn loại lỗi (nếu có) --</option>';
+                    commonErrors.forEach(function(ce){
+                        commonSel.innerHTML += '<option value="' + ce.error_name + '" style="color:#000">' + ce.error_name + '</option>';
+                    });
+                }
+
+                document.getElementById('mmE_qty').value = '';
+                document.getElementById('mmE_content').value = '';
+                document.getElementById('mmE_previews').innerHTML = '';
+                const videoInp = document.getElementById('mmE_video');
+                if (videoInp) videoInp.value = '';
+
+                const overlay = document.getElementById('_mmErrorModal');
+                overlay.classList.add('show');
+
+                window._mBusy = false;
+            } catch(e) {
+                showToast('Lỗi: ' + e.message, 'error');
+                window._mBusy = false;
+            }
+        }
+
+        function mCloseErrorModal() {
+            const m = document.getElementById('_mmErrorModal');
+            if (m) { m.classList.remove('show'); }
+        }
+
+        function mmOnErrorImagesChange(e) {
+            const files = e.target.files;
+            for (let i = 0; i < files.length; i++) {
+                mmAddErrorImage(files[i]);
+            }
+            e.target.value = '';
+        }
+
+        function mmAddErrorImage(file) {
+            mCompressImage(file, function(compressed) {
+                if (!compressed) return;
+                window._mmErrorImages.push(compressed);
+                mmRenderErrorImagePreviews();
+            });
+        }
+
+        function mmRenderErrorImagePreviews() {
+            const area = document.getElementById('mmE_previews');
+            if (!area) return;
+            let h = '';
+            window._mmErrorImages.forEach((imgData, index) => {
+                h += '<div style="position:relative;display:inline-block">';
+                h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15)">';
+                h += '<span onclick="mmRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.4)">×</span>';
+                h += '</div>';
+            });
+            area.innerHTML = h;
+        }
+
+        function mmRemoveErrorImage(index) {
+            window._mmErrorImages.splice(index, 1);
+            mmRenderErrorImagePreviews();
+        }
+
+        async function mSubmitError() {
+            if (window._mSubmitBusy) return;
+
+            const recordId = Number(document.getElementById('mmE_recId').value);
+            const qtyEl = document.getElementById('mmE_qty');
+            const qty = Number(qtyEl.value) || 0;
+            if (qty <= 0) { showToast('⚠️ Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+            const contentEl = document.getElementById('mmE_content');
+            const content = contentEl.value.trim();
+            if (!content) { showToast('⚠️ Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+            if (!window._mmErrorImages || window._mmErrorImages.length === 0) {
+                showToast('⚠️ Vui lòng chọn hoặc chụp ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+                return;
+            }
+
+            window._mSubmitBusy = true;
+            const btn = document.getElementById('_mmErrorSubmitBtn');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+            try {
+                const updated = await apiCall('/api/pressing/records/' + recordId);
+                if (!updated || !updated.record) throw new Error('Không tìm thấy record gốc');
+                const origRecord = updated.record;
+
+                let today = new Date().toISOString().split('T')[0];
+                if (typeof vnNow === 'function') {
+                    const n = vnNow();
+                    today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+                }
+
+                const presserName = currentUser ? currentUser.full_name : 'Thợ ép';
+                const reporterName = 'Người Báo Lỗi: Bộ Phận Ép - ' + presserName;
+
+                const body = {
+                    report_date: today,
+                    common_error_type: document.getElementById('mmE_common') ? document.getElementById('mmE_common').value : '',
+                    order_code: origRecord.order_code,
+                    cskh_name: reporterName,
+                    error_quantity: qty,
+                    error_content: content,
+                    dht_order_id: origRecord.dht_order_id,
+                    customer_name: origRecord.customer_name,
+                    production_quantity: origRecord.order_quantity,
+                    error_department: 'Ép',
+                    error_type: 'Nội Bộ'
+                };
+
+                const result = await apiCall('/api/customer-errors', 'POST', body);
+                if (result.error) throw new Error(result.error);
+
+                if (window._mmErrorImages && window._mmErrorImages.length > 0 && result.id) {
+                    const fd = new FormData();
+                    window._mmErrorImages.forEach(function(imgData, index) {
+                        var blob = mDataURLtoBlob(imgData);
+                        fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+                    });
+                    await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+                }
+
+                const videoInput = document.getElementById('mmE_video');
+                if (videoInput && videoInput.files.length > 0 && result.id) {
+                    const fdv = new FormData();
+                    fdv.append('video', videoInput.files[0]);
+                    await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
+                }
+
+                await apiCall('/api/pressing/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+                showToast('✅ Đã báo đơn lỗi thành công!');
+                mCloseErrorModal();
+                await mLoadData();
+            } catch(e) {
+                showToast('Lỗi: ' + e.message, 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+                window._mSubmitBusy = false;
+            }
         }
 
         // --- Filter and Detail Helpers for History ---
