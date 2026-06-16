@@ -295,6 +295,17 @@ function getProgressSaleHTML(o) {
     }
 }
 
+function formatExpectedShipDateWithDay(dateVal) {
+    if (!dateVal) return '—';
+    const dt = new Date(dateVal);
+    const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const day = localDt.getDate();
+    const month = localDt.getMonth() + 1;
+    const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dayName = daysOfWeek[localDt.getDay()];
+    return `${dayName} - ${day}/${month}`;
+}
+
 function _dhnqlxRenderContent() {
     const container = document.getElementById('dhnqlxContent');
     if (!container) return;
@@ -330,11 +341,11 @@ function _dhnqlxRenderContent() {
         const progressHTML = getProgressSaleHTML(o);
 
         // Sale Ship Date Column
-        const saleExpectedDateStr = o.expected_ship_date_fmt || '—';
+        const saleExpectedDateStr = formatExpectedShipDateWithDay(o.expected_ship_date);
         const deliveryTimeHtml = o.standard_delivery_time ? `<div style="font-size:10px;color:#0369a1;font-weight:normal;">Giờ: <b>${o.standard_delivery_time}</b></div>` : '';
 
         // QLX Expected Date Column
-        const qlxExpectedDateStr = o.qlx_expected_date_fmt || '—';
+        const qlxExpectedDateStr = formatExpectedShipDateWithDay(o.qlx_expected_date);
         const qlxExpectedHourStr = o.qlx_expected_hour || '—';
 
         // Action Buttons dependent on status
