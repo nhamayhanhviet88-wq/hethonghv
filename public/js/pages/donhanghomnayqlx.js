@@ -654,49 +654,6 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
         m.style.zIndex = '99999';
         const closeCross = m.querySelector('span[onclick*="remove"]');
         if (closeCross) closeCross.style.display = 'none';
-
-        const modalContentCard = m.querySelector('div');
-
-        m.addEventListener('click', e => {
-            const headerBar = modalContentCard ? modalContentCard.children[0] : null;
-            const isClickOnHeader = headerBar && (e.target === headerBar || headerBar.contains(e.target));
-            
-            // If dimmed, any click anywhere restores it to normal
-            if (m.classList.contains('qlx-modal-dimmed')) {
-                m.classList.remove('qlx-modal-dimmed');
-                if (modalContentCard) {
-                    modalContentCard.style.opacity = '1';
-                    modalContentCard.style.filter = 'none';
-                }
-                m.style.background = 'rgba(15,23,42,0.6)';
-                m.style.backdropFilter = 'blur(4px)';
-                
-                // Consume click so it doesn't trigger inputs/buttons underneath immediately
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            
-            // If normal, only dim if clicked on backdrop overlay (m) or header bar
-            if (e.target === m || isClickOnHeader) {
-                m.classList.add('qlx-modal-dimmed');
-                if (modalContentCard) {
-                    modalContentCard.style.opacity = '0.15';
-                    modalContentCard.style.filter = 'blur(3px)';
-                }
-                m.style.background = 'rgba(15,23,42,0.1)';
-                m.style.backdropFilter = 'none';
-            }
-        });
-
-        m.addEventListener('dblclick', e => {
-            const headerBar = modalContentCard ? modalContentCard.children[0] : null;
-            const isClickOnHeader = headerBar && (e.target === headerBar || headerBar.contains(e.target));
-            
-            if (e.target === m || isClickOnHeader) {
-                m.remove();
-            }
-        });
     } else {
         m.addEventListener('click', e => { if (e.target === m) m.remove(); });
     }
