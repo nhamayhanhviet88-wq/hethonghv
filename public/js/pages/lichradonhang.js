@@ -1572,8 +1572,6 @@
                 const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
                 const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
 
-                const stepsHtml = renderOrderStepsHtml(o);
-
                 const cardHtml = `
                     <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px;" onclick="navigateToOrderTrace('${o.order_code}')">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -1586,9 +1584,6 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <span class="cal-order-qty" style="font-size: 11px; font-weight: 800;">${qtyText}</span>
                             <span style="font-size: 10.5px; font-weight: 700; color: #64748b;">CSKH: ${o.cskh_name || '--'}</span>
-                        </div>
-                        <div onclick="event.stopPropagation()" style="margin-top: 6px;">
-                            ${stepsHtml}
                         </div>
                     </div>
                 `;
