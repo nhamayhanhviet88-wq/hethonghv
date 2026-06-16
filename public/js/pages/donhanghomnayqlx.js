@@ -1049,29 +1049,120 @@ function _qlxRenderTimeline(res) {
                     ${s.reports && s.reports.length > 0 ? `<button class="qlx-step-history-btn" onclick="event.stopPropagation(); _qlxShowStepReportsHistoryModal('${o.order_code}', '${s.name}', '${encodeURIComponent(JSON.stringify(s.reports))}')">💬 Báo cáo (${s.reports.length})</button>` : ''}
                 </div>`;
             });
-            html += '</div>';
-            html += `</div>`;
-        });
+           function _qlxActivatePasteCard(stepKey) {
+    window._qlxActivePasteStep = stepKey;
+    
+    // Highlight UI
+    document.querySelectorAll('.qlx-step-card').forEach(card => {
+        card.style.border = '1px solid #e2e8f0';
+        card.style.boxShadow = 'none';
+        card.style.background = '#f8fafc';
+    });
+    
+    const activeCard = document.getElementById(`card_${stepKey}`);
+    if (activeCard) {
+        activeCard.style.border = '2px solid #6366f1';
+        activeCard.style.boxShadow = '0 0 0 4px rgba(99, 102, 241, 0.1)';
+        activeCard.style.background = '#ffffff';
     }
 
-    if (o.shipping_status === 'shipped') {
-        html += '<div class="ts-ship-info">';
-        html += `<div class="ts-ship-item">🚛 <b>NVC:</b> ${o.carrier_name||'-'}</div>`;
-        html += `<div class="ts-ship-item">📦 <b>Mã vận đơn:</b> ${o.tracking_code||'-'}</div>`;
-        html += `<div class="ts-ship-item">📱 <b>SĐT NX:</b> ${o.carrier_phone||'-'}</div>`;
-        html += `<div class="ts-ship-item">📅 <b>Ngày gửi:</b> ${fmtDT(o.shipped_at)}</div>`;
-        if (o.tracking_code && o.carrier_tracking_url) {
-            const url = o.carrier_tracking_url.replace('{code}', o.tracking_code);
-            html += `<div class="ts-ship-item">🔗 <a href="${url}" target="_blank" style="color:#4338ca;font-weight:700">Tra cứu vận đơn</a></div>`;
+    // Toggle badges
+    const steps = ['cut', 'in', 'ep', 'may_qc_ht', 'gui'];
+    steps.forEach(sk => {
+        const badge = document.querySelector(`.active-badge-${sk}`);
+        if (badge) {
+            badge.style.display = (sk === stepKey) ? 'inline-block' : 'none';
         }
-        html += '</div>';
+    });
+}
+
+function _qlxClearMultiStepImage(stepKey) {
+    if (window._qlxUploadedImages) {
+        delete window._qlxUploadedImages[stepKey];
     }
-    return html;
+    const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
+    const preview = document.getElementById(`setup${capStep}ImagePreview`);
+    if (preview) preview.style.display = 'none';
+    const zone = document.getElementById(`setup${capStep}PasteZone`);
+    if (zone) zone.innerText = `Bấm chọn chặng này rồi ấn Ctrl+V để dán ảnh`;
+}
+
+function _qlxUploadAndResizeMulti(file, stepKey) {
+    const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
+    const zone = document.getElementById(`setup${capStep}PasteZone`);
+    if (zone) zone.innerText = '⚙️ Đang xử lý & tải ảnh lên...';
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxDim = 1000;
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    showToast('Lỗi nén ảnh', 'error');
+                    if (zone) zone.innerText = 'Lỗi nén ảnh. Thử lại.';
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('file', blob, 'report_image.jpg');
+
+                fetch('/api/qlx/upload-image', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (!window._qlxUploadedImages) window._qlxUploadedImages = {};
+                        window._qlxUploadedImages[stepKey] = data.image_url;
+                        
+                        const preview = document.getElementById(`setup${capStep}ImagePreview`);
+                        const previewImg = document.getElementById(`setup${capStep}PreviewImg`);
+                        if (preview && previewImg) {
+                            previewImg.src = data.image_url;
+                            preview.style.display = 'block';
+                        }
+                        if (zone) zone.innerText = '✅ Tải ảnh thành công!';
+                    } else {
+                        showToast(data.error || 'Lỗi tải ảnh', 'error');
+                        if (zone) zone.innerText = 'Lỗi tải ảnh. Thử lại.';
+                    }
+                })
+                .catch(err => {
+                    showToast(err.message, 'error');
+                    if (zone) zone.innerText = 'Lỗi kết nối. Thử lại.';
+                });
+            }, 'image/jpeg', 0.7);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, rawTimeline) {
     const schedule = JSON.parse(decodeURIComponent(rawSchedule) || '{}');
     window._qlxCurrentSchedule = schedule;
+    window._qlxUploadedImages = {};
 
     const timeline = JSON.parse(decodeURIComponent(rawTimeline || '') || '[]');
     const isCutDone = timeline.some(s => s.name === 'Cắt' && s.done);
@@ -1147,110 +1238,109 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
         return localTime.toISOString().slice(0, 16);
     };
 
-    let cutHtml = '';
-    if (isCutDone) {
-        cutHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt:</label>
-                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
-                    🟢 Đã hoàn thành
+    const renderStepCard = (stepKey, label, isDone, scheduleVal, minVal) => {
+        if (isDone) {
+            return `
+                <div id="card_${stepKey}" style="border:1px solid #e2d8f0;border-radius:10px;padding:12px;background:#f0fdf4;margin-bottom:12px;user-select:none;">
+                    <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;border-bottom:1px solid #bbf7d0;padding-bottom:6px;display:flex;align-items:center;gap:6px;">
+                        ✅ Chặng ${label}
+                    </div>
+                    <div style="color:#065f46;font-weight:700;font-size:12px;text-align:center;padding:4px;">
+                        🟢 Đã hoàn thành
+                    </div>
                 </div>
-            </div>`;
-    } else {
-        cutHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupCut" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.cut_expected_at)}" min="${getMinForStep('cut')}">
-            </div>`;
-    }
+            `;
+        }
 
-    let inHtml = '';
-    if (isInDone) {
-        inHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In:</label>
-                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
-                    🟢 Đã hoàn thành
+        const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
+        
+        return `
+            <div id="card_${stepKey}" class="qlx-step-card" onclick="_qlxActivatePasteCard('${stepKey}')" onfocusin="_qlxActivatePasteCard('${stepKey}')" style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#f8fafc;margin-bottom:12px;cursor:pointer;transition:all 0.2s ease;">
+                <div style="font-weight:800;font-size:13px;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+                    <span>⚙️ Chặng ${label}</span>
+                    <span class="active-badge-${stepKey}" style="display:none;font-size:10px;background:#6366f1;color:white;padding:2px 6px;border-radius:4px;font-weight:700;">👉 Đang chọn để dán ảnh</span>
                 </div>
-            </div>`;
-    } else {
-        inHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupIn" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.in_expected_at)}" min="${getMinForStep('in')}">
-            </div>`;
-    }
-
-    let epHtml = '';
-    if (isEpDone) {
-        epHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép:</label>
-                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
-                    🟢 Đã hoàn thành
+                <div style="display:flex;flex-direction:column;gap:8px;" onclick="event.stopPropagation();">
+                    <div>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Thời gian dự kiến xong:</label>
+                        <input type="datetime-local" id="setup${capStep}" class="modal-input" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;font-size:12px;" value="${toInputVal(scheduleVal)}" min="${minVal}">
+                    </div>
+                    <div>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Nội dung báo cáo:</label>
+                        <textarea id="setup${capStep}Notes" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;height:45px;font-size:12px;resize:none;" placeholder="Nhập ghi chú hoặc báo cáo tiến trình..."></textarea>
+                    </div>
+                    <div>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Hình ảnh báo cáo (Dán Ctrl+V):</label>
+                        <div id="setup${capStep}PasteZone" style="border:2px dashed #cbd5e1;padding:12px;text-align:center;border-radius:6px;background:#fff;color:#64748b;font-weight:700;font-size:11px;user-select:none;">
+                            Bấm chọn chặng này rồi ấn Ctrl+V để dán ảnh
+                        </div>
+                        <div id="setup${capStep}ImagePreview" style="margin-top:8px;text-align:center;display:none;">
+                            <img id="setup${capStep}PreviewImg" style="max-height:100px;border-radius:4px;box-shadow:0 2px 4px rgba(0,0,0,0.05);"><br/>
+                            <button type="button" onclick="event.stopPropagation(); _qlxClearMultiStepImage('${stepKey}')" style="margin-top:4px;color:#ef4444;border:none;background:none;font-weight:700;cursor:pointer;font-size:10px;">Xóa ảnh</button>
+                        </div>
+                    </div>
                 </div>
-            </div>`;
-    } else {
-        epHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupEp" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.ep_expected_at)}" min="${getMinForStep('ep')}">
-            </div>`;
-    }
-
-    let mayQcHtHtml = '';
-    if (isMayQcHtDone) {
-        mayQcHtHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT:</label>
-                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
-                    🟢 Đã hoàn thành
-                </div>
-            </div>`;
-    } else {
-        mayQcHtHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupMayQcHt" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.may_qc_ht_expected_at)}" min="${getMinForStep('may_qc_ht')}">
-            </div>`;
-    }
-
-    let guiHtml = '';
-    if (isGuiDone) {
-        guiHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi:</label>
-                <div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:6px;font-weight:800;font-size:12px;">
-                    🟢 Đã hoàn thành
-                </div>
-            </div>`;
-    } else {
-        guiHtml = `
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi (Dự kiến xong):</label>
-                <input type="datetime-local" id="setupGui" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.gui_expected_at)}" min="${getMinForStep('gui')}">
-            </div>`;
-    }
+            </div>
+        `;
+    };
 
     const contentHtml = `
-        <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;padding-right:4px;">
             <div style="font-size:12px;color:#475569;margin-bottom:8px;background:#f1f5f9;padding:8px;border-radius:6px;">
                 💡 <b>Nguyên tắc:</b> Chặng sau tự động cách chặng trước ít nhất <b>3 tiếng</b>. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
+                <br/>👉 <b>Mẹo:</b> Click chọn thẻ của chặng cần báo cáo để hiển thị badge màu tím rồi ấn <b>Ctrl + V</b> để dán hình ảnh chặng đó.
             </div>
-            ${cutHtml}
-            ${inHtml}
-            ${epHtml}
-            ${mayQcHtHtml}
-            ${guiHtml}
+            ${renderStepCard('cut', 'Cắt', isCutDone, schedule.cut_expected_at, getMinForStep('cut'))}
+            ${renderStepCard('in', 'In', isInDone, schedule.in_expected_at, getMinForStep('in'))}
+            ${renderStepCard('ep', 'Ép', isEpDone, schedule.ep_expected_at, getMinForStep('ep'))}
+            ${renderStepCard('may_qc_ht', 'May/QC/HT', isMayQcHtDone, schedule.may_qc_ht_expected_at, getMinForStep('may_qc_ht'))}
+            ${renderStepCard('gui', 'Gửi', isGuiDone, schedule.gui_expected_at, getMinForStep('gui'))}
         </div>
     `;
 
     const footerHtml = `
         <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Hủy</button>
-        <button onclick="_qlxSubmitSetupSchedule(${orderId}, ${itemId})" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">Lưu lịch trình</button>
+        <button onclick="_qlxSubmitSetupSchedule(${orderId}, ${itemId})" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">Lưu lịch trình & Báo cáo</button>
     `;
 
-    _dhnqlxCreateModal(`Báo cáo tiến trình đơn hàng — ${orderCode}`, contentHtml, footerHtml, '450px');
+    _dhnqlxCreateModal(`Báo cáo tiến trình đơn hàng — ${orderCode}`, contentHtml, footerHtml, '500px');
+
+    // Register active step and paste listener
+    let defaultActive = null;
+    if (!isCutDone) defaultActive = 'cut';
+    else if (!isInDone) defaultActive = 'in';
+    else if (!isEpDone) defaultActive = 'ep';
+    else if (!isMayQcHtDone) defaultActive = 'may_qc_ht';
+    else if (!isGuiDone) defaultActive = 'gui';
+
+    if (defaultActive) {
+        setTimeout(() => {
+            _qlxActivatePasteCard(defaultActive);
+        }, 80);
+    }
+
+    const modalEl = document.getElementById('dhnqlxActionModal');
+    if (modalEl) {
+        const pasteHandler = async (e) => {
+            if (window._qlxActivePasteStep) {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let item of items) {
+                    if (item.type.indexOf('image') === 0) {
+                        const file = item.getAsFile();
+                        _qlxUploadAndResizeMulti(file, window._qlxActivePasteStep);
+                        break;
+                    }
+                }
+            }
+        };
+        document.addEventListener('paste', pasteHandler);
+        
+        const originalRemove = modalEl.remove;
+        modalEl.remove = function() {
+            document.removeEventListener('paste', pasteHandler);
+            originalRemove.apply(modalEl);
+        };
+    }
 }
 
 async function _qlxSubmitSetupSchedule(orderId, itemId) {
@@ -1291,6 +1381,18 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
         return val ? new Date(val).toISOString() : null;
     };
 
+    const getReportForStep = (stepKey) => {
+        const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
+        const notesEl = document.getElementById(`setup${capStep}Notes`);
+        const notes = notesEl ? notesEl.value.trim() : '';
+        const image_url = window._qlxUploadedImages ? window._qlxUploadedImages[stepKey] : null;
+        
+        if (notes || image_url) {
+            return { notes, image_url };
+        }
+        return null;
+    };
+
     const payload = {
         dht_order_id: orderId,
         order_item_id: itemId,
@@ -1298,14 +1400,20 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
         in_expected_at: getISOVal('setupIn', 'in_expected_at'),
         ep_expected_at: getISOVal('setupEp', 'ep_expected_at'),
         may_qc_ht_expected_at: getISOVal('setupMayQcHt', 'may_qc_ht_expected_at'),
-        gui_expected_at: getISOVal('setupGui', 'gui_expected_at')
+        gui_expected_at: getISOVal('setupGui', 'gui_expected_at'),
+        reports: {
+            cat: getReportForStep('cut'),
+            in: getReportForStep('in'),
+            ep: getReportForStep('ep'),
+            may_qc_ht: getReportForStep('may_qc_ht'),
+            gui: getReportForStep('gui')
+        }
     };
-
 
     try {
         const res = await apiCall('/api/qlx-orders/schedule', 'POST', payload);
         if (res.success) {
-            showToast('Lưu lịch trình sản xuất thành công!');
+            showToast('Lưu lịch trình sản xuất và gửi báo cáo thành công!');
             document.getElementById('dhnqlxActionModal')?.remove();
             
             _dhnqlxLoadData();

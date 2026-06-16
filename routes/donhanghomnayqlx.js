@@ -671,10 +671,52 @@ module.exports = async function(fastify) {
                 `, [guiDateStr, guiTimeStr, request.user.id, now, order_id]);
             }
 
+            // Save step reports if provided
+            const { reports } = request.body || {};
+            if (reports && typeof reports === 'object') {
+                const stepLabels = { cat: 'Cắt', in: 'In', ep: 'Ép', may_qc_ht: 'May/QC/HT', gui: 'Gửi' };
+                for (const [stepKey, r] of Object.entries(reports)) {
+                    if (r && (r.notes || r.image_url)) {
+                        let stepExpected = null;
+                        if (stepKey === 'cat') stepExpected = propagated.cut_expected_at;
+                        else if (stepKey === 'in') stepExpected = propagated.in_expected_at;
+                        else if (stepKey === 'ep') stepExpected = propagated.ep_expected_at;
+                        else if (stepKey === 'may_qc_ht') stepExpected = propagated.may_qc_ht_expected_at;
+                        else if (stepKey === 'gui') stepExpected = propagated.gui_expected_at;
+
+                        await db.run(`
+                            INSERT INTO qlx_step_reports (
+                                dht_order_id, order_item_id, step_name, expected_at, notes, image_url, created_by, created_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        `, [
+                            order_id, item_id, stepKey,
+                            stepExpected || null,
+                            r.notes || '',
+                            r.image_url || null,
+                            request.user.id,
+                            now
+                        ]);
+
+                        // Ghi lịch sử riêng cho báo cáo chặng này
+                        const label = stepLabels[stepKey] || stepKey;
+                        await db.run(`
+                            INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                            VALUES ($1, $2, 'qlx_step_report', $3, $4, $5)
+                        `, [
+                            order_id,
+                            item_id,
+                            `Báo cáo tiến độ chặng [${label}]: Hẹn lại ${stepExpected ? vnFormat(stepExpected) : 'chưa có'}. Nội dung: ${r.notes || ''}`,
+                            request.user.id,
+                            now
+                        ]);
+                    }
+                }
+            }
+
             // Ghi lịch sử qlx_history
             await db.run(`
                 INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
-                VALUES ($1, $2, 'qlx_schedule_set', 'Đã thiết lập lịch trình các chặng sản xuất', $3, $4)
+                VALUES ($1, $2, 'qlx_schedule_set', 'Đã cập nhật lịch trình sản xuất các bộ phận', $3, $4)
             `, [order_id, item_id, request.user.id, now]);
 
             return { success: true, schedule: propagated };
