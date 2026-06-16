@@ -1503,7 +1503,9 @@ async function _bpcOpenCutModal(recordId) {
                 var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
                 var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
                 var fYear = vnDt.getUTCFullYear();
-                var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+                var dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                var dayName = dayNames[vnDt.getUTCDay()];
+                var schedStr = fHour + ':' + fMin + ' ' + dayName + ' - ' + fDay + '/' + fMonth + '/' + fYear;
                 bh += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #f59e0b;padding:12px 14px;border-radius:12px;display:flex;align-items:center;gap:6px">'
                     + '<span style="font-size:16px">⏰</span>'
                     + '<div style="font-size:12px;font-weight:800;color:#b45309">Lịch Cắt Yêu Cầu: ' + schedStr + '</div>'
@@ -1808,7 +1810,9 @@ async function _bpcOpenDetail(recordId) {
                 var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
                 var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
                 var fYear = vnDt.getUTCFullYear();
-                var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+                var dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                var dayName = dayNames[vnDt.getUTCDay()];
+                var schedStr = fHour + ':' + fMin + ' ' + dayName + ' - ' + fDay + '/' + fMonth + '/' + fYear;
                 h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">'
                     + '  <div style="background:#fffbeb;border:1.5px solid #f59e0b;padding:12px 14px;border-radius:12px;display:flex;align-items:center;gap:6px">'
                     + '    <span style="font-size:16px">⏰</span>'

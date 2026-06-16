@@ -987,7 +987,9 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
             var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
             var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
             var fYear = vnDt.getUTCFullYear();
-            schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+            var dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            var dayName = dayNames[vnDt.getUTCDay()];
+            schedStr = fHour + ':' + fMin + ' ' + dayName + ' - ' + fDay + '/' + fMonth + '/' + fYear;
         }
     }
 
