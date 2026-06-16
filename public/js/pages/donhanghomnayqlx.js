@@ -633,7 +633,7 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
     m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:dhnqlxModalFadeIn 0.2s ease-out;';
     
     m.innerHTML = `
-    <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden;animation:dhnqlxModalSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+    <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden;animation:dhnqlxModalSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);transition:all 0.2s ease;">
         <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;">
             <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⚙️ ${title}</div>
             <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
@@ -647,7 +647,58 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
     </div>`;
 
     document.body.appendChild(m);
-    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    
+    const isSpecial = title.includes('Báo báo') || title.includes('Báo cáo') || title.includes('Báo Cáo') || title.includes('Chi tiết Chặng');
+    if (isSpecial) {
+        m.style.zIndex = '99999';
+        const closeCross = m.querySelector('span[onclick*="remove"]');
+        if (closeCross) closeCross.style.display = 'none';
+
+        let clickCount = 0;
+        let clickTimer = null;
+        const modalContentCard = m.querySelector('div');
+
+        m.addEventListener('click', e => {
+            if (!m.classList.contains('qlx-modal-dimmed')) {
+                const targetTagName = e.target.tagName.toLowerCase();
+                if (targetTagName === 'input' || targetTagName === 'textarea' || targetTagName === 'button' || e.target.closest('button') || e.target.closest('select')) {
+                    return;
+                }
+            }
+            
+            clickCount++;
+            if (clickCount === 1) {
+                clickTimer = setTimeout(() => {
+                    clickCount = 0;
+                    if (m.classList.contains('qlx-modal-dimmed')) {
+                        m.classList.remove('qlx-modal-dimmed');
+                        if (modalContentCard) {
+                            modalContentCard.style.opacity = '1';
+                            modalContentCard.style.filter = 'none';
+                            modalContentCard.style.pointerEvents = 'auto';
+                        }
+                        m.style.background = 'rgba(15,23,42,0.6)';
+                        m.style.backdropFilter = 'blur(4px)';
+                    } else {
+                        m.classList.add('qlx-modal-dimmed');
+                        if (modalContentCard) {
+                            modalContentCard.style.opacity = '0.15';
+                            modalContentCard.style.filter = 'blur(3px)';
+                            modalContentCard.style.pointerEvents = 'none';
+                        }
+                        m.style.background = 'rgba(15,23,42,0.1)';
+                        m.style.backdropFilter = 'none';
+                    }
+                }, 250);
+            } else if (clickCount === 2) {
+                clearTimeout(clickTimer);
+                clickCount = 0;
+                m.remove();
+            }
+        });
+    } else {
+        m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    }
 }
 
 function _dhnqlxOpenConfigModal() {
@@ -1049,7 +1100,27 @@ function _qlxRenderTimeline(res) {
                     ${s.reports && s.reports.length > 0 ? `<button class="qlx-step-history-btn" onclick="event.stopPropagation(); _qlxShowStepReportsHistoryModal('${o.order_code}', '${s.name}', '${encodeURIComponent(JSON.stringify(s.reports))}')">💬 Báo cáo (${s.reports.length})</button>` : ''}
                 </div>`;
             });
-           function _qlxActivatePasteCard(stepKey) {
+            html += '</div>';
+            html += '</div>';
+        });
+    }
+
+    if (o.shipping_status === 'shipped') {
+        html += '<div class="ts-ship-info">';
+        html += `<div class="ts-ship-item">🚛 <b>NVC:</b> ${o.carrier_name||'-'}</div>`;
+        html += `<div class="ts-ship-item">📦 <b>Mã vận đơn:</b> ${o.tracking_code||'-'}</div>`;
+        html += `<div class="ts-ship-item">📱 <b>SĐT NX:</b> ${o.carrier_phone||'-'}</div>`;
+        html += `<div class="ts-ship-item">📅 <b>Ngày gửi:</b> ${fmtDT(o.shipped_at)}</div>`;
+        if (o.tracking_code && o.carrier_tracking_url) {
+            const url = o.carrier_tracking_url.replace('{code}', o.tracking_code);
+            html += `<div class="ts-ship-item">🔗 <a href="${url}" target="_blank" style="color:#4338ca;font-weight:700">Tra cứu vận đơn</a></div>`;
+        }
+        html += '</div>';
+    }
+    return html;
+}
+
+function _qlxActivatePasteCard(stepKey) {
     window._qlxActivePasteStep = stepKey;
     
     // Highlight UI
