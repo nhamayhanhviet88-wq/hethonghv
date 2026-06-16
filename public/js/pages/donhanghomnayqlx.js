@@ -1192,8 +1192,12 @@ function _qlxFormatDateTimeToShow(valStr) {
     if (!valStr) return '';
     const dt = new Date(valStr);
     if (isNaN(dt.getTime())) return '';
+    
+    const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dayName = days[dt.getDay()];
+    
     const pad = n => String(n).padStart(2, '0');
-    return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `${dayName} - ${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
 function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
