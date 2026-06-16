@@ -235,14 +235,9 @@ function _ceoRenderTable() {
                 reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
             } else {
                 reporter = item.created_by_name || '—';
-                if (reporter === 'Giám Đốc') {
-                    reporter = 'Giám Đốc - BP Kiểm Tra QC';
-                } else if (item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
+                if (reporter !== 'Giám Đốc' && item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
                     reporter = reporter + ' - BP Kiểm Tra QC';
                 }
-            }
-            if (reporter.trim() === 'Giám Đốc') {
-                reporter = 'Giám Đốc - BP Kiểm Tra QC';
             }
 
             var cleanCskh = item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ') ? '—' : (item.cskh_name || '—');
@@ -327,14 +322,9 @@ async function _ceoViewDetail(id) {
         reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
     } else {
         reporter = item.created_by_name || '—';
-        if (reporter === 'Giám Đốc') {
-            reporter = 'Giám Đốc - BP Kiểm Tra QC';
-        } else if (item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
+        if (reporter !== 'Giám Đốc' && item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
             reporter = reporter + ' - BP Kiểm Tra QC';
         }
-    }
-    if (reporter.trim() === 'Giám Đốc') {
-        reporter = 'Giám Đốc - BP Kiểm Tra QC';
     }
     var cleanCskh = item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ') ? '—' : (item.cskh_name || '—');
 
