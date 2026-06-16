@@ -896,6 +896,57 @@
         }
     }
 
+    function getEffectiveDate(item, deptKey, order, holidaysMap, todayStr) {
+        let expectedField = null;
+        let isDone = false;
+
+        if (deptKey === 'cut') {
+            expectedField = item.cut_expected_at;
+            isDone = !!item.cut_done;
+        } else if (deptKey === 'in') {
+            expectedField = item.in_expected_at;
+            isDone = !!item.print_done;
+        } else if (deptKey === 'ep') {
+            expectedField = item.ep_expected_at;
+            isDone = !!item.press_done;
+        } else if (deptKey === 'may') {
+            expectedField = item.may_qc_ht_expected_at;
+            isDone = !!item.finish_done;
+        } else if (deptKey === 'gui') {
+            expectedField = item.gui_expected_at;
+            isDone = order.shipping_status === 'shipped' || !!order.shipped_at;
+        }
+
+        if (!expectedField) return null;
+        const origDateStr = expectedField.split('T')[0];
+
+        if (origDateStr < todayStr && !isDone) {
+            let d = new Date(origDateStr + 'T00:00:00');
+            let limit = 0;
+            while (limit < 60) {
+                d.setDate(d.getDate() + 1);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const ds = `${y}-${m}-${day}`;
+
+                const isNonWork = (d.getDay() === 0) || !!holidaysMap[ds];
+                if (isNonWork) {
+                    limit++;
+                    continue;
+                }
+
+                if (ds >= todayStr) {
+                    return ds;
+                }
+                limit++;
+            }
+            return todayStr;
+        }
+
+        return origDateStr;
+    }
+
     function getFabricPrepDateStr(createdTimeStr, holidaysMap) {
         if (!createdTimeStr) return null;
         const createdDate = new Date(createdTimeStr);
@@ -949,6 +1000,8 @@
                     shipping_priority: row.shipping_priority,
                     cskh_name: row.cskh_name,
                     order_created_at: row.order_created_at,
+                    shipping_status: row.shipping_status,
+                    shipped_at: row.shipped_at,
                     items: []
                 };
             }
@@ -963,7 +1016,12 @@
                     in_expected_at: row.in_expected_at,
                     ep_expected_at: row.ep_expected_at,
                     may_qc_ht_expected_at: row.may_qc_ht_expected_at,
-                    gui_expected_at: row.gui_expected_at
+                    gui_expected_at: row.gui_expected_at,
+                    cut_done: !!row.cut_done,
+                    print_done: !!row.print_done,
+                    press_done: !!row.press_done,
+                    sew_done: !!row.sew_done,
+                    finish_done: !!row.finish_done
                 });
             }
         });
@@ -983,6 +1041,7 @@
         });
 
         const ordersMap = buildOrdersMap(rows);
+        const todayStr = vnDateStr(vnNow());
 
         let totalMonthlyQty = 0;
         const monthlyDeptTotals = { fabric: 0, cut: 0, in: 0, ep: 0, may: 0, gui: 0 };
@@ -991,27 +1050,32 @@
             if (!row.item_id) return;
             const qty = Number(row.item_quantity) || 0;
             totalMonthlyQty += qty;
-
-            const addMonthlyTotal = (dateField, deptKey) => {
-                if (row[dateField]) {
-                    const schedDate = new Date(row[dateField]);
-                    if (schedDate.getFullYear() === selectedYear && (schedDate.getMonth() + 1) === selectedMonth) {
-                        monthlyDeptTotals[deptKey] += qty;
-                    }
-                }
-            };
-
-            addMonthlyTotal('cut_expected_at', 'cut');
-            addMonthlyTotal('in_expected_at', 'in');
-            addMonthlyTotal('ep_expected_at', 'ep');
-            addMonthlyTotal('may_qc_ht_expected_at', 'may');
-            addMonthlyTotal('gui_expected_at', 'gui');
         });
 
         Object.values(ordersMap).forEach(order => {
+            order.items.forEach(item => {
+                const qty = Number(item.quantity) || 0;
+
+                const addMonthlyTotal = (deptKey) => {
+                    const effDate = getEffectiveDate(item, deptKey, order, holidaysMap, todayStr);
+                    if (effDate) {
+                        const [y, m] = effDate.split('-').map(Number);
+                        if (y === selectedYear && m === selectedMonth) {
+                            monthlyDeptTotals[deptKey] += qty;
+                        }
+                    }
+                };
+
+                addMonthlyTotal('cut');
+                addMonthlyTotal('in');
+                addMonthlyTotal('ep');
+                addMonthlyTotal('may');
+                addMonthlyTotal('gui');
+            });
+
             const prepDateStr = getFabricPrepDateStr(order.order_created_at, holidaysMap);
             if (prepDateStr) {
-                const [y, m, d] = prepDateStr.split('-').map(Number);
+                const [y, m] = prepDateStr.split('-').map(Number);
                 if (y === selectedYear && m === selectedMonth) {
                     order.items.forEach(item => {
                         monthlyDeptTotals.fabric += (Number(item.quantity) || 0);
@@ -1085,6 +1149,52 @@
             };
         });
 
+        // Populate deptTotals for all cells using effective dates
+        Object.values(ordersMap).forEach(order => {
+            order.items.forEach(item => {
+                const qty = Number(item.quantity) || 0;
+                const cat = item.cutting_category_name || 'Áo';
+
+                const cutEff = getEffectiveDate(item, 'cut', order, holidaysMap, todayStr);
+                if (cutEff && cellsMap[cutEff]) {
+                    cellsMap[cutEff].deptTotals.cut[cat] = (cellsMap[cutEff].deptTotals.cut[cat] || 0) + qty;
+                }
+
+                const inEff = getEffectiveDate(item, 'in', order, holidaysMap, todayStr);
+                if (inEff && cellsMap[inEff]) {
+                    cellsMap[inEff].deptTotals.in[cat] = (cellsMap[inEff].deptTotals.in[cat] || 0) + qty;
+                }
+
+                const epEff = getEffectiveDate(item, 'ep', order, holidaysMap, todayStr);
+                if (epEff && cellsMap[epEff]) {
+                    cellsMap[epEff].deptTotals.ep[cat] = (cellsMap[epEff].deptTotals.ep[cat] || 0) + qty;
+                }
+
+                const mayEff = getEffectiveDate(item, 'may', order, holidaysMap, todayStr);
+                if (mayEff && cellsMap[mayEff]) {
+                    cellsMap[mayEff].deptTotals.may[cat] = (cellsMap[mayEff].deptTotals.may[cat] || 0) + qty;
+                }
+
+                const guiEff = getEffectiveDate(item, 'gui', order, holidaysMap, todayStr);
+                if (guiEff && cellsMap[guiEff]) {
+                    cellsMap[guiEff].deptTotals.gui[cat] = (cellsMap[guiEff].deptTotals.gui[cat] || 0) + qty;
+                }
+
+                const fabricDate = getFabricPrepDateStr(order.order_created_at, holidaysMap);
+                if (fabricDate && cellsMap[fabricDate]) {
+                    cellsMap[fabricDate].deptTotals.fabric[cat] = (cellsMap[fabricDate].deptTotals.fabric[cat] || 0) + qty;
+                }
+
+                if (order.expected_ship_date) {
+                    const saleDate = order.expected_ship_date.split('T')[0];
+                    if (cellsMap[saleDate]) {
+                        cellsMap[saleDate].deptTotals.sale[cat] = (cellsMap[saleDate].deptTotals.sale[cat] || 0) + qty;
+                    }
+                }
+            });
+        });
+
+        // Populate orders in cellsMap based on activeView
         Object.values(ordersMap).forEach(order => {
             if (activeView === 'all' || activeView === 'sale') {
                 if (order.expected_ship_date) {
@@ -1093,7 +1203,8 @@
                         cellsMap[dateStr].orders.push({
                             ...order,
                             displayCode: order.order_code,
-                            customQtyText: null
+                            customQtyText: null,
+                            isDelayed: false
                         });
                     }
                 }
@@ -1109,7 +1220,8 @@
                     cellsMap[prepDateStr].orders.push({
                         ...order,
                         displayCode: order.order_code,
-                        customQtyText: qtyParts.join(', ')
+                        customQtyText: qtyParts.join(', '),
+                        isDelayed: false
                     });
                 }
             } else {
@@ -1123,36 +1235,54 @@
                 const dateKey = deptDateKeyMap[activeView];
                 if (!dateKey) return;
 
-                const datesSet = new Set();
-                order.items.forEach(item => {
-                    if (item[dateKey]) {
-                        datesSet.add(item[dateKey].split('T')[0]);
+                // Group items by (effDate, isDelayed)
+                const groups = {};
+                order.items.forEach((item, index) => {
+                    const effDate = getEffectiveDate(item, activeView, order, holidaysMap, todayStr);
+                    if (!effDate) return;
+
+                    const expectedField = item[dateKey];
+                    const origDateStr = expectedField ? expectedField.split('T')[0] : '';
+                    const isDelayed = origDateStr < todayStr;
+
+                    const key = effDate + '_' + isDelayed;
+                    if (!groups[key]) {
+                        groups[key] = {
+                            effDate,
+                            isDelayed,
+                            items: [],
+                            phieuNumbers: []
+                        };
                     }
+                    groups[key].items.push(item);
+                    groups[key].phieuNumbers.push(index + 1);
                 });
 
-                datesSet.forEach(dateStr => {
+                Object.values(groups).forEach(g => {
+                    const dateStr = g.effDate;
                     if (cellsMap[dateStr]) {
                         const qtyMap = {};
-                        const scheduledPhieuNumbers = [];
-
-                        order.items.forEach((item, index) => {
-                            if (item[dateKey] && item[dateKey].split('T')[0] === dateStr) {
-                                const cat = item.cutting_category_name || 'Áo';
-                                qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
-                                scheduledPhieuNumbers.push(index + 1);
-                            }
+                        g.items.forEach(item => {
+                            const cat = item.cutting_category_name || 'Áo';
+                            qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
                         });
-
                         const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+
                         let displayCode = order.order_code;
-                        if (scheduledPhieuNumbers.length > 0) {
-                            displayCode += ' — Phiếu ' + scheduledPhieuNumbers.join(', ');
+                        if (g.phieuNumbers.length > 0) {
+                            displayCode += ' — Phiếu ' + g.phieuNumbers.join(', ');
+                        }
+
+                        if (g.isDelayed) {
+                            displayCode = '⚠️ [Chậm] ' + displayCode;
                         }
 
                         cellsMap[dateStr].orders.push({
                             ...order,
                             displayCode: displayCode,
-                            customQtyText: qtyParts.join(', ')
+                            customQtyText: qtyParts.join(', '),
+                            isDelayed: g.isDelayed,
+                            scheduledItems: g.items
                         });
                     }
                 });
@@ -1161,79 +1291,12 @@
 
         cells.forEach(cell => {
             const dataCell = cellsMap[cell.dateStr];
-            dataCell.orders.forEach(order => {
-                // Populate sale totals for the orders in this cell
-                order.items.forEach(item => {
-                    const qty = Number(item.quantity) || 0;
-                    const cat = item.cutting_category_name || 'Áo';
-                    dataCell.deptTotals.sale[cat] = (dataCell.deptTotals.sale[cat] || 0) + qty;
-                });
 
-                if (activeView === 'all') {
-                    order.items.forEach(item => {
-                        const qty = Number(item.quantity) || 0;
-                        const cat = item.cutting_category_name || 'Áo';
-                        if (item.cut_expected_at && item.cut_expected_at.split('T')[0] === cell.dateStr) {
-                            dataCell.deptTotals.cut[cat] = (dataCell.deptTotals.cut[cat] || 0) + qty;
-                        }
-                        if (item.in_expected_at && item.in_expected_at.split('T')[0] === cell.dateStr) {
-                            dataCell.deptTotals.in[cat] = (dataCell.deptTotals.in[cat] || 0) + qty;
-                        }
-                        if (item.ep_expected_at && item.ep_expected_at.split('T')[0] === cell.dateStr) {
-                            dataCell.deptTotals.ep[cat] = (dataCell.deptTotals.ep[cat] || 0) + qty;
-                        }
-                        if (item.may_qc_ht_expected_at && item.may_qc_ht_expected_at.split('T')[0] === cell.dateStr) {
-                            dataCell.deptTotals.may[cat] = (dataCell.deptTotals.may[cat] || 0) + qty;
-                        }
-                        if (item.gui_expected_at && item.gui_expected_at.split('T')[0] === cell.dateStr) {
-                            dataCell.deptTotals.gui[cat] = (dataCell.deptTotals.gui[cat] || 0) + qty;
-                        }
-                    });
-                    const prepDateStr = getFabricPrepDateStr(order.order_created_at, holidaysMap);
-                    if (prepDateStr === cell.dateStr) {
-                        order.items.forEach(item => {
-                            const qty = Number(item.quantity) || 0;
-                            const cat = item.cutting_category_name || 'Áo';
-                            dataCell.deptTotals.fabric[cat] = (dataCell.deptTotals.fabric[cat] || 0) + qty;
-                        });
-                    }
-                } else if (activeView === 'sale') {
-                    order.items.forEach(item => {
-                        const qty = Number(item.quantity) || 0;
-                        const cat = item.cutting_category_name || 'Áo';
-                        dataCell.deptTotals.sale[cat] = (dataCell.deptTotals.sale[cat] || 0) + qty;
-                    });
-                } else if (activeView === 'fabric') {
-                    order.items.forEach(item => {
-                        const qty = Number(item.quantity) || 0;
-                        const cat = item.cutting_category_name || 'Áo';
-                        dataCell.deptTotals.fabric[cat] = (dataCell.deptTotals.fabric[cat] || 0) + qty;
-                    });
-                } else {
-                    const deptDateKeyMap = {
-                        cut: 'cut_expected_at',
-                        in: 'in_expected_at',
-                        ep: 'ep_expected_at',
-                        may: 'may_qc_ht_expected_at',
-                        gui: 'gui_expected_at'
-                    };
-                    const dateKey = deptDateKeyMap[activeView];
-                    order.items.forEach(item => {
-                        if (item[dateKey] && item[dateKey].split('T')[0] === cell.dateStr) {
-                            const qty = Number(item.quantity) || 0;
-                            const cat = item.cutting_category_name || 'Áo';
-                            dataCell.deptTotals[activeView][cat] = (dataCell.deptTotals[activeView][cat] || 0) + qty;
-                        }
-                    });
-                }
-            });
-        });
-
-        cells.forEach(cell => {
-            const dataCell = cellsMap[cell.dateStr];
-
-            // Sort orders: CHUẨN first, then GẤP, then GỬI
+            // Sort orders: Delayed first, then shipping priority (CHUẨN first, then GẤP, then GỬI)
             dataCell.orders.sort((a, b) => {
+                if (a.isDelayed && !b.isDelayed) return -1;
+                if (!a.isDelayed && b.isDelayed) return 1;
+
                 const priorityWeight = (p) => {
                     const up = String(p || '').toUpperCase();
                     if (up === 'CHUẨN') return 3;
@@ -1567,6 +1630,40 @@
         const searchInput = document.getElementById('dayModalSearchInput');
         const listContainer = document.getElementById('dayModalBodyList');
 
+        function getOrderCardHtml(o) {
+            let qtyText = '';
+            if (o.customQtyText !== undefined && o.customQtyText !== null) {
+                qtyText = o.customQtyText;
+            } else {
+                const qtyMap = {};
+                o.items.forEach(item => {
+                    const cat = item.cutting_category_name || 'Áo';
+                    qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+                });
+                const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+                qtyText = qtyParts.join(', ');
+            }
+
+            const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
+            const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
+
+            return `
+                <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px;" onclick="navigateToOrderTrace('${o.order_code}')">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <span class="cal-order-code" style="font-size: 13px;">${o.displayCode || o.order_code}</span>
+                            <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 10px;">${o.customer_name || 'Không tên KH'}</span>
+                        </div>
+                        <span style="font-size: 11px; font-weight: 800; background: ${pStyle.border}22; color: ${pStyle.border}; padding: 2px 6px; border-radius: 4px;">${priority}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                        <span class="cal-order-qty" style="font-size: 11px; font-weight: 800;">${qtyText}</span>
+                        <span style="font-size: 10.5px; font-weight: 700; color: #64748b;">CSKH: ${o.cskh_name || '--'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderModalOrders(filterQuery = '') {
             listContainer.innerHTML = '';
             const query = filterQuery.toLowerCase().trim();
@@ -1582,40 +1679,42 @@
                 return;
             }
 
-            filteredOrders.forEach(o => {
-                let qtyText = '';
-                if (o.customQtyText !== undefined && o.customQtyText !== null) {
-                    qtyText = o.customQtyText;
-                } else {
-                    const qtyMap = {};
-                    o.items.forEach(item => {
-                        const cat = item.cutting_category_name || 'Áo';
-                        qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+            const isDeptView = ['cut', 'in', 'ep', 'may', 'gui'].includes(activeView);
+
+            if (isDeptView) {
+                const delayed = filteredOrders.filter(o => o.isDelayed);
+                const todayOrders = filteredOrders.filter(o => !o.isDelayed);
+
+                let html = '';
+                if (delayed.length > 0) {
+                    html += `
+                        <div style="font-weight: 800; color: #b91c1c; font-size: 13px; padding: 6px 12px; background: #fee2e2; border-radius: 8px; margin-top: 10px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                            ⚠️ ĐƠN CHẬM CHƯA XỬ LÝ (${delayed.length})
+                        </div>
+                    `;
+                    delayed.forEach(o => {
+                        html += getOrderCardHtml(o);
                     });
-                    const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
-                    qtyText = qtyParts.join(', ');
                 }
 
-                const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
-                const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
-
-                const cardHtml = `
-                    <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px;" onclick="navigateToOrderTrace('${o.order_code}')">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <span class="cal-order-code" style="font-size: 13px;">${o.displayCode || o.order_code}</span>
-                                <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 10px;">${o.customer_name || 'Không tên KH'}</span>
-                            </div>
-                            <span style="font-size: 11px; font-weight: 800; background: ${pStyle.border}22; color: ${pStyle.border}; padding: 2px 6px; border-radius: 4px;">${priority}</span>
+                if (todayOrders.length > 0) {
+                    html += `
+                        <div style="font-weight: 800; color: #1e3a8a; font-size: 13px; padding: 6px 12px; background: #dbeafe; border-radius: 8px; margin-top: 10px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                            📅 ĐƠN HÔM NAY PHẢI XỬ LÝ (${todayOrders.length})
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                            <span class="cal-order-qty" style="font-size: 11px; font-weight: 800;">${qtyText}</span>
-                            <span style="font-size: 10.5px; font-weight: 700; color: #64748b;">CSKH: ${o.cskh_name || '--'}</span>
-                        </div>
-                    </div>
-                `;
-                listContainer.insertAdjacentHTML('beforeend', cardHtml);
-            });
+                    `;
+                    todayOrders.forEach(o => {
+                        html += getOrderCardHtml(o);
+                    });
+                }
+                listContainer.innerHTML = html;
+            } else {
+                let html = '';
+                filteredOrders.forEach(o => {
+                    html += getOrderCardHtml(o);
+                });
+                listContainer.innerHTML = html;
+            }
         }
 
         searchInput.oninput = function() {

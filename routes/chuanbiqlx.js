@@ -3667,7 +3667,7 @@ module.exports = async function(fastify) {
             const holidays = await db.all(`
                 SELECT holiday_date, name 
                 FROM holidays 
-                WHERE holiday_date >= $1 AND holiday_date <= $2
+                WHERE holiday_date >= ($1::date - INTERVAL '60 days') AND holiday_date <= $2::date
             `, [startDateStr, endDateStr]);
 
             // 2. Fetch orders, items and schedules
@@ -3677,7 +3677,10 @@ module.exports = async function(fastify) {
                     o.order_code,
                     o.customer_name,
                     o.expected_ship_date,
+                    o.rescheduled_ship_date,
                     o.shipping_priority,
+                    o.shipping_status,
+                    o.shipped_at,
                     o.created_at AS order_created_at,
                     oi.id AS item_id,
                     oi.product_name,
@@ -3693,7 +3696,93 @@ module.exports = async function(fastify) {
                     prep.fabric_called,
                     prep.fabric_arrived,
                     prep.fabric_called_at,
-                    prep.fabric_arrived_at
+                    prep.fabric_arrived_at,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) 
+                            THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE (order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) AND is_cut_done = false)
+                            ELSE false
+                        END,
+                        false
+                    ) AS cut_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) 
+                            THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE (order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) AND is_print_done = false AND contractor_id IS NULL)
+                            ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1)
+                        END,
+                        false
+                    ) AS print_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) 
+                            THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE (order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) AND is_reported = false)
+                            ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 4 LIMIT 1)
+                        END,
+                        false
+                    ) AS press_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) 
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM sewing_records sr
+                                WHERE (sr.order_item_id = oi.id OR (oi.id IS NULL AND sr.dht_order_id = o.id))
+                                  AND (
+                                      (sr.contractor_id IS NULL AND NOT EXISTS (
+                                          SELECT 1 FROM finishing_records fr 
+                                          WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                      ))
+                                      OR
+                                      (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = sr.id
+                                      ))
+                                  )
+                            )
+                            ELSE false
+                        END,
+                        false
+                    ) AS sew_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id OR (oi.id IS NULL AND fr.dht_order_id = o.id)) 
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM finishing_records fr 
+                                JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                                WHERE (sr.order_item_id = oi.id OR (oi.id IS NULL AND fr.dht_order_id = o.id))
+                                  AND (
+                                      NOT EXISTS (
+                                           SELECT 1 FROM qc_checklist_answers qca 
+                                           WHERE qca.sewing_record_id = fr.sewing_record_id
+                                      )
+                                      OR
+                                      (sr.contractor_id IS NULL AND fr.is_completed = false)
+                                  )
+                            )
+                            ELSE (
+                                CASE 
+                                    WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id))
+                                    THEN NOT EXISTS (
+                                        SELECT 1 FROM sewing_records sr
+                                        WHERE (sr.order_item_id = oi.id OR (oi.id IS NULL AND sr.dht_order_id = o.id))
+                                          AND (
+                                              (sr.contractor_id IS NULL AND NOT EXISTS (
+                                                  SELECT 1 FROM finishing_records fr 
+                                                  WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                              ))
+                                              OR
+                                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                                  SELECT 1 FROM qc_checklist_answers qca 
+                                                  WHERE qca.sewing_record_id = sr.id
+                                              ))
+                                          )
+                                    )
+                                    ELSE false
+                                END
+                            )
+                        END,
+                        false
+                    ) AS finish_done
                 FROM dht_orders o
                 LEFT JOIN dht_categories c ON o.category_id = c.id
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -3734,6 +3823,12 @@ module.exports = async function(fastify) {
                     (timezone('Asia/Ho_Chi_Minh', sch.gui_expected_at)::date >= $1::date AND timezone('Asia/Ho_Chi_Minh', sch.gui_expected_at)::date <= $2::date)
                     OR
                     (o.created_at::date >= ($1::date - INTERVAL '7 days') AND o.created_at::date <= $2::date)
+                    OR
+                    (
+                        (o.shipping_status != 'shipped' OR o.shipping_status IS NULL) 
+                        AND o.created_at::date >= ($1::date - INTERVAL '60 days')
+                        AND o.created_at::date < $1::date
+                    )
                 )
                 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM') 
                 AND o.order_code NOT ILIKE '%TEM%' 
