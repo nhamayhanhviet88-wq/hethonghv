@@ -3,6 +3,8 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const { vnNow, vnDateStr, vnFormat } = require('../utils/timezone');
 
+const { isDayOff } = require('../utils/ledgerDayOff');
+
 module.exports = async function(fastify) {
 
     // GET: Lấy danh sách đơn hàng phân chia theo 4 tab
@@ -23,7 +25,13 @@ module.exports = async function(fastify) {
             // Calculate limit date for "xu_ly" tab based on xu_ly_days config
             const limitDate = new Date(today);
             limitDate.setDate(limitDate.getDate() + xu_ly_days);
-            const limitDateStr = vnDateStr(limitDate);
+            let limitDateStr = vnDateStr(limitDate);
+
+            // Shift limit date forward if it lands on a Sunday or holiday
+            while (await isDayOff(limitDateStr)) {
+                limitDate.setDate(limitDate.getDate() + 1);
+                limitDateStr = vnDateStr(limitDate);
+            }
 
             // Lấy toàn bộ đơn chưa giao + đơn hoàn thành trong hôm nay
             const orders = await db.all(`
