@@ -292,6 +292,17 @@ function render() {
     container.innerHTML = `<div class="results-count">Hiển thị ${orders.length} đơn hàng</div>` + buildCardsHTML(orders);
 }
 
+function formatExpectedShipDateWithDay(dateVal) {
+    if (!dateVal) return '—';
+    const dt = new Date(dateVal);
+    const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const day = localDt.getDate();
+    const month = localDt.getMonth() + 1;
+    const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dayName = daysOfWeek[localDt.getDay()];
+    return `${dayName} - ${day}/${month}`;
+}
+
 function buildCardsHTML(orders) {
     let html = '';
     orders.forEach(o => {
@@ -300,7 +311,7 @@ function buildCardsHTML(orders) {
         if (prio === 'GẤP') prioClass = 'oc-prio-gap';
         else if (prio === 'GỬI') prioClass = 'oc-prio-gui';
 
-        const expectedDateStr = o.qlx_expected_date_fmt || o.expected_ship_date_fmt || '—';
+        const expectedDateStr = formatExpectedShipDateWithDay(o.qlx_expected_date || o.expected_ship_date);
         const expectedHourStr = o.qlx_expected_hour || '—';
 
         let actionButtons = '';
@@ -316,7 +327,7 @@ function buildCardsHTML(orders) {
         let statusNote = '';
         if (o.qlx_rescheduled_date) {
             statusNote = `<div class="oc-note" style="border-color:#d97706; color:#b45309;">
-                <b>Lịch hẹn mới:</b> ${o.qlx_rescheduled_date_fmt}<br/>
+                <b>Lịch hẹn mới:</b> ${formatExpectedShipDateWithDay(o.qlx_rescheduled_date)}<br/>
                 <b>Lý do:</b> ${o.qlx_rescheduled_reason || ''}
             </div>`;
         } else if (o.qlx_actual_output_at) {

@@ -88,6 +88,33 @@ module.exports = async function(fastify) {
                 }
             }
 
+            // Sắp xếp các tab theo thứ tự ngày tăng dần (đơn cũ nhất, trễ nhất lên trước)
+            const getEffectiveDateStr = (o) => {
+                const d = o.qlx_rescheduled_date || o.qlx_expected_date || o.expected_ship_date;
+                if (!d) return '9999-12-31';
+                if (d instanceof Date) return vnDateStr(d);
+                return d.toString().split(' ')[0];
+            };
+
+            const sortAsc = (a, b) => {
+                const dateA = getEffectiveDateStr(a);
+                const dateB = getEffectiveDateStr(b);
+                if (dateA < dateB) return -1;
+                if (dateA > dateB) return 1;
+                return b.id - a.id;
+            };
+
+            som.sort(sortAsc);
+            xuLy.sort(sortAsc);
+            henLai.sort(sortAsc);
+
+            // Sắp xếp đơn hoàn thành hôm nay theo thời gian hoàn thành giảm dần (mới nhất lên trước)
+            hoanThanh.sort((a, b) => {
+                const timeA = a.qlx_actual_output_at ? new Date(a.qlx_actual_output_at).getTime() : 0;
+                const timeB = b.qlx_actual_output_at ? new Date(b.qlx_actual_output_at).getTime() : 0;
+                return timeB - timeA;
+            });
+
             let hoanThanhCount = 0;
             if (hoan_thanh_mode === 'all') {
                 const countRow = await db.get("SELECT COUNT(*)::int AS count FROM dht_orders WHERE qlx_actual_output_at IS NOT NULL");
