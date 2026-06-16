@@ -202,6 +202,7 @@ module.exports = async function(fastify) {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_reminders_order ON qlx_reminders(dht_order_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_qlx_reminders_item ON qlx_reminders(item_id)`);
+        await db.exec(`ALTER TABLE qlx_reminders ADD COLUMN IF NOT EXISTS phoi_index INTEGER DEFAULT 0`);
         // Table to track which reminders have been viewed by workers
         await db.exec(`CREATE TABLE IF NOT EXISTS qlx_reminder_views (
             id SERIAL PRIMARY KEY,
@@ -253,15 +254,14 @@ module.exports = async function(fastify) {
         } catch(e) {}
 
         if (pairs.length > 0) {
-            for (const phoi of pairs) {
+            for (let i = 0; i < pairs.length; i++) {
                 const row = await db.get(`
                     SELECT 1 FROM cutting_records 
                     WHERE order_item_id = $1 
-                      AND UPPER(material_name) = UPPER($2) 
-                      AND UPPER(fabric_color) = UPPER($3) 
+                      AND phoi_index = $2
                       AND is_cut_done = true 
                     LIMIT 1
-                `, [itemId, (phoi.material_name || '').trim(), (phoi.color_name || '').trim()]);
+                `, [itemId, i]);
                 
                 if (!row) {
                     return false;
@@ -1004,37 +1004,38 @@ module.exports = async function(fastify) {
 
     // ========== GET REMINDERS FOR DEPARTMENTS ==========
     fastify.get('/api/qlx/reminders', { preHandler: [authenticate] }, async (request, reply) => {
-        const { order_id, item_id, dept } = request.query || {};
+        const { order_id, item_id, dept, phoi_index } = request.query || {};
         if (!order_id) return reply.code(400).send({ error: 'Thiếu order_id' });
         
         const orderId = Number(order_id);
         const deptFilter = dept ? ` AND dept = '${dept.replace(/'/g, "''")}'` : '';
+        const phoiFilter = (dept === 'cat' && phoi_index !== undefined && phoi_index !== null) ? ` AND phoi_index = ${parseInt(phoi_index)}` : '';
         
         let reminders = [];
         
         if (item_id) {
-            // Item-level: only show reminders for this specific item
+            // Item-level: only show reminders for this specific item and coordinate
             reminders = await db.all(
-                `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1 AND item_id = $2${deptFilter} ORDER BY id`,
+                `SELECT id, content, dept, item_id, phoi_index FROM qlx_reminders WHERE dht_order_id = $1 AND item_id = $2${deptFilter}${phoiFilter} ORDER BY id`,
                 [orderId, Number(item_id)]
             );
-            // Fallback to order-level reminders (item_id IS NULL) only if this item has none
+            // Fallback to order-level reminders (item_id IS NULL) only if this item/phoi has none
             if (reminders.length === 0) {
                 reminders = await db.all(
-                    `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
+                    `SELECT id, content, dept, item_id, phoi_index FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter}${phoiFilter} ORDER BY id`,
                     [orderId]
                 );
             }
         } else {
             // Order-level: show order-level reminders first
             reminders = await db.all(
-                `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter} ORDER BY id`,
+                `SELECT id, content, dept, item_id, phoi_index FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL${deptFilter}${phoiFilter} ORDER BY id`,
                 [orderId]
             );
-            // Fallback: if no order-level reminders, show ALL reminders for this order
+            // Fallback: if no order-level reminders, show ALL reminders for this order (optionally matching phoi)
             if (reminders.length === 0) {
                 reminders = await db.all(
-                    `SELECT id, content, dept, item_id FROM qlx_reminders WHERE dht_order_id = $1${deptFilter} ORDER BY id`,
+                    `SELECT id, content, dept, item_id, phoi_index FROM qlx_reminders WHERE dht_order_id = $1${deptFilter}${phoiFilter} ORDER BY id`,
                     [orderId]
                 );
             }
@@ -1096,7 +1097,10 @@ module.exports = async function(fastify) {
                     const row = record_id
                         ? await db.get(`SELECT 1 FROM cutting_records WHERE id = $1 AND is_cut_done = true LIMIT 1`, [Number(record_id)])
                         : (r.item_id
-                            ? await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id])
+                            ? (r.phoi_index !== null && r.phoi_index !== undefined
+                                ? await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id, r.phoi_index])
+                                : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id])
+                              )
                             : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = true LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'may') {
@@ -2055,9 +2059,8 @@ module.exports = async function(fastify) {
         const myLinkedIds = myLinked.map(r => r.linked_call_id);
 
         await ensureItemPrepRow(orderId, itemId);
-        const prep = await db.get('SELECT cut_remind_choice FROM qlx_preparation WHERE item_id = $1', [itemId]);
-        const cutRemindChoice = prep ? prep.cut_remind_choice : null;
-        const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' ORDER BY id", [itemId]);
+        const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2 ORDER BY id", [itemId, pi]);
+        const cutRemindChoice = cutReminders.length > 0 ? 'yes' : 'none';
 
         const reminderIds = cutReminders.map(r => r.id);
         let viewedIds = [];
@@ -2068,8 +2071,8 @@ module.exports = async function(fastify) {
             );
             viewedIds = views.map(v => v.reminder_id);
             
-            // Auto-view if cutting is completed
-            const row = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, itemId]);
+            // Auto-view if coordinate cutting is completed
+            const row = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, itemId, pi]);
             if (row) {
                 for (const rId of reminderIds) {
                     if (!viewedIds.includes(rId)) {
@@ -2079,8 +2082,46 @@ module.exports = async function(fastify) {
             }
         }
 
-        const isProdDone = await checkItemProductionDone(itemId, orderId);
-        const isCutDone = await checkItemCuttingDone(itemId);
+        const cuttingRecord = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
+            LIMIT 1
+        `, [itemId, pi]);
+        const isPhoiCutDone = !!cuttingRecord;
+
+        let isPrintDone = true;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [itemId, orderId]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [itemId, orderId]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                isPrintDone = false;
+            } else {
+                const printPending = await db.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.is_print_done = false AND pr.contractor_id IS NULL
+                    ) AS pending
+                `, [itemId, orderId]);
+                if (printPending && printPending.pending) {
+                    isPrintDone = false;
+                }
+            }
+        }
+        const isPhoiProdDone = isPhoiCutDone && isPrintDone;
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
@@ -2097,8 +2138,8 @@ module.exports = async function(fastify) {
                 content: r.content,
                 is_viewed: viewedIds.includes(r.id)
             })),
-            is_production_done: isProdDone,
-            is_cut_done: isCutDone
+            is_production_done: isPhoiProdDone,
+            is_cut_done: isPhoiCutDone
         };
     });
 
@@ -2117,10 +2158,50 @@ module.exports = async function(fastify) {
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
-        const isCutDone = await checkItemCuttingDone(item_id);
-        if (isProdDone || isCutDone) {
-            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể thay đổi dữ liệu vải!' : 'Phiếu này đã hoàn thành cắt, không thể thay đổi dữ liệu vải!' });
+        const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
+        const cuttingRecord = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
+            LIMIT 1
+        `, [item_id, pi]);
+        const isPhoiCutDone = !!cuttingRecord;
+
+        let isPrintDone = true;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [item_id, dht_order_id]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [item_id, dht_order_id]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                isPrintDone = false;
+            } else {
+                const printPending = await db.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.is_print_done = false AND pr.contractor_id IS NULL
+                    ) AS pending
+                `, [item_id, dht_order_id]);
+                if (printPending && printPending.pending) {
+                    isPrintDone = false;
+                }
+            }
+        }
+        const isPhoiProdDone = isPhoiCutDone && isPrintDone;
+
+        if (isPhoiProdDone || isPhoiCutDone) {
+            return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể thay đổi dữ liệu vải!' : 'Phối này đã hoàn thành cắt, không thể thay đổi dữ liệu vải!' });
         }
 
         // Validate cutting reminders choice and content (required for reservation POST)
@@ -2150,16 +2231,16 @@ module.exports = async function(fastify) {
             WHERE item_id = $3
         `, [cut_remind_choice, now, item_id]);
 
-        // Delete existing cutting reminders for this item
-        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+        // Delete existing cutting reminders for this item and phoi
+        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2`, [item_id, pi]);
 
         // Insert new cutting reminders
         if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
             for (const content of cut_reminders) {
                 await db.run(`
-                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
-                    VALUES ($1, $2, 'cat', $3, $4, $5)
-                `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at, phoi_index)
+                    VALUES ($1, $2, 'cat', $3, $4, $5, $6)
+                `, [dht_order_id, item_id, content.trim(), request.user.id, now, pi]);
             }
         }
 
@@ -2266,17 +2347,53 @@ module.exports = async function(fastify) {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
-        const { dht_order_id, item_id, cut_remind_choice, cut_reminders } = request.body || {};
+        const { dht_order_id, item_id, phoi_index, cut_remind_choice, cut_reminders } = request.body || {};
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
-        const isProdDone = await checkItemProductionDone(item_id, dht_order_id);
-        if (isProdDone) {
-            return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
-        }
+        const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
+        const cuttingRecord = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
+            LIMIT 1
+        `, [item_id, pi]);
+        const isPhoiCutDone = !!cuttingRecord;
 
-        const isCutDone = await checkItemCuttingDone(item_id);
-        if (isCutDone) {
-            return reply.code(400).send({ error: 'Phiếu này đã hoàn thành cắt, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
+        let isPrintDone = true;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [item_id, dht_order_id]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [item_id, dht_order_id]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                isPrintDone = false;
+            } else {
+                const printPending = await db.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.is_print_done = false AND pr.contractor_id IS NULL
+                    ) AS pending
+                `, [item_id, dht_order_id]);
+                if (printPending && printPending.pending) {
+                    isPrintDone = false;
+                }
+            }
+        }
+        const isPhoiProdDone = isPhoiCutDone && isPrintDone;
+
+        if (isPhoiProdDone || isPhoiCutDone) {
+            return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể chỉnh sửa nhắc nhở bộ phận cắt!' : 'Phối này đã hoàn thành cắt, không thể chỉnh sửa nhắc nhở bộ phận cắt!' });
         }
 
         if (!cut_remind_choice) {
@@ -2307,16 +2424,16 @@ module.exports = async function(fastify) {
             WHERE item_id = $3
         `, [cut_remind_choice, now, item_id]);
 
-        // Delete existing cutting reminders for this item
-        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat'`, [item_id]);
+        // Delete existing cutting reminders for this item and phoi
+        await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2`, [item_id, pi]);
 
         // Insert new cutting reminders
         if (cut_remind_choice === 'yes' && Array.isArray(cut_reminders)) {
             for (const content of cut_reminders) {
                 await db.run(`
-                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
-                    VALUES ($1, $2, 'cat', $3, $4, $5)
-                `, [dht_order_id, item_id, content.trim(), request.user.id, now]);
+                    INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at, phoi_index)
+                    VALUES ($1, $2, 'cat', $3, $4, $5, $6)
+                `, [dht_order_id, item_id, content.trim(), request.user.id, now, pi]);
             }
         }
 
@@ -2353,10 +2470,50 @@ module.exports = async function(fastify) {
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (res.reservation_type !== 'from_stock') return reply.code(400).send({ error: 'Chỉ sửa được loại lấy từ kho' });
 
-        const isProdDone = await checkItemProductionDone(res.item_id, res.dht_order_id);
-        const isCutDone = await checkItemCuttingDone(res.item_id);
-        if (isProdDone || isCutDone) {
-            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể sửa số kg!' : 'Phiếu này đã hoàn thành cắt, không thể sửa số kg!' });
+        const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+        const cuttingRecord = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
+            LIMIT 1
+        `, [res.item_id, pi]);
+        const isPhoiCutDone = !!cuttingRecord;
+
+        let isPrintDone = true;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [res.item_id, res.dht_order_id]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [res.item_id, res.dht_order_id]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                isPrintDone = false;
+            } else {
+                const printPending = await db.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.is_print_done = false AND pr.contractor_id IS NULL
+                    ) AS pending
+                `, [res.item_id, res.dht_order_id]);
+                if (printPending && printPending.pending) {
+                    isPrintDone = false;
+                }
+            }
+        }
+        const isPhoiProdDone = isPhoiCutDone && isPrintDone;
+
+        if (isPhoiProdDone || isPhoiCutDone) {
+            return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể sửa số kg!' : 'Phối này đã hoàn thành cắt, không thể sửa số kg!' });
         }
 
         const oldKg = Number(res.kg_reserved);
@@ -2397,10 +2554,50 @@ module.exports = async function(fastify) {
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (res.status === 'arrived') return reply.code(400).send({ error: 'Đã xác nhận rồi' });
 
-        const isProdDone = await checkItemProductionDone(res.item_id, res.dht_order_id);
-        const isCutDone = await checkItemCuttingDone(res.item_id);
-        if (isProdDone || isCutDone) {
-            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể xác nhận vải về!' : 'Phiếu này đã hoàn thành cắt, không thể xác nhận vải về!' });
+        const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+        const cuttingRecord = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
+            LIMIT 1
+        `, [res.item_id, pi]);
+        const isPhoiCutDone = !!cuttingRecord;
+
+        let isPrintDone = true;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [res.item_id, res.dht_order_id]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [res.item_id, res.dht_order_id]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                isPrintDone = false;
+            } else {
+                const printPending = await db.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.is_print_done = false AND pr.contractor_id IS NULL
+                    ) AS pending
+                `, [res.item_id, res.dht_order_id]);
+                if (printPending && printPending.pending) {
+                    isPrintDone = false;
+                }
+            }
+        }
+        const isPhoiProdDone = isPhoiCutDone && isPrintDone;
+
+        if (isPhoiProdDone || isPhoiCutDone) {
+            return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể xác nhận vải về!' : 'Phối này đã hoàn thành cắt, không thể xác nhận vải về!' });
         }
 
         const { vnNow } = require('../utils/timezone');
@@ -2477,10 +2674,50 @@ module.exports = async function(fastify) {
         const res = await db.get('SELECT * FROM qlx_fabric_reservations WHERE id = $1', [request.params.id]);
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
 
-        const isProdDone = await checkItemProductionDone(res.item_id, res.dht_order_id);
-        const isCutDone = await checkItemCuttingDone(res.item_id);
-        if (isProdDone || isCutDone) {
-            return reply.code(400).send({ error: isProdDone ? 'Phiếu này đã hoàn thành sản xuất, không thể hủy giữ vải!' : 'Phiếu này đã hoàn thành cắt, không thể hủy giữ vải!' });
+        const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+        const cuttingRecord = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
+            LIMIT 1
+        `, [res.item_id, pi]);
+        const isPhoiCutDone = !!cuttingRecord;
+
+        let isPrintDone = true;
+        const needsPrint = await db.get(`
+            SELECT EXISTS (
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND qa.operator_type = 'user'
+            ) AS needs_print
+        `, [res.item_id, res.dht_order_id]);
+
+        if (needsPrint && needsPrint.needs_print) {
+            const hasPrintRecs = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM printing_records 
+                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                ) AS has_recs
+            `, [res.item_id, res.dht_order_id]);
+            if (!hasPrintRecs || !hasPrintRecs.has_recs) {
+                isPrintDone = false;
+            } else {
+                const printPending = await db.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                          AND pr.is_print_done = false AND pr.contractor_id IS NULL
+                    ) AS pending
+                `, [res.item_id, res.dht_order_id]);
+                if (printPending && printPending.pending) {
+                    isPrintDone = false;
+                }
+            }
+        }
+        const isPhoiProdDone = isPhoiCutDone && isPrintDone;
+
+        if (isPhoiProdDone || isPhoiCutDone) {
+            return reply.code(400).send({ error: isPhoiProdDone ? 'Phối này đã hoàn thành sản xuất, không thể hủy giữ vải!' : 'Phối này đã hoàn thành cắt, không thể hủy giữ vải!' });
         }
 
         const { vnNow } = require('../utils/timezone');

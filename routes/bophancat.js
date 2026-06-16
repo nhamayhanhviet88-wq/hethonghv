@@ -2058,6 +2058,7 @@ module.exports = async function(fastify) {
                 quantity: it.quantity,
                 material_name: matchingPair.material_name,
                 color_name: matchingPair.color_name,
+                phoi_pair_index: pairIdx >= 0 ? pairIdx : 0,
                 status, statusLabel, canSelect
             });
         }

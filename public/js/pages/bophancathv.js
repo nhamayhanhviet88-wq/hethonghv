@@ -1364,6 +1364,7 @@ async function _bpcOpenCutModal(recordId) {
         
         var remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
         if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
+        if (rec.phoi_index !== undefined && rec.phoi_index !== null) remUrl += '&phoi_index=' + rec.phoi_index;
         var remRes = apiCall(remUrl);
         
         var results = await Promise.all([rollsRes, remRes]);
@@ -1570,6 +1571,7 @@ async function _bpcOpenDetail(recordId) {
         try {
             var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
             if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
+            if (r.phoi_index !== undefined && r.phoi_index !== null) remUrl += '&phoi_index=' + r.phoi_index;
             var remRes = await apiCall(remUrl);
             cutReminders = remRes.reminders || [];
             cutReminderIds = remRes.reminder_ids || [];
@@ -2884,6 +2886,7 @@ async function _mcNext() {
                 var cand = _mcData.candidates.find(function(c) { return c.order_item_id === itemId; });
                 if (!cand) return null;
                 var url = '/api/qlx/reminders?order_id=' + cand.dht_order_id + '&dept=cat&item_id=' + itemId;
+                if (cand.phoi_pair_index !== undefined && cand.phoi_pair_index !== null) url += '&phoi_index=' + cand.phoi_pair_index;
                 return apiCall(url).then(function(res) {
                     return {
                         order_code: cand.order_code,

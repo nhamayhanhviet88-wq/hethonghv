@@ -1130,6 +1130,7 @@ async function _qlxFabSaveRemindersOnly(orderId, itemId, pairIndex) {
         var res = await apiCall('/api/qlx/fabric-reserve/reminders', 'PUT', {
             dht_order_id: orderId,
             item_id: itemId,
+            phoi_index: pairIndex,
             cut_remind_choice: reminderData.choice,
             cut_reminders: reminderData.reminders
         });
