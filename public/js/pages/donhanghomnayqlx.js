@@ -1049,7 +1049,7 @@ function _qlxRenderTimeline(res) {
                     <div class="ts-step-name" style="font-weight:800;">${s.short || s.name}</div>
                     ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
                     
-                    ${s.schedule_at ? `<div class="qlx-step-expected" title="Giờ dự kiến hoàn thành chặng này">📅 ${fmtDT(s.schedule_at)}</div>` : `<div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa lên lịch</div>`}
+                    ${s.schedule_at ? `<div class="qlx-step-expected" title="Giờ dự kiến hoàn thành chặng này">📅 ${fmtDT(s.schedule_at)}</div>` : (s.done ? '' : `<div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa lên lịch</div>`)}
                     
                     <div class="ts-step-time" style="color:#059669;font-weight:700;margin-top:2px;">${s.time ? 'Thực tế: ' + fmtDT(s.time) : ''}</div>
                     <div class="ts-step-time" style="font-weight:600;">${s.worker || ''}</div>
