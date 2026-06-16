@@ -545,6 +545,18 @@
                     .cal-trace-icon:hover {
                         transform: scale(1.25);
                     }
+                    .cal-copy-btn {
+                        background: transparent;
+                        color: #64748b;
+                    }
+                    .cal-copy-btn:hover {
+                        background: #cbd5e1;
+                        color: #0f172a;
+                    }
+                    .cal-copy-btn.copied {
+                        color: #16a34a !important;
+                        background: #dcfce7 !important;
+                    }
                     .cal-order-strip .cal-order-code {
                         font-weight: 800;
                         color: #2563eb;
@@ -1487,7 +1499,15 @@
                      style="border-left: 3px solid ${pStyle.border};"
                      onclick="event.stopPropagation();"
                      title="Đơn hàng ${o.displayCode || o.order_code}">
-                    <span class="cal-order-code">${o.displayCode || o.order_code}</span>
+                    <span class="cal-order-code" style="display: inline-flex; align-items: center; gap: 4px;">
+                        ${o.displayCode || o.order_code}
+                        <span class="cal-copy-btn" 
+                              style="cursor: pointer; font-size: 11px; margin-left: 2px; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; transition: all 0.15s;" 
+                              onclick="event.stopPropagation(); window.copyToClipboard(this, '${(o.displayCode || o.order_code).replace(/'/g, "\\'").replace('⚠️ [Chậm] ', '')}')"
+                              title="Sao chép mã đơn và phiếu">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </span>
+                    </span>
                     <span class="cal-order-qty" style="display: inline-flex; align-items: center; gap: 4px;">
                         <span class="cal-trace-icon" 
                               onclick="event.stopPropagation(); navigateToOrderTrace('${o.order_code}')" 
@@ -1651,7 +1671,15 @@
                 <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px; cursor: default;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
-                            <span class="cal-order-code" style="font-size: 13px;">${o.displayCode || o.order_code}</span>
+                            <span class="cal-order-code" style="font-size: 13px; display: inline-flex; align-items: center; gap: 4px;">
+                                ${o.displayCode || o.order_code}
+                                <span class="cal-copy-btn" 
+                                      style="cursor: pointer; font-size: 11px; margin-left: 2px; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; transition: all 0.15s;" 
+                                      onclick="event.stopPropagation(); window.copyToClipboard(this, '${(o.displayCode || o.order_code).replace(/'/g, "\\'").replace('⚠️ [Chậm] ', '')}')"
+                                      title="Sao chép mã đơn và phiếu">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </span>
+                            </span>
                             <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 10px;">${o.customer_name || 'Không tên KH'}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1733,6 +1761,20 @@
         }
 
         renderModalOrders();
+    };
+
+    window.copyToClipboard = function(btn, text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalHtml = btn.innerHTML;
+            btn.classList.add('copied');
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.innerHTML = originalHtml;
+            }, 1500);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+        });
     };
 
     window.navigateToOrderTrace = function(orderCode) {
