@@ -3056,15 +3056,242 @@ async function _ktclResolveError(recordId) {
 }
 
 // Report Error Action (Sets error_reported = true)
-async function _ktclReportError(recordId) {
-    if (!confirm('Bạn có chắc chắn muốn BÁO LỖI cho đơn hàng này?')) return;
-    try {
-        await apiCall(`/api/sewing/toggle/${recordId}`, 'POST', { action: 'report_error' });
-        showToast('⚠️ Đã báo lỗi đơn hàng!');
-        await _ktclLoadData();
-    } catch(err) {
-        showToast(err.message || 'Lỗi', 'error');
+window._blErrorDesktopImages = [];
+window._blErrorDesktopVideo = null;
+let currentBlDesktopRecordId = null;
+
+function _ktclBlDesktopRenderImagePreviews() {
+    const container = document.getElementById('ktclBlDesktopImagesContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    window._blErrorDesktopImages.forEach((file, index) => {
+        const url = URL.createObjectURL(file);
+        container.innerHTML += `
+            <div class="qc-image-wrapper" style="position:relative; width:80px; height:80px;">
+                <img src="${url}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;">
+                <button onclick="_ktclBlDesktopRemoveImage(${index})" class="qc-image-delete-btn" style="position:absolute; top:4px; right:4px;">✕</button>
+            </div>
+        `;
+    });
+}
+
+function _ktclBlDesktopRemoveImage(index) {
+    window._blErrorDesktopImages.splice(index, 1);
+    _ktclBlDesktopRenderImagePreviews();
+    const statusEl = document.getElementById('ktclBlDesktopUploadStatus');
+    if (statusEl) {
+        statusEl.textContent = window._blErrorDesktopImages.length > 0 ? `Đã chọn ${window._blErrorDesktopImages.length} ảnh.` : 'Chưa chọn ảnh';
     }
+}
+
+async function _ktclUploadBlDesktopImages(event) {
+    const files = event.target.files;
+    if (!files.length) return;
+    const statusEl = document.getElementById('ktclBlDesktopUploadStatus');
+    if (statusEl) statusEl.textContent = 'Đang xử lý ảnh...';
+    try {
+        const p = [];
+        for (let i = 0; i < files.length; i++) {
+            p.push(_ktclResizeImage(files[i], 800, 800, 0.6));
+        }
+        const resized = await Promise.all(p);
+        window._blErrorDesktopImages = window._blErrorDesktopImages.concat(resized);
+        _ktclBlDesktopRenderImagePreviews();
+        if (statusEl) statusEl.textContent = `Đã chọn ${window._blErrorDesktopImages.length} ảnh.`;
+    } catch (e) {
+        showToast('Lỗi xử lý ảnh: ' + e.message, 'error');
+        if (statusEl) statusEl.textContent = 'Lỗi ảnh!';
+    }
+    event.target.value = '';
+}
+
+function _ktclUploadBlDesktopVideo(event) {
+    const file = event.target.files[0];
+    const statusEl = document.getElementById('ktclBlDesktopVideoStatus');
+    if (file) {
+        window._blErrorDesktopVideo = file;
+        if (statusEl) statusEl.textContent = 'Đã chọn video.';
+    } else {
+        window._blErrorDesktopVideo = null;
+        if (statusEl) statusEl.textContent = 'Chưa chọn video';
+    }
+}
+
+async function _ktclOpenBaoLoiModal(recordId) {
+    const r = _ktclState.originalRecords.find(x => x.id === recordId);
+    if (!r) return;
+    
+    currentBlDesktopRecordId = recordId;
+    window._blErrorDesktopImages = [];
+    window._blErrorDesktopVideo = null;
+
+    let reporterName = 'BP Kiểm Tra Chất Lượng';
+    if (typeof currentUser !== 'undefined' && currentUser) {
+        if (currentUser.role === 'giam_doc') {
+            reporterName = 'Giám Đốc - BP Kiểm Tra Chất Lượng';
+        } else {
+            reporterName = 'BP Kiểm Tra Chất Lượng - ' + (currentUser.full_name || currentUser.username || 'Nhân viên');
+        }
+    }
+
+    const modalHtml = `
+        <div class="bpm-modal-overlay show" id="ktclBaoLoiModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;overflow-y:auto">
+            <div style="background:#fff;border-radius:16px;width:650px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;margin-bottom:40px;">
+                <div style="background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:800; font-size:16px; display:flex; align-items:center; gap:8px;">
+                        <span>🚨 Báo Đơn Lỗi - Bộ Phận Kiểm Tra Chất Lượng</span>
+                    </div>
+                    <button onclick="_ktclCloseModal('ktclBaoLoiModal')" style="background:none; border:none; color:white; font-size:20px; cursor:pointer; font-weight:bold;">✕</button>
+                </div>
+                
+                <div style="padding:24px; display:flex; flex-direction:column; gap:16px; background:#f8fafc; max-height: 70vh; overflow-y: auto;">
+                    <!-- Thông tin đơn hàng -->
+                    <div style="background:#fff; border: 1.5px solid #e2e8f0; border-radius:12px; padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div style="font-size:13px; color:#475569;"><strong>Mã Đơn:</strong> <span style="color:#1e3a8a; font-weight:700;">${r.order_code || '—'}</span></div>
+                        <div style="font-size:13px; color:#475569;"><strong>Khách Hàng:</strong> <span style="color:#1e293b; font-weight:700;">${r.customer_name || '—'}</span></div>
+                        <div style="font-size:13px; color:#475569; grid-column: span 2;"><strong>Sản phẩm:</strong> <span style="color:#1e293b; font-weight:700;">${_ktclCleanProdName(r)}</span></div>
+                        <div style="font-size:13px; color:#475569;"><strong>CSKH:</strong> <span style="color:#1e293b; font-weight:700;">${r.cskh_name || '—'}</span></div>
+                        <div style="font-size:13px; color:#475569;"><strong>SL Sản Xuất:</strong> <span style="color:#10b981; font-weight:700;">${r.quantity || r.order_qty || 0}</span></div>
+                        <div style="font-size:13px; color:#475569; grid-column: span 2;"><strong>Người Báo Lỗi:</strong> <span style="color:#c084fc; font-weight:700;">${reporterName}</span></div>
+                    </div>
+
+                    <!-- Input số lượng lỗi -->
+                    <div class="form-group">
+                        <label class="form-label" style="color:#ef4444; font-weight:700;">Số lượng lỗi <span style="color:#ef4444;">*</span></label>
+                        <input type="number" id="ktclBlDesktopErrorQty" class="form-input" placeholder="Nhập số lượng sản phẩm lỗi..." min="1" style="background:#fff !important;">
+                    </div>
+
+                    <!-- Nội dung chi tiết lỗi -->
+                    <div class="form-group">
+                        <label class="form-label" style="color:#ef4444; font-weight:700;">Nội dung chi tiết lỗi <span style="color:#ef4444;">*</span></label>
+                        <textarea id="ktclBlDesktopErrorContent" class="form-input" rows="3" placeholder="Mô tả chi tiết các lỗi phát hiện..." style="background:#fff !important;"></textarea>
+                    </div>
+
+                    <!-- Hình ảnh minh họa bắt buộc -->
+                    <div class="form-group">
+                        <label class="form-label" style="color:#ef4444; font-weight:700;">Hình Ảnh Minh Họa <span style="color:#ef4444;">*</span></label>
+                        <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
+                            <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700; border-color:#fca5a5; color:#ef4444;" onclick="document.getElementById('ktclBlDesktopFileInput').click()">📸 Tải ảnh lên</button>
+                            <span style="font-size:12px; color:#64748b;" id="ktclBlDesktopUploadStatus">Chưa chọn ảnh</span>
+                            <input type="file" multiple id="ktclBlDesktopFileInput" accept="image/*" style="display:none;" onchange="_ktclUploadBlDesktopImages(event)">
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="ktclBlDesktopImagesContainer"></div>
+                    </div>
+
+                    <!-- Video minh họa không bắt buộc -->
+                    <div class="form-group">
+                        <label class="form-label">Video Minh Họa (Không bắt buộc)</label>
+                        <div style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
+                            <button class="ktcl-btn-sm ktcl-btn-outline" style="padding:8px 14px; font-weight:700;" onclick="document.getElementById('ktclBlDesktopVideoInput').click()">🎥 Tải video lên</button>
+                            <span style="font-size:12px; color:#64748b;" id="ktclBlDesktopVideoStatus">Chưa chọn video</span>
+                            <input type="file" id="ktclBlDesktopVideoInput" accept="video/*" style="display:none;" onchange="_ktclUploadBlDesktopVideo(event)">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding:16px 24px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:12px; border-radius: 0 0 16px 16px;">
+                    <button onclick="_ktclCloseModal('ktclBaoLoiModal')" class="ktcl-btn-sm ktcl-btn-outline" style="padding:10px 20px; font-weight:700;">Hủy</button>
+                    <button onclick="_ktclSubmitBaoLoiDesktop()" class="ktcl-btn-sm ktcl-btn-danger" style="padding:10px 24px; font-weight:700; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; border-radius:8px; cursor:pointer;">🚨 Báo Lỗi</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    _ktclCloseModal('ktclBaoLoiModal');
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function _ktclSubmitBaoLoiDesktop() {
+    const qtyVal = document.getElementById('ktclBlDesktopErrorQty').value;
+    const qty = Number(qtyVal) || 0;
+    if (qty <= 0) {
+        showToast('⚠️ Vui lòng nhập số lượng lỗi hợp lệ!', 'error');
+        return;
+    }
+
+    const content = document.getElementById('ktclBlDesktopErrorContent').value.trim();
+    if (!content) {
+        showToast('⚠️ Vui lòng mô tả chi tiết lỗi!', 'error');
+        return;
+    }
+
+    if (window._blErrorDesktopImages.length === 0) {
+        showToast('⚠️ Vui lòng tải lên ít nhất 1 ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
+
+    const r = _ktclState.originalRecords.find(x => x.id === currentBlDesktopRecordId);
+    if (!r) return;
+
+    try {
+        let today = _ktclGetVnTodayStr();
+
+        let reporterName = 'BP Kiểm Tra Chất Lượng';
+        if (typeof currentUser !== 'undefined' && currentUser) {
+            if (currentUser.role === 'giam_doc') {
+                reporterName = 'Giám Đốc - BP Kiểm Tra Chất Lượng';
+            } else {
+                reporterName = 'BP Kiểm Tra Chất Lượng - ' + (currentUser.full_name || currentUser.username || 'Nhân viên');
+            }
+        }
+
+        const body = {
+            report_date: today,
+            common_error_type: '',
+            order_code: r.order_code,
+            cskh_name: reporterName,
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: r.dht_order_id,
+            customer_name: r.customer_name,
+            production_quantity: r.quantity || r.order_qty || 0,
+            error_department: null,
+            error_type: 'Nội Bộ'
+        };
+
+        const result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) throw new Error(result.error);
+
+        // Upload hình ảnh
+        if (window._blErrorDesktopImages.length > 0 && result.id) {
+            const fd = new FormData();
+            window._blErrorDesktopImages.forEach((file, index) => {
+                fd.append('file_' + index, file, `image_${index}.jpeg`);
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
+        }
+
+        // Upload video
+        if (window._blErrorDesktopVideo && result.id) {
+            const fdv = new FormData();
+            fdv.append('video', window._blErrorDesktopVideo);
+            await fetch('/api/customer-errors/' + result.id + '/video', {
+                method: 'POST',
+                body: fdv,
+                credentials: 'include'
+            });
+        }
+
+        // Cập nhật trạng thái sewing record
+        await apiCall('/api/sewing/toggle/' + currentBlDesktopRecordId, 'POST', {
+            action: 'report_error',
+            error_order_id: result.id
+        });
+
+        showToast('⚠️ Đã báo đơn lỗi thành công!');
+        _ktclCloseModal('ktclBaoLoiModal');
+        await _ktclLoadData();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function _ktclReportError(recordId) {
+    _ktclOpenBaoLoiModal(recordId);
 }
 
 // Image Viewer Modal
