@@ -7,7 +7,8 @@ let _dhnqlxConfig = { xu_ly_days: 1, hoan_thanh_mode: 'today' };
 let _dhnqlxCompletedMonths = [];
 let _dhnqlxExpandedMonths = new Set();
 let _dhnqlxMonthOrders = {};
-let _qlxHolidaysSet = new Set();
+window._qlxHolidaysSet = window._qlxHolidaysSet || new Set();
+let _qlxHolidaysSet = window._qlxHolidaysSet;
 
 async function _qlxLoadHolidays() {
     try {
@@ -1194,6 +1195,9 @@ function _qlxUploadAndResizeMulti(file, stepKey) {
     };
     reader.readAsDataURL(file);
 }
+
+window._qlxFormatDateTimeToShow = _qlxFormatDateTimeToShow;
+window._qlxOpenDateTimePicker = _qlxOpenDateTimePicker;
 
 function _qlxFormatDateTimeToShow(valStr) {
     if (!valStr) return '';

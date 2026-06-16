@@ -987,43 +987,33 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         }
     } else {
         html += '  <div style="font-weight:700; font-size:12px; color:#1e293b; margin-bottom:8px;">📅 Lịch Cắt Phối <span style="color:#dc2626">*</span></div>';
-        var schedDate = '';
-        var schedHour = '08';
-        var schedMin = '00';
+        var valISO = '';
         if (cutSchedule) {
             var sDt = new Date(cutSchedule);
             if (!isNaN(sDt.getTime())) {
                 var vnDt = new Date(sDt.getTime() + 7 * 3600000);
-                schedDate = vnDt.toISOString().slice(0, 10);
-                schedHour = ('0' + vnDt.getUTCHours()).slice(-2);
-                var rawMin = vnDt.getUTCMinutes();
-                if (rawMin < 8) schedMin = '00';
-                else if (rawMin < 23) schedMin = '15';
-                else if (rawMin < 38) schedMin = '30';
-                else if (rawMin < 53) schedMin = '45';
-                else schedMin = '00';
+                valISO = vnDt.toISOString().slice(0, 16);
+            }
+        } else {
+            var todayVn = new Date(new Date().getTime() + 7 * 3600000);
+            valISO = todayVn.toISOString().slice(0, 11) + '08:00';
+        }
+        var displayVal = '';
+        if (typeof _qlxFormatDateTimeToShow === 'function') {
+            displayVal = _qlxFormatDateTimeToShow(valISO);
+        } else {
+            var sDt2 = new Date(valISO);
+            if (!isNaN(sDt2.getTime())) {
+                var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                var dayName = days[sDt2.getDay()];
+                var pad = function(n) { return String(n).padStart(2, '0'); };
+                displayVal = dayName + ' - ' + pad(sDt2.getDate()) + '/' + pad(sDt2.getMonth() + 1) + '/' + sDt2.getFullYear() + ' ' + pad(sDt2.getHours()) + ':' + pad(sDt2.getMinutes());
             }
         }
-        html += '  <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">';
-        html += '    <div>';
-        html += '      <input type="date" id="qlx_cut_schedule_date" value="' + schedDate + '" onchange="_qlxCutReminderChanged()" style="padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px;">';
-        html += '    </div>';
-        html += '    <div style="display:flex; align-items:center; gap:4px;">';
-        html += '      <select id="qlx_cut_schedule_hour" onchange="_qlxCutReminderChanged()" style="padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:700; color:#1e293b;">';
-        for (var h = 0; h < 24; h++) {
-            var hs = ('0' + h).slice(-2);
-            var selected = (hs === schedHour) ? 'selected' : '';
-            html += '        <option value="' + hs + '" ' + selected + '>' + hs + '</option>';
-        }
-        html += '      </select>';
-        html += '      <span style="font-size:12px; font-weight:800; color:#475569">:</span>';
-        html += '      <select id="qlx_cut_schedule_minute" onchange="_qlxCutReminderChanged()" style="padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:700; color:#1e293b;">';
-        ['00', '15', '30', '45'].forEach(function(m) {
-            var selected = (m === schedMin) ? 'selected' : '';
-            html += '        <option value="' + m + '" ' + selected + '>' + m + '</option>';
-        });
-        html += '      </select>';
-        html += '    </div>';
+        html += '  <div style="position:relative; width:100%; max-width:320px; margin-bottom:12px;">';
+        html += '    <input type="hidden" id="qlx_cut_schedule_raw" value="' + valISO + '" onchange="_qlxCutReminderChanged()">';
+        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; transition:all 0.3s;" readonly value="' + displayVal + '" onclick="_qlxOpenDateTimePicker(\'qlx_cut_schedule_raw\', \'\')">';
+        html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px;">📅</span>';
         html += '  </div>';
     }
 
@@ -1103,11 +1093,9 @@ function _qlxFabPreview(mat, color, unit) {
 }
 
 function _qlxGetCurrentCutSchedule() {
-    var dateEl = document.getElementById('qlx_cut_schedule_date');
-    if (!dateEl || !dateEl.value) return null;
-    var hourEl = document.getElementById('qlx_cut_schedule_hour');
-    var minEl = document.getElementById('qlx_cut_schedule_minute');
-    return dateEl.value + 'T' + hourEl.value + ':' + minEl.value + ':00+07:00';
+    var rawEl = document.getElementById('qlx_cut_schedule_raw');
+    if (!rawEl || !rawEl.value) return null;
+    return rawEl.value + ':00+07:00';
 }
 
 function _qlxCutReminderChanged() {
@@ -1125,8 +1113,8 @@ function _qlxValidateAndGetCutReminders() {
     var schedVal = _qlxGetCurrentCutSchedule();
     if (!schedVal) {
         showToast('Vui lòng chọn đầy đủ ngày trong Lịch Cắt!', 'error');
-        var dateEl = document.getElementById('qlx_cut_schedule_date');
-        if (dateEl) dateEl.focus();
+        var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
+        if (displayEl) displayEl.focus();
         return null;
     }
     var choiceEl = document.querySelector('input[name="qlx_cut_remind_choice"]:checked');
