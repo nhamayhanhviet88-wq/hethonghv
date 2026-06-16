@@ -599,7 +599,8 @@ module.exports = async function(fastify) {
                    lh.performed_at AS last_update_at,
                    lh_user.full_name AS last_update_by,
                    t.target_ratio AS target_cut_ratio,
-                   w.unit AS fabric_unit
+                   w.unit AS fabric_unit,
+                   sch.cut_expected_at
             FROM cutting_records cr
             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
@@ -611,6 +612,7 @@ module.exports = async function(fastify) {
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
+            LEFT JOIN qlx_item_schedules sch ON sch.dht_order_id = cr.dht_order_id AND (sch.order_item_id = cr.order_item_id OR (sch.order_item_id IS NULL AND cr.order_item_id IS NULL))
             LEFT JOIN LATERAL (
                 SELECT h.details, h.performed_at, h.performed_by
                 FROM cutting_history h WHERE h.cutting_id = cr.id
@@ -671,7 +673,8 @@ module.exports = async function(fastify) {
                    ceo.error_quantity AS error_quantity_reported,
                    ceo.error_content AS error_content_reported,
                    ceo.common_error_type AS error_common_type,
-                   ceo.error_images AS error_images_json
+                   ceo.error_images AS error_images_json,
+                   sch.cut_expected_at
             FROM cutting_records cr
             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
@@ -683,6 +686,7 @@ module.exports = async function(fastify) {
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
+            LEFT JOIN qlx_item_schedules sch ON sch.dht_order_id = cr.dht_order_id AND (sch.order_item_id = cr.order_item_id OR (sch.order_item_id IS NULL AND cr.order_item_id IS NULL))
             LEFT JOIN customer_error_orders ceo ON cr.error_order_id = ceo.id
             WHERE cr.id = $1
         `, [Number(request.params.id)]);
@@ -1580,10 +1584,12 @@ module.exports = async function(fastify) {
                         WHERE qa.assignment_type = 'in'
                           AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                           AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
-                    ) AS has_pc_in
+                    ) AS has_pc_in,
+                    sch.cut_expected_at
                 FROM dht_order_items doi
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+                LEFT JOIN qlx_item_schedules sch ON sch.order_item_id = doi.id
                 WHERE doi.dht_order_id = ANY($1)
                 ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
@@ -1633,7 +1639,7 @@ module.exports = async function(fastify) {
             const itsArr = itemMap[o.id] || [];
             const totalItemsInOrder = allItemCounts[o.id] || 1;
             if (!itsArr.length) {
-                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity, cutting_category_name: null, cutting_record_id: null });
+                rows.push({ ...o, item_id: null, item_desc: null, phoi_index: 0, item_index: 0, phoi_in_item: 0, total_phoi: 0, total_items_in_order: totalItemsInOrder, material_name: null, color_name: null, item_qty: o.total_quantity, cutting_category_name: null, cutting_record_id: null, cut_expected_at: null });
                 continue;
             }
             // Calculate total phối for this order (for naming)
@@ -1689,7 +1695,8 @@ module.exports = async function(fastify) {
                                 original_cutter_id: originalCutterId,
                                 has_pc_in: it.has_pc_in,
                                 fabric_arrived: isPhoiFabricArrived,
-                                fabric_status: fabric_status
+                                fabric_status: fabric_status,
+                                cut_expected_at: it.cut_expected_at
                             });
                         }
                     }
@@ -1724,7 +1731,8 @@ module.exports = async function(fastify) {
                             original_cutter_id: originalCutterId,
                             has_pc_in: it.has_pc_in,
                             fabric_arrived: isPhoiFabricArrived,
-                            fabric_status: fabric_status
+                            fabric_status: fabric_status,
+                            cut_expected_at: it.cut_expected_at
                         });
                     }
                 }

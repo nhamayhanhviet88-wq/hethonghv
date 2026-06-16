@@ -15,8 +15,9 @@
         .m-header img{width:32px;height:32px;border-radius:8px}
         .m-header h1{font-size:15px;font-weight:800;color:#fca5a5;flex:1}
         .m-user{font-size:10px;color:#fecaca;font-weight:600;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px}
-        .m-tabs{display:flex;background:#1a2332;border-bottom:1px solid rgba(255,255,255,0.08);position:sticky;top:60px;z-index:99}
-        .m-tab{flex:1;padding:12px 8px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s}
+        .m-tabs{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;scrollbar-width:none;background:#1a2332;border-bottom:1px solid rgba(255,255,255,0.08);position:sticky;top:60px;z-index:99}
+        .m-tabs::-webkit-scrollbar{display:none}
+        .m-tab{flex:0 0 auto;padding:12px 14px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s}
         .m-tab.active{color:#fca5a5;border-bottom-color:#ef4444;background:rgba(239,68,68,0.08)}
         .m-tab .m-tab-badge{display:inline-block;background:#ef4444;color:#fff;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:800;margin-left:4px;min-width:18px}
         .m-content{padding:12px;background:#0f172a;min-height:calc(100vh - 120px)}
@@ -106,7 +107,9 @@
     </div>
     <div class="m-toast-c" id="mToastC"></div>
     <div class="m-tabs" id="mTabs">
-        <div class="m-tab active" data-tab="uncut" onclick="mSwitchTab('uncut')">🔴 Chưa Cắt <span class="m-tab-badge" id="mBadgeUncut">0</span></div>
+        <div class="m-tab active" data-tab="today" onclick="mSwitchTab('today')">📅 Hôm Nay <span class="m-tab-badge" id="mBadgeToday" style="background:#3b82f6">0</span></div>
+        <div class="m-tab" data-tab="delayed" onclick="mSwitchTab('delayed')">⏳ Đơn Chậm <span class="m-tab-badge" id="mBadgeDelayed" style="background:#ef4444">0</span></div>
+        <div class="m-tab" data-tab="uncut" onclick="mSwitchTab('uncut')">🔴 Chưa Đến Lịch <span class="m-tab-badge" id="mBadgeUncut">0</span></div>
         <div class="m-tab" data-tab="mine" onclick="mSwitchTab('mine')">📋 Đơn Tôi <span class="m-tab-badge" id="mBadgeMine" style="background:#f59e0b">0</span></div>
         <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
@@ -239,7 +242,7 @@ function stopQRScan() {
     }
 }
 
-let mUser=null, mTab='uncut', mUncut=[], mMine=[], mHist=[], mSearchQuery='';
+let mUser=null, mTab='today', mUncut=[], mMine=[], mHist=[], mSearchQuery='';
 
 function mDoSearch() {
     const inp = document.getElementById('mSearchInp');
@@ -534,7 +537,14 @@ async function mLoadAll(){
         // Sort mHist: id desc
         mHist.sort((a, b) => b.id - a.id);
 
-        document.getElementById('mBadgeUncut').textContent=mUncut.length;
+        const todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const todayCount = mUncut.filter(r => r.cut_expected_at && r.cut_expected_at.split('T')[0] === todayVNStr).length;
+        const delayedCount = mUncut.filter(r => r.cut_expected_at && r.cut_expected_at.split('T')[0] < todayVNStr).length;
+        const futureUncutCount = mUncut.filter(r => !r.cut_expected_at || r.cut_expected_at.split('T')[0] > todayVNStr).length;
+
+        document.getElementById('mBadgeToday').textContent = todayCount;
+        document.getElementById('mBadgeDelayed').textContent = delayedCount;
+        document.getElementById('mBadgeUncut').textContent = futureUncutCount;
         document.getElementById('mBadgeMine').textContent=mMine.filter(r=>!r.is_cut_done).length;
         mRender();
     }catch(e){console.error(e);}
@@ -597,9 +607,22 @@ function mRender(){
             c.innerHTML = '<div class="m-empty"><div class="m-empty-icon">🔍</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Không tìm thấy kết quả</div><div style="font-size:13px">Thử tìm kiếm với từ khóa khác</div></div>';
         }
     } else {
-        if(mTab==='uncut')mRenderUncut();
-        else if(mTab==='mine')mRenderMine();
-        else mRenderHist();
+        if (mTab === 'uncut' || mTab === 'today' || mTab === 'delayed') {
+            const todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            let filtered = mUncut;
+            if (mTab === 'today') {
+                filtered = mUncut.filter(r => r.cut_expected_at && r.cut_expected_at.split('T')[0] === todayVNStr);
+            } else if (mTab === 'delayed') {
+                filtered = mUncut.filter(r => r.cut_expected_at && r.cut_expected_at.split('T')[0] < todayVNStr);
+            } else if (mTab === 'uncut') {
+                filtered = mUncut.filter(r => !r.cut_expected_at || r.cut_expected_at.split('T')[0] > todayVNStr);
+            }
+            mRenderUncut(filtered);
+        } else if (mTab === 'mine') {
+            mRenderMine();
+        } else {
+            mRenderHist();
+        }
     }
     mUpdateFab();
 }
@@ -666,6 +689,27 @@ function mRenderUncut(items = null, showSectionBadge = false){
         // NV Sale (CSKH)
         const saleName = o.cskh_name || o.created_by_name || '';
         if(saleName) h+='<div class="m-row"><span class="m-lbl">💼 NV Sale</span><span class="m-val" style="color:#60a5fa;font-size:12px">'+saleName+'</span></div>';
+        
+        if (o.cut_expected_at) {
+            const schDateStr = o.cut_expected_at.split('T')[0];
+            const todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            const d = new Date(o.cut_expected_at);
+            const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const dayName = dayNames[d.getDay()];
+            const dateStr = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+            let displayStr = '📅 ' + dayName + ', ' + dateStr;
+            let valStyle = 'color: #e2e8f0';
+
+            if (schDateStr === todayVNStr) {
+                displayStr = '🔥 HÔM NAY: ' + dayName + ', ' + dateStr;
+                valStyle = 'color: #3b82f6; font-weight: 900; animation: bpcReminderPulseMobile 2s infinite;';
+            } else if (schDateStr < todayVNStr) {
+                displayStr = '⚠️ TRỄ: ' + dayName + ', ' + dateStr;
+                valStyle = 'color: #ef4444; font-weight: 900;';
+            }
+            h+='<div class="m-row"><span class="m-lbl">📅 Lịch Cắt</span><span class="m-val" style="' + valStyle + '">' + displayStr + '</span></div>';
+        }
+
         h+='<div class="m-row"><span class="m-lbl">📅 Ngày Ra Đơn</span><span class="m-val">'+mFmt(o.expected_ship_date)+'</span></div>';
         var itemQty = o.item_qty || o.total_quantity || 0;
         h+='<div class="m-row"><span class="m-lbl">📦 Số Lượng Sản Phẩm</span><span class="m-val" style="color:#60a5fa">'+(itemQty||'—')+'</span></div>';
@@ -839,6 +883,28 @@ function mRenderMine(items = null, showSectionBadge = false){
             +'<div class="m-card-body">'
             +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+constCust+'</span></div>'
             +saleHtml
+            +(function() {
+                if (!r.cut_expected_at) return '';
+                const schDateStr = r.cut_expected_at.split('T')[0];
+                const todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+                const d = new Date(r.cut_expected_at);
+                const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                const dayName = dayNames[d.getDay()];
+                const dateStr = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+                let displayStr = '📅 ' + dayName + ', ' + dateStr;
+                let valStyle = 'color: #e2e8f0';
+
+                if (!r.is_cut_done) {
+                    if (schDateStr === todayVNStr) {
+                        displayStr = '🔥 HÔM NAY: ' + dayName + ', ' + dateStr;
+                        valStyle = 'color: #3b82f6; font-weight: 900; animation: bpcReminderPulseMobile 2s infinite;';
+                    } else if (schDateStr < todayVNStr) {
+                        displayStr = '⚠️ TRỄ: ' + dayName + ', ' + dateStr;
+                        valStyle = 'color: #ef4444; font-weight: 900;';
+                    }
+                }
+                return '<div class="m-row"><span class="m-lbl">📅 Lịch Cắt</span><span class="m-val" style="' + valStyle + '">' + displayStr + '</span></div>';
+            })()
             +'<div class="m-row"><span class="m-lbl">🧵 Chất liệu</span><span class="m-val">'+(r.material_name||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">🎨 Màu</span><span class="m-val">'+(r.fabric_color||'—')+'</span></div>'
             +'<div class="m-row"><span class="m-lbl">📦 SL Đơn</span><span class="m-val" style="color:#60a5fa">'+mFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</span></div>'

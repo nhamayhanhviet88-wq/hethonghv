@@ -510,6 +510,21 @@ function _bpcRenderTable() {
     var sf = _bpc.subFilter || 'all';
     if (sf === 'unassigned') {
         all = all.filter(function(r) { return r.is_uncut; });
+    } else if (sf === 'today') {
+        var todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+        all = all.filter(function(r) {
+            return r.is_uncut && r.cut_expected_at && r.cut_expected_at.split('T')[0] === todayVNStr;
+        });
+    } else if (sf === 'delayed') {
+        var todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+        all = all.filter(function(r) {
+            return r.is_uncut && r.cut_expected_at && r.cut_expected_at.split('T')[0] < todayVNStr;
+        });
+    } else if (sf === 'future_uncut') {
+        var todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+        all = all.filter(function(r) {
+            return r.is_uncut && (!r.cut_expected_at || r.cut_expected_at.split('T')[0] > todayVNStr);
+        });
     } else if (sf === 'incomplete') {
         all = all.filter(function(r) { return !r.is_uncut && !r.is_cut_done; });
     } else if (sf === 'done') {
@@ -546,6 +561,44 @@ function _bpcRenderTable() {
     _bpcRenderRows(paged);
     _bpcRenderPagination(total, totalPages);
     _bpcRenderStats(total, all);
+}
+
+function _bpcGetScheduleBadge(cutExpectedAt, isCutDone) {
+    if (!cutExpectedAt) return '';
+    var schDate = cutExpectedAt.split('T')[0];
+    var todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    
+    // Format the date to "Thứ X, dd/mm/yyyy"
+    var d = new Date(cutExpectedAt);
+    var dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    var dayName = dayNames[d.getDay()];
+    var dateStr = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+    var displayStr = '📅 ' + dayName + ', ' + dateStr;
+
+    var style = 'margin-right: 6px; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; display: inline-block; vertical-align: middle;';
+    if (isCutDone) {
+        // Already cut, keep it neutral
+        style += 'background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1;';
+    } else if (schDate === todayVNStr) {
+        // Today!
+        style += 'background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; animation: bpcPulse 2s infinite;';
+    } else if (schDate < todayVNStr) {
+        // Delayed!
+        style += 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 900;';
+        displayStr = '⚠️ TRỄ: ' + displayStr;
+    } else {
+        // Future
+        style += 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
+    }
+
+    if (!document.getElementById('_bpcScheduleStyles')) {
+        var styleEl = document.createElement('style');
+        styleEl.id = '_bpcScheduleStyles';
+        styleEl.innerHTML = '@keyframes bpcPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }';
+        document.head.appendChild(styleEl);
+    }
+
+    return '<span style="' + style + '" title="Lịch cắt dự kiến">' + displayStr + '</span>';
 }
 
 function _bpcMapRecordRow(r, i) {
@@ -649,11 +702,12 @@ function _bpcMapRecordRow(r, i) {
         ratioFailBadge = '<span style="background:#dc2626;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Sai Tỉ Lệ Cắt</span>';
     }
 
+    var schBadge = _bpcGetScheduleBadge(r.cut_expected_at, r.is_cut_done);
     var nameHtml = '';
     if (r.is_uncut) {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + sharedBadge + compBadge + priBadge + (r.product_name || r.order_code || '—') + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + (r.product_name || r.order_code || '—') + '</td>';
     } else {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span>' + ratioFailBadge + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span>' + ratioFailBadge + '</td>';
     }
     
     var sharedCol = '—';
@@ -795,12 +849,29 @@ function _bpcRenderStats(count, arr) {
             return (r.product_name||'').toLowerCase().indexOf(q)>=0 
                 || (r.material_name||'').toLowerCase().indexOf(q)>=0 
                 || (r.order_code||'').toLowerCase().indexOf(q)>=0 
-                || (r.cutting_category||'').toLowerCase().indexOf(q)>=0; 
+                || (r.cutting_category||'').toLowerCase().indexOf(q)>=0
+                || (r.cutter_name||'').toLowerCase().indexOf(q)>=0
+                || (r.cskh_name||'').toLowerCase().indexOf(q)>=0; 
         });
     }
     
+    var todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    
     var totalCount = baseArr.length;
     var unassignedCount = baseArr.filter(function(r) { return r.is_uncut; }).length;
+    var todayCount = baseArr.filter(function(r) {
+        if (!r.is_uncut || !r.cut_expected_at) return false;
+        return r.cut_expected_at.split('T')[0] === todayVNStr;
+    }).length;
+    var delayedCount = baseArr.filter(function(r) {
+        if (!r.is_uncut || !r.cut_expected_at) return false;
+        return r.cut_expected_at.split('T')[0] < todayVNStr;
+    }).length;
+    var futureUncutCount = baseArr.filter(function(r) {
+        if (!r.is_uncut) return false;
+        if (!r.cut_expected_at) return true;
+        return r.cut_expected_at.split('T')[0] > todayVNStr;
+    }).length;
     var incompleteCount = baseArr.filter(function(r) { return !r.is_uncut && !r.is_cut_done; }).length;
     var doneCount = baseArr.filter(function(r) { return r.is_cut_done; }).length;
     var ratioFailCount = baseArr.filter(function(r) {
@@ -841,9 +912,28 @@ function _bpcRenderStats(count, arr) {
         +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">✅ HOÀN THÀNH</div>'
         +'<div style="font-size:16px;font-weight:900">' + doneCount + '</div>'
         +'</div>';
+
+    var btnTodayHtml = '<div onclick="_bpcSetSubFilter(\'today\')" style="cursor:pointer;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'today' ? '0 0 0 3px #fff, 0 4px 20px rgba(29,78,216,0.5)' : '0 4px 10px rgba(29,78,216,0.2)') + ';transform:' + (sf === 'today' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'today' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .1s"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">📅 HÔM NAY PHẢI CẮT</div>'
+        +'<div style="font-size:16px;font-weight:900">' + todayCount + '</div>'
+        +'</div>';
+
+    var btnDelayedHtml = '<div onclick="_bpcSetSubFilter(\'delayed\')" style="cursor:pointer;background:linear-gradient(135deg,#b91c1c,#ef4444);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'delayed' ? '0 0 0 3px #fff, 0 4px 20px rgba(185,28,28,0.5)' : '0 4px 10px rgba(185,28,28,0.2)') + ';transform:' + (sf === 'delayed' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'delayed' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .2s"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">⚠️ ĐƠN BỊ CHẬM</div>'
+        +'<div style="font-size:16px;font-weight:900">' + delayedCount + '</div>'
+        +'</div>';
+
+    var btnFutureUncutHtml = '<div onclick="_bpcSetSubFilter(\'future_uncut\')" style="cursor:pointer;background:linear-gradient(135deg,#475569,#64748b);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'future_uncut' ? '0 0 0 3px #fff, 0 4px 20px rgba(71,85,105,0.5)' : '0 4px 10px rgba(71,85,105,0.2)') + ';transform:' + (sf === 'future_uncut' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'future_uncut' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .3s"></div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA ĐẾN LỊCH</div>'
+        +'<div style="font-size:16px;font-weight:900">' + futureUncutCount + '</div>'
+        +'</div>';
         
     sc.innerHTML = '<div style="display:flex;gap:10px;justify-content:center">' + btnTotalHtml + btnRatioFailHtml + '</div>'
-        + '<div style="display:flex;gap:10px;justify-content:center">' + btnUnassignedHtml + btnIncompleteHtml + btnDoneHtml + '</div>';
+        + '<div style="display:flex;gap:10px;justify-content:center">' + btnUnassignedHtml + btnIncompleteHtml + btnDoneHtml + '</div>'
+        + '<div style="display:flex;gap:10px;justify-content:center">' + btnTodayHtml + btnDelayedHtml + btnFutureUncutHtml + '</div>';
 }
 
 function _bpcSetSubFilter(sf) {
