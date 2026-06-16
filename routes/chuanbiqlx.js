@@ -1930,10 +1930,14 @@ module.exports = async function(fastify) {
         const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
         if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
 
+        const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
+        const itemIndex = allItems.findIndex(it => it.id === Number(itemId)) + 1;
+        item.item_index = itemIndex;
+
         let pairs = [];
         try { pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
         const phoi = pairs[pi] || null;
-        if (!phoi || !phoi.material_name) return { order, item: { id: item.id, description: item.description }, phoi: null, rolls: [], warehouse: null, existing: [] };
+        if (!phoi || !phoi.material_name) return { order, item: { id: item.id, description: item.description, item_index: itemIndex }, phoi: null, rolls: [], warehouse: null, existing: [] };
 
         // Fuzzy match: find kv_fabric_colors matching material + color
         const matches = await db.all(`

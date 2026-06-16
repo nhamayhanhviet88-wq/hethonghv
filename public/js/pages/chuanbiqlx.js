@@ -664,7 +664,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         // Header info
         html += '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:16px 20px;border-radius:12px 12px 0 0">';
         html += '<div style="font-size:16px;font-weight:800;margin-bottom:4px">🧵 GỌI VẢI</div>';
-        html += '<div style="font-size:11px;opacity:0.8">📋 Đơn: ' + (o.order_code||'') + ' — Phối ' + ((pairIndex||0)+1) + (it.description ? ' — ' + it.description : '') + '</div>';
+        html += '<div style="font-size:11px;opacity:0.8">📋 Đơn: ' + (o.order_code||'') + ' — Phiếu ' + (it.item_index||1) + ' — P' + ((pairIndex||0)+1) + (it.description ? ' — ' + it.description : '') + '</div>';
         if (ph) {
             html += '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px">';
             html += '<div>Chất Liệu: <b>' + (ph.material_name||'—') + '</b></div>';
