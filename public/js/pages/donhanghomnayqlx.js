@@ -1103,6 +1103,13 @@ function _qlxActivatePasteCard(stepKey) {
             badge.style.display = (sk === stepKey) ? 'inline-block' : 'none';
         }
     });
+
+    // Auto-focus the paste zone so pasting immediately works
+    const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
+    const pasteZone = document.getElementById(`setup${capStep}PasteZone`);
+    if (pasteZone) {
+        pasteZone.focus();
+    }
 }
 
 function _qlxClearMultiStepImage(stepKey) {
@@ -1949,7 +1956,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
                     </div>
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Hình ảnh báo cáo <span style="color:#ef4444">*</span>:</label>
-                        <div id="setup${capStep}PasteZone" style="border:2px dashed #cbd5e1;padding:12px;text-align:center;border-radius:6px;background:#fff;color:#64748b;font-weight:700;font-size:11px;user-select:none;">
+                        <div id="setup${capStep}PasteZone" tabindex="0" class="qlx-paste-zone" style="border:2px dashed #cbd5e1;padding:12px;text-align:center;border-radius:6px;background:#fff;color:#64748b;font-weight:700;font-size:11px;user-select:none;cursor:pointer;outline:none;" onclick="event.stopPropagation(); _qlxActivatePasteCard('${stepKey}')">
                             Bấm chọn chặng này rồi ấn Ctrl+V để dán ảnh
                         </div>
                         <div id="setup${capStep}ImagePreview" style="margin-top:8px;text-align:center;display:none;">
@@ -1963,6 +1970,14 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
     };
 
     const contentHtml = `
+        <style>
+            .qlx-paste-zone:focus {
+                border-color: #6366f1 !important;
+                background-color: #f5f3ff !important;
+                color: #4f46e5 !important;
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            }
+        </style>
         <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;padding-right:4px;">
             <div style="font-size:12px;color:#475569;margin-bottom:8px;background:#f1f5f9;padding:8px;border-radius:6px;">
                 💡 <b>Nguyên tắc:</b> Thời gian chặng sau không được bắt đầu trước chặng sản xuất trước đó. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
@@ -2076,19 +2091,34 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
         const currentVal = inputEl ? inputEl.value : '';
         const previousVal = (window._qlxCurrentSchedule && window._qlxCurrentSchedule[fieldNames[key]]) ? window._qlxCurrentSchedule[fieldNames[key]] : '';
 
-        let isDateChanged = false;
-        if (previousVal && currentVal) {
-            const prevTime = new Date(previousVal).getTime();
-            const currTime = new Date(currentVal).getTime();
-            if (prevTime !== currTime) {
-                isDateChanged = true;
+        const getVNTimeMs = (dVal) => {
+            if (!dVal) return 0;
+            const date = new Date(dVal);
+            if (isNaN(date.getTime())) return 0;
+            if (typeof dVal === 'string' && dVal.includes('T') && !dVal.endsWith('Z')) {
+                const parts = dVal.split('T');
+                const dateParts = parts[0].split('-');
+                const timeParts = parts[1].split(':');
+                const Y = parseInt(dateParts[0]);
+                const M = parseInt(dateParts[1]) - 1;
+                const D = parseInt(dateParts[2]);
+                const h = parseInt(timeParts[0]);
+                const m = parseInt(timeParts[1]);
+                return Date.UTC(Y, M, D, h - 7, m);
             }
-        }
+            return date.getTime();
+        };
+
+        const prevTime = getVNTimeMs(previousVal);
+        const currTime = getVNTimeMs(currentVal);
+        const isDateChanged = prevTime !== currTime;
 
         if (notes || isDateChanged) {
             if (!image_url) {
                 if (notes) {
                     showToast(`Chặng ${stepLabels[key]}: Khi có nội dung báo cáo, bắt buộc phải dán hình ảnh báo cáo`, 'error');
+                } else if (!previousVal) {
+                    showToast(`Chặng ${stepLabels[key]}: Khi đặt lịch dự kiến xong, bắt buộc phải dán hình ảnh báo cáo`, 'error');
                 } else {
                     showToast(`Chặng ${stepLabels[key]}: Khi thay đổi ngày hẹn, bắt buộc phải dán hình ảnh báo cáo`, 'error');
                 }
