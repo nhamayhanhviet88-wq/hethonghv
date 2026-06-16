@@ -188,6 +188,11 @@ function _ceoRenderTable() {
                 reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
             } else {
                 reporter = item.created_by_name || '—';
+                if (reporter === 'Giám Đốc' && item.error_type === 'Nội Bộ') {
+                    reporter = 'Giám Đốc - BP Kiểm Tra QC';
+                } else if (item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
+                    reporter = reporter + ' - BP Kiểm Tra QC';
+                }
             }
 
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'" onclick="_ceoViewDetail(' + item.id + ')">';
@@ -266,6 +271,11 @@ async function _ceoViewDetail(id) {
         reporter = idx !== -1 ? raw.substring(idx + 3) + ' - ' + raw.substring(0, idx) : raw;
     } else {
         reporter = item.created_by_name || '—';
+        if (reporter === 'Giám Đốc' && item.error_type === 'Nội Bộ') {
+            reporter = 'Giám Đốc - BP Kiểm Tra QC';
+        } else if (item.created_by_dept_name && (item.created_by_dept_name.includes('Kiểm Tra') || item.created_by_dept_name.includes('QC'))) {
+            reporter = reporter + ' - BP Kiểm Tra QC';
+        }
     }
     var cleanCskh = item.cskh_name && item.cskh_name.startsWith('Người Báo Lỗi: ') ? '—' : (item.cskh_name || '—');
 

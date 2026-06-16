@@ -3123,12 +3123,12 @@ async function _ktclOpenBaoLoiModal(recordId) {
     window._blErrorDesktopImages = [];
     window._blErrorDesktopVideo = null;
 
-    let reporterName = 'BP Kiểm Tra Chất Lượng';
+    let reporterName = 'BP Kiểm Tra QC';
     if (typeof currentUser !== 'undefined' && currentUser) {
         if (currentUser.role === 'giam_doc') {
-            reporterName = 'Giám Đốc - BP Kiểm Tra Chất Lượng';
+            reporterName = 'Giám Đốc - BP Kiểm Tra QC';
         } else {
-            reporterName = 'BP Kiểm Tra Chất Lượng - ' + (currentUser.full_name || currentUser.username || 'Nhân viên');
+            reporterName = 'BP Kiểm Tra QC - ' + (currentUser.full_name || currentUser.username || 'Nhân viên');
         }
     }
 
@@ -3224,12 +3224,12 @@ async function _ktclSubmitBaoLoiDesktop() {
     try {
         let today = _ktclGetVnTodayStr();
 
-        let reporterName = 'BP Kiểm Tra Chất Lượng';
+        let reporterName = 'BP Kiểm Tra QC';
         if (typeof currentUser !== 'undefined' && currentUser) {
             if (currentUser.role === 'giam_doc') {
-                reporterName = 'Giám Đốc - BP Kiểm Tra Chất Lượng';
+                reporterName = 'Giám Đốc - BP Kiểm Tra QC';
             } else {
-                reporterName = 'BP Kiểm Tra Chất Lượng - ' + (currentUser.full_name || currentUser.username || 'Nhân viên');
+                reporterName = 'BP Kiểm Tra QC - ' + (currentUser.full_name || currentUser.username || 'Nhân viên');
             }
         }
 
@@ -3237,7 +3237,7 @@ async function _ktclSubmitBaoLoiDesktop() {
             report_date: today,
             common_error_type: '',
             order_code: r.order_code,
-            cskh_name: reporterName,
+            cskh_name: r.cskh_name || '',
             error_quantity: qty,
             error_content: content,
             dht_order_id: r.dht_order_id,
