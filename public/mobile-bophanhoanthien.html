@@ -921,8 +921,8 @@ if (r.is_completed || (isSewerAssigned && isQcOk)) {
     actionButtonsHtml = '<div style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">' + bannerText + '</div>';
 }
 actionButtonsHtml += r.error_reported 
-    ? '<button class="ab on" disabled style="opacity:0.8;transform:none;"><span class="ai">⚠️</span><span class="al">ĐÃ BÁO LỖI</span></button>'
-    : '<button class="ab" onclick="mOpenErrorModal(' + r.id + ')"><span class="ai">⬜</span><span class="al">BÁO LỖI</span></button>';
+    ? '<button class="ab on" disabled style="opacity:0.8;transform:none;"><span class="ai">🚨</span><span class="al">ĐÃ BÁO LỖI</span></button>'
+    : '<button class="ab" onclick="mOpenErrorModal(' + r.id + ')"><span class="ai">⚠️</span><span class="al">BÁO LỖI</span></button>';
 
 const tabInfo = getRecordTabInfo(r);
 const tabBadgeHtml = (sv && tabInfo) ? `<span class="bd" style="${tabInfo.style} font-size:10px; padding:2px 8px; border-radius:6px; margin-left:auto; font-weight:800; white-space:nowrap;">${tabInfo.name.toUpperCase()}</span>` : '';

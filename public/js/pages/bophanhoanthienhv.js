@@ -373,8 +373,8 @@ function _bphtRender(){
             clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="' + labelText + '">' + labelText + '</div>';
         }
         errHtml = r.error_reported 
-            ? '<button class="bpht-ib on-err" disabled style="cursor:default;opacity:0.8;transform:none;box-shadow:none" title="Đã báo lỗi">⚠️</button>'
-            : '<button class="bpht-ib" onclick="_bphtOpenErrorModal(' + r.id + ')" title="Báo lỗi">⬜</button>';
+            ? '<button class="bpht-ib on-err" disabled style="cursor:default;opacity:0.8;transform:none;box-shadow:none" title="Đã báo lỗi">🚨</button>'
+            : '<button class="bpht-ib" onclick="_bphtOpenErrorModal(' + r.id + ')" title="Báo lỗi">⚠️</button>';
 
         var completedTimeHtml = (r.is_completed || (isSewerAssigned && isQcOk)) 
             ? _bphtGetCompletedTime(r) 
