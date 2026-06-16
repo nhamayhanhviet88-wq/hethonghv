@@ -1579,7 +1579,10 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
             const pmYear = viewMonth === 0 ? viewYear - 1 : viewYear;
             const pmMonth = viewMonth === 0 ? 11 : viewMonth - 1;
             const cellDate = new Date(pmYear, pmMonth, d);
-            const isDisabled = minDateOnly && cellDate < minDateOnly;
+            
+            const cellDateStr = `${pmYear}-${pad2(pmMonth + 1)}-${pad2(d)}`;
+            const isHoliday = _qlxHolidaysSet.has(cellDateStr);
+            const isDisabled = (minDateOnly && cellDate < minDateOnly) || isHoliday;
             const isSelected = selectYear === pmYear && selectMonth === pmMonth && selectDay === d;
             
             const btn = document.createElement('button');
@@ -1591,11 +1594,11 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
             const isSunday = cellDate.getDay() === 0;
             if (isSunday) btn.style.color = '#ef4444';
 
-            const cellDateStr = `${pmYear}-${pad2(pmMonth + 1)}-${pad2(d)}`;
-            if (_qlxHolidaysSet.has(cellDateStr)) {
+            if (isHoliday) {
                 btn.style.color = '#ef4444';
                 btn.style.fontWeight = '800';
-                btn.title = 'Ngày lễ';
+                btn.title = 'Ngày nghỉ lễ';
+                btn.style.textDecoration = 'line-through';
             }
 
             if (!isDisabled) {
@@ -1608,7 +1611,10 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
         const today = new Date();
         for (let d = 1; d <= daysInMonth; d++) {
             const cellDate = new Date(viewYear, viewMonth, d);
-            const isDisabled = minDateOnly && cellDate < minDateOnly;
+            
+            const cellDateStr = `${viewYear}-${pad2(viewMonth + 1)}-${pad2(d)}`;
+            const isHoliday = _qlxHolidaysSet.has(cellDateStr);
+            const isDisabled = (minDateOnly && cellDate < minDateOnly) || isHoliday;
             const isSelected = selectYear === viewYear && selectMonth === viewMonth && selectDay === d;
             const isToday = today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === d;
 
@@ -1621,11 +1627,11 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
             const isSunday = cellDate.getDay() === 0;
             if (isSunday) btn.style.color = '#ef4444';
 
-            const cellDateStr = `${viewYear}-${pad2(viewMonth + 1)}-${pad2(d)}`;
-            if (_qlxHolidaysSet.has(cellDateStr)) {
+            if (isHoliday) {
                 btn.style.color = '#ef4444';
                 btn.style.fontWeight = '800';
-                btn.title = 'Ngày lễ';
+                btn.title = 'Ngày nghỉ lễ';
+                btn.style.textDecoration = 'line-through';
             }
 
             if (!isDisabled) {
@@ -1642,7 +1648,10 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
             const nmYear = viewMonth === 11 ? viewYear + 1 : viewYear;
             const nmMonth = viewMonth === 11 ? 0 : viewMonth + 1;
             const cellDate = new Date(nmYear, nmMonth, d);
-            const isDisabled = minDateOnly && cellDate < minDateOnly;
+            
+            const cellDateStr = `${nmYear}-${pad2(nmMonth + 1)}-${pad2(d)}`;
+            const isHoliday = _qlxHolidaysSet.has(cellDateStr);
+            const isDisabled = (minDateOnly && cellDate < minDateOnly) || isHoliday;
             const isSelected = selectYear === nmYear && selectMonth === nmMonth && selectDay === d;
 
             const btn = document.createElement('button');
@@ -1654,11 +1663,11 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
             const isSunday = cellDate.getDay() === 0;
             if (isSunday) btn.style.color = '#ef4444';
 
-            const cellDateStr = `${nmYear}-${pad2(nmMonth + 1)}-${pad2(d)}`;
-            if (_qlxHolidaysSet.has(cellDateStr)) {
+            if (isHoliday) {
                 btn.style.color = '#ef4444';
                 btn.style.fontWeight = '800';
-                btn.title = 'Ngày lễ';
+                btn.title = 'Ngày nghỉ lễ';
+                btn.style.textDecoration = 'line-through';
             }
 
             if (!isDisabled) {
