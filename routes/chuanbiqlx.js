@@ -224,6 +224,51 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS cut_schedules JSONB DEFAULT '{}'::jsonb`);
     } catch(e) { console.error('[QLX] print/press/cut/may/hoanthien choice columns and cut_schedules:', e.message); }
 
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS qlx_item_schedules (
+                id SERIAL PRIMARY KEY,
+                dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+                order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
+                cut_expected_at TIMESTAMPTZ,
+                in_expected_at TIMESTAMPTZ,
+                ep_expected_at TIMESTAMPTZ,
+                may_qc_ht_expected_at TIMESTAMPTZ,
+                gui_expected_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                created_by INTEGER REFERENCES users(id),
+                CONSTRAINT unique_qlx_item_schedule UNIQUE(dht_order_id, order_item_id)
+            );
+        `);
+        
+        await db.run(`
+            INSERT INTO qlx_item_schedules (
+                dht_order_id, 
+                order_item_id, 
+                cut_expected_at,
+                created_at,
+                updated_at
+            )
+            SELECT 
+                dht_order_id, 
+                item_id, 
+                (cut_schedules->>COALESCE(cut_schedules->>'primary_index', '0'))::timestamptz,
+                NOW(),
+                NOW()
+            FROM qlx_preparation
+            WHERE item_id IS NOT NULL 
+              AND cut_schedules IS NOT NULL 
+              AND cut_schedules::text != '{}'
+              AND (cut_schedules->>COALESCE(cut_schedules->>'primary_index', '0')) IS NOT NULL
+            ON CONFLICT (dht_order_id, order_item_id) 
+            DO UPDATE SET 
+                cut_expected_at = EXCLUDED.cut_expected_at,
+                updated_at = NOW()
+            WHERE qlx_item_schedules.cut_expected_at IS DISTINCT FROM EXCLUDED.cut_expected_at;
+        `);
+    } catch(e) { console.error('[QLX] sync existing cut_schedules migration error:', e.message); }
+
     // ========== HELPERS FOR PREPARATION ROWS ==========
     async function ensureOrderPrepRow(orderId) {
         const row = await db.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
@@ -240,6 +285,143 @@ module.exports = async function(fastify) {
             try {
                 await db.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]);
             } catch(e) { /* parallel safety */ }
+        }
+    }
+
+    async function syncCutScheduleToItemSchedule(dhtOrderId, itemId, cutSchedule, userId) {
+        const { vnNow } = require('../utils/timezone');
+        const { isDayOff } = require('../utils/ledgerDayOff');
+        const now = vnNow();
+
+        let schedule = await db.get(`
+            SELECT * FROM qlx_item_schedules 
+            WHERE dht_order_id = $1 AND (order_item_id = $2 OR (order_item_id IS NULL AND $2 IS NULL))
+        `, [dhtOrderId, itemId]);
+
+        if (!schedule) {
+            schedule = {
+                cut_expected_at: cutSchedule,
+                in_expected_at: null,
+                ep_expected_at: null,
+                may_qc_ht_expected_at: null,
+                gui_expected_at: null
+            };
+        } else {
+            schedule.cut_expected_at = cutSchedule;
+        }
+
+        const shiftIfDayOff = async (dateObj) => {
+            let currentStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            while (await isDayOff(currentStr)) {
+                dateObj.setDate(dateObj.getDate() + 1);
+                currentStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+            }
+            return dateObj;
+        };
+
+        if (schedule.cut_expected_at) {
+            const d = new Date(schedule.cut_expected_at);
+            await shiftIfDayOff(d);
+            schedule.cut_expected_at = d.toISOString();
+        }
+
+        if (schedule.in_expected_at) {
+            const d = new Date(schedule.in_expected_at);
+            await shiftIfDayOff(d);
+            schedule.in_expected_at = d.toISOString();
+        }
+
+        if (schedule.ep_expected_at) {
+            let d = new Date(schedule.ep_expected_at);
+            let minTime = null;
+            if (schedule.cut_expected_at) {
+                const cutVal = new Date(schedule.cut_expected_at).getTime() + 15 * 60 * 1000;
+                if (!minTime || cutVal > minTime) minTime = cutVal;
+            }
+            if (schedule.in_expected_at) {
+                const inVal = new Date(schedule.in_expected_at).getTime() + 15 * 60 * 1000;
+                if (!minTime || inVal > minTime) minTime = inVal;
+            }
+            if (minTime && d.getTime() < minTime) {
+                d = new Date(minTime);
+            }
+            await shiftIfDayOff(d);
+            schedule.ep_expected_at = d.toISOString();
+        }
+
+        if (schedule.may_qc_ht_expected_at) {
+            let d = new Date(schedule.may_qc_ht_expected_at);
+            if (schedule.ep_expected_at) {
+                const epVal = new Date(schedule.ep_expected_at).getTime() + 15 * 60 * 1000;
+                if (d.getTime() < epVal) {
+                    d = new Date(epVal);
+                }
+            }
+            await shiftIfDayOff(d);
+            schedule.may_qc_ht_expected_at = d.toISOString();
+        }
+
+        if (schedule.gui_expected_at) {
+            let d = new Date(schedule.gui_expected_at);
+            if (schedule.may_qc_ht_expected_at) {
+                const mayVal = new Date(schedule.may_qc_ht_expected_at).getTime() + 15 * 60 * 1000;
+                if (d.getTime() < mayVal) {
+                    d = new Date(mayVal);
+                }
+            }
+            await shiftIfDayOff(d);
+            schedule.gui_expected_at = d.toISOString();
+        }
+
+        if (schedule.id) {
+            await db.run(`
+                UPDATE qlx_item_schedules
+                SET cut_expected_at = $1,
+                    in_expected_at = $2,
+                    ep_expected_at = $3,
+                    may_qc_ht_expected_at = $4,
+                    gui_expected_at = $5,
+                    updated_at = $6
+                WHERE id = $7
+            `, [
+                schedule.cut_expected_at,
+                schedule.in_expected_at,
+                schedule.ep_expected_at,
+                schedule.may_qc_ht_expected_at,
+                schedule.gui_expected_at,
+                now,
+                schedule.id
+            ]);
+        } else {
+            await db.run(`
+                INSERT INTO qlx_item_schedules (
+                    dht_order_id, order_item_id,
+                    cut_expected_at, in_expected_at, ep_expected_at, may_qc_ht_expected_at, gui_expected_at,
+                    created_by, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+            `, [
+                dhtOrderId, itemId,
+                schedule.cut_expected_at,
+                schedule.in_expected_at,
+                schedule.ep_expected_at,
+                schedule.may_qc_ht_expected_at,
+                schedule.gui_expected_at,
+                userId,
+                now
+            ]);
+        }
+
+        if (schedule.gui_expected_at) {
+            const guiDateStr = schedule.gui_expected_at.split('T')[0];
+            const guiTimeStr = new Date(schedule.gui_expected_at).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
+            await db.run(`
+                UPDATE dht_orders
+                SET qlx_expected_date = $1::date,
+                    qlx_expected_hour = $2,
+                    qlx_updated_by = $3,
+                    qlx_updated_at = $4
+                WHERE id = $5
+            `, [guiDateStr, guiTimeStr, userId, now, dhtOrderId]);
         }
     }
 
@@ -2361,6 +2543,12 @@ module.exports = async function(fastify) {
             WHERE item_id = $4
         `, [cut_remind_choice, JSON.stringify(schedules), now, item_id]);
 
+        try {
+            await syncCutScheduleToItemSchedule(dht_order_id, item_id, cut_schedule, request.user.id);
+        } catch(e) {
+            console.error('[QLX] Error syncing cut schedule to item schedule:', e.message);
+        }
+
         // Delete existing cutting reminders for this item and phoi
         await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2`, [item_id, pi]);
 
@@ -2610,6 +2798,12 @@ module.exports = async function(fastify) {
             SET cut_remind_choice = $1, cut_schedules = $2, updated_at = $3
             WHERE item_id = $4
         `, [cut_remind_choice, JSON.stringify(schedules2), now, item_id]);
+
+        try {
+            await syncCutScheduleToItemSchedule(dht_order_id, item_id, cut_schedule, request.user.id);
+        } catch(e) {
+            console.error('[QLX] Error syncing cut schedule to item schedule:', e.message);
+        }
 
         // Delete existing cutting reminders for this item and phoi
         await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2`, [item_id, pi]);
