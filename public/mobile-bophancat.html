@@ -671,7 +671,7 @@ function mRenderUncut(items = null, showSectionBadge = false){
         h+='<div class="m-row"><span class="m-lbl">📦 Số Lượng Sản Phẩm</span><span class="m-val" style="color:#60a5fa">'+(itemQty||'—')+'</span></div>';
         h+='<div class="m-divider"></div>';
 
-        // Render each phối with full name
+        // Render each phối with full name and claim action
         g.phois.forEach(p=>{
             // Build phối name like desktop: "VTTI0002 — Phiếu 1 — P1 — ÁO CỔ BẺ"
             let spName;
@@ -682,35 +682,38 @@ function mRenderUncut(items = null, showSectionBadge = false){
             }
             const itemQty = p.item_qty || '';
             const qtyLabel = mFormatOrderQty(itemQty, spName, p.cutting_category_name);
-            h+='<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
-            h+='<div style="display:flex;justify-content:space-between;align-items:center">';
-            h+='<div style="font-size:12px;font-weight:700;color:#e2e8f0;flex:1">'+spName+'</div>';
-            if(itemQty) h+='<div style="font-size:12px;font-weight:800;color:#60a5fa;margin-left:8px">SL: '+qtyLabel+'</div>';
-            h+='</div>';
+            const pReady = p.fabric_arrived && o.has_pc_in;
+
+            h+='<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+            h+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+            h+='<div style="flex:1">';
+            h+='<div style="font-size:12px;font-weight:700;color:#e2e8f0">'+spName+'</div>';
             h+='<div style="display:flex;gap:8px;margin-top:4px;font-size:11px">';
             h+='<span style="color:#94a3b8">🧵 '+(p.material_name||'—')+'</span>';
             h+='<span style="color:#94a3b8">🎨 '+(p.color_name||'—')+'</span>';
+            h+='</div>';
+            if(itemQty) h+='<div style="font-size:11px;font-weight:800;color:#60a5fa;margin-top:4px">SL: '+qtyLabel+'</div>';
+            h+='<div style="margin-top:6px;font-size:11px">';
+            h+='<span class="m-badge '+(p.fabric_arrived?'m-badge-ok':'m-badge-no')+'">'+(p.fabric_arrived?'✅ Vải về':'❌ Chưa vải')+'</span>';
+            h+='<span class="m-badge '+(o.has_pc_in?'m-badge-ok':'m-badge-no')+'" style="margin-left:4px">'+(o.has_pc_in?'✅ Đã PC In':'❌ Chưa In')+'</span>';
+            h+='</div>';
+            h+='</div>';
+
+            h+='<div style="margin-left:8px;display:flex;flex-direction:column;align-items:flex-end">';
+            if(pReady){
+                const btnText = p.cut_warning ? '✂️ Nhận Bù' : '✂️ Nhận';
+                const btnBg = p.cut_warning ? 'background:linear-gradient(135deg,#f97316,#ea580c)' : 'background:linear-gradient(135deg,#10b981,#059669)';
+                h+='<button style="border:none;border-radius:8px;color:#fff;font-weight:700;padding:6px 12px;font-size:11px;cursor:pointer;'+btnBg+'" onclick="mClaim('+o.id+','+(o.item_id||'null')+', '+p.phoi_pair_index+', \''+o.order_code+'\')">'+btnText+'</button>';
+            } else {
+                h+='<button style="border:none;border-radius:8px;color:#94a3b8;background:#334155;font-weight:600;padding:6px 12px;font-size:11px;cursor:not-allowed" disabled>🔒 Chờ</button>';
+            }
+            if (p.cut_warning && p.cut_warning.indexOf('Cắt bù') >= 0 && p.cutting_record_id) {
+                h+='<button style="border:1px solid #fca5a5;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626;padding:2px 6px;margin-top:4px" onclick="mToggle('+p.cutting_record_id+',\'cancel_compensation\')">❌ Hủy</button>';
+            }
+            h+='</div>';
             h+='</div></div>';
         });
 
-        h+='<div class="m-divider"></div>';
-        // Status badges
-        h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">';
-        h+='<span class="m-badge '+(o.fabric_arrived?'m-badge-ok':'m-badge-no')+'">'+(o.fabric_arrived?'✅ Vải đã về':'❌ Chưa có vải')+'</span>';
-        h+='<span class="m-badge '+(o.has_pc_in?'m-badge-ok':'m-badge-no')+'">'+(o.has_pc_in?'✅ Đã PC In':'❌ Chưa PC In')+'</span>';
-        h+='</div>';
-        // Claim button
-        if(ready){
-            const btnText = o.cut_warning ? '✂️ NHẬN CẮT BÙ' : '✂️ NHẬN ĐƠN CẮT';
-            const btnStyle = o.cut_warning ? 'background:linear-gradient(135deg,#f97316,#ea580c);box-shadow:0 4px 15px rgba(233,110,26,0.3)' : '';
-            h+='<button class="m-btn-claim ready" style="'+btnStyle+'" onclick="mClaim('+o.id+','+(o.item_id||'null')+',\''+o.order_code+'\')">'+btnText+'</button>';
-        }else{
-            const miss=[];if(!o.fabric_arrived)miss.push('Vải');if(!o.has_pc_in)miss.push('PC In');
-            h+='<button class="m-btn-claim locked" disabled>🔒 CHƯA ĐỦ ĐIỀU KIỆN — Thiếu '+miss.join(' + ')+'</button>';
-        }
-        if (o.cut_warning && o.cut_warning.indexOf('Cắt bù') >= 0 && o.cutting_record_id) {
-            h+='<button style="width:100%;padding:12px;border:1px solid #fca5a5;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:8px 0 0 0;box-sizing:border-box" onclick="mToggle('+o.cutting_record_id+',\'cancel_compensation\')">❌ HỦY CẮT BÙ</button>';
-        }
         h+='</div></div>';
         cardHtml+=h;
     });
@@ -955,19 +958,18 @@ function mRenderHist(items = null, showSectionBadge = false){
     c.innerHTML = cardHtml;
 }
 
-async function mClaim(id,itemId,code){
+async function mClaim(id,itemId,phoiIndex,code){
     if(window._mBusy)return;
-    // Find phoi rows for this claim unit
-    const gk=id+'_'+(itemId||0);
-    const rows=mUncut.filter(r=>(r.id+'_'+(r.item_id||0))===gk);
+    // Find specific phoi row for this claim unit
+    const rows=mUncut.filter(r=>r.id===id && (r.item_id||0)===(itemId||0) && r.phoi_pair_index===phoiIndex);
     const o=rows[0]||{};
-    const title=(o.total_items_in_order>1)?o.order_code+' — Phiếu '+o.item_index:o.order_code;
+    const title=(o.total_phoi>1)?o.order_code+' — Phiếu '+o.item_index+' — P'+(phoiIndex+1):o.order_code;
     const priMap={'GẤP':['🔴 GẤP','m-pri-gap'],'GỬI':['🟡 GỬI','m-pri-gui']};
     const pri=priMap[o.shipping_priority]||['🟣 CHUẨN','m-pri-chuan'];
 
     const isComp = !!o.cut_warning;
     const headerTitle = isComp ? 'Nhận Cắt Bù' : 'Nhận Đơn Cắt';
-    const headerSub = isComp ? 'Xác nhận nhận phiếu cắt bù này' : 'Xác nhận nhận phiếu cắt này';
+    const headerSub = isComp ? 'Xác nhận nhận phối cắt bù này' : 'Xác nhận nhận phối cắt này';
     const headerIcon = isComp ? '⚠️' : '✂️';
     const headerBg = isComp ? 'linear-gradient(135deg,#ea580c,#f97316)' : '';
 
@@ -978,14 +980,14 @@ async function mClaim(id,itemId,code){
     if(isComp){
         h+='<div style="background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#f97316;line-height:1.4">⚠️ '+o.cut_warning+'</div>';
     }
-    h+='<div class="mm-row"><span class="mm-lbl">📋 Mã đơn</span><span class="mm-val" style="color:#10b981;font-size:15px">'+title+'</span></div>';
+    h+='<div class="mm-row"><span class="mm-lbl">📋 Mã phối</span><span class="mm-val" style="color:#10b981;font-size:15px">'+title+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">👤 Khách hàng</span><span class="mm-val">'+(o.customer_name||'—')+'</span></div>';
     const sale=o.cskh_name||o.created_by_name||'';
     if(sale) h+='<div class="mm-row"><span class="mm-lbl">💼 NV Sale</span><span class="mm-val" style="color:#60a5fa">'+sale+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">📅 Ngày ship</span><span class="mm-val">'+mFmt(o.expected_ship_date)+'</span></div>';
     h+='<div class="mm-row"><span class="mm-lbl">⚡ Ưu tiên</span><span class="mm-val"><span class="m-pri '+pri[1]+'">'+pri[0]+'</span></span></div>';
     if(rows.length>0){
-        h+='<div class="mm-phoi"><div class="mm-phoi-title">📦 Danh sách phối ('+rows.length+')</div>';
+        h+='<div class="mm-phoi"><div class="mm-phoi-title">📦 Chi tiết phối</div>';
         rows.forEach(p=>{
             const pn=(p.total_phoi>1)?('P'+p.phoi_in_item+(p.item_desc?' — '+p.item_desc:'')):(p.item_desc||o.order_code);
             h+='<div class="mm-phoi-item"><span class="pn">'+pn+'</span>';
@@ -998,7 +1000,7 @@ async function mClaim(id,itemId,code){
     h+='<button class="mm-btn mm-btn-no" onclick="_mmClose()">Hủy</button>';
     const okText = isComp ? '⚠️ XÁC NHẬN CẮT BÙ' : '✂️ XÁC NHẬN';
     const okStyle = isComp ? 'background:linear-gradient(135deg,#f97316,#ea580c)' : '';
-    h+='<button class="mm-btn mm-btn-ok" style="'+okStyle+'" id="_mmOk" onclick="_mmDoClaimOrder('+id+','+(itemId||'null')+',\''+code+'\')">'+okText+'</button>';
+    h+='<button class="mm-btn mm-btn-ok" style="'+okStyle+'" id="_mmOk" onclick="_mmDoClaimOrder('+id+','+(itemId||'null')+','+phoiIndex+',\''+code+'\')">'+okText+'</button>';
     h+='</div></div></div>';
 
     document.body.insertAdjacentHTML('beforeend',h);
@@ -1010,17 +1012,16 @@ function _mmClose(){
     if(m){m.classList.remove('show');setTimeout(()=>m.remove(),350);}
 }
 
-async function _mmDoClaimOrder(id,itemId,code){
+async function _mmDoClaimOrder(id,itemId,phoiIndex,code){
     if(window._mBusy)return;
     window._mBusy=true;
     const btn=document.getElementById('_mmOk');
     if(btn){btn.disabled=true;btn.textContent='⏳ Đang xử lý...';}
     try{
-        const body={dht_order_id:id};
-        if(itemId) body.order_item_id=itemId;
+        const body={dht_order_id:id, order_item_id:itemId, phoi_index:phoiIndex};
         const res=await mApi('/api/cutting/claim','POST',body);
         _mmClose();
-        mToast('✅ Đã nhận đơn '+code+' — '+res.created+' phối');
+        mToast('✅ Đã nhận phối đơn '+code);
         await mLoadAll();
     }catch(e){
         mToast(e.message,false);

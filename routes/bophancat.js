@@ -10,15 +10,15 @@ module.exports = async function(fastify) {
         if (remQty <= 0) return;
         const newRec = await db.get(`
             INSERT INTO cutting_records (
-                dht_order_id, order_item_id, cut_date, cutter_id,
+                dht_order_id, order_item_id, phoi_index, cut_date, cutter_id,
                 product_name, material_name, fabric_color,
                 order_quantity, cut_quantity, kg_cut, cut_ratio,
                 ratio_reason, kg_start, kg_end, cut_warning, cut_shared,
                 created_by, created_at, cutting_category, selected_roll_ids
-            ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, 0, 0, 0, NULL, 0, 0, $8, NULL, $9, $10, $11, '[]')
+            ) VALUES ($1, $2, $3, CURRENT_DATE, $4, $5, $6, $7, $8, 0, 0, 0, NULL, 0, 0, $9, NULL, $10, $11, $12, '[]')
             RETURNING id
         `, [
-            rec.dht_order_id, rec.order_item_id, rec.cutter_id, rec.product_name, rec.material_name, rec.fabric_color,
+            rec.dht_order_id, rec.order_item_id, rec.phoi_index || 0, rec.cutter_id, rec.product_name, rec.material_name, rec.fabric_color,
             remQty, `Cắt bù phần thiếu: ${remQty} áo`, performedBy, timeStr, rec.cutting_category
         ]);
         await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
@@ -78,6 +78,8 @@ module.exports = async function(fastify) {
     try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS locked_by_cutting_id INTEGER REFERENCES cutting_records(id) ON DELETE SET NULL`); } catch(e) {}
     // Add multi_cut_group_id for grouping records that are cut together
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS multi_cut_group_id TEXT`); } catch(e) {}
+    // Add phoi_index to cutting_records for coordinating specific pieces
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS phoi_index INTEGER`); } catch(e) {}
     // Add target_cut_ratio to kv_materials
     try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS target_cut_ratio NUMERIC DEFAULT 0`); } catch(e) {}
     // Add kv_material_cutting_targets table
@@ -134,6 +136,33 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE cutting_records SET selected_roll_ids = $1 WHERE id = $2`, [JSON.stringify(updated), rec.id]);
         }
     } catch(e) { console.log('[BPC] backfill roll labels:', e.message); }
+
+    // Backfill phoi_index for existing records
+    try {
+        const recs = await db.all(`
+            SELECT cr.id, cr.order_item_id, cr.material_name, cr.fabric_color, oi.material_pairs
+            FROM cutting_records cr
+            JOIN dht_order_items oi ON cr.order_item_id = oi.id
+            WHERE cr.phoi_index IS NULL
+        `);
+        for (const rec of recs) {
+            let pairs = [];
+            try { pairs = typeof rec.material_pairs === 'string' ? JSON.parse(rec.material_pairs) : (rec.material_pairs || []); } catch(e) {}
+            let matchedIdx = 0;
+            if (pairs.length > 0) {
+                const targetMat = (rec.material_name || '').trim().toLowerCase();
+                const targetCol = (rec.fabric_color || '').trim().toLowerCase();
+                const pi = pairs.findIndex(p => 
+                    (p.material_name || '').trim().toLowerCase() === targetMat &&
+                    (p.color_name || '').trim().toLowerCase() === targetCol
+                );
+                if (pi >= 0) {
+                    matchedIdx = pi;
+                }
+            }
+            await db.run(`UPDATE cutting_records SET phoi_index = $1 WHERE id = $2`, [matchedIdx, rec.id]);
+        }
+    } catch(e) { console.log('[BPC] backfill phoi_index:', e.message); }
 
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS cutting_history (
@@ -652,16 +681,17 @@ module.exports = async function(fastify) {
 
         const result = await db.get(`
             INSERT INTO cutting_records (
-                dht_order_id, order_item_id, cut_date, cutter_id,
+                dht_order_id, order_item_id, phoi_index, cut_date, cutter_id,
                 product_name, material_name, fabric_color,
                 order_quantity, cut_quantity, kg_cut, cut_ratio,
                 ratio_reason, kg_start, kg_end, cut_warning, cut_shared,
                 created_by, created_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
             RETURNING id
         `, [
             b.dht_order_id || null,
             b.order_item_id || null,
+            b.phoi_index !== undefined ? Number(b.phoi_index) : 0,
             b.cut_date || null,
             b.cutter_id || request.user.id,
             b.product_name || null,
@@ -1508,9 +1538,8 @@ module.exports = async function(fastify) {
                 o.expected_ship_date ASC NULLS LAST, o.order_date DESC
         `);
 
-        // Fetch all items + total items count per order + cutting records
         const orderIds = orders.map(o => o.id);
-        let items = [], allItemCounts = {}, orderItemIdsMap = {}, cuttingRecords = [];
+        let items = [], allItemCounts = {}, orderItemIdsMap = {}, cuttingRecords = [], reservations = [];
         if (orderIds.length > 0) {
             items = await db.all(`
                 SELECT 
@@ -1534,9 +1563,15 @@ module.exports = async function(fastify) {
             `, [orderIds]);
 
             cuttingRecords = await db.all(`
-                SELECT id, order_item_id, material_name, fabric_color, cutter_id, is_cut_done, cut_warning, order_quantity
+                SELECT id, order_item_id, phoi_index, material_name, fabric_color, cutter_id, is_cut_done, cut_warning, order_quantity
                 FROM cutting_records 
                 WHERE dht_order_id = ANY($1)
+            `, [orderIds]);
+
+            reservations = await db.all(`
+                SELECT id, dht_order_id, item_id, phoi_index, status
+                FROM qlx_fabric_reservations
+                WHERE dht_order_id = ANY($1) AND status != 'released'
             `, [orderIds]);
 
             // Total items in order (including already claimed) for display logic
@@ -1593,29 +1628,12 @@ module.exports = async function(fastify) {
 
                 if (pairs.length > 0) {
                     const unclaimedRecs = itemRecords.filter(r => r.cutter_id === null && !r.is_cut_done);
-                    const claimedPairs = [];
-                    for (const r of itemRecords) {
-                        if (r.cutter_id !== null) {
-                            claimedPairs.push({
-                                material: (r.material_name || '').trim().toLowerCase(),
-                                color: (r.fabric_color || '').trim().toLowerCase()
-                            });
-                        }
-                    }
+                    const claimedPhois = itemRecords.filter(r => r.cutter_id !== null).map(r => r.phoi_index);
 
                     for (let pi = 0; pi < pairs.length; pi++) {
                         const phoi = pairs[pi];
-                        const pMat = (phoi.material_name || '').trim().toLowerCase();
-                        const pCol = (phoi.color_name || '').trim().toLowerCase();
-
-                        // Check if claimed
-                        const isClaimed = claimedPairs.some(cp => cp.material === pMat && cp.color === pCol);
-                        
-                        // Check if there is an unclaimed record (compensation)
-                        const matchingUnclaimed = unclaimedRecs.find(ur => 
-                            (ur.material_name || '').trim().toLowerCase() === pMat &&
-                            (ur.fabric_color || '').trim().toLowerCase() === pCol
-                        );
+                        const isClaimed = claimedPhois.includes(pi);
+                        const matchingUnclaimed = unclaimedRecs.find(ur => ur.phoi_index === pi);
 
                         if (!isClaimed || matchingUnclaimed) {
                             const cut_warning = matchingUnclaimed ? matchingUnclaimed.cut_warning : null;
@@ -1625,9 +1643,14 @@ module.exports = async function(fastify) {
                                     continue;
                                 }
                             }
+                            
+                            // Calculate coordinate-level fabric_arrived
+                            const phoiRes = reservations.filter(r => r.item_id === it.id && r.phoi_index === pi);
+                            const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+
                             rows.push({
                                 ...o, item_id: it.id, item_desc: it.description,
-                                phoi_index: 0, phoi_pair_index: pi,
+                                phoi_index: pi, phoi_pair_index: pi,
                                 item_index: itemIdx, phoi_in_item: pi + 1, total_phoi: totalPhoi,
                                 total_items_in_order: totalItemsInOrder,
                                 material_name: phoi.material_name || null,
@@ -1637,13 +1660,14 @@ module.exports = async function(fastify) {
                                 cut_warning: cut_warning,
                                 cutting_record_id: matchingUnclaimed ? matchingUnclaimed.id : null,
                                 original_cutter_id: originalCutterId,
-                                has_pc_in: it.has_pc_in
+                                has_pc_in: it.has_pc_in,
+                                fabric_arrived: isPhoiFabricArrived
                             });
                         }
                     }
                 } else {
-                    const hasClaimed = itemRecords.some(r => r.cutter_id !== null);
-                    const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done);
+                    const hasClaimed = itemRecords.some(r => r.cutter_id !== null && r.phoi_index === 0);
+                    const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done && r.phoi_index === 0);
 
                     if (!hasClaimed || unclaimedRec) {
                         const cut_warning = unclaimedRec ? unclaimedRec.cut_warning : null;
@@ -1653,6 +1677,11 @@ module.exports = async function(fastify) {
                                 continue;
                             }
                         }
+                        
+                        // Calculate coordinate-level fabric_arrived for phoi_index = 0
+                        const phoiRes = reservations.filter(r => r.item_id === it.id && r.phoi_index === 0);
+                        const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+
                         rows.push({
                             ...o, item_id: it.id, item_desc: it.description,
                             phoi_index: 0, phoi_pair_index: 0,
@@ -1664,7 +1693,8 @@ module.exports = async function(fastify) {
                             cut_warning: cut_warning,
                             cutting_record_id: unclaimedRec ? unclaimedRec.id : null,
                             original_cutter_id: originalCutterId,
-                            has_pc_in: it.has_pc_in
+                            has_pc_in: it.has_pc_in,
+                            fabric_arrived: isPhoiFabricArrived
                         });
                     }
                 }
@@ -1674,25 +1704,37 @@ module.exports = async function(fastify) {
         return { orders: rows };
     });
 
-    // ========== CLAIM: Thợ cắt nhận đơn (per-phiếu) ==========
+    // ========== CLAIM: Thợ cắt nhận đơn (per-phối) ==========
     fastify.post('/api/cutting/claim', { preHandler: [authenticate] }, async (request, reply) => {
-        const { dht_order_id, order_item_id } = request.body || {};
+        const { dht_order_id, order_item_id, phoi_index } = request.body || {};
         if (!dht_order_id) return reply.code(400).send({ error: 'Thiếu mã đơn hàng' });
+        if (!order_item_id) return reply.code(400).send({ error: 'Thiếu mã sản phẩm (phiếu)' });
+        if (phoi_index === undefined) return reply.code(400).send({ error: 'Thiếu vị trí phối' });
 
         const now = vnNow();
         const userId = request.user.id;
 
         // Verify conditions
         const order = await db.get(`
-            SELECT o.id, o.order_code, o.total_quantity, o.shipping_status,
-                   COALESCE(p.fabric_arrived, false) AS fabric_arrived
+            SELECT o.id, o.order_code, o.total_quantity, o.shipping_status
             FROM dht_orders o
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             WHERE o.id = $1
         `, [dht_order_id]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
         if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi đi rồi — không thể nhận đơn cắt!' });
-        if (!order.fabric_arrived) return reply.code(400).send({ error: 'Chưa có vải về — không thể nhận đơn cắt' });
+
+        // Check coordinator-level fabric arrival
+        const reservations = await db.all(`
+            SELECT status FROM qlx_fabric_reservations
+            WHERE item_id = $1 AND phoi_index = $2 AND status != 'released'
+        `, [order_item_id, phoi_index]);
+        if (reservations.length === 0) {
+            return reply.code(400).send({ error: 'Vải phối này chưa được gọi — không thể nhận cắt!' });
+        }
+        const allArrived = reservations.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+        if (!allArrived) {
+            return reply.code(400).send({ error: 'Vải phối này chưa về đủ — không thể nhận cắt!' });
+        }
 
         const hasPcIn = await db.get(`
             SELECT 1 FROM qlx_assignments
@@ -1702,39 +1744,34 @@ module.exports = async function(fastify) {
                   (item_id = $1)
                   OR (dht_order_id = $2 AND item_id IS NULL)
               )
-        `, [order_item_id ? Number(order_item_id) : -1, dht_order_id]);
+        `, [Number(order_item_id), dht_order_id]);
         if (!hasPcIn) return reply.code(400).send({ error: 'Chưa Phân Công In — không thể nhận đơn cắt' });
 
-        // Lookup product's cutting_category for each item
-        let items;
-        if (order_item_id) {
-            // Per-phiếu: check if there's any active claimed ticket by a different user
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND cutter_id != $2 AND is_cut_done = false LIMIT 1`, [order_item_id, userId]);
-            if (existing) return reply.code(409).send({ error: 'Phiếu này đã được nhận bởi người khác' });
-            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
-        } else {
-            // Legacy: check if there's any active claimed ticket by a different user
-            const existing = await db.get(`SELECT id FROM cutting_records WHERE dht_order_id = $1 AND cutter_id IS NOT NULL AND cutter_id != $2 AND is_cut_done = false LIMIT 1`, [dht_order_id, userId]);
-            if (existing) return reply.code(409).send({ error: 'Đơn này đã được nhận bởi người khác' });
-            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [dht_order_id]);
-        }
+        // Check if already claimed by another user
+        const existing = await db.get(`
+            SELECT id FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND cutter_id IS NOT NULL AND cutter_id != $3 AND is_cut_done = false 
+            LIMIT 1
+        `, [order_item_id, phoi_index, userId]);
+        if (existing) return reply.code(409).send({ error: 'Phối này đã được nhận bởi người khác' });
+
+        const items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
+        if (items.length === 0) return reply.code(404).send({ error: 'Phiếu không tồn tại' });
+        const it = items[0];
 
         // Lookup cutting category from product config
-        // dht_order_items.description contains the product name (e.g. "ÁO CỔ BẺ")
         let cuttingCategory = null;
-        if (items.length > 0) {
-            const itemDesc = items[0].description || '';
-            if (itemDesc) {
-                const productMatch = await db.get(`
-                    SELECT cc.name AS cutting_category_name
-                    FROM dht_products p
-                    LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
-                    WHERE p.name = $1 AND p.is_active = true
-                    LIMIT 1
-                `, [itemDesc.trim()]);
-                if (productMatch && productMatch.cutting_category_name) {
-                    cuttingCategory = productMatch.cutting_category_name;
-                }
+        const itemDesc = it.description || '';
+        if (itemDesc) {
+            const productMatch = await db.get(`
+                SELECT cc.name AS cutting_category_name
+                FROM dht_products p
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                WHERE p.name = $1 AND p.is_active = true
+                LIMIT 1
+            `, [itemDesc.trim()]);
+            if (productMatch && productMatch.cutting_category_name) {
+                cuttingCategory = productMatch.cutting_category_name;
             }
         }
 
@@ -1747,82 +1784,67 @@ module.exports = async function(fastify) {
             totalPhoi += pp.length > 0 ? pp.length : 1;
         }
 
-        const createdIds = [];
-        const isCompensations = {};
-        if (items.length > 0) {
-            for (const it of items) {
-                const itemIdx = allItems.findIndex(a => a.id === it.id) + 1;
-                let pairs = [];
-                try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+        const itemIdx = allItems.findIndex(a => a.id === it.id) + 1;
+        let pairs = [];
+        try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
 
-                // Check if there is an existing unassigned ticket for this item
-                const unassignedRecs = await db.all(`
-                    SELECT id FROM cutting_records 
-                    WHERE order_item_id = $1 AND cutter_id IS NULL AND is_cut_done = false
-                `, [it.id]);
+        // Check if there is an existing unassigned ticket for this koordinat
+        const unassignedRec = await db.get(`
+            SELECT id FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND cutter_id IS NULL AND is_cut_done = false
+            LIMIT 1
+        `, [it.id, phoi_index]);
 
-                if (unassignedRecs.length > 0) {
-                    for (const ur of unassignedRecs) {
-                        await db.run(`
-                            UPDATE cutting_records 
-                            SET cutter_id = $1, created_by = $1, created_at = $2 
-                            WHERE id = $3
-                        `, [userId, now, ur.id]);
-                        createdIds.push(ur.id);
-                        isCompensations[ur.id] = true;
-                    }
-                    continue;
-                }
+        let createdId;
+        let isCompensation = false;
 
-                if (pairs.length > 0) {
-                    for (let pi = 0; pi < pairs.length; pi++) {
-                        const phoi = pairs[pi];
-                        const productName = totalPhoi > 1
-                            ? order.order_code + ' — Phiếu ' + itemIdx + ' — P' + (pi + 1) + (it.description ? ' — ' + it.description : '')
-                            : order.order_code + (it.description ? ' — ' + it.description : '');
-                        const result = await db.get(`
-                            INSERT INTO cutting_records (
-                                dht_order_id, order_item_id, cutter_id, cut_date,
-                                product_name, material_name, fabric_color,
-                                order_quantity, cutting_category, created_by, created_at
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $3, $10)
-                            RETURNING id
-                        `, [dht_order_id, it.id, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, now]);
-                        if (result) createdIds.push(result.id);
-                    }
-                } else {
-                    const productName = totalPhoi > 1
-                        ? order.order_code + ' — Phiếu ' + itemIdx + ' — P1' + (it.description ? ' — ' + it.description : '')
-                        : order.order_code + (it.description ? ' — ' + it.description : '');
-                    const result = await db.get(`
-                        INSERT INTO cutting_records (
-                            dht_order_id, order_item_id, cutter_id, cut_date,
-                            product_name, material_name, fabric_color,
-                            order_quantity, cutting_category, created_by, created_at
-                        ) VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $3, $8)
-                        RETURNING id
-                    `, [dht_order_id, it.id, userId, now, productName, it.quantity || 0, cuttingCategory, now]);
-                    if (result) createdIds.push(result.id);
-                }
-            }
+        if (unassignedRec) {
+            await db.run(`
+                UPDATE cutting_records 
+                SET cutter_id = $1, created_by = $1, created_at = $2 
+                WHERE id = $3
+            `, [userId, now, unassignedRec.id]);
+            createdId = unassignedRec.id;
+            isCompensation = true;
         } else {
-            const result = await db.get(`
-                INSERT INTO cutting_records (
-                    dht_order_id, cutter_id, cut_date,
-                    product_name, order_quantity, cutting_category, created_by, created_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $2, $7)
-                RETURNING id
-            `, [dht_order_id, userId, now, order.order_code, order.total_quantity || 0, cuttingCategory, now]);
-            if (result) createdIds.push(result.id);
+            if (pairs.length > 0) {
+                const phoi = pairs[phoi_index];
+                if (!phoi) return reply.code(400).send({ error: 'Không tìm thấy cấu hình phối tương ứng' });
+                const productName = totalPhoi > 1
+                    ? order.order_code + ' — Phiếu ' + itemIdx + ' — P' + (phoi_index + 1) + (it.description ? ' — ' + it.description : '')
+                    : order.order_code + (it.description ? ' — ' + it.description : '');
+                const result = await db.get(`
+                    INSERT INTO cutting_records (
+                        dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
+                        product_name, material_name, fabric_color,
+                        order_quantity, cutting_category, created_by, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4, $11)
+                    RETURNING id
+                `, [dht_order_id, it.id, phoi_index, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, now]);
+                if (result) createdId = result.id;
+            } else {
+                const productName = totalPhoi > 1
+                    ? order.order_code + ' — Phiếu ' + itemIdx + ' — P1' + (it.description ? ' — ' + it.description : '')
+                    : order.order_code + (it.description ? ' — ' + it.description : '');
+                const result = await db.get(`
+                    INSERT INTO cutting_records (
+                        dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
+                        product_name, material_name, fabric_color,
+                        order_quantity, cutting_category, created_by, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7, $8, $4, $9)
+                    RETURNING id
+                `, [dht_order_id, it.id, 0, userId, now, productName, it.quantity || 0, cuttingCategory, now]);
+                if (result) createdId = result.id;
+            }
         }
 
-        for (const cid of createdIds) {
-            const actionText = isCompensations[cid] ? 'Thợ cắt nhận đơn bù' : ('Thợ cắt nhận đơn' + (order_item_id ? ' (phiếu)' : ''));
+        if (createdId) {
+            const actionText = isCompensation ? 'Thợ cắt nhận đơn bù' : 'Thợ cắt nhận đơn (phối)';
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                [cid, 'claim', actionText, userId, now]);
+                [createdId, 'claim', actionText, userId, now]);
         }
 
-        return { success: true, created: createdIds.length, ids: createdIds };
+        return { success: true, created: 1, ids: [createdId] };
     });
 
     // ========== AVAILABLE MATERIALS: Chất liệu + màu từ sổ kho ==========
@@ -2244,12 +2266,12 @@ module.exports = async function(fastify) {
                         : it.order_code + (it.description ? ' — ' + it.description : '');
                     const result = await db.get(`
                         INSERT INTO cutting_records (
-                            dht_order_id, order_item_id, cutter_id, cut_date,
+                            dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                             product_name, material_name, fabric_color,
                             order_quantity, cutting_category, created_by, created_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $3, $10)
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4, $11)
                         RETURNING id
-                    `, [it.dht_order_id, it.order_item_id, userId, now, productName,
+                    `, [it.dht_order_id, it.order_item_id, pi, userId, now, productName,
                         phoi.material_name || null, phoi.color_name || null,
                         it.quantity || 0, cuttingCategory, now]);
                     if (result) createdIds.push(result.id);
@@ -2258,11 +2280,11 @@ module.exports = async function(fastify) {
                 const productName = it.order_code + (it.description ? ' — ' + it.description : '');
                 const result = await db.get(`
                     INSERT INTO cutting_records (
-                        dht_order_id, order_item_id, cutter_id, cut_date,
+                        dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                         product_name, order_quantity, cutting_category, created_by, created_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $3, $8)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $4, $9)
                     RETURNING id
-                `, [it.dht_order_id, it.order_item_id, userId, now, productName,
+                `, [it.dht_order_id, it.order_item_id, 0, userId, now, productName,
                     it.quantity || 0, cuttingCategory, now]);
                 if (result) createdIds.push(result.id);
             }
@@ -2339,13 +2361,19 @@ module.exports = async function(fastify) {
 
     // ========== UNCLAIM: Trả đơn cắt (per-phiếu supported) ==========
     fastify.post('/api/cutting/unclaim', { preHandler: [authenticate] }, async (request, reply) => {
-        const { dht_order_id, order_item_id } = request.body || {};
+        const { dht_order_id, order_item_id, phoi_index } = request.body || {};
         if (!dht_order_id) return reply.code(400).send({ error: 'Thiếu mã đơn hàng' });
 
-        const whereClause = order_item_id
-            ? 'dht_order_id = $1 AND order_item_id = $2'
-            : 'dht_order_id = $1';
-        const params = order_item_id ? [dht_order_id, order_item_id] : [dht_order_id];
+        let whereClause = 'dht_order_id = $1';
+        let params = [dht_order_id];
+        if (order_item_id) {
+            whereClause += ' AND order_item_id = $2';
+            params.push(order_item_id);
+            if (phoi_index !== undefined) {
+                whereClause += ' AND phoi_index = $3';
+                params.push(phoi_index);
+            }
+        }
 
         const started = await db.get(`
             SELECT id FROM cutting_records WHERE ${whereClause} AND (is_cutting = true OR is_cut_done = true) LIMIT 1

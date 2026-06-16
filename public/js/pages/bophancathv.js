@@ -1159,33 +1159,29 @@ function _bpcBuildUnassignedTableHtml(all) {
             if (r.cut_warning) {
                 spName += '<div style="color:#ea580c;font-size:10px;margin-top:2px;font-weight:bold">⚠️ ' + r.cut_warning + '</div>';
             }
-            var claimTd = '';
-            if (isNew) {
-                var rs = groupRowCount[groupKey] || 1;
-                var claimHtml;
-                if (ready) {
-                    if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
-                    } else {
-                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
-                    }
-                } else {
-                    var missing = [];
-                    if (!r.fabric_arrived) missing.push('Vải');
-                    if (!r.has_pc_in) missing.push('PC In');
-                    claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
-                }
+            var claimHtml;
+            if (ready) {
                 if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                    if (r.cutting_record_id) {
-                        var isManager = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
-                        var isOriginalCutter = window._currentUser && r.original_cutter_id && r.original_cutter_id === window._currentUser.id;
-                        if (isManager || isOriginalCutter) {
-                            claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
-                        }
+                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                } else {
+                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                }
+            } else {
+                var missing = [];
+                if (!r.fabric_arrived) missing.push('Vải');
+                if (!r.has_pc_in) missing.push('PC In');
+                claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
+            }
+            if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+                if (r.cutting_record_id) {
+                    var isManager = window._currentUser && ['giam_doc', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
+                    var isOriginalCutter = window._currentUser && r.original_cutter_id && r.original_cutter_id === window._currentUser.id;
+                    if (isManager || isOriginalCutter) {
+                        claimHtml += '<div style="margin-top:6px"><button class="bpc-icon-btn" onclick="_bpcToggleAction(' + r.cutting_record_id + ',\'cancel_compensation\')" title="Hủy đơn cắt bù" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;padding:2px 8px;font-size:10px;font-weight:bold;height:auto;line-height:1.2;width:auto">❌ Hủy Cắt Bù</button></div>';
                     }
                 }
-                claimTd = '<td rowspan="'+rs+'" colspan="4" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
             }
+            var claimTd = '<td colspan="4" style="text-align:center;vertical-align:middle;border-left:2px solid #e2e8f0">'+claimHtml+'</td>';
             var qtyStyle = (r.phoi_in_item === 1 || isNew) ? 'text-align:center;font-weight:700;color:#0369a1' : 'text-align:center;font-weight:600;color:#93c5fd';
             var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
             var finalSpName = spName;
@@ -1251,37 +1247,40 @@ function _bpcRenderUnassigned() {
     if (bot) bot.innerHTML = '';
 }
 
-async function _bpcClaimOrder(orderId, itemId, orderCode) {
+async function _bpcClaimOrder(orderId, itemId, phoiIndex, orderCode) {
     if (window._bpcBusy) return;
-    // Find all rows for this phiếu from unassigned data
-    var groupKey = orderId + '_' + (itemId || 0);
-    var rows = _bpc.unassignedOrders.filter(function(r) { return (r.id + '_' + (r.item_id || 0)) === groupKey; });
+    // Find specific row for this phối from unassigned data
+    var rows = _bpc.unassignedOrders.filter(function(r) { 
+        return r.id === orderId && (r.item_id || 0) === (itemId || 0) && r.phoi_pair_index === phoiIndex; 
+    });
     if (rows.length === 0) {
         try {
             var unassignedRes = await apiCall('/api/cutting/unassigned');
             _bpc.unassignedOrders = unassignedRes.orders || [];
-            rows = _bpc.unassignedOrders.filter(function(r) { return (r.id + '_' + (r.item_id || 0)) === groupKey; });
+            rows = _bpc.unassignedOrders.filter(function(r) { 
+                return r.id === orderId && (r.item_id || 0) === (itemId || 0) && r.phoi_pair_index === phoiIndex; 
+            });
         } catch (eUnassigned) {
             console.error('[BPC] failed to fetch unassigned on the fly:', eUnassigned);
         }
     }
     var o = rows[0] || {};
-    var title = o.order_code ? ((o.total_items_in_order > 1) ? o.order_code + ' — Phiếu ' + o.item_index : o.order_code) : orderCode;
+    var title = o.order_code ? ((o.total_phoi > 1) ? o.order_code + ' — Phiếu ' + o.item_index + ' — P' + (phoiIndex + 1) : o.order_code) : orderCode;
     var priMap = { 'GẤP': ['🔴 GẤP','background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff'], 'GỬI': ['🟡 GỬI','background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff'] };
     var pri = priMap[o.shipping_priority] || ['🟣 CHUẨN','background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff'];
 
     var h = '<div class="bpc-modal-overlay" id="_bpcClaimModal" onclick="if(event.target===this)_bpcCloseModal()">';
     h += '<div class="bpc-modal">';
-    h += '<div class="bpc-modal-header"><div class="m-icon">✂️</div><div><div class="m-title">Nhận Đơn Cắt</div><div class="m-sub">Xác nhận nhận phiếu cắt này</div></div></div>';
+    h += '<div class="bpc-modal-header"><div class="m-icon">✂️</div><div><div class="m-title">Nhận Đơn Cắt</div><div class="m-sub">Xác nhận nhận phối cắt này</div></div></div>';
     h += '<div class="bpc-modal-body">';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Mã đơn</span><span class="bpc-modal-val" style="color:#059669;font-size:15px">' + title + '</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 Khách hàng</span><span class="bpc-modal-val">' + (o.customer_name || '—') + '</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">💼 NV Sale</span><span class="bpc-modal-val" style="color:#60a5fa">' + (o.cskh_name || o.created_by_name || '—') + '</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Ngày ship</span><span class="bpc-modal-val">' + _bpcFmtDate(o.expected_ship_date) + '</span></div>';
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚡ Ưu tiên</span><span class="bpc-modal-val"><span style="padding:3px 12px;border-radius:6px;font-size:11px;font-weight:800;' + pri[1] + '">' + pri[0] + '</span></span></div>';
-    // Phối list
+    // Phối details
     if (rows.length > 0) {
-        h += '<div class="bpc-modal-phoi"><div class="bpc-modal-phoi-title">📦 Danh sách phối (' + rows.length + ')</div>';
+        h += '<div class="bpc-modal-phoi"><div class="bpc-modal-phoi-title">📦 Chi tiết phối</div>';
         rows.forEach(function(p) {
             var pName = (p.total_phoi > 1) ? ('P' + p.phoi_in_item + (p.item_desc ? ' — ' + p.item_desc : '')) : (p.item_desc || o.order_code);
             h += '<div class="bpc-modal-phoi-item"><span class="p-name">' + pName + '</span>';
@@ -1292,7 +1291,7 @@ async function _bpcClaimOrder(orderId, itemId, orderCode) {
     h += '</div>';
     h += '<div class="bpc-modal-actions">';
     h += '<button class="bpc-modal-btn cancel" onclick="_bpcCloseModal()">Hủy</button>';
-    h += '<button class="bpc-modal-btn confirm" id="_bpcConfirmBtn" onclick="_bpcDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',\'' + orderCode + '\')">✂️ XÁC NHẬN NHẬN ĐƠN</button>';
+    h += '<button class="bpc-modal-btn confirm" id="_bpcConfirmBtn" onclick="_bpcDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',' + phoiIndex + ',\'' + orderCode + '\')">✂️ XÁC NHẬN NHẬN ĐƠN</button>';
     h += '</div></div></div>';
 
     document.body.insertAdjacentHTML('beforeend', h);
@@ -1304,17 +1303,16 @@ function _bpcCloseModal() {
     if (m) { m.classList.remove('show'); setTimeout(function() { m.remove(); }, 300); }
 }
 
-async function _bpcDoClaimOrder(orderId, itemId, orderCode) {
+async function _bpcDoClaimOrder(orderId, itemId, phoiIndex, orderCode) {
     if (window._bpcBusy) return;
     window._bpcBusy = true;
     var btn = document.getElementById('_bpcConfirmBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
     try {
-        var body = { dht_order_id: orderId };
-        if (itemId) body.order_item_id = itemId;
+        var body = { dht_order_id: orderId, order_item_id: itemId, phoi_index: phoiIndex };
         var res = await apiCall('/api/cutting/claim', 'POST', body);
         _bpcCloseModal();
-        showToast('✅ Đã nhận đơn ' + orderCode + ' — tạo ' + res.created + ' phối cắt');
+        showToast('✅ Đã nhận phối đơn ' + orderCode);
         await _bpcLoadAll();
     } catch(e) {
         showToast(e.message || 'Lỗi nhận đơn', 'error');
@@ -1322,11 +1320,11 @@ async function _bpcDoClaimOrder(orderId, itemId, orderCode) {
     } finally { window._bpcBusy = false; }
 }
 
-async function _bpcUnclaimOrder(orderId, orderCode) {
-    if (!confirm('Trả lại đơn ' + orderCode + '? Tất cả record cắt sẽ bị xóa.')) return;
+async function _bpcUnclaimOrder(orderId, itemId, phoiIndex, orderCode) {
+    if (!confirm('Trả lại phối đơn ' + orderCode + '? Record cắt sẽ bị xóa.')) return;
     try {
-        await apiCall('/api/cutting/unclaim', 'POST', { dht_order_id: orderId });
-        showToast('✅ Đã trả đơn ' + orderCode);
+        await apiCall('/api/cutting/unclaim', 'POST', { dht_order_id: orderId, order_item_id: itemId, phoi_index: phoiIndex });
+        showToast('✅ Đã trả phối đơn ' + orderCode);
         await _bpcLoadAll();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
