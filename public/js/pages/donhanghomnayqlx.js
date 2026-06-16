@@ -352,12 +352,12 @@ function _dhnqlxRenderContent() {
         let actionButtons = '';
         if (_dhnqlxFilter !== 'hoan_thanh') {
             actionButtons += `
-                <button onclick="_dhnqlxShowExpectedTimeModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-blue">⏱ Báo giờ ra</button>
-                <button onclick="_dhnqlxConfirmComplete(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-green">✅ Hoàn thành</button>
-                <button onclick="_dhnqlxShowRescheduleModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-yellow">📅 Hẹn lại</button>
+                <button onclick="event.stopPropagation(); _dhnqlxShowExpectedTimeModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-blue">⏱ Báo giờ ra</button>
+                <button onclick="event.stopPropagation(); _dhnqlxConfirmComplete(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-green">✅ Hoàn thành</button>
+                <button onclick="event.stopPropagation(); _dhnqlxShowRescheduleModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-yellow">📅 Hẹn lại</button>
             `;
         }
-        actionButtons += `<button onclick="_dhnqlxShowLogsModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-gray">📜 Lịch sử</button>`;
+        actionButtons += `<button onclick="event.stopPropagation(); _dhnqlxShowLogsModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-gray">📜 Lịch sử</button>`;
 
         // Reschedule Reason / Status Note
         let statusNote = '';
@@ -368,7 +368,7 @@ function _dhnqlxRenderContent() {
         }
 
         return `
-            <tr>
+            <tr id="dhnqlxRow${o.id}" onclick="_dhnqlxToggleDetail(${o.id})" style="cursor:pointer;">
                 <td style="white-space:nowrap;font-weight:bold;">
                     ${progressHTML}
                 </td>
@@ -676,5 +676,40 @@ async function _dhnqlxShowLogsModal(orderId, orderCode) {
         if (modalBody) {
             modalBody.innerHTML = `<div style="color:#dc2626;text-align:center;padding:20px 0;">Lỗi tải lịch sử: ${e.message}</div>`;
         }
+    }
+}
+
+async function _dhnqlxToggleDetail(id) {
+    const clickedRow = document.getElementById('dhnqlxRow' + id);
+    if (!clickedRow) return;
+
+    const existingDetailRow = document.getElementById('dhnqlxDetailRow' + id);
+    if (existingDetailRow) {
+        existingDetailRow.remove();
+        return;
+    }
+
+    // Close any other open details to keep the UI clean
+    const openRows = document.querySelectorAll('[id^="dhnqlxDetailRow"]');
+    openRows.forEach(row => row.remove());
+
+    const detailRow = document.createElement('tr');
+    detailRow.id = 'dhnqlxDetailRow' + id;
+    detailRow.innerHTML = `<td colspan="8" style="padding:0"><div class="ts-detail" id="dhnqlxDetail${id}"><div style="text-align:center;color:#9ca3af;padding:16px;">⏳ Đang tải...</div></div></td>`;
+    clickedRow.parentNode.insertBefore(detailRow, clickedRow.nextSibling);
+
+    try {
+        const res = await apiCall('/api/trasoat/orders/' + id + '/detail');
+        const el = document.getElementById('dhnqlxDetail' + id);
+        if (el) {
+            if (typeof _tsRenderTimeline === 'function') {
+                el.innerHTML = _tsRenderTimeline(res);
+            } else {
+                el.innerHTML = '<div style="color:#ef4444;padding:16px;">❌ Lỗi: Thiếu hàm render timeline</div>';
+            }
+        }
+    } catch (e) {
+        const el = document.getElementById('dhnqlxDetail' + id);
+        if (el) el.innerHTML = '<div style="color:#ef4444;padding:16px;">❌ Lỗi tải chi tiết</div>';
     }
 }

@@ -94,6 +94,8 @@ module.exports = async function(fastify) {
                 o.customer_name, o.customer_phone, o.province,
                 o.shipped_at, o.tracking_code, o.total_amount,
                 o.parent_order_id, o.shipping_priority, o.standard_delivery_time,
+                o.qlx_expected_date, o.qlx_expected_hour, o.qlx_actual_output_at,
+                o.qlx_rescheduled_date, o.qlx_rescheduled_reason,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,

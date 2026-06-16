@@ -178,19 +178,50 @@ function _tsRenderTable(orders, totalCount) {
         document.getElementById('tsTableWrap').innerHTML = '<div style="text-align:center;padding:50px;color:#9ca3af"><div style="font-size:48px;margin-bottom:12px">📭</div><div style="font-weight:700">Không tìm thấy đơn hàng nào</div></div>';
         return;
     }
-    const formatExpectedShipDate = (dateVal, priority, standardDeliveryTime) => {
-        if (!dateVal) return '-';
+    const getProgressSaleHTML = (o) => {
+        if (!o.expected_ship_date) {
+            return '<span style="color:#94a3b8;font-style:italic">—</span>';
+        }
+        const shipVN = new Date(o.expected_ship_date);
+        shipVN.setHours(0,0,0,0);
+        
+        if (o.shipped_at) {
+            const actualVN = new Date(o.shipped_at);
+            actualVN.setHours(0,0,0,0);
+            const diffDays = Math.round((shipVN - actualVN) / 86400000);
+            if (diffDays > 0) {
+                return `<span style="color:#0369a1;font-weight:800;">🚀 Nhanh ${diffDays} ngày</span>`;
+            } else if (diffDays < 0) {
+                return `<span style="color:#dc2626;font-weight:800;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+            } else {
+                return `<span style="color:#059669;font-weight:800;">✅ Đúng hạn</span>`;
+            }
+        } else {
+            const todayVN = typeof vnNow === 'function' ? vnNow() : new Date();
+            todayVN.setHours(0,0,0,0);
+            const remainDays = Math.round((shipVN - todayVN) / 86400000);
+            if (remainDays > 0) {
+                return `<span style="color:#2563eb;font-weight:800;">📅 Còn ${remainDays} ngày</span>`;
+            } else if (remainDays < 0) {
+                return `<span style="color:#dc2626;font-weight:800;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
+            } else {
+                return `<span style="color:#d97706;font-weight:800;">📦 Hôm nay gửi</span>`;
+            }
+        }
+    };
+
+    const formatSaleExpectedDate = (dateVal, priority, standardDeliveryTime) => {
+        if (!dateVal) return '—';
         const dt = new Date(dateVal);
         const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
         const day = localDt.getDate();
         const month = localDt.getMonth() + 1;
-
         const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         const dayName = daysOfWeek[localDt.getDay()];
 
         const pri = (priority || 'CHUẨN').toUpperCase();
         if (pri === 'GẤP' || pri === 'GỬI') {
-            return `${dayName} - ${day}/${month}`;
+            return `<div>${dayName} - ${day}/${month}</div>`;
         } else {
             let timePart = '';
             if (standardDeliveryTime) {
@@ -200,12 +231,56 @@ function _tsRenderTable(orders, totalCount) {
                 const mins = String(localDt.getMinutes()).padStart(2, '0');
                 timePart = `${hrs}:${mins}`;
             }
-            return `${dayName} - ${timePart} ${day}/${month}`;
+            return `<div>${dayName} - ${day}/${month}</div>
+                    <div style="font-size:10px;color:#0369a1;font-weight:normal;margin-top:2px;">Giờ: <b>${timePart}</b></div>`;
         }
     };
 
+    const formatQlxExpectedDate = (qlxDate, qlxHour, reschedDate, reschedReason, actualOutputAt) => {
+        if (!qlxDate && !reschedDate) return '—';
+        
+        let dateStr = '';
+        let hourStr = qlxHour || '—';
+        let note = '';
+        
+        if (reschedDate) {
+            const dt = new Date(reschedDate);
+            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const dayName = daysOfWeek[localDt.getDay()];
+            const day = localDt.getDate();
+            const month = localDt.getMonth() + 1;
+            
+            dateStr = `${dayName} - ${day}/${month}`;
+            note = `<div style="color:#d97706;font-size:10px;margin-top:2px;"><b>Hẹn lại</b><br/><i>${reschedReason || ''}</i></div>`;
+        } else {
+            const dt = new Date(qlxDate);
+            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const dayName = daysOfWeek[localDt.getDay()];
+            const day = localDt.getDate();
+            const month = localDt.getMonth() + 1;
+            
+            dateStr = `${dayName} - ${day}/${month}`;
+        }
+        
+        if (actualOutputAt) {
+            const dt = new Date(actualOutputAt);
+            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const day = localDt.getDate();
+            const month = localDt.getMonth() + 1;
+            const hrs = String(localDt.getHours()).padStart(2, '0');
+            const mins = String(localDt.getMinutes()).padStart(2, '0');
+            note = `<div style="color:#059669;font-size:10px;margin-top:2px;"><b>Xong lúc:</b> ${hrs}:${mins} ${day}/${month}</div>`;
+        }
+
+        return `<div>${dateStr}</div>
+                <div style="font-size:10px;color:#4b5563;font-weight:normal;margin-top:2px;">Giờ: <b>${hourStr}</b></div>
+                ${note}`;
+    };
+
     let html = `<table class="ts-table"><thead><tr>
-        <th>#</th><th>Mã Đơn</th><th>Khách Hàng</th><th>Tiêu Chuẩn</th><th>Ngày Gửi DK</th><th>Tiến Độ</th><th>Giai Đoạn</th><th>Chênh Lệch</th>
+        <th>#</th><th style="width: 140px;">📊 Tiến Độ Ra Hàng</th><th>Mã Đơn</th><th>Khách Hàng</th><th>Tiêu Chuẩn</th><th>Ngày Ra Đơn (SALE)</th><th>Hẹn Ra Đơn (QLX)</th><th>Tiến Độ</th><th>Giai Đoạn</th><th>Chênh Lệch</th>
     </tr></thead><tbody>`;
 
     orders.forEach((o, i) => {
@@ -219,19 +294,21 @@ function _tsRenderTable(orders, totalCount) {
 
         html += `<tr onclick="_tsToggleDetail(${o.id})" id="tsRow${o.id}">
             <td style="color:#9ca3af;font-weight:600">${(_ts.page-1)*50+i+1}</td>
+            <td style="white-space:nowrap;font-weight:bold;">${getProgressSaleHTML(o)}</td>
             <td>
                 <span style="color:#4338ca;font-weight:800">${o.order_code}</span>${badges}
                 ${o.created_by_name ? `<div style="font-size:11px;color:#e65100;font-weight:700;margin-top:2px">👤 Sale: ${o.created_by_name}</div>` : ''}
             </td>
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
             <td><span class="ts-prio ${priClass}">${priority}</span></td>
-            <td style="font-weight:600">${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</td>
+            <td style="font-weight:600; white-space:nowrap;">${formatSaleExpectedDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</td>
+            <td style="font-weight:600; white-space:nowrap;">${formatQlxExpectedDate(o.qlx_expected_date, o.qlx_expected_hour, o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_actual_output_at)}</td>
             <td style="min-width:120px"><div class="ts-progress"><div class="ts-progress-bar" style="width:${o.progress_percent}%;background:${pColor}"></div></div><div style="font-size:10px;font-weight:700;color:${pColor};margin-top:2px">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</div></td>
             <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>
         </tr>`;
         if (_ts.expandedId === o.id) {
-            html += `<tr id="tsDetailRow${o.id}"><td colspan="8" style="padding:0"><div class="ts-detail" id="tsDetail${o.id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td></tr>`;
+            html += `<tr id="tsDetailRow${o.id}"><td colspan="10" style="padding:0"><div class="ts-detail" id="tsDetail${o.id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td></tr>`;
             setTimeout(async () => {
                 try {
                     const res = await apiCall('/api/trasoat/orders/' + o.id + '/detail');
@@ -280,7 +357,7 @@ async function _tsToggleDetail(id) {
 
     const detailRow = document.createElement('tr');
     detailRow.id = 'tsDetailRow' + id;
-    detailRow.innerHTML = `<td colspan="8" style="padding:0"><div class="ts-detail" id="tsDetail${id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td>`;
+    detailRow.innerHTML = `<td colspan="10" style="padding:0"><div class="ts-detail" id="tsDetail${id}"><div style="text-align:center;color:#9ca3af">⏳ Đang tải...</div></div></td>`;
     clickedRow.parentNode.insertBefore(detailRow, clickedRow.nextSibling);
 
     try {
@@ -296,6 +373,28 @@ async function _tsToggleDetail(id) {
 }
 
 function _tsRenderTimeline(res) {
+    if (!document.getElementById('_tsTimelineStyles')) {
+        const style = document.createElement('style');
+        style.id = '_tsTimelineStyles';
+        style.textContent = `
+            .ts-detail{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin:8px 12px 16px;padding:20px;animation:tsSlide .25s ease}
+            @keyframes tsSlide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+            .ts-timeline{display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;margin:16px 0}
+            .ts-step{flex:1;min-width:100px;text-align:center;position:relative;padding:0 8px}
+            .ts-step-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:16px;font-weight:800;border:3px solid #e5e7eb}
+            .ts-step-icon.done{background:#10b981;border-color:#10b981;color:white}
+            .ts-step-icon.active{background:#f59e0b;border-color:#f59e0b;color:white;animation:tsPulse 1.5s infinite}
+            .ts-step-icon.pending{background:white;border-color:#d1d5db;color:#9ca3af}
+            @keyframes tsPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+            .ts-step-name{font-size:11px;font-weight:700;color:#374151}
+            .ts-step-time{font-size:10px;color:#6b7280;margin-top:2px}
+            .ts-step-line{position:absolute;top:18px;left:calc(50% + 18px);right:calc(-50% + 18px);height:3px;background:#e5e7eb}
+            .ts-step-line.done{background:#10b981}
+            .ts-ship-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0}
+            .ts-ship-item{font-size:12px;color:#475569}.ts-ship-item b{color:#1e1b4b}
+        `;
+        document.head.appendChild(style);
+    }
     const { order: o, items } = res;
     const fmtDT = d => { if (!d) return ''; const dt = new Date(d); return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); };
 
