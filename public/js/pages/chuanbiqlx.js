@@ -1000,31 +1000,29 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     } else {
         html += '  <div style="font-weight:700; font-size:12px; color:#1e293b; margin-bottom:8px;">📅 Lịch Cắt Phối <span style="color:#dc2626">*</span></div>';
         var valISO = '';
+        var displayVal = 'Bấm để chọn lịch cắt...';
         if (cutSchedule) {
             var sDt = new Date(cutSchedule);
             if (!isNaN(sDt.getTime())) {
                 var vnDt = new Date(sDt.getTime() + 7 * 3600000);
                 valISO = vnDt.toISOString().slice(0, 16);
-            }
-        } else {
-            var todayVn = new Date(new Date().getTime() + 7 * 3600000);
-            valISO = todayVn.toISOString().slice(0, 11) + '08:00';
-        }
-        var displayVal = '';
-        if (typeof _qlxFormatDateTimeToShow === 'function') {
-            displayVal = _qlxFormatDateTimeToShow(valISO);
-        } else {
-            var sDt2 = new Date(valISO);
-            if (!isNaN(sDt2.getTime())) {
-                var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-                var dayName = days[sDt2.getDay()];
-                var pad = function(n) { return String(n).padStart(2, '0'); };
-                displayVal = dayName + ' - ' + pad(sDt2.getDate()) + '/' + pad(sDt2.getMonth() + 1) + '/' + sDt2.getFullYear() + ' ' + pad(sDt2.getHours()) + ':' + pad(sDt2.getMinutes());
+                if (typeof _qlxFormatDateTimeToShow === 'function') {
+                    displayVal = _qlxFormatDateTimeToShow(valISO);
+                } else {
+                    var sDt2 = new Date(valISO);
+                    if (!isNaN(sDt2.getTime())) {
+                        var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        var dayName = days[sDt2.getDay()];
+                        var pad = function(n) { return String(n).padStart(2, '0'); };
+                        displayVal = dayName + ' - ' + pad(sDt2.getDate()) + '/' + pad(sDt2.getMonth() + 1) + '/' + sDt2.getFullYear() + ' ' + pad(sDt2.getHours()) + ':' + pad(sDt2.getMinutes());
+                    }
+                }
             }
         }
+        var colorAttr = valISO ? '#1e293b' : '#94a3b8';
         html += '  <div style="position:relative; width:100%; max-width:320px; margin-bottom:12px;">';
         html += '    <input type="hidden" id="qlx_cut_schedule_raw" value="' + valISO + '" onchange="_qlxCutReminderChanged()">';
-        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; transition:all 0.3s;" readonly value="' + displayVal + '" onclick="_qlxOpenDateTimePicker(\'qlx_cut_schedule_raw\', typeof _qlxGetMinDateTimeStr === \'function\' ? _qlxGetMinDateTimeStr() : \'\')">';
+        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; color:' + colorAttr + '; transition:all 0.3s;" readonly value="' + displayVal + '" onclick="_qlxOpenDateTimePicker(\'qlx_cut_schedule_raw\', typeof _qlxGetMinDateTimeStr === \'function\' ? _qlxGetMinDateTimeStr() : \'\')">';
         html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px;">📅</span>';
         html += '  </div>';
     }
@@ -1118,7 +1116,15 @@ function _qlxGetCurrentCutSchedule() {
 }
 
 function _qlxCutReminderChanged() {
-    // Dynamically checked
+    var rawEl = document.getElementById('qlx_cut_schedule_raw');
+    var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
+    if (rawEl && displayEl) {
+        if (rawEl.value) {
+            displayEl.style.color = '#1e293b';
+        } else {
+            displayEl.style.color = '#94a3b8';
+        }
+    }
 }
 
 function _qlxValidateAndGetCutReminders() {
