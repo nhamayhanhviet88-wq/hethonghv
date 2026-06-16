@@ -2260,6 +2260,15 @@ module.exports = async function(fastify) {
         if (isNaN(parseDt.getTime())) {
             return reply.code(400).send({ error: 'Lịch cắt không hợp lệ!' });
         }
+        const nowMs = new Date().getTime();
+        if (parseDt.getTime() < nowMs - 5 * 60 * 1000) {
+            return reply.code(400).send({ error: 'Lịch cắt không được chọn thời gian trong quá khứ!' });
+        }
+        const vnDateStr = new Date(parseDt.getTime() + 7 * 3600000).toISOString().slice(0, 10);
+        const holiday = await db.get(`SELECT id FROM holidays WHERE holiday_date = $1::date`, [vnDateStr]);
+        if (holiday) {
+            return reply.code(400).send({ error: 'Lịch cắt không được trùng vào ngày nghỉ lễ!' });
+        }
 
         // Validate cutting reminders choice and content (required for reservation POST)
         if (!cut_remind_choice) {
@@ -2476,6 +2485,15 @@ module.exports = async function(fastify) {
         const parseDt = new Date(cut_schedule);
         if (isNaN(parseDt.getTime())) {
             return reply.code(400).send({ error: 'Lịch cắt không hợp lệ!' });
+        }
+        const nowMs = new Date().getTime();
+        if (parseDt.getTime() < nowMs - 5 * 60 * 1000) {
+            return reply.code(400).send({ error: 'Lịch cắt không được chọn thời gian trong quá khứ!' });
+        }
+        const vnDateStr = new Date(parseDt.getTime() + 7 * 3600000).toISOString().slice(0, 10);
+        const holiday = await db.get(`SELECT id FROM holidays WHERE holiday_date = $1::date`, [vnDateStr]);
+        if (holiday) {
+            return reply.code(400).send({ error: 'Lịch cắt không được trùng vào ngày nghỉ lễ!' });
         }
 
         if (!cut_remind_choice) {

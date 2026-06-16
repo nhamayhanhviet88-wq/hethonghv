@@ -32,6 +32,8 @@ async function _qlxLoadHolidays() {
         console.error('Lỗi tải danh sách ngày lễ:', e);
     }
 }
+window._qlxLoadHolidays = _qlxLoadHolidays;
+window._qlxGetMinDateTimeStr = _qlxGetMinDateTimeStr;
 
 function _qlxGetMinDateTimeStr() {
     const date = new Date();

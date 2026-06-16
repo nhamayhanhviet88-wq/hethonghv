@@ -108,6 +108,9 @@ function renderQuanlyxuongqlxPage(content) {
 
 async function _qlxLoadAll() {
     try {
+        if (typeof _qlxLoadHolidays === 'function') {
+            _qlxLoadHolidays();
+        }
         var treeRes = await apiCall('/api/qlx/tree');
         _qlx.tree = treeRes;
         _qlxRenderSidebar();
@@ -1012,7 +1015,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         }
         html += '  <div style="position:relative; width:100%; max-width:320px; margin-bottom:12px;">';
         html += '    <input type="hidden" id="qlx_cut_schedule_raw" value="' + valISO + '" onchange="_qlxCutReminderChanged()">';
-        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; transition:all 0.3s;" readonly value="' + displayVal + '" onclick="_qlxOpenDateTimePicker(\'qlx_cut_schedule_raw\', \'\')">';
+        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; transition:all 0.3s;" readonly value="' + displayVal + '" onclick="_qlxOpenDateTimePicker(\'qlx_cut_schedule_raw\', typeof _qlxGetMinDateTimeStr === \'function\' ? _qlxGetMinDateTimeStr() : \'\')">';
         html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px;">📅</span>';
         html += '  </div>';
     }
@@ -1113,6 +1116,21 @@ function _qlxValidateAndGetCutReminders() {
     var schedVal = _qlxGetCurrentCutSchedule();
     if (!schedVal) {
         showToast('Vui lòng chọn đầy đủ ngày trong Lịch Cắt!', 'error');
+        var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
+        if (displayEl) displayEl.focus();
+        return null;
+    }
+    var schedDateObj = new Date(schedVal);
+    var nowObj = new Date();
+    if (schedDateObj.getTime() < nowObj.getTime() - 5 * 60 * 1000) {
+        showToast('Lịch cắt không được chọn thời gian trong quá khứ!', 'error');
+        var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
+        if (displayEl) displayEl.focus();
+        return null;
+    }
+    var schedDateOnlyStr = schedVal.slice(0, 10);
+    if (window._qlxHolidaysSet && window._qlxHolidaysSet.has(schedDateOnlyStr)) {
+        showToast('Lịch cắt không được trùng vào ngày nghỉ lễ!', 'error');
         var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
         if (displayEl) displayEl.focus();
         return null;
