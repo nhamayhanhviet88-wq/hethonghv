@@ -1,4 +1,4 @@
-// ========== CHUẨN BỊ QLX — Routes ==========
+// ========== CHUẨN BỊ QLX — Routes — Watcher Trigger ==========
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { syncFinishingRecord } = require('../utils/finishingSync');
@@ -253,14 +253,28 @@ module.exports = async function(fastify) {
             SELECT 
                 dht_order_id, 
                 item_id, 
-                (cut_schedules->>COALESCE(cut_schedules->>'primary_index', '0'))::timestamptz,
+                COALESCE(
+                    (cut_schedules->>(cut_schedules->>'primary_index'))::timestamptz,
+                    (cut_schedules->>'0')::timestamptz,
+                    (cut_schedules->>'1')::timestamptz,
+                    (cut_schedules->>'2')::timestamptz,
+                    (cut_schedules->>'3')::timestamptz,
+                    (cut_schedules->>'4')::timestamptz
+                ),
                 NOW(),
                 NOW()
             FROM qlx_preparation
             WHERE item_id IS NOT NULL 
               AND cut_schedules IS NOT NULL 
               AND cut_schedules::text != '{}'
-              AND (cut_schedules->>COALESCE(cut_schedules->>'primary_index', '0')) IS NOT NULL
+              AND COALESCE(
+                  cut_schedules->>(cut_schedules->>'primary_index'),
+                  cut_schedules->>'0',
+                  cut_schedules->>'1',
+                  cut_schedules->>'2',
+                  cut_schedules->>'3',
+                  cut_schedules->>'4'
+              ) IS NOT NULL
             ON CONFLICT (dht_order_id, order_item_id) 
             DO UPDATE SET 
                 cut_expected_at = EXCLUDED.cut_expected_at,
