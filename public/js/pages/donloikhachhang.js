@@ -1,6 +1,12 @@
 // ========== ĐƠN LỖI KHÁCH & NỘI BỘ — Bộ Phận Văn Phòng ==========
 var _ceo = { items: [], tree: [], total: 0, year: null, month: null, editId: null, filter: null, allUsers: [], commonErrors: [], extViolators: [] };
 
+function _ceoGetErrorTypeDisplay(item) {
+    var errorType = item.error_type || (item.dht_order_id ? 'Khách Hàng' : 'Nội Bộ');
+    if (errorType !== 'Nội Bộ') return errorType;
+    return 'Nội Bộ';
+}
+
 function renderDonloikhachhangPage(content) {
     _ceo.year = null;
     _ceo.month = null;
@@ -140,7 +146,7 @@ function _ceoRenderTable() {
     h += '<thead><tr style="background:#1e3a4f;border-bottom:2px solid #0f2a3a">';
     var cols = ['Ngày','Người Báo Lỗi','Đơn Lỗi','Lỗi Thường Gặp','Mã Đơn','Lĩnh Vực','Tên Khách Hàng','CSKH','SL SX','SL Lỗi','Nội Dung Lỗi','Hình Ảnh','Cách Xử Lý Lỗi QLX',
         'Chi Phí SX','Phí Ship','Xử Lý','Người Vi Phạm','Cam Kết Người Vi Phạm','Đã Phạt'];
-    var colW={'Ngày':'40px','Người Báo Lỗi':'95px','Đơn Lỗi':'55px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','Lĩnh Vực':'65px','Tên Khách Hàng':'85px','CSKH':'65px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
+    var colW={'Ngày':'40px','Người Báo Lỗi':'95px','Đơn Lỗi':'110px','Lỗi Thường Gặp':'80px','Mã Đơn':'80px','Lĩnh Vực':'65px','Tên Khách Hàng':'85px','CSKH':'65px','SL SX':'38px','SL Lỗi':'38px','Nội Dung Lỗi':'120px','Hình Ảnh':'50px','Cách Xử Lý Lỗi QLX':'120px','Chi Phí SX':'60px','Phí Ship':'60px','Xử Lý':'60px','Người Vi Phạm':'70px','Cam Kết Người Vi Phạm':'130px','Đã Phạt':'60px'};
     cols.forEach(function(c) {
         var extraStyle = '';
         if (c === 'Cách Xử Lý Lỗi QLX') extraStyle = 'background:#ea580c;color:#fef08a;';
@@ -164,6 +170,7 @@ function _ceoRenderTable() {
 
             // Đơn Lỗi type badge
             var errorType = item.error_type || (item.dht_order_id ? 'Khách Hàng' : 'Nội Bộ');
+            var errorTypeDisp = _ceoGetErrorTypeDisplay(item);
             var etColor = (errorType === 'Nội Bộ') ? '#7c3aed' : '#dc2626';
             var etBg = (errorType === 'Nội Bộ') ? '#f3e8ff' : '#fee2e2';
 
@@ -203,7 +210,7 @@ function _ceoRenderTable() {
             h += '<tr style="border-bottom:1px solid #f1f5f9;transition:background .15s;cursor:pointer" onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'" onclick="_ceoViewDetail(' + item.id + ')">';
             h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc;font-size:11px">' + rd + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;font-weight:700;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + reporter.replace(/"/g, '&quot;') + '">' + reporter + '</td>';
-            h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;color:' + etColor + ';background:' + etBg + '">' + errorType + '</span></td>';
+            h += '<td style="padding:4px;white-space:nowrap;border-right:1px solid #f8fafc"><span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;color:' + etColor + ';background:' + etBg + '">' + errorTypeDisp + '</span></td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">' + (item.common_error_type || '') + '</td>';
             h += '<td style="padding:4px;font-weight:700;color:#ea580c;white-space:nowrap;border-right:1px solid #f8fafc;font-size:10px">' + (item.order_code || '—') + '</td>';
             h += '<td style="padding:4px;border-right:1px solid #f8fafc;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (item.linh_vuc || '').replace(/"/g, '&quot;') + '">' + (item.linh_vuc || '—') + '</td>';
@@ -238,6 +245,7 @@ async function _ceoViewDetail(id) {
     var rd=item.report_date?new Date(item.report_date).toLocaleDateString('vi-VN'):'—';
     var fmtMoney=function(v){return Number(v||0)>0?Number(v).toLocaleString('vi-VN')+'đ':'—';};
     var errorType=item.error_type||(item.dht_order_id?'Khách Hàng':'Nội Bộ');
+    var errorTypeDisp = _ceoGetErrorTypeDisplay(item);
     var etColor=(errorType==='Nội Bộ')?'#7c3aed':'#dc2626';
     var etBg=(errorType==='Nội Bộ')?'#f3e8ff':'#fee2e2';
     var imgs=[];try{imgs=typeof item.error_images==='string'?JSON.parse(item.error_images||'[]'):(item.error_images||[]);}catch(e){}
@@ -257,7 +265,7 @@ async function _ceoViewDetail(id) {
     h+='<div style="padding:18px 24px;background:linear-gradient(135deg,#1e3a5f,#0f2a3a);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">';
     h+='<div style="display:flex;align-items:center;gap:12px"><span style="font-size:22px">📝</span><div><div style="font-size:15px;font-weight:800;color:#fff">Đơn Lỗi — '+(item.order_code||'N/A')+'</div>';
     h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px">'+rd+' · Người tạo: '+(item.created_by_name||'—')+'</div></div></div>';
-    h+='<div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;color:'+etColor+';background:'+etBg+'">'+errorType+'</span>';
+    h+='<div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;color:'+etColor+';background:'+etBg+'">'+errorTypeDisp+'</span>';
     h+='<button onclick="document.getElementById(\'ceoDetailModal\').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button></div></div>';
     // BODY
     h+='<div style="padding:20px">';
