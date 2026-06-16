@@ -1064,3 +1064,5 @@ async function routes(fastify) {
 }
 
 module.exports = routes;
+// Trigger restart: 2026-06-16 v2
+
