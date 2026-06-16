@@ -1748,19 +1748,16 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
         };
 
         let depTime = null;
-        if (stepKey === 'in') {
-            const cut = getActualOrScheduled('Cắt', 'cut_expected_at');
-            if (cut) depTime = new Date(cut.getTime() + 3 * 3600 * 1000);
-        } else if (stepKey === 'ep') {
+        if (stepKey === 'ep') {
             const cut = getActualOrScheduled('Cắt', 'cut_expected_at');
             const inn = getActualOrScheduled('In', 'in_expected_at');
             const times = [];
-            if (cut) times.push(cut.getTime() + 3 * 3600 * 1000);
-            if (inn) times.push(inn.getTime() + 3 * 3600 * 1000);
+            if (cut) times.push(cut.getTime());
+            if (inn) times.push(inn.getTime());
             if (times.length > 0) depTime = new Date(Math.max(...times));
         } else if (stepKey === 'may_qc_ht') {
             const ep = getActualOrScheduled('Ép', 'ep_expected_at');
-            if (ep) depTime = new Date(ep.getTime() + 3 * 3600 * 1000);
+            if (ep) depTime = new Date(ep.getTime());
         } else if (stepKey === 'gui') {
             const m = getActualOrScheduled('May', 'may_qc_ht_expected_at');
             const q = getActualOrScheduled('Kiểm Tra CL', 'may_qc_ht_expected_at');
@@ -1771,10 +1768,10 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
             if (h) times.push(h.getTime());
             
             if (times.length > 0) {
-                depTime = new Date(Math.max(...times) + 3 * 3600 * 1000);
+                depTime = new Date(Math.max(...times));
             } else {
                 const mayQcHt = parseDate(schedule.may_qc_ht_expected_at);
-                if (mayQcHt) depTime = new Date(mayQcHt.getTime() + 3 * 3600 * 1000);
+                if (mayQcHt) depTime = new Date(mayQcHt.getTime());
             }
         }
 
@@ -1784,6 +1781,99 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
 
         const localTime = new Date(minTime.getTime() + tzOffset * 60 * 1000);
         return localTime.toISOString().slice(0, 16);
+    };
+
+    const _qlxRecalculateSetupLimits = () => {
+        const parseDate = (dStr) => {
+            if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
+            return new Date(dStr);
+        };
+
+        const getStepDateVal = (inputId, scheduleField, timelineName) => {
+            const el = document.getElementById(inputId);
+            if (el) {
+                return el.value ? new Date(el.value) : null;
+            }
+            const step = timeline.find(s => s.name === timelineName);
+            if (step && step.done && step.time) return parseDate(step.time);
+            return parseDate(schedule[scheduleField]);
+        };
+
+        const cutVal = getStepDateVal('setupCut', 'cut_expected_at', 'Cắt');
+        const inVal = getStepDateVal('setupIn', 'in_expected_at', 'In');
+        const epVal = getStepDateVal('setupEp', 'ep_expected_at', 'Ép');
+        const mayVal = getStepDateVal('setupMayQcHt', 'may_qc_ht_expected_at', 'May');
+
+        const baseMin = new Date();
+        const tzOffset = 7 * 60;
+        
+        const toISO = (dateObj) => {
+            const localTime = new Date(dateObj.getTime() + tzOffset * 60 * 1000);
+            return localTime.toISOString().slice(0, 16);
+        };
+
+        const updateMinAttr = (inputId, minDateObj) => {
+            const displayEl = document.getElementById(inputId + '_display');
+            if (displayEl) {
+                displayEl.setAttribute('data-min-val', toISO(minDateObj));
+            }
+        };
+
+        const checkAndAdjust = (inputId, minDateObj) => {
+            const el = document.getElementById(inputId);
+            if (el && el.value) {
+                const currentVal = new Date(el.value);
+                if (currentVal < minDateObj) {
+                    const newISO = toISO(minDateObj);
+                    el.value = newISO;
+                    
+                    const displayEl = document.getElementById(inputId + '_display');
+                    if (displayEl) {
+                        displayEl.value = _qlxFormatDateTimeToShow(newISO);
+                        
+                        // Visual cue: orange highlight
+                        displayEl.style.borderColor = '#f97316';
+                        displayEl.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.2)';
+                        setTimeout(() => {
+                            displayEl.style.borderColor = '#cbd5e1';
+                            displayEl.style.boxShadow = 'none';
+                        }, 1500);
+                    }
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // 1. Recalculate and adjust Chặng Ép
+        const epDeps = [];
+        if (cutVal) epDeps.push(cutVal.getTime());
+        if (inVal) epDeps.push(inVal.getTime());
+        let minEp = epDeps.length > 0 ? new Date(Math.max(...epDeps)) : baseMin;
+        if (minEp < baseMin) minEp = baseMin;
+        
+        updateMinAttr('setupEp', minEp);
+        const epAdjusted = checkAndAdjust('setupEp', minEp);
+        const finalEpVal = epAdjusted ? minEp : epVal;
+
+        // 2. Recalculate and adjust Chặng May/QC/HT
+        const mayDeps = [];
+        if (finalEpVal) mayDeps.push(finalEpVal.getTime());
+        if (cutVal) mayDeps.push(cutVal.getTime());
+        if (inVal) mayDeps.push(inVal.getTime());
+        let minMay = mayDeps.length > 0 ? new Date(Math.max(...mayDeps)) : baseMin;
+        if (minMay < baseMin) minMay = baseMin;
+
+        updateMinAttr('setupMayQcHt', minMay);
+        const mayAdjusted = checkAndAdjust('setupMayQcHt', minMay);
+        const finalMayVal = mayAdjusted ? minMay : mayVal;
+
+        // 3. Recalculate and adjust Chặng Gửi
+        let minGui = finalMayVal ? new Date(finalMayVal.getTime()) : baseMin;
+        if (minGui < baseMin) minGui = baseMin;
+
+        updateMinAttr('setupGui', minGui);
+        checkAndAdjust('setupGui', minGui);
     };
 
     const renderStepCard = (stepKey, label, isDone, scheduleVal, minVal) => {
@@ -1814,7 +1904,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
                         <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Thời gian dự kiến xong:</label>
                         <div class="qlx-datetime-picker-wrap" style="position:relative;">
                             <input type="hidden" id="setup${capStep}" value="${valISO}">
-                            <input type="text" id="setup${capStep}_display" class="modal-input qlx-custom-datetime-input" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-weight:600;" readonly value="${_qlxFormatDateTimeToShow(valISO)}" onclick="_qlxOpenDateTimePicker('setup${capStep}', '${minVal}')">
+                            <input type="text" id="setup${capStep}_display" class="modal-input qlx-custom-datetime-input" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-weight:600;transition:all 0.3s;" readonly value="${_qlxFormatDateTimeToShow(valISO)}" data-min-val="${minVal}" onclick="_qlxOpenDateTimePicker('setup${capStep}', this.getAttribute('data-min-val'))">
                             <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;font-size:12px;">📅</span>
                         </div>
                     </div>
@@ -1840,7 +1930,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
     const contentHtml = `
         <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;padding-right:4px;">
             <div style="font-size:12px;color:#475569;margin-bottom:8px;background:#f1f5f9;padding:8px;border-radius:6px;">
-                💡 <b>Nguyên tắc:</b> Chặng sau tự động cách chặng trước ít nhất <b>3 tiếng</b>. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
+                💡 <b>Nguyên tắc:</b> Thời gian chặng sau không được bắt đầu trước chặng sản xuất trước đó. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
                 <br/>👉 <b>Mẹo:</b> Click chọn thẻ của chặng cần báo cáo để hiển thị badge màu tím rồi ấn <b>Ctrl + V</b> để dán hình ảnh chặng đó.
             </div>
             ${renderStepCard('cut', 'Cắt', isCutDone, schedule.cut_expected_at, getMinForStep('cut'))}
@@ -1857,6 +1947,16 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
     `;
 
     _dhnqlxCreateModal(`Báo cáo tiến trình đơn hàng — ${orderCode}`, contentHtml, footerHtml, '500px');
+
+    // Bind change listeners to trigger cascading auto-recalculation
+    ['setupCut', 'setupIn', 'setupEp', 'setupMayQcHt', 'setupGui'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                _qlxRecalculateSetupLimits();
+            });
+        }
+    });
 
     // Register active step and paste listener
     let defaultActive = null;
@@ -1924,6 +2024,55 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
     if (!validateField('setupEp', 'Ép')) return;
     if (!validateField('setupMayQcHt', 'May/QC/HT')) return;
     if (!validateField('setupGui', 'Gửi')) return;
+
+    // Final client-side dependency validation
+    const parseDate = (dStr) => {
+        if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
+        return new Date(dStr);
+    };
+
+    const getVal = (id, fieldName) => {
+        const el = document.getElementById(id);
+        if (el) return el.value ? new Date(el.value) : null;
+        return (window._qlxCurrentSchedule && window._qlxCurrentSchedule[fieldName]) ? new Date(window._qlxCurrentSchedule[fieldName]) : null;
+    };
+
+    const cutVal = getVal('setupCut', 'cut_expected_at');
+    const inVal = getVal('setupIn', 'in_expected_at');
+    const epVal = getVal('setupEp', 'ep_expected_at');
+    const mayVal = getVal('setupMayQcHt', 'may_qc_ht_expected_at');
+    const guiVal = getVal('setupGui', 'gui_expected_at');
+
+    if (epVal) {
+        if (cutVal && epVal < cutVal) {
+            showToast('Chặng Ép không được bắt đầu trước chặng Cắt', 'error');
+            return;
+        }
+        if (inVal && epVal < inVal) {
+            showToast('Chặng Ép không được bắt đầu trước chặng In', 'error');
+            return;
+        }
+    }
+    if (mayVal) {
+        if (epVal && mayVal < epVal) {
+            showToast('Chặng May/QC/HT không được bắt đầu trước chặng Ép', 'error');
+            return;
+        }
+        if (cutVal && mayVal < cutVal) {
+            showToast('Chặng May/QC/HT không được bắt đầu trước chặng Cắt', 'error');
+            return;
+        }
+        if (inVal && mayVal < inVal) {
+            showToast('Chặng May/QC/HT không được bắt đầu trước chặng In', 'error');
+            return;
+        }
+    }
+    if (guiVal) {
+        if (mayVal && guiVal < mayVal) {
+            showToast('Chặng Gửi không được bắt đầu trước chặng May/QC/HT', 'error');
+            return;
+        }
+    }
 
     const getISOVal = (id, fieldName) => {
         const el = document.getElementById(id);
@@ -2007,22 +2156,19 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
 
         if (schedule) {
             let depTime = null;
-            if (stepKey === 'in') {
-                const cut = parseDate(schedule.cut_expected_at);
-                if (cut) depTime = new Date(cut.getTime() + 3 * 3600 * 1000);
-            } else if (stepKey === 'ep') {
+            if (stepKey === 'ep') {
                 const cut = parseDate(schedule.cut_expected_at);
                 const inn = parseDate(schedule.in_expected_at);
                 const times = [];
-                if (cut) times.push(cut.getTime() + 3 * 3600 * 1000);
-                if (inn) times.push(inn.getTime() + 3 * 3600 * 1000);
+                if (cut) times.push(cut.getTime());
+                if (inn) times.push(inn.getTime());
                 if (times.length > 0) depTime = new Date(Math.max(...times));
             } else if (stepKey === 'may' || stepKey === 'qc' || stepKey === 'ht') {
                 const ep = parseDate(schedule.ep_expected_at);
-                if (ep) depTime = new Date(ep.getTime() + 3 * 3600 * 1000);
+                if (ep) depTime = new Date(ep.getTime());
             } else if (stepKey === 'gui') {
                 const may = parseDate(schedule.may_qc_ht_expected_at);
-                if (may) depTime = new Date(may.getTime() + 3 * 3600 * 1000);
+                if (may) depTime = new Date(may.getTime());
             }
 
             if (depTime && depTime > minTime) {
