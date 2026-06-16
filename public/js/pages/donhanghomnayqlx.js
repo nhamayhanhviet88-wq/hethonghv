@@ -977,7 +977,9 @@ function _qlxRenderTimeline(res) {
                 if (s.name === 'Cắt') stepKey = 'cat';
                 else if (s.name === 'In') stepKey = 'in';
                 else if (s.name === 'Ép') stepKey = 'ep';
-                else if (s.name === 'May' || s.name === 'Kiểm Tra CL' || s.name === 'Hoàn Thiện') stepKey = 'may_qc_ht';
+                else if (s.name === 'May') stepKey = 'may';
+                else if (s.name === 'Kiểm Tra CL') stepKey = 'qc';
+                else if (s.name === 'Hoàn Thiện') stepKey = 'ht';
                 else if (s.name === 'Gửi Hàng') stepKey = 'gui';
 
                 const escArg = str => (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r');
@@ -1397,11 +1399,15 @@ function _qlxUploadAndResize(file) {
 }
 
 async function _qlxSubmitStepReport(orderId, itemId, stepKey) {
+    let reportStepKey = stepKey;
+    if (stepKey === 'may' || stepKey === 'qc' || stepKey === 'ht') {
+        reportStepKey = 'may_qc_ht';
+    }
     const status = document.getElementById('qlxStepStatus').value;
     const payload = {
         dht_order_id: orderId,
         order_item_id: itemId,
-        step_name: status === 'on_track' ? 'on_track' : stepKey
+        step_name: status === 'on_track' ? 'on_track' : reportStepKey
     };
 
     if (status === 'delayed') {
