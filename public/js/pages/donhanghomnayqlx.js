@@ -1311,7 +1311,7 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
                 border: 1.5px dashed #94a3b8;
             }
             .qlx-picker-time {
-                width: 190px;
+                width: 170px;
                 padding: 12px 14px;
                 background: #f8fafc;
                 display: flex;
@@ -1325,41 +1325,12 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
-            .qlx-picker-quick-times {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 6px;
-            }
-            .qlx-picker-quick-btn {
-                padding: 5px 8px;
-                font-size: 10.5px;
-                font-weight: 700;
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                cursor: pointer;
-                text-align: center;
-                color: #334155;
-                transition: all 0.15s;
-            }
-            .qlx-picker-quick-btn:hover {
-                background: #eff6ff;
-                border-color: #bfdbfe;
-                color: #2563eb;
-            }
-            .qlx-picker-quick-btn.active {
-                background: #3b82f6;
-                color: #ffffff;
-                border-color: #3b82f6;
-            }
             .qlx-picker-manual-time {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 6px;
-                margin-top: 4px;
-                border-top: 1px solid #e2e8f0;
-                padding-top: 10px;
+                gap: 8px;
+                margin-top: 12px;
             }
             .qlx-picker-time-col {
                 display: flex;
@@ -1443,8 +1414,8 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
 
     // Calculate position relative to container or body
     const rect = displayInput.getBoundingClientRect();
-    const pickerWidth = 440;
-    const pickerHeight = 310;
+    const pickerWidth = 420;
+    const pickerHeight = 285;
     let top = rect.bottom + window.scrollY + 6;
     let left = rect.left + window.scrollX;
 
@@ -1495,15 +1466,7 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
             <div class="qlx-picker-days" id="qlxCalendarDays"></div>
         </div>
         <div class="qlx-picker-time">
-            <div class="qlx-picker-time-title">Chọn Giờ Dự Kiến</div>
-            <div class="qlx-picker-quick-times">
-                <button type="button" class="qlx-picker-quick-btn" data-time="08:00">08:00 🌅</button>
-                <button type="button" class="qlx-picker-quick-btn" data-time="11:00">11:00 ☀️</button>
-                <button type="button" class="qlx-picker-quick-btn" data-time="13:30">13:30 🌤️</button>
-                <button type="button" class="qlx-picker-quick-btn" data-time="17:00">17:00 🌇</button>
-                <button type="button" class="qlx-picker-quick-btn" data-time="19:00">19:00 🌌</button>
-                <button type="button" class="qlx-picker-quick-btn" data-time="21:00">21:00 🌃</button>
-            </div>
+            <div class="qlx-picker-time-title">Chọn Giờ</div>
             <div class="qlx-picker-manual-time">
                 <div class="qlx-picker-time-col">
                     <span class="qlx-picker-time-label">Giờ</span>
@@ -1541,19 +1504,6 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
         minSelect.appendChild(opt);
     }
     minSelect.value = selectMin;
-
-    function updateQuickTimeHighlight() {
-        const quickBtns = picker.querySelectorAll('.qlx-picker-quick-btn');
-        quickBtns.forEach(btn => {
-            const [qh, qm] = btn.getAttribute('data-time').split(':').map(Number);
-            if (qh === selectHour && qm === selectMin) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-    }
-    updateQuickTimeHighlight();
 
     let viewYear = selectYear;
     let viewMonth = selectMonth;
@@ -1706,25 +1656,11 @@ function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
 
     hourSelect.onchange = (e) => {
         selectHour = parseInt(e.target.value);
-        updateQuickTimeHighlight();
     };
 
     minSelect.onchange = (e) => {
         selectMin = parseInt(e.target.value);
-        updateQuickTimeHighlight();
     };
-
-    const quickBtns = picker.querySelectorAll('.qlx-picker-quick-btn');
-    quickBtns.forEach(btn => {
-        btn.onclick = () => {
-            const [qh, qm] = btn.getAttribute('data-time').split(':').map(Number);
-            selectHour = qh;
-            selectMin = qm;
-            hourSelect.value = qh;
-            minSelect.value = qm;
-            updateQuickTimeHighlight();
-        };
-    });
 
     const removePicker = () => {
         picker.remove();
