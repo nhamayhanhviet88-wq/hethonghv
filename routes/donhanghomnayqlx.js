@@ -35,16 +35,16 @@ async function propagateSchedules(schedule) {
         schedule.in_expected_at = d.toISOString();
     }
 
-    // 3. Shift Ep: must be >= max(Cut, In), and not on Day Off
+    // 3. Shift Ep: must be >= max(Cut, In) + 15 mins, and not on Day Off
     if (schedule.ep_expected_at) {
         let d = new Date(schedule.ep_expected_at);
         let minTime = null;
         if (schedule.cut_expected_at) {
-            const cutVal = new Date(schedule.cut_expected_at).getTime();
+            const cutVal = new Date(schedule.cut_expected_at).getTime() + 15 * 60 * 1000;
             if (!minTime || cutVal > minTime) minTime = cutVal;
         }
         if (schedule.in_expected_at) {
-            const inVal = new Date(schedule.in_expected_at).getTime();
+            const inVal = new Date(schedule.in_expected_at).getTime() + 15 * 60 * 1000;
             if (!minTime || inVal > minTime) minTime = inVal;
         }
 
@@ -56,11 +56,11 @@ async function propagateSchedules(schedule) {
         schedule.ep_expected_at = d.toISOString();
     }
 
-    // 4. Shift May/QC/HT: must be >= Ep, and not on Day Off
+    // 4. Shift May/QC/HT: must be >= Ep + 15 mins, and not on Day Off
     if (schedule.may_qc_ht_expected_at) {
         let d = new Date(schedule.may_qc_ht_expected_at);
         if (schedule.ep_expected_at) {
-            const epVal = new Date(schedule.ep_expected_at).getTime();
+            const epVal = new Date(schedule.ep_expected_at).getTime() + 15 * 60 * 1000;
             if (d.getTime() < epVal) {
                 d = new Date(epVal);
             }
@@ -70,11 +70,11 @@ async function propagateSchedules(schedule) {
         schedule.may_qc_ht_expected_at = d.toISOString();
     }
 
-    // 5. Shift Gửi: must be >= May/QC/HT, and not on Day Off
+    // 5. Shift Gửi: must be >= May/QC/HT + 15 mins, and not on Day Off
     if (schedule.gui_expected_at) {
         let d = new Date(schedule.gui_expected_at);
         if (schedule.may_qc_ht_expected_at) {
-            const mayVal = new Date(schedule.may_qc_ht_expected_at).getTime();
+            const mayVal = new Date(schedule.may_qc_ht_expected_at).getTime() + 15 * 60 * 1000;
             if (d.getTime() < mayVal) {
                 d = new Date(mayVal);
             }

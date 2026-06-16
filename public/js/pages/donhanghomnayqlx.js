@@ -1787,26 +1787,26 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
             const cut = getActualOrScheduled('Cắt', 'cut_expected_at');
             const inn = getActualOrScheduled('In', 'in_expected_at');
             const times = [];
-            if (cut) times.push(cut.getTime());
-            if (inn) times.push(inn.getTime());
+            if (cut) times.push(cut.getTime() + 15 * 60 * 1000);
+            if (inn) times.push(inn.getTime() + 15 * 60 * 1000);
             if (times.length > 0) depTime = new Date(Math.max(...times));
         } else if (stepKey === 'may_qc_ht') {
             const ep = getActualOrScheduled('Ép', 'ep_expected_at');
-            if (ep) depTime = new Date(ep.getTime());
+            if (ep) depTime = new Date(ep.getTime() + 15 * 60 * 1000);
         } else if (stepKey === 'gui') {
             const m = getActualOrScheduled('May', 'may_qc_ht_expected_at');
             const q = getActualOrScheduled('Kiểm Tra CL', 'may_qc_ht_expected_at');
             const h = getActualOrScheduled('Hoàn Thiện', 'may_qc_ht_expected_at');
             const times = [];
-            if (m) times.push(m.getTime());
-            if (q) times.push(q.getTime());
-            if (h) times.push(h.getTime());
+            if (m) times.push(m.getTime() + 15 * 60 * 1000);
+            if (q) times.push(q.getTime() + 15 * 60 * 1000);
+            if (h) times.push(h.getTime() + 15 * 60 * 1000);
             
             if (times.length > 0) {
                 depTime = new Date(Math.max(...times));
             } else {
                 const mayQcHt = parseDate(schedule.may_qc_ht_expected_at);
-                if (mayQcHt) depTime = new Date(mayQcHt.getTime());
+                if (mayQcHt) depTime = new Date(mayQcHt.getTime() + 15 * 60 * 1000);
             }
         }
 
@@ -1882,8 +1882,8 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
 
         // 1. Recalculate and adjust Chặng Ép
         const epDeps = [];
-        if (cutVal) epDeps.push(cutVal.getTime());
-        if (inVal) epDeps.push(inVal.getTime());
+        if (cutVal) epDeps.push(cutVal.getTime() + 15 * 60 * 1000);
+        if (inVal) epDeps.push(inVal.getTime() + 15 * 60 * 1000);
         let minEp = epDeps.length > 0 ? new Date(Math.max(...epDeps)) : baseMin;
         if (minEp < baseMin) minEp = baseMin;
         
@@ -1893,9 +1893,9 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
 
         // 2. Recalculate and adjust Chặng May/QC/HT
         const mayDeps = [];
-        if (finalEpVal) mayDeps.push(finalEpVal.getTime());
-        if (cutVal) mayDeps.push(cutVal.getTime());
-        if (inVal) mayDeps.push(inVal.getTime());
+        if (finalEpVal) mayDeps.push(finalEpVal.getTime() + 15 * 60 * 1000);
+        if (cutVal) mayDeps.push(cutVal.getTime() + 15 * 60 * 1000);
+        if (inVal) mayDeps.push(inVal.getTime() + 15 * 60 * 1000);
         let minMay = mayDeps.length > 0 ? new Date(Math.max(...mayDeps)) : baseMin;
         if (minMay < baseMin) minMay = baseMin;
 
@@ -1904,7 +1904,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
         const finalMayVal = mayAdjusted ? minMay : mayVal;
 
         // 3. Recalculate and adjust Chặng Gửi
-        let minGui = finalMayVal ? new Date(finalMayVal.getTime()) : baseMin;
+        let minGui = finalMayVal ? new Date(finalMayVal.getTime() + 15 * 60 * 1000) : baseMin;
         if (minGui < baseMin) minGui = baseMin;
 
         updateMinAttr('setupGui', minGui);
@@ -2079,32 +2079,32 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
     const guiVal = getVal('setupGui', 'gui_expected_at');
 
     if (epVal) {
-        if (cutVal && epVal < cutVal) {
-            showToast('Chặng Ép không được bắt đầu trước chặng Cắt', 'error');
+        if (cutVal && epVal.getTime() < cutVal.getTime() + 15 * 60 * 1000) {
+            showToast('Chặng Ép phải cách chặng Cắt ít nhất 15 phút', 'error');
             return;
         }
-        if (inVal && epVal < inVal) {
-            showToast('Chặng Ép không được bắt đầu trước chặng In', 'error');
+        if (inVal && epVal.getTime() < inVal.getTime() + 15 * 60 * 1000) {
+            showToast('Chặng Ép phải cách chặng In ít nhất 15 phút', 'error');
             return;
         }
     }
     if (mayVal) {
-        if (epVal && mayVal < epVal) {
-            showToast('Chặng May/QC/HT không được bắt đầu trước chặng Ép', 'error');
+        if (epVal && mayVal.getTime() < epVal.getTime() + 15 * 60 * 1000) {
+            showToast('Chặng May/QC/HT phải cách chặng Ép ít nhất 15 phút', 'error');
             return;
         }
-        if (cutVal && mayVal < cutVal) {
-            showToast('Chặng May/QC/HT không được bắt đầu trước chặng Cắt', 'error');
+        if (cutVal && mayVal.getTime() < cutVal.getTime() + 15 * 60 * 1000) {
+            showToast('Chặng May/QC/HT phải cách chặng Cắt ít nhất 15 phút', 'error');
             return;
         }
-        if (inVal && mayVal < inVal) {
-            showToast('Chặng May/QC/HT không được bắt đầu trước chặng In', 'error');
+        if (inVal && mayVal.getTime() < inVal.getTime() + 15 * 60 * 1000) {
+            showToast('Chặng May/QC/HT phải cách chặng In ít nhất 15 phút', 'error');
             return;
         }
     }
     if (guiVal) {
-        if (mayVal && guiVal < mayVal) {
-            showToast('Chặng Gửi không được bắt đầu trước chặng May/QC/HT', 'error');
+        if (mayVal && guiVal.getTime() < mayVal.getTime() + 15 * 60 * 1000) {
+            showToast('Chặng Gửi phải cách chặng May/QC/HT ít nhất 15 phút', 'error');
             return;
         }
     }
@@ -2195,15 +2195,15 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                 const cut = parseDate(schedule.cut_expected_at);
                 const inn = parseDate(schedule.in_expected_at);
                 const times = [];
-                if (cut) times.push(cut.getTime());
-                if (inn) times.push(inn.getTime());
+                if (cut) times.push(cut.getTime() + 15 * 60 * 1000);
+                if (inn) times.push(inn.getTime() + 15 * 60 * 1000);
                 if (times.length > 0) depTime = new Date(Math.max(...times));
             } else if (stepKey === 'may' || stepKey === 'qc' || stepKey === 'ht') {
                 const ep = parseDate(schedule.ep_expected_at);
-                if (ep) depTime = new Date(ep.getTime());
+                if (ep) depTime = new Date(ep.getTime() + 15 * 60 * 1000);
             } else if (stepKey === 'gui') {
                 const may = parseDate(schedule.may_qc_ht_expected_at);
-                if (may) depTime = new Date(may.getTime());
+                if (may) depTime = new Date(may.getTime() + 15 * 60 * 1000);
             }
 
             if (depTime && depTime > minTime) {
