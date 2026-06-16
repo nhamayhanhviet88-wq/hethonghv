@@ -108,6 +108,10 @@ let _filter = 'xu_ly';
 let _search = '';
 let _data = { som: [], xu_ly: [], hen_lai: [], hoan_thanh: [] };
 let _counts = { som: 0, xu_ly: 0, hen_lai: 0, hoan_thanh: 0 };
+let _config = { xu_ly_days: 1, hoan_thanh_mode: 'today' };
+let _completedMonths = [];
+let _expandedMonths = new Set();
+let _monthOrders = {};
 
 async function api(url, method = 'GET', body = null) {
     const options = { method, credentials: 'include' };
@@ -145,7 +149,20 @@ async function load() {
             _counts.xu_ly = res.tabs.xu_ly.count || 0;
             _counts.hen_lai = res.tabs.hen_lai.count || 0;
             _counts.hoan_thanh = res.tabs.hoan_thanh.count || 0;
+
+            if (res.config) {
+                _config.xu_ly_days = res.config.xu_ly_days;
+                _config.hoan_thanh_mode = res.config.hoan_thanh_mode;
+            }
         }
+
+        if (_config.hoan_thanh_mode === 'all') {
+            const monthsRes = await api('/api/qlx-orders/completed-months');
+            _completedMonths = monthsRes || [];
+        } else {
+            _completedMonths = [];
+        }
+
         updateTabsUI();
         render();
     } catch(e) {
@@ -192,6 +209,71 @@ function setFilter(key) {
 
 function render() {
     const container = document.getElementById('mResults');
+
+    if (_filter === 'hoan_thanh' && _config.hoan_thanh_mode === 'all') {
+        if (_completedMonths.length === 0) {
+            container.innerHTML = '<div class="empty"><div class="icon">📭</div>Không có đơn hoàn thành nào</div>';
+            return;
+        }
+
+        let html = '<div class="completed-tree-container" style="display:flex; flex-direction:column; gap:12px; margin-top: 10px;">';
+        _completedMonths.forEach(y => {
+            html += `
+                <div class="completed-year-group" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px;">
+                    <div style="font-size:14px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                        <span>📁</span> Năm ${y.year}
+                    </div>
+                    <div class="completed-months-list" style="display:flex; flex-direction:column; gap:6px; padding-left:8px;">
+            `;
+            y.months.forEach(m => {
+                const monthKey = `${y.year}-${m.month}`;
+                const isExpanded = _expandedMonths.has(monthKey);
+                const ordersList = _monthOrders[monthKey] || [];
+                
+                let filteredOrders = ordersList;
+                if (_search) {
+                    filteredOrders = ordersList.filter(o => 
+                        (o.order_code || '').toLowerCase().includes(_search) ||
+                        (o.customer_name || '').toLowerCase().includes(_search) ||
+                        (o.customer_phone || '').toLowerCase().includes(_search)
+                    );
+                }
+
+                html += `
+                    <div class="completed-month-item" style="border:1px solid #f1f5f9; border-radius:8px; background:white; overflow:hidden;">
+                        <div onclick="toggleMonth('${monthKey}')" style="display:flex; justify-content:between; align-items:center; padding:8px 12px; cursor:pointer; background:#f8fafc; font-weight:700; color:#475569; user-select:none; font-size:12px; border:1.5px solid #cbd5e1; border-radius:8px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span>📅</span> Tháng ${m.month} <span style="font-weight:normal; color:#64748b;">(${m.count} đơn)</span>
+                            </div>
+                            <span style="font-size:11px; color:#94a3b8; margin-left:auto;">${isExpanded ? '▲ Thu gọn' : '▼ Xem chi tiết'}</span>
+                        </div>
+                `;
+
+                if (isExpanded) {
+                    html += `<div style="padding:10px; border-top:1px solid #e2e8f0;">`;
+                    if (filteredOrders.length === 0) {
+                        html += `
+                            <div style="text-align:center; padding:15px; color:#94a3b8; font-size:12px;">
+                                ${ordersList.length === 0 ? '⏳ Đang tải dữ liệu...' : 'Không tìm thấy đơn hàng'}
+                            </div>`;
+                    } else {
+                        html += buildCardsHTML(filteredOrders);
+                    }
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        return;
+    }
+
     let orders = _data[_filter] || [];
 
     if (_search) {
@@ -207,7 +289,11 @@ function render() {
         return;
     }
 
-    let html = `<div class="results-count">Hiển thị ${orders.length} đơn hàng</div>`;
+    container.innerHTML = `<div class="results-count">Hiển thị ${orders.length} đơn hàng</div>` + buildCardsHTML(orders);
+}
+
+function buildCardsHTML(orders) {
+    let html = '';
     orders.forEach(o => {
         const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
         let prioClass = 'oc-prio-chuan';
@@ -218,7 +304,7 @@ function render() {
         const expectedHourStr = o.qlx_expected_hour || '—';
 
         let actionButtons = '';
-        if (_filter !== 'hoan_thanh') {
+        if (!o.qlx_actual_output_at) {
             actionButtons += `
                 <button onclick="showExpectedTimeModal(${o.id}, '${o.order_code}')" class="m-btn m-btn-blue">⏱ <span>Báo giờ</span></button>
                 <button onclick="confirmComplete(${o.id}, '${o.order_code}')" class="m-btn m-btn-green">✅ <span>Xong</span></button>
@@ -262,9 +348,29 @@ function render() {
             </div>
         `;
     });
-
-    container.innerHTML = html;
+    return html;
 }
+
+async function toggleMonth(monthKey) {
+    if (_expandedMonths.has(monthKey)) {
+        _expandedMonths.delete(monthKey);
+        render();
+    } else {
+        _expandedMonths.add(monthKey);
+        if (!_monthOrders[monthKey]) {
+            render();
+            try {
+                const res = await api(`/api/qlx-orders/completed-by-month?month=${monthKey}`);
+                _monthOrders[monthKey] = res.orders || [];
+            } catch (e) {
+                showToast('Lỗi tải danh sách đơn hoàn thành: ' + e.message, 'error');
+                _expandedMonths.delete(monthKey);
+            }
+        }
+        render();
+    }
+}
+
 
 // ===== DIALOG MODALS FOR MOBILE =====
 function createModal(title, fieldsHtml, onConfirm) {

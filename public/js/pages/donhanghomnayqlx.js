@@ -3,6 +3,10 @@ let _dhnqlxFilter = 'xu_ly';
 let _dhnqlxData = { som: [], xu_ly: [], hen_lai: [], hoan_thanh: [] };
 let _dhnqlxCounts = { som: 0, xu_ly: 0, hen_lai: 0, hoan_thanh: 0 };
 let _dhnqlxSearchVal = '';
+let _dhnqlxConfig = { xu_ly_days: 1, hoan_thanh_mode: 'today' };
+let _dhnqlxCompletedMonths = [];
+let _dhnqlxExpandedMonths = new Set();
+let _dhnqlxMonthOrders = {};
 
 async function renderDonhanghomnayqlxPage(container) {
     _dhnqlxFilter = 'xu_ly';
@@ -154,7 +158,7 @@ async function renderDonhanghomnayqlxPage(container) {
         <div class="dhnqlx-title">
             <span style="display:flex;align-items:center;gap:8px;">🏭 Đơn Hàng Hôm Nay QLX</span>
             <button id="dhnqlxConfigBtn" onclick="_dhnqlxOpenConfigModal()" style="display:none; padding:8px 14px; background:white; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; color:#475569; align-items:center; gap:6px; transition:all 0.2s;" onmouseover="this.style.borderColor='#4f46e5';this.style.color='#4f46e5';" onmouseout="this.style.borderColor='#cbd5e1';this.style.color='#475569';">
-                ⚙️ Giờ Nghỉ QLX: <span id="dhnqlxCurrentCutoffLabel" style="color:#4f46e5;font-weight:900;">--:--</span>
+                ⚙️ Cấu Hình QLX
             </button>
         </div>
         <div class="dhnqlx-layout">
@@ -190,7 +194,21 @@ async function _dhnqlxLoadData() {
             _dhnqlxCounts.xu_ly = res.tabs.xu_ly.count || 0;
             _dhnqlxCounts.hen_lai = res.tabs.hen_lai.count || 0;
             _dhnqlxCounts.hoan_thanh = res.tabs.hoan_thanh.count || 0;
+
+            if (res.config) {
+                _dhnqlxConfig.xu_ly_days = res.config.xu_ly_days;
+                _dhnqlxConfig.hoan_thanh_mode = res.config.hoan_thanh_mode;
+            }
         }
+
+        // If hoan_thanh_mode is 'all', let's load completed-months list
+        if (_dhnqlxConfig.hoan_thanh_mode === 'all') {
+            const monthsRes = await apiCall('/api/qlx-orders/completed-months');
+            _dhnqlxCompletedMonths = monthsRes || [];
+        } else {
+            _dhnqlxCompletedMonths = [];
+        }
+
         _dhnqlxRenderSidebar();
         _dhnqlxRenderContent();
     } catch(e) {
@@ -205,19 +223,20 @@ async function _dhnqlxLoadCutoffTime() {
         const configs = res.configs || [];
         const cfg = configs.find(c => c.key === 'qlx_cutoff_time');
         const amount = cfg ? cfg.amount : 1080; // default 18:00
-        const hrs = Math.floor(amount / 60);
-        const mins = amount % 60;
-        const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        
+        // Load QLX configs
+        const qlxRes = await apiCall('/api/qlx-orders/config');
+        _dhnqlxConfig.xu_ly_days = qlxRes.xu_ly_days || 1;
+        _dhnqlxConfig.hoan_thanh_mode = qlxRes.hoan_thanh_mode || 'today';
         
         const btn = document.getElementById('dhnqlxConfigBtn');
-        const lbl = document.getElementById('dhnqlxCurrentCutoffLabel');
-        if (btn && lbl) {
+        if (btn) {
             btn.style.display = 'inline-flex';
-            lbl.textContent = timeStr;
             btn.dataset.cutoffValue = amount;
+            btn.innerHTML = `⚙️ Cấu Hình QLX`;
         }
     } catch(e) {
-        console.error('Failed to load cutoff time:', e);
+        console.error('Failed to load configs:', e);
     }
 }
 
@@ -346,6 +365,75 @@ function _dhnqlxRenderContent() {
     const container = document.getElementById('dhnqlxContent');
     if (!container) return;
 
+    // Year-Month grouping for completed orders if configured to show all completed history
+    if (_dhnqlxFilter === 'hoan_thanh' && _dhnqlxConfig.hoan_thanh_mode === 'all') {
+        if (_dhnqlxCompletedMonths.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center;padding:60px;">
+                    <div style="font-size:48px;margin-bottom:12px;">📭</div>
+                    <div style="color:#9ca3af;font-size:14px;font-weight:600;">Không có đơn hàng hoàn thành nào trong lịch sử</div>
+                </div>`;
+            return;
+        }
+
+        let html = '<div class="completed-tree-container" style="display:flex; flex-direction:column; gap:16px;">';
+        _dhnqlxCompletedMonths.forEach(y => {
+            html += `
+                <div class="completed-year-group" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
+                    <div style="font-size:16px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span>📁</span> Năm ${y.year}
+                    </div>
+                    <div class="completed-months-list" style="display:flex; flex-direction:column; gap:8px; padding-left:12px;">
+            `;
+            y.months.forEach(m => {
+                const monthKey = `${y.year}-${m.month}`;
+                const isExpanded = _dhnqlxExpandedMonths.has(monthKey);
+                const ordersList = _dhnqlxMonthOrders[monthKey] || [];
+                
+                let filteredOrders = ordersList;
+                if (_dhnqlxSearchVal) {
+                    filteredOrders = ordersList.filter(o => 
+                        (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                        (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                        (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
+                    );
+                }
+
+                html += `
+                    <div class="completed-month-item" style="border:1px solid #f1f5f9; border-radius:8px; background:white; overflow:hidden;">
+                        <div onclick="_dhnqlxToggleMonth('${monthKey}')" style="display:flex; justify-content:between; align-items:center; padding:10px 14px; cursor:pointer; background:#f8fafc; font-weight:700; color:#475569; user-select:none; border:1px solid #e2e8f0; border-radius:6px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span>📅</span> Tháng ${m.month} <span style="font-weight:normal; color:#64748b;">(${m.count} đơn)</span>
+                            </div>
+                            <span style="font-size:12px; color:#94a3b8; margin-left:auto;">${isExpanded ? '▲ Thu gọn' : '▼ Xem chi tiết'}</span>
+                        </div>
+                `;
+
+                if (isExpanded) {
+                    html += `<div style="padding:12px; border-top:1px solid #e2e8f0; overflow-x:auto;">`;
+                    if (filteredOrders.length === 0) {
+                        html += `
+                            <div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">
+                                ${ordersList.length === 0 ? '⏳ Đang tải dữ liệu...' : 'Không tìm thấy đơn hàng phù hợp'}
+                            </div>`;
+                    } else {
+                        html += _dhnqlxBuildTableHTML(filteredOrders);
+                    }
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        return;
+    }
+
     let orders = _dhnqlxData[_dhnqlxFilter] || [];
     
     if (_dhnqlxSearchVal) {
@@ -365,6 +453,10 @@ function _dhnqlxRenderContent() {
         return;
     }
 
+    container.innerHTML = _dhnqlxBuildTableHTML(orders);
+}
+
+function _dhnqlxBuildTableHTML(orders) {
     let tbodyRows = orders.map(o => {
         const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
         let prioClass = 'dhnqlx-prio-chuan';
@@ -372,8 +464,6 @@ function _dhnqlxRenderContent() {
         else if (prio === 'GỬI') prioClass = 'dhnqlx-prio-gui';
 
         const orderDateStr = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-        
-        // Progress Column
         const progressHTML = getProgressSaleHTML(o);
 
         // Sale Ship Date Column
@@ -386,7 +476,7 @@ function _dhnqlxRenderContent() {
 
         // Action Buttons dependent on status
         let actionButtons = '';
-        if (_dhnqlxFilter !== 'hoan_thanh') {
+        if (!o.qlx_actual_output_at) {
             actionButtons += `
                 <button onclick="event.stopPropagation(); _dhnqlxShowExpectedTimeModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-blue">⏱ Báo giờ ra</button>
                 <button onclick="event.stopPropagation(); _dhnqlxConfirmComplete(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-green">✅ Hoàn thành</button>
@@ -445,7 +535,7 @@ function _dhnqlxRenderContent() {
         `;
     }).join('');
 
-    container.innerHTML = `
+    return `
         <div class="dhnqlx-table-container">
             <table class="dhnqlx-table">
                 <thead>
@@ -466,6 +556,26 @@ function _dhnqlxRenderContent() {
             </table>
         </div>
     `;
+}
+
+async function _dhnqlxToggleMonth(monthKey) {
+    if (_dhnqlxExpandedMonths.has(monthKey)) {
+        _dhnqlxExpandedMonths.delete(monthKey);
+        _dhnqlxRenderContent();
+    } else {
+        _dhnqlxExpandedMonths.add(monthKey);
+        if (!_dhnqlxMonthOrders[monthKey]) {
+            _dhnqlxRenderContent();
+            try {
+                const res = await apiCall(`/api/qlx-orders/completed-by-month?month=${monthKey}`);
+                _dhnqlxMonthOrders[monthKey] = res.orders || [];
+            } catch (e) {
+                showToast('Lỗi tải danh sách đơn hoàn thành: ' + e.message, 'error');
+                _dhnqlxExpandedMonths.delete(monthKey);
+            }
+        }
+        _dhnqlxRenderContent();
+    }
 }
 
 // ===== DIALOG MODALS =====
@@ -496,53 +606,95 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
 
 function _dhnqlxOpenConfigModal() {
     const btn = document.getElementById('dhnqlxConfigBtn');
-    const currentVal = btn ? parseInt(btn.dataset.cutoffValue) || 1080 : 1080;
-    const hrs = Math.floor(currentVal / 60);
-    const mins = currentVal % 60;
-    const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    const currentCutoff = btn ? parseInt(btn.dataset.cutoffValue) || 1080 : 1080;
+    const hrs = Math.floor(currentCutoff / 60);
+    const mins = currentCutoff % 60;
+    const cutoffTimeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 
     const content = `
-        <div style="margin-bottom:12px;">Cấu hình giờ nghỉ chốt nhận đơn của Quản Lý Xưởng.</div>
-        <div style="margin-bottom:12px; font-size:12px; color:#64748b; line-height:1.5;">
-            <i>* Đơn hàng do CSKH bắn sau giờ này sẽ tự động dời thời hạn tính trễ làm việc sang ngày tiếp theo (miễn phạt trễ trong ngày hôm đó).</i>
-        </div>
-        <div>
-            <label style="display:block;font-weight:700;margin-bottom:6px;">Giờ : Phút nghỉ:</label>
-            <input type="time" id="dhnqlxCutoffTimeInput" value="${timeStr}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:16px;text-align:center;color:#4f46e5;">
+        <div style="display:flex; flex-direction:column; gap:16px;">
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">1. Giờ nghỉ chốt nhận đơn của QLX:</label>
+                <input type="time" id="dhnqlxCutoffTimeInput" value="${cutoffTimeStr}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:16px;text-align:center;color:#4f46e5;">
+                <div style="font-size:11px; color:#64748b; margin-top:4px; line-height:1.4;">
+                    * Đơn do CSKH bắn sau giờ này sẽ tự động dời thời hạn sang ngày tiếp theo (miễn phạt trễ ngày hôm đó).
+                </div>
+            </div>
+            
+            <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">2. Phạm vi ngày hiển thị trong "Đơn Hàng Xử Lý":</label>
+                <select id="dhnqlxXuLyDaysSelect" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:600;font-size:14px;color:#1e293b;background:white;">
+                    <option value="1" ${_dhnqlxConfig.xu_ly_days === 1 ? 'selected' : ''}>Hôm nay + Ngày mai (Mặc định)</option>
+                    <option value="2" ${_dhnqlxConfig.xu_ly_days === 2 ? 'selected' : ''}>Hôm nay + Ngày mai + Ngày kia</option>
+                    <option value="3" ${_dhnqlxConfig.xu_ly_days === 3 ? 'selected' : ''}>Hôm nay + 3 ngày tới</option>
+                    <option value="5" ${_dhnqlxConfig.xu_ly_days === 5 ? 'selected' : ''}>Hôm nay + 5 ngày tới</option>
+                </select>
+                <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                    * Điều chỉnh khoảng thời gian gom đơn từ tab "Sớm" chuyển về tab "Xử Lý".
+                </div>
+            </div>
+
+            <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">3. Chế độ hiển thị "Đơn Hàng Hoàn Thành":</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="radio" name="dhnqlxHoanThanhMode" value="today" ${_dhnqlxConfig.hoan_thanh_mode === 'today' ? 'checked' : ''}>
+                        Chỉ hiển thị đơn hoàn thành trong ngày hôm nay
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+                        <input type="radio" name="dhnqlxHoanThanhMode" value="all" ${_dhnqlxConfig.hoan_thanh_mode === 'all' ? 'checked' : ''}>
+                        Hiển thị tất cả đơn hoàn thành (Theo Năm/Tháng)
+                    </label>
+                </div>
+            </div>
         </div>
     `;
 
     const footer = `
         <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-weight:600;">Hủy</button>
-        <button onclick="_dhnqlxSubmitCutoffTime()" style="padding:8px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Lưu Cấu Hình</button>
+        <button onclick="_dhnqlxSubmitConfig()" style="padding:8px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Lưu Cấu Hình</button>
     `;
 
-    _dhnqlxCreateModal('Cài Đặt Giờ Nghỉ QLX', content, footer);
+    _dhnqlxCreateModal('Cài Đặt Hệ Thống QLX', content, footer, '500px');
 }
 
-async function _dhnqlxSubmitCutoffTime() {
+async function _dhnqlxSubmitConfig() {
     const timeVal = document.getElementById('dhnqlxCutoffTimeInput').value;
     if (!timeVal) {
-        showToast('Vui lòng chọn thời gian', 'error');
+        showToast('Vui lòng chọn thời gian chốt đơn', 'error');
         return;
     }
+    const xuLyDays = parseInt(document.getElementById('dhnqlxXuLyDaysSelect').value) || 1;
+    const hoanThanhMode = document.querySelector('input[name="dhnqlxHoanThanhMode"]:checked').value;
 
     const [hrs, mins] = timeVal.split(':').map(Number);
     const totalMins = hrs * 60 + mins;
 
     try {
-        const res = await apiCall('/api/penalty/config', 'POST', {
+        const resCutoff = await apiCall('/api/penalty/config', 'POST', {
             configs: [
                 { key: 'qlx_cutoff_time', amount: totalMins }
             ]
         });
-        if (res.success) {
-            showToast('Lưu giờ nghỉ QLX thành công!');
-            document.getElementById('dhnqlxActionModal')?.remove();
-            _dhnqlxLoadCutoffTime();
-        } else {
-            showToast(res.error || 'Lỗi lưu cấu hình', 'error');
+        if (!resCutoff.success) {
+            showToast('Lỗi lưu cấu hình giờ chốt đơn: ' + (resCutoff.error || ''), 'error');
+            return;
         }
+
+        const resQlx = await apiCall('/api/qlx-orders/config', 'POST', {
+            xu_ly_days: xuLyDays,
+            hoan_thanh_mode: hoanThanhMode
+        });
+        if (!resQlx.success) {
+            showToast('Lỗi lưu cấu hình khoảng ngày QLX: ' + (resQlx.error || ''), 'error');
+            return;
+        }
+
+        showToast('Lưu cấu hình hệ thống QLX thành công!');
+        document.getElementById('dhnqlxActionModal')?.remove();
+        
+        await _dhnqlxLoadCutoffTime();
+        await _dhnqlxLoadData();
     } catch(e) {
         showToast(e.message, 'error');
     }
