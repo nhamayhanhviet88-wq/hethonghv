@@ -273,6 +273,28 @@ function _dhnqlxSetFilter(key) {
 
 function _dhnqlxOnSearch(val) {
     _dhnqlxSearchVal = val.trim().toLowerCase();
+
+    if (_dhnqlxSearchVal) {
+        const tabsDefKeys = ['xu_ly', 'som', 'hen_lai', 'hoan_thanh'];
+        const matchedCounts = {};
+        tabsDefKeys.forEach(key => {
+            const list = _dhnqlxData[key] || [];
+            matchedCounts[key] = list.filter(o => 
+                (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
+            ).length;
+        });
+
+        // Auto-switch filter if current active tab has 0 matches
+        if (matchedCounts[_dhnqlxFilter] === 0) {
+            const firstMatchTab = tabsDefKeys.find(key => matchedCounts[key] > 0);
+            if (firstMatchTab) {
+                _dhnqlxFilter = firstMatchTab;
+            }
+        }
+    }
+
     _dhnqlxRenderSidebar();
     _dhnqlxRenderContent();
 }

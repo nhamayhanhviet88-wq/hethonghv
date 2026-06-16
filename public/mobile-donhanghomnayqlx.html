@@ -160,7 +160,20 @@ function updateTabsUI() {
     tabs.forEach(t => {
         const card = document.getElementById('tab_' + t);
         const num = document.getElementById('cnt_' + t);
-        num.textContent = _counts[t];
+        
+        let cnt = 0;
+        const list = _data[t] || [];
+        if (_search) {
+            cnt = list.filter(o => 
+                (o.order_code || '').toLowerCase().includes(_search) ||
+                (o.customer_name || '').toLowerCase().includes(_search) ||
+                (o.customer_phone || '').toLowerCase().includes(_search)
+            ).length;
+        } else {
+            cnt = list.length;
+        }
+        
+        num.textContent = cnt;
         if (t === _filter) {
             card.className = 'tab-card active';
             card.style.borderColor = colors[t];
@@ -419,6 +432,28 @@ document.getElementById('mSearch').addEventListener('input', e => {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
         _search = e.target.value.trim().toLowerCase();
+        
+        if (_search) {
+            const tabs = ['xu_ly', 'som', 'hen_lai', 'hoan_thanh'];
+            const counts = {};
+            tabs.forEach(t => {
+                const list = _data[t] || [];
+                counts[t] = list.filter(o => 
+                    (o.order_code || '').toLowerCase().includes(_search) ||
+                    (o.customer_name || '').toLowerCase().includes(_search) ||
+                    (o.customer_phone || '').toLowerCase().includes(_search)
+                ).length;
+            });
+            
+            if (counts[_filter] === 0) {
+                const firstMatch = tabs.find(t => counts[t] > 0);
+                if (firstMatch) {
+                    _filter = firstMatch;
+                }
+            }
+        }
+        
+        updateTabsUI();
         render();
     }, 300);
 });
