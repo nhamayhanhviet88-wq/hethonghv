@@ -255,15 +255,23 @@ module.exports = async function(fastify) {
 
         if (pairs.length > 0) {
             for (let i = 0; i < pairs.length; i++) {
-                const row = await db.get(`
+                const hasCompletedCut = await db.get(`
                     SELECT 1 FROM cutting_records 
                     WHERE order_item_id = $1 
                       AND phoi_index = $2
                       AND is_cut_done = true 
                     LIMIT 1
                 `, [itemId, i]);
+                const hasActiveCut = await db.get(`
+                    SELECT 1 FROM cutting_records 
+                    WHERE order_item_id = $1 
+                      AND phoi_index = $2
+                      AND is_cut_done = false 
+                    LIMIT 1
+                `, [itemId, i]);
                 
-                if (!row) {
+                const isPhoiCutDone = !!hasCompletedCut && !hasActiveCut;
+                if (!isPhoiCutDone) {
                     return false;
                 }
             }
@@ -1098,7 +1106,8 @@ module.exports = async function(fastify) {
                         ? await db.get(`SELECT 1 FROM cutting_records WHERE id = $1 AND is_cut_done = true LIMIT 1`, [Number(record_id)])
                         : (r.item_id
                             ? (r.phoi_index !== null && r.phoi_index !== undefined
-                                ? await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id, r.phoi_index])
+                                ? (await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id, r.phoi_index]) &&
+                                   !(await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = false LIMIT 1`, [orderId, r.item_id, r.phoi_index])))
                                 : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND is_cut_done = true LIMIT 1`, [orderId, r.item_id])
                               )
                             : await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = true LIMIT 1`, [orderId]));
@@ -2072,8 +2081,9 @@ module.exports = async function(fastify) {
             viewedIds = views.map(v => v.reminder_id);
             
             // Auto-view if coordinate cutting is completed
-            const row = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, itemId, pi]);
-            if (row) {
+            const hasCompletedCut = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, itemId, pi]);
+            const hasActiveCut = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = false LIMIT 1`, [orderId, itemId, pi]);
+            if (hasCompletedCut && !hasActiveCut) {
                 for (const rId of reminderIds) {
                     if (!viewedIds.includes(rId)) {
                         viewedIds.push(rId);
@@ -2082,12 +2092,17 @@ module.exports = async function(fastify) {
             }
         }
 
-        const cuttingRecord = await db.get(`
+        const hasCompletedCut2 = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
             LIMIT 1
         `, [itemId, pi]);
-        const isPhoiCutDone = !!cuttingRecord;
+        const hasActiveCut2 = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+            LIMIT 1
+        `, [itemId, pi]);
+        const isPhoiCutDone = !!hasCompletedCut2 && !hasActiveCut2;
 
         let isPrintDone = true;
         const needsPrint = await db.get(`
@@ -2351,12 +2366,17 @@ module.exports = async function(fastify) {
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
         const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
-        const cuttingRecord = await db.get(`
+        const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
             LIMIT 1
         `, [item_id, pi]);
-        const isPhoiCutDone = !!cuttingRecord;
+        const hasActiveCut = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+            LIMIT 1
+        `, [item_id, pi]);
+        const isPhoiCutDone = !!hasCompletedCut && !hasActiveCut;
 
         let isPrintDone = true;
         const needsPrint = await db.get(`
@@ -2471,12 +2491,17 @@ module.exports = async function(fastify) {
         if (res.reservation_type !== 'from_stock') return reply.code(400).send({ error: 'Chỉ sửa được loại lấy từ kho' });
 
         const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
-        const cuttingRecord = await db.get(`
+        const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
             LIMIT 1
         `, [res.item_id, pi]);
-        const isPhoiCutDone = !!cuttingRecord;
+        const hasActiveCut = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+            LIMIT 1
+        `, [res.item_id, pi]);
+        const isPhoiCutDone = !!hasCompletedCut && !hasActiveCut;
 
         let isPrintDone = true;
         const needsPrint = await db.get(`
@@ -2555,12 +2580,17 @@ module.exports = async function(fastify) {
         if (res.status === 'arrived') return reply.code(400).send({ error: 'Đã xác nhận rồi' });
 
         const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
-        const cuttingRecord = await db.get(`
+        const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
             LIMIT 1
         `, [res.item_id, pi]);
-        const isPhoiCutDone = !!cuttingRecord;
+        const hasActiveCut = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+            LIMIT 1
+        `, [res.item_id, pi]);
+        const isPhoiCutDone = !!hasCompletedCut && !hasActiveCut;
 
         let isPrintDone = true;
         const needsPrint = await db.get(`
@@ -2675,12 +2705,17 @@ module.exports = async function(fastify) {
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
 
         const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
-        const cuttingRecord = await db.get(`
+        const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
             LIMIT 1
         `, [res.item_id, pi]);
-        const isPhoiCutDone = !!cuttingRecord;
+        const hasActiveCut = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+            LIMIT 1
+        `, [res.item_id, pi]);
+        const isPhoiCutDone = !!hasCompletedCut && !hasActiveCut;
 
         let isPrintDone = true;
         const needsPrint = await db.get(`
