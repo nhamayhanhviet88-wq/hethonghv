@@ -655,46 +655,45 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
         const closeCross = m.querySelector('span[onclick*="remove"]');
         if (closeCross) closeCross.style.display = 'none';
 
-        let clickCount = 0;
-        let clickTimer = null;
         const modalContentCard = m.querySelector('div');
 
         m.addEventListener('click', e => {
-            // Only trigger dim/close if clicked on the overlay background (m) or the modal header bar
             const headerBar = modalContentCard ? modalContentCard.children[0] : null;
             const isClickOnHeader = headerBar && (e.target === headerBar || headerBar.contains(e.target));
             
-            if (e.target !== m && !isClickOnHeader) {
+            // If dimmed, any click anywhere restores it to normal
+            if (m.classList.contains('qlx-modal-dimmed')) {
+                m.classList.remove('qlx-modal-dimmed');
+                if (modalContentCard) {
+                    modalContentCard.style.opacity = '1';
+                    modalContentCard.style.filter = 'none';
+                }
+                m.style.background = 'rgba(15,23,42,0.6)';
+                m.style.backdropFilter = 'blur(4px)';
+                
+                // Consume click so it doesn't trigger inputs/buttons underneath immediately
+                e.preventDefault();
+                e.stopPropagation();
                 return;
             }
             
-            clickCount++;
-            if (clickCount === 1) {
-                clickTimer = setTimeout(() => {
-                    clickCount = 0;
-                    if (m.classList.contains('qlx-modal-dimmed')) {
-                        m.classList.remove('qlx-modal-dimmed');
-                        if (modalContentCard) {
-                            modalContentCard.style.opacity = '1';
-                            modalContentCard.style.filter = 'none';
-                            modalContentCard.style.pointerEvents = 'auto';
-                        }
-                        m.style.background = 'rgba(15,23,42,0.6)';
-                        m.style.backdropFilter = 'blur(4px)';
-                    } else {
-                        m.classList.add('qlx-modal-dimmed');
-                        if (modalContentCard) {
-                            modalContentCard.style.opacity = '0.15';
-                            modalContentCard.style.filter = 'blur(3px)';
-                            modalContentCard.style.pointerEvents = 'none';
-                        }
-                        m.style.background = 'rgba(15,23,42,0.1)';
-                        m.style.backdropFilter = 'none';
-                    }
-                }, 250);
-            } else if (clickCount === 2) {
-                clearTimeout(clickTimer);
-                clickCount = 0;
+            // If normal, only dim if clicked on backdrop overlay (m) or header bar
+            if (e.target === m || isClickOnHeader) {
+                m.classList.add('qlx-modal-dimmed');
+                if (modalContentCard) {
+                    modalContentCard.style.opacity = '0.15';
+                    modalContentCard.style.filter = 'blur(3px)';
+                }
+                m.style.background = 'rgba(15,23,42,0.1)';
+                m.style.backdropFilter = 'none';
+            }
+        });
+
+        m.addEventListener('dblclick', e => {
+            const headerBar = modalContentCard ? modalContentCard.children[0] : null;
+            const isClickOnHeader = headerBar && (e.target === headerBar || headerBar.contains(e.target));
+            
+            if (e.target === m || isClickOnHeader) {
                 m.remove();
             }
         });
