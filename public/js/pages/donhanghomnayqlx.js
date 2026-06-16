@@ -305,11 +305,24 @@ function _dhnqlxOnSearch(val) {
             ).length;
         });
 
-        // Auto-switch filter if current active tab has 0 matches
-        if (matchedCounts[_dhnqlxFilter] === 0) {
-            const firstMatchTab = tabsDefKeys.find(key => matchedCounts[key] > 0);
-            if (firstMatchTab) {
-                _dhnqlxFilter = firstMatchTab;
+        // If the query matches anything, switch the filter to the first tab that has matches
+        const firstMatchTab = tabsDefKeys.find(key => matchedCounts[key] > 0);
+        if (firstMatchTab && firstMatchTab !== _dhnqlxFilter) {
+            _dhnqlxFilter = firstMatchTab;
+        }
+
+        // If we switched to/are in hoan_thanh, auto-expand any months containing matches
+        if (_dhnqlxFilter === 'hoan_thanh') {
+            for (const monthKey in _dhnqlxMonthOrders) {
+                const monthOrders = _dhnqlxMonthOrders[monthKey] || [];
+                const monthMatches = monthOrders.filter(o => 
+                    (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                    (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                    (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
+                ).length;
+                if (monthMatches > 0) {
+                    _dhnqlxExpandedMonths.add(monthKey);
+                }
             }
         }
     }
@@ -890,14 +903,422 @@ async function _dhnqlxToggleDetail(id) {
         const res = await apiCall('/api/trasoat/orders/' + id + '/detail');
         const el = document.getElementById('dhnqlxDetail' + id);
         if (el) {
-            if (typeof _tsRenderTimeline === 'function') {
-                el.innerHTML = _tsRenderTimeline(res);
-            } else {
-                el.innerHTML = '<div style="color:#ef4444;padding:16px;">❌ Lỗi: Thiếu hàm render timeline</div>';
-            }
+            el.innerHTML = _qlxRenderTimeline(res);
         }
     } catch (e) {
         const el = document.getElementById('dhnqlxDetail' + id);
         if (el) el.innerHTML = '<div style="color:#ef4444;padding:16px;">❌ Lỗi tải chi tiết</div>';
     }
 }
+
+function _qlxRenderTimeline(res) {
+    const { order: o, items } = res;
+    const fmtDT = d => { 
+        if (!d) return ''; 
+        const dt = new Date(d); 
+        return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); 
+    };
+
+    let html = `
+        <style>
+            .qlx-step-expected { font-size: 10px; font-weight: 700; color: #4338ca; margin-top: 4px; background: #e0e7ff; padding: 2px 4px; border-radius: 4px; display: inline-block; }
+            .qlx-step-history-btn { font-size: 9px; font-weight: 700; color: #4b5563; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; padding: 1px 4px; cursor: pointer; margin-top: 4px; }
+            .qlx-step-history-btn:hover { background: #e5e7eb; }
+        </style>
+        <div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px;padding: 4px 8px;border-left:4px solid #4f46e5;background:#f3f4f6;border-radius:0 4px 4px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span>📋 ${o.order_code} — ${o.customer_name||''}</span>
+        </div>
+    `;
+    
+    if (!items || !items.length) {
+        html += '<div style="text-align:center;padding:12px;color:#9ca3af">Không có sản phẩm nào</div>';
+    } else {
+        items.forEach((item, itemIdx) => {
+            html += `<div class="ts-item-timeline-section" style="margin-bottom: 24px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">`;
+            html += `<div style="font-weight:700;font-size:13px;color:#4338ca;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <span>🏷️ Phiếu ${itemIdx + 1}: ${item.product_name || 'Sản phẩm'} ${item.description ? `(${item.description})` : ''}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;">SL: ${item.quantity || 0}</span>
+                    <button type="button" onclick="event.stopPropagation(); _qlxShowSetupScheduleModal(${o.id}, ${item.id}, '${o.order_code}', '${encodeURIComponent(JSON.stringify(item.qlx_schedule || {}))}')" style="background:#4f46e5;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(79,70,229,0.2);">⚙️ Setup Lịch Trình</button>
+                </div>
+            </div>`;
+            
+            html += '<div class="ts-timeline" style="margin-top: 20px;">';
+            const timeline = item.timeline || [];
+            timeline.forEach((s, i) => {
+                const cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
+                const icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
+                const lineCls = s.done ? 'done' : '';
+                
+                let stepKey = null;
+                if (s.name === 'Cắt') stepKey = 'cat';
+                else if (s.name === 'In') stepKey = 'in';
+                else if (s.name === 'Ép') stepKey = 'ep';
+                else if (s.name === 'May' || s.name === 'Kiểm Tra CL' || s.name === 'Hoàn Thiện') stepKey = 'may_qc_ht';
+                else if (s.name === 'Gửi Hàng') stepKey = 'gui';
+
+                html += `<div class="ts-step">`;
+                if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
+                
+                html += `
+                    <div class="ts-step-icon ${cls}" onclick="event.stopPropagation(); _qlxShowStepReportModal(${o.id}, ${item.id}, '${o.order_code}', '${s.name}', '${stepKey}')" style="cursor:pointer" title="Báo cáo tiến độ chặng ${s.name}">${icon}</div>
+                    <div class="ts-step-name" style="font-weight:800;">${s.short || s.name}</div>
+                    ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
+                    
+                    ${s.schedule_at ? `<div class="qlx-step-expected" title="Giờ dự kiến hoàn thành chặng này">📅 ${fmtDT(s.schedule_at)}</div>` : `<div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa lên lịch</div>`}
+                    
+                    <div class="ts-step-time" style="color:#059669;font-weight:700;margin-top:2px;">${s.time ? 'Thực tế: ' + fmtDT(s.time) : ''}</div>
+                    <div class="ts-step-time" style="font-weight:600;">${s.worker || ''}</div>
+                    ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
+                    
+                    ${s.reports && s.reports.length > 0 ? `<button class="qlx-step-history-btn" onclick="event.stopPropagation(); _qlxShowStepReportsHistoryModal('${o.order_code}', '${s.name}', '${encodeURIComponent(JSON.stringify(s.reports))}')">💬 Báo cáo (${s.reports.length})</button>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+            html += `</div>`;
+        });
+    }
+
+    if (o.shipping_status === 'shipped') {
+        html += '<div class="ts-ship-info">';
+        html += `<div class="ts-ship-item">🚛 <b>NVC:</b> ${o.carrier_name||'-'}</div>`;
+        html += `<div class="ts-ship-item">📦 <b>Mã vận đơn:</b> ${o.tracking_code||'-'}</div>`;
+        html += `<div class="ts-ship-item">📱 <b>SĐT NX:</b> ${o.carrier_phone||'-'}</div>`;
+        html += `<div class="ts-ship-item">📅 <b>Ngày gửi:</b> ${fmtDT(o.shipped_at)}</div>`;
+        if (o.tracking_code && o.carrier_tracking_url) {
+            const url = o.carrier_tracking_url.replace('{code}', o.tracking_code);
+            html += `<div class="ts-ship-item">🔗 <a href="${url}" target="_blank" style="color:#4338ca;font-weight:700">Tra cứu vận đơn</a></div>`;
+        }
+        html += '</div>';
+    }
+    return html;
+}
+
+function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule) {
+    const schedule = JSON.parse(decodeURIComponent(rawSchedule) || '{}');
+    
+    const toInputVal = d => {
+        if (!d) return '';
+        const date = new Date(d);
+        const tzOffset = 7 * 60; 
+        const localTime = new Date(date.getTime() + tzOffset * 60 * 1000);
+        return localTime.toISOString().slice(0, 16);
+    };
+
+    const contentHtml = `
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:12px;color:#475569;margin-bottom:8px;background:#f1f5f9;padding:8px;border-radius:6px;">
+                💡 <b>Nguyên tắc:</b> Chặng sau tự động cách chặng trước ít nhất <b>3 tiếng</b>. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
+            </div>
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Cắt (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupCut" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.cut_expected_at)}">
+            </div>
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng In (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupIn" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.in_expected_at)}">
+            </div>
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Ép (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupEp" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.ep_expected_at)}">
+            </div>
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng May/QC/HT (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupMayQcHt" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.may_qc_ht_expected_at)}">
+            </div>
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Chặng Gửi (Dự kiến xong):</label>
+                <input type="datetime-local" id="setupGui" class="modal-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" value="${toInputVal(schedule.gui_expected_at)}">
+            </div>
+        </div>
+    `;
+
+    const footerHtml = `
+        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Hủy</button>
+        <button onclick="_qlxSubmitSetupSchedule(${orderId}, ${itemId})" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">Lưu lịch trình</button>
+    `;
+
+    _dhnqlxCreateModal(`Setup Lịch Trình — ${orderCode}`, contentHtml, footerHtml, '450px');
+}
+
+async function _qlxSubmitSetupSchedule(orderId, itemId) {
+    const getISOVal = id => {
+        const val = document.getElementById(id).value;
+        return val ? new Date(val).toISOString() : null;
+    };
+
+    const payload = {
+        dht_order_id: orderId,
+        order_item_id: itemId,
+        cut_expected_at: getISOVal('setupCut'),
+        in_expected_at: getISOVal('setupIn'),
+        ep_expected_at: getISOVal('setupEp'),
+        may_qc_ht_expected_at: getISOVal('setupMayQcHt'),
+        gui_expected_at: getISOVal('setupGui')
+    };
+
+    try {
+        const res = await apiCall('/api/qlx-orders/schedule', 'POST', payload);
+        if (res.success) {
+            showToast('Lưu lịch trình sản xuất thành công!');
+            document.getElementById('dhnqlxActionModal')?.remove();
+            
+            _dhnqlxLoadData();
+            setTimeout(() => {
+                _dhnqlxToggleDetail(orderId);
+            }, 600);
+        } else {
+            showToast(res.error || 'Lỗi lưu lịch trình', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+let _qlxUploadedImageUrl = null;
+
+function _qlxClearStepImage() {
+    _qlxUploadedImageUrl = null;
+    const preview = document.getElementById('qlxStepImagePreview');
+    if (preview) preview.style.display = 'none';
+    const zone = document.getElementById('qlxStepPasteZone');
+    if (zone) zone.innerText = 'Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)';
+}
+
+function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey) {
+    _qlxUploadedImageUrl = null;
+
+    const contentHtml = `
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+                <label style="display:block;font-weight:700;margin-bottom:4px;">Trạng thái tiến độ:</label>
+                <select id="qlxStepStatus" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" onchange="_qlxOnStepStatusChange()">
+                    <option value="on_track">🟢 Đúng tiến độ (Không bị trễ)</option>
+                    <option value="delayed">🔴 Chậm tiến độ (Cần hẹn lại giờ xong)</option>
+                </select>
+            </div>
+            
+            <div id="qlxDelayInputs" style="display:none;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="display:block;font-weight:700;margin-bottom:4px;">Giờ dự kiến hoàn thành mới (Bắt buộc):</label>
+                    <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;">
+                </div>
+                
+                <div>
+                    <label style="display:block;font-weight:700;margin-bottom:4px;">Lý do chậm trễ (Bắt buộc):</label>
+                    <textarea id="qlxStepNotes" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;height:60px;" placeholder="Nhập lý do chi tiết..."></textarea>
+                </div>
+                
+                <div>
+                    <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo thực tế (Bắt buộc):</label>
+                    <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:pointer;color:#64748b;font-weight:700;font-size:12px;" onclick="document.getElementById('qlxStepFileInput').click()">
+                        Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)
+                    </div>
+                    <input type="file" id="qlxStepFileInput" accept="image/*" style="display:none;" onchange="_qlxHandleStepFileSelect(this)">
+                    
+                    <div id="qlxStepImagePreview" style="margin-top:10px;text-align:center;display:none;">
+                        <img id="qlxStepPreviewImg" style="max-height:150px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><br/>
+                        <button type="button" onclick="_qlxClearStepImage()" style="margin-top:4px;color:#ef4444;border:none;background:none;font-weight:700;cursor:pointer;font-size:11px;">Xóa ảnh</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const footerHtml = `
+        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Hủy</button>
+        <button onclick="_qlxSubmitStepReport(${orderId}, ${itemId}, '${stepKey}')" style="padding:8px 20px;border:none;border-radius:8px;background:#059669;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(5,150,105,0.2);">Gửi báo cáo</button>
+    `;
+
+    const m = _dhnqlxCreateModal(`Báo Cáo Tiến Độ Chặng ${stepName} — ${orderCode}`, contentHtml, footerHtml, '450px');
+
+    const pasteHandler = async (e) => {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let item of items) {
+            if (item.type.indexOf('image') === 0) {
+                const file = item.getAsFile();
+                _qlxUploadAndResize(file);
+                break;
+            }
+        }
+    };
+    
+    document.addEventListener('paste', pasteHandler);
+    
+    const originalRemove = m.remove;
+    m.remove = function() {
+        document.removeEventListener('paste', pasteHandler);
+        originalRemove.apply(m);
+    };
+}
+
+function _qlxOnStepStatusChange() {
+    const status = document.getElementById('qlxStepStatus').value;
+    const delayDiv = document.getElementById('qlxDelayInputs');
+    if (status === 'delayed') {
+        delayDiv.style.display = 'flex';
+    } else {
+        delayDiv.style.display = 'none';
+    }
+}
+
+function _qlxHandleStepFileSelect(input) {
+    if (input.files && input.files[0]) {
+        _qlxUploadAndResize(input.files[0]);
+    }
+}
+
+function _qlxUploadAndResize(file) {
+    const zone = document.getElementById('qlxStepPasteZone');
+    if (zone) zone.innerText = '⚙️ Đang xử lý & tải ảnh lên...';
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxDim = 1000;
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    showToast('Lỗi nén ảnh', 'error');
+                    if (zone) zone.innerText = 'Lỗi nén ảnh. Thử lại.';
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('file', blob, 'report_image.jpg');
+
+                fetch('/api/qlx/upload-image', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        _qlxUploadedImageUrl = data.image_url;
+                        
+                        const preview = document.getElementById('qlxStepImagePreview');
+                        const previewImg = document.getElementById('qlxStepPreviewImg');
+                        if (preview && previewImg) {
+                            previewImg.src = data.image_url;
+                            preview.style.display = 'block';
+                        }
+                        if (zone) zone.innerText = '✅ Tải ảnh thành công!';
+                    } else {
+                        showToast(data.error || 'Lỗi tải ảnh', 'error');
+                        if (zone) zone.innerText = 'Lỗi tải ảnh. Thử lại.';
+                    }
+                })
+                .catch(err => {
+                    showToast(err.message, 'error');
+                    if (zone) zone.innerText = 'Lỗi kết nối. Thử lại.';
+                });
+            }, 'image/jpeg', 0.7);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+async function _qlxSubmitStepReport(orderId, itemId, stepKey) {
+    const status = document.getElementById('qlxStepStatus').value;
+    const payload = {
+        dht_order_id: orderId,
+        order_item_id: itemId,
+        step_name: status === 'on_track' ? 'on_track' : stepKey
+    };
+
+    if (status === 'delayed') {
+        const expected_at = document.getElementById('qlxStepExpectedAt').value;
+        const notes = document.getElementById('qlxStepNotes').value.trim();
+        
+        if (!expected_at) {
+            showToast('Vui lòng chọn giờ dự kiến hoàn thành mới', 'error');
+            return;
+        }
+        if (!notes) {
+            showToast('Vui lòng nhập lý do chậm trễ', 'error');
+            return;
+        }
+        if (!_qlxUploadedImageUrl) {
+            showToast('Vui lòng dán hoặc tải lên hình ảnh báo cáo', 'error');
+            return;
+        }
+
+        payload.expected_at = new Date(expected_at).toISOString();
+        payload.notes = notes;
+        payload.image_url = _qlxUploadedImageUrl;
+    }
+
+    try {
+        const res = await apiCall('/api/qlx-orders/step-report', 'POST', payload);
+        if (res.success) {
+            showToast('Gửi báo cáo tiến độ thành công!');
+            document.getElementById('dhnqlxActionModal')?.remove();
+            
+            _dhnqlxLoadData();
+            setTimeout(() => {
+                _dhnqlxToggleDetail(orderId);
+            }, 600);
+        } else {
+            showToast(res.error || 'Lỗi gửi báo cáo', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function _qlxShowStepReportsHistoryModal(orderCode, stepName, rawReports) {
+    const reports = JSON.parse(decodeURIComponent(rawReports) || '[]');
+    const fmtDT = d => { if (!d) return ''; const dt = new Date(d); return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); };
+
+    let html = '<div style="display:flex;flex-direction:column;gap:12px;max-height:450px;overflow-y:auto;padding-right:4px;">';
+    reports.forEach((r, idx) => {
+        html += `
+            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; font-size:12px;">
+                <div style="display:flex; justify-content:space-between; font-weight:700; color:#1e293b; margin-bottom:4px;">
+                    <span>Báo cáo #${idx + 1}</span>
+                    <span style="font-weight:normal; color:#64748b; font-size:10px;">${fmtDT(r.created_at)}</span>
+                </div>
+                <div style="margin-top:2px;">• Người báo cáo: <b>${r.reporter_name || 'Hệ thống'}</b></div>
+                ${r.expected_at ? `<div style="margin-top:2px;">• Giờ hẹn mới: <b style="color:#2563eb;">${fmtDT(r.expected_at)}</b></div>` : ''}
+                <div style="margin-top:4px; font-style:italic; background:white; padding:6px; border-radius:4px; border:1px solid #e2e8f0; color:#475569;">
+                    "${r.notes || 'Không có ghi chú'}"
+                </div>
+                ${r.image_url ? `
+                    <div style="margin-top:8px;">
+                        <a href="${r.image_url}" target="_blank">
+                            <img src="${r.image_url}" style="max-width:100%; max-height:200px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); cursor:zoom-in;">
+                        </a>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    const footerHtml = `
+        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 20px;border:none;border-radius:8px;background:#374151;color:white;cursor:pointer;font-weight:700;">Đóng</button>
+    `;
+
+    _dhnqlxCreateModal(`Báo cáo chặng ${stepName} — ${orderCode}`, html, footerHtml, '450px');
+}
+

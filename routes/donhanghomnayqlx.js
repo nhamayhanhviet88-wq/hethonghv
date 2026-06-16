@@ -2,10 +2,127 @@
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const { vnNow, vnDateStr, vnFormat } = require('../utils/timezone');
-
 const { isDayOff } = require('../utils/ledgerDayOff');
+const fs = require('fs');
+const path = require('path');
+
+const QLX_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'qlx');
+if (!fs.existsSync(QLX_UPLOAD_DIR)) {
+    fs.mkdirSync(QLX_UPLOAD_DIR, { recursive: true });
+}
+
+async function shiftIfDayOff(dateObj) {
+    let currentStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    while (await isDayOff(currentStr)) {
+        dateObj.setDate(dateObj.getDate() + 1);
+        currentStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    }
+    return dateObj;
+}
+
+async function propagateSchedules(schedule) {
+    // 1. Shift Cut if it falls on Day Off
+    if (schedule.cut_expected_at) {
+        const d = new Date(schedule.cut_expected_at);
+        await shiftIfDayOff(d);
+        schedule.cut_expected_at = d.toISOString();
+    }
+
+    // 2. Shift In if it falls on Day Off
+    if (schedule.in_expected_at) {
+        const d = new Date(schedule.in_expected_at);
+        await shiftIfDayOff(d);
+        schedule.in_expected_at = d.toISOString();
+    }
+
+    // 3. Shift Ep: must be >= max(Cut, In) + 3 hours, and not on Day Off
+    if (schedule.ep_expected_at) {
+        let d = new Date(schedule.ep_expected_at);
+        let minTime = null;
+        if (schedule.cut_expected_at) {
+            const cutVal = new Date(schedule.cut_expected_at).getTime() + 3 * 3600 * 1000;
+            if (!minTime || cutVal > minTime) minTime = cutVal;
+        }
+        if (schedule.in_expected_at) {
+            const inVal = new Date(schedule.in_expected_at).getTime() + 3 * 3600 * 1000;
+            if (!minTime || inVal > minTime) minTime = inVal;
+        }
+
+        if (minTime && d.getTime() < minTime) {
+            d = new Date(minTime);
+        }
+
+        await shiftIfDayOff(d);
+        schedule.ep_expected_at = d.toISOString();
+    }
+
+    // 4. Shift May/QC/HT: must be >= Ep + 3 hours, and not on Day Off
+    if (schedule.may_qc_ht_expected_at) {
+        let d = new Date(schedule.may_qc_ht_expected_at);
+        if (schedule.ep_expected_at) {
+            const epVal = new Date(schedule.ep_expected_at).getTime() + 3 * 3600 * 1000;
+            if (d.getTime() < epVal) {
+                d = new Date(epVal);
+            }
+        }
+
+        await shiftIfDayOff(d);
+        schedule.may_qc_ht_expected_at = d.toISOString();
+    }
+
+    // 5. Shift Gửi: must be >= May/QC/HT + 3 hours, and not on Day Off
+    if (schedule.gui_expected_at) {
+        let d = new Date(schedule.gui_expected_at);
+        if (schedule.may_qc_ht_expected_at) {
+            const mayVal = new Date(schedule.may_qc_ht_expected_at).getTime() + 3 * 3600 * 1000;
+            if (d.getTime() < mayVal) {
+                d = new Date(mayVal);
+            }
+        }
+
+        await shiftIfDayOff(d);
+        schedule.gui_expected_at = d.toISOString();
+    }
+
+    return schedule;
+}
 
 module.exports = async function(fastify) {
+    // Migrations for schedules and step reports
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS qlx_item_schedules (
+                id SERIAL PRIMARY KEY,
+                dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+                order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
+                cut_expected_at TIMESTAMPTZ,
+                in_expected_at TIMESTAMPTZ,
+                ep_expected_at TIMESTAMPTZ,
+                may_qc_ht_expected_at TIMESTAMPTZ,
+                gui_expected_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                created_by INTEGER REFERENCES users(id),
+                CONSTRAINT unique_qlx_item_schedule UNIQUE(dht_order_id, order_item_id)
+            );
+        `);
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS qlx_step_reports (
+                id SERIAL PRIMARY KEY,
+                dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+                order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
+                step_name TEXT NOT NULL,
+                expected_at TIMESTAMPTZ,
+                notes TEXT NOT NULL,
+                image_url TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                created_by INTEGER REFERENCES users(id)
+            );
+        `);
+    } catch (e) {
+        console.error('[QLX Migration Error]:', e.message);
+    }
+
 
     // GET: Lấy danh sách đơn hàng phân chia theo 4 tab
     fastify.get('/api/qlx-orders/today-summary', { preHandler: [authenticate] }, async (request, reply) => {
@@ -378,4 +495,269 @@ module.exports = async function(fastify) {
         }
     });
 
+    // POST: Tải ảnh báo cáo chặng QLX
+    fastify.post('/api/qlx/upload-image', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const parts = request.parts();
+            let imageUrl = null;
+            for await (const part of parts) {
+                if (part.type === 'file' && part.filename) {
+                    const ext = path.extname(part.filename).toLowerCase() || '.jpg';
+                    const fileName = `qlx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+                    const filePath = path.join(QLX_UPLOAD_DIR, fileName);
+
+                    const chunks = [];
+                    for await (const chunk of part.file) {
+                        chunks.push(chunk);
+                    }
+                    const totalSize = chunks.reduce((s, c) => s + c.length, 0);
+                    if (totalSize > 10 * 1024 * 1024) {
+                        return reply.code(400).send({ error: 'Ảnh quá lớn. Tối đa 10MB' });
+                    }
+                    fs.writeFileSync(filePath, Buffer.concat(chunks));
+                    imageUrl = `/uploads/qlx/${fileName}`;
+                    break;
+                }
+            }
+            return { success: true, image_url: imageUrl };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // GET: Lấy lịch trình sản xuất của 1 sản phẩm/đơn hàng
+    fastify.get('/api/qlx-orders/schedule', { preHandler: [authenticate] }, async (request, reply) => {
+        const { dht_order_id, order_item_id } = request.query;
+        if (!dht_order_id) {
+            return reply.code(400).send({ error: 'Thiếu dht_order_id' });
+        }
+        try {
+            const item_id = order_item_id ? parseInt(order_item_id) : null;
+            const order_id = parseInt(dht_order_id);
+            const schedule = await db.get(`
+                SELECT * FROM qlx_item_schedules
+                WHERE dht_order_id = $1 AND (order_item_id = $2 OR (order_item_id IS NULL AND $2 IS NULL))
+            `, [order_id, item_id]);
+            return { schedule };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // POST: Thiết lập/Cập nhật lịch trình sản xuất
+    fastify.post('/api/qlx-orders/schedule', { preHandler: [authenticate] }, async (request, reply) => {
+        const { dht_order_id, order_item_id, cut_expected_at, in_expected_at, ep_expected_at, may_qc_ht_expected_at, gui_expected_at } = request.body || {};
+        if (!dht_order_id) {
+            return reply.code(400).send({ error: 'Thiếu mã đơn hàng dht_order_id' });
+        }
+        try {
+            const item_id = order_item_id ? parseInt(order_item_id) : null;
+            const order_id = parseInt(dht_order_id);
+
+            // Construct raw schedule object
+            let scheduleObj = {
+                cut_expected_at: cut_expected_at || null,
+                in_expected_at: in_expected_at || null,
+                ep_expected_at: ep_expected_at || null,
+                may_qc_ht_expected_at: may_qc_ht_expected_at || null,
+                gui_expected_at: gui_expected_at || null
+            };
+
+            // Run Sunday & Holiday Shifting + Chronological Shifting + Gap propagation
+            const propagated = await propagateSchedules(scheduleObj);
+
+            // Upsert into qlx_item_schedules
+            const existing = await db.get(`
+                SELECT id FROM qlx_item_schedules WHERE dht_order_id = $1 AND (order_item_id = $2 OR (order_item_id IS NULL AND $2 IS NULL))
+            `, [order_id, item_id]);
+
+            const now = vnNow();
+            if (existing) {
+                await db.run(`
+                    UPDATE qlx_item_schedules
+                    SET cut_expected_at = $1,
+                        in_expected_at = $2,
+                        ep_expected_at = $3,
+                        may_qc_ht_expected_at = $4,
+                        gui_expected_at = $5,
+                        updated_at = $6
+                    WHERE id = $7
+                `, [
+                    propagated.cut_expected_at,
+                    propagated.in_expected_at,
+                    propagated.ep_expected_at,
+                    propagated.may_qc_ht_expected_at,
+                    propagated.gui_expected_at,
+                    now,
+                    existing.id
+                ]);
+            } else {
+                await db.run(`
+                    INSERT INTO qlx_item_schedules (
+                        dht_order_id, order_item_id,
+                        cut_expected_at, in_expected_at, ep_expected_at, may_qc_ht_expected_at, gui_expected_at,
+                        created_by, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+                `, [
+                    order_id, item_id,
+                    propagated.cut_expected_at,
+                    propagated.in_expected_at,
+                    propagated.ep_expected_at,
+                    propagated.may_qc_ht_expected_at,
+                    propagated.gui_expected_at,
+                    request.user.id,
+                    now
+                ]);
+            }
+
+            // Sync with dht_orders: update expected date of the order to match scheduled gui_expected_at
+            if (propagated.gui_expected_at) {
+                const guiDateStr = propagated.gui_expected_at.split('T')[0];
+                const guiTimeStr = new Date(propagated.gui_expected_at).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
+                
+                await db.run(`
+                    UPDATE dht_orders
+                    SET qlx_expected_date = $1::date,
+                        qlx_expected_hour = $2,
+                        qlx_updated_by = $3,
+                        qlx_updated_at = $4
+                    WHERE id = $5
+                `, [guiDateStr, guiTimeStr, request.user.id, now, order_id]);
+            }
+
+            // Ghi lịch sử qlx_history
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, 'qlx_schedule_set', 'Đã thiết lập lịch trình các chặng sản xuất', $3, $4)
+            `, [order_id, item_id, request.user.id, now]);
+
+            return { success: true, schedule: propagated };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // POST: Báo cáo chặng sản xuất (đúng tiến độ hoặc báo chậm chặng)
+    fastify.post('/api/qlx-orders/step-report', { preHandler: [authenticate] }, async (request, reply) => {
+        const { dht_order_id, order_item_id, step_name, expected_at, notes, image_url } = request.body || {};
+        if (!dht_order_id || !step_name) {
+            return reply.code(400).send({ error: 'Thiếu dht_order_id hoặc step_name' });
+        }
+        try {
+            const item_id = order_item_id ? parseInt(order_item_id) : null;
+            const order_id = parseInt(dht_order_id);
+            const now = vnNow();
+
+            // Insert into qlx_step_reports
+            await db.run(`
+                INSERT INTO qlx_step_reports (
+                    dht_order_id, order_item_id, step_name, expected_at, notes, image_url, created_by, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [
+                order_id, item_id, step_name,
+                expected_at || null,
+                notes || '',
+                image_url || null,
+                request.user.id,
+                now
+            ]);
+
+            const stepLabels = { cat: 'Cắt', in: 'In', ep: 'Ép', may_qc_ht: 'May/QC/HT', gui: 'Gửi', on_track: 'Đúng tiến độ' };
+
+            // If it is a delay report, update schedule of this step and propagate downstream
+            if (expected_at && step_name !== 'on_track') {
+                let schedule = await db.get(`
+                    SELECT * FROM qlx_item_schedules
+                    WHERE dht_order_id = $1 AND (order_item_id = $2 OR (order_item_id IS NULL AND $2 IS NULL))
+                `, [order_id, item_id]);
+
+                if (!schedule) {
+                    schedule = {
+                        cut_expected_at: null,
+                        in_expected_at: null,
+                        ep_expected_at: null,
+                        may_qc_ht_expected_at: null,
+                        gui_expected_at: null
+                    };
+                }
+
+                // Update the reported step's expected_at
+                if (step_name === 'cat') schedule.cut_expected_at = expected_at;
+                else if (step_name === 'in') schedule.in_expected_at = expected_at;
+                else if (step_name === 'ep') schedule.ep_expected_at = expected_at;
+                else if (step_name === 'may_qc_ht') schedule.may_qc_ht_expected_at = expected_at;
+                else if (step_name === 'gui') schedule.gui_expected_at = expected_at;
+
+                // Propagate and save
+                const propagated = await propagateSchedules(schedule);
+
+                if (schedule.id) {
+                    await db.run(`
+                        UPDATE qlx_item_schedules
+                        SET cut_expected_at = $1,
+                            in_expected_at = $2,
+                            ep_expected_at = $3,
+                            may_qc_ht_expected_at = $4,
+                            gui_expected_at = $5,
+                            updated_at = $6
+                        WHERE id = $7
+                    `, [
+                        propagated.cut_expected_at,
+                        propagated.in_expected_at,
+                        propagated.ep_expected_at,
+                        propagated.may_qc_ht_expected_at,
+                        propagated.gui_expected_at,
+                        now,
+                        schedule.id
+                    ]);
+                } else {
+                    await db.run(`
+                        INSERT INTO qlx_item_schedules (
+                            dht_order_id, order_item_id,
+                            cut_expected_at, in_expected_at, ep_expected_at, may_qc_ht_expected_at, gui_expected_at,
+                            created_by, created_at, updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+                    `, [
+                        order_id, item_id,
+                        propagated.cut_expected_at,
+                        propagated.in_expected_at,
+                        propagated.ep_expected_at,
+                        propagated.may_qc_ht_expected_at,
+                        propagated.gui_expected_at,
+                        request.user.id,
+                        now
+                    ]);
+                }
+
+                // Sync with dht_orders: update rescheduled_date of the order to match rescheduled gui_expected_at
+                if (propagated.gui_expected_at) {
+                    const guiDateStr = propagated.gui_expected_at.split('T')[0];
+                    await db.run(`
+                        UPDATE dht_orders
+                        SET qlx_rescheduled_date = $1::date,
+                            qlx_rescheduled_reason = $2,
+                            qlx_updated_by = $3,
+                            qlx_updated_at = $4
+                        WHERE id = $5
+                    `, [guiDateStr, `Báo chậm tiến độ chặng ${stepLabels[step_name] || step_name}: ${notes}`, request.user.id, now, order_id]);
+                }
+            }
+
+            // Ghi lịch sử qlx_history
+            const detailText = step_name === 'on_track'
+                ? 'Báo cáo: Xác nhận đúng tiến độ theo lịch sắp xếp'
+                : `Báo cáo chậm tiến độ chặng [${stepLabels[step_name] || step_name}]: Hẹn lại ${expected_at ? vnFormat(expected_at) : 'chưa có'}. Lý do: ${notes || ''}`;
+
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, 'qlx_step_report', $3, $4, $5)
+            `, [order_id, item_id, detailText, request.user.id, now]);
+
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
 };
+

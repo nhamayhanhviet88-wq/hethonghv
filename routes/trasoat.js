@@ -325,6 +325,18 @@ module.exports = async function(fastify) {
             WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
         `, [orderId]);
 
+        // Load QLX schedules and reports
+        const schedules = await db.all(`
+            SELECT * FROM qlx_item_schedules WHERE dht_order_id = $1
+        `, [orderId]);
+        const reports = await db.all(`
+            SELECT r.*, u.full_name AS reporter_name 
+            FROM qlx_step_reports r
+            LEFT JOIN users u ON r.created_by = u.id
+            WHERE r.dht_order_id = $1 ORDER BY r.created_at ASC
+        `, [orderId]);
+
+
         // Build timeline
         const code = (order.order_code || '').toUpperCase();
         const catName = (order.category_name || '').toUpperCase();
@@ -419,10 +431,13 @@ module.exports = async function(fastify) {
             const itemSewingIds = new Set(itemSewing.map(s => s.id));
             const itemFinishing = finishing.filter(f => itemSewingIds.has(f.sewing_record_id));
 
+            const itemSchedule = schedules.find(s => s.order_item_id === item.id || (s.order_item_id === null && item.id === null));
+            const itemReports = reports.filter(r => r.order_item_id === item.id || (r.order_item_id === null && item.id === null));
+
             const timeline = _buildItemTimeline(
                 item, isShipped, order, 
                 itemCutting, itemPrinting, itemPressing, itemSewing, itemFinishing, 
-                prodSteps
+                prodSteps, itemSchedule, itemReports
             );
 
             return {
@@ -430,7 +445,9 @@ module.exports = async function(fastify) {
                 product_name: item.product_name,
                 description: item.description,
                 quantity: item.quantity,
-                timeline
+                timeline,
+                qlx_schedule: itemSchedule || null,
+                qlx_reports: itemReports || []
             };
         });
 
@@ -1699,7 +1716,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
     return orders.map(o => _processOrderWithItems(o, itemsByOrderId[o.id] || [], todayStr));
 }
 
-function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, itemPressing, itemSewing, itemFinishing, prodSteps) {
+function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, itemPressing, itemSewing, itemFinishing, prodSteps, itemSchedule = null, itemReports = []) {
     const isPrintRecDone = p => p.contractor_id ? true : p.is_print_done;
     const allPrintDone = itemPrinting.length > 0 && itemPrinting.every(isPrintRecDone);
     const completedPrints = itemPrinting
@@ -1840,5 +1857,35 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         timeline.push({ name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name });
     }
 
+    if (timeline) {
+        timeline.forEach(step => {
+            let stepNameKey = null;
+            if (step.name === 'Cắt') stepNameKey = 'cat';
+            else if (step.name === 'In') stepNameKey = 'in';
+            else if (step.name === 'Ép') stepNameKey = 'ep';
+            else if (step.name === 'May' || step.name === 'Kiểm Tra CL' || step.name === 'Hoàn Thiện') stepNameKey = 'may_qc_ht';
+            else if (step.name === 'Gửi Hàng') stepNameKey = 'gui';
+
+            if (stepNameKey) {
+                if (itemSchedule) {
+                    if (stepNameKey === 'cat') step.schedule_at = itemSchedule.cut_expected_at;
+                    else if (stepNameKey === 'in') step.schedule_at = itemSchedule.in_expected_at;
+                    else if (stepNameKey === 'ep') step.schedule_at = itemSchedule.ep_expected_at;
+                    else if (stepNameKey === 'may_qc_ht') step.schedule_at = itemSchedule.may_qc_ht_expected_at;
+                    else if (stepNameKey === 'gui') step.schedule_at = itemSchedule.gui_expected_at;
+                }
+                
+                if (itemReports && itemReports.length > 0) {
+                    step.reports = itemReports.filter(r => r.step_name === stepNameKey);
+                } else {
+                    step.reports = [];
+                }
+            } else {
+                step.reports = [];
+            }
+        });
+    }
+
     return timeline;
 }
+
