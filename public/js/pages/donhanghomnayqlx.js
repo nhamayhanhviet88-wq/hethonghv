@@ -263,6 +263,38 @@ function _dhnqlxOnSearch(val) {
     _dhnqlxRenderContent();
 }
 
+function getProgressSaleHTML(o) {
+    if (!o.expected_ship_date) {
+        return '<span style="color:#94a3b8;font-style:italic">—</span>';
+    }
+    const shipVN = new Date(o.expected_ship_date);
+    shipVN.setHours(0,0,0,0);
+    
+    if (o.shipped_at) {
+        const actualVN = new Date(o.shipped_at);
+        actualVN.setHours(0,0,0,0);
+        const diffDays = Math.round((shipVN - actualVN) / 86400000);
+        if (diffDays > 0) {
+            return `<span style="color:#0369a1;font-weight:800;">🚀 Nhanh ${diffDays} ngày</span>`;
+        } else if (diffDays < 0) {
+            return `<span style="color:#dc2626;font-weight:800;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
+        } else {
+            return `<span style="color:#059669;font-weight:800;">✅ Đúng hạn</span>`;
+        }
+    } else {
+        const todayVN = typeof vnNow === 'function' ? vnNow() : new Date();
+        todayVN.setHours(0,0,0,0);
+        const remainDays = Math.round((shipVN - todayVN) / 86400000);
+        if (remainDays > 0) {
+            return `<span style="color:#2563eb;font-weight:800;">📅 Còn ${remainDays} ngày</span>`;
+        } else if (remainDays < 0) {
+            return `<span style="color:#dc2626;font-weight:800;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
+        } else {
+            return `<span style="color:#d97706;font-weight:800;">📦 Hôm nay gửi</span>`;
+        }
+    }
+}
+
 function _dhnqlxRenderContent() {
     const container = document.getElementById('dhnqlxContent');
     if (!container) return;
@@ -293,8 +325,17 @@ function _dhnqlxRenderContent() {
         else if (prio === 'GỬI') prioClass = 'dhnqlx-prio-gui';
 
         const orderDateStr = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-        const expectedDateStr = o.qlx_expected_date_fmt || o.expected_ship_date_fmt || '—';
-        const expectedHourStr = o.qlx_expected_hour || '—';
+        
+        // Progress Column
+        const progressHTML = getProgressSaleHTML(o);
+
+        // Sale Ship Date Column
+        const saleExpectedDateStr = o.expected_ship_date_fmt || '—';
+        const deliveryTimeHtml = o.standard_delivery_time ? `<div style="font-size:10px;color:#0369a1;font-weight:normal;">Giờ: <b>${o.standard_delivery_time}</b></div>` : '';
+
+        // QLX Expected Date Column
+        const qlxExpectedDateStr = o.qlx_expected_date_fmt || '—';
+        const qlxExpectedHourStr = o.qlx_expected_hour || '—';
 
         // Action Buttons dependent on status
         let actionButtons = '';
@@ -317,6 +358,9 @@ function _dhnqlxRenderContent() {
 
         return `
             <tr>
+                <td style="white-space:nowrap;font-weight:bold;">
+                    ${progressHTML}
+                </td>
                 <td style="font-weight: 800; white-space: nowrap;">
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span class="dhnqlx-prio-tag ${prioClass}">${prio}</span>
@@ -332,8 +376,12 @@ function _dhnqlxRenderContent() {
                     <div style="font-size:10px;color:#64748b;">SL: <b>${o.total_quantity || 0}</b></div>
                 </td>
                 <td style="font-weight:600;color:#0f172a; white-space:nowrap;">
-                    <div>${expectedDateStr}</div>
-                    <div style="font-size:10px;color:#4b5563;font-weight:normal;">Giờ: <b>${expectedHourStr}</b></div>
+                    <div>${saleExpectedDateStr}</div>
+                    ${deliveryTimeHtml}
+                </td>
+                <td style="font-weight:600;color:#0f172a; white-space:nowrap;">
+                    <div>${qlxExpectedDateStr}</div>
+                    <div style="font-size:10px;color:#4b5563;font-weight:normal;">Giờ: <b>${qlxExpectedHourStr}</b></div>
                     ${statusNote}
                 </td>
                 <td>
@@ -355,10 +403,12 @@ function _dhnqlxRenderContent() {
             <table class="dhnqlx-table">
                 <thead>
                     <tr style="background: linear-gradient(135deg, #1e293b, #334155);">
-                        <th style="width: 140px;">Mã Đơn</th>
+                        <th style="width: 140px;">📊 Tiến Độ Ra Hàng</th>
+                        <th style="width: 130px;">Mã Đơn</th>
                         <th style="width: 150px;">Khách Hàng</th>
                         <th style="width: 130px;">Thông Tin</th>
-                        <th style="width: 160px;">Hẹn Ra Đơn</th>
+                        <th style="width: 160px;">Ngày Ra Đơn (SALE)</th>
+                        <th style="width: 160px;">Hẹn Ra Đơn (QLX)</th>
                         <th>Ghi Chú Đơn</th>
                         <th style="width: 320px;">Thao Tác</th>
                     </tr>

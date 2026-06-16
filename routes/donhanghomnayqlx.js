@@ -18,7 +18,7 @@ module.exports = async function(fastify) {
             const orders = await db.all(`
                 SELECT o.id, o.order_code, o.order_date, o.customer_name, o.customer_phone,
                        o.total_quantity, o.total_amount, o.shipping_status, o.shipping_priority,
-                       o.expected_ship_date, o.notes, o.created_at,
+                       o.expected_ship_date, o.notes, o.created_at, o.standard_delivery_time, o.shipped_at,
                        o.qlx_expected_date, o.qlx_expected_hour, o.qlx_actual_output_at,
                        o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_updated_at,
                        c.name AS category_name,
