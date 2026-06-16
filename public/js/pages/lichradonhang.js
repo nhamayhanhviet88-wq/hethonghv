@@ -526,7 +526,7 @@
                         border: 1px solid #cbd5e1;
                         border-radius: 6px;
                         padding: 4px 8px;
-                        cursor: pointer;
+                        cursor: default;
                         transition: all 0.15s ease;
                         font-size: 11px;
                         margin-bottom: 2px;
@@ -536,7 +536,14 @@
                     .cal-order-strip:hover {
                         background: #f1f5f9;
                         border-color: #94a3b8;
-                        transform: translateY(-0.5px);
+                    }
+                    .cal-trace-icon {
+                        cursor: pointer;
+                        transition: transform 0.1s ease-in-out;
+                        user-select: none;
+                    }
+                    .cal-trace-icon:hover {
+                        transform: scale(1.25);
                     }
                     .cal-order-strip .cal-order-code {
                         font-weight: 800;
@@ -1415,10 +1422,15 @@
             html += `
                 <div class="cal-order-strip" 
                      style="border-left: 3px solid ${pStyle.border};"
-                     onclick="event.stopPropagation(); navigateToOrderTrace('${o.order_code}')"
-                     title="Nhấp để tra soát đơn hàng ${o.displayCode || o.order_code}">
+                     onclick="event.stopPropagation();"
+                     title="Đơn hàng ${o.displayCode || o.order_code}">
                     <span class="cal-order-code">${o.displayCode || o.order_code}</span>
-                    <span class="cal-order-qty">(${qtyText})</span>
+                    <span class="cal-order-qty" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <span class="cal-trace-icon" 
+                              onclick="event.stopPropagation(); navigateToOrderTrace('${o.order_code}')" 
+                              title="Nhấp để tra soát đơn hàng ${o.order_code}">🔍</span>
+                        (${qtyText})
+                    </span>
                 </div>
             `;
         });
