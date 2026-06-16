@@ -927,13 +927,13 @@ function _bpcRenderStats(count, arr) {
 
     var btnFutureUncutHtml = '<div onclick="_bpcSetSubFilter(\'future_uncut\')" style="cursor:pointer;background:linear-gradient(135deg,#475569,#64748b);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'future_uncut' ? '0 0 0 3px #fff, 0 4px 20px rgba(71,85,105,0.5)' : '0 4px 10px rgba(71,85,105,0.2)') + ';transform:' + (sf === 'future_uncut' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'future_uncut' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
         +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpcShimmer 2.5s infinite .3s"></div>'
-        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">⏳ CHƯA ĐẾN LỊCH</div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">⏳ ĐƠN CHỜ</div>'
         +'<div style="font-size:16px;font-weight:900">' + futureUncutCount + '</div>'
         +'</div>';
         
     sc.innerHTML = '<div style="display:flex;gap:10px;justify-content:center">' + btnTotalHtml + btnRatioFailHtml + '</div>'
         + '<div style="display:flex;gap:10px;justify-content:center">' + btnUnassignedHtml + btnIncompleteHtml + btnDoneHtml + '</div>'
-        + '<div style="display:flex;gap:10px;justify-content:center">' + btnTodayHtml + btnDelayedHtml + btnFutureUncutHtml + '</div>';
+        + '<div style="display:flex;gap:10px;justify-content:center">' + btnDelayedHtml + btnTodayHtml + btnFutureUncutHtml + '</div>';
 }
 
 function _bpcSetSubFilter(sf) {

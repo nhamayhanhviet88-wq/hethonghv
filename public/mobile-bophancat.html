@@ -107,9 +107,9 @@
     </div>
     <div class="m-toast-c" id="mToastC"></div>
     <div class="m-tabs" id="mTabs">
-        <div class="m-tab active" data-tab="today" onclick="mSwitchTab('today')">📅 Hôm Nay <span class="m-tab-badge" id="mBadgeToday" style="background:#3b82f6">0</span></div>
-        <div class="m-tab" data-tab="delayed" onclick="mSwitchTab('delayed')">⏳ Đơn Chậm <span class="m-tab-badge" id="mBadgeDelayed" style="background:#ef4444">0</span></div>
-        <div class="m-tab" data-tab="uncut" onclick="mSwitchTab('uncut')">🔴 Chưa Đến Lịch <span class="m-tab-badge" id="mBadgeUncut">0</span></div>
+        <div class="m-tab active" data-tab="delayed" onclick="mSwitchTab('delayed')">⏳ Đơn Chậm <span class="m-tab-badge" id="mBadgeDelayed" style="background:#ef4444">0</span></div>
+        <div class="m-tab" data-tab="today" onclick="mSwitchTab('today')">📅 Hôm Nay <span class="m-tab-badge" id="mBadgeToday" style="background:#3b82f6">0</span></div>
+        <div class="m-tab" data-tab="uncut" onclick="mSwitchTab('uncut')">🔴 Đơn Chờ <span class="m-tab-badge" id="mBadgeUncut">0</span></div>
         <div class="m-tab" data-tab="mine" onclick="mSwitchTab('mine')">📋 Đơn Tôi <span class="m-tab-badge" id="mBadgeMine" style="background:#f59e0b">0</span></div>
         <div class="m-tab" data-tab="history" onclick="mSwitchTab('history')">📅 Lịch Sử</div>
     </div>
@@ -242,7 +242,7 @@ function stopQRScan() {
     }
 }
 
-let mUser=null, mTab='today', mUncut=[], mMine=[], mHist=[], mSearchQuery='';
+let mUser=null, mTab='delayed', mUncut=[], mMine=[], mHist=[], mSearchQuery='';
 
 function mDoSearch() {
     const inp = document.getElementById('mSearchInp');
