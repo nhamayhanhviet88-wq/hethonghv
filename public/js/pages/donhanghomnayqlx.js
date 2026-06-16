@@ -1934,7 +1934,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
                     <span data-no-debounce="true">⚙️ Chặng ${label}</span>
                     <span class="active-badge-${stepKey}" style="display:none;font-size:10px;background:#6366f1;color:white;padding:2px 6px;border-radius:4px;font-weight:700;" data-no-debounce="true">👉 Đang chọn để dán ảnh</span>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:8px;" onclick="event.stopPropagation();" data-no-debounce="true">
+                <div style="display:flex;flex-direction:column;gap:8px;" data-no-debounce="true">
                     <div>
                         <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Thời gian dự kiến xong:</label>
                         <div class="qlx-datetime-picker-wrap" style="position:relative;">
