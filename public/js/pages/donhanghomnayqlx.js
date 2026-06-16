@@ -659,11 +659,12 @@ function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
         const modalContentCard = m.querySelector('div');
 
         m.addEventListener('click', e => {
-            if (!m.classList.contains('qlx-modal-dimmed')) {
-                const targetTagName = e.target.tagName.toLowerCase();
-                if (targetTagName === 'input' || targetTagName === 'textarea' || targetTagName === 'button' || e.target.closest('button') || e.target.closest('select')) {
-                    return;
-                }
+            // Only trigger dim/close if clicked on the overlay background (m) or the modal header bar
+            const headerBar = modalContentCard ? modalContentCard.children[0] : null;
+            const isClickOnHeader = headerBar && (e.target === headerBar || headerBar.contains(e.target));
+            
+            if (e.target !== m && !isClickOnHeader) {
+                return;
             }
             
             clickCount++;
