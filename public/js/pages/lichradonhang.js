@@ -19,7 +19,7 @@
 
     // Department configs
     const DEPARTMENTS = [
-        { key: 'fabric', label: 'Chuẩn bị vải', emoji: '🧵', cls: 'dept-fabric' },
+        // { key: 'fabric', label: 'Chuẩn bị vải', emoji: '🧵', cls: 'dept-fabric' },
         { key: 'cut', label: 'Cắt', emoji: '✂️', cls: 'dept-cut' },
         { key: 'in', label: 'In', emoji: '🖨️', cls: 'dept-in' },
         { key: 'ep', label: 'Ép', emoji: '🔥', cls: 'dept-ep' },
@@ -1062,7 +1062,7 @@
                     <span class="cal-stat-lbl">Đơn ra dự kiến (Sale)</span>
                 </div>
             </div>
-            <div class="cal-stat-card ${activeView === 'fabric' ? 'active active-fabric' : ''}" data-view="fabric">
+            <div class="cal-stat-card ${activeView === 'fabric' ? 'active active-fabric' : ''}" data-view="fabric" style="display: none;">
                 <div class="cal-stat-icon">🧵</div>
                 <div class="cal-stat-info">
                     <span class="cal-stat-num" style="color: #b45309">${deptTotals.fabric.toLocaleString('vi-VN')}</span>
