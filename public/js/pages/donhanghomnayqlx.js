@@ -1270,11 +1270,11 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
     const renderStepCard = (stepKey, label, isDone, scheduleVal, minVal) => {
         if (isDone) {
             return `
-                <div id="card_${stepKey}" style="border:1px solid #e2d8f0;border-radius:10px;padding:12px;background:#f0fdf4;margin-bottom:12px;user-select:none;">
-                    <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;border-bottom:1px solid #bbf7d0;padding-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <div id="card_${stepKey}" style="border:1px solid #e2d8f0;border-radius:10px;padding:12px;background:#f0fdf4;margin-bottom:12px;user-select:none;" data-no-debounce="true">
+                    <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;border-bottom:1px solid #bbf7d0;padding-bottom:6px;display:flex;align-items:center;gap:6px;" data-no-debounce="true">
                         ✅ Chặng ${label}
                     </div>
-                    <div style="color:#065f46;font-weight:700;font-size:12px;text-align:center;padding:4px;">
+                    <div style="color:#065f46;font-weight:700;font-size:12px;text-align:center;padding:4px;" data-no-debounce="true">
                         🟢 Đã hoàn thành
                     </div>
                 </div>
@@ -1284,10 +1284,10 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
         const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
         
         return `
-            <div id="card_${stepKey}" class="qlx-step-card" onclick="_qlxActivatePasteCard('${stepKey}')" onfocusin="_qlxActivatePasteCard('${stepKey}')" style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#f8fafc;margin-bottom:12px;cursor:pointer;transition:all 0.2s ease;">
-                <div style="font-weight:800;font-size:13px;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-                    <span>⚙️ Chặng ${label}</span>
-                    <span class="active-badge-${stepKey}" style="display:none;font-size:10px;background:#6366f1;color:white;padding:2px 6px;border-radius:4px;font-weight:700;">👉 Đang chọn để dán ảnh</span>
+            <div id="card_${stepKey}" class="qlx-step-card" onclick="_qlxActivatePasteCard('${stepKey}')" onfocusin="_qlxActivatePasteCard('${stepKey}')" data-no-debounce="true" style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#f8fafc;margin-bottom:12px;cursor:pointer;transition:all 0.2s ease;">
+                <div style="font-weight:800;font-size:13px;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;" data-no-debounce="true">
+                    <span data-no-debounce="true">⚙️ Chặng ${label}</span>
+                    <span class="active-badge-${stepKey}" style="display:none;font-size:10px;background:#6366f1;color:white;padding:2px 6px;border-radius:4px;font-weight:700;" data-no-debounce="true">👉 Đang chọn để dán ảnh</span>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;" onclick="event.stopPropagation();">
                     <div>
