@@ -1948,7 +1948,7 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, raw
                         <textarea id="setup${capStep}Notes" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;height:45px;font-size:12px;resize:none;" placeholder="Nhập ghi chú hoặc báo cáo tiến trình..."></textarea>
                     </div>
                     <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Hình ảnh báo cáo (Dán Ctrl+V):</label>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Hình ảnh báo cáo <span style="color:#ef4444">*</span>:</label>
                         <div id="setup${capStep}PasteZone" style="border:2px dashed #cbd5e1;padding:12px;text-align:center;border-radius:6px;background:#fff;color:#64748b;font-weight:700;font-size:11px;user-select:none;">
                             Bấm chọn chặng này rồi ấn Ctrl+V để dán ảnh
                         </div>
@@ -2379,7 +2379,7 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
                     </div>
                     
                     <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo thực tế (Bắt buộc):</label>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo <span style="color:#ef4444">*</span>:</label>
                         <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:default;color:#64748b;font-weight:700;font-size:12px;">
                             Nhấn Ctrl+V để dán hình ảnh báo cáo vào đây (Bắt buộc)
                         </div>
