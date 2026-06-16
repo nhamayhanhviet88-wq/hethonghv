@@ -682,7 +682,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index);
         } else {
             // Determine which type already chosen
             var isLocked = data.is_production_done || data.is_cut_done;
@@ -900,7 +900,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index);
             html += '</div>';
         }
 
@@ -918,7 +918,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         // Populate existing cut reminders
         var cutChoice = data.cut_remind_choice || '';
         var cutReminders = data.cut_reminders || [];
-        if (!(data.is_production_done || data.is_cut_done)) {
+        var isSchedLocked = data.is_production_done || data.is_cut_done || (data.primary_index !== null && data.primary_index !== undefined && pairIndex !== data.primary_index);
+        if (!isSchedLocked) {
             if (cutChoice === 'yes' && cutReminders.length > 0) {
                 cutReminders.forEach(function(r) {
                     _qlxAddReminderInput('cat', r.content, false);
@@ -933,7 +934,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
             originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
             originalSchedule: data.cut_schedule || null,
             isSaved: (cutChoice === 'yes' || cutChoice === 'none') && !!data.cut_schedule,
-            isProductionDone: data.is_production_done || data.is_cut_done
+            isProductionDone: data.is_production_done || data.is_cut_done,
+            isScheduleLocked: isSchedLocked
         };
 
         // Restore values if we had saved them
@@ -952,9 +954,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex) {
     cutChoice = cutChoice || '';
     var isLocked = isProductionDone || isCutDone;
+    var isScheduleLocked = isLocked || (primaryIndex !== null && primaryIndex !== undefined && pairIndex !== primaryIndex);
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
     var oninput = 'oninput="_qlxFabPreview(\'' + mat + '\',\'' + col + '\',\'' + unit + '\')"';
@@ -974,19 +977,25 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
     
     // Cutting Schedule
-    if (isLocked) {
-        if (cutSchedule) {
-            var sDt = new Date(cutSchedule);
-            if (!isNaN(sDt.getTime())) {
-                var vnDt = new Date(sDt.getTime() + 7 * 3600000);
-                var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
-                var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
-                var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
-                var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
-                var fYear = vnDt.getUTCFullYear();
-                var schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
-                html += '  <div style="background:#fffbeb; border:1.5px solid #fef3c7; border-radius:10px; padding:10px 12px; font-size:12px; font-weight:700; color:#b45309; margin-bottom:10px;">⏰ Lịch cắt yêu cầu: ' + schedStr + '</div>';
-            }
+    var schedStr = '';
+    if (cutSchedule) {
+        var sDt = new Date(cutSchedule);
+        if (!isNaN(sDt.getTime())) {
+            var vnDt = new Date(sDt.getTime() + 7 * 3600000);
+            var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
+            var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
+            var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
+            var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
+            var fYear = vnDt.getUTCFullYear();
+            schedStr = fHour + ':' + fMin + ' ngày ' + fDay + '/' + fMonth + '/' + fYear;
+        }
+    }
+
+    if (isScheduleLocked) {
+        if (schedStr) {
+            html += '  <div style="background:#fffbeb; border:1.5px solid #fef3c7; border-radius:10px; padding:10px 12px; font-size:12px; font-weight:700; color:#b45309; margin-bottom:10px;">⏰ Lịch cắt yêu cầu: ' + schedStr + '</div>';
+        } else {
+            html += '  <div style="background:#fffbeb; border:1.5px solid #fef3c7; border-radius:10px; padding:10px 12px; font-size:12px; font-weight:700; color:#b45309; margin-bottom:10px;">⏰ Lịch cắt phối chính (Phối ' + (primaryIndex + 1) + ') chưa được đặt</div>';
         }
     } else {
         html += '  <div style="font-weight:700; font-size:12px; color:#1e293b; margin-bottom:8px;">📅 Lịch Cắt Phối <span style="color:#dc2626">*</span></div>';
@@ -1020,9 +1029,16 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         html += '  </div>';
     }
 
-    if (isLocked) {
-        var headerText = isProductionDone ? '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã hoàn thành sản xuất)' : '✂️ NHẮC NHỞ BỘ PHẬN CẮT (Đã cắt xong)';
-        var subText = isProductionDone ? '🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.' : '🔒 Phiếu đã cắt xong, không thể chỉnh sửa nhắc nhở.';
+    if (isScheduleLocked) {
+        var headerText = '✂️ NHẮC NHỞ BỘ PHẬN CẮT';
+        var subText = '';
+        if (isProductionDone) {
+            subText = '🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.';
+        } else if (isCutDone) {
+            subText = '🔒 Phiếu đã cắt xong, không thể chỉnh sửa nhắc nhở.';
+        } else {
+            subText = '🔒 Lịch cắt & nhắc nhở được khóa theo phối chính (Phối ' + (primaryIndex + 1) + ').';
+        }
         html += '  <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">' + headerText + '</div>';
         html += '  <div style="color:#6b7280; font-size:11px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">' + subText + '</div>';
         if (cutReminders && cutReminders.length > 0) {
@@ -1106,7 +1122,7 @@ function _qlxCutReminderChanged() {
 }
 
 function _qlxValidateAndGetCutReminders() {
-    if (window._qlxCutReminderState && window._qlxCutReminderState.isProductionDone) {
+    if (window._qlxCutReminderState && (window._qlxCutReminderState.isProductionDone || window._qlxCutReminderState.isScheduleLocked)) {
         return {
             choice: window._qlxCutReminderState.originalChoice || 'none',
             reminders: window._qlxCutReminderState.originalReminders || [],
@@ -1162,7 +1178,7 @@ function _qlxValidateAndGetCutReminders() {
 }
 
 function _qlxCheckCutRemindersSaved() {
-    if (window._qlxCutReminderState && window._qlxCutReminderState.isProductionDone) {
+    if (window._qlxCutReminderState && (window._qlxCutReminderState.isProductionDone || window._qlxCutReminderState.isScheduleLocked)) {
         return true;
     }
 

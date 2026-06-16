@@ -1018,7 +1018,22 @@ module.exports = async function(fastify) {
         
         const orderId = Number(order_id);
         const deptFilter = dept ? ` AND dept = '${dept.replace(/'/g, "''")}'` : '';
-        const phoiFilter = (dept === 'cat' && phoi_index !== undefined && phoi_index !== null) ? ` AND phoi_index = ${parseInt(phoi_index)}` : '';
+        
+        let actualPhoiIndex = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
+        if (dept === 'cat' && item_id) {
+            const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [Number(item_id)]);
+            if (prep && prep.cut_schedules) {
+                try {
+                    const schedules = typeof prep.cut_schedules === 'string' ? JSON.parse(prep.cut_schedules) : prep.cut_schedules;
+                    if (schedules.primary_index !== undefined && schedules.primary_index !== null) {
+                        actualPhoiIndex = parseInt(schedules.primary_index);
+                    }
+                } catch(e) {
+                    console.error('Error parsing cut_schedules in GET reminders:', e);
+                }
+            }
+        }
+        const phoiFilter = (dept === 'cat') ? ` AND phoi_index = ${actualPhoiIndex}` : '';
         
         let reminders = [];
         
@@ -1143,6 +1158,9 @@ module.exports = async function(fastify) {
                 }
                 const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
                 cutSchedule = schedules[pi] || null;
+                if (!cutSchedule && schedules.primary_index !== undefined && schedules.primary_index !== null) {
+                    cutSchedule = schedules[schedules.primary_index] || null;
+                }
             }
         }
         
@@ -2089,7 +2107,26 @@ module.exports = async function(fastify) {
         const myLinkedIds = myLinked.map(r => r.linked_call_id);
 
         await ensureItemPrepRow(orderId, itemId);
-        const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2 ORDER BY id", [itemId, pi]);
+        const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        let cutSchedule = null;
+        let primaryIndex = null;
+        if (prep && prep.cut_schedules) {
+            let schedules = {};
+            try {
+                schedules = typeof prep.cut_schedules === 'string' ? JSON.parse(prep.cut_schedules) : prep.cut_schedules;
+            } catch(e) {
+                console.error('Error parsing cut_schedules in lookup:', e);
+            }
+            cutSchedule = schedules[pi] || null;
+            primaryIndex = schedules.primary_index !== undefined ? schedules.primary_index : null;
+        }
+
+        let lookupRemindersIndex = pi;
+        if (primaryIndex !== null && pi !== primaryIndex) {
+            lookupRemindersIndex = primaryIndex;
+        }
+
+        const cutReminders = await db.all("SELECT id, content FROM qlx_reminders WHERE item_id = $1 AND dept = 'cat' AND phoi_index = $2 ORDER BY id", [itemId, lookupRemindersIndex]);
         const cutRemindChoice = cutReminders.length > 0 ? 'yes' : 'none';
 
         const reminderIds = cutReminders.map(r => r.id);
@@ -2102,8 +2139,8 @@ module.exports = async function(fastify) {
             viewedIds = views.map(v => v.reminder_id);
             
             // Auto-view if coordinate cutting is completed
-            const hasCompletedCut = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, itemId, pi]);
-            const hasActiveCut = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = false LIMIT 1`, [orderId, itemId, pi]);
+            const hasCompletedCut = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = true LIMIT 1`, [orderId, itemId, lookupRemindersIndex]);
+            const hasActiveCut = await db.get(`SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3 AND is_cut_done = false LIMIT 1`, [orderId, itemId, lookupRemindersIndex]);
             if (hasCompletedCut && !hasActiveCut) {
                 for (const rId of reminderIds) {
                     if (!viewedIds.includes(rId)) {
@@ -2159,18 +2196,6 @@ module.exports = async function(fastify) {
         }
         const isPhoiProdDone = isPhoiCutDone && isPrintDone;
 
-        const prep = await db.get(`SELECT cut_schedules FROM qlx_preparation WHERE item_id = $1`, [itemId]);
-        let cutSchedule = null;
-        if (prep && prep.cut_schedules) {
-            let schedules = {};
-            try {
-                schedules = typeof prep.cut_schedules === 'string' ? JSON.parse(prep.cut_schedules) : prep.cut_schedules;
-            } catch(e) {
-                console.error('Error parsing cut_schedules in lookup:', e);
-            }
-            cutSchedule = schedules[pi] || null;
-        }
-
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity },
@@ -2187,6 +2212,7 @@ module.exports = async function(fastify) {
                 is_viewed: viewedIds.includes(r.id)
             })),
             cut_schedule: cutSchedule,
+            primary_index: primaryIndex,
             is_production_done: isPhoiProdDone,
             is_cut_done: isPhoiCutDone
         };
@@ -2301,7 +2327,30 @@ module.exports = async function(fastify) {
                 schedules = {};
             }
         }
-        schedules[pi] = cut_schedule;
+        
+        const itemObj = await db.get(`SELECT material_pairs FROM dht_order_items WHERE id = $1`, [item_id]);
+        let numPairs = 1;
+        if (itemObj && itemObj.material_pairs) {
+            try {
+                const pairs = typeof itemObj.material_pairs === 'string' ? JSON.parse(itemObj.material_pairs) : itemObj.material_pairs;
+                if (Array.isArray(pairs) && pairs.length > 0) {
+                    numPairs = pairs.length;
+                }
+            } catch(e) {
+                console.error('[QLX] Parse material_pairs error:', e);
+            }
+        }
+
+        if (numPairs > 1) {
+            if (schedules.primary_index === undefined || schedules.primary_index === null) {
+                schedules.primary_index = pi;
+            }
+            for (let i = 0; i < numPairs; i++) {
+                schedules[i] = cut_schedule;
+            }
+        } else {
+            schedules[pi] = cut_schedule;
+        }
 
         await db.run(`
             UPDATE qlx_preparation
@@ -2528,7 +2577,30 @@ module.exports = async function(fastify) {
                 schedules2 = {};
             }
         }
-        schedules2[pi] = cut_schedule;
+        
+        const itemObj = await db.get(`SELECT material_pairs FROM dht_order_items WHERE id = $1`, [item_id]);
+        let numPairs = 1;
+        if (itemObj && itemObj.material_pairs) {
+            try {
+                const pairs = typeof itemObj.material_pairs === 'string' ? JSON.parse(itemObj.material_pairs) : itemObj.material_pairs;
+                if (Array.isArray(pairs) && pairs.length > 0) {
+                    numPairs = pairs.length;
+                }
+            } catch(e) {
+                console.error('[QLX] Parse material_pairs error:', e);
+            }
+        }
+
+        if (numPairs > 1) {
+            if (schedules2.primary_index === undefined || schedules2.primary_index === null) {
+                schedules2.primary_index = pi;
+            }
+            for (let i = 0; i < numPairs; i++) {
+                schedules2[i] = cut_schedule;
+            }
+        } else {
+            schedules2[pi] = cut_schedule;
+        }
 
         await db.run(`
             UPDATE qlx_preparation
