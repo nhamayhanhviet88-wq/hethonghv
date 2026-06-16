@@ -535,9 +535,20 @@ function _tsRenderStepModal(step, d){
                 body = '<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">✂️</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu cắt</div></div>';
             }
         }
-        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = `📋 ${r.product_name || r.item_description || 'Sản phẩm'}`;
-            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+        else {
+            body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            const sortedRecords = [...d.records].sort((a, b) => {
+                const aDone = !!a.is_cut_done;
+                const bDone = !!b.is_cut_done;
+                if (aDone !== bDone) return bDone - aDone;
+                if (aDone) {
+                    return new Date(a.cut_done_at).getTime() - new Date(b.cut_done_at).getTime();
+                }
+                return 0;
+            });
+            sortedRecords.forEach((r,i)=>{
+                const title = `📋 ${r.product_name || r.item_description || 'Sản phẩm'}`;
+                body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -623,7 +634,16 @@ function _tsRenderStepModal(step, d){
                 body+=row('📊 Số Lượng Theo Đơn',g.order_quantity ? g.order_quantity+' Áo' : '—','#1e40af');
                 
                 body+=section('📋','DANH SÁCH CHI TIẾT IN / THÊU');
-                g.print_items.forEach((r, idx) => {
+                const sortedPrintItems = [...g.print_items].sort((a, b) => {
+                    const aDone = !!a.is_print_done;
+                    const bDone = !!b.is_print_done;
+                    if (aDone !== bDone) return bDone - aDone;
+                    if (aDone) {
+                        return new Date(a.print_done_at).getTime() - new Date(b.print_done_at).getTime();
+                    }
+                    return 0;
+                });
+                sortedPrintItems.forEach((r, idx) => {
                     const printType = V(r.print_field || r.field_name);
                     const printerDisplay = r.contractor_name 
                         ? `🏭 Gia công: ${r.contractor_name}`
@@ -765,9 +785,20 @@ function _tsRenderStepModal(step, d){
                 body = '<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🔥</div><div style="font-size:13px;font-weight:700;color:#64748b">Chưa có dữ liệu ép</div></div>';
             }
         }
-        else { body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`; d.records.forEach((r,i)=>{
-            const title = `🔥 ${r.product_name || r.item_description || 'Sản phẩm'}`;
-            body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
+        else {
+            body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            const sortedRecords = [...d.records].sort((a, b) => {
+                const aDone = !!a.is_reported;
+                const bDone = !!b.is_reported;
+                if (aDone !== bDone) return bDone - aDone;
+                if (aDone) {
+                    return new Date(a.reported_at).getTime() - new Date(b.reported_at).getTime();
+                }
+                return 0;
+            });
+            sortedRecords.forEach((r,i)=>{
+                const title = `🔥 ${r.product_name || r.item_description || 'Sản phẩm'}`;
+                body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
             body+=`<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#c2410c;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_reported?'#d1fae5':'#fef3c7'};color:${r.is_reported?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_reported?'✅ Đã ép xong':'⏳ Đang ép'}</span></div>`;
             body+=`<div style="padding:14px 16px">`;
             body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -886,7 +917,16 @@ function _tsRenderStepModal(step, d){
                 body+=row('📊 SL Đã Phân Công', totalAssignedQty + ' sp', '#059669');
 
                 body+=section('🏭', 'PHÂN CÔNG NHÀ MAY / TỔ MAY');
-                g.assignments.forEach((r, idxAss) => {
+                const sortedAssignments = [...g.assignments].sort((a, b) => {
+                    const aDone = !!a.done_date;
+                    const bDone = !!b.done_date;
+                    if (aDone !== bDone) return bDone - aDone;
+                    if (aDone) {
+                        return new Date(a.done_date).getTime() - new Date(b.done_date).getTime();
+                    }
+                    return 0;
+                });
+                sortedAssignments.forEach((r, idxAss) => {
                     const sewerDisplay = (r.sewer_name||r.contractor_name||r.team_name) 
                         ? '🏭 ' + (r.sewer_name||r.contractor_name||r.team_name)
                         : `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#fef2f2;border:1px solid #fca5a5;color:#ef4444;font-size:11px;font-weight:800">Chưa Chia Tổ May</span>`;
@@ -1050,7 +1090,16 @@ function _tsRenderStepModal(step, d){
                 body+=row('👤 CSKH',V(d.cskh_name));
 
                 body+=section('📋', 'KẾT QUẢ ĐÁNH GIÁ CHẤT LƯỢNG (QC) THEO NHÀ MAY');
-                g.assignments.forEach((r, idxAss) => {
+                const sortedAssignments = [...g.assignments].sort((a, b) => {
+                    const aDone = !!a.qc_date;
+                    const bDone = !!b.qc_date;
+                    if (aDone !== bDone) return bDone - aDone;
+                    if (aDone) {
+                        return new Date(a.qc_date).getTime() - new Date(b.qc_date).getTime();
+                    }
+                    return 0;
+                });
+                sortedAssignments.forEach((r, idxAss) => {
                     const sewerDisplay = r.sewer_name ? '🏭 ' + r.sewer_name : '<span style="color:#ef4444;font-weight:800">Chưa rõ nhà may</span>';
                     const assQcStatus = r.answers && r.answers.length > 0 ? `✅ Đã QC (${fmtShortDT(r.qc_date)})` : '⏳ Chưa QC';
                     const assQcColor = r.answers && r.answers.length > 0 ? '#059669' : '#b45309';
@@ -1245,7 +1294,31 @@ function _tsRenderStepModal(step, d){
             });
 
             groups.forEach((g, i) => {
+                const isHtCompleted = r => {
+                    const isQcDone = r.qc_count > 0;
+                    const isOutsourced = r.contractor_id !== null;
+                    if (d.is_order_shipped) {
+                        return !!r.is_completed;
+                    } else {
+                        if (isOutsourced) {
+                            return isQcDone;
+                        } else {
+                            return isQcDone && !!r.is_completed;
+                        }
+                    }
+                };
                 g.assignments.sort((a, b) => {
+                    const aCompleted = isHtCompleted(a);
+                    const bCompleted = isHtCompleted(b);
+                    if (aCompleted !== bCompleted) return bCompleted - aCompleted;
+                    if (aCompleted) {
+                        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+                        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+                        if (aTime !== bTime) {
+                            if (aTime && bTime) return aTime - bTime;
+                            return bTime - aTime;
+                        }
+                    }
                     const aGC = a.contractor_id !== null ? 1 : 0;
                     const bGC = b.contractor_id !== null ? 1 : 0;
                     return aGC - bGC;
