@@ -9,6 +9,7 @@
     let activeView = 'all';
     let cachedRows = [];
     let cachedHolidaysList = [];
+    let cachedCellsMap = {};
 
     // Standard Vietnamese month name options
     const MONTH_LABELS = {
@@ -515,6 +516,192 @@
                             border-bottom: 1.5px solid #cbd5e1 !important;
                         }
                     }
+
+                    /* Compact Order Strip for Calendar Day Cell */
+                    .cal-order-strip {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: #f8fafc;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 6px;
+                        padding: 4px 8px;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                        font-size: 11px;
+                        margin-bottom: 2px;
+                        user-select: none;
+                        gap: 4px;
+                    }
+                    .cal-order-strip:hover {
+                        background: #f1f5f9;
+                        border-color: #94a3b8;
+                        transform: translateY(-0.5px);
+                    }
+                    .cal-order-strip .cal-order-code {
+                        font-weight: 800;
+                        color: #2563eb;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                    .cal-order-strip .cal-order-qty {
+                        font-weight: 700;
+                        color: #b45309;
+                        white-space: nowrap;
+                        flex-shrink: 0;
+                    }
+                    
+                    /* More orders link button */
+                    .cal-more-orders-btn {
+                        font-size: 10.5px;
+                        font-weight: 800;
+                        color: #2563eb;
+                        text-align: center;
+                        padding: 4px;
+                        cursor: pointer;
+                        border-radius: 4px;
+                        background: rgba(37, 99, 235, 0.05);
+                        margin-top: 2px;
+                        transition: all 0.15s;
+                    }
+                    .cal-more-orders-btn:hover {
+                        background: rgba(37, 99, 235, 0.1);
+                        text-decoration: underline;
+                    }
+
+                    /* Day Details Modal Overlay */
+                    .day-modal-overlay {
+                        position: fixed;
+                        inset: 0;
+                        background: rgba(15, 23, 42, 0.4);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
+                        z-index: 9999;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        animation: dayModalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                    }
+                    @keyframes dayModalFadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    
+                    /* Day Details Modal Content Card */
+                    .day-modal-content {
+                        background: #ffffff;
+                        border-radius: 20px;
+                        width: 90%;
+                        max-width: 680px;
+                        max-height: 85vh;
+                        display: flex;
+                        flex-direction: column;
+                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                        border: 1px solid #e2e8f0;
+                        animation: dayModalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                        overflow: hidden;
+                    }
+                    @keyframes dayModalSlideUp {
+                        from { opacity: 0; transform: translateY(12px) scale(0.98); }
+                        to { opacity: 1; transform: translateY(0) scale(1); }
+                    }
+
+                    .day-modal-header {
+                        padding: 18px 24px;
+                        border-bottom: 1px solid #f1f5f9;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .day-modal-title {
+                        font-size: 17px;
+                        font-weight: 900;
+                        color: #0f172a;
+                        margin: 0;
+                    }
+                    .day-modal-close {
+                        background: none;
+                        border: none;
+                        font-size: 20px;
+                        font-weight: 800;
+                        color: #64748b;
+                        cursor: pointer;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all 0.15s;
+                    }
+                    .day-modal-close:hover {
+                        background: #f1f5f9;
+                        color: #0f172a;
+                    }
+                    
+                    .day-modal-summary {
+                        background: #f8fafc;
+                        padding: 12px 24px;
+                        border-bottom: 1px solid #f1f5f9;
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #475569;
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 12px;
+                    }
+                    
+                    .day-modal-search-wrapper {
+                        padding: 12px 24px;
+                        border-bottom: 1px solid #f1f5f9;
+                    }
+                    .day-modal-search {
+                        width: 100%;
+                        border: 1.5px solid #cbd5e1;
+                        border-radius: 10px;
+                        padding: 8px 14px;
+                        font-size: 12.5px;
+                        font-weight: 600;
+                        outline: none;
+                        transition: all 0.15s;
+                    }
+                    .day-modal-search:focus {
+                        border-color: #3b82f6;
+                        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                    }
+                    
+                    .day-modal-body {
+                        padding: 16px 24px;
+                        overflow-y: auto;
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                    }
+                    
+                    .day-modal-footer {
+                        padding: 14px 24px;
+                        border-top: 1px solid #f1f5f9;
+                        display: flex;
+                        justify-content: flex-end;
+                        background: #f8fafc;
+                    }
+                    .day-modal-btn {
+                        padding: 8px 20px;
+                        border-radius: 10px;
+                        font-size: 12.5px;
+                        font-weight: 800;
+                        cursor: pointer;
+                        transition: all 0.15s;
+                        border: 1px solid #cbd5e1;
+                        background: #ffffff;
+                        color: #334155;
+                    }
+                    .day-modal-btn:hover {
+                        background: #f1f5f9;
+                        border-color: #cbd5e1;
+                    }
                 </style>
 
                 <div class="cal-filter-bar">
@@ -953,6 +1140,13 @@
         cells.forEach(cell => {
             const dataCell = cellsMap[cell.dateStr];
             dataCell.orders.forEach(order => {
+                // Populate sale totals for the orders in this cell
+                order.items.forEach(item => {
+                    const qty = Number(item.quantity) || 0;
+                    const cat = item.cutting_category_name || 'Áo';
+                    dataCell.deptTotals.sale[cat] = (dataCell.deptTotals.sale[cat] || 0) + qty;
+                });
+
                 if (activeView === 'all') {
                     order.items.forEach(item => {
                         const qty = Number(item.quantity) || 0;
@@ -1015,6 +1209,19 @@
 
         cells.forEach(cell => {
             const dataCell = cellsMap[cell.dateStr];
+
+            // Sort orders: CHUẨN first, then GẤP, then GỬI
+            dataCell.orders.sort((a, b) => {
+                const priorityWeight = (p) => {
+                    const up = String(p || '').toUpperCase();
+                    if (up === 'CHUẨN') return 3;
+                    if (up === 'GẤP') return 2;
+                    if (up === 'GỬI') return 1;
+                    return 0;
+                };
+                return priorityWeight(b.shipping_priority) - priorityWeight(a.shipping_priority);
+            });
+
             const isToday = cell.dateStr === todayStr;
             const holidayName = holidaysMap[cell.dateStr];
 
@@ -1025,10 +1232,10 @@
 
             const holidayHtml = holidayName ? `<div class="cal-cell-holiday-name" title="${holidayName}">🎉 ${holidayName}</div>` : '';
             const deptsHtml = renderCellDepts(dataCell.deptTotals);
-            const ordersHtml = renderCellOrders(dataCell.orders);
+            const ordersHtml = renderCellOrders(dataCell.orders, cell.dateStr);
 
             const cellHtml = `
-                <div class="${cellClass}">
+                <div class="${cellClass}" onclick="window.openDayDetailModal('${cell.dateStr}')" style="cursor: pointer;" title="Bấm vào khoảng trống để xem chi tiết tất cả đơn ngày này">
                     <div class="cal-cell-header">
                         <span class="cal-cell-num">${cell.date.getDate()}</span>
                         ${holidayHtml}
@@ -1041,6 +1248,8 @@
             `;
             gridBody.insertAdjacentHTML('beforeend', cellHtml);
         });
+
+        cachedCellsMap = cellsMap;
     }
 
     function renderStatsBar(ordersCount, totalQty, deptTotals) {
@@ -1163,11 +1372,15 @@
         return html ? `<div class="cal-cell-depts">${html}</div>` : '';
     }
 
-    function renderCellOrders(orders) {
+    function renderCellOrders(orders, cellDateStr) {
         if (!orders.length) return '';
         let html = '';
 
-        orders.forEach(o => {
+        const MAX_VISIBLE = 5;
+        const visibleOrders = orders.slice(0, MAX_VISIBLE);
+        const remainingCount = orders.length - MAX_VISIBLE;
+
+        visibleOrders.forEach(o => {
             let qtyText = '';
             if (o.customQtyText !== undefined && o.customQtyText !== null) {
                 qtyText = o.customQtyText;
@@ -1184,20 +1397,26 @@
             const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
             const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
 
-            const stepsHtml = renderOrderStepsHtml(o);
-
             html += `
-                <div class="cal-order-card" 
-                     style="border-left: 4px solid ${pStyle.border};"
-                     onclick="navigateToOrderTrace('${o.order_code}')"
-                     title="Nhấp để tra soát toàn bộ đơn hàng ${o.order_code}">
-                    <div class="cal-order-code">${o.order_code}</div>
-                    <div class="cal-order-cust">${o.customer_name || 'Không tên KH'}</div>
-                    <div class="cal-order-qty">${qtyText || '0 sản phẩm'}</div>
-                    ${stepsHtml}
+                <div class="cal-order-strip" 
+                     style="border-left: 3px solid ${pStyle.border};"
+                     onclick="event.stopPropagation(); navigateToOrderTrace('${o.order_code}')"
+                     title="Nhấp để tra soát đơn hàng ${o.order_code}">
+                    <span class="cal-order-code">${o.order_code}</span>
+                    <span class="cal-order-qty">(${qtyText})</span>
                 </div>
             `;
         });
+
+        if (remainingCount > 0) {
+            html += `
+                <div class="cal-more-orders-btn" 
+                     onclick="event.stopPropagation(); window.openDayDetailModal('${cellDateStr}')"
+                     title="Xem toàn bộ ${orders.length} đơn hàng của ngày này">
+                    + Xem thêm ${remainingCount} đơn...
+                </div>
+            `;
+        }
 
         return html;
     }
@@ -1240,6 +1459,154 @@
         const min = String(d.getMinutes()).padStart(2, '0');
         return `${day}/${month} ${hour}:${min}`;
     }
+
+    window.openDayDetailModal = function(dateStr) {
+        const cellData = cachedCellsMap[dateStr];
+        if (!cellData) return;
+
+        // Remove existing modal if any
+        const existing = document.getElementById('dayDetailModal');
+        if (existing) existing.remove();
+
+        const [y, m, d] = dateStr.split('-');
+        const formattedDate = `${d}/${m}/${y}`;
+
+        // Build summary counts for the day
+        const summaryParts = [];
+        const depts = [
+            { key: 'sale', label: 'Đơn hàng dự kiến (Sale)', emoji: '📅' },
+            { key: 'cut', label: 'Cắt', emoji: '✂️' },
+            { key: 'in', label: 'In', emoji: '🖨️' },
+            { key: 'ep', label: 'Ép', emoji: '🔥' },
+            { key: 'may', label: 'May/QC/HT', emoji: '🪡' },
+            { key: 'gui', label: 'Giao hàng', emoji: '🚚' }
+        ];
+
+        depts.forEach(dept => {
+            const catMap = cellData.deptTotals[dept.key] || {};
+            const parts = [];
+            Object.entries(catMap).forEach(([cat, qty]) => {
+                if (qty > 0) parts.push(`${qty} ${cat}`);
+            });
+            if (parts.length > 0) {
+                summaryParts.push(`<span style="margin-right: 15px;">${dept.emoji} <strong>${dept.label}</strong>: ${parts.join(', ')}</span>`);
+            }
+        });
+
+        const summaryHtml = summaryParts.length > 0 
+            ? summaryParts.join(' | ') 
+            : 'Không có sản phẩm nào được xếp lịch sản xuất cho ngày này.';
+
+        const overlay = document.createElement('div');
+        overlay.id = 'dayDetailModal';
+        overlay.className = 'day-modal-overlay';
+        overlay.onclick = function(e) {
+            if (e.target === this) overlay.remove();
+        };
+
+        let activeFilterText = '';
+        if (activeView !== 'all' && activeView !== 'sale') {
+            const viewDept = depts.find(d => d.key === activeView);
+            if (viewDept) {
+                activeFilterText = ` (Chặng: ${viewDept.label})`;
+            }
+        } else if (activeView === 'sale') {
+            activeFilterText = ` (Đơn ra Sale)`;
+        }
+
+        overlay.innerHTML = `
+            <div class="day-modal-content">
+                <div class="day-modal-header">
+                    <h3 class="day-modal-title">📅 Chi tiết ngày ${formattedDate}${activeFilterText}</h3>
+                    <button class="day-modal-close" onclick="document.getElementById('dayDetailModal').remove()">&times;</button>
+                </div>
+                <div class="day-modal-summary">
+                    ${summaryHtml}
+                </div>
+                <div class="day-modal-search-wrapper">
+                    <input type="text" id="dayModalSearchInput" class="day-modal-search" placeholder="Tìm nhanh mã đơn, tên khách hàng..." autocomplete="off">
+                </div>
+                <div class="day-modal-body" id="dayModalBodyList">
+                    <!-- Orders will be rendered here dynamically -->
+                </div>
+                <div class="day-modal-footer">
+                    <button class="day-modal-btn" onclick="document.getElementById('dayDetailModal').remove()">Đóng</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const searchInput = document.getElementById('dayModalSearchInput');
+        const listContainer = document.getElementById('dayModalBodyList');
+
+        function renderModalOrders(filterQuery = '') {
+            listContainer.innerHTML = '';
+            const query = filterQuery.toLowerCase().trim();
+
+            const filteredOrders = cellData.orders.filter(o => {
+                const codeMatch = o.order_code.toLowerCase().includes(query);
+                const nameMatch = (o.customer_name || '').toLowerCase().includes(query);
+                return codeMatch || nameMatch;
+            });
+
+            if (filteredOrders.length === 0) {
+                listContainer.innerHTML = `<div style="text-align: center; padding: 40px; color: #94a3b8; font-size: 13px; font-weight: 600;">Không tìm thấy đơn hàng nào.</div>`;
+                return;
+            }
+
+            filteredOrders.forEach(o => {
+                let qtyText = '';
+                if (o.customQtyText !== undefined && o.customQtyText !== null) {
+                    qtyText = o.customQtyText;
+                } else {
+                    const qtyMap = {};
+                    o.items.forEach(item => {
+                        const cat = item.cutting_category_name || 'Áo';
+                        qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+                    });
+                    const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+                    qtyText = qtyParts.join(', ');
+                }
+
+                const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
+                const pStyle = PRIORITY_MAP[priority] || PRIORITY_MAP['CHUẨN'];
+
+                const stepsHtml = renderOrderStepsHtml(o);
+
+                const cardHtml = `
+                    <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px;" onclick="navigateToOrderTrace('${o.order_code}')">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <span class="cal-order-code" style="font-size: 13px;">${o.order_code}</span>
+                                <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 10px;">${o.customer_name || 'Không tên KH'}</span>
+                            </div>
+                            <span style="font-size: 11px; font-weight: 800; background: ${pStyle.border}22; color: ${pStyle.border}; padding: 2px 6px; border-radius: 4px;">${priority}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                            <span class="cal-order-qty" style="font-size: 11px; font-weight: 800;">${qtyText}</span>
+                            <span style="font-size: 10.5px; font-weight: 700; color: #64748b;">CSKH: ${o.cskh_name || '--'}</span>
+                        </div>
+                        <div onclick="event.stopPropagation()" style="margin-top: 6px;">
+                            ${stepsHtml}
+                        </div>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        searchInput.oninput = function() {
+            renderModalOrders(this.value);
+        };
+
+        // Focus search if many orders
+        if (cellData.orders.length > 5) {
+            searchInput.focus();
+        }
+
+        renderModalOrders();
+    };
 
     window.navigateToOrderTrace = function(orderCode) {
         history.pushState(null, '', '/trasoatdonhang?search=' + encodeURIComponent(orderCode));
