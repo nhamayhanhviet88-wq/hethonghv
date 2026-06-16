@@ -1771,7 +1771,7 @@
                                          <button class="btn btn-warning" onclick="openHenLai(${r.id})">📅 HẸN LẠI</button>`;
                     } else {
                         const errBtn = r.error_reported
-                            ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
+                            ? `<button class="btn" style="border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.05); color: #ef4444; opacity: 0.6; cursor: default; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 8px; font-size: 11px; line-height: 1.2;"><span style="font-size:16px;">🚨</span><span>ĐÃ BÁO LỖI</span></button>`
                             : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
                         actionButtons = `<button class="btn btn-secondary" onclick="openHenLai(${r.id})">📅 HẸN LẠI</button>
                                          <button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA (QC)</button>
@@ -1784,7 +1784,7 @@
                         actionButtons = `<button class="btn btn-primary" onclick="openPhanTo(${r.id})">🧵 CHIA TỔ MAY</button>`;
                     } else if (r.done_date) {
                         const errBtn = r.error_reported
-                            ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
+                            ? `<button class="btn" style="border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.05); color: #ef4444; opacity: 0.6; cursor: default; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 8px; font-size: 11px; line-height: 1.2;"><span style="font-size:16px;">🚨</span><span>ĐÃ BÁO LỖI</span></button>`
                             : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
                         const editBtn = `<button class="btn btn-warning" style="background:#f59e0b; color:#fff;" onclick="openQC(${r.id})">📝 SỬA BÁO CÁO</button>`;
                         actionButtons = `<button class="btn btn-secondary" onclick="openQC(${r.id})">🔎 XEM CHI TIẾT</button>
@@ -1792,14 +1792,13 @@
                                          ${errBtn}`;
                     } else {
                         const errBtn = r.error_reported
-                            ? `<button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA</button>`
+                            ? `<button class="btn" style="border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.05); color: #ef4444; opacity: 0.6; cursor: default; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 8px; font-size: 11px; line-height: 1.2;"><span style="font-size:16px;">🚨</span><span>ĐÃ BÁO LỖI</span></button>`
                             : `<button class="btn btn-warning" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);" onclick="toggleError(${r.id}, 'report_error')">⚠️ BÁO LỖI</button>`;
                         actionButtons = `<button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA CHẤT LƯỢNG (QC)</button>
                                          ${errBtn}`;
                     }
                 } else if (activeTab === '5') {
-                    actionButtons = `<button class="btn btn-success" onclick="openQC(${r.id})">🔎 KIỂM TRA (QC)</button>
-                                     <button class="btn btn-danger" style="background:#ef4444; color:#fff;" onclick="toggleError(${r.id}, 'resolve_error')">⚠️ ĐÃ SỬA LỖI</button>`;
+                    actionButtons = `<button class="btn" style="border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.05); color: #ef4444; opacity: 0.6; cursor: default; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 8px; font-size: 11px; line-height: 1.2; width: 100%;"><span style="font-size:16px;">🚨</span><span>ĐÃ BÁO LỖI</span></button>`;
                 }
 
                 const errorBadge = r.error_reported ? `<span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">⚠️ LỖI</span>` : '';

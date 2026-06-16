@@ -1345,7 +1345,7 @@ function _ktclRenderTable() {
         if (r.done_date) {
             // Already checked
             const errBtn = _ktclState.activeTab === '5'
-                ? `<button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclResolveError(${r.id})" style="justify-content:center; white-space:nowrap;">⚠️ Đã Sửa Lỗi</button>`
+                ? `<button class="ktcl-btn-sm" style="background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); opacity: 0.6; cursor: default; pointer-events: none; white-space: nowrap; gap: 4px; display: inline-flex; align-items: center; justify-content: center;">🚨 Đã Báo Lỗi</button>`
                 : `<button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclReportError(${r.id})" style="justify-content:center; white-space:nowrap;">⚠️ Báo Lỗi</button>`;
             
             actionsHtml = `
@@ -1388,9 +1388,7 @@ function _ktclRenderTable() {
                     <button class="ktcl-btn-sm ktcl-btn-success" onclick="_ktclOpenQCModal(${r.id})" style="justify-content:center; white-space:nowrap;">
                         🔍 QC & Nghiệm Thu
                     </button>
-                    <button class="ktcl-btn-sm ktcl-btn-danger" onclick="_ktclResolveError(${r.id})" style="justify-content:center; white-space:nowrap;">
-                        ⚠️ Đã Sửa Lỗi
-                    </button>
+                    <button class="ktcl-btn-sm" style="background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); opacity: 0.6; cursor: default; pointer-events: none; white-space: nowrap; gap: 4px; display: inline-flex; align-items: center; justify-content: center;">🚨 Đã Báo Lỗi</button>
                 `;
             }
             
