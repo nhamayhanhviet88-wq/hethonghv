@@ -2446,7 +2446,7 @@ async function _shOpenErrorModal(orderId) {
         h += '  <div style="display:flex;justify-content:space-between;font-size:13px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:4px;"><span style="color:#64748b;font-weight:600;">✍️ Người Báo Lỗi</span><span style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
         h += '</div>';
 
-        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp (Nếu có)</label>';
+        h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp (Nếu có)</label>';
         h += '<select id="shE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;outline:none;">';
         h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
         commonErrors.forEach(function(ce){
