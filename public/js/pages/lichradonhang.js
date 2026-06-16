@@ -1736,9 +1736,6 @@
     };
 
     window.navigateToOrderTrace = function(orderCode) {
-        history.pushState(null, '', '/trasoatdonhang?search=' + encodeURIComponent(orderCode));
-        if (typeof handleRoute === 'function') {
-            handleRoute();
-        }
+        window.open('/trasoatdonhang?search=' + encodeURIComponent(orderCode), '_blank');
     };
 })();
