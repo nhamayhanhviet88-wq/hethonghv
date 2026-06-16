@@ -912,6 +912,29 @@ async function _dhnqlxToggleDetail(id) {
 }
 
 function _qlxRenderTimeline(res) {
+    if (!document.getElementById('_tsTimelineStyles')) {
+        const style = document.createElement('style');
+        style.id = '_tsTimelineStyles';
+        style.textContent = `
+            .ts-detail{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin:8px 12px 16px;padding:20px;animation:tsSlide .25s ease}
+            @keyframes tsSlide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+            .ts-timeline{display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;margin:16px 0}
+            .ts-step{flex:1;min-width:100px;text-align:center;position:relative;padding:0 8px}
+            .ts-step-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:16px;font-weight:800;border:3px solid #e5e7eb}
+            .ts-step-icon.done{background:#10b981;border-color:#10b981;color:white}
+            .ts-step-icon.active{background:#f59e0b;border-color:#f59e0b;color:white;animation:tsPulse 1.5s infinite}
+            .ts-step-icon.pending{background:white;border-color:#d1d5db;color:#9ca3af}
+            @keyframes tsPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+            .ts-step-name{font-size:11px;font-weight:700;color:#374151}
+            .ts-step-time{font-size:10px;color:#6b7280;margin-top:2px}
+            .ts-step-line{position:absolute;top:18px;left:calc(50% + 18px);right:calc(-50% + 18px);height:3px;background:#e5e7eb}
+            .ts-step-line.done{background:#10b981}
+            .ts-ship-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0}
+            .ts-ship-item{font-size:12px;color:#475569}.ts-ship-item b{color:#1e1b4b}
+        `;
+        document.head.appendChild(style);
+    }
+
     const { order: o, items } = res;
     const fmtDT = d => { 
         if (!d) return ''; 
