@@ -992,7 +992,7 @@ function _qlxRenderTimeline(res) {
                 if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
                 
                 html += `
-                    <div class="ts-step-icon ${cls}" onclick="event.stopPropagation(); _qlxShowStepReportModal(${o.id}, ${item.id}, '${o.order_code}', '${s.name}', '${stepKey}', '${workerEsc}', '${extraEsc}', '${progressEsc}', '${scheduleAtVal}', '${timeVal}', '${rawReports}')" style="cursor:pointer" title="Chi tiết chặng ${s.name}">${icon}</div>
+                    <div class="ts-step-icon ${cls}" onclick="event.stopPropagation(); _qlxShowStepReportModal(${o.id}, ${item.id}, '${o.order_code}', '${s.name}', '${stepKey}', '${workerEsc}', '${extraEsc}', '${progressEsc}', '${scheduleAtVal}', '${timeVal}', '${rawReports}', ${s.done ? 1 : 0})" style="cursor:pointer" title="Chi tiết chặng ${s.name}">${icon}</div>
                     <div class="ts-step-name" style="font-weight:800;">${s.short || s.name}</div>
                     ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
                     
@@ -1116,7 +1116,7 @@ function _qlxClearStepImage() {
     if (zone) zone.innerText = 'Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)';
 }
 
-async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports) {
+async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports, isDone) {
     _qlxUploadedImageUrl = null;
 
     // Show initial loading modal
@@ -1210,7 +1210,7 @@ async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, ste
             ${detailHtml}
             <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
                 <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Đóng</button>
-                <button onclick="_qlxSwitchToReportForm('${scheduleAt ? 'scheduled' : 'unscheduled'}')" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>
+                ${isDone ? '' : `<button onclick="_qlxSwitchToReportForm('${scheduleAt ? 'scheduled' : 'unscheduled'}')" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>`}
             </div>
         </div>
 
