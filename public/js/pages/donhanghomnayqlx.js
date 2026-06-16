@@ -234,7 +234,20 @@ function _dhnqlxRenderSidebar() {
 
     sb.innerHTML = tabsDef.map(t => {
         const active = _dhnqlxFilter === t.key;
-        const cnt = _dhnqlxCounts[t.key] || 0;
+        
+        // Compute count dynamically based on search filter
+        let cnt = 0;
+        const list = _dhnqlxData[t.key] || [];
+        if (_dhnqlxSearchVal) {
+            cnt = list.filter(o => 
+                (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
+                (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
+            ).length;
+        } else {
+            cnt = list.length;
+        }
+
         const borderColor = active ? t.color : '#e2e8f0';
         const background = active ? t.bg : 'white';
         const textColor = active ? t.color : '#475569';
@@ -260,6 +273,7 @@ function _dhnqlxSetFilter(key) {
 
 function _dhnqlxOnSearch(val) {
     _dhnqlxSearchVal = val.trim().toLowerCase();
+    _dhnqlxRenderSidebar();
     _dhnqlxRenderContent();
 }
 
