@@ -1116,126 +1116,152 @@ function _qlxClearStepImage() {
     if (zone) zone.innerText = 'Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)';
 }
 
-function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports) {
+async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports) {
     _qlxUploadedImageUrl = null;
-    const reports = JSON.parse(decodeURIComponent(rawReports || '') || '[]');
-    
-    const fmtDT = d => { 
-        if (!d) return ''; 
-        const dt = new Date(d); 
-        return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); 
+
+    // Show initial loading modal
+    _dhnqlxCreateModal(`Chi tiết Chặng ${stepName} — ${orderCode}`, `
+        <div style="text-align:center;padding:30px;color:#64748b;font-weight:700;">
+            <div style="font-size:24px;margin-bottom:8px;animation:spin 1s linear infinite;">⏳</div>
+            Đang tải chi tiết bộ phận...
+        </div>
+    `, '', '450px');
+
+    let resData = null;
+    try {
+        const url = `/api/trasoat/orders/${orderId}/step/${stepKey}${itemId ? '?item_id=' + itemId : ''}`;
+        resData = await apiCall(url);
+    } catch(err) {
+        console.error('Lỗi tải dữ liệu trasoat:', err);
+    }
+
+    // Override _tsCloseModal temporarily to close our custom modal instead of the global one
+    window._tsCloseModal = function() {
+        document.getElementById('dhnqlxActionModal')?.remove();
     };
 
-    const contentHtml = `
-        <!-- View 1: Step Detail View -->
-        <div id="qlxStepDetailView" style="display:flex; flex-direction:column; gap:12px;">
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; font-size:13px; line-height: 1.6;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:6px;">
-                    <span style="color:#64748b; font-weight:600;">Chặng sản xuất:</span>
-                    <span style="color:#1e1b4b; font-weight:800; font-size:14px;">${stepName}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
-                    <span style="color:#64748b; font-weight:600; flex-shrink:0;">Bộ phận đảm nhận:</span>
-                    <span style="color:#0f172a; font-weight:700; text-align:right; word-break:break-word;">${worker || 'Chưa phân công'}</span>
-                </div>
-                ${extra ? `
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
-                    <span style="color:#64748b; font-weight:600; flex-shrink:0;">Chi tiết triển khai:</span>
-                    <span style="color:#7c3aed; font-weight:700; text-align:right; word-break:break-word;">${extra}</span>
-                </div>` : ''}
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                    <span style="color:#64748b; font-weight:600;">Tiến độ hoàn thành:</span>
-                    <span style="color:#059669; font-weight:700; background:#d1fae5; padding:2px 8px; border-radius:12px; font-size:11px;">${progress ? progress + ' xong' : '0 xong'}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                    <span style="color:#64748b; font-weight:600;">Lịch dự kiến QLX:</span>
-                    <span style="color:#2563eb; font-weight:700;">${scheduleAt ? fmtDT(scheduleAt) : 'Chưa lên lịch'}</span>
-                </div>
-                ${time ? `
-                <div style="display:flex; justify-content:space-between;">
-                    <span style="color:#64748b; font-weight:600;">Hoàn thành thực tế:</span>
-                    <span style="color:#059669; font-weight:700;">${fmtDT(time)}</span>
-                </div>` : ''}
-            </div>
+    let detailHtml = '';
+    let hasNativeDetail = false;
 
-            ${reports.length > 0 ? `
-            <div>
-                <div style="font-weight:700; font-size:12px; color:#475569; margin-bottom:6px;">💬 Lịch sử báo cáo (${reports.length}):</div>
-                <div style="display:flex; flex-direction:column; gap:8px; max-height:160px; overflow-y:auto; padding-right:4px;">
-                    ${reports.map((r, idx) => `
-                        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #fff; font-size:11px;">
-                            <div style="display:flex; justify-content:space-between; font-weight:700; color:#1e293b; margin-bottom:2px;">
-                                <span>Lượt #${idx + 1} (${r.reporter_name || 'Hệ thống'})</span>
-                                <span style="font-weight:normal; color:#64748b; font-size:9px;">${fmtDT(r.created_at)}</span>
-                            </div>
-                            ${r.expected_at ? `<div style="margin-top:2px;">• Hẹn mới: <b style="color:#2563eb;">${fmtDT(r.expected_at)}</b></div>` : ''}
-                            <div style="margin-top:4px; font-style:italic; background:#f8fafc; padding:4px 6px; border-radius:4px; border:1px solid #f1f5f9; color:#475569;">
-                                "${r.notes || 'Không có ghi chú'}"
-                            </div>
-                            ${r.image_url ? `
-                                <div style="margin-top:6px;">
-                                    <a href="${r.image_url}" target="_blank">
-                                        <img src="${r.image_url}" style="max-height:80px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05); cursor:zoom-in;">
-                                    </a>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('')}
+    if (resData && typeof _tsRenderStepModal === 'function') {
+        try {
+            detailHtml = _tsRenderStepModal(stepKey, resData);
+            // Strip the trailing "Đóng" button footer container
+            const closeBtnTag = '<div style="padding:16px 24px;text-align:center;border-top:1px solid #e5e7eb">';
+            const lastIdx = detailHtml.lastIndexOf(closeBtnTag);
+            if (lastIdx !== -1) {
+                detailHtml = detailHtml.substring(0, lastIdx);
+            }
+            hasNativeDetail = true;
+        } catch(e) {
+            console.error('Lỗi render _tsRenderStepModal:', e);
+        }
+    }
+
+    if (!hasNativeDetail) {
+        // Fallback to our clean table detail
+        const fmtDT = d => { 
+            if (!d) return ''; 
+            const dt = new Date(d); 
+            return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); 
+        };
+        const reports = JSON.parse(decodeURIComponent(rawReports || '') || '[]');
+
+        detailHtml = `
+            <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;">
+                <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">📋 Chi tiết Chặng ${stepName} — ${orderCode}</div>
+                <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
+            </div>
+            <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; font-size:13px; line-height: 1.6;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Chặng sản xuất:</span>
+                        <span style="color:#1e1b4b; font-weight:800; font-size:14px;">${stepName}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
+                        <span style="color:#64748b; font-weight:600; flex-shrink:0;">Bộ phận đảm nhận:</span>
+                        <span style="color:#0f172a; font-weight:700; text-align:right; word-break:break-word;">${worker || 'Chưa phân công'}</span>
+                    </div>
+                    ${extra ? `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
+                        <span style="color:#64748b; font-weight:600; flex-shrink:0;">Chi tiết triển khai:</span>
+                        <span style="color:#7c3aed; font-weight:700; text-align:right; word-break:break-word;">${extra}</span>
+                    </div>` : ''}
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="color:#64748b; font-weight:600;">Tiến độ hoàn thành:</span>
+                        <span style="color:#059669; font-weight:700; background:#d1fae5; padding:2px 8px; border-radius:12px; font-size:11px;">${progress ? progress + ' xong' : '0 xong'}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="color:#64748b; font-weight:600;">Lịch dự kiến QLX:</span>
+                        <span style="color:#2563eb; font-weight:700;">${scheduleAt ? fmtDT(scheduleAt) : 'Chưa lên lịch'}</span>
+                    </div>
                 </div>
-            </div>` : ''}
+            </div>
+        `;
+    }
+
+    const modalEl = document.getElementById('dhnqlxActionModal');
+    if (!modalEl) return;
+
+    modalEl.innerHTML = `
+    <div style="background:white;border-radius:16px;width:600px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden;animation:dhnqlxModalSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+        <!-- View 1: Step Detail View -->
+        <div id="qlxStepDetailView" style="display:flex; flex-direction:column; max-height:85vh; overflow-y:auto;">
+            ${detailHtml}
+            <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Đóng</button>
+                <button onclick="_qlxSwitchToReportForm('${scheduleAt ? 'scheduled' : 'unscheduled'}')" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>
+            </div>
         </div>
 
         <!-- View 2: Step Report Form View (Hidden by default) -->
-        <div id="qlxStepReportFormView" style="display:none; flex-direction:column; gap:12px;">
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:4px;">Trạng thái tiến độ:</label>
-                <select id="qlxStepStatus" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" onchange="_qlxOnStepStatusChange()">
-                    <option value="on_track">🟢 Đúng tiến độ (Không bị trễ)</option>
-                    <option value="delayed">🔴 Chậm tiến độ (Cần hẹn lại giờ xong)</option>
-                </select>
+        <div id="qlxStepReportFormView" style="display:none; flex-direction:column;">
+            <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;">
+                <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">📢 Báo Cáo Tiến Độ Chặng ${stepName} — ${orderCode}</div>
+                <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
             </div>
             
-            <div id="qlxDelayInputs" style="display:none;flex-direction:column;gap:12px;">
+            <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
                 <div>
-                    <label style="display:block;font-weight:700;margin-bottom:4px;">Giờ dự kiến hoàn thành mới (Bắt buộc):</label>
-                    <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;">
+                    <label style="display:block;font-weight:700;margin-bottom:4px;">Trạng thái tiến độ:</label>
+                    <select id="qlxStepStatus" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" onchange="_qlxOnStepStatusChange()">
+                        <option value="on_track">🟢 Đúng tiến độ (Không bị trễ)</option>
+                        <option value="delayed">🔴 Chậm tiến độ (Cần hẹn lại giờ xong)</option>
+                    </select>
                 </div>
                 
-                <div>
-                    <label style="display:block;font-weight:700;margin-bottom:4px;">Lý do chậm trễ (Bắt buộc):</label>
-                    <textarea id="qlxStepNotes" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;height:60px;" placeholder="Nhập lý do chi tiết..."></textarea>
-                </div>
-                
-                <div>
-                    <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo thực tế (Bắt buộc):</label>
-                    <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:pointer;color:#64748b;font-weight:700;font-size:12px;" onclick="document.getElementById('qlxStepFileInput').click()">
-                        Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)
+                <div id="qlxDelayInputs" style="display:none;flex-direction:column;gap:12px;">
+                    <div>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;">Giờ dự kiến hoàn thành mới (Bắt buộc):</label>
+                        <input type="datetime-local" id="qlxStepExpectedAt" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;">
                     </div>
-                    <input type="file" id="qlxStepFileInput" accept="image/*" style="display:none;" onchange="_qlxHandleStepFileSelect(this)">
                     
-                    <div id="qlxStepImagePreview" style="margin-top:10px;text-align:center;display:none;">
-                        <img id="qlxStepPreviewImg" style="max-height:150px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><br/>
-                        <button type="button" onclick="_qlxClearStepImage()" style="margin-top:4px;color:#ef4444;border:none;background:none;font-weight:700;cursor:pointer;font-size:11px;">Xóa ảnh</button>
+                    <div>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;">Lý do chậm trễ (Bắt buộc):</label>
+                        <textarea id="qlxStepNotes" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;height:60px;" placeholder="Nhập lý do chi tiết..."></textarea>
+                    </div>
+                    
+                    <div>
+                        <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo thực tế (Bắt buộc):</label>
+                        <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:pointer;color:#64748b;font-weight:700;font-size:12px;" onclick="document.getElementById('qlxStepFileInput').click()">
+                            Ctrl+V hoặc Click vào đây để thêm hình ảnh báo cáo (Bắt buộc)
+                        </div>
+                        <input type="file" id="qlxStepFileInput" accept="image/*" style="display:none;" onchange="_qlxHandleStepFileSelect(this)">
+                        
+                        <div id="qlxStepImagePreview" style="margin-top:10px;text-align:center;display:none;">
+                            <img id="qlxStepPreviewImg" style="max-height:150px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><br/>
+                            <button type="button" onclick="_qlxClearStepImage()" style="margin-top:4px;color:#ef4444;border:none;background:none;font-weight:700;cursor:pointer;font-size:11px;">Xóa ảnh</button>
+                        </div>
                     </div>
                 </div>
             </div>
+            
+            <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="_qlxSwitchToDetailView()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Quay lại</button>
+                <button onclick="_qlxSubmitStepReport(${orderId}, ${itemId}, '${stepKey}')" style="padding:8px 20px;border:none;border-radius:8px;background:#059669;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(5,150,105,0.2);">Gửi báo cáo</button>
+            </div>
         </div>
-    `;
-
-    const footerHtml = `
-        <!-- Footer for View 1 -->
-        <div id="qlxStepDetailFooter" style="display:flex; width:100%; justify-content:flex-end; gap:8px;">
-            <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Đóng</button>
-            <button onclick="_qlxSwitchToReportForm('${scheduleAt ? 'scheduled' : 'unscheduled'}')" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>
-        </div>
-        <!-- Footer for View 2 -->
-        <div id="qlxStepReportFooter" style="display:none; width:100%; justify-content:flex-end; gap:8px;">
-            <button onclick="_qlxSwitchToDetailView()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Quay lại</button>
-            <button onclick="_qlxSubmitStepReport(${orderId}, ${itemId}, '${stepKey}')" style="padding:8px 20px;border:none;border-radius:8px;background:#059669;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(5,150,105,0.2);">Gửi báo cáo</button>
-        </div>
-    `;
-
-    const m = _dhnqlxCreateModal(`Chi tiết Chặng ${stepName} — ${orderCode}`, contentHtml, footerHtml, '450px');
+    </div>`;
 
     const pasteHandler = async (e) => {
         const formView = document.getElementById('qlxStepReportFormView');
@@ -1253,10 +1279,10 @@ function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, 
     
     document.addEventListener('paste', pasteHandler);
     
-    const originalRemove = m.remove;
-    m.remove = function() {
+    const originalRemove = modalEl.remove;
+    modalEl.remove = function() {
         document.removeEventListener('paste', pasteHandler);
-        originalRemove.apply(m);
+        originalRemove.apply(modalEl);
     };
 }
 
@@ -1267,38 +1293,20 @@ function _qlxSwitchToReportForm(scheduleState) {
     }
     const detailView = document.getElementById('qlxStepDetailView');
     const reportView = document.getElementById('qlxStepReportFormView');
-    const detailFooter = document.getElementById('qlxStepDetailFooter');
-    const reportFooter = document.getElementById('qlxStepReportFooter');
     
-    if (detailView && reportView && detailFooter && reportFooter) {
+    if (detailView && reportView) {
         detailView.style.display = 'none';
         reportView.style.display = 'flex';
-        detailFooter.style.display = 'none';
-        reportFooter.style.display = 'flex';
-        
-        const modalTitle = document.querySelector('#dhnqlxActionModal h3');
-        if (modalTitle) {
-            modalTitle.innerText = modalTitle.innerText.replace('Chi tiết Chặng', 'Báo Cáo Tiến Độ Chặng');
-        }
     }
 }
 
 function _qlxSwitchToDetailView() {
     const detailView = document.getElementById('qlxStepDetailView');
     const reportView = document.getElementById('qlxStepReportFormView');
-    const detailFooter = document.getElementById('qlxStepDetailFooter');
-    const reportFooter = document.getElementById('qlxStepReportFooter');
     
-    if (detailView && reportView && detailFooter && reportFooter) {
+    if (detailView && reportView) {
         detailView.style.display = 'flex';
         reportView.style.display = 'none';
-        detailFooter.style.display = 'flex';
-        reportFooter.style.display = 'none';
-        
-        const modalTitle = document.querySelector('#dhnqlxActionModal h3');
-        if (modalTitle) {
-            modalTitle.innerText = modalTitle.innerText.replace('Báo Cáo Tiến Độ Chặng', 'Chi tiết Chặng');
-        }
     }
 }
 
