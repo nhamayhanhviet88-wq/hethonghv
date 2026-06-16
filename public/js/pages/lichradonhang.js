@@ -960,6 +960,9 @@
                 });
             }
         });
+        Object.values(ordersMap).forEach(order => {
+            order.items.sort((a, b) => a.id - b.id);
+        });
         return ordersMap;
     }
 
@@ -1082,6 +1085,7 @@
                     if (cellsMap[dateStr]) {
                         cellsMap[dateStr].orders.push({
                             ...order,
+                            displayCode: order.order_code,
                             customQtyText: null
                         });
                     }
@@ -1097,6 +1101,7 @@
                     const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
                     cellsMap[prepDateStr].orders.push({
                         ...order,
+                        displayCode: order.order_code,
                         customQtyText: qtyParts.join(', ')
                     });
                 }
@@ -1121,15 +1126,25 @@
                 datesSet.forEach(dateStr => {
                     if (cellsMap[dateStr]) {
                         const qtyMap = {};
-                        order.items.forEach(item => {
+                        const scheduledPhieuNumbers = [];
+
+                        order.items.forEach((item, index) => {
                             if (item[dateKey] && item[dateKey].split('T')[0] === dateStr) {
                                 const cat = item.cutting_category_name || 'Áo';
                                 qtyMap[cat] = (qtyMap[cat] || 0) + (Number(item.quantity) || 0);
+                                scheduledPhieuNumbers.push(index + 1);
                             }
                         });
+
                         const qtyParts = Object.entries(qtyMap).map(([cat, qty]) => `${qty} ${cat}`);
+                        let displayCode = order.order_code;
+                        if (scheduledPhieuNumbers.length > 0) {
+                            displayCode += ' — Phiếu ' + scheduledPhieuNumbers.join(', ');
+                        }
+
                         cellsMap[dateStr].orders.push({
                             ...order,
+                            displayCode: displayCode,
                             customQtyText: qtyParts.join(', ')
                         });
                     }
@@ -1401,8 +1416,8 @@
                 <div class="cal-order-strip" 
                      style="border-left: 3px solid ${pStyle.border};"
                      onclick="event.stopPropagation(); navigateToOrderTrace('${o.order_code}')"
-                     title="Nhấp để tra soát đơn hàng ${o.order_code}">
-                    <span class="cal-order-code">${o.order_code}</span>
+                     title="Nhấp để tra soát đơn hàng ${o.displayCode || o.order_code}">
+                    <span class="cal-order-code">${o.displayCode || o.order_code}</span>
                     <span class="cal-order-qty">(${qtyText})</span>
                 </div>
             `;
@@ -1576,7 +1591,7 @@
                     <div class="cal-order-card" style="border-left: 4px solid ${pStyle.border}; margin-bottom: 2px;" onclick="navigateToOrderTrace('${o.order_code}')">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
-                                <span class="cal-order-code" style="font-size: 13px;">${o.order_code}</span>
+                                <span class="cal-order-code" style="font-size: 13px;">${o.displayCode || o.order_code}</span>
                                 <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 10px;">${o.customer_name || 'Không tên KH'}</span>
                             </div>
                             <span style="font-size: 11px; font-weight: 800; background: ${pStyle.border}22; color: ${pStyle.border}; padding: 2px 6px; border-radius: 4px;">${priority}</span>
