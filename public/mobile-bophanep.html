@@ -312,87 +312,7 @@
         </div>
     </div>
 
-    <!-- Bottom sheet: Report Error -->
-    <div class="mm-overlay" id="_mmErrorModal" onclick="if(event.target===this)mCloseErrorModal()">
-        <div class="mm-sheet" style="max-height: 90vh">
-            <div class="mm-header" style="background: linear-gradient(135deg, #ef4444, #dc2626)">
-                <div class="mm-icon">🚨</div>
-                <div>
-                    <div class="mm-title">Báo Đơn Lỗi</div>
-                    <div class="mm-sub" id="mmE_title_sub">Mã đơn</div>
-                </div>
-            </div>
-            <div class="mm-body" style="max-height: 65vh; overflow-y: auto; color: #fff">
-                <input type="hidden" id="mmE_recId">
-                
-                <!-- Order Details Section -->
-                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px">
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
-                        <span style="color: #94a3b8; font-weight: 600">📋 Mã đơn:</span>
-                        <span id="mmE_order_code" style="color: #fdba74; font-weight: 800"></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
-                        <span style="color: #94a3b8; font-weight: 600">👕 Tên sản phẩm:</span>
-                        <span id="mmE_product_name" style="color: #e2e8f0; font-weight: 700"></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
-                        <span style="color: #94a3b8; font-weight: 600">👤 Khách hàng:</span>
-                        <span id="mmE_customer_name" style="color: #60a5fa; font-weight: 700"></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
-                        <span style="color: #94a3b8; font-weight: 600">💼 CSKH:</span>
-                        <span id="mmE_cskh_name" style="color: #22d3ee; font-weight: 700"></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)">
-                        <span style="color: #94a3b8; font-weight: 600">📦 SL Sản Xuất:</span>
-                        <span id="mmE_production_qty" style="color: #10b981; font-weight: 800"></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0">
-                        <span style="color: #94a3b8; font-weight: 600">✍️ Người Báo Lỗi:</span>
-                        <span id="mmE_reporter_name" style="color: #c084fc; font-weight: 700"></span>
-                    </div>
-                </div>
 
-                <div style="display:none" class="mr-form-group">
-                    <label>Lỗi Thường Gặp</label>
-                    <select id="mmE_common" style="width:100%;padding:10px;border:1.5px solid rgba(255, 255, 255, 0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit;outline:none;">
-                        <option value="" style="color:#000">-- Chọn loại lỗi (nếu có) --</option>
-                    </select>
-                </div>
-
-                <div class="mr-form-group" style="margin-top:12px">
-                    <label>Số Lượng Lỗi <span style="color:#f87171">*</span></label>
-                    <input type="number" id="mmE_qty" min="1" value="" style="width:100%;padding:10px;border:1.5px solid rgba(255, 255, 255, 0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b" placeholder="Nhập số lượng...">
-                </div>
-
-                <div class="mr-form-group" style="margin-top:12px">
-                    <label>Nội Dung Chi Tiết <span style="color:#f87171">*</span></label>
-                    <textarea id="mmE_content" rows="3" style="width:100%;padding:10px;border:1.5px solid rgba(255, 255, 255, 0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>
-                </div>
-
-                <div class="mr-form-group" style="margin-top:12px">
-                    <label style="display: flex; align-items: center; gap: 4px; font-weight: 700">📷 Hình Ảnh Minh Họa <span style="color:#f87171">*</span></label>
-                    <div style="margin-top:6px">
-                        <label id="mmE_paste_zone" style="display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1.5px dashed rgba(255, 255, 255, 0.15); border-radius: 10px; cursor: pointer; justify-content: center">
-                            <span style="font-size: 20px">📸</span>
-                            <span style="font-size: 12px; color: #e2e8f0; font-weight: 600">Chụp hình từ camera</span>
-                            <input type="file" id="mmE_images" accept="image/*" capture="environment" style="display:none" onchange="mmOnErrorImagesChange(event)">
-                        </label>
-                        <div id="mmE_previews" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px"></div>
-                    </div>
-                </div>
-
-                <div class="mr-form-group" style="margin-top:12px">
-                    <label>🎥 Video Minh Họa (Không bắt buộc)</label>
-                    <input type="file" id="mmE_video" accept="video/*" style="font-size:12px;width:100%;color:#e2e8f0">
-                </div>
-            </div>
-            <div class="mm-actions">
-                <button class="mm-btn mm-btn-no" onclick="mCloseErrorModal()">Hủy</button>
-                <button class="mm-btn mm-btn-ok" id="_mmErrorSubmitBtn" style="background: linear-gradient(135deg, #ef4444, #dc2626)" onclick="mSubmitError()">🚨 BÁO LỖI</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Bottom sheet: History Detail -->
     <div class="mm-overlay" id="mHistoryDetailOverlay" onclick="if(event.target===this)mCloseHistoryDetail()">
@@ -1659,31 +1579,62 @@
 
                 window._mmErrorImages = [];
 
-                document.getElementById('mmE_recId').value = recordId;
-                document.getElementById('mmE_title_sub').textContent = rec.order_code || '';
-                document.getElementById('mmE_order_code').textContent = rec.order_code || '—';
-                document.getElementById('mmE_product_name').textContent = rec.product_name || '—';
-                document.getElementById('mmE_customer_name').textContent = rec.customer_name || '—';
-                document.getElementById('mmE_cskh_name').textContent = saleName;
-                document.getElementById('mmE_production_qty').textContent = rec.order_quantity || 0;
-                document.getElementById('mmE_reporter_name').textContent = reporterName;
+                let h = '<div class="mm-overlay" id="_mmErrorModal" onclick="if(event.target===this)mCloseErrorModal()">';
+                h += '<div class="mm-sheet" style="max-height:85vh;overflow-y:auto">';
+                h += '<div class="mm-header" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="mm-icon">🚨</div><div><div class="mm-title">Báo Đơn Lỗi</div><div class="mm-sub">' + (rec.order_code || '') + '</div></div></div>';
+                h += '<div class="mm-body" style="font-family:Inter,sans-serif;color:#fff">';
 
-                const commonSel = document.getElementById('mmE_common');
-                if (commonSel) {
-                    commonSel.innerHTML = '<option value="" style="color:#000">-- Chọn loại lỗi (nếu có) --</option>';
-                    commonErrors.forEach(function(ce){
-                        commonSel.innerHTML += '<option value="' + ce.error_name + '" style="color:#000">' + ce.error_name + '</option>';
-                    });
-                }
+                h += '<input type="hidden" id="mmE_recId" value="' + recordId + '">';
+                
+                h += '<div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px">';
+                h += '  <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)"><span style="color: #94a3b8; font-weight: 600">📋 Mã đơn:</span><span style="color: #fdba74; font-weight: 800">' + (rec.order_code || '—') + '</span></div>';
+                h += '  <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)"><span style="color: #94a3b8; font-weight: 600">👕 Tên sản phẩm:</span><span style="color: #e2e8f0; font-weight: 700">' + (rec.product_name || '—') + '</span></div>';
+                h += '  <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)"><span style="color: #94a3b8; font-weight: 600">👤 Khách hàng:</span><span style="color: #60a5fa; font-weight: 700">' + (rec.customer_name || '—') + '</span></div>';
+                h += '  <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)"><span style="color: #94a3b8; font-weight: 600">💼 CSKH:</span><span style="color: #22d3ee; font-weight: 700">' + saleName + '</span></div>';
+                h += '  <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04)"><span style="color: #94a3b8; font-weight: 600">📦 SL Sản Xuất:</span><span style="color: #10b981; font-weight: 800">' + (rec.order_quantity || 0) + '</span></div>';
+                h += '  <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0"><span style="color: #94a3b8; font-weight: 600">✍️ Người Báo Lỗi:</span><span style="color: #c084fc; font-weight: 700">' + reporterName + '</span></div>';
+                h += '</div>';
 
-                document.getElementById('mmE_qty').value = '';
-                document.getElementById('mmE_content').value = '';
-                document.getElementById('mmE_previews').innerHTML = '';
-                const videoInp = document.getElementById('mmE_video');
-                if (videoInp) videoInp.value = '';
+                h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+                h += '<select id="mmE_common" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit;outline:none;">';
+                h += '<option value="" style="color:#000">-- Chọn loại lỗi (nếu có) --</option>';
+                commonErrors.forEach(function(ce){
+                    h += '<option value="' + ce.error_name + '" style="color:#000">' + ce.error_name + '</option>';
+                });
+                h += '</select></div>';
 
-                const overlay = document.getElementById('_mmErrorModal');
-                overlay.classList.add('show');
+                h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#f87171">*</span></label>';
+                h += '<input type="number" id="mmE_qty" min="1" max="' + (rec.order_quantity || 9999) + '" value="" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b" placeholder="Nhập số lượng...">';
+                h += '</div>';
+
+                h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#f87171">*</span></label>';
+                h += '<textarea id="mmE_content" rows="3" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+                h += '</div>';
+
+                h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#f87171">*</span></label>';
+                h += '<div id="mmE_paste_zone" style="border:2px dashed #ef4444;border-radius:10px;padding:16px;text-align:center;background:rgba(239,68,68,0.1);cursor:pointer;margin-bottom:8px;" onclick="document.getElementById(\'mmE_images\').click()">';
+                h += '    <div style="font-size:20px;margin-bottom:4px">📸</div>';
+                h += '    <div style="font-size:12px;font-weight:700;color:#f87171">Chạm để chụp ảnh</div>';
+                h += '</div>';
+                h += '<input type="file" id="mmE_images" accept="image/*" capture="environment" style="display:none" onchange="mmOnErrorImagesChange(event)">';
+                h += '<div id="mmE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
+                h += '</div>';
+
+                h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+                h += '<input type="file" id="mmE_video" accept="video/*" style="font-size:12px;width:100%;color:#e2e8f0">';
+                h += '</div>';
+
+                h += '</div>';
+
+                h += '<div class="mm-actions">';
+                h += '<button class="mm-btn mm-btn-no" onclick="mCloseErrorModal()">Hủy</button>';
+                h += '<button class="mm-btn mm-btn-ok" id="_mmErrorSubmitBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="mSubmitError()">🚨 BÁO LỖI</button>';
+                h += '</div>';
+
+                h += '</div></div>';
+                
+                document.body.insertAdjacentHTML('beforeend', h);
+                requestAnimationFrame(() => document.getElementById('_mmErrorModal').classList.add('show'));
 
                 window._mBusy = false;
             } catch(e) {
@@ -1694,7 +1645,10 @@
 
         function mCloseErrorModal() {
             const m = document.getElementById('_mmErrorModal');
-            if (m) { m.classList.remove('show'); }
+            if (m) {
+                m.classList.remove('show');
+                setTimeout(() => m.remove(), 300);
+            }
         }
 
         function mmOnErrorImagesChange(e) {
