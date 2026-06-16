@@ -2060,6 +2060,43 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
     if (!validateField('setupMayQcHt', 'May/QC/HT')) return;
     if (!validateField('setupGui', 'Gửi')) return;
 
+    // Image validation for reported/rescheduled steps
+    const stepKeys = ['cut', 'in', 'ep', 'may_qc_ht', 'gui'];
+    const stepLabels = { cut: 'Cắt', in: 'In', ep: 'Ép', may_qc_ht: 'May/QC/HT', gui: 'Gửi' };
+    const fieldNames = { cut: 'cut_expected_at', in: 'in_expected_at', ep: 'ep_expected_at', may_qc_ht: 'may_qc_ht_expected_at', gui: 'gui_expected_at' };
+    const inputIds = { cut: 'setupCut', in: 'setupIn', ep: 'setupEp', may_qc_ht: 'setupMayQcHt', gui: 'setupGui' };
+
+    for (const key of stepKeys) {
+        const capStep = key === 'may_qc_ht' ? 'MayQcHt' : (key.charAt(0).toUpperCase() + key.slice(1));
+        const notesEl = document.getElementById(`setup${capStep}Notes`);
+        const notes = notesEl ? notesEl.value.trim() : '';
+        const image_url = window._qlxUploadedImages ? window._qlxUploadedImages[key] : null;
+
+        const inputEl = document.getElementById(inputIds[key]);
+        const currentVal = inputEl ? inputEl.value : '';
+        const previousVal = (window._qlxCurrentSchedule && window._qlxCurrentSchedule[fieldNames[key]]) ? window._qlxCurrentSchedule[fieldNames[key]] : '';
+
+        let isDateChanged = false;
+        if (previousVal && currentVal) {
+            const prevTime = new Date(previousVal).getTime();
+            const currTime = new Date(currentVal).getTime();
+            if (prevTime !== currTime) {
+                isDateChanged = true;
+            }
+        }
+
+        if (notes || isDateChanged) {
+            if (!image_url) {
+                if (notes) {
+                    showToast(`Chặng ${stepLabels[key]}: Khi có nội dung báo cáo, bắt buộc phải dán hình ảnh báo cáo`, 'error');
+                } else {
+                    showToast(`Chặng ${stepLabels[key]}: Khi thay đổi ngày hẹn, bắt buộc phải dán hình ảnh báo cáo`, 'error');
+                }
+                return;
+            }
+        }
+    }
+
     // Final client-side dependency validation
     const parseDate = (dStr) => {
         if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
