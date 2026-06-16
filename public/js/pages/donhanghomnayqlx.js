@@ -7,6 +7,30 @@ let _dhnqlxConfig = { xu_ly_days: 1, hoan_thanh_mode: 'today' };
 let _dhnqlxCompletedMonths = [];
 let _dhnqlxExpandedMonths = new Set();
 let _dhnqlxMonthOrders = {};
+let _qlxHolidaysSet = new Set();
+
+async function _qlxLoadHolidays() {
+    try {
+        _qlxHolidaysSet.clear();
+        const currentYear = new Date().getFullYear();
+        const res1 = await apiCall(`/api/holidays?year=${currentYear}`);
+        if (res1 && res1.holidays) {
+            res1.holidays.forEach(h => {
+                const dateStr = h.holiday_date.split('T')[0];
+                _qlxHolidaysSet.add(dateStr);
+            });
+        }
+        const res2 = await apiCall(`/api/holidays?year=${currentYear + 1}`);
+        if (res2 && res2.holidays) {
+            res2.holidays.forEach(h => {
+                const dateStr = h.holiday_date.split('T')[0];
+                _qlxHolidaysSet.add(dateStr);
+            });
+        }
+    } catch (e) {
+        console.error('Lỗi tải danh sách ngày lễ:', e);
+    }
+}
 
 async function renderDonhanghomnayqlxPage(container) {
     _dhnqlxFilter = 'xu_ly';
@@ -175,6 +199,7 @@ async function renderDonhanghomnayqlxPage(container) {
 
     await _dhnqlxLoadData();
     _dhnqlxLoadCutoffTime();
+    _qlxLoadHolidays();
 }
 
 // ===== DATA OPERATIONS =====
@@ -1084,6 +1109,32 @@ function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule) {
 }
 
 async function _qlxSubmitSetupSchedule(orderId, itemId) {
+    const validateField = (id, label) => {
+        const val = document.getElementById(id).value;
+        if (!val) return true;
+        const expDate = new Date(val);
+        if (isNaN(expDate.getTime())) {
+            showToast(`Thời gian chặng ${label} không hợp lệ`, 'error');
+            return false;
+        }
+        if (expDate.getTime() < Date.now() - 60000) {
+            showToast(`Thời gian chặng ${label} không được ở trong quá khứ`, 'error');
+            return false;
+        }
+        const vnDateStr = val.slice(0, 10);
+        if (_qlxHolidaysSet.has(vnDateStr)) {
+            showToast(`Chặng ${label}: Không được hẹn lịch vào ngày lễ (${vnDateStr})`, 'error');
+            return false;
+        }
+        return true;
+    };
+
+    if (!validateField('setupCut', 'Cắt')) return;
+    if (!validateField('setupIn', 'In')) return;
+    if (!validateField('setupEp', 'Ép')) return;
+    if (!validateField('setupMayQcHt', 'May/QC/HT')) return;
+    if (!validateField('setupGui', 'Gửi')) return;
+
     const getISOVal = id => {
         const val = document.getElementById(id).value;
         return val ? new Date(val).toISOString() : null;
@@ -1098,6 +1149,7 @@ async function _qlxSubmitSetupSchedule(orderId, itemId) {
         may_qc_ht_expected_at: getISOVal('setupMayQcHt'),
         gui_expected_at: getISOVal('setupGui')
     };
+
 
     try {
         const res = await apiCall('/api/qlx-orders/schedule', 'POST', payload);
@@ -1426,6 +1478,20 @@ async function _qlxSubmitStepReport(orderId, itemId, stepKey) {
         
         if (!expected_at) {
             showToast('Vui lòng chọn giờ dự kiến hoàn thành mới', 'error');
+            return;
+        }
+        const expDate = new Date(expected_at);
+        if (isNaN(expDate.getTime())) {
+            showToast('Thời gian dự kiến không hợp lệ', 'error');
+            return;
+        }
+        if (expDate.getTime() < Date.now() - 60000) {
+            showToast('Thời gian dự kiến không được ở trong quá khứ', 'error');
+            return;
+        }
+        const vnDateStr = expected_at.slice(0, 10);
+        if (_qlxHolidaysSet.has(vnDateStr)) {
+            showToast(`Không được hẹn lịch vào ngày lễ (${vnDateStr})`, 'error');
             return;
         }
         if (!notes) {

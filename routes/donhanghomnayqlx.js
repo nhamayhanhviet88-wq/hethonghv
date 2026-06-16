@@ -87,6 +87,34 @@ async function propagateSchedules(schedule) {
     return schedule;
 }
 
+async function validateExpectedDate(expectedAt) {
+    if (!expectedAt) return null;
+    const dateObj = new Date(expectedAt);
+    if (isNaN(dateObj.getTime())) {
+        return 'Thời gian dự kiến không hợp lệ';
+    }
+    
+    // 1. Check if past date/time (with 1 minute leeway)
+    if (dateObj.getTime() < Date.now() - 60000) {
+        return 'Thời gian dự kiến không được ở trong quá khứ';
+    }
+    
+    // 2. Check if holiday
+    const vnISO = new Date(dateObj.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const Y = vnISO.getFullYear();
+    const M = String(vnISO.getMonth() + 1).padStart(2, '0');
+    const D = String(vnISO.getDate()).padStart(2, '0');
+    const vnDate = `${Y}-${M}-${D}`;
+    
+    const isHoliday = await db.get(`SELECT 1 FROM holidays WHERE holiday_date = $1::date`, [vnDate]);
+    if (isHoliday) {
+        return `Không được hẹn lịch vào ngày lễ (${vnDate})`;
+    }
+    
+    return null;
+}
+
+
 module.exports = async function(fastify) {
     // Migrations for schedules and step reports
     try {
@@ -554,6 +582,24 @@ module.exports = async function(fastify) {
             const item_id = order_item_id ? parseInt(order_item_id) : null;
             const order_id = parseInt(dht_order_id);
 
+            const datesToValidate = [
+                { name: 'Cắt', val: cut_expected_at },
+                { name: 'In', val: in_expected_at },
+                { name: 'Ép', val: ep_expected_at },
+                { name: 'May/QC/HT', val: may_qc_ht_expected_at },
+                { name: 'Gửi Hàng', val: gui_expected_at }
+            ];
+
+            for (const item of datesToValidate) {
+                if (item.val) {
+                    const err = await validateExpectedDate(item.val);
+                    if (err) {
+                        return reply.code(400).send({ error: `Chặng ${item.name}: ${err}` });
+                    }
+                }
+            }
+
+
             // Construct raw schedule object
             let scheduleObj = {
                 cut_expected_at: cut_expected_at || null,
@@ -642,6 +688,12 @@ module.exports = async function(fastify) {
         const { dht_order_id, order_item_id, step_name, expected_at, notes, image_url } = request.body || {};
         if (!dht_order_id || !step_name) {
             return reply.code(400).send({ error: 'Thiếu dht_order_id hoặc step_name' });
+        }
+        if (expected_at && step_name !== 'on_track') {
+            const err = await validateExpectedDate(expected_at);
+            if (err) {
+                return reply.code(400).send({ error: err });
+            }
         }
         try {
             const item_id = order_item_id ? parseInt(order_item_id) : null;
