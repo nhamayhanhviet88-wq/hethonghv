@@ -366,17 +366,15 @@ function _bphtRender(){
         var nameClickAction = (r.is_completed || !isSewerAssigned || !isQcOk) ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         
-        var clickHtml = '';
-        var errHtml = '';
-        
         if (r.is_completed || (isSewerAssigned && isQcOk)) {
             clickHtml = '<button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button>';
-            errHtml = '<button class="bpht-ib'+eC+'" onclick="_bphtErr()" title="Báo lỗi">'+eI+'</button>';
         } else {
             const labelText = !isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa Kiểm Tra Chất Lượng';
             clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="' + labelText + '">' + labelText + '</div>';
-            errHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.1); color:#fca5a5; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed;" title="' + labelText + '">⬜</div>';
         }
+        errHtml = r.error_reported 
+            ? '<button class="bpht-ib on-err" disabled style="cursor:default;opacity:0.8;transform:none;box-shadow:none" title="Đã báo lỗi">⚠️</button>'
+            : '<button class="bpht-ib" onclick="_bphtOpenErrorModal(' + r.id + ')" title="Báo lỗi">⬜</button>';
 
         var completedTimeHtml = (r.is_completed || (isSewerAssigned && isQcOk)) 
             ? _bphtGetCompletedTime(r) 
@@ -1365,3 +1363,256 @@ function isMatchingStaff(enteredVal, staffList) {
     }
     return false;
 }
+
+// ========== BAO LOI MODAL (CHUNG VOI BP CAT/QC) ==========
+window._bphtErrorImages = [];
+window._bphtErrorVideo = null;
+window._bphtSubmitBusy = false;
+window._bphtBusy = false;
+window._bphtPasteHandler = null;
+
+async function _bphtOpenErrorModal(recordId) {
+    if (window._bphtBusy) return;
+    window._bphtBusy = true;
+
+    try {
+        var r = _bpht.records.find(function(x) { return x.id === recordId; });
+        if (!r) { showToast('Không tìm thấy đơn hoàn thiện', 'error'); window._bphtBusy = false; return; }
+
+        var commonErrors = [];
+        try {
+            var ce = await apiCall('/api/common-errors-tpl');
+            commonErrors = ce.items || [];
+        } catch(e) { console.error(e); }
+
+        var old = document.getElementById('_bphtErrorModal'); if (old) old.remove();
+
+        var finisherName = window.currentUser ? window.currentUser.full_name : 'Thợ hoàn thiện';
+        var reporterName = 'Người Báo Lỗi: Bộ Phận Cắt Chỉ & Hoàn Thiện - ' + finisherName;
+        var saleName = r.cskh_name || '—';
+
+        window._bphtErrorImages = [];
+        window._bphtErrorVideo = null;
+
+        var h = '<div class="bpc-modal-overlay show" id="_bphtErrorModal" onclick="if(event.target===this)_bphtCloseErrorModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;overflow-y:auto">';
+        h += '<div class="bpc-modal" style="width:520px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;margin-bottom:40px;">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px;"><div class="m-icon" style="font-size:24px">🚨</div><div><div class="m-title" style="font-weight:800;font-size:16px;line-height:1.2">BÁO ĐƠN LỖI</div><div class="m-sub" style="font-size:12px;opacity:0.9;margin-top:2px">' + (r.order_code || '') + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:20px;display:flex;flex-direction:column;gap:14px;color:#334155">';
+
+        h += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">📋 Mã Đơn</span><span style="font-weight:700;color:#1e3a8a">' + (r.order_code || '—') + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">👤 Khách Hàng</span><span style="font-weight:700;color:#1e293b">' + (r.customer_name || '—') + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">💼 CSKH</span><span style="font-weight:700;color:#1e293b">' + saleName + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">📦 SL Sản Xuất</span><span style="font-weight:700;color:#059669">' + (r.quantity || 0) + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:4px;"><span style="color:#64748b;font-weight:600;">✍️ Người Báo Lỗi</span><span style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp (Nếu có)</label>';
+        h += '<select id="bphtE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;outline:none;">';
+        h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
+        commonErrors.forEach(function(ce){
+            h += '<option value="' + ce.error_name + '">' + ce.error_name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
+        h += '<input type="number" id="bphtE_qty" min="1" max="' + (r.quantity || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626;outline:none;" placeholder="Nhập số lượng lỗi...">';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
+        h += '<textarea id="bphtE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit;outline:none;" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div style="border:1.5px dashed #7c3aed;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(124,58,237,0.03);color:#7c3aed;font-size:13px;font-weight:700;">';
+        h += '    Bấm <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> tại bất kỳ đâu trên trang này để dán ảnh';
+        h += '</div>';
+        h += '<div id="bphtE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="bphtE_video" accept="video/*" style="font-size:11px;width:100%" onchange="_bphtUploadErrorVideo(event)">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="bpc-modal-actions" style="margin-top:0;padding:16px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;border-radius:0 0 16px 16px;">';
+        h += '<button class="bpc-modal-btn cancel" onclick="_bphtCloseErrorModal()" style="padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Hủy</button>';
+        h += '<button class="bpc-modal-btn confirm" id="_bphtErrorSubmitBtn" style="padding:10px 24px;border:none;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" onclick="_bphtSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+
+        _bphtSetupPasteListener();
+        window._bphtBusy = false;
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        window._bphtBusy = false;
+    }
+}
+
+function _bphtCloseErrorModal() {
+    var m = document.getElementById('_bphtErrorModal');
+    if (m) { m.remove(); }
+    if (window._bphtPasteHandler) {
+        window.removeEventListener('paste', window._bphtPasteHandler);
+        window._bphtPasteHandler = null;
+    }
+}
+
+function _bphtCompressImage(file, callback) {
+    if (!file.type.startsWith('image/')) {
+        callback(null);
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxW = 800, maxH = 800;
+            var w = img.width, h = img.height;
+            if (w > h) {
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+            } else {
+                if (h > maxH) { w = Math.round((w * maxH) / h); h = maxH; }
+            }
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            callback(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function _bphtAddErrorImage(file) {
+    _bphtCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._bphtErrorImages.push(compressed);
+        _bphtRenderErrorImagePreviews();
+    });
+}
+
+function _bphtRenderErrorImagePreviews() {
+    var area = document.getElementById('bphtE_previews');
+    if (!area) return;
+    var h = '';
+    window._bphtErrorImages.forEach(function(imgData, index) {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1">';
+        h += '<span onclick="_bphtRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function _bphtRemoveErrorImage(index) {
+    window._bphtErrorImages.splice(index, 1);
+    _bphtRenderErrorImagePreviews();
+}
+
+function _bphtSetupPasteListener() {
+    if (window._bphtPasteHandler) {
+        window.removeEventListener('paste', window._bphtPasteHandler);
+    }
+    window._bphtPasteHandler = function(e) {
+        if (!document.getElementById('_bphtErrorModal')) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                var blob = items[i].getAsFile();
+                _bphtAddErrorImage(blob);
+            }
+        }
+    };
+    window.addEventListener('paste', window._bphtPasteHandler);
+}
+
+function _bphtUploadErrorVideo(event) {
+    const file = event.target.files[0];
+    if (file) {
+        window._bphtErrorVideo = file;
+    } else {
+        window._bphtErrorVideo = null;
+    }
+}
+
+async function _bphtSubmitError(recordId) {
+    if (window._bphtSubmitBusy) return;
+
+    var qtyEl = document.getElementById('bphtE_qty');
+    var qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { showToast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    var contentEl = document.getElementById('bphtE_content');
+    var content = contentEl.value.trim();
+    if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._bphtErrorImages || window._bphtErrorImages.length === 0) {
+        showToast('Vui lòng dán hoặc chọn ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
+
+    window._bphtSubmitBusy = true;
+    var btn = document.getElementById('_bphtErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        var r = _bpht.records.find(function(x) { return x.id === recordId; });
+        if (!r) { throw new Error('Không tìm thấy record gốc'); }
+
+        var today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            var n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+        }
+
+        var body = {
+            report_date: today,
+            common_error_type: document.getElementById('bphtE_common') ? document.getElementById('bphtE_common').value : '',
+            order_code: r.order_code,
+            cskh_name: r.cskh_name || '',
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: r.dht_order_id,
+            customer_name: r.customer_name,
+            production_quantity: r.quantity,
+            error_department: null,
+            error_type: 'Nội Bộ'
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { throw new Error(result.error); }
+
+        if (window._bphtErrorImages && window._bphtErrorImages.length > 0 && result.id) {
+            var fd = new FormData();
+            window._bphtErrorImages.forEach(function(imgData, index) {
+                var blob = dataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        if (window._bphtErrorVideo && result.id) {
+            var fdv = new FormData();
+            fdv.append('video', window._bphtErrorVideo);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
+        }
+
+        // Action report_error toggle finishing_records
+        await apiCall('/api/finishing/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+        showToast('✅ Đã báo đơn lỗi thành công!');
+        _bphtCloseErrorModal();
+        await _bphtLoadAll();
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._bphtSubmitBusy = false;
+    }
+}
+

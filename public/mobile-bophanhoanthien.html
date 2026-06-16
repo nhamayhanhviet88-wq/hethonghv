@@ -276,6 +276,24 @@
         .m-page-btn:active {
             background: rgba(255,255,255,0.15);
         }
+        .mm-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:99900;display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .25s ease}
+        .mm-overlay.show{opacity:1}
+        .mm-sheet{background:#1e293b;border-radius:20px 20px 0 0;width:100%;max-height:85vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(0.34,1.56,0.64,1)}
+        .mm-overlay.show .mm-sheet{transform:translateY(0)}
+        .mm-header{background:linear-gradient(135deg,#7c3aed,#9333ea);padding:18px 20px;display:flex;align-items:center;gap:12px;border-radius:20px 20px 0 0}
+        .mm-header .mm-icon{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
+        .mm-header .mm-title{font-size:16px;font-weight:800;color:#fff}
+        .mm-header .mm-sub{font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px}
+        .mm-body{padding:16px 20px}
+        .mm-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+        .mm-row:last-child{border-bottom:none}
+        .mm-lbl{font-size:12px;color:#94a3b8;font-weight:600}
+        .mm-val{font-size:13px;color:#e2e8f0;font-weight:700;text-align:right;max-width:60%}
+        .mm-actions{display:flex;gap:10px;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.06)}
+        .mm-btn{flex:1;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+        .mm-btn-ok{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;box-shadow:0 4px 15px rgba(124,58,237,0.3)}
+        .mm-btn-ok:active{transform:scale(0.97)}
+        .mm-btn-no{background:rgba(255,255,255,0.08);color:#94a3b8}
     </style>
 </head>
 <body>
@@ -897,12 +915,14 @@ const isSewerAssigned = !!(r.sewer_name && r.sewer_name.trim() && !r.sewer_name.
 const isQcOk = (r.is_qc_checked !== 0);
 let actionButtonsHtml = '';
 if (r.is_completed || (isSewerAssigned && isQcOk)) {
-    actionButtonsHtml = (r.is_completed ? '<button class="ab" onclick="mOpenCompleteModal('+r.id+', true)" style="border-color:#34d399; background:rgba(16, 185, 129, 0.05); color:#34d399;"><span class="ai">👁️</span><span class="al">XEM HOÀN THÀNH</span></button>' : '<button class="ab" onclick="mTog('+r.id+',\''+cA+'\')"><span class="ai">✅</span><span class="al">HOÀN THÀNH</span></button>')
-        + '<button class="ab'+(r.error_reported?' on':'')+'" onclick="mErr()"><span class="ai">⚠️</span><span class="al">BÁO LỖI</span></button>';
+    actionButtonsHtml = (r.is_completed ? '<button class="ab" onclick="mOpenCompleteModal('+r.id+', true)" style="border-color:#34d399; background:rgba(16, 185, 129, 0.05); color:#34d399;"><span class="ai">👁️</span><span class="al">XEM HOÀN THÀNH</span></button>' : '<button class="ab" onclick="mTog('+r.id+',\''+cA+'\')"><span class="ai">✅</span><span class="al">HOÀN THÀNH</span></button>');
 } else {
     const bannerText = !isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa kiểm tra chất lượng';
-    actionButtonsHtml = '<div style="grid-column: span 2; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">' + bannerText + '</div>';
+    actionButtonsHtml = '<div style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">' + bannerText + '</div>';
 }
+actionButtonsHtml += r.error_reported 
+    ? '<button class="ab on" disabled style="opacity:0.8;transform:none;"><span class="ai">⚠️</span><span class="al">ĐÃ BÁO LỖI</span></button>'
+    : '<button class="ab" onclick="mOpenErrorModal(' + r.id + ')"><span class="ai">⬜</span><span class="al">BÁO LỖI</span></button>';
 
 const tabInfo = getRecordTabInfo(r);
 const tabBadgeHtml = (sv && tabInfo) ? `<span class="bd" style="${tabInfo.style} font-size:10px; padding:2px 8px; border-radius:6px; margin-left:auto; font-weight:800; white-space:nowrap;">${tabInfo.name.toUpperCase()}</span>` : '';
@@ -1573,7 +1593,236 @@ async function mLoadHoanThienReminders(r) {
     }
 }
 
-function mErr(){location.href='/donloikhachhang'}
+function mmCompressImage(file, callback) {
+    if (!file.type.startsWith('image/')) {
+        callback(null);
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let maxW = 800, maxH = 800;
+            let w = img.width, h = img.height;
+            if (w > h) {
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+            } else {
+                if (h > maxH) { w = Math.round((w * maxH) / h); h = maxH; }
+            }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            callback(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function mDataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
+window._mmErrorImages = [];
+window._mmErrorVideo = null;
+window._mmSubmitBusy = false;
+
+async function mOpenErrorModal(recordId) {
+    try {
+        const rec = mr.find(x => x.id === recordId);
+        if (!rec) { toast('Không tìm thấy đơn hàng!', 'error'); return; }
+
+        const ce = await api('/api/common-errors-tpl');
+        const commonErrors = ce.items || [];
+
+        const old = document.getElementById('_mmErrorModal'); if (old) old.remove();
+
+        const finisherName = cu ? cu.full_name : 'Thợ hoàn thiện';
+        const reporterName = 'Người Báo Lỗi: Bộ Phận Cắt Chỉ & Hoàn Thiện - ' + finisherName;
+        const saleName = rec.cskh_name || '—';
+
+        window._mmErrorImages = [];
+        window._mmErrorVideo = null;
+
+        let h = '<div class="mm-overlay" id="_mmErrorModal" onclick="if(event.target===this)mCloseErrorModal()">';
+        h += '<div class="mm-sheet" style="max-height:85vh;overflow-y:auto">';
+        h += '<div class="mm-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea)"><div class="mm-icon">🚨</div><div><div class="mm-title">BÁO ĐƠN LỖI</div><div class="mm-sub">' + (rec.order_code || '') + '</div></div></div>';
+        h += '<div class="mm-body" style="font-family:Inter,sans-serif">';
+
+        h += '<div class="mm-row"><span class="mm-lbl">📋 Mã Đơn</span><span class="mm-val" style="font-weight:700">' + (rec.order_code || '—') + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">👤 Khách Hàng</span><span class="mm-val" style="font-weight:700">' + (rec.customer_name || '—') + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">💼 CSKH</span><span class="mm-val" style="font-weight:700">' + saleName + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">📦 SL Sản Xuất</span><span class="mm-val" style="font-weight:700;color:#10b981">' + (rec.quantity || 0) + '</span></div>';
+        h += '<div class="mm-row"><span class="mm-lbl">✍️ Người Báo Lỗi</span><span class="mm-val" style="font-weight:700;color:#c084fc">' + reporterName + '</span></div>';
+
+        h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp</label>';
+        h += '<select id="mmE_common" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit;outline:none;">';
+        h += '<option value="" style="color:#000">-- Chọn loại lỗi (nếu có) --</option>';
+        commonErrors.forEach(function(ce){
+            h += '<option value="' + ce.error_name + '" style="color:#000">' + ce.error_name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#ef4444;text-transform:uppercase;margin-bottom:6px">Số Lượng Lỗi <span style="color:#f87171">*</span></label>';
+        h += '<input type="number" id="mmE_qty" min="1" max="' + (rec.quantity || 9999) + '" value="" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:14px;font-weight:800;color:#f87171;background:#1e1b4b" placeholder="Nhập số lượng lỗi...">';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#ef4444;text-transform:uppercase;margin-bottom:6px">Nội Dung Chi Tiết <span style="color:#f87171">*</span></label>';
+        h += '<textarea id="mmE_content" rows="3" style="width:100%;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:#e2e8f0;background:#1e1b4b;font-family:inherit" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#ef4444;text-transform:uppercase;margin-bottom:6px">📷 Hình Ảnh Minh Họa <span style="color:#f87171">*</span></label>';
+        h += '<div id="mmE_paste_zone" style="border:2px dashed #7c3aed;border-radius:10px;padding:16px;text-align:center;background:rgba(124,58,237,0.1);cursor:pointer;margin-bottom:8px;" onclick="document.getElementById(\'mmE_images\').click()">';
+        h += '    <div style="font-size:20px;margin-bottom:4px">📸</div>';
+        h += '    <div style="font-size:12px;font-weight:700;color:#c084fc">Chạm để chụp ảnh</div>';
+        h += '</div>';
+        h += '<input type="file" id="mmE_images" accept="image/*" style="display:none" onchange="mmOnErrorImagesChange(event)">';
+        h += '<div id="mmE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>';
+        h += '</div>';
+
+        h += '<div style="margin-top:12px"><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="mmE_video" accept="video/*" style="font-size:12px;width:100%;color:#e2e8f0" onchange="mmOnErrorVideoChange(event)">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="mm-actions">';
+        h += '<button class="mm-btn mm-btn-no" onclick="mCloseErrorModal()">Hủy</button>';
+        h += '<button class="mm-btn mm-btn-ok" id="_mmErrorSubmitBtn" style="background:linear-gradient(135deg,#7c3aed,#9333ea)" onclick="mSubmitError(' + recordId + ')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+        requestAnimationFrame(() => document.getElementById('_mmErrorModal').classList.add('show'));
+    } catch(e) {
+        toast('Lỗi: ' + e.message, 'error');
+    }
+}
+
+function mCloseErrorModal() {
+    const m = document.getElementById('_mmErrorModal');
+    if (m) { m.classList.remove('show'); setTimeout(() => m.remove(), 300); }
+}
+
+function mmOnErrorImagesChange(e) {
+    const files = e.target.files;
+    for (let i = 0; i < files.length; i++) {
+        mmAddErrorImage(files[i]);
+    }
+    e.target.value = '';
+}
+
+function mmOnErrorVideoChange(e) {
+    const file = e.target.files[0];
+    if (file) {
+        window._mmErrorVideo = file;
+    } else {
+        window._mmErrorVideo = null;
+    }
+}
+
+function mmAddErrorImage(file) {
+    mmCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._mmErrorImages.push(compressed);
+        mmRenderErrorImagePreviews();
+    });
+}
+
+function mmRenderErrorImagePreviews() {
+    const area = document.getElementById('mmE_previews');
+    if (!area) return;
+    let h = '';
+    window._mmErrorImages.forEach((imgData, index) => {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15)">';
+        h += '<span onclick="mmRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.4)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function mmRemoveErrorImage(index) {
+    window._mmErrorImages.splice(index, 1);
+    mmRenderErrorImagePreviews();
+}
+
+async function mSubmitError(recordId) {
+    if (window._mmSubmitBusy) return;
+
+    const qtyEl = document.getElementById('mmE_qty');
+    const qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { toast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    const contentEl = document.getElementById('mmE_content');
+    const content = contentEl.value.trim();
+    if (!content) { toast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._mmErrorImages || window._mmErrorImages.length === 0) {
+        toast('Vui lòng chụp hoặc chọn ít nhất 1 hình ảnh minh họa!', 'error');
+        return;
+    }
+
+    window._mmSubmitBusy = true;
+    const btn = document.getElementById('_mmErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
+    try {
+        const rec = mr.find(x => x.id === recordId);
+        if (!rec) throw new Error('Không tìm thấy record gốc');
+
+        let today = new Date().toISOString().split('T')[0];
+
+        const body = {
+            report_date: today,
+            common_error_type: document.getElementById('mmE_common') ? document.getElementById('mmE_common').value : '',
+            order_code: rec.order_code,
+            cskh_name: rec.cskh_name || '',
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: rec.dht_order_id,
+            customer_name: rec.customer_name,
+            production_quantity: rec.quantity,
+            error_department: null,
+            error_type: 'Nội Bộ'
+        };
+
+        const result = await api('/api/customer-errors', 'POST', body);
+        if (result.error) throw new Error(result.error);
+
+        if (window._mmErrorImages && window._mmErrorImages.length > 0 && result.id) {
+            const fd = new FormData();
+            window._mmErrorImages.forEach((imgData, index) => {
+                const blob = mDataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd, credentials: 'include' });
+        }
+
+        if (window._mmErrorVideo && result.id) {
+            const fdv = new FormData();
+            fdv.append('video', window._mmErrorVideo);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv, credentials: 'include' });
+        }
+
+        await api('/api/finishing/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+
+        toast('✅ Đã báo đơn lỗi thành công!');
+        mCloseErrorModal();
+        await mLoad();
+    } catch(e) {
+        toast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._mmSubmitBusy = false;
+    }
+}
 
 function removeVietnameseTones(str) {
     if (!str) return '';

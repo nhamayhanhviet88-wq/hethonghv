@@ -177,6 +177,7 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (fr.product_name ILIKE $${idx} OR fr.cskh_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT fr.*, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code,
+                   o.customer_name, cat.name AS category_name,
                    o.expected_ship_date, o.standard_delivery_time,
                    sr.contractor_id, sr.sewing_team_id, sr.order_item_id,
                    (CASE 
@@ -198,7 +199,9 @@ module.exports = async function(fastify) {
             FROM finishing_records fr 
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             LEFT JOIN users u ON fr.finisher_id=u.id
-            LEFT JOIN users u_c ON fr.completed_by=u_c.id LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
+            LEFT JOIN users u_c ON fr.completed_by=u_c.id 
+            LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
+            LEFT JOIN dht_categories cat ON o.category_id=cat.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM finishing_history h WHERE h.finishing_id=fr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where}
