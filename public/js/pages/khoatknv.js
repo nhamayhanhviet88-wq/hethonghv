@@ -99,7 +99,8 @@ async function _penaltyLoadConfig() {
             { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay'] },
             { title: '⏰ KH Chưa Xử Lý Trễ', icon: '⏰', keys: ['kh_chua_xu_ly_tre'] },
             { title: '📦 Gửi Hàng Trễ', icon: '📦', keys: ['gui_hang_tre'] },
-            { title: '📋 Phiếu QLX', icon: '📋', keys: ['phieu_qlx_qua_han'] }
+            { title: '📋 Phiếu QLX', icon: '📋', keys: ['phieu_qlx_qua_han'] },
+            { title: '🏭 Quản Lý Xưởng', icon: '🏭', keys: ['phat_qlx_tre_don_hom_nay', 'qlx_cutoff_time'] }
         ];
 
         const configMap = {};
@@ -115,22 +116,42 @@ async function _penaltyLoadConfig() {
                 // Default labels cho keys chưa có trong DB
                 const DEFAULT_LABELS = {
                     phieu_qlx_qua_han: 'QLX không xử lý',
-                    gui_hang_tre: 'KT chưa gửi đơn hôm nay'
+                    gui_hang_tre: 'KT chưa gửi đơn hôm nay',
+                    phat_qlx_tre_don_hom_nay: 'QLX chưa hoàn thành đơn hàng hôm nay',
+                    qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng'
                 };
-                const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : 0);
+                const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : (key === 'phat_qlx_tre_don_hom_nay' ? 100000 : (key === 'qlx_cutoff_time' ? 1080 : 0)));
                 const rawLabel = cfg ? cfg.label : (DEFAULT_LABELS[key] || key);
                 // Short label (remove category prefix)
                 const shortLabel = rawLabel.replace(/^[^—]+—\s*/, '');
-                html += `<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:white;gap:12px;">
-                    <div style="flex:1;font-size:13px;color:#334155;font-weight:600;">${shortLabel}${!cfg ? ' <span style="color:#f59e0b;font-size:10px;">(mới)</span>' : ''}</div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <input type="number" class="gpc-input" data-key="${key}" value="${amount}" min="0" step="10000"
-                               style="width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#dc2626;"
-                               onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'"
-                               onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
-                        <span style="font-size:12px;color:#9ca3af;font-weight:600;">đ</span>
-                    </div>
-                </div>`;
+
+                if (key === 'qlx_cutoff_time') {
+                    const totalMins = amount || 1080;
+                    const hrs = Math.floor(totalMins / 60);
+                    const mins = totalMins % 60;
+                    const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+                    html += `<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:white;gap:12px;">
+                        <div style="flex:1;font-size:13px;color:#334155;font-weight:600;">${shortLabel}${!cfg ? ' <span style="color:#f59e0b;font-size:10px;">(mới)</span>' : ''}</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="time" class="gpc-input-time" data-key="${key}" value="${timeStr}"
+                                   style="width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#2563eb;"
+                                   onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'"
+                                   onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+                        </div>
+                    </div>`;
+                } else {
+                    html += `<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:white;gap:12px;">
+                        <div style="flex:1;font-size:13px;color:#334155;font-weight:600;">${shortLabel}${!cfg ? ' <span style="color:#f59e0b;font-size:10px;">(mới)</span>' : ''}</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" class="gpc-input" data-key="${key}" value="${amount}" min="0" step="10000"
+                                   style="width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#dc2626;"
+                                   onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'"
+                                   onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+                            <span style="font-size:12px;color:#9ca3af;font-weight:600;">đ</span>
+                        </div>
+                    </div>`;
+                }
             });
 
             html += '</div>';
@@ -144,9 +165,16 @@ async function _penaltyLoadConfig() {
 
 async function _penaltySaveConfig() {
     const inputs = document.querySelectorAll('.gpc-input');
+    const timeInputs = document.querySelectorAll('.gpc-input-time');
     const configs = [];
     inputs.forEach(inp => {
         configs.push({ key: inp.dataset.key, amount: Number(inp.value) || 0 });
+    });
+    timeInputs.forEach(inp => {
+        const val = inp.value || '18:00';
+        const parts = val.split(':');
+        const minutes = (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0);
+        configs.push({ key: inp.dataset.key, amount: minutes });
     });
 
     try {

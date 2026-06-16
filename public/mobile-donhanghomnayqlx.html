@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Đơn Hàng Hôm Nay QLX — Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-webkit-tap-highlight-color:transparent}
+.header{background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;padding:16px 16px 20px;position:sticky;top:0;z-index:10}
+.header h1{font-size:17px;font-weight:900;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.search-box{position:relative}
+.search-box input{width:100%;padding:12px 16px 12px 40px;border:none;border-radius:12px;font-size:15px;font-weight:600;background:rgba(255,255,255,.15);color:white;outline:none}
+.search-box input::placeholder{color:rgba(255,255,255,.6)}
+.search-box .icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px}
+
+.tabs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px 0}
+.tab-card{background:white;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04);border:1.5px solid transparent;transition:all .2s;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.tab-card:active{transform:scale(0.97)}
+.tab-card.active{border-color:#4f46e5 !important;box-shadow:0 4px 12px rgba(79,70,229,0.15)}
+.tab-card .num{font-size:22px;font-weight:900}
+.tab-card .lbl{font-size:10px;font-weight:800;color:#64748b;margin-top:2px}
+
+.results{padding:8px 16px 80px}
+.results-count{font-size:12px;font-weight:700;color:#64748b;margin:12px 0 8px}
+.order-card{background:white;border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 2px 12px rgba(0,0,0,.04);border:1px solid #e5e7eb;transition:all .2s}
+.oc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.oc-code{font-size:15px;font-weight:900;color:#1e1b4b}
+.oc-prio{display:inline-block;padding:2.5px 7px;border-radius:6px;font-size:9px;font-weight:800;margin-left:4px;vertical-align:middle}
+.oc-prio-gap{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+.oc-prio-gui{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd}
+.oc-prio-chuan{background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe}
+
+.oc-customer{font-size:13px;font-weight:700;margin-top:6px;color:#1e293b;}
+.oc-phone{font-size:11px;color:#6b7280;font-family:monospace;margin-top:2px;}
+.oc-details{margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:12px;color:#475569;}
+.oc-date{font-size:12px;font-weight:600;color:#0f172a;margin-top:8px;display:flex;justify-content:space-between;align-items:center;}
+.oc-note{font-size:11px;color:#64748b;margin-top:6px;background:#f8fafc;padding:6px 10px;border-radius:8px;border-left:3px solid #cbd5e1;}
+
+.oc-actions{display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;}
+.m-btn{padding:8px 4px;border:1px solid transparent;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:center;transition:all 0.15s;}
+.m-btn:active{transform:scale(0.95);}
+.m-btn-blue{background:#eff6ff;color:#2563eb;border-color:#bfdbfe;}
+.m-btn-green{background:#ecfdf5;color:#059669;border-color:#a7f3d0;}
+.m-btn-yellow{background:#fffbeb;color:#d97706;border-color:#fde68a;}
+.m-btn-gray{background:#f9fafb;color:#4b5563;border-color:#e5e7eb;}
+
+/* Modal styles for mobile touch targets */
+.m-modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:mFadeIn 0.2s ease-out;}
+.m-modal{background:white;width:100%;max-width:500px;border-radius:20px 20px 0 0;padding:24px 20px 32px;box-shadow:0 -10px 25px rgba(0,0,0,0.1);animation:mSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);}
+.m-modal-title{font-size:16px;font-weight:800;color:#1f2937;margin-bottom:16px;display:flex;align-items:center;gap:6px;}
+.m-modal-label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;margin-top:12px;}
+.m-modal-input{width:100%;padding:12px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;font-weight:600;font-family:inherit;}
+.m-modal-input:focus{border-color:#4f46e5;}
+.m-modal-textarea{width:100%;padding:12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;outline:none;min-height:80px;font-family:inherit;}
+.m-modal-actions{display:flex;gap:10px;margin-top:20px;}
+.m-modal-btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;}
+.m-modal-btn-cancel{background:#f3f4f6;color:#374151;}
+.m-modal-btn-confirm{background:#4f46e5;color:white;}
+
+.toast-container{position:fixed;bottom:20px;left:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px;}
+.toast{background:#1e293b;color:white;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);display:flex;align-items:center;gap:8px;animation:mSlideUp 0.2s ease;}
+
+@keyframes mFadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes mSlideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.empty{text-align:center;padding:60px 20px;color:#9ca3af}
+.empty .icon{font-size:48px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>🏭 ĐƠN HÀNG HÔM NAY QLX</h1>
+    <div class="search-box">
+        <span class="icon">🔎</span>
+        <input id="mSearch" placeholder="Mã đơn, SĐT, tên KH..." autocomplete="off">
+    </div>
+</div>
+
+<div class="tabs-grid">
+    <div onclick="setFilter('xu_ly')" class="tab-card active" id="tab_xu_ly" style="border-color:#dc2626;">
+        <span class="num" id="cnt_xu_ly" style="color:#dc2626;">0</span>
+        <span class="lbl">CẦN XỬ LÝ</span>
+    </div>
+    <div onclick="setFilter('som')" class="tab-card" id="tab_som">
+        <span class="num" id="cnt_som" style="color:#3b82f6;">0</span>
+        <span class="lbl">ĐƠN HÀNG SỚM</span>
+    </div>
+    <div onclick="setFilter('hen_lai')" class="tab-card" id="tab_hen_lai">
+        <span class="num" id="cnt_hen_lai" style="color:#d97706;">0</span>
+        <span class="lbl">ĐƠN HẸN LẠI</span>
+    </div>
+    <div onclick="setFilter('hoan_thanh')" class="tab-card" id="tab_hoan_thanh">
+        <span class="num" id="cnt_hoan_thanh" style="color:#059669;">0</span>
+        <span class="lbl">HOÀN THÀNH</span>
+    </div>
+</div>
+
+<div class="results" id="mResults">
+    <div class="empty"><div class="icon">⏳</div>Đang tải...</div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let _filter = 'xu_ly';
+let _search = '';
+let _data = { som: [], xu_ly: [], hen_lai: [], hoan_thanh: [] };
+let _counts = { som: 0, xu_ly: 0, hen_lai: 0, hoan_thanh: 0 };
+
+async function api(url, method = 'GET', body = null) {
+    const options = { method, credentials: 'include' };
+    if (body) {
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify(body);
+    }
+    const r = await fetch(url, options);
+    if (!r.ok) {
+        const errorData = await r.json().catch(() => ({}));
+        throw new Error(errorData.error || 'API error');
+    }
+    return r.json();
+}
+
+function showToast(msg, type = 'success') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
+
+async function load() {
+    try {
+        const res = await api('/api/qlx-orders/today-summary');
+        if (res && res.tabs) {
+            _data.som = res.tabs.som.orders || [];
+            _data.xu_ly = res.tabs.xu_ly.orders || [];
+            _data.hen_lai = res.tabs.hen_lai.orders || [];
+            _data.hoan_thanh = res.tabs.hoan_thanh.orders || [];
+
+            _counts.som = res.tabs.som.count || 0;
+            _counts.xu_ly = res.tabs.xu_ly.count || 0;
+            _counts.hen_lai = res.tabs.hen_lai.count || 0;
+            _counts.hoan_thanh = res.tabs.hoan_thanh.count || 0;
+        }
+        updateTabsUI();
+        render();
+    } catch(e) {
+        document.getElementById('mResults').innerHTML = `<div class="empty"><div class="icon">❌</div>Lỗi tải dữ liệu: ${e.message}</div>`;
+    }
+}
+
+function updateTabsUI() {
+    const tabs = ['xu_ly', 'som', 'hen_lai', 'hoan_thanh'];
+    const colors = { xu_ly: '#dc2626', som: '#3b82f6', hen_lai: '#d97706', hoan_thanh: '#059669' };
+    
+    tabs.forEach(t => {
+        const card = document.getElementById('tab_' + t);
+        const num = document.getElementById('cnt_' + t);
+        num.textContent = _counts[t];
+        if (t === _filter) {
+            card.className = 'tab-card active';
+            card.style.borderColor = colors[t];
+        } else {
+            card.className = 'tab-card';
+            card.style.borderColor = 'transparent';
+        }
+    });
+}
+
+function setFilter(key) {
+    _filter = key;
+    updateTabsUI();
+    render();
+}
+
+function render() {
+    const container = document.getElementById('mResults');
+    let orders = _data[_filter] || [];
+
+    if (_search) {
+        orders = orders.filter(o => 
+            (o.order_code || '').toLowerCase().includes(_search) ||
+            (o.customer_name || '').toLowerCase().includes(_search) ||
+            (o.customer_phone || '').toLowerCase().includes(_search)
+        );
+    }
+
+    if (orders.length === 0) {
+        container.innerHTML = '<div class="empty"><div class="icon">📭</div>Không tìm thấy đơn hàng</div>';
+        return;
+    }
+
+    let html = `<div class="results-count">Hiển thị ${orders.length} đơn hàng</div>`;
+    orders.forEach(o => {
+        const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        let prioClass = 'oc-prio-chuan';
+        if (prio === 'GẤP') prioClass = 'oc-prio-gap';
+        else if (prio === 'GỬI') prioClass = 'oc-prio-gui';
+
+        const expectedDateStr = o.qlx_expected_date_fmt || o.expected_ship_date_fmt || '—';
+        const expectedHourStr = o.qlx_expected_hour || '—';
+
+        let actionButtons = '';
+        if (_filter !== 'hoan_thanh') {
+            actionButtons += `
+                <button onclick="showExpectedTimeModal(${o.id}, '${o.order_code}')" class="m-btn m-btn-blue">⏱ <span>Báo giờ</span></button>
+                <button onclick="confirmComplete(${o.id}, '${o.order_code}')" class="m-btn m-btn-green">✅ <span>Xong</span></button>
+                <button onclick="showRescheduleModal(${o.id}, '${o.order_code}')" class="m-btn m-btn-yellow">📅 <span>Hẹn lại</span></button>
+            `;
+        }
+        actionButtons += `<button onclick="showLogsModal(${o.id}, '${o.order_code}')" class="m-btn m-btn-gray">📜 <span>Lịch sử</span></button>`;
+
+        let statusNote = '';
+        if (o.qlx_rescheduled_date) {
+            statusNote = `<div class="oc-note" style="border-color:#d97706; color:#b45309;">
+                <b>Lịch hẹn mới:</b> ${o.qlx_rescheduled_date_fmt}<br/>
+                <b>Lý do:</b> ${o.qlx_rescheduled_reason || ''}
+            </div>`;
+        } else if (o.qlx_actual_output_at) {
+            statusNote = `<div class="oc-note" style="border-color:#059669; color:#047857;">
+                <b>Sản xuất xong:</b> ${o.qlx_actual_output_at_fmt}
+            </div>`;
+        }
+
+        html += `
+            <div class="order-card">
+                <div class="oc-top">
+                    <span class="oc-code">${o.order_code}<span class="oc-prio ${prioClass}">${prio}</span></span>
+                    <span style="font-size:11px;color:#94a3b8;font-weight:700;">${o.category_name || '—'}</span>
+                </div>
+                <div class="oc-customer">${o.customer_name || '—'}</div>
+                <div class="oc-phone">${o.customer_phone || '—'}</div>
+                <div class="oc-details">
+                    <span>Số lượng: <b>${o.total_quantity || 0}</b></span>
+                </div>
+                <div class="oc-date">
+                    <span>📅 Dự kiến: <b>${expectedDateStr}</b></span>
+                    <span>⏱ Giờ: <b>${expectedHourStr}</b></span>
+                </div>
+                ${statusNote}
+                ${o.notes ? `<div class="oc-note"><b>Ghi chú:</b> ${o.notes}</div>` : ''}
+                <div class="oc-actions">
+                    ${actionButtons}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// ===== DIALOG MODALS FOR MOBILE =====
+function createModal(title, fieldsHtml, onConfirm) {
+    document.getElementById('mModalOverlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'm-modal-overlay';
+    overlay.id = 'mModalOverlay';
+    
+    overlay.innerHTML = `
+        <div class="m-modal">
+            <div class="m-modal-title">${title}</div>
+            <div>${fieldsHtml}</div>
+            <div class="m-modal-actions">
+                <button class="m-modal-btn m-modal-btn-cancel" onclick="document.getElementById('mModalOverlay').remove()">HỦY</button>
+                <button class="m-modal-btn m-modal-btn-confirm" id="mModalConfirmBtn">XÁC NHẬN</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.getElementById('mModalConfirmBtn').addEventListener('click', onConfirm);
+}
+
+function showExpectedTimeModal(orderId, orderCode) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const fields = `
+        <div style="font-size:13px;margin-bottom:10px;">Báo giờ ra cho đơn hàng <b style="color:#2563eb;">${orderCode}</b></div>
+        <label class="m-modal-label">Ngày dự kiến ra đơn:</label>
+        <input type="date" id="mExpectedDate" class="m-modal-input" value="${todayStr}">
+        <label class="m-modal-label">Giờ dự kiến (ví dụ: 17:00):</label>
+        <input type="time" id="mExpectedHour" class="m-modal-input" value="17:00">
+    `;
+
+    createModal('⏱ BÁO GIỜ RA ĐƠN', fields, async () => {
+        const qlx_expected_date = document.getElementById('mExpectedDate').value;
+        const qlx_expected_hour = document.getElementById('mExpectedHour').value;
+        
+        if (!qlx_expected_date || !qlx_expected_hour) {
+            showToast('Vui lòng nhập đầy đủ ngày và giờ', 'error');
+            return;
+        }
+
+        try {
+            const res = await api(`/api/qlx-orders/${orderId}/expected-time`, 'POST', { qlx_expected_date, qlx_expected_hour });
+            if (res.success) {
+                showToast('Báo giờ thành công!');
+                document.getElementById('mModalOverlay').remove();
+                load();
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+    });
+}
+
+function confirmComplete(orderId, orderCode) {
+    const fields = `
+        <div style="font-size:14px;text-align:center;padding:10px 0;">
+            Bạn có chắc chắn đã sản xuất hoàn thành đơn hàng <b>${orderCode}</b>?<br/>
+            Đơn hàng sẽ chuyển sang trạng thái <b>Chờ Kế Toán Xuất Hàng</b>.
+        </div>
+    `;
+
+    createModal('✅ HOÀN THÀNH ĐƠN HÀNG', fields, async () => {
+        try {
+            const res = await api(`/api/qlx-orders/${orderId}/complete`, 'POST');
+            if (res.success) {
+                showToast('Báo hoàn thành thành công!');
+                document.getElementById('mModalOverlay').remove();
+                load();
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+    });
+}
+
+function showRescheduleModal(orderId, orderCode) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 2);
+    const defaultDateStr = tomorrow.toISOString().split('T')[0];
+
+    const fields = `
+        <div style="font-size:13px;margin-bottom:10px;">Hẹn lại lịch ra đơn cho đơn hàng <b style="color:#d97706;">${orderCode}</b></div>
+        <label class="m-modal-label">Ngày hẹn mới:</label>
+        <input type="date" id="mReschedDate" class="m-modal-input" value="${defaultDateStr}">
+        <label class="m-modal-label">Lý do hẹn lại:</label>
+        <textarea id="mReschedReason" class="m-modal-textarea" placeholder="Nhập lý do chi tiết..."></textarea>
+    `;
+
+    createModal('📅 HẸN LẠI LỊCH RA ĐƠN', fields, async () => {
+        const qlx_rescheduled_date = document.getElementById('mReschedDate').value;
+        const qlx_rescheduled_reason = document.getElementById('mReschedReason').value.trim();
+
+        if (!qlx_rescheduled_date || !qlx_rescheduled_reason) {
+            showToast('Vui lòng cung cấp ngày hẹn và lý do', 'error');
+            return;
+        }
+
+        try {
+            const res = await api(`/api/qlx-orders/${orderId}/reschedule`, 'POST', { qlx_rescheduled_date, qlx_rescheduled_reason });
+            if (res.success) {
+                showToast('Hẹn lại thành công!');
+                document.getElementById('mModalOverlay').remove();
+                load();
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+    });
+}
+
+async function showLogsModal(orderId, orderCode) {
+    const fields = `<div id="mLogsContainer" style="text-align:center;padding:12px;color:#9ca3af;">⏳ Đang tải lịch sử...</div>`;
+    
+    // Create view only modal
+    createModal(`📜 LỊCH SỬ — ${orderCode}`, fields, () => {
+        document.getElementById('mModalOverlay').remove();
+    });
+    
+    // Hide confirm button since it's history view
+    document.getElementById('mModalConfirmBtn').style.display = 'none';
+
+    try {
+        const res = await api(`/api/qlx-orders/${orderId}/logs`);
+        const history = res.history || [];
+        
+        let logsHtml = '';
+        if (history.length === 0) {
+            logsHtml = '<div style="text-align:center;color:#9ca3af;padding:10px 0;">Chưa có lịch sử cập nhật.</div>';
+        } else {
+            logsHtml = '<div style="display:flex;flex-direction:column;gap:12px;text-align:left;">';
+            history.forEach(h => {
+                const actionLabel = h.action === 'qlx_expected_time' ? '⏱ Báo giờ ra' : 
+                                    h.action === 'qlx_complete' ? '✅ Hoàn thành' : 
+                                    h.action === 'qlx_reschedule' ? '📅 Hẹn lại' : h.action;
+
+                const dateObj = new Date(h.performed_at);
+                const timeFmt = dateObj.toLocaleDateString('vi-VN') + ' ' + dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+                logsHtml += `
+                    <div style="border-left: 3px solid #4f46e5; padding-left: 10px; font-size:12px;">
+                        <div style="display:flex;justify-content:space-between;font-weight:700;color:#1e293b;">
+                            <span>${actionLabel}</span>
+                            <span style="font-weight:normal;color:#94a3b8;font-size:10px;">${timeFmt}</span>
+                        </div>
+                        <div style="color:#4b5563;margin-top:2px;">${h.details || ''}</div>
+                        <div style="color:#94a3b8;font-size:10px;margin-top:1px;">Bởi: <b>${h.performed_by_name || 'Hệ thống'}</b></div>
+                    </div>
+                `;
+            });
+            logsHtml += '</div>';
+        }
+        document.getElementById('mLogsContainer').innerHTML = logsHtml;
+    } catch(e) {
+        document.getElementById('mLogsContainer').innerHTML = `<div style="color:#dc2626;">Lỗi: ${e.message}</div>`;
+    }
+}
+
+// Search debounce
+let debounceTimeout = null;
+document.getElementById('mSearch').addEventListener('input', e => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        _search = e.target.value.trim().toLowerCase();
+        render();
+    }, 300);
+});
+
+// Initial load
+load();
+</script>
+</body>
+</html>

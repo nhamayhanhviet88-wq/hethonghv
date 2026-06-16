@@ -649,6 +649,17 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS completion_images TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipped_by INTEGER`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMPTZ`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_expected_date DATE`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_expected_hour VARCHAR(5)`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_actual_output_at TIMESTAMPTZ`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_rescheduled_date DATE`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_rescheduled_reason TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_updated_by INTEGER REFERENCES users(id)`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_updated_at TIMESTAMPTZ`); } catch(e) {}
+    try {
+        await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('phat_qlx_tre_don_hom_nay', 'Quản Lý Xưởng Xử Lý Đơn Hàng Hôm Nay', 100000) ON CONFLICT (key) DO NOTHING`);
+        await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('qlx_cutoff_time', 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng', 1080) ON CONFLICT (key) DO NOTHING`);
+    } catch(e) { console.error('[QLX Migration] Seed error:', e.message); }
     // Reschedule history table
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS dht_shipping_reschedules (
@@ -1168,6 +1179,7 @@ async function start() {
     fastify.register(require('./routes/worktickets'));
     fastify.register(require('./routes/totalSales'));
     fastify.register(require('./routes/trasoat'));
+    fastify.register(require('./routes/donhanghomnayqlx'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
@@ -1199,6 +1211,11 @@ async function start() {
     // Mobile Đơn Hàng Chưa Thu Tiền — standalone touch-optimized page
     fastify.get('/m/donhangchuathutien', async (request, reply) => {
         return reply.sendFile('mobile-donhangchuathutien.html');
+    });
+
+    // Mobile Đơn Hàng Hôm Nay QLX — standalone touch-optimized page
+    fastify.get('/m/donhanghomnayqlx', async (request, reply) => {
+        return reply.sendFile('mobile-donhanghomnayqlx.html');
     });
 
     // Mobile Tìm Kiếm KH — standalone touch-optimized page

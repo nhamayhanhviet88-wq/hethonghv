@@ -238,6 +238,50 @@ async function syncLedgerForDate(dateStr) {
     } catch (e) { console.error('  ❌ [Ledger] Phiếu QLX:', e.message); }
     } // end if (!isDateOff) Source 10
 
+    // Source 11: Quản Lý Xưởng Trễ Đơn Hàng Hôm Nay
+    if (!isDateOff) {
+    try {
+        const qlxOrders = await db.all(`
+            SELECT id, order_code, created_at, expected_ship_date, qlx_expected_date, qlx_rescheduled_date
+            FROM dht_orders
+            WHERE shipping_status IN ('pending','rescheduled')
+              AND qlx_actual_output_at IS NULL
+              AND expected_ship_date IS NOT NULL
+              AND COALESCE(qlx_rescheduled_date, qlx_expected_date, expected_ship_date) <= $1::date
+        `, [dateStr]);
+
+        const { vnDateStr, vnTimeStr } = require('./timezone');
+        const cutoffMinutes = GPC.qlx_cutoff_time !== undefined ? GPC.qlx_cutoff_time : 1080;
+        const cutoffHrs = Math.floor(cutoffMinutes / 60);
+        const cutoffMins = cutoffMinutes % 60;
+        const cutoffTimeStr = `${String(cutoffHrs).padStart(2, '0')}:${String(cutoffMins).padStart(2, '0')}`;
+
+        const overdueOrders = qlxOrders.filter(order => {
+            const orderDate = vnDateStr(order.created_at);
+            const orderTime = vnTimeStr(order.created_at);
+            if (orderDate === dateStr && orderTime > cutoffTimeStr) {
+                return false; // Exclude late orders created today after cutoff
+            }
+            return true;
+        });
+
+        if (overdueOrders.length > 0) {
+            const PENALTY_AMT = GPC.phat_qlx_tre_don_hom_nay !== undefined ? GPC.phat_qlx_tre_don_hom_nay : 100000;
+            const qlxUsers = await db.all(`
+                SELECT u.id FROM users u
+                JOIN departments d ON u.department_id = d.id
+                WHERE (d.name ILIKE '%quản lý xưởng%' OR d.name ILIKE '%quan ly xuong%' OR d.name ILIKE '%qlx%')
+                  AND u.status = 'active' AND u.role != 'giam_doc'
+            `);
+            for (const qlx of qlxUsers) {
+                await writeLedger(qlx.id, dateStr, 'phat_qlx_tre_don_hom_nay', 'qlx_daily',
+                    `QLX Trễ Đơn Hàng Hôm Nay: ${overdueOrders.length} đơn trễ`,
+                    PENALTY_AMT, 'Quản lý xưởng chưa hoàn thành đơn hàng hôm nay');
+                count++;
+            }
+        }
+    } catch (e) { console.error('  ❌ [Ledger] QLX Trễ Đơn:', e.message); }
+    } // end if (!isDateOff) Source 11
 
     return count;
 }
