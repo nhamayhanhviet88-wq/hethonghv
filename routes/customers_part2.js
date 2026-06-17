@@ -1032,6 +1032,44 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
+        // ★ V4.3: Handle 'gui_mau' draft sample order creation and linking deposit code
+        if (log_type === 'gui_mau' && fields.sample_order_code) {
+            let depositCode = null;
+            if (fields.payment_record_id) {
+                const pr = await db.get('SELECT payment_code FROM payment_records WHERE id = ?', [Number(fields.payment_record_id)]);
+                if (pr) depositCode = pr.payment_code;
+            }
+
+            await db.run(`
+                INSERT INTO don_gui_ao_mau (
+                    sample_order_code, customer_name, customer_phone, deposit_code,
+                    order_status, created_by, order_date
+                ) VALUES ($1, $2, $3, $4, 'draft', $5, CURRENT_DATE)
+            `, [
+                fields.sample_order_code,
+                customer.customer_name,
+                customer.phone,
+                depositCode,
+                request.user.id
+            ]);
+
+            if (fields.payment_record_id) {
+                await db.run(`
+                    UPDATE payment_records SET
+                        payment_type = 'dat_coc',
+                        order_ao_mau = $1,
+                        handover_status = 'thu_quy_nhan',
+                        customer_name = $2,
+                        customer_phone = $3,
+                        cskh_user_id = $4,
+                        locked_by = $4,
+                        locked_at = NOW(),
+                        updated_at = NOW()
+                    WHERE id = $5
+                `, [fields.sample_order_code, customer.customer_name, customer.phone, request.user.id, Number(fields.payment_record_id)]);
+            }
+        }
+
         const deposit_amount = Number(fields.deposit_amount) || 0;
         const next_consult_type = fields.next_consult_type || null;
         await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type) VALUES (?,?,?,?,?,?,?)`,

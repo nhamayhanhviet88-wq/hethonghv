@@ -42,6 +42,45 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
     } catch(e) { console.error('[DGAM Migration]', e.message); }
 
+    // ========== NEXT SAMPLE ORDER CODE ==========
+    fastify.get('/api/don-gui-ao-mau/next-code', { preHandler: [authenticate] }, async (request, reply) => {
+        const username = request.user.username.toUpperCase();
+        const prefix = `${username}-MAU`;
+        const rows = await db.all(`
+            SELECT sample_order_code 
+            FROM don_gui_ao_mau 
+            WHERE sample_order_code LIKE $1
+        `, [`${prefix}%`]);
+
+        let maxSeq = 0;
+        for (const row of rows) {
+            if (row.sample_order_code) {
+                const parts = row.sample_order_code.split('-MAU');
+                if (parts.length === 2) {
+                    const seqNum = parseInt(parts[1], 10);
+                    if (!isNaN(seqNum) && seqNum > maxSeq) {
+                        maxSeq = seqNum;
+                    }
+                }
+            }
+        }
+
+        const nextSeq = maxSeq + 1;
+        const nextCode = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+        return { sample_order_code: nextCode };
+    });
+
+    // ========== DRAFT ORDERS LIST ==========
+    fastify.get('/api/don-gui-ao-mau/drafts', { preHandler: [authenticate] }, async (request, reply) => {
+        const drafts = await db.all(`
+            SELECT id, sample_order_code, customer_name, customer_phone, deposit_code
+            FROM don_gui_ao_mau
+            WHERE order_status = 'draft'
+            ORDER BY id DESC
+        `);
+        return { drafts };
+    });
+
     // ========== TREE: Sidebar data (Year → Month) ==========
     fastify.get('/api/don-gui-ao-mau/tree', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
@@ -50,6 +89,7 @@ module.exports = async function(fastify) {
                 EXTRACT(MONTH FROM order_date)::int AS month,
                 COUNT(*)::int AS order_count
             FROM don_gui_ao_mau
+            WHERE order_status != 'draft'
             GROUP BY year, month
             ORDER BY year DESC, month DESC
         `);
@@ -73,7 +113,7 @@ module.exports = async function(fastify) {
         const { year, month } = request.query;
         const params = [];
         let idx = 1;
-        let where = 'WHERE 1=1';
+        let where = "WHERE d.order_status != 'draft'";
 
         if (year) { where += ` AND EXTRACT(YEAR FROM d.order_date) = $${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM d.order_date) = $${idx++}`; params.push(Number(month)); }
@@ -114,6 +154,51 @@ module.exports = async function(fastify) {
     // ========== CREATE ORDER ==========
     fastify.post('/api/don-gui-ao-mau', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body;
+
+        // Check if there is an existing draft with the same sample_order_code
+        if (b.sample_order_code) {
+            const existingDraft = await db.get(
+                `SELECT id FROM don_gui_ao_mau WHERE sample_order_code = $1 AND order_status = 'draft'`,
+                [b.sample_order_code]
+            );
+
+            if (existingDraft) {
+                await db.run(`
+                    UPDATE don_gui_ao_mau SET
+                        order_date = $1,
+                        remaining_amount = $2,
+                        payer = $3,
+                        category = $4,
+                        customer_name = $5,
+                        product_name = $6,
+                        customer_phone = $7,
+                        shipping_method = $8,
+                        quantity = $9,
+                        price = $10,
+                        total_amount = $11,
+                        deposit_code = $12,
+                        ship_date = $13,
+                        order_status = $14,
+                        payment_method = $15,
+                        shipping_fee = $16,
+                        return_shipping_fee = $17,
+                        return_payer = $18,
+                        return_payment_method = $19,
+                        updated_at = NOW()
+                    WHERE id = $20
+                `, [
+                    b.order_date || new Date().toISOString().slice(0, 10),
+                    b.remaining_amount || 0, b.payer || null, b.category || null,
+                    b.customer_name || null, b.product_name || null, b.customer_phone || null, b.shipping_method || null,
+                    b.quantity || 0, b.price || 0, b.total_amount || 0, b.deposit_code || null, b.ship_date || null,
+                    b.order_status || 'cho_duyet', b.payment_method || null, b.shipping_fee || 0,
+                    b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
+                    existingDraft.id
+                ]);
+                return { success: true, id: existingDraft.id };
+            }
+        }
+
         const result = await db.get(`
             INSERT INTO don_gui_ao_mau (
                 order_date, remaining_amount, payer, sample_order_code, category,

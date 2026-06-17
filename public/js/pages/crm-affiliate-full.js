@@ -1117,6 +1117,10 @@ async function _affOpenConsultModal(customerId) {
             </div>
             <input type="hidden" id="consultDepositAmount" value="0">
         </div>
+        <div class="form-group" id="consultSampleOrderCodeGroup" style="display:none;">
+            <label>Mã Đơn Áo Mẫu <span style="color:var(--gray-500);font-size:11px;">(Tự động)</span></label>
+            <input type="text" id="consultSampleOrderCode" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
+        </div>
         <div class="form-group" id="consultContentGroup">
             <label>Nội Dung Tư Vấn <span style="color:var(--danger)">*</span></label>
             <textarea id="consultContent" class="form-control" rows="3" placeholder="Nhập nội dung tư vấn..."></textarea>
@@ -1306,7 +1310,13 @@ function _affOnConsultTypeChange() {
     if (handlerGroup) handlerGroup.style.display = 'none';
     if (orderGroup) orderGroup.style.display = 'none';
     const depositGroup = document.getElementById('consultDepositGroup');
-    if (depositGroup) depositGroup.style.display = 'none';
+    if (depositGroup) {
+        depositGroup.style.display = 'none';
+        const depLabel = depositGroup.querySelector('label');
+        if (depLabel) depLabel.innerHTML = 'Chọn Mã Tiền Đặt Cọc <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(từ Sổ Ghi Nhận Tiền)</span>';
+    }
+    const socGroup = document.getElementById('consultSampleOrderCodeGroup');
+    if (socGroup) socGroup.style.display = 'none';
     if (contentGroup) contentGroup.style.display = 'block';
     if (imageGroup) imageGroup.style.display = 'block';
     if (appointmentGroup) appointmentGroup.style.display = 'block';
@@ -1373,6 +1383,21 @@ function _affOnConsultTypeChange() {
         const ocGroup = document.getElementById('consultOrderCodeGroup');
         if (ocGroup) ocGroup.style.display = 'block';
         _affFetchOrderCode();
+    }
+
+    // Gửi mẫu vải/áo flow
+    if (type === 'gui_mau') {
+        if (contentGroup) contentGroup.style.display = 'block';
+        if (imageGroup) imageGroup.style.display = 'block';
+        if (appointmentGroup) appointmentGroup.style.display = 'block';
+        if (depositGroup) {
+            depositGroup.style.display = 'block';
+            const depLabel = depositGroup.querySelector('label');
+            if (depLabel) depLabel.innerHTML = 'Chọn Mã Tiền Đặt Cọc <span style="font-size:10px;color:#b8860b;font-weight:600">(từ Sổ Ghi Nhận Tiền, không bắt buộc)</span>';
+        }
+        _affFetchDeposits();
+        if (socGroup) socGroup.style.display = 'block';
+        _affFetchSampleOrderCode();
     }
 
     // Chốt Đơn flow
@@ -1649,6 +1674,19 @@ function _affToggleConsultHistory() {
     }
 }
 
+function _affFetchSampleOrderCode() {
+    const socInput = document.getElementById('consultSampleOrderCode');
+    if (!socInput) return;
+    socInput.value = 'Đang tải...';
+    apiCall('/api/don-gui-ao-mau/next-code').then(res => {
+        if (res.sample_order_code) {
+            socInput.value = res.sample_order_code;
+        } else {
+            socInput.value = 'Lỗi tạo mã';
+        }
+    }).catch(() => { socInput.value = 'Lỗi tải mã'; });
+}
+
 // Fetch order code for current customer (always generates new)
 function _affFetchOrderCode() {
     const ocGroup = document.getElementById('consultOrderCodeGroup');
@@ -1726,6 +1764,41 @@ async function _affSubmitConsultLog(customerId) {
     const log_type = document.getElementById('consultType').value;
     const content = document.getElementById('consultContent')?.value;
     const appointment_date = document.getElementById('consultAppointment')?.value;
+
+    // ========== Gửi Mẫu Vải/Áo flow ==========
+    if (log_type === 'gui_mau') {
+        const sampleOrderCode = document.getElementById('consultSampleOrderCode')?.value;
+        const paymentRecordId = document.getElementById('consultPaymentRecordId')?.value;
+        const depositAmount = Number(document.getElementById('consultDepositAmount')?.value) || 0;
+
+        if (!sampleOrderCode || sampleOrderCode.startsWith('Đang tải') || sampleOrderCode.startsWith('Lỗi')) {
+            showToast('Không thể tạo mã đơn áo mẫu!', 'error'); _affEnableSubmitBtn(); return;
+        }
+        if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _affEnableSubmitBtn(); return; }
+        if (!window._consultImageBlob) { showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _affEnableSubmitBtn(); return; }
+        if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _affEnableSubmitBtn(); return; }
+
+        try {
+            const formData = new FormData();
+            formData.append('log_type', 'gui_mau');
+            formData.append('content', content);
+            formData.append('appointment_date', appointment_date);
+            formData.append('sample_order_code', sampleOrderCode);
+            if (paymentRecordId && depositAmount > 0) {
+                formData.append('payment_record_id', paymentRecordId);
+                formData.append('deposit_amount', depositAmount);
+            }
+            if (window._consultImageBlob) {
+                formData.append('image', window._consultImageBlob, 'screenshot.png');
+            }
+            const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Gửi mẫu vải/áo thành công!'); closeModal(); window._consultImageBlob = null; loadCrmAffData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _affEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _affEnableSubmitBtn(); }
+        return;
+    }
 
     // ========== HỦY flow ==========
     if (log_type === 'huy') {

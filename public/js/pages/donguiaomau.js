@@ -246,4 +246,261 @@ function _dgamRenderInfo(count, arr) {
     }
 }
 
-function _dgamShowAdd() { if (typeof showToast === 'function') showToast('Tính năng thêm đơn sẽ được phát triển sau', 'info'); }
+var _dgamDraftsList = [];
+
+async function _dgamShowAdd() {
+    try {
+        const res = await apiCall('/api/don-gui-ao-mau/drafts');
+        _dgamDraftsList = res.drafts || [];
+    } catch (e) {
+        _dgamDraftsList = [];
+    }
+
+    if (_dgamDraftsList.length === 0) {
+        if (typeof showToast === 'function') {
+            showToast('Không có mã đơn áo mẫu nào đang chờ tạo đơn! Vui lòng tạo mã đơn từ mục chăm sóc tư vấn trước.', 'warning');
+        } else {
+            alert('Không có mã đơn áo mẫu nào đang chờ tạo đơn!');
+        }
+        return;
+    }
+
+    const draftOptions = _dgamDraftsList.map(d => 
+        `<option value="${d.id}">${d.sample_order_code} (${d.customer_name || 'Không tên'})</option>`
+    ).join('');
+
+    const bodyHTML = `
+        <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:700;margin-bottom:4px;display:block;">Chọn Mã Đơn Áo Mẫu <span style="color:var(--danger)">*</span></label>
+                <select id="dgamAddDraftSelect" class="form-control" onchange="_dgamOnDraftSelect()" style="border:2px solid var(--gold);font-weight:700;color:var(--navy);">
+                    <option value="">-- Chọn mã đơn --</option>
+                    ${draftOptions}
+                </select>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Khách Hàng</label>
+                    <input type="text" id="dgamAddCustName" class="form-control" placeholder="Tên khách hàng">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Điện Thoại</label>
+                    <input type="text" id="dgamAddCustPhone" class="form-control" placeholder="Số điện thoại" maxlength="10">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Mã Tiền Đặt Cọc</label>
+                    <input type="text" id="dgamAddDepositCode" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600;" placeholder="Không có cọc">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Phân Loại</label>
+                    <select id="dgamAddCategory" class="form-control">
+                        <option value="Áo mẫu">Áo mẫu</option>
+                        <option value="Mẫu vải">Mẫu vải</option>
+                        <option value="Áo mẫu + Mẫu vải">Áo mẫu + Mẫu vải</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="dgamAddProductName" class="form-control" placeholder="Ví dụ: Áo thun cổ tròn HV">
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Lượng <span style="color:var(--danger)">*</span></label>
+                    <input type="number" id="dgamAddQuantity" class="form-control" value="1" min="1" oninput="_dgamCalcTotal()">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Đơn Giá <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="dgamAddPrice" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this); _dgamCalcTotal()">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tổng Tiền</label>
+                    <input type="text" id="dgamAddTotalAmount" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:var(--success);" value="0">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Ngày Gửi Hàng</label>
+                    <input type="date" id="dgamAddShipDate" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Hình Thức Gửi</label>
+                    <select id="dgamAddShippingMethod" class="form-control">
+                        <option value="GHTK">GHTK</option>
+                        <option value="Viettel Post">Viettel Post</option>
+                        <option value="Grab">Grab</option>
+                        <option value="Bưu điện">Bưu điện</option>
+                        <option value="Xe khách">Xe khách</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Hình Thức Trả</label>
+                    <select id="dgamAddPaymentMethod" class="form-control">
+                        <option value="COD">COD</option>
+                        <option value="CK">Chuyển khoản</option>
+                        <option value="TM">Tiền mặt</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tiền Vận Chuyển</label>
+                    <input type="text" id="dgamAddShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Trạng Thái Đơn</label>
+                    <select id="dgamAddOrderStatus" class="form-control">
+                        <option value="cho_duyet">Chờ Duyệt</option>
+                        <option value="da_duyet">Đã Duyệt</option>
+                        <option value="da_gui">Đã Gửi</option>
+                        <option value="hoan_hang">Hoàn Hàng</option>
+                        <option value="hoan_thanh">Hoàn Thành</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="border-top:1px dashed #e2e8f0;margin:16px 0;padding-top:12px;">
+                <h4 style="font-size:12px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin-bottom:10px;">Vận Chuyển Hoàn (Nếu có)</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label style="font-weight:600;margin-bottom:4px;display:block;font-size:11px;">Vận Chuyển Hoàn</label>
+                        <input type="text" id="dgamAddReturnShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600;margin-bottom:4px;display:block;font-size:11px;">Người Trả Hoàn</label>
+                        <input type="text" id="dgamAddReturnPayer" class="form-control" placeholder="Ví dụ: Khách, HV">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600;margin-bottom:4px;display:block;font-size:11px;">Hình Thức Trả Hoàn</label>
+                        <input type="text" id="dgamAddReturnPaymentMethod" class="form-control" placeholder="Ví dụ: CK, TM">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="btn btn-primary" onclick="_dgamSubmitAdd()" style="width:auto;background:linear-gradient(135deg,#0369a1,#0ea5e9);border:none;">💾 Tạo Đơn</button>
+    `;
+
+    openModal('➕ THÀNH LẬP ĐƠN GỬI ÁO MẪU', bodyHTML, footerHTML);
+
+    setTimeout(() => {
+        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const shipDateEl = document.getElementById('dgamAddShipDate');
+        if (shipDateEl) shipDateEl.value = `${yyyy}-${mm}-${dd}`;
+    }, 100);
+}
+
+function _dgamOnDraftSelect() {
+    const draftId = document.getElementById('dgamAddDraftSelect').value;
+    if (!draftId) {
+        document.getElementById('dgamAddCustName').value = '';
+        document.getElementById('dgamAddCustPhone').value = '';
+        document.getElementById('dgamAddDepositCode').value = '';
+        return;
+    }
+    const draft = _dgamDraftsList.find(d => d.id == draftId);
+    if (draft) {
+        document.getElementById('dgamAddCustName').value = draft.customer_name || '';
+        document.getElementById('dgamAddCustPhone').value = draft.customer_phone || '';
+        document.getElementById('dgamAddDepositCode').value = draft.deposit_code || 'Không có cọc';
+    }
+}
+
+function _dgamCalcTotal() {
+    const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
+    const priceStr = document.getElementById('dgamAddPrice').value || '0';
+    const price = Number(priceStr.replace(/\./g, '')) || 0;
+    const total = qty * price;
+    document.getElementById('dgamAddTotalAmount').value = total.toLocaleString('vi-VN');
+}
+
+async function _dgamSubmitAdd() {
+    const draftId = document.getElementById('dgamAddDraftSelect').value;
+    if (!draftId) {
+        showToast('Vui lòng chọn Mã Đơn Áo Mẫu!', 'error');
+        return;
+    }
+    const draft = _dgamDraftsList.find(d => d.id == draftId);
+    if (!draft) return;
+
+    const productName = document.getElementById('dgamAddProductName').value.trim();
+    if (!productName) {
+        showToast('Vui lòng nhập Tên Sản Phẩm!', 'error');
+        return;
+    }
+
+    const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
+    if (qty <= 0) {
+        showToast('Số lượng phải lớn hơn 0!', 'error');
+        return;
+    }
+
+    const priceStr = document.getElementById('dgamAddPrice').value || '0';
+    const price = Number(priceStr.replace(/\./g, '')) || 0;
+    const totalAmount = qty * price;
+
+    const shipDate = document.getElementById('dgamAddShipDate').value || null;
+    const shippingMethod = document.getElementById('dgamAddShippingMethod').value;
+    const paymentMethod = document.getElementById('dgamAddPaymentMethod').value;
+    const shippingFeeStr = document.getElementById('dgamAddShippingFee').value || '0';
+    const shippingFee = Number(shippingFeeStr.replace(/\./g, '')) || 0;
+
+    const returnShippingFeeStr = document.getElementById('dgamAddReturnShippingFee').value || '0';
+    const returnShippingFee = Number(returnShippingFeeStr.replace(/\./g, '')) || 0;
+
+    const returnPayer = document.getElementById('dgamAddReturnPayer').value.trim() || null;
+    const returnPaymentMethod = document.getElementById('dgamAddReturnPaymentMethod').value.trim() || null;
+
+    const orderStatus = document.getElementById('dgamAddOrderStatus').value;
+    const category = document.getElementById('dgamAddCategory').value;
+
+    const body = {
+        sample_order_code: draft.sample_order_code,
+        customer_name: document.getElementById('dgamAddCustName').value.trim() || draft.customer_name,
+        customer_phone: document.getElementById('dgamAddCustPhone').value.trim() || draft.customer_phone,
+        deposit_code: document.getElementById('dgamAddDepositCode').value === 'Không có cọc' ? null : (document.getElementById('dgamAddDepositCode').value || null),
+        product_name: productName,
+        category,
+        quantity: qty,
+        price,
+        total_amount: totalAmount,
+        ship_date: shipDate,
+        shipping_method: shippingMethod,
+        payment_method: paymentMethod,
+        shipping_fee: shippingFee,
+        return_shipping_fee: returnShippingFee,
+        return_payer: returnPayer,
+        return_payment_method: returnPaymentMethod,
+        order_status: orderStatus,
+        order_date: new Date().toISOString().slice(0, 10)
+    };
+
+    try {
+        const res = await apiCall('/api/don-gui-ao-mau', 'POST', body);
+        if (res.success) {
+            showToast('✅ Đã tạo đơn gửi áo mẫu thành công!');
+            closeModal();
+            _dgamLoadTree();
+            _dgamLoadOrders();
+        } else {
+            showToast(res.error || 'Lỗi tạo đơn', 'error');
+        }
+    } catch (e) {
+        showToast('Lỗi kết nối server!', 'error');
+    }
+}
