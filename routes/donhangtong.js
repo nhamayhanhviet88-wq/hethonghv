@@ -1449,11 +1449,13 @@ module.exports = async function(fastify) {
                        cr.name AS actual_carrier_name,
                        cr.tracking_url_template AS actual_carrier_tracking_url,
                        COALESCE(pr_dep.deposit_total, 0) AS calculated_deposit,
-                       COALESCE(pr_all.paid_total, 0) AS calculated_paid
+                       COALESCE(pr_all.paid_total, 0) AS calculated_paid,
+                       cf_ship.cashflow_code AS shipping_cashflow_code
                 FROM don_gui_ao_mau d
                 LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
                 LEFT JOIN users u_created ON d.created_by = u_created.id
                 LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+                LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id
                 LEFT JOIN LATERAL (
                     SELECT COALESCE(SUM(amount), 0) AS deposit_total
                     FROM payment_records
@@ -1497,6 +1499,7 @@ module.exports = async function(fastify) {
                 shipping_fee_payer: row.shipping_fee_payer,
                 shipping_fee_method: row.shipping_fee_method,
                 shipping_payment_id: row.shipping_payment_id,
+                shipping_cashflow_code: row.shipping_cashflow_code,
                 receiver_name: row.customer_name,
                 actual_carrier_name: row.actual_carrier_name,
                 actual_carrier_tracking_url: row.actual_carrier_tracking_url,
@@ -1535,7 +1538,8 @@ module.exports = async function(fastify) {
                 receiver_name: row.customer_name,
                 shipping_fee: row.shipping_fee,
                 shipping_fee_payer: row.shipping_fee_payer,
-                shipping_fee_method: row.shipping_fee_method
+                shipping_fee_method: row.shipping_fee_method,
+                shipping_cashflow_code: row.shipping_cashflow_code
             }];
 
             const payments = await db.all(`
@@ -1575,6 +1579,7 @@ module.exports = async function(fastify) {
                 u_vat.full_name AS vat_exported_by_name,
                 pr_ship.payment_code AS shipping_payment_code,
                 pr_ship.amount AS shipping_payment_amount,
+                cf_ship.cashflow_code AS shipping_cashflow_code,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END AS remaining_amount,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
@@ -1592,6 +1597,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
             LEFT JOIN users u_vat ON o.vat_exported_by = u_vat.id
             LEFT JOIN payment_records pr_ship ON o.shipping_payment_id = pr_ship.id
+            LEFT JOIN cashflow_records cf_ship ON o.shipping_cashflow_id = cf_ship.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
@@ -1622,12 +1628,14 @@ module.exports = async function(fastify) {
                    cr.tracking_url_template AS actual_carrier_tracking_url,
                    u.full_name AS shipped_by_name,
                    pr_ship.payment_code AS shipping_payment_code,
-                   pr_ship.amount AS shipping_payment_amount
+                   pr_ship.amount AS shipping_payment_amount,
+                   cf_ship.cashflow_code AS shipping_cashflow_code
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
             LEFT JOIN users u ON i.shipped_by = u.id
             LEFT JOIN payment_records pr_ship ON i.shipping_payment_id = pr_ship.id
+            LEFT JOIN cashflow_records cf_ship ON i.shipping_cashflow_id = cf_ship.id
             WHERE i.dht_order_id = $1 ORDER BY i.id ASC
         `, [orderId]);
 
@@ -1638,11 +1646,13 @@ module.exports = async function(fastify) {
                    cr.tracking_url_template AS actual_carrier_tracking_url,
                    u.full_name AS shipped_by_name,
                    pr_ship.payment_code AS shipping_payment_code,
-                   pr_ship.amount AS shipping_payment_amount
+                   pr_ship.amount AS shipping_payment_amount,
+                   cf_ship.cashflow_code AS shipping_cashflow_code
             FROM dht_order_shipments os
             LEFT JOIN dht_carriers cr ON os.actual_carrier_id = cr.id
             LEFT JOIN users u ON os.shipped_by = u.id
             LEFT JOIN payment_records pr_ship ON os.shipping_payment_id = pr_ship.id
+            LEFT JOIN cashflow_records cf_ship ON os.shipping_cashflow_id = cf_ship.id
             WHERE os.dht_order_id = $1 ORDER BY os.id ASC
         `, [orderId]);
 

@@ -252,15 +252,21 @@ module.exports = async function(fastify) {
             SELECT o.*, c.name AS category_name,
                 u_cskh.full_name AS cskh_name, u_created.full_name AS created_by_name,
                 u_shipped.full_name AS shipped_by_name, cr2.name AS carrier_name,
-                cr2.tracking_url_template AS carrier_tracking_url
+                cr2.tracking_url_template AS carrier_tracking_url,
+                cf_ship.cashflow_code AS shipping_cashflow_code,
+                pr_ship.payment_code AS shipping_payment_code,
+                pr_ship.amount AS shipping_payment_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
+            LEFT JOIN cashflow_records cf_ship ON o.shipping_cashflow_id = cf_ship.id
+            LEFT JOIN payment_records pr_ship ON o.shipping_payment_id = pr_ship.id
             WHERE o.id = $1
         `, [orderId]);
+
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
         // Production steps
@@ -457,11 +463,13 @@ module.exports = async function(fastify) {
                    cr.tracking_url_template AS actual_carrier_tracking_url,
                    u.full_name AS shipped_by_name,
                    pr_ship.payment_code AS shipping_payment_code,
-                   pr_ship.amount AS shipping_payment_amount
+                   pr_ship.amount AS shipping_payment_amount,
+                   cf_ship.cashflow_code AS shipping_cashflow_code
             FROM dht_order_shipments os
             LEFT JOIN dht_carriers cr ON os.actual_carrier_id = cr.id
             LEFT JOIN users u ON os.shipped_by = u.id
             LEFT JOIN payment_records pr_ship ON os.shipping_payment_id = pr_ship.id
+            LEFT JOIN cashflow_records cf_ship ON os.shipping_cashflow_id = cf_ship.id
             WHERE os.dht_order_id = $1 ORDER BY os.id ASC
         `, [orderId]);
 
@@ -479,7 +487,13 @@ module.exports = async function(fastify) {
                 total_amount: order.total_amount, cskh_name: order.cskh_name,
                 created_by_name: order.created_by_name, shipped_by_name: order.shipped_by_name,
                 is_pet_tem: isPetTem, parent_order_id: order.parent_order_id,
-                category_name: order.category_name, standard_delivery_time: order.standard_delivery_time
+                category_name: order.category_name, standard_delivery_time: order.standard_delivery_time,
+                shipping_fee: order.shipping_fee,
+                shipping_fee_payer: order.shipping_fee_payer,
+                shipping_fee_method: order.shipping_fee_method,
+                shipping_payment_code: order.shipping_payment_code,
+                shipping_payment_amount: order.shipping_payment_amount,
+                shipping_cashflow_code: order.shipping_cashflow_code
             },
             items: itemsTimeline,
             cutting: cutting.map(c => ({ item_id: c.order_item_id, cutter: c.cutter_name, fabric: c.fabric_name, kg: c.kg_cut, ratio: c.cut_ratio, started: c.cutting_at, done: c.cut_done_at, is_done: c.is_cut_done })),
