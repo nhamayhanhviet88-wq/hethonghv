@@ -77,7 +77,10 @@ module.exports = async function(fastify) {
     // ========== NEXT SAMPLE ORDER CODE ==========
     fastify.get('/api/don-gui-ao-mau/next-code', { preHandler: [authenticate] }, async (request, reply) => {
         const username = request.user.username.toUpperCase();
-        const prefix = `${username}-MAU`;
+        const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
+        const orderCodePrefix = userRow?.order_code_prefix ? userRow.order_code_prefix.toUpperCase() : null;
+        
+        const prefix = orderCodePrefix ? `${orderCodePrefix}-GUIMAU` : `${username}-GUIMAU`;
         const rows = await db.all(`
             SELECT sample_order_code 
             FROM don_gui_ao_mau 
@@ -86,13 +89,11 @@ module.exports = async function(fastify) {
 
         let maxSeq = 0;
         for (const row of rows) {
-            if (row.sample_order_code) {
-                const parts = row.sample_order_code.split('-MAU');
-                if (parts.length === 2) {
-                    const seqNum = parseInt(parts[1], 10);
-                    if (!isNaN(seqNum) && seqNum > maxSeq) {
-                        maxSeq = seqNum;
-                    }
+            if (row.sample_order_code && row.sample_order_code.startsWith(prefix)) {
+                const suffix = row.sample_order_code.substring(prefix.length);
+                const seqNum = parseInt(suffix, 10);
+                if (!isNaN(seqNum) && seqNum > maxSeq) {
+                    maxSeq = seqNum;
                 }
             }
         }
