@@ -1287,7 +1287,7 @@ async function _dgamShowDetail(id) {
             ['Đã thanh toán (cọc)', fmt(totalPaid) + 'đ', '#10b981', true]
         ];
         if (shipDeduct > 0) {
-            finRows.push(['🚚 Cước Vận Chuyển (HV Trả)', fmt(shipDeduct) + 'đ', '#f97316', true]);
+            finRows.push(['🚚 Cước Vận Chuyển (HV Trả CK)', fmt(shipDeduct) + 'đ', '#f97316', true]);
         }
         finRows.push(['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]);
         

@@ -1106,7 +1106,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             ['Đã thanh toán (cọc)', fmtMoney(totalPaid) + 'đ', '#10b981', true]
         );
         if (shipCK > 0) {
-            finRows.push(['🚚 Cước Vận Chuyển (HV Trả)', fmtMoney(shipCK) + 'đ', '#f97316', true]);
+            finRows.push(['🚚 Cước Vận Chuyển (HV Trả CK)', fmtMoney(shipCK) + 'đ', '#f97316', true]);
         }
         finRows.push(['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true]);
     } else {
@@ -1124,7 +1124,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
         );
         if (shipCK > 0) {
-            finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
+            finRows.push(['🚚 Cước Vận Chuyển (HV Trả CK)', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
         }
         finRows.push(
             ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true],
