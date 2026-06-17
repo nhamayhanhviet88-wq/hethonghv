@@ -350,6 +350,7 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_date ON dht_orders(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_category ON dht_orders(category_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_code ON dht_orders(order_code)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_phone ON dht_orders(customer_phone)`);
         await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_items (
             id              SERIAL PRIMARY KEY,
             dht_order_id    INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,

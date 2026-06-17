@@ -49,6 +49,7 @@ async function renderDonguiaomauPage(content) {
         +'<th>Ngày LĐ</th>'
         +'<th>Còn Lại</th>'
         +'<th>Mã Đơn Áo Mẫu</th>'
+        +'<th>Mã Đơn Chốt</th>'
         +'<th>Tên SP</th>'
         +'<th>Ảnh Mẫu</th>'
         +'<th>Loại SP</th>'
@@ -60,7 +61,7 @@ async function renderDonguiaomauPage(content) {
         +'<th>Giá</th>'
         +'<th>Đặt Cọc</th>'
         +'<th>Lịch Sử CN</th>'
-        +'</tr></thead><tbody id="dgamTbody"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'</tr></thead><tbody id="dgamTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dgamPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
 
@@ -185,11 +186,17 @@ function _dgamRenderRows(paged) {
             updaterText = '<span style="font-weight:700;color:var(--gray-600)">' + o.created_by_name + '</span><br><span style="font-size:10px;color:var(--gray-500)">' + fmtHM_DM(o.created_at) + '</span>';
         }
 
+        var codesHtml = '—';
+        if (o.closed_order_codes) {
+            codesHtml = '<div style="max-height:80px;overflow-y:auto;font-size:11px;line-height:1.4;font-weight:700;color:#0369a1">' + o.closed_order_codes + '</div>';
+        }
+
         return '<tr style="cursor:pointer" onclick="_dgamShowDetail('+o.id+')">'
             +statusHtml
             +'<td>'+fmtHM_DM(o.created_at)+'</td>'
             +'<td style="font-weight:700;color:'+remColor+'">'+_dgamFmt(remaining)+'</td>'
             +'<td><strong style="color:'+(remaining>0?'#c2410c':'#0f766e')+'">'+(o.sample_order_code||'—')+'</strong></td>'
+            +'<td>'+codesHtml+'</td>'
             +'<td>'+prodDisplay+'</td>'
             +'<td style="text-align:center">'+imgDisplay+'</td>'
             +'<td>'+(o.category||'—')+'</td>'

@@ -146,7 +146,8 @@ module.exports = async function(fastify) {
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
                 (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
                 u.full_name AS created_by_name,
-                uu.full_name AS updated_by_name
+                uu.full_name AS updated_by_name,
+                o_codes.closed_order_codes
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
             LEFT JOIN users uu ON d.updated_by = uu.id
@@ -155,6 +156,15 @@ module.exports = async function(fastify) {
                 FROM payment_records
                 WHERE order_ao_mau = d.sample_order_code
             ) pr_dep ON true
+            LEFT JOIN LATERAL (
+                SELECT STRING_AGG(DISTINCT o.order_code, '<br>') AS closed_order_codes
+                FROM dht_orders o
+                LEFT JOIN dht_categories c ON o.category_id = c.id
+                WHERE o.customer_phone = d.customer_phone
+                  AND o.customer_phone IS NOT NULL AND o.customer_phone != ''
+                  AND o.created_by = d.created_by
+                  AND (c.name IS NULL OR LOWER(c.name) NOT IN ('đơn hủy', 'đơn huỷ', 'hủy', 'huỷ'))
+            ) o_codes ON true
             ${where}
             ORDER BY d.order_date DESC, d.id DESC
         `, params);
