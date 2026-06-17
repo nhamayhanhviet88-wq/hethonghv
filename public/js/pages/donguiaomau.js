@@ -159,9 +159,14 @@ function _dgamRenderRows(paged) {
 
         var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
         var isCanApprove = userObj && (userObj.role === 'giam_doc' || userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
-        var approveBtnHtml = isCanApprove 
-            ? '<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
-            : '';
+        var approveBtnHtml = '';
+        if (isCanApprove) {
+            if (o.status_duyet) {
+                approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Đã duyệt" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
+            } else {
+                approveBtnHtml = '<button class="dgam-icon-btn" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>';
+            }
+        }
 
         var isQuanLyXuong = userObj && (userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
         var hoanBtnHtml = !isQuanLyXuong 
@@ -302,11 +307,6 @@ async function _dgamExecuteApprove(id) {
             showToast('✅ Đã duyệt gửi đơn mẫu thành công!');
         }
         await _dgamLoadOrders();
-        
-        // Redirect to "Đơn Hàng Kế Toán Gửi" page
-        if (typeof navigate === 'function') {
-            navigate('ke-toan-gui-hang');
-        }
     } catch(err) {
         if (btn) { btn.disabled = false; btn.innerText = '✅ Xác Nhận Duyệt'; }
         if (typeof showToast === 'function') {
