@@ -287,6 +287,7 @@ module.exports = async function(fastify) {
                     CASE 
                         WHEN pr.order_ao_mau IS NOT NULL AND pr.order_ao_mau != '' THEN
                             COALESCE(d.total_amount, 0) - COALESCE(pr_all_ao_mau.paid_total, 0)
+                              - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END
                         ELSE
                             COALESCE(o.total_amount, 0)
                               - COALESCE(o.discount_amount, 0)
@@ -318,6 +319,7 @@ module.exports = async function(fastify) {
                         CASE 
                             WHEN pr.order_ao_mau IS NOT NULL AND pr.order_ao_mau != '' THEN
                                 COALESCE(d.total_amount, 0) - COALESCE(pr_all_ao_mau.paid_total, 0)
+                                  - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END
                             ELSE
                                 COALESCE(o.total_amount, 0)
                                   - COALESCE(o.discount_amount, 0)
@@ -1678,7 +1680,7 @@ module.exports = async function(fastify) {
                 d.customer_phone,
                 d.order_date,
                 1 AS shipment_count,
-                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
             FROM don_gui_ao_mau d
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -1860,7 +1862,7 @@ module.exports = async function(fastify) {
                    d.shipping_fee_payer, d.shipping_fee_method, d.shipping_fee,
                    u.full_name AS cskh_name,
                    COALESCE(pr_dep.deposit_total, 0) AS deposit_paid,
-                   (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+                   (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
             LEFT JOIN LATERAL (
@@ -1870,7 +1872,7 @@ module.exports = async function(fastify) {
                    OR order_tt_coc = d.sample_order_code
             ) pr_dep ON true
             WHERE COALESCE(d.sample_order_code, '') != ''
-              AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+              AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) > 0
             ${searchWhereSample}
             ORDER BY d.order_date DESC, d.id DESC
             LIMIT 30
