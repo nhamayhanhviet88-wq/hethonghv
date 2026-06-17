@@ -239,7 +239,18 @@ module.exports = async function(fastify) {
             ORDER BY l.created_at DESC
         `, [orderId]);
 
-        return { order, payments, logs };
+        const closedOrders = await db.all(`
+            SELECT o.order_code, o.total_quantity, o.total_amount, o.order_date
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            WHERE o.customer_phone = $1
+              AND o.customer_phone IS NOT NULL AND o.customer_phone != ''
+              AND o.created_by = $2
+              AND (c.name IS NULL OR LOWER(c.name) NOT IN ('đơn hủy', 'đơn huỷ', 'hủy', 'huỷ'))
+            ORDER BY o.order_date DESC, o.id DESC
+        `, [order.customer_phone, order.created_by]);
+
+        return { order, payments, logs, closedOrders };
     });
 
     // ========== CREATE ORDER ==========

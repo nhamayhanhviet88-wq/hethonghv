@@ -1047,6 +1047,7 @@ async function _dgamShowDetail(id) {
         const o = data.order;
         const payments = data.payments || [];
         const logs = data.logs || [];
+        const closedOrders = data.closedOrders || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
 
         const titleText = `👕 Đơn Mẫu: ${o.sample_order_code} — Còn lại: ${fmt(o.remaining_amount)}đ`;
@@ -1182,16 +1183,63 @@ async function _dgamShowDetail(id) {
         saleKtHTML += `</div>`;
 
         // 5. Thông tin khách hàng & Người lên đơn
+        let closedOrdersHTML = '';
+        if (closedOrders.length > 0) {
+            closedOrdersHTML = `
+                <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:16px">
+                    <div style="font-weight:800;font-size:13px;color:#0ea5e9;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                        📋 Mã Đơn Khách Hàng Đã Chốt <span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${closedOrders.length}</span>
+                    </div>
+                    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left">
+                            <thead>
+                                <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
+                                    <th style="padding:8px 12px;font-weight:700;color:#475569">Mã Đơn</th>
+                                    <th style="padding:8px 12px;font-weight:700;color:#475569;text-align:center">Số Lượng</th>
+                                    <th style="padding:8px 12px;font-weight:700;color:#475569;text-align:right">Tổng Doanh Số</th>
+                                    <th style="padding:8px 12px;font-weight:700;color:#475569;text-align:center">Ngày Lên Đơn</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            closedOrders.forEach(co => {
+                const formattedAmt = fmt(co.total_amount);
+                const formattedDate = co.order_date ? new Date(co.order_date).toLocaleDateString('vi-VN') : '—';
+                closedOrdersHTML += `
+                                <tr style="border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='none'">
+                                    <td style="padding:8px 12px;font-weight:700;color:#0369a1">${co.order_code}</td>
+                                    <td style="padding:8px 12px;text-align:center;font-weight:700;color:#334155">${co.total_quantity || 0}</td>
+                                    <td style="padding:8px 12px;text-align:right;font-weight:700;color:#059669">${formattedAmt}đ</td>
+                                    <td style="padding:8px 12px;text-align:center;color:#64748b">${formattedDate}</td>
+                                </tr>
+                `;
+            });
+            closedOrdersHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        } else {
+            closedOrdersHTML = `
+                <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:16px">
+                    <div style="font-weight:800;font-size:13px;color:#64748b;margin-bottom:4px">📋 Mã Đơn Khách Hàng Đã Chốt</div>
+                    <div style="font-size:12px;color:#94a3b8;font-style:italic">Khách hàng chưa có đơn hàng chốt nào</div>
+                </div>
+            `;
+        }
+
         let infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">👤 Thông Tin Đơn Hàng & Khách Hàng</div>
             <table style="width:100%;border-collapse:collapse">
                 ${row('Tên Khách Hàng', `<strong>${o.customer_name || '—'}</strong>`)}
                 <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📞 Số Điện Thoại</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:#9a3412;text-decoration:underline" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td></tr>
-                <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📍 Địa chỉ nhận mẫu</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px;word-break:break-word">${o.address || '—'}</td></tr>
+                <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📍 Địa chỉ nhận mẫu</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px;word-break:word-break">${o.address || '—'}</td></tr>
                 <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">🏙️ Tỉnh / Thành Phố</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.province || '—'}</td></tr>
                 ${row('Người lên đơn', o.created_by_name || '—')}
                 ${row('Ngày lên đơn', o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—')}
             </table>
+            ${closedOrdersHTML}
         </div>`;
 
         // 5B. Thông tin vận chuyển
