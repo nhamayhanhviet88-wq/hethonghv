@@ -504,7 +504,7 @@ module.exports = async function(fastify) {
                 d.category,
                 d.linh_vuc,
                 d.deposit_amount,
-                d.price_per_item,
+                d.price AS price_per_item,
                 d.shipping_method,
                 d.ship_time,
                 cr.name AS actual_carrier_name,

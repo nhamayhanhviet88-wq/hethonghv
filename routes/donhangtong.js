@@ -1245,7 +1245,7 @@ module.exports = async function(fastify) {
                 category: row.category || 'Gửi mẫu áo',
                 linh_vuc: row.linh_vuc || '—',
                 quantity: row.quantity || 1,
-                price_per_item: row.price_per_item || 0,
+                price_per_item: row.price || 0,
                 total_amount: row.total_amount || 0,
                 accounting_notes: '',
                 shipping_status: row.status_gui_don ? 'shipped' : 'pending',
