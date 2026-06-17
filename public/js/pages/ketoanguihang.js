@@ -1934,8 +1934,9 @@ function _shBuildPaymentRowHTML(p, target, isHvCk, groupType) {
     
     var surplusVal = Number(p.surplus) || 0;
     var originalAmtVal = Number(p.original_amount) || Number(p.amount) || 0;
+    var displayAmtVal = Number(p.amount) || 0;
     
-    row += '<span style="font-weight:900;font-size:12px;color:#dc2626;">' + fmtM(originalAmtVal) + 'đ</span>';
+    row += '<span style="font-weight:900;font-size:12px;color:#dc2626;">' + fmtM(displayAmtVal) + 'đ</span>';
     
     if (isZero) {
         row += '<span style="font-size:9.5px;font-weight:700;color:#64748b;background:#e2e8f0;padding:1.5px 5px;border-radius:4px;margin-left:auto;">⚠️ Hết tiền (Dư 0đ)</span>';
@@ -1954,8 +1955,8 @@ function _shBuildPaymentRowHTML(p, target, isHvCk, groupType) {
     if (p.bank_name) row += '<span>🏦 ' + p.bank_name + '</span>';
     row += '<span>📅 ' + fmtD(p.payment_date) + '</span>';
     
-    if (originalAmtVal !== Number(p.amount) && Number(p.amount) > 0) {
-        row += '<span style="color:#0ea5e9;font-weight:700;">(Dư: ' + fmtM(p.amount) + 'đ)</span>';
+    if (originalAmtVal !== displayAmtVal && displayAmtVal > 0) {
+        row += '<span style="color:#0ea5e9;font-weight:700;">(Gốc: ' + fmtM(originalAmtVal) + 'đ)</span>';
     }
     
     if (groupType === 'suggestion' && Number(p.diff) > 0) {
