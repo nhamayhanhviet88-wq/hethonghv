@@ -1493,6 +1493,7 @@ module.exports = async function(fastify) {
             ) pr_child ON true
             WHERE COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'child_sll')
               AND COALESCE(pr.source, '') != 'cashflow_chi'
+              AND COALESCE(pr.money_source, 'khach_hang') != 'nha_van_chuyen'
               AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
             ORDER BY ABS((pr.amount - COALESCE(pr_child.child_sum, 0)) - $1) ASC
             LIMIT 15

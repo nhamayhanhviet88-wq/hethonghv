@@ -2376,15 +2376,24 @@ module.exports = async function(fastify) {
     // ========== UNCLAIMED DEPOSITS from Sổ Ghi Nhận Tiền ==========
     fastify.get('/api/dht/unclaimed-deposits', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
-            SELECT pr.id, pr.payment_code, pr.amount, pr.payment_date, pr.transfer_note,
+            SELECT pr.id, pr.payment_code, 
+                   (pr.amount - COALESCE(pr_child.child_sum, 0)) AS amount,
+                   pr.payment_date, pr.transfer_note,
                    pr.customer_name, pr.customer_phone, pr.payment_method, pr.bank_name,
                    pr.locked_by, pr.locked_at
             FROM payment_records pr
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS child_sum
+                FROM payment_records
+                WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
+            ) pr_child ON true
             WHERE COALESCE(pr.source, '') != 'cashflow_chi'
-              AND COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll')
+              AND COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll', 'child_sll')
+              AND COALESCE(pr.money_source, 'khach_hang') != 'nha_van_chuyen'
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
               AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
+              AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
               AND (
                   pr.locked_by IS NULL
                   OR pr.locked_by = $1
@@ -2867,6 +2876,7 @@ module.exports = async function(fastify) {
             ) pr_child ON true
             WHERE COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll', 'child_sll')
               AND COALESCE(pr.source, '') != 'cashflow_chi'
+              AND COALESCE(pr.money_source, 'khach_hang') != 'nha_van_chuyen'
               AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
               AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
