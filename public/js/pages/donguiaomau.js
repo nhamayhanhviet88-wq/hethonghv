@@ -1166,19 +1166,38 @@ async function _dgamShowDetail(id) {
         // 2. Dòng tiền mini-bar
         let histHTML = '';
         if (o.total_amount > 0 || o.deposit_amount > 0) {
+            const depositCodes = [...new Set(payments.filter(p => p.payment_type === 'dat_coc' && p.payment_code).map(p => p.payment_code))];
+            const finalCodes = [...new Set(payments.filter(p => p.payment_type === 'thanh_toan' && p.payment_code).map(p => p.payment_code))];
+
+            let depositCodesHTML = '';
+            if (depositCodes.length > 0) {
+                depositCodesHTML = `<div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; width: 100%;">` + 
+                    depositCodes.map(code => `<span style="font-size:10px;font-weight:700;color:#1e40af;background:#dbeafe;border:1px solid #bfdbfe;padding:2px 6px;border-radius:6px;display:inline-block;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis" title="${code}">🏦 ${code}</span>`).join('') + 
+                `</div>`;
+            }
+
+            let finalCodesHTML = '';
+            if (finalCodes.length > 0) {
+                finalCodesHTML = `<div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; width: 100%;">` + 
+                    finalCodes.map(code => `<span style="font-size:10px;font-weight:700;color:#0f766e;background:#ccfbf1;border:1px solid #99f6e4;padding:2px 6px;border-radius:6px;display:inline-block;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis" title="${code}">🏦 ${code}</span>`).join('') + 
+                `</div>`;
+            }
+
             histHTML += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">`;
-            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:10px 12px;text-align:center">
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
                 <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.5px">💰 Tổng Tiền Đơn</div>
                 <div style="font-size:16px;font-weight:900;color:#059669;margin-top:2px">${fmt(o.total_amount)}đ</div>
             </div>`;
-            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:10px 12px;text-align:center">
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
                 <div style="font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px">💳 Đặt Cọc</div>
                 <div style="font-size:16px;font-weight:900;color:#1e40af;margin-top:2px">${fmt(o.deposit_amount)}đ</div>
+                ${depositCodesHTML}
             </div>`;
             const remainColor = o.remaining_amount > 0 ? '#dc2626' : '#059669';
-            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;text-align:center">
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
                 <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px">📊 Còn Lại</div>
                 <div style="font-size:16px;font-weight:900;color:${remainColor};margin-top:2px">${fmt(o.remaining_amount)}đ</div>
+                ${finalCodesHTML}
             </div>`;
             histHTML += `</div>`;
         }
