@@ -480,6 +480,7 @@ module.exports = async function(fastify) {
                 d.order_date,
                 d.ship_date AS expected_ship_date,
                 d.order_status,
+                d.status_gui_don,
                 d.shipping_priority,
                 d.customer_name,
                 d.customer_phone,
@@ -521,7 +522,7 @@ module.exports = async function(fastify) {
         `, sampleParams);
 
         const mappedSampleOrders = sampleOrdersRows.map(row => {
-            const isShipped = row.order_status === 'da_gui';
+            const isShipped = row.status_gui_don === true || row.order_status === 'da_gui' || row.order_status === 'hoan_thanh';
             return {
                 id: 'sample_' + row.id,
                 order_code: row.order_code,
