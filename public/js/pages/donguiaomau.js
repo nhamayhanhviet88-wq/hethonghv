@@ -1240,7 +1240,7 @@ async function _dgamShowDetail(id) {
         if (displayPayments.length > 0) {
             payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
             payHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">MÃ THANH TOÁN</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
-            const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
+            const typeLabels = { thanh_toan: 'Thanh Toán', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
             for (const p of displayPayments) {
                 payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
                 payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
@@ -1259,6 +1259,9 @@ async function _dgamShowDetail(id) {
                 } else if (p.payment_type === 'dat_coc') {
                     badgeStyle = 'background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;text-shadow:0 1px 2px rgba(0,0,0,.15);';
                     typeText = 'Đặt Cọc';
+                } else if (p.payment_type === 'thanh_toan') {
+                    badgeStyle = 'background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'Thanh Toán';
                 }
                 payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
                 payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;

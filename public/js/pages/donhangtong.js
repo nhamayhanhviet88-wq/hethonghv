@@ -1174,7 +1174,7 @@ async function _dhtShowDetail(id) {
         const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (total - deposit);
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
-        const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
+        const typeLabels = { thanh_toan: 'Thanh Toán', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
 
         // ── Section 1: Action Buttons (permission-aware) ──
         // Hide when opened from shipping page
@@ -1362,6 +1362,9 @@ async function _dhtShowDetail(id) {
                 } else if (p.payment_type === 'dat_coc') {
                     badgeStyle = 'background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;text-shadow:0 1px 2px rgba(0,0,0,.15);';
                     typeText = 'Đặt Cọc';
+                } else if (p.payment_type === 'thanh_toan') {
+                    badgeStyle = 'background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'Thanh Toán';
                 }
                 payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
                 payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
