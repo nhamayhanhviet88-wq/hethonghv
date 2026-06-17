@@ -1278,7 +1278,7 @@ async function _dgamShowDetail(id) {
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         
-        const shipDeduct = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
+        const shipDeduct = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
         const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0) - shipDeduct);
         const totalPaid = (Number(o.deposit_amount) || 0) + otherPaid;
 
@@ -1478,7 +1478,7 @@ async function _dgamShowDetail(id) {
                 trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
             }
 
-            const payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+            const payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
             const payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
             const feeAmt = Number(o.shipping_fee || 0);
 
@@ -1546,7 +1546,7 @@ async function _dgamShowDetail(id) {
                         ${o.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
                         <span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${o.customer_name || '—'}</span>
                         <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span></span>
-                        <span style="color:#64748b;font-weight:600;">💰 Cước Chuyển Phát:</span> <span style="font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</span>
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</span>
                         ${o.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
                     </div>
                 </div>
@@ -1555,7 +1555,7 @@ async function _dgamShowDetail(id) {
             shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
                 <table style="width:100%;border-collapse:collapse">
-                    ${row('Người trả ship', o.payer === 'hv' ? 'HV trả' : o.payer === 'khach' ? 'Khách trả' : o.payer || '—')}
+                    ${row('Người trả ship', o.payer === 'hv' ? (o.payment_method === 'ck' ? 'HV trả CK' : (o.payment_method === 'tm' ? 'HV trả TM' : 'HV trả')) : o.payer === 'khach' ? 'Khách trả' : o.payer || '—')}
                     ${row('Tiền ship dự kiến', `${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})`)}
                 </table>
             </div>`;

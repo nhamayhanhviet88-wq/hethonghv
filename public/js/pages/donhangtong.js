@@ -1170,8 +1170,8 @@ async function _dhtShowDetail(id) {
         const discount = Number(o.discount_amount) || 0;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
         const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
-        const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
-        const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (total - deposit);
+        const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+        const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (total - deposit - shipCK);
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
         const typeLabels = { thanh_toan: 'Thanh Toán', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
@@ -1675,7 +1675,7 @@ async function _dhtShowDetail(id) {
                     trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
                 }
                 
-                const payerLabel = it.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const payerLabel = it.shipping_fee_payer === 'hv' ? (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 const feeAmt = Number(it.shipping_fee || 0);
@@ -1775,7 +1775,7 @@ async function _dhtShowDetail(id) {
                         ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
                         ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
                         <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span></span>
-                        <span style="color:#64748b;font-weight:600;">💰 Cước Chuyển Phát:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
@@ -1860,12 +1860,12 @@ async function _dhtShowDetail(id) {
                     var _rnLabel = _acn.includes('nhân viên hv') || _acn.includes('nhan vien hv') ? '👷 Tên Nhân Viên Gửi Hàng' : '🤝 Tên Người Nhận Hàng';
                     shipHTML += row(_rnLabel, `<span style="font-weight:800;color:#1e293b">${o.receiver_name}</span>`);
                 }
-                var _payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                var _payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 var _methodLabel = o.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : o.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 var _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span>`);
                 var _sfee = Number(o.shipping_fee) || 0;
-                shipHTML += row('💰 Cước Chuyển Phát', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
+                shipHTML += row('💰 Cước Vận Chuyển', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
                 if (o.shipping_payment_code) {
                     shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
                     shipHTML += row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(o.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);
@@ -2127,7 +2127,7 @@ async function _dhtSubmitEdit(id) {
         const discount = Number(document.getElementById('dhtEdDiscount')?.value) || 0;
         const deposit = Number(o.deposit_amount) || 0;
         const sfee = Number(o.shipping_fee) || 0;
-        const sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? sfee : 0;
+        const sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? sfee : 0;
         const remain = total - discount - deposit - sck;
         if (remain < 0) {
             showToast(`⛔ Số tiền Còn Lại không được phép âm! (Còn lại: ${remain.toLocaleString('vi-VN')}đ)`, 'error');
@@ -2679,7 +2679,7 @@ async function _dhtConfirmDiscount(orderId) {
         var total = Number(o.total_amount) || 0;
         var deposit = Number(o.deposit_amount) || 0;
         var sfee = Number(o.shipping_fee) || 0;
-        var sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? sfee : 0;
+        var sck = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? sfee : 0;
         var remain = total - amount - deposit - sck;
         if (remain < 0) {
             showToast('⛔ Số tiền Còn Lại không được phép âm! (Còn lại: ' + remain.toLocaleString('vi-VN') + 'đ)', 'error');
