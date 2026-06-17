@@ -1206,7 +1206,7 @@ async function _dgamShowDetail(id) {
         const closedOrders = data.closedOrders || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
 
-        const titleText = `👕 Đơn Mẫu: ${o.sample_order_code} — Còn lại: ${fmt(o.remaining_amount)}đ`;
+        const titleText = `${o.sample_order_code} — ${fmt(o.remaining_amount)}đ`;
 
         // 1. Thao tác nhanh
         let actionsHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -1219,44 +1219,77 @@ async function _dgamShowDetail(id) {
             </div>
         </div>`;
 
-        // 2. Dòng tiền mini-bar
-        let histHTML = '';
-        if (o.total_amount > 0 || o.deposit_amount > 0) {
-            const depositCodes = [...new Set(payments.filter(p => p.payment_type === 'dat_coc' && p.payment_code).map(p => p.payment_code))];
-            const finalCodes = [...new Set(payments.filter(p => p.payment_type === 'thanh_toan' && p.payment_code).map(p => p.payment_code))];
-
-            let depositCodesHTML = '';
-            if (depositCodes.length > 0) {
-                depositCodesHTML = `<div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; width: 100%;">` + 
-                    depositCodes.map(code => `<span style="font-size:10px;font-weight:700;color:#1e40af;background:#dbeafe;border:1px solid #bfdbfe;padding:2px 6px;border-radius:6px;display:inline-block;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis" title="${code}">🏦 ${code}</span>`).join('') + 
-                `</div>`;
-            }
-
-            let finalCodesHTML = '';
-            if (finalCodes.length > 0) {
-                finalCodesHTML = `<div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; width: 100%;">` + 
-                    finalCodes.map(code => `<span style="font-size:10px;font-weight:700;color:#0f766e;background:#ccfbf1;border:1px solid #99f6e4;padding:2px 6px;border-radius:6px;display:inline-block;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis" title="${code}">🏦 ${code}</span>`).join('') + 
-                `</div>`;
-            }
-
-            histHTML += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">`;
-            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
-                <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.5px">💰 Tổng Tiền Đơn</div>
-                <div style="font-size:16px;font-weight:900;color:#059669;margin-top:2px">${fmt(o.total_amount)}đ</div>
-            </div>`;
-            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
-                <div style="font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px">💳 Đặt Cọc</div>
-                <div style="font-size:16px;font-weight:900;color:#1e40af;margin-top:2px">${fmt(o.deposit_amount)}đ</div>
-                ${depositCodesHTML}
-            </div>`;
-            const remainColor = o.remaining_amount > 0 ? '#dc2626' : '#059669';
-            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center">
-                <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px">📊 Còn Lại</div>
-                <div style="font-size:16px;font-weight:900;color:${remainColor};margin-top:2px">${fmt(o.remaining_amount)}đ</div>
-                ${finalCodesHTML}
-            </div>`;
-            histHTML += `</div>`;
+        // 2. Chi tiết cọc / thanh toán
+        var displayPayments = payments.slice();
+        if (displayPayments.length === 0 && Number(o.deposit_amount) > 0) {
+            displayPayments.push({
+                payment_code: o.deposit_code || '—',
+                amount: o.deposit_amount,
+                payment_date: o.order_date || o.created_at,
+                payment_type: 'dat_coc',
+                payment_method: null,
+                transfer_note: 'Đặt cọc khi tạo đơn',
+                _synthetic: true
+            });
         }
+
+        const fmtDt = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+
+        var payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
+        payHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${displayPayments.length}</span></div>`;
+        if (displayPayments.length > 0) {
+            payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+            payHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">MÃ THANH TOÁN</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
+            const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
+            for (const p of displayPayments) {
+                payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
+                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:center">${fmtDt(p.payment_date)}</td>`;
+                
+                let badgeStyle = 'background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                let typeText = typeLabels[p.payment_type] || p.payment_type || '—';
+                
+                if (p.money_source === 'nha_van_chuyen') {
+                    badgeStyle = 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'NVC';
+                } else if (p.money_source === 'khach_hang_sll' || p.payment_type === 'tt_sll' || p.payment_type === 'child_sll') {
+                    badgeStyle = 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'KH SLL';
+                } else if (p.payment_type === 'dat_coc') {
+                    badgeStyle = 'background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;text-shadow:0 1px 2px rgba(0,0,0,.15);';
+                    typeText = 'Đặt Cọc';
+                }
+                payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
+                payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
+                payHTML += `</tr>`;
+            }
+            payHTML += `</tbody></table></div>`;
+        } else {
+            payHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px">Chưa có thanh toán / cọc nào được ghi nhận</div>`;
+        }
+        payHTML += `</div>`;
+
+        // 2B. Tổng kết tài chính
+        const remColor = o.remaining_amount > 0 ? '#dc2626' : '#059669';
+        var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
+        finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
+        
+        let finRows = [
+            ['Tổng Tiền Hàng Thực Tế', fmt(o.total_amount) + 'đ', '#1e293b', true],
+            ['Đã thanh toán (cọc)', fmt(o.deposit_amount) + 'đ', '#10b981', true],
+            ['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]
+        ];
+        
+        for (const [label, val, color, bold] of finRows) {
+            const fontWt = bold ? '800' : '600';
+            const fSize = bold ? '13px' : '12px';
+            finHTML += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:${fSize};font-weight:${fontWt};color:${color}">`;
+            finHTML += `<span>${label}</span>`;
+            finHTML += `<span>${val}</span>`;
+            finHTML += `</div>`;
+        }
+        finHTML += `</div>`;
 
         // 3. Chi tiết sản phẩm gửi
         const typeLabels = {
@@ -1567,7 +1600,7 @@ async function _dgamShowDetail(id) {
         }
         paymentHTML += `</div>`;
 
-        const bodyHTML = actionsHTML + histHTML + prodHTML + saleKtHTML + infoHTML + shipInfoHTML + paymentHTML;
+        const bodyHTML = actionsHTML + prodHTML + payHTML + finHTML + saleKtHTML + infoHTML + shipInfoHTML + paymentHTML;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
 
         openModal(titleText, bodyHTML, footerHTML);

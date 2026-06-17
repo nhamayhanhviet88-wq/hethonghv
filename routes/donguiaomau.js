@@ -169,6 +169,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
                 WHERE order_ao_mau = d.sample_order_code
+                  AND payment_type = 'dat_coc'
             ) pr_dep ON true
             LEFT JOIN LATERAL (
                 SELECT STRING_AGG(DISTINCT o.order_code, '<br>') AS closed_order_codes
@@ -279,6 +280,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
                 WHERE order_ao_mau = d.sample_order_code
+                  AND payment_type = 'dat_coc'
             ) pr_dep ON true
             WHERE d.id = $1
         `, [orderId]);
