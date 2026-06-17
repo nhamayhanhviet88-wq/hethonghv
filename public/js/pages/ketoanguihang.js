@@ -814,7 +814,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     const discount = Number(o.discount_amount) || 0;
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
     const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
-    const remaining = total - deposit;
+    const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (total - deposit);
 
     let carrierOpts = '<option value="">— Chọn NVC —</option>';
     _shCarriers.forEach(c => { carrierOpts += '<option value="' + c.id + '" data-name="' + c.name + '">' + c.name + '</option>'; });
