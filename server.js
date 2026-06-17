@@ -1386,8 +1386,12 @@ async function start() {
             // Affiliate portal: serve lightweight doitac dashboard
             return reply.type('text/html').sendFile('doitac-dashboard.html');
         } else {
-            // Serve auto-injected dashboard HTML
-            reply.type('text/html').send(_cachedDashboardHtml || buildDashboardHtml());
+            // Serve auto-injected dashboard HTML (disable caching to force script updates)
+            reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                 .header('Pragma', 'no-cache')
+                 .header('Expires', '0')
+                 .type('text/html')
+                 .send(_cachedDashboardHtml || buildDashboardHtml());
         }
     });
 
