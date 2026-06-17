@@ -580,28 +580,31 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         const pool = db.getDB();
-        const client = await pool.connect();
+        let client;
+        const idsToSync = [id];
+
         try {
+            client = await pool.connect();
             await client.query('BEGIN');
 
             const recRes = await client.query('SELECT * FROM sewing_records WHERE id=$1', [id]);
             const rec = recRes.rows[0];
             if (!rec) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
+                const err = new Error('Không tìm thấy bản ghi may');
+                err.statusCode = 404;
+                throw err;
             }
 
             if (rec.contractor_id !== null) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: 'Không thể phân tổ trong nhà cho đơn may gia công ngoài!' });
+                const err = new Error('Không thể phân tổ trong nhà cho đơn may gia công ngoài!');
+                err.statusCode = 400;
+                throw err;
             }
 
             if (rec.done_date !== null || rec.salary_approved === true) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: 'Đơn may đã hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân tổ!' });
+                const err = new Error('Đơn may đã hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân tổ!');
+                err.statusCode = 400;
+                throw err;
             }
 
             // Validate quantities
@@ -609,25 +612,24 @@ module.exports = async function(fastify) {
             for (const ass of assignments) {
                 const qty = Number(ass.quantity) || 0;
                 if (qty <= 0) {
-                    await client.query('ROLLBACK');
-                    client.release();
-                    return reply.code(400).send({ error: 'Số lượng bàn giao cho từng tổ phải lớn hơn 0!' });
+                    const err = new Error('Số lượng bàn giao cho từng tổ phải lớn hơn 0!');
+                    err.statusCode = 400;
+                    throw err;
                 }
                 if (!ass.team_id) {
-                    await client.query('ROLLBACK');
-                    client.release();
-                    return reply.code(400).send({ error: 'Tổ may bàn giao không hợp lệ!' });
+                    const err = new Error('Tổ may bàn giao không hợp lệ!');
+                    err.statusCode = 400;
+                    throw err;
                 }
                 totalQty += qty;
             }
 
             if (totalQty !== Number(rec.quantity)) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: `Tổng số lượng bàn giao (${totalQty}) phải bằng số lượng của đơn (${rec.quantity})!` });
+                const err = new Error(`Tổng số lượng bàn giao (${totalQty}) phải bằng số lượng của đơn (${rec.quantity})!`);
+                err.statusCode = 400;
+                throw err;
             }
 
-            const idsToSync = [id];
             for (let i = 0; i < assignments.length; i++) {
                 const ass = assignments[i];
                 const teamId = Number(ass.team_id);
@@ -679,16 +681,33 @@ module.exports = async function(fastify) {
             }
 
             await client.query('COMMIT');
-            client.release();
+        } catch (err) {
+            if (client) {
+                try {
+                    await client.query('ROLLBACK');
+                } catch (rollbackErr) {
+                    console.error('[Sewing Split] ROLLBACK failed:', rollbackErr);
+                }
+            }
+            console.error('[Sewing Split] split-handover failed:', err);
+            const status = err.statusCode || 500;
+            return reply.code(status).send({ error: err.message });
+        } finally {
+            if (client) {
+                client.release();
+            }
+        }
+
+        // Run syncFinishingRecord COMPLETELY outside the transaction try-catch-finally block
+        try {
             for (const sId of idsToSync) {
                 await syncFinishingRecord(sId, req.user.id, now);
             }
-            return { success: true };
-        } catch (err) {
-            await client.query('ROLLBACK');
-            client.release();
-            throw err;
+        } catch (syncErr) {
+            console.error('[Sewing Split] syncFinishingRecord failed:', syncErr);
         }
+
+        return { success: true };
     });
 
     // ========== TEAMS ==========

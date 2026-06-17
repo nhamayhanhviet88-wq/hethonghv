@@ -214,9 +214,10 @@ module.exports = async function(fastify) {
         else if (b.roll_type === 'DECAL') materialItemId = 21;
 
         const pool = db.getDB();
-        const client = await pool.connect();
+        let client;
         
         try {
+            client = await pool.connect();
             await client.query('BEGIN');
 
             // 0. Check if there is already an active (unclosed) roll of this type in the workshop
@@ -229,11 +230,9 @@ module.exports = async function(fastify) {
             
             if (activeRollRes.rows.length > 0) {
                 const activeRoll = activeRollRes.rows[0];
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ 
-                    error: `Không thể thêm vật liệu mới. Cuộn ${b.roll_type} hiện tại chưa được sử dụng hết hoặc chưa chốt cuộn (Tồn cuối: ${Number(activeRoll.qty_remaining).toLocaleString('vi-VN')} mét).` 
-                });
+                const err = new Error(`Không thể thêm vật liệu mới. Cuộn ${b.roll_type} hiện tại chưa được sử dụng hết hoặc chưa chốt cuộn (Tồn cuối: ${Number(activeRoll.qty_remaining).toLocaleString('vi-VN')} mét).`);
+                err.statusCode = 400;
+                throw err;
             }
 
             // 1. Check if there is any other lot of this material type that is currently partially exported (remaining_qty < quantity)
@@ -250,11 +249,9 @@ module.exports = async function(fastify) {
             if (partialLots.rows.length > 0) {
                 const partialLotId = Number(partialLots.rows[0].id);
                 if (selectedTxId !== partialLotId) {
-                    await client.query('ROLLBACK');
-                    client.release();
-                    return reply.code(400).send({
-                        error: `Bắt buộc phải xuất hết phần còn lại của cây đang dở dang trước khi sang cây mới.`
-                    });
+                    const err = new Error(`Bắt buộc phải xuất hết phần còn lại của cây đang dở dang trước khi sang cây mới.`);
+                    err.statusCode = 400;
+                    throw err;
                 }
             }
             
@@ -268,29 +265,29 @@ module.exports = async function(fastify) {
             `, [selectedTxId, materialItemId]);
 
             if (lotRes.rows.length === 0) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: 'Không tìm thấy lô nhập này trong Kho Vật Liệu' });
+                const err = new Error('Không tìm thấy lô nhập này trong Kho Vật Liệu');
+                err.statusCode = 400;
+                throw err;
             }
 
             const remainingQty = Number(lotRes.rows[0].remaining_qty);
             if (remainingQty <= 0) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: `Lô nhập #${selectedTxId} đã hết hoặc đã được xuất hết sang bộ phận in.` });
+                const err = new Error(`Lô nhập #${selectedTxId} đã hết hoặc đã được xuất hết sang bộ phận in.`);
+                err.statusCode = 400;
+                throw err;
             }
 
             // Read the custom qty_imported from request, validate it
             const requestedQty = Number(b.qty_imported);
             if (isNaN(requestedQty) || requestedQty <= 0) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: 'Số lượng mét xuất kho không hợp lệ' });
+                const err = new Error('Số lượng mét xuất kho không hợp lệ');
+                err.statusCode = 400;
+                throw err;
             }
             if (requestedQty > remainingQty) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ error: `Số mét xuất (${requestedQty}m) vượt quá số lượng tồn kho còn lại (${remainingQty}m)` });
+                const err = new Error(`Số mét xuất (${requestedQty}m) vượt quá số lượng tồn kho còn lại (${remainingQty}m)`);
+                err.statusCode = 400;
+                throw err;
             }
 
             // If this lot was already partially exported, force exporting the entire remaining quantity
@@ -302,11 +299,9 @@ module.exports = async function(fastify) {
             const hasPrevExports = hasPrevExportsRes.rows[0].cnt > 0;
             
             if (hasPrevExports && requestedQty < remainingQty) {
-                await client.query('ROLLBACK');
-                client.release();
-                return reply.code(400).send({ 
-                    error: `Lô này đã được xuất một phần trước đó. Lần xuất này bắt buộc phải xuất toàn bộ phần còn lại (${remainingQty}m) để chốt hết cây.` 
-                });
+                const err = new Error(`Lô này đã được xuất một phần trước đó. Lần xuất này bắt buộc phải xuất toàn bộ phần còn lại (${remainingQty}m) để chốt hết cây.`);
+                err.statusCode = 400;
+                throw err;
             }
 
             const qty = requestedQty;
@@ -363,13 +358,23 @@ module.exports = async function(fastify) {
             `, [rollId, 'create', `Nhập từ Kho Vật Liệu (Số lượng: ${qty}m, Lô nguồn: #${selectedTxId})`, req.user.id, now]);
 
             await client.query('COMMIT');
-            client.release();
             return { success: true, id: rollId };
         } catch(e) {
-            await client.query('ROLLBACK');
-            client.release();
+            if (client) {
+                try {
+                    await client.query('ROLLBACK');
+                } catch(rollbackErr) {
+                    console.error('[PT] ROLLBACK failed:', rollbackErr);
+                }
+            }
             console.error('[PT] Import from warehouse failed:', e);
-            return reply.code(500).send({ error: 'Lỗi hệ thống khi xuất kho: ' + e.message });
+            const status = e.statusCode || 500;
+            const msg = status === 500 ? 'Lỗi hệ thống khi xuất kho: ' + e.message : e.message;
+            return reply.code(status).send({ error: msg });
+        } finally {
+            if (client) {
+                client.release();
+            }
         }
     });
 

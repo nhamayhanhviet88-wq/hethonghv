@@ -3198,46 +3198,20 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // ========== PET/TEM: Free Customer Search ==========
-    fastify.get('/api/dht/free-customers/search', { preHandler: [authenticate] }, async (request, reply) => {
-        const q = (request.query.q || '').trim();
-        const cat = (request.query.cat || '').trim();
-        const role = request.user.role || '';
-        const userId = request.user.id;
-
-        // GĐ + QLCC see all, others see only their own
-        const seeAll = (role === 'giam_doc' || role === 'quan_ly_cap_cao');
-        const ownerFilter = seeAll ? '' : ' AND created_by = ' + parseInt(userId);
-
-        let rows;
-        if (!q) {
-            rows = await db.all(`
-                SELECT id, name, phone, address, province, categories
-                FROM dht_free_customers
-                WHERE 1=1 ${ownerFilter}
-                ORDER BY
-                    CASE WHEN $1 != '' AND $1 = ANY(categories) THEN 0 ELSE 1 END,
-                    updated_at DESC
-                LIMIT 30
-            `, [cat]);
-        } else {
-            rows = await db.all(`
-                SELECT id, name, phone, address, province, categories
-                FROM dht_free_customers
-                WHERE (name ILIKE $1 OR phone ILIKE $1) ${ownerFilter}
-                ORDER BY
-                    CASE WHEN $2 != '' AND $2 = ANY(categories) THEN 0 ELSE 1 END,
-                    updated_at DESC
-                LIMIT 15
-            `, ['%' + q + '%', cat]);
-        }
-        return { customers: rows };
-    });
-
     // ========== NOTE ENDPOINTS ==========
     // Get notes for an order
     fastify.get('/api/dht/orders/:id/notes', { preHandler: [authenticate] }, async (request, reply) => {
-        const orderId = Number(request.params.id);
+        const idStr = String(request.params.id);
+        let orderId;
+        if (idStr.startsWith('sample_')) {
+            const sampleId = Number(idStr.replace('sample_', ''));
+            if (isNaN(sampleId)) return reply.code(400).send({ error: 'ID đơn mẫu không hợp lệ' });
+            orderId = -sampleId;
+        } else {
+            orderId = Number(idStr);
+            if (isNaN(orderId)) return reply.code(400).send({ error: 'ID đơn hàng không hợp lệ' });
+        }
+
         const notes = await db.all(
             `SELECT * FROM dht_order_notes 
              WHERE dht_order_id = $1 
@@ -3249,7 +3223,19 @@ module.exports = async function(fastify) {
 
     // Add a note to an order
     fastify.post('/api/dht/orders/:id/notes', { preHandler: [authenticate] }, async (request, reply) => {
-        const orderId = Number(request.params.id);
+        const idStr = String(request.params.id);
+        let orderId;
+        let isSample = false;
+        if (idStr.startsWith('sample_')) {
+            const sampleId = Number(idStr.replace('sample_', ''));
+            if (isNaN(sampleId)) return reply.code(400).send({ error: 'ID đơn mẫu không hợp lệ' });
+            orderId = -sampleId;
+            isSample = true;
+        } else {
+            orderId = Number(idStr);
+            if (isNaN(orderId)) return reply.code(400).send({ error: 'ID đơn hàng không hợp lệ' });
+        }
+
         const { note_text } = request.body || {};
         if (!note_text || !note_text.trim()) {
             return reply.code(400).send({ error: 'Nội dung ghi chú không được để trống' });
@@ -3266,8 +3252,13 @@ module.exports = async function(fastify) {
         }
         if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được ghi chú' });
 
-        const order = await db.get('SELECT id FROM dht_orders WHERE id = $1', [orderId]);
-        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        if (isSample) {
+            const sampleOrder = await db.get('SELECT id FROM don_gui_ao_mau WHERE id = $1', [-orderId]);
+            if (!sampleOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn mẫu' });
+        } else {
+            const order = await db.get('SELECT id FROM dht_orders WHERE id = $1', [orderId]);
+            if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        }
 
         const result = await db.run(
             `INSERT INTO dht_order_notes (dht_order_id, note_text, created_by, created_by_name, created_at, updated_at)
@@ -3275,19 +3266,21 @@ module.exports = async function(fastify) {
             [orderId, note_text.trim(), request.user.id, request.user.name || request.user.username]
         );
 
-        // Audit Log entry
-        try {
-            await db.run(
-                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
-                [
-                    orderId,
-                    'add_note',
-                    `📝 Thêm ghi chú: "${note_text.trim()}"`,
-                    JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: null, new: note_text.trim() }]),
-                    request.user.id
-                ]
-            );
-        } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+        // Audit Log entry (only for real orders, to avoid foreign key violations in dht_audit_logs)
+        if (!isSample) {
+            try {
+                await db.run(
+                    `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                    [
+                        orderId,
+                        'add_note',
+                        `📝 Thêm ghi chú: "${note_text.trim()}"`,
+                        JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: null, new: note_text.trim() }]),
+                        request.user.id
+                    ]
+                );
+            } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+        }
 
         return { success: true, id: result.lastInsertRowid };
     });
@@ -3317,18 +3310,20 @@ module.exports = async function(fastify) {
         );
 
         // Audit Log entry
-        try {
-            await db.run(
-                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
-                [
-                    note.dht_order_id,
-                    'edit_note',
-                    `📝 Sửa ghi chú`,
-                    JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: note.note_text, new: note_text.trim() }]),
-                    request.user.id
-                ]
-            );
-        } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+        if (note.dht_order_id > 0) {
+            try {
+                await db.run(
+                    `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                    [
+                        note.dht_order_id,
+                        'edit_note',
+                        `📝 Sửa ghi chú`,
+                        JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: note.note_text, new: note_text.trim() }]),
+                        request.user.id
+                    ]
+                );
+            } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+        }
 
         return { success: true };
     });
@@ -3348,18 +3343,20 @@ module.exports = async function(fastify) {
         await db.run('DELETE FROM dht_order_notes WHERE id = $1', [noteId]);
 
         // Audit Log entry
-        try {
-            await db.run(
-                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
-                [
-                    note.dht_order_id,
-                    'delete_note',
-                    `📝 Xóa ghi chú`,
-                    JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: note.note_text, new: null }]),
-                    request.user.id
-                ]
-            );
-        } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+        if (note.dht_order_id > 0) {
+            try {
+                await db.run(
+                    `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                    [
+                        note.dht_order_id,
+                        'delete_note',
+                        `📝 Xóa ghi chú`,
+                        JSON.stringify([{ field: 'note_text', label: 'Ghi chú', old: note.note_text, new: null }]),
+                        request.user.id
+                    ]
+                );
+            } catch(e) { console.error('[Audit Log Note Error]:', e.message); }
+        }
 
         return { success: true };
     });
