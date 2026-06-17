@@ -172,9 +172,6 @@ function _dgamRenderRows(paged) {
         if (o.linh_vuc) {
             prodDisplay = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:4px">' + o.linh_vuc + '</span>' + prodDisplay;
         }
-        if (o.sale_note_for_accountant) {
-            prodDisplay += '<div style="font-size:10px;color:#d97706;font-style:italic;max-width:180px;white-space:normal;margin-top:2px">📝 ' + o.sale_note_for_accountant + '</div>';
-        }
 
         var imgDisplay = '—';
         if (o.sample_image) {
