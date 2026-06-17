@@ -699,17 +699,46 @@ module.exports = async function(fastify) {
         if (!code) return { duplicate: false };
         const trackingCode = String(code).trim();
         if (!trackingCode) return { duplicate: false };
-        const orderId = excludeOrderId ? Number(excludeOrderId) : 0;
 
-        const dup = await db.get(`
-            SELECT order_code FROM (
-                SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
-                UNION
-                SELECT o.order_code FROM dht_order_shipments s
-                JOIN dht_orders o ON s.dht_order_id = o.id
-                WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
-            ) LIMIT 1
-        `, [trackingCode, orderId]);
+        let isSample = false;
+        let sampleId = 0;
+        let dhtOrderId = 0;
+        if (excludeOrderId) {
+            const excludeStr = String(excludeOrderId);
+            if (excludeStr.startsWith('sample_')) {
+                isSample = true;
+                sampleId = Number(excludeStr.replace('sample_', '')) || 0;
+            } else {
+                dhtOrderId = Number(excludeStr) || 0;
+            }
+        }
+
+        let dup = null;
+        if (isSample) {
+            dup = await db.get(`
+                SELECT order_code FROM (
+                    SELECT order_code FROM dht_orders WHERE tracking_code = $1
+                    UNION
+                    SELECT o.order_code FROM dht_order_shipments s
+                    JOIN dht_orders o ON s.dht_order_id = o.id
+                    WHERE s.tracking_code = $1
+                    UNION
+                    SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                ) LIMIT 1
+            `, [trackingCode, sampleId]);
+        } else {
+            dup = await db.get(`
+                SELECT order_code FROM (
+                    SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
+                    UNION
+                    SELECT o.order_code FROM dht_order_shipments s
+                    JOIN dht_orders o ON s.dht_order_id = o.id
+                    WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                    UNION
+                    SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
+                ) LIMIT 1
+            `, [trackingCode, dhtOrderId]);
+        }
 
         if (dup) {
             return { duplicate: true, order_code: dup.order_code };
@@ -977,6 +1006,8 @@ module.exports = async function(fastify) {
                         SELECT o.order_code FROM dht_order_shipments s
                         JOIN dht_orders o ON s.dht_order_id = o.id
                         WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                        UNION
+                        SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
                     ) LIMIT 1
                 `, [trackingCode, orderId]);
                 if (dup) {
@@ -1527,6 +1558,8 @@ module.exports = async function(fastify) {
                         SELECT o.order_code FROM dht_order_shipments s
                         JOIN dht_orders o ON s.dht_order_id = o.id
                         WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                        UNION
+                        SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
                     ) LIMIT 1
                 `, [trackingCode, orderId]);
                 if (dup) {
