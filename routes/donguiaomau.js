@@ -163,6 +163,39 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // ========== ORDERS: Detail ==========
+    fastify.get('/api/don-gui-ao-mau/:id/detail', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+
+        const order = await db.get(`
+            SELECT
+                d.*,
+                u.full_name AS created_by_name,
+                COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount
+            FROM don_gui_ao_mau d
+            LEFT JOIN users u ON d.created_by = u.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+            ) pr_dep ON true
+            WHERE d.id = $1
+        `, [orderId]);
+
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const payments = await db.all(`
+            SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
+                   customer_name, customer_phone, transfer_note, created_at, created_by, money_source
+            FROM payment_records
+            WHERE order_ao_mau = $1
+            ORDER BY payment_date DESC, id DESC
+        `, [order.sample_order_code]);
+
+        return { order, payments };
+    });
+
     // ========== CREATE ORDER ==========
     fastify.post('/api/don-gui-ao-mau', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body;

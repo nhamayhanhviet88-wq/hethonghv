@@ -175,8 +175,8 @@ function _dgamRenderRows(paged) {
             shipDisplay += '<br><span style="background:'+priBg+';color:'+priColor+';padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">' + o.shipping_priority + '</span>';
         }
 
-        return '<tr>'
-            +'<td style="text-align:center">'
+        return '<tr style="cursor:pointer" onclick="_dgamShowDetail('+o.id+')">'
+            +'<td style="text-align:center" onclick="event.stopPropagation()">'
             +'<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
             +'<button class="dgam-icon-btn'+(o.status_gui_don?' on-gui':'')+'" title="Gửi đơn" onclick="_dgamTogSt('+o.id+',\'status_gui_don\','+!o.status_gui_don+')">📤</button>'
             +'<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
@@ -189,7 +189,7 @@ function _dgamRenderRows(paged) {
             +'<td>'+(o.category||'—')+'</td>'
             +'<td>'+(o.customer_name||'—')+'</td>'
             +'<td>'+prodDisplay+'</td>'
-            +'<td>'+(o.customer_phone?'<a href="tel:'+o.customer_phone+'" style="color:var(--info)">'+o.customer_phone+'</a>':'—')+'</td>'
+            +'<td>'+(o.customer_phone?'<a href="tel:'+o.customer_phone+'" style="color:var(--info)" onclick="event.stopPropagation()">'+o.customer_phone+'</a>':'—')+'</td>'
             +'<td>'+(o.address||'—')+'</td>'
             +'<td>'+(o.province||'—')+'</td>'
             +'<td>'+shipDisplay+'</td>'
@@ -1018,5 +1018,213 @@ async function _dgamSubmitAdd() {
         }
     } catch (e) {
         showToast('Lỗi kết nối server!', 'error');
+    }
+}
+
+async function _dgamShowDetail(id) {
+    try {
+        const data = await apiCall(`/api/don-gui-ao-mau/${id}/detail`);
+        if (!data || !data.order) {
+            showToast('Không tìm thấy thông tin đơn mẫu', 'error');
+            return;
+        }
+        const o = data.order;
+        const payments = data.payments || [];
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+
+        const titleText = `👕 Đơn Mẫu: ${o.sample_order_code} — Còn lại: ${fmt(o.remaining_amount)}đ`;
+
+        // 1. Thao tác nhanh
+        let actionsHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span style="font-weight:800;font-size:14px;color:var(--navy)">Trạng thái gửi Zalo:</span>
+                <span style="background:#e0f2fe;color:#0369a1;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;">📨 Luôn tự động gửi Zalo OA</span>
+            </div>
+            <div>
+                <button class="btn btn-secondary" onclick="window.print()" style="padding:6px 16px;font-size:12px;font-weight:700;">🖨️ In Phiếu</button>
+            </div>
+        </div>`;
+
+        // 2. Dòng tiền mini-bar
+        let histHTML = '';
+        if (o.total_amount > 0 || o.deposit_amount > 0) {
+            histHTML += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">`;
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:10px 12px;text-align:center">
+                <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.5px">💰 Tổng Tiền Đơn</div>
+                <div style="font-size:16px;font-weight:900;color:#059669;margin-top:2px">${fmt(o.total_amount)}đ</div>
+            </div>`;
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:10px 12px;text-align:center">
+                <div style="font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px">💳 Đặt Cọc</div>
+                <div style="font-size:16px;font-weight:900;color:#1e40af;margin-top:2px">${fmt(o.deposit_amount)}đ</div>
+            </div>`;
+            const remainColor = o.remaining_amount > 0 ? '#dc2626' : '#059669';
+            histHTML += `<div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;text-align:center">
+                <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px">📊 Còn Lại</div>
+                <div style="font-size:16px;font-weight:900;color:${remainColor};margin-top:2px">${fmt(o.remaining_amount)}đ</div>
+            </div>`;
+            histHTML += `</div>`;
+        }
+
+        // 3. Chi tiết sản phẩm gửi
+        const typeLabels = {
+            'gui_mau_ao': 'Gửi mẫu áo',
+            'gui_mau_vai': 'Gửi mẫu vải',
+            'gui_tem': 'Gửi Tem',
+            'gui_pet': 'Gửi Pet',
+            'gui_khac': 'Gửi Khác'
+        };
+        const categoryLabel = typeLabels[o.category] || o.category || '—';
+        const linhVucBadge = o.linh_vuc ? `<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:6px">${o.linh_vuc}</span>` : '';
+
+        let prodHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">👕 Chi Tiết Sản Phẩm Gửi</div>
+            <table class="table" style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+                <thead>
+                    <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#64748b">PHÂN LOẠI</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#64748b">SẢN PHẨM / NỘI DUNG</th>
+                        <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;color:#64748b;width:80px">SL</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#64748b;width:120px">ĐƠN GIÁ</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#64748b;width:120px">TỔNG TIỀN</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #f1f5f9">
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${categoryLabel}</td>
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${linhVucBadge}${o.product_name || '—'}</td>
+                        <td style="padding:10px;text-align:center;font-size:13px;font-weight:700;color:#1e293b">${o.quantity || 0}</td>
+                        <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:#1e293b">${fmt(o.price)}đ</td>
+                        <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:var(--success)">${fmt(o.total_amount)}đ</td>
+                    </tr>
+                </tbody>
+            </table>`;
+
+        if (o.sample_image) {
+            prodHTML += `<div style="text-align:center;margin-top:16px;background:#f8fafc;padding:16px;border-radius:8px;border:1px dashed #cbd5e1">
+                <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px">🖼️ HÌNH ẢNH MẪU CHỤP</div>
+                <img src="${o.sample_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open('${o.sample_image}', '_blank')" title="Click để xem ảnh gốc">
+            </div>`;
+        }
+        prodHTML += `</div>`;
+
+        // 4. Chỉ thị gửi hàng & Vận chuyển
+        const priorityBg = o.shipping_priority === 'GẤP' ? '#fee2e2' : (o.shipping_priority === 'CHUẨN' ? '#dbeafe' : '#f1f5f9');
+        const priorityColor = o.shipping_priority === 'GẤP' ? '#991b1b' : (o.shipping_priority === 'CHUẨN' ? '#1e40af' : '#475569');
+
+        let saleKtHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📋 Chỉ Thị Gửi Hàng & Vận Chuyển</div>
+            <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start">
+                <span style="color:#64748b;font-weight:600">🚛 Nhà Vận Chuyển:</span>
+                <span style="font-weight:700;color:#1e293b">${o.shipping_method || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">⏰ Tiêu chuẩn gửi:</span>
+                <span><span style="background:${priorityBg};color:${priorityColor};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800">${o.shipping_priority || 'CHUẨN'}</span></span>
+
+                <span style="color:#64748b;font-weight:600">📅 Ngày gửi dự kiến:</span>
+                <span style="font-weight:700">${o.ship_date ? new Date(o.ship_date).toLocaleDateString('vi-VN') : '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">⏰ Giờ gửi hàng:</span>
+                <span style="font-weight:700">${o.ship_time || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">📝 Sale dặn kế toán:</span>
+                <span style="font-weight:700;color:#c2410c;white-space:pre-line">${o.sale_note_for_accountant || '—'}</span>
+            </div>`;
+
+        if (o.status_hoan_hang || o.return_shipping_fee > 0) {
+            saleKtHTML += `<div style="margin-top:12px;padding-top:12px;border-top:1.5px solid #f1f5f9;font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start">
+                <span style="color:#dc2626;font-weight:700">🔄 THÔNG TIN HOÀN HÀNG:</span>
+                <span style="font-weight:700;color:#dc2626">Đã kích hoạt trạng thái Hoàn Hàng</span>
+
+                <span style="color:#64748b;font-weight:600">💵 Cước hoàn thực tế:</span>
+                <span style="font-weight:700;color:#dc2626">${fmt(o.return_shipping_fee)}đ</span>
+
+                <span style="color:#64748b;font-weight:600">💳 Người trả ship hoàn:</span>
+                <span style="font-weight:700">${o.return_payer === 'hv' ? 'HV trả' : o.return_payer === 'khach' ? 'Khách trả' : o.return_payer || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">💳 H.thức thanh toán hoàn:</span>
+                <span style="font-weight:700">${o.return_payment_method || '—'}</span>
+            </div>`;
+        }
+        saleKtHTML += `</div>`;
+
+        // 5. Thông tin khách hàng & Người lên đơn
+        let infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">👤 Thông Tin Đơn Hàng & Khách Hàng</div>
+            <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start">
+                <span style="color:#64748b;font-weight:600">👤 Tên Khách Hàng:</span>
+                <span style="font-weight:700">${o.customer_name || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">📞 Số Điện Thoại:</span>
+                <span><a href="tel:${o.customer_phone || ''}" style="font-weight:700;color:var(--info)" onclick="event.stopPropagation()">${o.customer_phone || '—'}</a></span>
+
+                <span style="color:#64748b;font-weight:600">📍 Địa chỉ nhận mẫu:</span>
+                <span style="font-weight:700">${o.address || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">🏙️ Tỉnh / Thành Phố:</span>
+                <span style="font-weight:700">${o.province || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">✍️ Người lên đơn:</span>
+                <span style="font-weight:700">${o.created_by_name || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">📅 Ngày lên đơn:</span>
+                <span style="font-weight:700">${o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">💳 Người trả ship:</span>
+                <span style="font-weight:700">${o.payer === 'hv' ? 'HV trả' : o.payer === 'khach' ? 'Khách trả' : o.payer || '—'}</span>
+
+                <span style="color:#64748b;font-weight:600">💵 Tiền ship dự kiến:</span>
+                <span style="font-weight:700">${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})</span>
+            </div>
+        </div>`;
+
+        // 6. Lịch sử cọc
+        let paymentHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💵 Lịch Sử Cọc / Thanh Toán</div>`;
+
+        if (payments && payments.length > 0) {
+            paymentHTML += `<table class="table" style="width:100%;border-collapse:collapse">
+                <thead>
+                    <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">MÃ TIỀN</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">HÌNH THỨC</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">NGÂN HÀNG</th>
+                        <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;color:#64748b">SỐ TIỀN</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">NỘI DUNG CHUYỂN</th>
+                        <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;color:#64748b">NGÀY GD</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            for (const p of payments) {
+                const typeLabels = { dat_coc: 'Đặt cọc', thanh_toan: 'Thanh toán' };
+                const typeBadge = `<span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">${typeLabels[p.payment_type] || p.payment_type || ''}</span>`;
+
+                paymentHTML += `<tr style="border-bottom:1px solid #f1f5f9">
+                    <td style="padding:8px;font-size:12px;font-weight:700;color:#1e293b">${p.payment_code || '—'}${typeBadge}</td>
+                    <td style="padding:8px;font-size:12px;color:#1e293b">${p.payment_method || '—'}</td>
+                    <td style="padding:8px;font-size:12px;color:#1e293b">${p.bank_name || '—'}</td>
+                    <td style="padding:8px;font-size:12px;font-weight:700;color:#0284c7;text-align:right">${fmt(p.amount)}đ</td>
+                    <td style="padding:8px;font-size:12px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.transfer_note || ''}">${p.transfer_note || '—'}</td>
+                    <td style="padding:8px;font-size:12px;color:#1e293b;text-align:center">${p.payment_date ? new Date(p.payment_date).toLocaleDateString('vi-VN') : '—'}</td>
+                </tr>`;
+            }
+            paymentHTML += `</tbody></table>`;
+        } else {
+            paymentHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px;font-style:italic">Chưa ghi nhận giao dịch cọc nào cho đơn mẫu này</div>`;
+        }
+        paymentHTML += `</div>`;
+
+        const bodyHTML = actionsHTML + histHTML + prodHTML + saleKtHTML + infoHTML + paymentHTML;
+        const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
+
+        openModal(titleText, bodyHTML, footerHTML);
+
+        // Widen modal
+        setTimeout(() => {
+            const mc = document.querySelector('.modal-content');
+            if (mc) { mc.style.maxWidth = '1000px'; mc.style.width = '95vw'; }
+        }, 30);
+    } catch (e) {
+        console.error('Error opening sample order details:', e);
+        showToast('Lỗi tải chi tiết đơn mẫu', 'error');
     }
 }
