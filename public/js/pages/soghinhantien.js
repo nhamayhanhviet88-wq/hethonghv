@@ -126,7 +126,7 @@ function _prGetFilteredRecords() {
         if (_pr.filterType && r.payment_type !== _pr.filterType) return false;
 
         // Lọc trạng thái nhận
-        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '') || (r.order_ao_mau && r.order_ao_mau.trim() !== '');
         if (_pr.filterClaimState === 'unclaimed' && isClaimed) return false;
         if (_pr.filterClaimState === 'claimed' && !isClaimed) return false;
 
@@ -317,7 +317,7 @@ function _prRenderTable() {
         h += '<td style="font-weight:900;color:#d32f2f;text-align:left;padding-left:8px;font-size:12.5px">'+_prFmt(r.amount)+'</td>';
         h += '<td style="text-align:center">'+tienDuDisplay+'</td>';
         h += '<td>'+typeBadge+'</td>';
-        var displayOrder = r.order_tt_coc || '';
+        var displayOrder = r.order_tt_coc || r.order_ao_mau || '';
         if (r.payment_type === 'parent_sll' && r.sll_order_codes) {
             displayOrder = r.sll_order_codes;
         } else if (r.total_order_codes && r.total_order_codes.trim()) {
@@ -836,7 +836,7 @@ async function _prShowDetail(id) {
     var isTrinh = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao' && currentUser.username === 'trinh');
     var deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name : '';
     var isKT = deptName.toLowerCase().indexOf('kế toán') !== -1 || deptName.toLowerCase().indexOf('ke toan') !== -1;
-    var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+    var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '') || (r.order_ao_mau && r.order_ao_mau.trim() !== '');
 
     var isParentSll = r.payment_type === 'parent_sll';
 
@@ -855,7 +855,7 @@ async function _prShowDetail(id) {
     var row = function(label,val){ return '<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:130px">'+label+'</td><td style="padding:8px 12px;font-size:12.5px;font-weight:700;color:#1e293b">'+val+'</td></tr>'; };
 
     var childrenHTML = '';
-    var hasAllocation = isParentSll || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+    var hasAllocation = isParentSll || (r.order_tt_coc && r.order_tt_coc.trim() !== '') || (r.order_ao_mau && r.order_ao_mau.trim() !== '');
     if (hasAllocation) {
         try {
             var childRes = await apiCall('/api/payment-records/parent/' + id + '/children');
@@ -884,7 +884,7 @@ async function _prShowDetail(id) {
                         : '<span class="pr-badge pr-tt">Thanh Toán</span>';
                     return '<tr style="border-bottom:1px solid #f1f5f9">'
                         + '<td style="padding:6px 12px;font-weight:700;color:#475569">' + c.payment_code + '</td>'
-                        + '<td style="padding:6px 12px"><span style="background:#7c3aed;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700">' + (c.order_tt_coc || '—') + '</span></td>'
+                        + '<td style="padding:6px 12px"><span style="background:#7c3aed;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700">' + (c.order_tt_coc || c.order_ao_mau || '—') + '</span></td>'
                         + '<td style="padding:6px 12px">' + typeBadge + '</td>'
                         + '<td style="padding:6px 12px;text-align:right;font-weight:700;color:#d32f2f">' + _prFmt(c.amount) + '</td>'
                         + '</tr>';
@@ -907,7 +907,7 @@ async function _prShowDetail(id) {
                 children.forEach(function(c) {
                     var remDebt = Number(c.order_remaining) || 0;
                     if (remDebt > 0) {
-                        unpaidMsgs.push('⚠️ Đơn <strong>' + (c.order_tt_coc || '—') + '</strong> còn <strong>' + _prFmt(remDebt) + '</strong> chưa được thanh toán<br>Do mã tiền <strong>' + r.payment_code + ' (' + _prFmt(r.amount) + ')</strong> không đủ');
+                        unpaidMsgs.push('⚠️ Đơn <strong>' + (c.order_tt_coc || c.order_ao_mau || '—') + '</strong> còn <strong>' + _prFmt(remDebt) + '</strong> chưa được thanh toán<br>Do mã tiền <strong>' + r.payment_code + ' (' + _prFmt(r.amount) + ')</strong> không đủ');
                     }
                 });
                 var warningHTML = '';
@@ -1021,6 +1021,8 @@ async function _prShowDetail(id) {
     var finalOrderVal = '—';
     if (r.order_tt_coc) {
         finalOrderVal = '<span style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.order_tt_coc + '</span>';
+    } else if (r.order_ao_mau) {
+        finalOrderVal = '<span style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + r.order_ao_mau + '</span>';
     } else if (sllOrdersVal && sllOrdersVal.trim()) {
         finalOrderVal = '<span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:4px 12px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.3px">' + sllOrdersVal + '</span>';
     }
@@ -1107,7 +1109,7 @@ function _prChangeSource(id) {
             return;
         }
     } else {
-        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '') || (r.order_ao_mau && r.order_ao_mau.trim() !== '');
         if (isClaimed) {
             showToast('Mã tiền đã nhận tiền/liên kết đơn hàng, không thể đổi nguồn!', 'error');
             return;
@@ -1205,7 +1207,7 @@ function _prEditRecord(id) {
             return;
         }
     } else {
-        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '');
+        var isClaimed = (r.payment_type === 'dat_coc') || (r.payment_type === 'tra_lai_coc') || (r.total_order_codes && r.total_order_codes.trim() !== '') || (r.order_tt_coc && r.order_tt_coc.trim() !== '') || (r.order_ao_mau && r.order_ao_mau.trim() !== '');
         if (isClaimed) {
             showToast('Mã tiền đã nhận tiền/liên kết đơn hàng, không thể chỉnh sửa!', 'error');
             return;
@@ -1443,9 +1445,10 @@ function _prSearchUnpaidOrders() {
                     clickFn = 'showToast(\'Mã tiền đã phân bổ hết, không thể chọn thêm đơn!\', \'warning\')';
                 }
 
+                var badge = o.order_type === 'ao_mau' ? ' <span style="background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;margin-left:4px">Áo mẫu</span>' : '';
                 h += '<div onclick="' + clickFn + '" style="' + style + '"' + (!isBlocked && !isSelected ? ' onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'#fff\'"' : '') + '>'
                     +'<div style="flex:1">'
-                    +'<div style="font-weight:800;font-size:13px;color:#1a1a2e">'+o.order_code+'</div>'
+                    +'<div style="font-weight:800;font-size:13px;color:#1a1a2e">'+o.order_code+badge+'</div>'
                     +'<div style="font-size:11px;color:#64748b;margin-top:2px">'+(o.customer_name||'—')+' · '+(o.customer_phone||'')+' · '+orderDate+'</div>'
                     +'</div>'
                     +'<div style="text-align:right">'
@@ -1689,6 +1692,7 @@ async function _prSubmitLinkOrderSLL(prId, recordAmount) {
         allocations: _prSelectedOrders.map(function(o) {
             return {
                 order_code: o.order_code,
+                order_type: o.order_type,
                 amount: o.allocatedAmount,
                 customer_name: o.customer_name || '',
                 customer_phone: o.customer_phone || ''

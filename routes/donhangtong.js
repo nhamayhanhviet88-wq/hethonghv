@@ -1263,10 +1263,20 @@ module.exports = async function(fastify) {
                 shipping_fee_method: row.shipping_fee_method
             }];
 
+            const payments = await db.all(`
+                SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
+                       customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by, money_source
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || $1 || '%'
+                   OR order_tt_coc = $1
+                   OR order_ao_mau = $1
+                ORDER BY payment_date DESC
+            `, [row.sample_order_code]);
+
             return {
                 order,
                 items,
-                payments: [],
+                payments,
                 surcharges: [],
                 audit_logs: [],
                 shipments: []

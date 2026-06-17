@@ -1707,15 +1707,18 @@ module.exports = async function(fastify) {
         try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
         const { q } = request.query;
-        let searchWhere = '';
+        let searchWhereDht = '';
+        let searchWhereSample = '';
         const params = [];
         if (q && q.trim().length >= 2) {
-            searchWhere = ` AND (o.order_code ILIKE $1 OR o.customer_name ILIKE $1 OR o.customer_phone ILIKE $1)`;
+            searchWhereDht = ` AND (o.order_code ILIKE $1 OR o.customer_name ILIKE $1 OR o.customer_phone ILIKE $1)`;
+            searchWhereSample = ` AND (d.sample_order_code ILIKE $1 OR d.customer_name ILIKE $1 OR d.customer_phone ILIKE $1)`;
             params.push(`%${q.trim()}%`);
         }
 
-        const orders = await db.all(`
-            SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
+        const dhtOrders = await db.all(`
+            SELECT 'dht_order' AS order_type,
+                   o.id, o.order_code, o.customer_name, o.customer_phone,
                    o.total_amount, o.discount_amount, o.order_date,
                    o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,
                    u.full_name AS cskh_name,
@@ -1738,10 +1741,37 @@ module.exports = async function(fastify) {
                     - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
                     - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
                     > 0
-            ${searchWhere}
+            ${searchWhereDht}
             ORDER BY o.order_date DESC, o.id DESC
             LIMIT 30
         `, params);
+
+        const sampleOrders = await db.all(`
+            SELECT 'ao_mau' AS order_type,
+                   d.id, d.sample_order_code AS order_code, d.customer_name, d.customer_phone,
+                   d.total_amount, 0 AS discount_amount, d.order_date,
+                   d.shipping_fee_payer, d.shipping_fee_method, d.shipping_fee,
+                   u.full_name AS cskh_name,
+                   COALESCE(pr_dep.deposit_total, 0) AS deposit_paid,
+                   (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+            FROM don_gui_ao_mau d
+            LEFT JOIN users u ON d.created_by = u.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+                   OR order_tt_coc = d.sample_order_code
+            ) pr_dep ON true
+            WHERE COALESCE(d.sample_order_code, '') != ''
+              AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+            ${searchWhereSample}
+            ORDER BY d.order_date DESC, d.id DESC
+            LIMIT 30
+        `, params);
+
+        const combined = [...dhtOrders, ...sampleOrders];
+        combined.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+        const orders = combined.slice(0, 40);
 
         return { orders };
     });
