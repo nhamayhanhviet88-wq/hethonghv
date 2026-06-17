@@ -171,6 +171,7 @@ module.exports = async function(fastify) {
         const orders = await db.all(query, [...trackingCodes, ...trackingCodes]);
 
         orders.forEach(o => {
+            o.order_type = 'dht_order';
             const code = String(o.tracking_code || '').trim();
             if (alreadyReconciledMap[code]) {
                 o.already_reconciled = true;
@@ -178,7 +179,52 @@ module.exports = async function(fastify) {
             }
         });
 
-        return { orders, alreadyReconciledMap };
+        // Query don_gui_ao_mau (sample orders) for matching tracking codes
+        const sampleQuery = `
+            SELECT 
+                'ao_mau' AS order_type,
+                d.id,
+                d.sample_order_code AS order_code,
+                d.customer_name,
+                d.customer_phone,
+                d.order_status AS shipping_status,
+                d.total_amount,
+                0 AS discount_amount,
+                d.matched_tracking_code AS tracking_code,
+                u.full_name AS cskh_name,
+                1 AS shipment_count,
+                COALESCE(pr_dep.deposit_total, 0) AS deposit_paid,
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+            FROM (
+                SELECT *, tracking_code AS matched_tracking_code
+                FROM don_gui_ao_mau
+                WHERE tracking_code IN (${placeholders1}) AND order_status != 'draft'
+                UNION
+                SELECT *, sample_order_code AS matched_tracking_code
+                FROM don_gui_ao_mau
+                WHERE sample_order_code IN (${placeholders2}) AND order_status != 'draft'
+            ) d
+            LEFT JOIN users u ON d.created_by = u.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+                   ${exclude_parent_id ? `AND id != ${Number(exclude_parent_id)} AND (parent_id IS NULL OR parent_id != ${Number(exclude_parent_id)})` : ''}
+            ) pr_dep ON true
+        `;
+        const sampleOrders = await db.all(sampleQuery, [...trackingCodes, ...trackingCodes]);
+
+        sampleOrders.forEach(o => {
+            const code = String(o.tracking_code || '').trim();
+            if (alreadyReconciledMap[code]) {
+                o.already_reconciled = true;
+                o.reconciled_payment_code = alreadyReconciledMap[code].payment_code;
+            }
+        });
+
+        const allOrders = [...orders, ...sampleOrders];
+
+        return { orders: allOrders, alreadyReconciledMap };
     });
 
     // ========== TREE: Năm → Tháng → Ngày + tổng tiền ==========
@@ -830,6 +876,15 @@ module.exports = async function(fastify) {
                         shipping_fee_payer = 'hv', 
                         shipping_fee_method = 'ck', 
                         last_updated_at = NOW() 
+                    WHERE tracking_code = $2
+                `, [shippingFee, trackingCode]);
+
+                await db.run(`
+                    UPDATE don_gui_ao_mau 
+                    SET shipping_fee = $1, 
+                        shipping_fee_payer = 'hv', 
+                        shipping_fee_method = 'ck', 
+                        updated_at = NOW() 
                     WHERE tracking_code = $2
                 `, [shippingFee, trackingCode]);
             }
