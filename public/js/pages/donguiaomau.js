@@ -615,10 +615,12 @@ function _dgamOnCategoryChange() {
     const dd = String(d.getDate()).padStart(2, '0');
     const todayStr = `${yyyy}-${mm}-${dd}`;
 
-    if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
-        // Garment specific layout
-        container.innerHTML = `
-            <div class="dgam-section-title">Chi Tiết Đơn Hàng Mẫu</div>
+    const isGarment = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat);
+
+    let html = `<div class="dgam-section-title">Chi Tiết Đơn Hàng Mẫu</div>`;
+
+    if (isGarment) {
+        html += `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Lĩnh Vực <span style="color:var(--danger)">*</span></label>
@@ -658,202 +660,104 @@ function _dgamOnCategoryChange() {
                     <input type="text" id="dgamAddRemainingAmount" class="form-control dgam-readonly" readonly style="color:#ef4444;font-weight:800;" value="0">
                 </div>
             </div>
-
+        `;
+    } else {
+        html += `
             <div class="form-group">
-                <label>Hình Ảnh Mẫu <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:#64748b;font-weight:normal;">(Nhấn vào khung bên dưới rồi nhấn Ctrl+V để dán hình ảnh mẫu)</span></label>
-                <div id="dgamAddSampleImgZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:#f8fafc;transition:all .2s;min-height:110px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;" onpaste="_dgamPasteSampleImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff'" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
-                    <div id="dgamAddSampleImgPlaceholder" style="color:#64748b;font-size:13px;"><span style="font-size:28px">📸</span><br>Click vào đây rồi <b>Ctrl+V</b> để dán hình ảnh mẫu</div>
-                    <img id="dgamAddSampleImg" style="display:none;max-width:100%;max-height:180px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.08)">
-                    <button id="dgamAddSampleImgDeleteBtn" type="button" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(239,68,68,0.25);z-index:10;transition:all 0.2s;" onclick="event.stopPropagation(); _dgamDeleteSampleImg();" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">✕ Xóa & dán lại</button>
-                </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-                <div class="form-group">
-                    <label>Ngày Lên Đơn</label>
-                    <input type="text" id="dgamAddOrderDate" class="form-control dgam-readonly" readonly value="${new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).toLocaleDateString('vi-VN')}">
-                </div>
-                <div class="form-group">
-                    <label>Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
-                    <input type="date" id="dgamAddShipDate" class="form-control" min="${todayStr}" onchange="_dgamOnShipDateChange()">
-                </div>
-                <div class="form-group">
-                    <label>Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
-                    <select id="dgamAddShippingPriority" class="form-control" onchange="_dgamOnShippingPriorityChange()">
-                        <option value="CHUẨN">CHUẨN</option>
-                        <option value="GỬI">GỬI</option>
-                        <option value="GẤP" selected>GẤP</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="dgamShipTimeContainer" style="display:none; margin-bottom: 16px;">
-                <label style="display:block; margin-bottom:6px; font-weight:700; color:#475569; font-size:12.5px;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:var(--danger)">*</span></label>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="number" id="dgamAddShipHour" class="form-control" placeholder="Giờ" min="0" max="23" style="width:100px; text-align:center;">
-                    <span style="font-size:18px; font-weight:bold; color:#64748b;">:</span>
-                    <input type="number" id="dgamAddShipMinute" class="form-control" placeholder="Phút" min="0" max="59" style="width:100px; text-align:center;">
-                </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div class="form-group">
-                    <label>Nhà Vận Chuyển <span style="color:var(--danger)">*</span></label>
-                    <select id="dgamAddCarrier" class="form-control">
-                        <option value="">-- Chọn nhà vận chuyển --</option>
-                        ${_dgamDhtCarriers.filter(c => c.name && c.name.toLowerCase() !== 'nhà xe').map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Gửi Zalo OA</label>
-                    <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
-                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" checked>
-                        <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:var(--danger)">*</span></label>
-                <textarea id="dgamAddSaleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò chi tiết cho kế toán khi đóng hàng/gửi hàng..." style="border:1.5px solid #f59e0b !important;"></textarea>
+                <label>Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="dgamAddProductName" class="form-control" placeholder="Tên sản phẩm mẫu">
             </div>
         `;
+    }
 
-        let initDateStr = todayStr;
-        const initialRes = _dgamValidateShipDate(initDateStr);
-        if (!initialRes.valid) {
-            let nextDate = new Date(d);
-            for (let i = 0; i < 30; i++) {
-                nextDate.setDate(nextDate.getDate() + 1);
-                const ny = nextDate.getFullYear();
-                const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
-                const nd = String(nextDate.getDate()).padStart(2, '0');
-                const nextDateStr = `${ny}-${nm}-${nd}`;
-                if (_dgamValidateShipDate(nextDateStr).valid) {
-                    initDateStr = nextDateStr;
-                    break;
-                }
+    html += `
+        <div class="form-group">
+            <label>Hình Ảnh Mẫu <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:#64748b;font-weight:normal;">(Nhấn vào khung bên dưới rồi nhấn Ctrl+V để dán hình ảnh mẫu)</span></label>
+            <div id="dgamAddSampleImgZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:#f8fafc;transition:all .2s;min-height:110px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;" onpaste="_dgamPasteSampleImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff'" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                <div id="dgamAddSampleImgPlaceholder" style="color:#64748b;font-size:13px;"><span style="font-size:28px">📸</span><br>Click vào đây rồi <b>Ctrl+V</b> để dán hình ảnh mẫu</div>
+                <img id="dgamAddSampleImg" style="display:none;max-width:100%;max-height:180px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.08)">
+                <button id="dgamAddSampleImgDeleteBtn" type="button" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(239,68,68,0.25);z-index:10;transition:all 0.2s;" onclick="event.stopPropagation(); _dgamDeleteSampleImg();" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">✕ Xóa & dán lại</button>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+            <div class="form-group">
+                <label>Ngày Lên Đơn</label>
+                <input type="text" id="dgamAddOrderDate" class="form-control dgam-readonly" readonly value="${new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).toLocaleDateString('vi-VN')}">
+            </div>
+            <div class="form-group">
+                <label>Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
+                <input type="date" id="dgamAddShipDate" class="form-control" min="${todayStr}" onchange="_dgamOnShipDateChange()">
+            </div>
+            <div class="form-group">
+                <label>Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
+                <select id="dgamAddShippingPriority" class="form-control" onchange="_dgamOnShippingPriorityChange()">
+                    <option value="CHUẨN">CHUẨN</option>
+                    <option value="GỬI">GỬI</option>
+                    <option value="GẤP" selected>GẤP</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="dgamShipTimeContainer" style="display:none; margin-bottom: 16px;">
+            <label style="display:block; margin-bottom:6px; font-weight:700; color:#475569; font-size:12.5px;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:var(--danger)">*</span></label>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="number" id="dgamAddShipHour" class="form-control" placeholder="Giờ" min="0" max="23" style="width:100px; text-align:center;">
+                <span style="font-size:18px; font-weight:bold; color:#64748b;">:</span>
+                <input type="number" id="dgamAddShipMinute" class="form-control" placeholder="Phút" min="0" max="59" style="width:100px; text-align:center;">
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group">
+                <label>Nhà Vận Chuyển <span style="color:var(--danger)">*</span></label>
+                <select id="dgamAddCarrier" class="form-control">
+                    <option value="">-- Chọn nhà vận chuyển --</option>
+                    ${_dgamDhtCarriers.filter(c => c.name && c.name.toLowerCase() !== 'nhà xe').map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Gửi Zalo OA</label>
+                <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
+                    <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" checked>
+                    <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:var(--danger)">*</span></label>
+            <textarea id="dgamAddSaleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò chi tiết cho kế toán khi đóng hàng/gửi hàng..." style="border:1.5px solid #f59e0b !important;"></textarea>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    _dgam.sampleImgBase64 = null;
+
+    let initDateStr = todayStr;
+    const initialRes = _dgamValidateShipDate(initDateStr);
+    if (!initialRes.valid) {
+        let nextDate = new Date(d);
+        for (let i = 0; i < 30; i++) {
+            nextDate.setDate(nextDate.getDate() + 1);
+            const ny = nextDate.getFullYear();
+            const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const nd = String(nextDate.getDate()).padStart(2, '0');
+            const nextDateStr = `${ny}-${nm}-${nd}`;
+            if (_dgamValidateShipDate(nextDateStr).valid) {
+                initDateStr = nextDateStr;
+                break;
             }
         }
-        const shipDateEl = document.getElementById('dgamAddShipDate');
-        if (shipDateEl) shipDateEl.value = initDateStr;
+    }
+    const shipDateEl = document.getElementById('dgamAddShipDate');
+    if (shipDateEl) shipDateEl.value = initDateStr;
 
+    if (isGarment) {
         const depAmtField = document.getElementById('dgamAddDepositAmountField');
         if (depAmtField) depAmtField.value = (_dgam.selectedDepositAmount || 0).toLocaleString('vi-VN');
         _dgamCalcRemaining();
-    } else {
-        // Standard layout
-        container.innerHTML = `
-            <div class="dgam-section-title">Chi Tiết Đơn Gửi Mẫu</div>
-            <div class="form-group">
-                <label>Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="dgamAddProductName" class="form-control" placeholder="Ví dụ: Áo thun cổ tròn HV">
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-                <div class="form-group">
-                    <label>Số Lượng <span style="color:var(--danger)">*</span></label>
-                    <input type="number" id="dgamAddQuantity" class="form-control" value="1" min="1" oninput="_dgamCalcTotal()">
-                </div>
-                <div class="form-group">
-                    <label>Đơn Giá <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="dgamAddPrice" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this); _dgamCalcTotal()">
-                </div>
-                <div class="form-group">
-                    <label>Tổng Tiền</label>
-                    <input type="text" id="dgamAddTotalAmount" class="form-control dgam-readonly" readonly style="color:#10b981;font-weight:700;" value="0">
-                </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-                <div class="form-group">
-                    <label>Ngày Gửi Hàng</label>
-                    <input type="date" id="dgamAddShipDate" class="form-control" min="${todayStr}" onchange="_dgamOnShipDateChange()">
-                </div>
-                <div class="form-group">
-                    <label>Hình Thức Gửi</label>
-                    <select id="dgamAddShippingMethod" class="form-control">
-                        <option value="GHTK">GHTK</option>
-                        <option value="Viettel Post">Viettel Post</option>
-                        <option value="Grab">Grab</option>
-                        <option value="Bưu điện">Bưu điện</option>
-                        <option value="Xe khách">Xe khách</option>
-                        <option value="Khác">Khác</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Hình Thức Trả</label>
-                    <select id="dgamAddPaymentMethod" class="form-control">
-                        <option value="COD">COD</option>
-                        <option value="CK">Chuyển khoản</option>
-                        <option value="TM">Tiền mặt</option>
-                    </select>
-                </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-                <div class="form-group">
-                    <label>Tiền Vận Chuyển</label>
-                    <input type="text" id="dgamAddShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
-                </div>
-                <div class="form-group">
-                    <label>Trạng Thái Đơn</label>
-                    <select id="dgamAddOrderStatus" class="form-control">
-                        <option value="cho_duyet">Chờ Duyệt</option>
-                        <option value="da_duyet">Đã Duyệt</option>
-                        <option value="da_gui">Đã Gửi</option>
-                        <option value="hoan_hang">Hoàn Hàng</option>
-                        <option value="hoan_thanh">Hoàn Thành</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Gửi Zalo OA</label>
-                    <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
-                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" checked>
-                        <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
-                    </div>
-                </div>
-            </div>
-
-            <div style="border-top:1px dashed #cbd5e1;margin:20px 0 12px 0;padding-top:12px;">
-                <h4 style="font-size:12px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:12px;">Vận Chuyển Hoàn (Nếu có)</h4>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-                    <div class="form-group">
-                        <label style="font-size:11.5px;">Vận Chuyển Hoàn</label>
-                        <input type="text" id="dgamAddReturnShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
-                    </div>
-                    <div class="form-group">
-                        <label style="font-size:11.5px;">Người Trả Hoàn</label>
-                        <input type="text" id="dgamAddReturnPayer" class="form-control" placeholder="Ví dụ: Khách, HV">
-                    </div>
-                    <div class="form-group">
-                        <label style="font-size:11.5px;">Hình Thức Trả Hoàn</label>
-                        <input type="text" id="dgamAddReturnPaymentMethod" class="form-control" placeholder="Ví dụ: CK, TM">
-                    </div>
-                </div>
-            </div>
-        `;
-
-        let initDateStr = todayStr;
-        const initialRes = _dgamValidateShipDate(initDateStr);
-        if (!initialRes.valid) {
-            let nextDate = new Date(d);
-            for (let i = 0; i < 30; i++) {
-                nextDate.setDate(nextDate.getDate() + 1);
-                const ny = nextDate.getFullYear();
-                const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
-                const nd = String(nextDate.getDate()).padStart(2, '0');
-                const nextDateStr = `${ny}-${nm}-${nd}`;
-                if (_dgamValidateShipDate(nextDateStr).valid) {
-                    initDateStr = nextDateStr;
-                    break;
-                }
-            }
-        }
-        const shipDateEl = document.getElementById('dgamAddShipDate');
-        if (shipDateEl) shipDateEl.value = initDateStr;
-
-        _dgamCalcTotal();
     }
 }
 
@@ -884,8 +788,6 @@ function _dgamOnDraftSelect() {
         const cat = document.getElementById('dgamAddCategory').value;
         if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
             _dgamCalcRemaining();
-        } else {
-            _dgamCalcTotal();
         }
     }
 }
@@ -902,15 +804,6 @@ function _dgamCalcRemaining() {
     const remaining = total - (_dgam.selectedDepositAmount || 0);
     const remainingEl = document.getElementById('dgamAddRemainingAmount');
     if (remainingEl) remainingEl.value = remaining.toLocaleString('vi-VN');
-}
-
-function _dgamCalcTotal() {
-    const qty = Number(document.getElementById('dgamAddQuantity')?.value) || 0;
-    const priceStr = document.getElementById('dgamAddPrice')?.value || '0';
-    const price = Number(priceStr.replace(/\./g, '')) || 0;
-    const total = qty * price;
-    const totalEl = document.getElementById('dgamAddTotalAmount');
-    if (totalEl) totalEl.value = total.toLocaleString('vi-VN');
 }
 
 async function _dgamSubmitAdd() {
@@ -1048,52 +941,68 @@ async function _dgamSubmitAdd() {
             return;
         }
 
-        const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
-        if (qty <= 0) {
-            showToast('Số lượng phải lớn hơn 0!', 'error');
+        if (!_dgam.sampleImgBase64) {
+            showToast('Vui lòng dán Hình Ảnh Mẫu!', 'error');
             return;
         }
 
-        const priceStr = document.getElementById('dgamAddPrice').value || '0';
-        const price = Number(priceStr.replace(/\./g, '')) || 0;
-        const totalAmount = qty * price;
-        const remainingAmount = totalAmount - (_dgam.selectedDepositAmount || 0);
-
         const shipDate = document.getElementById('dgamAddShipDate').value || null;
-        if (shipDate) {
-            const shipDateRes = _dgamValidateShipDate(shipDate);
-            if (!shipDateRes.valid) {
-                showToast(shipDateRes.error, 'error');
+        if (!shipDate) {
+            showToast('Vui lòng nhập Ngày Gửi Hàng!', 'error');
+            return;
+        }
+        
+        const shipDateRes = _dgamValidateShipDate(shipDate);
+        if (!shipDateRes.valid) {
+            showToast(shipDateRes.error, 'error');
+            return;
+        }
+
+        const shippingPriority = document.getElementById('dgamAddShippingPriority').value;
+        let shipTime = null;
+        if (shippingPriority === 'CHUẨN') {
+            const hrVal = document.getElementById('dgamAddShipHour')?.value || '';
+            const minVal = document.getElementById('dgamAddShipMinute')?.value || '';
+            if (hrVal === '' || minVal === '') {
+                showToast('Vui lòng nhập Giờ và Phút Gửi Hàng cho đơn CHUẨN!', 'error');
                 return;
             }
+            const hrNum = parseInt(hrVal, 10);
+            const minNum = parseInt(minVal, 10);
+            if (isNaN(hrNum) || hrNum < 0 || hrNum > 23 || isNaN(minNum) || minNum < 0 || minNum > 59) {
+                showToast('Giờ (0-23) hoặc Phút (0-59) không hợp lệ!', 'error');
+                return;
+            }
+            shipTime = `${String(hrNum).padStart(2, '0')}:${String(minNum).padStart(2, '0')}`;
         }
-        const shippingMethod = document.getElementById('dgamAddShippingMethod').value;
-        const paymentMethod = document.getElementById('dgamAddPaymentMethod').value;
-        const shippingFeeStr = document.getElementById('dgamAddShippingFee').value || '0';
-        const shippingFee = Number(shippingFeeStr.replace(/\./g, '')) || 0;
 
-        const returnShippingFeeStr = document.getElementById('dgamAddReturnShippingFee').value || '0';
-        const returnShippingFee = Number(returnShippingFeeStr.replace(/\./g, '')) || 0;
+        const carrier = document.getElementById('dgamAddCarrier').value;
+        if (!carrier) {
+            showToast('Vui lòng chọn Nhà Vận Chuyển!', 'error');
+            return;
+        }
 
-        const returnPayer = document.getElementById('dgamAddReturnPayer').value.trim() || null;
-        const returnPaymentMethod = document.getElementById('dgamAddReturnPaymentMethod').value.trim() || null;
-        const orderStatus = document.getElementById('dgamAddOrderStatus').value;
+        const saleNote = document.getElementById('dgamAddSaleNote').value.trim();
+        if (!saleNote) {
+            showToast('Vui lòng nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng!', 'error');
+            return;
+        }
 
         body = {
             ...body,
+            linh_vuc: null,
             product_name: productName,
-            quantity: qty,
-            price,
-            total_amount: totalAmount,
-            remaining_amount: remainingAmount,
+            quantity: 1,
+            price: 0,
+            total_amount: 0,
+            remaining_amount: 0 - (_dgam.selectedDepositAmount || 0),
+            sample_image: _dgam.sampleImgBase64,
             ship_date: shipDate,
-            shipping_method: shippingMethod,
-            payment_method: paymentMethod,
-            shipping_fee: shippingFee,
-            return_shipping_fee: returnShippingFee,
-            return_payer: returnPayer,
-            return_payment_method: returnPaymentMethod,
-            order_status: orderStatus
+            ship_time: shipTime,
+            shipping_priority: shippingPriority,
+            shipping_method: carrier,
+            sale_note_for_accountant: saleNote,
+            order_status: 'cho_duyet'
         };
     }
 
