@@ -2181,7 +2181,7 @@ async function _shShowShippingDetailOnly(orderId) {
                         ${badgeHtml}
                     </div>
                     <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
-                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${it.shipped_by_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${(it.shipped_by_name && it.shipped_by_name !== '—') ? it.shipped_by_name : 'Kế Toán'}</span>
                         <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValue}</span>
                         <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierName}</span>
                         ${it.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
@@ -2212,7 +2212,8 @@ async function _shShowShippingDetailOnly(orderId) {
             if (o.shipping_status === 'shipped' || o.shipped_at) {
                 const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
                 shipHTML += `<table style="width:100%;border-collapse:collapse">`;
-                shipHTML += row('👤 Người Gửi', o.shipped_by_name ? `<span style="color:#2563eb;font-weight:800">${o.shipped_by_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
+                const senderNameFallback = (o.shipped_by_name && o.shipped_by_name !== '—') ? o.shipped_by_name : 'Kế Toán';
+                shipHTML += row('👤 Người Gửi', `<span style="color:#2563eb;font-weight:800">${senderNameFallback}</span>`);
                 shipHTML += row('📅 Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">—</span>');
                 shipHTML += row('🚛 Vận Chuyển Thực Tế', o.actual_carrier_name ? `<span style="font-weight:800;color:#1e293b">${o.actual_carrier_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
                 if (o.tracking_code) {
