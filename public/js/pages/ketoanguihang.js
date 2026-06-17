@@ -713,7 +713,7 @@ function _shShowOrderSlipsModal(orderId) {
                 <div>${subtitleText}</div>
                 <div style="display:flex;gap:6px;align-items:center;">
                     ${actionButtonsHtml}
-                    <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>
+                    ${String(o.id).startsWith('sample_') ? '' : `<a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>`}
                 </div>
             </div>
             
