@@ -262,11 +262,16 @@ module.exports = async function(fastify) {
                 d.*,
                 u.full_name AS created_by_name,
                 uu.full_name AS updated_by_name,
+                u_shipped.full_name AS shipped_by_name,
+                cr.name AS actual_carrier_name,
+                cr.tracking_url_template AS actual_carrier_tracking_url,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
                 (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
             LEFT JOIN users uu ON d.updated_by = uu.id
+            LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+            LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records

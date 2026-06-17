@@ -1343,13 +1343,98 @@ async function _dgamShowDetail(id) {
         </div>`;
 
         // 5B. Thông tin vận chuyển
-        let shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
-            <table style="width:100%;border-collapse:collapse">
-                ${row('Người trả ship', o.payer === 'hv' ? 'HV trả' : o.payer === 'khach' ? 'Khách trả' : o.payer || '—')}
-                ${row('Tiền ship dự kiến', `${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})`)}
-            </table>
-        </div>`;
+        let shipInfoHTML = '';
+        if (o.status_gui_don || o.order_status === 'da_gui') {
+            const timeValue = o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
+            const carrierName = o.actual_carrier_name || '—';
+            let trackingDisplay = o.tracking_code || '—';
+            if (o.tracking_code && o.actual_carrier_tracking_url) {
+                const trackingUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+                trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
+            }
+
+            const payerLabel = o.shipping_fee_payer === 'hv' ? 'HV trả cước vận chuyển' : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+            const payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+            const feeAmt = Number(o.shipping_fee || 0);
+
+            let billHtml = '—';
+            if (o.shipping_bill_link) {
+                const billCid = `_dgamBillImgModal_${o.id}`;
+                billHtml = `<span id="${billCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                
+                (function(_cid, _origUrl) {
+                    setTimeout(async function() {
+                        const el = document.getElementById(_cid);
+                        if (!el) return;
+                        let imgSrc = _origUrl;
+                        try {
+                            if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                if (r && r.direct_url) imgSrc = r.direct_url;
+                            } else {
+                                const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                            }
+                        } catch(e) { console.warn('[BillResolve]', e); }
+                        
+                        if (imgSrc && imgSrc.includes('/uploads/')) {
+                            imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                        }
+                        let linkHref = _origUrl;
+                        if (linkHref && linkHref.includes('/uploads/')) {
+                            linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                        }
+                        
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                        };
+                        img.onclick = function() {
+                            _dgamShowImagePreview(imgSrc);
+                        };
+                        el.innerHTML = '';
+                        el.appendChild(img);
+                    }, 100);
+                })(billCid, o.shipping_bill_link);
+            }
+
+            shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
+                
+                <div style="background:#f0fdf4;color:#15803d;padding:10px 14px;border-radius:8px;font-weight:800;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                    <span>✅ Đã giao hàng thành công (1/1 phiếu)</span>
+                </div>
+
+                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        <span style="font-weight:800;color:#166534;font-size:13px;">📦 PHIẾU 1 — ${(o.product_name || 'MẪU ÁO').toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${o.quantity || 1}</span></span>
+                        <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>
+                    </div>
+                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${o.shipped_by_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValue}</span>
+                        <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierName}</span>
+                        ${o.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
+                        <span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${o.customer_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span></span>
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Chuyển Phát:</span> <span style="font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</span>
+                        ${o.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        } else {
+            shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
+                <table style="width:100%;border-collapse:collapse">
+                    ${row('Người trả ship', o.payer === 'hv' ? 'HV trả' : o.payer === 'khach' ? 'Khách trả' : o.payer || '—')}
+                    ${row('Tiền ship dự kiến', `${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})`)}
+                </table>
+            </div>`;
+        }
 
         // 6. Lịch sử cập nhật
         let historyLogs = [];
