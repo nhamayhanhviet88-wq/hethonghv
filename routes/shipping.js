@@ -900,51 +900,67 @@ module.exports = async function(fastify) {
                                 WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
                             `, [prId]);
                             const childIdx = Number(childCountRow.cnt) + 1;
-                            const splitCode = `${pr.payment_code}-S${childIdx}`;
 
-                            // Insert child record
-                            await db.run(`
-                                INSERT INTO payment_records (
-                                    payment_code, payment_method, daily_seq,
-                                    customer_name, customer_phone, cskh_user_id,
-                                    amount, payment_type,
-                                    order_tt_coc, order_ao_mau,
-                                    transfer_note, money_source, bank_name,
-                                    total_order_codes, total_cod, shipping_fee,
-                                    handover_status, handover_at, handover_by,
-                                    source, source_ref_id, payment_date, created_by,
-                                    parent_id
-                                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
-                            `, [
-                                splitCode, pr.payment_method, pr.daily_seq,
-                                pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
-                                allocAmount, 'child_sll',
-                                null, order.order_code,
-                                (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
-                                'khach_hang', pr.bank_name || null,
-                                null, 0, 0,
-                                'chua_bangiao',
-                                pr.handover_at || null,
-                                pr.handover_by || null,
-                                pr.source, null, pr.payment_date, userId,
-                                prId
-                            ]);
+                            if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                                // Update parent directly to be a simple thanh_toan
+                                await db.run(`
+                                    UPDATE payment_records SET
+                                        payment_type = 'thanh_toan',
+                                        order_tt_coc = NULL,
+                                        order_ao_mau = $1,
+                                        money_source = 'khach_hang',
+                                        transfer_note = $2,
+                                        updated_at = NOW()
+                                    WHERE id = $3
+                                `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)', prId]);
+                                paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            } else {
+                                const splitCode = `${pr.payment_code}-S${childIdx}`;
 
-                            // Update parent
-                            const totalAllocationsCount = childIdx;
-                            const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+                                // Insert child record
+                                await db.run(`
+                                    INSERT INTO payment_records (
+                                        payment_code, payment_method, daily_seq,
+                                        customer_name, customer_phone, cskh_user_id,
+                                        amount, payment_type,
+                                        order_tt_coc, order_ao_mau,
+                                        transfer_note, money_source, bank_name,
+                                        total_order_codes, total_cod, shipping_fee,
+                                        handover_status, handover_at, handover_by,
+                                        source, source_ref_id, payment_date, created_by,
+                                        parent_id
+                                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                                `, [
+                                    splitCode, pr.payment_method, pr.daily_seq,
+                                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                    allocAmount, 'child_sll',
+                                    null, order.order_code,
+                                    (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
+                                    'khach_hang', pr.bank_name || null,
+                                    null, 0, 0,
+                                    'chua_bangiao',
+                                    pr.handover_at || null,
+                                    pr.handover_by || null,
+                                    pr.source, null, pr.payment_date, userId,
+                                    prId
+                                ]);
 
-                            await db.run(`
-                                UPDATE payment_records SET
-                                    payment_type = 'parent_sll',
-                                    order_tt_coc = NULL,
-                                    total_order_codes = NULL,
-                                    money_source = $1,
-                                    updated_at = NOW()
-                                WHERE id = $2
-                            `, [moneySource, prId]);
+                                // Update parent
+                                const totalAllocationsCount = childIdx;
+                                const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
 
-                            paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                                await db.run(`
+                                    UPDATE payment_records SET
+                                        payment_type = 'parent_sll',
+                                        order_tt_coc = NULL,
+                                        total_order_codes = NULL,
+                                        money_source = $1,
+                                        updated_at = NOW()
+                                    WHERE id = $2
+                                `, [moneySource, prId]);
+
+                                paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            }
                         }
                     }
                 } catch (prErr) {
@@ -1356,51 +1372,67 @@ module.exports = async function(fastify) {
                             WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
                         `, [prId]);
                         const childIdx = Number(childCountRow.cnt) + 1;
-                        const splitCode = `${pr.payment_code}-S${childIdx}`;
 
-                        // Insert child record
-                        await db.run(`
-                            INSERT INTO payment_records (
-                                payment_code, payment_method, daily_seq,
-                                customer_name, customer_phone, cskh_user_id,
-                                amount, payment_type,
-                                order_tt_coc, order_ao_mau,
-                                transfer_note, money_source, bank_name,
-                                total_order_codes, total_cod, shipping_fee,
-                                handover_status, handover_at, handover_by,
-                                source, source_ref_id, payment_date, created_by,
-                                parent_id
-                            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
-                        `, [
-                            splitCode, pr.payment_method, pr.daily_seq,
-                            pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
-                            allocAmount, 'child_sll',
-                            order.order_code, null,
-                            (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
-                            'khach_hang', pr.bank_name || null,
-                            null, 0, 0,
-                            'chua_bangiao',
-                            pr.handover_at || null,
-                            pr.handover_by || null,
-                            pr.source, null, pr.payment_date, userId,
-                            prId
-                        ]);
+                        if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                            // Update parent directly to be a simple thanh_toan
+                            await db.run(`
+                                UPDATE payment_records SET
+                                    payment_type = 'thanh_toan',
+                                    order_tt_coc = $1,
+                                    order_ao_mau = NULL,
+                                    money_source = 'khach_hang',
+                                    transfer_note = $2,
+                                    updated_at = NOW()
+                                WHERE id = $3
+                            `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)', prId]);
+                            paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                        } else {
+                            const splitCode = `${pr.payment_code}-S${childIdx}`;
 
-                        // Update parent
-                        const totalAllocationsCount = childIdx;
-                        const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+                            // Insert child record
+                            await db.run(`
+                                INSERT INTO payment_records (
+                                    payment_code, payment_method, daily_seq,
+                                    customer_name, customer_phone, cskh_user_id,
+                                    amount, payment_type,
+                                    order_tt_coc, order_ao_mau,
+                                    transfer_note, money_source, bank_name,
+                                    total_order_codes, total_cod, shipping_fee,
+                                    handover_status, handover_at, handover_by,
+                                    source, source_ref_id, payment_date, created_by,
+                                    parent_id
+                                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                            `, [
+                                splitCode, pr.payment_method, pr.daily_seq,
+                                pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                allocAmount, 'child_sll',
+                                order.order_code, null,
+                                (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
+                                'khach_hang', pr.bank_name || null,
+                                null, 0, 0,
+                                'chua_bangiao',
+                                pr.handover_at || null,
+                                pr.handover_by || null,
+                                pr.source, null, pr.payment_date, userId,
+                                prId
+                            ]);
 
-                        await db.run(`
-                            UPDATE payment_records SET
-                                payment_type = 'parent_sll',
-                                order_tt_coc = NULL,
-                                total_order_codes = NULL,
-                                money_source = $1,
-                                updated_at = NOW()
-                            WHERE id = $2
-                        `, [moneySource, prId]);
+                            // Update parent
+                            const totalAllocationsCount = childIdx;
+                            const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
 
-                        paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            await db.run(`
+                                UPDATE payment_records SET
+                                    payment_type = 'parent_sll',
+                                    order_tt_coc = NULL,
+                                    total_order_codes = NULL,
+                                    money_source = $1,
+                                    updated_at = NOW()
+                                WHERE id = $2
+                            `, [moneySource, prId]);
+
+                            paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                        }
                     }
                 }
             } catch (prErr) {

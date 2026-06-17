@@ -683,43 +683,6 @@ module.exports = async function(fastify) {
                 }
             }
 
-            const moneySource = pr.money_source === 'nha_van_chuyen' ? 'nha_van_chuyen' : (allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang');
-            const parentHandover = computeHandoverStatus('tt_sll');
-
-            let cleanNote = pr.transfer_note || '';
-            if (cleanNote.includes('(Gốc: Liên kết đơn:')) {
-                cleanNote = cleanNote.replace(/\s*\(Gốc:\s*Liên kết đơn:[^)]+\)/gi, '');
-            }
-            const finalNote = cleanNote + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')';
-
-            // 1. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
-            await db.run(`
-                UPDATE payment_records SET
-                    payment_type = 'parent_sll',
-                    order_tt_coc = NULL,
-                    total_order_codes = NULL,
-                    transfer_note = $1,
-                    money_source = $2,
-                    handover_status = $3,
-                    total_cod = COALESCE($4, total_cod),
-                    shipping_fee = COALESCE($5, shipping_fee),
-                    reconciled_waybills = $6,
-                    updated_at = NOW()
-                WHERE id = $7
-            `, [
-                finalNote,
-                moneySource,
-                parentHandover,
-                b.total_cod !== undefined ? Number(b.total_cod) : null,
-                b.shipping_fee !== undefined ? Number(b.shipping_fee) : null,
-                b.reconciled_waybills ? JSON.stringify(b.reconciled_waybills) : null,
-                id
-            ]);
-
-            if (pr.payment_method === 'TM') {
-                await syncCashflowRecord(id, pr.payment_code, pr.amount, pr.payment_date, (pr.transfer_note || '') + ' (Liên kết: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
-            }
-
             const autoCompletedOrders = [];
             const processAutoComplete = async (orderCode) => {
                 try {
@@ -838,6 +801,84 @@ module.exports = async function(fastify) {
                     console.error('[AoMau AutoComplete] Error for sample order ' + sampleOrderCode + ':', err.message);
                 }
             };
+
+            const moneySource = pr.money_source === 'nha_van_chuyen' ? 'nha_van_chuyen' : (allocations.length >= 2 ? 'khach_hang_sll' : 'khach_hang');
+            const parentHandover = computeHandoverStatus('tt_sll');
+
+            let cleanNote = pr.transfer_note || '';
+            if (cleanNote.includes('(Gốc: Liên kết đơn:')) {
+                cleanNote = cleanNote.replace(/\s*\(Gốc:\s*Liên kết đơn:[^)]+\)/gi, '');
+            }
+            const finalNote = cleanNote + ' (Gốc: Liên kết đơn: ' + allocations.map(a => a.order_code).join(', ') + ')';
+
+            // Check if this is a single order payment with no remainder for non-carrier sources
+            if (allocations.length === 1 && totalAllocated === Number(pr.amount) && pr.money_source !== 'nha_van_chuyen') {
+                const alloc = allocations[0];
+                const isAoMau = alloc.order_type === 'ao_mau';
+                
+                await db.run(`
+                    UPDATE payment_records SET
+                        payment_type = 'thanh_toan',
+                        order_tt_coc = $1,
+                        order_ao_mau = $2,
+                        customer_name = $3,
+                        customer_phone = $4,
+                        total_order_codes = NULL,
+                        transfer_note = $5,
+                        money_source = 'khach_hang',
+                        handover_status = $6,
+                        updated_at = NOW()
+                    WHERE id = $7
+                `, [
+                    isAoMau ? null : alloc.order_code,
+                    isAoMau ? alloc.order_code : null,
+                    alloc.customer_name || null,
+                    alloc.customer_phone || null,
+                    finalNote,
+                    computeHandoverStatus('thanh_toan'),
+                    id
+                ]);
+
+                if (pr.payment_method === 'TM') {
+                    await syncCashflowRecord(id, pr.payment_code, pr.amount, pr.payment_date, finalNote, 'TM', user.id);
+                }
+
+                if (isAoMau) {
+                    await processAutoCompleteAoMau(alloc.order_code);
+                } else {
+                    await processAutoComplete(alloc.order_code);
+                }
+
+                return { success: true, auto_completed_orders: autoCompletedOrders };
+            }
+
+            // 1. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
+            await db.run(`
+                UPDATE payment_records SET
+                    payment_type = 'parent_sll',
+                    order_tt_coc = NULL,
+                    total_order_codes = NULL,
+                    transfer_note = $1,
+                    money_source = $2,
+                    handover_status = $3,
+                    total_cod = COALESCE($4, total_cod),
+                    shipping_fee = COALESCE($5, shipping_fee),
+                    reconciled_waybills = $6,
+                    updated_at = NOW()
+                WHERE id = $7
+            `, [
+                finalNote,
+                moneySource,
+                parentHandover,
+                b.total_cod !== undefined ? Number(b.total_cod) : null,
+                b.shipping_fee !== undefined ? Number(b.shipping_fee) : null,
+                b.reconciled_waybills ? JSON.stringify(b.reconciled_waybills) : null,
+                id
+            ]);
+
+            if (pr.payment_method === 'TM') {
+                await syncCashflowRecord(id, pr.payment_code, pr.amount, pr.payment_date, (pr.transfer_note || '') + ' (Liên kết: ' + allocations.map(a => a.order_code).join(', ') + ')', 'TM', user.id);
+            }
 
             // 2. Create child records for ALL allocations (from 0 to allocations.length - 1)
             for (let i = 0; i < allocations.length; i++) {
