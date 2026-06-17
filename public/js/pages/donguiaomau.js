@@ -324,8 +324,10 @@ async function _dgamPasteSampleImg(e) {
             _dgam.sampleImgBase64 = compressed;
             const img = document.getElementById('dgamAddSampleImg');
             const ph = document.getElementById('dgamAddSampleImgPlaceholder');
+            const btn = document.getElementById('dgamAddSampleImgDeleteBtn');
             if (img) { img.src = compressed; img.style.display = 'block'; }
             if (ph) ph.style.display = 'none';
+            if (btn) btn.style.display = 'block';
             const zone = document.getElementById('dgamAddSampleImgZone');
             if (zone) { zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4'; }
             if (typeof showToast === 'function') {
@@ -337,6 +339,24 @@ async function _dgamPasteSampleImg(e) {
     }
     if (typeof showToast === 'function') {
         showToast('Không tìm thấy hình ảnh trong clipboard!', 'error');
+    }
+}
+
+function _dgamDeleteSampleImg() {
+    _dgam.sampleImgBase64 = null;
+    const img = document.getElementById('dgamAddSampleImg');
+    const ph = document.getElementById('dgamAddSampleImgPlaceholder');
+    const btn = document.getElementById('dgamAddSampleImgDeleteBtn');
+    const zone = document.getElementById('dgamAddSampleImgZone');
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    if (ph) ph.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    if (zone) {
+        zone.style.borderColor = '#cbd5e1';
+        zone.style.background = '#f8fafc';
+    }
+    if (typeof showToast === 'function') {
+        showToast('Đã xóa ảnh mẫu, vui lòng dán lại ảnh mới!');
     }
 }
 
@@ -373,33 +393,81 @@ async function _dgamShowAdd() {
     ).join('');
 
     const bodyHTML = `
-        <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;">
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:700;margin-bottom:4px;display:block;">Chọn Mã Đơn Áo Mẫu <span style="color:var(--danger)">*</span></label>
-                <select id="dgamAddDraftSelect" class="form-control" onchange="_dgamOnDraftSelect()" style="border:2px solid var(--gold);font-weight:700;color:var(--navy);">
+        <style>
+            .dgam-modal-content {
+                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+                color: #334155;
+            }
+            .dgam-modal-content .form-group {
+                margin-bottom: 16px;
+            }
+            .dgam-modal-content label {
+                font-size: 12.5px;
+                font-weight: 700;
+                color: #475569;
+                margin-bottom: 6px !important;
+                display: inline-block;
+            }
+            .dgam-modal-content .form-control {
+                border-radius: 8px !important;
+                border: 1.5px solid #cbd5e1 !important;
+                padding: 10px 14px !important;
+                font-size: 13.5px !important;
+                height: auto !important;
+                transition: all 0.2s ease-in-out !important;
+                background-color: #fff;
+                box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+            }
+            .dgam-modal-content .form-control:focus {
+                border-color: #0ea5e9 !important;
+                box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12) !important;
+                outline: none !important;
+            }
+            .dgam-modal-content .dgam-readonly {
+                background-color: #f1f5f9 !important;
+                border-color: #e2e8f0 !important;
+                color: #475569 !important;
+                font-weight: 600;
+                cursor: not-allowed !important;
+            }
+            .dgam-section-title {
+                font-size: 12px;
+                font-weight: 800;
+                color: #64748b;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 20px 0 12px 0;
+                padding-bottom: 6px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+        </style>
+        <div class="dgam-modal-content">
+            <div class="form-group">
+                <label>Chọn Mã Đơn Áo Mẫu <span style="color:var(--danger)">*</span></label>
+                <select id="dgamAddDraftSelect" class="form-control" onchange="_dgamOnDraftSelect()" style="border:2.5px solid #eab308 !important;font-weight:700;color:#1e3a8a;">
                     <option value="">-- Chọn mã đơn --</option>
                     ${draftOptions}
                 </select>
             </div>
             
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Khách Hàng</label>
-                    <input type="text" id="dgamAddCustName" class="form-control" readonly style="background:#e2e8f0;cursor:not-allowed;font-weight:600;color:#64748b;" placeholder="Tên khách hàng">
+                    <label>Tên Khách Hàng</label>
+                    <input type="text" id="dgamAddCustName" class="form-control dgam-readonly" readonly placeholder="Tên khách hàng">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Điện Thoại</label>
-                    <input type="text" id="dgamAddCustPhone" class="form-control" readonly style="background:#e2e8f0;cursor:not-allowed;font-weight:600;color:#64748b;" placeholder="Số điện thoại" maxlength="10">
+                    <label>Số Điện Thoại</label>
+                    <input type="text" id="dgamAddCustPhone" class="form-control dgam-readonly" readonly placeholder="Số điện thoại" maxlength="10">
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Địa Chỉ <span style="color:var(--danger)">*</span></label>
+                    <label>Địa Chỉ <span style="color:var(--danger)">*</span></label>
                     <input type="text" id="dgamAddAddress" class="form-control" placeholder="Địa chỉ giao hàng">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tỉnh, Thành Phố <span style="color:var(--danger)">*</span></label>
+                    <label>Tỉnh, Thành Phố <span style="color:var(--danger)">*</span></label>
                     <select id="dgamAddProvince" class="form-control">
                         <option value="">-- Chọn tỉnh/thành --</option>
                         ${DGAM_VN_PROVINCES.map(p => `<option value="${p}">${p}</option>`).join('')}
@@ -407,14 +475,14 @@ async function _dgamShowAdd() {
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Mã Tiền Đặt Cọc</label>
-                    <input type="text" id="dgamAddDepositCode" class="form-control" readonly style="background:#e2e8f0;cursor:not-allowed;font-weight:600;color:#64748b;" placeholder="Không có cọc">
+                    <label>Mã Tiền Đặt Cọc</label>
+                    <input type="text" id="dgamAddDepositCode" class="form-control dgam-readonly" readonly placeholder="Không có cọc">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Phân Loại <span style="color:var(--danger)">*</span></label>
-                    <select id="dgamAddCategory" class="form-control" onchange="_dgamOnCategoryChange()" style="border:1.5px solid #0284c7;font-weight:700;">
+                    <label>Phân Loại <span style="color:var(--danger)">*</span></label>
+                    <select id="dgamAddCategory" class="form-control" onchange="_dgamOnCategoryChange()" style="border:1.5px solid #0284c7 !important;font-weight:700;color:#0369a1;">
                         <option value="">-- Chọn phân loại --</option>
                         <option value="Gửi mẫu áo">Gửi mẫu áo</option>
                         <option value="Gửi mẫu vải">Gửi mẫu vải</option>
@@ -427,7 +495,7 @@ async function _dgamShowAdd() {
                 </div>
             </div>
 
-            <div id="dgamDynamicFieldsContainer" style="margin-top:12px;"></div>
+            <div id="dgamDynamicFieldsContainer" style="margin-top:8px;"></div>
         </div>
     `;
 
@@ -452,53 +520,67 @@ function _dgamOnCategoryChange() {
     if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
         // Garment specific layout
         container.innerHTML = `
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:600;margin-bottom:4px;display:block;">Lĩnh Vực <span style="color:var(--danger)">*</span></label>
-                <select id="dgamAddLinhVuc" class="form-control">
-                    <option value="">-- Chọn lĩnh vực --</option>
-                    ${_dgamDhtCategories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="dgamAddProductName" class="form-control" placeholder="Tên sản phẩm">
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div class="dgam-section-title">Chi Tiết Đơn Hàng Mẫu</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Lượng <span style="color:var(--danger)">*</span></label>
+                    <label>Lĩnh Vực <span style="color:var(--danger)">*</span></label>
+                    <select id="dgamAddLinhVuc" class="form-control">
+                        <option value="">-- Chọn lĩnh vực --</option>
+                        ${_dgamDhtCategories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="dgamAddProductName" class="form-control" placeholder="Tên sản phẩm mẫu">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                    <label>Số Lượng <span style="color:var(--danger)">*</span></label>
                     <input type="number" id="dgamAddQuantity" class="form-control" value="1" min="1" oninput="_dgamCalcRemaining()">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Giá Thành <span style="color:var(--danger)">*</span></label>
+                    <label>Giá Thành <span style="color:var(--danger)">*</span></label>
                     <input type="text" id="dgamAddPrice" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this); _dgamCalcRemaining()">
                 </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tổng Tiền Đơn Mẫu</label>
-                    <input type="text" id="dgamAddTotalAmount" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:var(--success);" value="0">
+                    <label>Tổng Tiền Đơn Mẫu</label>
+                    <input type="text" id="dgamAddTotalAmount" class="form-control dgam-readonly" readonly style="color:#10b981;font-weight:700;" value="0">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Tiền Còn Lại</label>
-                    <input type="text" id="dgamAddRemainingAmount" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:800;color:var(--danger);" value="0">
+                    <label>Số Tiền Đặt Cọc</label>
+                    <input type="text" id="dgamAddDepositAmountField" class="form-control dgam-readonly" readonly style="color:#0ea5e9;font-weight:700;" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Số Tiền Còn Lại</label>
+                    <input type="text" id="dgamAddRemainingAmount" class="form-control dgam-readonly" readonly style="color:#ef4444;font-weight:800;" value="0">
                 </div>
             </div>
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:600;margin-bottom:4px;display:block;">Hình Ảnh Mẫu <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:var(--gray-500);font-weight:normal;">(Click vào khung rồi Ctrl+V dán ảnh, hệ thống tự nén dung lượng thấp)</span></label>
-                <div id="dgamAddSampleImgZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;transition:all .2s;min-height:90px;display:flex;align-items:center;justify-content:center;flex-direction:column" onpaste="_dgamPasteSampleImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#b8860b';this.style.background='#fffbeb'" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
-                    <div id="dgamAddSampleImgPlaceholder" style="color:#94a3b8;font-size:12px"><span style="font-size:24px">📸</span><br>Click vào đây rồi <b>Ctrl+V</b> dán hình ảnh</div>
-                    <img id="dgamAddSampleImg" style="display:none;max-width:100%;max-height:160px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+
+            <div class="form-group">
+                <label>Hình Ảnh Mẫu <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:#64748b;font-weight:normal;">(Nhấn vào khung bên dưới rồi nhấn Ctrl+V để dán hình ảnh mẫu)</span></label>
+                <div id="dgamAddSampleImgZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:#f8fafc;transition:all .2s;min-height:110px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;" onpaste="_dgamPasteSampleImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff'" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                    <div id="dgamAddSampleImgPlaceholder" style="color:#64748b;font-size:13px;"><span style="font-size:28px">📸</span><br>Click vào đây rồi <b>Ctrl+V</b> để dán hình ảnh mẫu</div>
+                    <img id="dgamAddSampleImg" style="display:none;max-width:100%;max-height:180px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.08)">
+                    <button id="dgamAddSampleImgDeleteBtn" type="button" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(239,68,68,0.25);z-index:10;transition:all 0.2s;" onclick="event.stopPropagation(); _dgamDeleteSampleImg();" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">✕ Xóa & dán lại</button>
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Ngày Lên Đơn</label>
-                    <input type="text" id="dgamAddOrderDate" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;" value="${new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).toLocaleDateString('vi-VN')}">
+                    <label>Ngày Lên Đơn</label>
+                    <input type="text" id="dgamAddOrderDate" class="form-control dgam-readonly" readonly value="${new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).toLocaleDateString('vi-VN')}">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
+                    <label>Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
                     <input type="date" id="dgamAddShipDate" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
+                    <label>Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
                     <select id="dgamAddShippingPriority" class="form-control">
                         <option value="CHUẨN">CHUẨN</option>
                         <option value="GỬI">GỬI</option>
@@ -506,25 +588,27 @@ function _dgamOnCategoryChange() {
                     </select>
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Nhà Vận Chuyển <span style="color:var(--danger)">*</span></label>
+                    <label>Nhà Vận Chuyển <span style="color:var(--danger)">*</span></label>
                     <select id="dgamAddCarrier" class="form-control">
                         <option value="">-- Chọn nhà vận chuyển --</option>
                         ${_dgamDhtCarriers.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Gửi Zalo OA</label>
+                    <label>Gửi Zalo OA</label>
                     <select id="dgamAddZaloOASent" class="form-control">
                         <option value="1">✅ Gửi Zalo OA</option>
                         <option value="0" selected>Không gửi</option>
                     </select>
                 </div>
             </div>
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:600;margin-bottom:4px;display:block;">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:var(--danger)">*</span></label>
-                <textarea id="dgamAddSaleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò cho kế toán..." style="font-size:12px;resize:vertical;border:1.5px solid #f59e0b;"></textarea>
+
+            <div class="form-group">
+                <label>📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:var(--danger)">*</span></label>
+                <textarea id="dgamAddSaleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò chi tiết cho kế toán khi đóng hàng/gửi hàng..." style="border:1.5px solid #f59e0b !important;"></textarea>
             </div>
         `;
 
@@ -536,37 +620,40 @@ function _dgamOnCategoryChange() {
         const shipDateEl = document.getElementById('dgamAddShipDate');
         if (shipDateEl) shipDateEl.value = `${yyyy}-${mm}-${dd}`;
 
+        const depAmtField = document.getElementById('dgamAddDepositAmountField');
+        if (depAmtField) depAmtField.value = (_dgam.selectedDepositAmount || 0).toLocaleString('vi-VN');
         _dgamCalcRemaining();
     } else {
         // Standard layout
         container.innerHTML = `
-            <div class="form-group" style="margin-bottom:12px;">
-                <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
+            <div class="dgam-section-title">Chi Tiết Đơn Gửi Mẫu</div>
+            <div class="form-group">
+                <label>Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="dgamAddProductName" class="form-control" placeholder="Ví dụ: Áo thun cổ tròn HV">
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Lượng <span style="color:var(--danger)">*</span></label>
+                    <label>Số Lượng <span style="color:var(--danger)">*</span></label>
                     <input type="number" id="dgamAddQuantity" class="form-control" value="1" min="1" oninput="_dgamCalcTotal()">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Đơn Giá <span style="color:var(--danger)">*</span></label>
+                    <label>Đơn Giá <span style="color:var(--danger)">*</span></label>
                     <input type="text" id="dgamAddPrice" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this); _dgamCalcTotal()">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tổng Tiền</label>
-                    <input type="text" id="dgamAddTotalAmount" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:var(--success);" value="0">
+                    <label>Tổng Tiền</label>
+                    <input type="text" id="dgamAddTotalAmount" class="form-control dgam-readonly" readonly style="color:#10b981;font-weight:700;" value="0">
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Ngày Gửi Hàng</label>
+                    <label>Ngày Gửi Hàng</label>
                     <input type="date" id="dgamAddShipDate" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Hình Thức Gửi</label>
+                    <label>Hình Thức Gửi</label>
                     <select id="dgamAddShippingMethod" class="form-control">
                         <option value="GHTK">GHTK</option>
                         <option value="Viettel Post">Viettel Post</option>
@@ -577,7 +664,7 @@ function _dgamOnCategoryChange() {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Hình Thức Trả</label>
+                    <label>Hình Thức Trả</label>
                     <select id="dgamAddPaymentMethod" class="form-control">
                         <option value="COD">COD</option>
                         <option value="CK">Chuyển khoản</option>
@@ -586,13 +673,13 @@ function _dgamOnCategoryChange() {
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tiền Vận Chuyển</label>
+                    <label>Tiền Vận Chuyển</label>
                     <input type="text" id="dgamAddShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Trạng Thái Đơn</label>
+                    <label>Trạng Thái Đơn</label>
                     <select id="dgamAddOrderStatus" class="form-control">
                         <option value="cho_duyet">Chờ Duyệt</option>
                         <option value="da_duyet">Đã Duyệt</option>
@@ -603,19 +690,19 @@ function _dgamOnCategoryChange() {
                 </div>
             </div>
 
-            <div style="border-top:1px dashed #e2e8f0;margin:16px 0;padding-top:12px;">
-                <h4 style="font-size:12px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin-bottom:10px;">Vận Chuyển Hoàn (Nếu có)</h4>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div style="border-top:1px dashed #cbd5e1;margin:20px 0 12px 0;padding-top:12px;">
+                <h4 style="font-size:12px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:12px;">Vận Chuyển Hoàn (Nếu có)</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                     <div class="form-group">
-                        <label style="font-weight:600;margin-bottom:4px;display:block;font-size:11px;">Vận Chuyển Hoàn</label>
+                        <label style="font-size:11.5px;">Vận Chuyển Hoàn</label>
                         <input type="text" id="dgamAddReturnShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
                     </div>
                     <div class="form-group">
-                        <label style="font-weight:600;margin-bottom:4px;display:block;font-size:11px;">Người Trả Hoàn</label>
+                        <label style="font-size:11.5px;">Người Trả Hoàn</label>
                         <input type="text" id="dgamAddReturnPayer" class="form-control" placeholder="Ví dụ: Khách, HV">
                     </div>
                     <div class="form-group">
-                        <label style="font-weight:600;margin-bottom:4px;display:block;font-size:11px;">Hình Thức Trả Hoàn</label>
+                        <label style="font-size:11.5px;">Hình Thức Trả Hoàn</label>
                         <input type="text" id="dgamAddReturnPaymentMethod" class="form-control" placeholder="Ví dụ: CK, TM">
                     </div>
                 </div>
@@ -642,6 +729,8 @@ function _dgamOnDraftSelect() {
         document.getElementById('dgamAddAddress').value = '';
         document.getElementById('dgamAddProvince').value = '';
         _dgam.selectedDepositAmount = 0;
+        const depAmtField = document.getElementById('dgamAddDepositAmountField');
+        if (depAmtField) depAmtField.value = '0';
         return;
     }
     const draft = _dgamDraftsList.find(d => d.id == draftId);
@@ -652,6 +741,8 @@ function _dgamOnDraftSelect() {
         document.getElementById('dgamAddAddress').value = draft.address || '';
         document.getElementById('dgamAddProvince').value = draft.province || '';
         _dgam.selectedDepositAmount = Number(draft.deposit_amount) || 0;
+        const depAmtField = document.getElementById('dgamAddDepositAmountField');
+        if (depAmtField) depAmtField.value = _dgam.selectedDepositAmount.toLocaleString('vi-VN');
 
         const cat = document.getElementById('dgamAddCategory').value;
         if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
