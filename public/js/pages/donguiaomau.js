@@ -587,17 +587,6 @@ async function _dgamShowAdd() {
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div class="form-group">
-                    <label>Gửi Zalo OA</label>
-                    <div style="border: 1.5px solid #0ea5e9; border-radius: 8px; padding: 10px 14px; background-color: #f0f9ff; display: flex; align-items: center; gap: 8px; height: 43.5px;">
-                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
-                        <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #0369a1; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
-                    </div>
-                </div>
-                <div></div>
-            </div>
-
             <div id="dgamDynamicFieldsContainer" style="margin-top:8px;"></div>
         </div>
     `;
@@ -715,7 +704,13 @@ function _dgamOnCategoryChange() {
                         ${_dgamDhtCarriers.filter(c => c.name && c.name.toLowerCase() !== 'nhà xe').map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <div></div>
+                <div class="form-group">
+                    <label>Gửi Zalo OA</label>
+                    <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
+                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
+                        <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
@@ -796,7 +791,7 @@ function _dgamOnCategoryChange() {
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Tiền Vận Chuyển</label>
                     <input type="text" id="dgamAddShippingFee" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this)">
@@ -810,6 +805,13 @@ function _dgamOnCategoryChange() {
                         <option value="hoan_hang">Hoàn Hàng</option>
                         <option value="hoan_thanh">Hoàn Thành</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Gửi Zalo OA</label>
+                    <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
+                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
+                        <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
+                    </div>
                 </div>
             </div>
 
