@@ -662,7 +662,7 @@ function _shAlertCannotShipOrder(orderId) {
 }
 
 function _shShowOrderSlipsModal(orderId) {
-    const o = _shOrders.find(x => x.id === orderId);
+    const o = _shOrders.find(x => String(x.id) === String(orderId));
     if (!o) return;
 
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
@@ -757,7 +757,7 @@ function _shGetCarrierGroup(name) {
 
 // ===== SHIP MODAL =====
 async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel = null) {
-    let o = _shOrders.find(x => x.id === id); if (!o) return;
+    let o = _shOrders.find(x => String(x.id) === String(id)); if (!o) return;
     
     document.getElementById('shShipModal')?.remove();
     document.getElementById('shAlertModal')?.remove(); // Auto-dismiss warning modal
@@ -2284,7 +2284,7 @@ function showShippingBillLightbox(url) {
 }
 
 function _shShowReshipModal(orderId) {
-    const o = _shOrders.find(x => x.id === orderId);
+    const o = _shOrders.find(x => String(x.id) === String(orderId));
     if (!o) return;
 
     const items = o.items || [];
@@ -2415,7 +2415,7 @@ async function _shOpenErrorModal(orderId) {
     window._shBusy = true;
 
     try {
-        var o = _shOrders.find(function(x) { return x.id === orderId; });
+        var o = _shOrders.find(function(x) { return String(x.id) === String(orderId); });
         if (!o) { showToast('Không tìm thấy đơn hàng', 'error'); window._shBusy = false; return; }
 
         var commonErrors = [];
@@ -2600,7 +2600,7 @@ async function _shSubmitError(orderId) {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
 
     try {
-        var o = _shOrders.find(function(x) { return x.id === orderId; });
+        var o = _shOrders.find(function(x) { return String(x.id) === String(orderId); });
         if (!o) { throw new Error('Không tìm thấy đơn hàng'); }
 
         var prodQty = o.items ? o.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) : 0;
