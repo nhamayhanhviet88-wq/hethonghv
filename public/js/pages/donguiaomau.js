@@ -160,9 +160,8 @@ function _dgamRenderRows(paged) {
 
         var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
         
-        // Chỉ Giám đốc, Quản lý xưởng Lê Công Thực được duyệt đơn mẫu (✅). Quản lý cấp cao Lê Việt Trinh được hiển thị nhưng không ấn được (chỉ xem).
+        // Duyệt đơn mẫu (✅): Giám đốc, Quản lý xưởng Lê Công Thực được duyệt; các tài khoản khác chỉ xem (disabled)
         var isCanApprove = userObj && (userObj.role === 'giam_doc' || userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
-        var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var approveBtnHtml = '';
         if (isCanApprove) {
             if (o.status_duyet) {
@@ -170,7 +169,7 @@ function _dgamRenderRows(paged) {
             } else {
                 approveBtnHtml = '<button class="dgam-icon-btn" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>';
             }
-        } else if (isLeVietTrinh) {
+        } else {
             if (o.status_duyet) {
                 approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Đã duyệt (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
             } else {
@@ -183,12 +182,15 @@ function _dgamRenderRows(paged) {
             ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
             : '';
 
-        // Chỉ tài khoản Lê Việt Trinh và Giám đốc mới có quyền và nhìn thấy nút kiểm tra (🔍)
+        // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc có quyền kiểm tra; các tài khoản khác chỉ xem (disabled)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var isGiamDoc = userObj && userObj.role === 'giam_doc';
-        var kiemTraBtnHtml = (isLeVietTrinh || isGiamDoc)
-            ? '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
-            : '';
+        var kiemTraBtnHtml = '';
+        if (isLeVietTrinh || isGiamDoc) {
+            kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';
+        } else {
+            kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>🔍</button>';
+        }
 
         var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
             +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">'
