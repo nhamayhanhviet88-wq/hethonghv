@@ -225,14 +225,38 @@ async function _dgamTogSt(id, field, val) {
                 ? '<img src="' + o.sample_image + '" style="max-width:100%;max-height:220px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);margin:12px 0;object-fit:contain;">'
                 : '<div style="background:#f1f5f9;color:#94a3b8;padding:24px;border-radius:12px;text-align:center;font-size:13px;font-weight:600;margin:12px 0;">🚫 Không có ảnh mẫu</div>';
             
+            var priorityUpper = (o.shipping_priority || 'CHUẨN').toUpperCase();
+            var shipDateStr = '—';
+            if (o.ship_date) {
+                var dObj = new Date(o.ship_date);
+                var formattedDate = dObj.getDate() + '/' + (dObj.getMonth() + 1);
+                if (priorityUpper === 'CHUẨN' && o.ship_time) {
+                    shipDateStr = o.ship_time + ' ' + formattedDate;
+                } else {
+                    shipDateStr = formattedDate;
+                }
+            }
+
+            var priorityValue = o.shipping_priority || 'CHUẨN';
+            var priorityColor = '#0f172a'; // Default
+            if (priorityUpper === 'GẤP') {
+                priorityColor = '#dc2626'; // Red
+            } else if (priorityUpper === 'CHUẨN') {
+                priorityColor = '#7c3aed'; // Purple
+            }
+
             var bodyHTML = '<div style="text-align:center;font-family:inherit;padding:12px 6px;">'
                 +'<div style="font-size:42px;margin-bottom:12px;">📋</div>'
                 +'<h3 style="font-size:18px;font-weight:800;color:#1e293b;margin-bottom:8px;">Xác nhận duyệt gửi đơn hàng mẫu</h3>'
                 +'<p style="font-size:13.5px;color:#64748b;line-height:1.5;margin-bottom:16px;">Vui lòng kiểm tra kỹ thông tin sản phẩm mẫu trước khi duyệt:</p>'
                 +'<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:12px;padding:16px;text-align:left;max-width:380px;margin:0 auto;box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);">'
+                +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">👤 CSKH:</strong> <span style="font-weight:700;color:#0f172a;">'+(o.created_by_name||'—')+'</span></div>'
+                +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">👤 Khách hàng:</strong> <span style="font-weight:700;color:#0f172a;">'+(o.customer_name||'—')+'</span></div>'
                 +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">👕 Sản phẩm:</strong> <span style="font-weight:700;color:#0f172a;">'+(o.product_name||'—')+'</span></div>'
                 +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">🔢 Số lượng:</strong> <span style="font-weight:800;color:#2563eb;font-size:14px;">'+(o.quantity||0)+'</span></div>'
                 +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">🏷️ Mã đơn mẫu:</strong> <span style="font-weight:700;color:#0f766e;">'+(o.sample_order_code||'—')+'</span></div>'
+                +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">⚡ Tiêu chuẩn gửi:</strong> <span style="font-weight:700;color:'+priorityColor+';">'+priorityValue+'</span></div>'
+                +'<div style="margin-bottom:0px;font-size:13px;"><strong style="color:#475569;">📅 Ngày gửi dự kiến:</strong> <span style="font-weight:800;color:#0369a1;">'+shipDateStr+'</span></div>'
                 +'</div>'
                 +imgHtml
                 +'</div>';
