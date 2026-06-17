@@ -397,23 +397,23 @@ function _shBuildTable(orders) {
             if (allPendingCompleted && pendingItems.length > 0) {
                 // All pending items are done -> Show Gửi
                 orderLevelAction = `
-                    <button onclick="event.stopPropagation();_shShowOrderSlipsModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
-                    <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
-                    <button onclick="event.stopPropagation();_shOpenErrorModal(${o.id})" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+                    <button onclick="event.stopPropagation();_shShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
+                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             } else {
                 // Not all pending items are done -> Show Không gửi được
                 orderLevelAction = `
-                    <button onclick="event.stopPropagation();_shShowOrderSlipsModal(${o.id})" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
-                    <button onclick="event.stopPropagation();_shShowReschedule(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
-                    <button onclick="event.stopPropagation();_shOpenErrorModal(${o.id})" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+                    <button onclick="event.stopPropagation();_shShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
+                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             }
         } else {
             orderLevelAction = `
-                <button onclick="event.stopPropagation();_shShowShippingDetailOnly(${o.id})" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
-                <button onclick="event.stopPropagation();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
-                <button onclick="event.stopPropagation();_shOpenErrorModal(${o.id})" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+                <button onclick="event.stopPropagation();_shShowShippingDetailOnly('${o.id}')" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
+                <button onclick="event.stopPropagation();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
+                <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
             `;
         }
 
@@ -436,10 +436,10 @@ function _shBuildTable(orders) {
             }
         }
 
-        html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail(${o.id})" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
+        html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
         
         // Expander column
-        html += `<td style="padding:8px 6px;text-align:center;" onclick="event.stopPropagation();_shToggleOrderItems(${o.id})">
+        html += `<td style="padding:8px 6px;text-align:center;" onclick="event.stopPropagation();_shToggleOrderItems('${o.id}')">
             <span id="shChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
         </td>`;
 
@@ -565,12 +565,12 @@ function _shBuildItemsTable(order) {
         
         let actionHtml = '';
         if (item.shipping_status === 'shipped') {
-            actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">🔁 Gửi lại</button>`;
+            actionHtml = `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">🔁 Gửi lại</button>`;
         } else {
             if (item.all_done) {
-                actionHtml = `<button onclick="event.stopPropagation();_shShipOrder(${order.id},'${(order.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
+                actionHtml = `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}', '${item.item_id}', '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
             } else {
-                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}', ${order.id})" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
+                actionHtml = `<button onclick="event.stopPropagation();_shAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}', '${order.id}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
             }
         }
 
@@ -691,16 +691,16 @@ function _shShowOrderSlipsModal(orderId) {
             icon = '📦';
             if (pendingItems.length === 1) {
                 const singleItem = pendingItems[0];
-                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', ${singleItem.item_id}, '${(singleItem.product_name||'').replace(/'/g,"\\'")}', 'Phiếu 1')" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Đơn Hàng</button>`;
+                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}', '${singleItem.item_id}', '${(singleItem.product_name||'').replace(/'/g,"\\'")}', 'Phiếu 1')" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Đơn Hàng</button>`;
             } else {
-                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Toàn Bộ Đơn Hàng</button>`;
+                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.map(x=>`'${x}'`).join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Toàn Bộ Đơn Hàng</button>`;
             }
         } else {
             title = `Đơn hàng chưa đủ điều kiện gửi — ${o.order_code}`;
             headerStyle = 'background:linear-gradient(135deg,#ef4444,#dc2626);';
             icon = '⚠️';
             if (completedPendingIds.length > 1) {
-                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Chung ${completedPendingIds.length} Phiếu Đã Xong</button>`;
+                actionButtonsHtml = `<button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}', [${completedPendingIds.map(x=>`'${x}'`).join(',')}])" style="display:inline-flex;align-items:center;gap:6px;background:#10b981;color:white;padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.15)">📤 Gửi Chung ${completedPendingIds.length} Phiếu Đã Xong</button>`;
             }
         }
 
@@ -936,7 +936,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         ? `📤 Gửi Chung ${itemIdsArray.length} Phiếu — ${code}` 
         : (itemId ? `📤 Gửi  ${code} - ${itemLabel ? itemLabel.toUpperCase() : ''} - ${itemName}` : (isReship ? `📤 Gửi Lại / Thêm Hàng — ${code}` : `📤 Gửi Hàng — ${code}`));
 
-    const backBtnHtml = isReship ? '' : '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(' + id + ')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">← Trở lại</button>';
+    const backBtnHtml = isReship ? '' : '<button onclick="document.getElementById(\'shShipModal\')?.remove();_shAlertCannotShipOrder(\'' + id + '\')" style="padding:9px 18px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">← Trở lại</button>';
 
     // Build items, payments, and financial HTML
     var itemsHTML = '';
@@ -1149,7 +1149,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
     + backBtnHtml
     + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy bỏ</button>'
-    + '<button onclick="_shDoShip(' + id + ')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">📤 Gửi Hàng</button>'
+    + '<button onclick="_shDoShip(\'' + id + '\')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">📤 Gửi Hàng</button>'
     + '</div></div>';
 
     window._shModalState = { 
@@ -1799,7 +1799,7 @@ function _shShowReschedule(id, code) {
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button onclick="document.getElementById('shRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
-            <button id="shRescheduleBtn" onclick="_shDoReschedule(${id})" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
+            <button id="shRescheduleBtn" onclick="_shDoReschedule('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
         </div>
     </div>`;
     document.body.appendChild(m);
@@ -2327,7 +2327,7 @@ function _shShowReshipModal(orderId) {
                 <td style="padding:6px 8px;text-align:center;font-weight:700;color:#334155;">${item.quantity}</td>
                 <td style="padding:6px 8px;text-align:center;">${statusBadge}</td>
                 <td style="padding:6px 8px;text-align:center;">
-                    <button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder(${o.id},'${(o.order_code||'').replace(/'/g,"\\'")}', ${item.item_id}, '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" 
+                    <button onclick="event.stopPropagation();document.getElementById('shAlertModal')?.remove();_shShipOrder('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}', '${item.item_id}', '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" 
                         style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">
                         🔁 Gửi lại
                     </button>
@@ -2345,7 +2345,7 @@ function _shShowReshipModal(orderId) {
                 💡 <b>Chọn nhiều phiếu:</b> Tích chọn các phiếu cần gửi và bấm nút <b>Gửi lại các phiếu đã chọn</b> để xác nhận gửi chung một đợt vận đơn mới.
             </div>
             <button id="shReshipSubmitBtn" disabled 
-                onclick="event.stopPropagation();_shSubmitReshipMultiple(${o.id}, '${(o.order_code||'').replace(/'/g,"\\'")}')"
+                onclick="event.stopPropagation();_shSubmitReshipMultiple('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}')"
                 style="padding:8px 16px;border:none;border-radius:6px;background:#94a3b8;color:white;cursor:not-allowed;font-size:12px;font-weight:800;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.05);transition:all 0.2s;">
                 📤 Gửi lại các phiếu đã chọn
             </button>
