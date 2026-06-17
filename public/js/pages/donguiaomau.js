@@ -1074,7 +1074,7 @@ async function _dgamShowDetail(id) {
             'gui_khac': 'Gửi Khác'
         };
         const categoryLabel = typeLabels[o.category] || o.category || '—';
-        const linhVucBadge = o.linh_vuc ? `<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:6px">${o.linh_vuc}</span>` : '';
+        const linhVucBadge = o.linh_vuc ? `<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:6px;white-space:nowrap">${o.linh_vuc}</span>` : '';
 
         let prodHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">👕 Chi Tiết Sản Phẩm Gửi</div>
@@ -1092,7 +1092,7 @@ async function _dgamShowDetail(id) {
                 <tbody>
                     <tr style="border-bottom:1px solid #f1f5f9">
                         <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${categoryLabel}</td>
-                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${linhVucBadge || '—'}</td>
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap">${linhVucBadge || '—'}</td>
                         <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${o.product_name || '—'}</td>
                         <td style="padding:10px;text-align:center;font-size:13px;font-weight:700;color:#1e293b">${o.quantity || 0}</td>
                         <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:#1e293b">${fmt(o.price)}đ</td>
