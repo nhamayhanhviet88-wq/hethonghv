@@ -1492,7 +1492,10 @@ module.exports = async function(fastify) {
                 deposit_amount: row.deposit_amount || 0,
                 remaining_amount: (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0),
                 carrier_name: row.shipping_method || null,
-                standard_delivery_time: row.ship_time || null
+                standard_delivery_time: row.ship_time || null,
+                sample_image: row.sample_image || null,
+                chuan_proof_image: row.chuan_proof_image || null,
+                standard_proof_image: row.chuan_proof_image || null
             };
 
             const items = [{

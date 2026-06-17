@@ -1174,7 +1174,16 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + '<span style="color:#64748b;font-weight:600;">📞 SĐT</span><span style="font-weight:700;color:#2563eb;">' + phoneHtml + '</span>'
     + '<span style="color:#64748b;font-weight:600;">🏠 Địa chỉ</span><span style="color:#334155;">' + (o.address||'—') + '</span>'
     + '<span style="color:#64748b;font-weight:600;">🗺️ Tỉnh / TP</span><span style="font-weight:700;color:#1e293b;">' + (o.province||'—') + '</span>'
-    + '</div></div>'
+    + '</div>'
+    + (o.sample_image ? 
+        '<div style="text-align:center;margin-top:14px;background:#ffffff;padding:12px;border-radius:8px;border:1.5px dashed #cbd5e1">'
+        + '<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px">🖼️ HÌNH ẢNH MẪU CHỤP</div>'
+        + '<a href="' + o.sample_image + '" target="_blank">'
+        + '<img src="' + o.sample_image + '" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.08);" title="Bấm để phóng to">'
+        + '</a>'
+        + '</div>'
+      : '')
+    + '</div>'
     // P2: NVC
     + '<div style="margin-bottom:16px;">'
     + '<label style="font-size:12px;font-weight:700;color:#374151;">🚚 Nhà Vận Chuyển <span style="color:#dc2626">*</span></label>'
